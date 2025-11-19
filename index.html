@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.9 - Besetzt Status</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 2.9.2 - Kennzeichen</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -90,9 +90,17 @@
         <h3 style="margin: 20px 0;">Neue Fahrt buchen</h3>
         
         <div id="ride-status-container"></div>
-        <div id="available-taxis-display"></div>
 
         <div id="booking-form">
+            <div class="input-group">
+                <label>📍 Abholort</label>
+                <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf">
+                <button onclick="useMyLocation()" style="margin-top:8px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">📍 Meinen Standort verwenden</button>
+                <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
+            </div>
+            
+            <div id="available-taxis-display"></div>
+            
             <div class="input-group">
                 <label>👤 Ihr Name</label>
                 <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
@@ -109,11 +117,6 @@
                 <input type="time" id="custom-time" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
             </div>
             <div class="input-group">
-                <label>📍 Abholort</label>
-                <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf">
-                <button onclick="useMyLocation()" style="margin-top:8px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">📍 Meinen Standort verwenden</button>
-                <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
-            </div>
             <div class="input-group">
                 <label>🎯 Zielort</label>
                 <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck">
@@ -165,11 +168,11 @@
             <label>🚗 Fahrzeug</label>
             <select id="vehicle" onchange="setVehicle()">
                 <option value="">-- Wählen --</option>
-                <option value="tesla_model3_1">Tesla Model 3 #1</option>
-                <option value="tesla_model3_2">Tesla Model 3 #2</option>
-                <option value="tesla_model3_3">Tesla Model 3 #3</option>
-                <option value="tesla_modely_1">Tesla Model Y #1</option>
-                <option value="tesla_modely_2">Tesla Model Y #2</option>
+                <option value="tesla_model3_1">Tesla Model 3 #1 (PW-TX 111)</option>
+                <option value="tesla_model3_2">Tesla Model 3 #2 (PW-TX 222)</option>
+                <option value="tesla_model3_3">Tesla Model 3 #3 (PW-TX 333)</option>
+                <option value="tesla_modely_1">Tesla Model Y #1 (PW-MY 222)</option>
+                <option value="tesla_modely_2">Tesla Model Y #2 (PW-MY 333)</option>
             </select>
         </div>
         <div class="stats-grid">
@@ -207,14 +210,14 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script>
         const VEHICLES = {
-            'tesla_model3_1': { name: 'Tesla Model 3 #1', id: 'tesla_model3_1' },
-            'tesla_model3_2': { name: 'Tesla Model 3 #2', id: 'tesla_model3_2' },
-            'tesla_model3_3': { name: 'Tesla Model 3 #3', id: 'tesla_model3_3' },
-            'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1' },
-            'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2' }
+            'tesla_model3_1': { name: 'Tesla Model 3 #1', id: 'tesla_model3_1', plate: 'PW-TX 111' },
+            'tesla_model3_2': { name: 'Tesla Model 3 #2', id: 'tesla_model3_2', plate: 'PW-TX 222' },
+            'tesla_model3_3': { name: 'Tesla Model 3 #3', id: 'tesla_model3_3', plate: 'PW-TX 333' },
+            'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1', plate: 'PW-MY 222' },
+            'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2', plate: 'PW-MY 333' }
         };
 
-        console.log('🚀 Version 2.7 - Professional');
+        console.log('🚀 Version 2.9.2 - Kennzeichen');
         const TARIF = { grundgebuehr: 4.00, kmPreis: 2.20, nachtZuschlag: 0.20, sonntagZuschlag: 0.25, feiertagZuschlag: 0.50 };
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
@@ -464,7 +467,7 @@
                         <div style="font-size: 48px; margin-bottom: 10px;">🚗</div>
                         <h3>Gute Fahrt!</h3>
                         <p style="margin-top: 10px; font-size: 16px; color: #047857;">
-                            ${ride.vehicle || 'Ihr Taxi'} fährt Sie zu Ihrem Ziel
+                            ${ride.vehicle || 'Ihr Taxi'}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''} fährt Sie zu Ihrem Ziel
                         </p>
                         <div style="margin-top: 15px; font-size: 14px; color: #065f46;">
                             <strong>Von:</strong> ${ride.pickup}<br>
@@ -646,7 +649,7 @@
                         <div class="progress-fill" style="width: ${progress}%; background: ${progressColor};"></div>
                     </div>
                     <div style="margin-top: 15px; font-size: 14px;">
-                        <strong>Fahrzeug:</strong> ${ride.vehicle}<br>
+                        <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''}<br>
                         <strong>Von:</strong> ${ride.pickup}<br>
                         <strong>Nach:</strong> ${ride.destination}<br>
                         <strong>Preis:</strong> ${ride.price}€
@@ -867,7 +870,10 @@
             }));
             taxisWithETA.sort((a, b) => a.distance - b.distance);
             const html = `<div class="available-taxis"><h3>🚕 ${taxisWithETA.length} Taxis verfügbar</h3>` +
-                taxisWithETA.slice(0, 3).map(t => `<div class="taxi-item"><strong>${t.vehicle}</strong><br>📍 ${t.distance} km entfernt (ca. ${t.duration} Min)</div>`).join('') +
+                taxisWithETA.slice(0, 3).map(t => {
+                    const plate = VEHICLES[t.vehicleId] ? VEHICLES[t.vehicleId].plate : '';
+                    return `<div class="taxi-item"><strong>${t.vehicle}</strong>${plate ? `<br>🚗 ${plate}` : ''}<br>📍 ${t.distance} km entfernt (ca. ${t.duration} Min)</div>`;
+                }).join('') +
                 `<div style="margin-top:10px;padding:10px;background:#e0f2fe;border-radius:8px;text-align:center;"><strong>Nächstes Taxi in ca. ${taxisWithETA[0].duration} Minuten!</strong></div></div>`;
             document.getElementById('available-taxis-display').innerHTML = html;
         }
@@ -922,11 +928,13 @@
             }
             
             const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+            const vehiclePlate = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].plate : '';
             
             await updateRide(rideId, { 
                 status: 'accepted', 
                 vehicleId: currentVehicle,
                 vehicle: vehicleName,
+                vehiclePlate: vehiclePlate,
                 driver: vehicleName,
                 acceptedAt: Date.now()
             });

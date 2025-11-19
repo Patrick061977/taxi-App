@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.7.2 - Sound + Zeit</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 2.7.3 - Fahrzeug Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -717,8 +717,18 @@
         function setVehicle() {
             const vehicleId = document.getElementById('vehicle').value;
             currentVehicle = vehicleId;
+            console.log('🚗 Fahrzeug gewählt:', currentVehicle);
             if (currentVehicle && isOnline) startDriverTracking(null);
             updateViews(); // Force update
+        }
+        
+        function loadSavedVehicle() {
+            const dropdown = document.getElementById('vehicle');
+            if (dropdown && dropdown.value) {
+                currentVehicle = dropdown.value;
+                console.log('🔄 Gespeichertes Fahrzeug geladen:', currentVehicle);
+                updateViews();
+            }
         }
 
         async function acceptRide(rideId) {
@@ -1009,6 +1019,9 @@
                     console.log('🔄 Lade gespeicherte Fahrt:', savedRideId);
                     listenToMyRide(savedRideId);
                 }
+                
+                // Lade gewähltes Fahrzeug
+                loadSavedVehicle();
             }, 100);
             setInterval(() => { 
                 if (pickupCoords) showAvailableTaxis(); 

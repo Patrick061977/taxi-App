@@ -6,7 +6,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#667eea">
     <title>Funk Taxi Heringsdorf</title>
-    
+
+    <!-- Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE&libraries=places"></script>
+
     <style>
         * {
             margin: 0;
@@ -267,7 +270,7 @@
     <div class="app-container">
         <div class="header">
             <h1>🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.8; margin-bottom: 3px;">Version 1.3 - 2024-11-19</p>
+            <p style="font-size: 11px; opacity: 0.8; margin-bottom: 3px;">Version 1.4 - Google Maps Integration - 2025-11-19</p>
             <p id="sync-status">Lokal gespeichert</p>
         </div>
 
@@ -428,7 +431,7 @@
 
         async function calcPrice() {
             console.log('💰 Berechne Preis...');
-            
+
             const pickup = document.getElementById('pickup').value;
             const dest = document.getElementById('destination').value;
 
@@ -441,34 +444,53 @@
             result.innerHTML = '<div class="alert alert-info"><div class="loading"></div> Berechne...</div>';
 
             try {
-                // Simuliere Berechnung
-                await new Promise(r => setTimeout(r, 1000));
-                
-                const distance = (Math.random() * 15 + 5).toFixed(1);
-                const price = (4.00 + parseFloat(distance) * 2.20).toFixed(1);
-                const roundedPrice = (Math.round(parseFloat(price) * 10) / 10).toFixed(2);
+                // Google Maps Distance Matrix API verwenden
+                const service = new google.maps.DistanceMatrixService();
 
-                window.currentPrice = roundedPrice;
-                window.currentDistance = distance;
+                const request = {
+                    origins: [pickup],
+                    destinations: [dest],
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    unitSystem: google.maps.UnitSystem.METRIC
+                };
 
-                result.innerHTML = `
-                    <div class="price-display">
-                        <div style="font-size: 14px; color: #059669; margin-bottom: 5px;">Geschätzter Preis</div>
-                        <div class="price">${roundedPrice}€</div>
-                        <div style="margin-top: 10px; font-size: 13px; color: #059669;">
-                            📍 ca. ${distance} km
-                        </div>
-                    </div>
-                `;
+                service.getDistanceMatrix(request, (response, status) => {
+                    if (status === 'OK' && response.rows[0].elements[0].status === 'OK') {
+                        const element = response.rows[0].elements[0];
+                        const distanceInMeters = element.distance.value;
+                        const distance = (distanceInMeters / 1000).toFixed(1); // Convert to km
 
-                document.getElementById('book-btn').style.display = 'block';
-                document.getElementById('book-btn').scrollIntoView({ behavior: 'smooth' });
-                
-                console.log('✅ Preis berechnet:', roundedPrice + '€');
-                
+                        // Preisberechnung: 4€ Grundpreis + 2.20€ pro km
+                        const price = (4.00 + parseFloat(distance) * 2.20).toFixed(1);
+                        const roundedPrice = (Math.round(parseFloat(price) * 10) / 10).toFixed(2);
+
+                        window.currentPrice = roundedPrice;
+                        window.currentDistance = distance;
+
+                        result.innerHTML = `
+                            <div class="price-display">
+                                <div style="font-size: 14px; color: #059669; margin-bottom: 5px;">Geschätzter Preis</div>
+                                <div class="price">${roundedPrice}€</div>
+                                <div style="margin-top: 10px; font-size: 13px; color: #059669;">
+                                    📍 ${distance} km • ~${element.duration.text}
+                                </div>
+                            </div>
+                        `;
+
+                        document.getElementById('book-btn').style.display = 'block';
+                        document.getElementById('book-btn').scrollIntoView({ behavior: 'smooth' });
+
+                        console.log('✅ Preis berechnet:', roundedPrice + '€', 'Distance:', distance + ' km');
+
+                    } else {
+                        console.error('❌ Google Maps API Error:', status);
+                        result.innerHTML = '<div class="alert alert-info">❌ Orte nicht gefunden. Bitte genaue Adressen eingeben (z.B. "Bahnhof Heringsdorf" oder "Seebrücke Ahlbeck, Heringsdorf")</div>';
+                    }
+                });
+
             } catch (e) {
                 console.error('❌ Fehler:', e);
-                result.innerHTML = '<div class="alert alert-info">❌ Fehler bei Berechnung</div>';
+                result.innerHTML = '<div class="alert alert-info">❌ Fehler bei Berechnung. Bitte prüfen Sie Ihre Eingaben.</div>';
             }
         }
 

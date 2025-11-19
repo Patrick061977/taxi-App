@@ -59,7 +59,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.2 - Smart Autocomplete</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.2.1 - GPS Debug</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -909,7 +909,12 @@
         }
 
         function startDriverTracking(rideId) {
-            if (watchId) return;
+            if (watchId) {
+                console.log('⚠️ GPS läuft bereits');
+                return;
+            }
+            
+            console.log('🚀 Starte GPS-Tracking für Fahrt:', rideId);
             
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
@@ -922,12 +927,21 @@
                         online: isOnline 
                     };
                     
+                    console.log('📍 GPS Update:', location.lat.toFixed(4), location.lon.toFixed(4));
+                    
                     if (isFirebaseReady) {
                         db.ref('drivers/' + currentVehicle).set(location);
-                        if (rideId) db.ref('rides/' + rideId + '/driverLocation').set(location);
+                        if (rideId) {
+                            db.ref('rides/' + rideId + '/driverLocation').set(location);
+                            console.log('✅ GPS an Fahrt gesendet:', rideId);
+                        } else {
+                            console.warn('⚠️ Keine rideId - GPS nur an drivers/');
+                        }
+                    } else {
+                        console.error('❌ Firebase nicht bereit!');
                     }
                 },
-                (err) => console.error('GPS Fehler:', err),
+                (err) => console.error('❌ GPS Fehler:', err.message),
                 { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
             );
         }

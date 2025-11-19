@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.8 - Wake Lock + Verlauf</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 2.9 - Besetzt Status</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -454,6 +454,32 @@
                 
                 // Speichere in Historie
                 saveToHistory(ride);
+                return;
+            }
+            
+            if (ride.status === 'picked_up') {
+                // KUNDE EINGESTIEGEN - FAHRT LÄUFT
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#dcfce7;border:2px solid #10b981;animation:fadeIn 0.5s;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">🚗</div>
+                        <h3>Gute Fahrt!</h3>
+                        <p style="margin-top: 10px; font-size: 16px; color: #047857;">
+                            ${ride.vehicle || 'Ihr Taxi'} fährt Sie zu Ihrem Ziel
+                        </p>
+                        <div style="margin-top: 15px; font-size: 14px; color: #065f46;">
+                            <strong>Von:</strong> ${ride.pickup}<br>
+                            <strong>Nach:</strong> ${ride.destination}<br>
+                            <strong>Distanz:</strong> ${ride.distance} km<br>
+                            <strong>Preis:</strong> ${ride.price}€
+                        </div>
+                    </div>
+                `;
+                
+                // SIGNALTON wenn gerade eingestiegen
+                if (!window.lastPickedUpRide || window.lastPickedUpRide !== ride.id) {
+                    playArrivalSound();
+                    window.lastPickedUpRide = ride.id;
+                }
                 return;
             }
             
@@ -911,10 +937,24 @@
             alert('✅ Auftrag angenommen! GPS wird aktiviert...');
         }
 
+        async function pickupCustomer(rideId) {
+            await updateRide(rideId, { 
+                status: 'picked_up',
+                pickedUpAt: Date.now() 
+            });
+            console.log('✅ Kunde abgeholt - Status: picked_up');
+            alert('✅ Kunde eingestiegen! Status: Besetzt');
+        }
+
         async function completeRide(rideId) {
-            await updateRide(rideId, { status: 'completed', driverLocation: null });
+            await updateRide(rideId, { 
+                status: 'completed', 
+                driverLocation: null,
+                completedAt: Date.now()
+            });
             if (etaUpdateInterval) { clearInterval(etaUpdateInterval); etaUpdateInterval = null; }
-            alert('✅ Fahrt abgeschlossen!');
+            stopDriverTracking();
+            alert('✅ Fahrt abgeschlossen! Sie sind wieder verfügbar.');
         }
 
         function listenToMyRide(firebaseId) {
@@ -1015,11 +1055,31 @@
         function updateDriverView() {
             const newRides = rides.filter(r => r.status === 'new');
             const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
-            const current = myRides.find(r => r.status === 'accepted');
+            const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
             const completed = myRides.filter(r => r.status === 'completed');
             
             if (current) {
-                document.getElementById('driver-current-ride').innerHTML = `<div class="alert-info"><strong>Aktuelle Fahrt #${current.id}</strong><br>Von: ${current.pickup}<br>Nach: ${current.destination}<br>Preis: ${current.price}€<button class="btn btn-success" onclick="completeRide('${current.firebaseId}')">✓ Abschließen</button></div>`;
+                let buttonHtml = '';
+                if (current.status === 'accepted') {
+                    buttonHtml = `<button class="btn btn-success" onclick="pickupCustomer('${current.firebaseId}')" style="margin-top:10px;">🚕 Kunde abgeholt</button>`;
+                } else if (current.status === 'picked_up') {
+                    buttonHtml = `
+                        <div style="margin-top:10px;padding:12px;background:#fef3c7;border-radius:8px;text-align:center;font-weight:600;color:#92400e;">
+                            🚗 BESETZT - Fahrt läuft
+                        </div>
+                        <button class="btn btn-success" onclick="completeRide('${current.firebaseId}')" style="margin-top:10px;">✓ Fahrt abschließen</button>
+                    `;
+                }
+                
+                document.getElementById('driver-current-ride').innerHTML = `
+                    <div class="alert-info">
+                        <strong>Aktuelle Fahrt #${current.id}</strong><br>
+                        ${current.customerName ? `<strong>👤 ${current.customerName}</strong><br>` : ''}
+                        Von: ${current.pickup}<br>
+                        Nach: ${current.destination}<br>
+                        Preis: ${current.price}€
+                        ${buttonHtml}
+                    </div>`;
             } else {
                 document.getElementById('driver-current-ride').innerHTML = currentVehicle && isOnline ? '<div class="alert-info">🟢 Bereit für Aufträge</div>' : '';
             }
@@ -1072,7 +1132,7 @@
         function updateAdminView() {
             const completed = rides.filter(r => r.status === 'completed');
             const pending = rides.filter(r => r.status === 'new');
-            const active = rides.filter(r => r.status === 'accepted');
+            const active = rides.filter(r => r.status === 'accepted' || r.status === 'picked_up');
             const revenue = completed.reduce((sum, r) => sum + parseFloat(r.price), 0);
             document.getElementById('a-total').textContent = completed.length;
             document.getElementById('a-revenue').textContent = revenue.toFixed(2) + '€';
@@ -1081,7 +1141,16 @@
             if (rides.length === 0) {
                 document.getElementById('all-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Fahrten</div>';
             } else {
-                document.getElementById('all-rides').innerHTML = rides.slice().reverse().map(r => `<div class="ride-card"><strong>#${r.id}</strong><div style="margin-top:10px;font-size:14px;">Von: ${r.pickup}<br>Nach: ${r.destination}<br>${r.distance} km<br>Preis: ${r.price}€${r.vehicle ? '<br>Fahrzeug: '+r.vehicle : ''}</div></div>`).join('');
+                document.getElementById('all-rides').innerHTML = rides.slice().reverse().map(r => {
+                    let statusText = r.status;
+                    let statusColor = '#fef3c7';
+                    if (r.status === 'completed') { statusText = 'Abgeschlossen'; statusColor = '#d1fae5'; }
+                    else if (r.status === 'accepted') { statusText = 'Unterwegs'; statusColor = '#dbeafe'; }
+                    else if (r.status === 'picked_up') { statusText = 'Besetzt'; statusColor = '#fef3c7'; }
+                    else if (r.status === 'new') { statusText = 'Neu'; statusColor = '#fef3c7'; }
+                    
+                    return `<div class="ride-card"><strong>#${r.id}</strong> <span style="background:${statusColor};padding:4px 8px;border-radius:12px;font-size:12px;">${statusText}</span><div style="margin-top:10px;font-size:14px;">Von: ${r.pickup}<br>Nach: ${r.destination}<br>${r.distance} km<br>Preis: ${r.price}€${r.vehicle ? '<br>Fahrzeug: '+r.vehicle : ''}</div></div>`;
+                }).join('');
             }
         }
 

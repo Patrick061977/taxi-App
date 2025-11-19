@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.9.2 - Kennzeichen</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 2.9.3 - Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -216,8 +216,6 @@
             'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1', plate: 'PW-MY 222' },
             'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2', plate: 'PW-MY 333' }
         };
-
-        console.log('🚀 Version 2.9.2 - Kennzeichen');
         const TARIF = { grundgebuehr: 4.00, kmPreis: 2.20, nachtZuschlag: 0.20, sonntagZuschlag: 0.25, feiertagZuschlag: 0.50 };
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
@@ -985,6 +983,7 @@
 
         function initApp(hasFirebase) {
             clearTimeout(firebaseLoadTimeout);
+            console.log('🚀 Version 2.9.2 - Kennzeichen geladen');
             if (hasFirebase && typeof firebase !== 'undefined') {
                 try {
                     firebase.initializeApp({

@@ -59,7 +59,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.1 - Stabil</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.1.1 - Geocoding Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -205,6 +205,23 @@
         };
         const TARIF = { grundgebuehr: 4.00, kmPreis: 2.20, nachtZuschlag: 0.20, sonntagZuschlag: 0.25, feiertagZuschlag: 0.50 };
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
+        
+        // Bekannte Koordinaten für wichtige Orte (Fallback)
+        const KNOWN_PLACES = {
+            'heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Heringsdorf' },
+            'bahnhof heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Bahnhof Heringsdorf' },
+            'ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Ahlbeck' },
+            'seebrücke ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Seebrücke Ahlbeck' },
+            'bansin': { lat: 53.9633, lon: 14.1433, name: 'Bansin' },
+            'zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Zinnowitz' },
+            'ückeritz': { lat: 53.9878, lon: 14.0519, name: 'Ückeritz' },
+            'loddin': { lat: 54.0083, lon: 13.9917, name: 'Loddin' },
+            'zempin': { lat: 54.0194, lon: 13.9611, name: 'Zempin' },
+            'koserow': { lat: 54.0681, lon: 13.9764, name: 'Koserow' },
+            'karlshagen': { lat: 54.1078, lon: 13.8333, name: 'Karlshagen' },
+            'peenemünde': { lat: 54.1422, lon: 13.7753, name: 'Peenemünde' },
+            'trassenheide': { lat: 54.0997, lon: 13.8875, name: 'Trassenheide' }
+        };
 
         // STATE
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
@@ -446,11 +463,40 @@
 
         // GEOCODING & ROUTING
         async function geocode(address) {
+            // Zuerst in bekannten Orten suchen
+            const searchKey = address.toLowerCase().trim();
+            if (KNOWN_PLACES[searchKey]) {
+                console.log('✅ Ort aus Cache:', KNOWN_PLACES[searchKey].name);
+                return KNOWN_PLACES[searchKey];
+            }
+            
+            // Dann via API suchen
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=1`);
-                const data = await response.json();
-                if (data.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-            } catch (e) { console.error(e); }
+                // Versuche zuerst mit Usedom, Deutschland
+                let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=1`);
+                let data = await response.json();
+                
+                // Wenn nichts gefunden, versuche nur mit Deutschland
+                if (data.length === 0) {
+                    response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=1`);
+                    data = await response.json();
+                }
+                
+                // Wenn immer noch nichts, versuche ohne Zusatz
+                if (data.length === 0) {
+                    response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+                    data = await response.json();
+                }
+                
+                if (data.length > 0) {
+                    console.log('✅ Ort gefunden:', address, '→', data[0].display_name);
+                    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+                } else {
+                    console.warn('⚠️ Ort nicht gefunden:', address);
+                }
+            } catch (e) { 
+                console.error('❌ Geocoding Fehler:', e); 
+            }
             return null;
         }
 

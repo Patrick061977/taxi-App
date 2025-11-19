@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.7.1 - Fix</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 2.7.2 - Sound + Zeit</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -563,8 +563,8 @@
             try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Lautes "dü-dü-dü-dü-dü" Signal
-                const beeps = [0, 0.15, 0.3, 0.45, 0.6, 0.75];
+                // LANGES "dü-dü-dü-dü-dü-dü-dü-dü" Signal (8 Pieptöne über 2 Sekunden)
+                const beeps = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75];
                 
                 beeps.forEach((time) => {
                     const oscillator = audioContext.createOscillator();
@@ -573,17 +573,17 @@
                     oscillator.connect(gainNode);
                     gainNode.connect(audioContext.destination);
                     
-                    oscillator.frequency.value = 1200; // Hohe Frequenz
+                    oscillator.frequency.value = 1400; // Noch höhere Frequenz
                     oscillator.type = 'square'; // Schärferer Ton
                     
-                    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime + time); // LAUT!
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + 0.12);
+                    gainNode.gain.setValueAtTime(0.8, audioContext.currentTime + time); // SEHR LAUT!
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + 0.15);
                     
                     oscillator.start(audioContext.currentTime + time);
-                    oscillator.stop(audioContext.currentTime + time + 0.12);
+                    oscillator.stop(audioContext.currentTime + time + 0.15);
                 });
                 
-                console.log('🔔 Signalton: Neuer Auftrag!');
+                console.log('🔔 SIGNALTON: Neuer Auftrag!');
             } catch (e) {
                 console.error('Sound Fehler:', e);
             }
@@ -724,6 +724,27 @@
         async function acceptRide(rideId) {
             if (!currentVehicle) { alert('❌ Bitte Fahrzeug wählen!'); return; }
             
+            // Finde die Fahrt
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) { alert('❌ Fahrt nicht gefunden!'); return; }
+            
+            // Prüfe Abholzeit
+            if (ride.pickupTimestamp && ride.pickupTimestamp > Date.now()) {
+                const minutesUntilPickup = Math.round((ride.pickupTimestamp - Date.now()) / 60000);
+                const pickupTimeStr = ride.pickupTime || 'später';
+                
+                const confirm = window.confirm(
+                    `⚠️ ACHTUNG!\n\n` +
+                    `Abholung erst um ${pickupTimeStr}\n` +
+                    `Das ist in ${minutesUntilPickup} Minuten!\n\n` +
+                    `Trotzdem jetzt annehmen und losfahren?`
+                );
+                
+                if (!confirm) {
+                    return; // Abgebrochen
+                }
+            }
+            
             console.log('✅ Nehme Fahrt an:', rideId);
             
             // Schalte automatisch auf Online wenn noch nicht
@@ -738,7 +759,8 @@
                 status: 'accepted', 
                 vehicleId: currentVehicle,
                 vehicle: vehicleName,
-                driver: vehicleName
+                driver: vehicleName,
+                acceptedAt: Date.now()
             });
             
             // Starte GPS-Tracking für diese Fahrt

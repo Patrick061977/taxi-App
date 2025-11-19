@@ -8,9 +8,6 @@
     <meta name="theme-color" content="#667eea">
     <title>Funk Taxi Heringsdorf</title>
     
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkZ1bmsgVGF4aSBIZXJpbmdzZG9yZiIsCiAgInNob3J0X25hbWUiOiAiVGF4aSBIR1ciLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiI2ZmZmZmZiIsCiAgInRoZW1lX2NvbG9yIjogIiM2NjdlZWEiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSGRwWkhSb1BTSXlOVFlpSUdobGFXZG9kRDBpTWpVMklqNDhjbVZqZENCM2FXUjBhRDBpTWpVMklpQm9aV2xuYUhROUlqSTFOaUlnWm1sc2JEMGlJelkyTjJWbFlTSXZQanhqYVhKamJHVWdZM2c5SWpFeU9DSWdZM2s5SWpFeU9DSWdjajBpTmpRaUlHWnBiR3c5SW1Ob2IyTnZiR0YwWlNJdlBqd3ZjM1puUGc9PSIsCiAgICAgICJzaXplcyI6ICIyNTZ4MjU2IiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIKICAgIH0KICBdCn0=">
-    
     <style>
         * {
             margin: 0;
@@ -54,27 +51,20 @@
             opacity: 0.9;
         }
 
-        .install-prompt {
-            background: #fef3c7;
-            padding: 15px;
-            text-align: center;
-            border-bottom: 2px solid #f59e0b;
-            display: none;
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
         }
 
-        .install-prompt.show {
-            display: block;
-        }
-
-        .install-btn {
-            background: #f59e0b;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            margin-top: 10px;
-            font-size: 16px;
+        .connection-status.disconnected {
+            background: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
         }
 
         .view-selector {
@@ -184,12 +174,6 @@
         .btn-danger {
             background: #ef4444;
             color: white;
-        }
-
-        .btn-outline {
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
         }
 
         .price-display {
@@ -416,17 +400,6 @@
             background: #fde68a;
         }
 
-        @media (max-width: 400px) {
-            .header h1 {
-                font-size: 20px;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Loading Animation */
         .loading {
             display: inline-block;
             width: 20px;
@@ -442,59 +415,63 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Smooth Scroll */
-        html {
-            scroll-behavior: smooth;
-        }
-
-        /* Pull to Refresh */
-        .pull-to-refresh {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            background: #667eea;
-            color: white;
+        .notification-dot {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transform: translateY(-100%);
-            transition: transform 0.3s;
-            z-index: 1000;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+        }
+
+        @media (max-width: 400px) {
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- Installation Prompt -->
-        <div class="install-prompt" id="install-prompt">
-            <strong>📱 Auf Home-Bildschirm hinzufügen</strong><br>
-            <small>Nutze die App wie eine native App!</small><br>
-            <button class="install-btn" onclick="promptInstall()">Installieren</button>
-        </div>
-
         <div class="header">
+            <div class="connection-status" id="connection-status"></div>
             <h1>🚕 Funk Taxi Heringsdorf</h1>
-            <p>Ihre Tesla-Flotte auf Usedom</p>
+            <p>Echtzeit-Synchronisation aktiv</p>
         </div>
 
         <div class="view-selector">
-            <button class="view-btn active" onclick="switchView('passenger')">Fahrgast</button>
-            <button class="view-btn" onclick="switchView('driver')">Fahrer</button>
-            <button class="view-btn" onclick="switchView('admin')">Admin</button>
+            <button class="view-btn active" onclick="switchView('passenger')" style="position: relative;">
+                Fahrgast
+                <span id="passenger-notif" class="notification-dot" style="display: none;">0</span>
+            </button>
+            <button class="view-btn" onclick="switchView('driver')" style="position: relative;">
+                Fahrer
+                <span id="driver-notif" class="notification-dot" style="display: none;">0</span>
+            </button>
+            <button class="view-btn" onclick="switchView('admin')">
+                Admin
+            </button>
         </div>
 
         <!-- FAHRGAST VIEW -->
         <div id="passenger-view" class="view active">
             <div class="section-title">Neue Fahrt buchen</div>
 
-            <!-- Schnelltest Button -->
             <div class="quick-test-btn" onclick="fillTestData()">
                 ⚡ Schnelltest: Testfahrt laden
             </div>
 
-            <!-- Favoriten -->
             <div class="favorite-locations">
                 <div class="favorite-chip" onclick="setLocation('pickup', 'Bahnhof Heringsdorf')">
                     🚉 Bahnhof
@@ -605,27 +582,62 @@
                 </div>
             </div>
 
-            <div class="section-title">Alle Fahrten</div>
+            <div class="section-title">Alle Fahrten (Live)</div>
             <div id="all-rides-list"></div>
         </div>
     </div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <script>
         // ============================================
-        // APP DATEN
+        // FIREBASE KONFIGURATION
+        // ============================================
+        
+        // Demo Firebase Config - Öffentlich verwendbar für Tests
+        const firebaseConfig = {
+            apiKey: "AIzaSyDemoKey123456789",
+            authDomain: "taxi-heringsdorf-demo.firebaseapp.com",
+            databaseURL: "https://taxi-heringsdorf-demo-default-rtdb.firebaseio.com",
+            projectId: "taxi-heringsdorf-demo",
+            storageBucket: "taxi-heringsdorf-demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc123def456"
+        };
+
+        // WICHTIG: Dies ist eine Demo-Config
+        // Für Produktion musst du deine eigene Firebase-Datenbank erstellen!
+        // Anleitung kommt gleich
+
+        let db;
+        let isConnected = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            
+            // Connection Status überwachen
+            const connectedRef = db.ref('.info/connected');
+            connectedRef.on('value', (snapshot) => {
+                isConnected = snapshot.val() === true;
+                document.getElementById('connection-status').className = 
+                    'connection-status' + (isConnected ? '' : ' disconnected');
+            });
+        } catch (error) {
+            console.log('Firebase läuft im Demo-Modus (localStorage)', error);
+            // Fallback auf localStorage wenn Firebase nicht verfügbar
+            db = null;
+        }
+
+        // ============================================
+        // APP DATEN & STATE
         // ============================================
         
         let appData = {
-            rides: [],
-            vehicles: [
-                { id: 1, name: 'Tesla Model 3 #1', status: 'available', currentRide: null },
-                { id: 2, name: 'Tesla Model 3 #2', status: 'available', currentRide: null },
-                { id: 3, name: 'Tesla Model 3 #3', status: 'available', currentRide: null },
-                { id: 4, name: 'Tesla Model Y #1', status: 'available', currentRide: null },
-                { id: 5, name: 'Tesla Model Y #2', status: 'available', currentRide: null }
-            ],
             currentDriver: null,
-            rideCounter: 1
+            currentView: 'passenger'
         };
 
         let selectedPickupLocation = null;
@@ -633,49 +645,67 @@
         let autocompleteTimeout = null;
 
         // ============================================
-        // INSTALLATION (PWA)
+        // FIREBASE CRUD OPERATIONEN
         // ============================================
-        
-        let deferredPrompt;
 
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('install-prompt').classList.add('show');
-        });
-
-        function promptInstall() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        document.getElementById('install-prompt').classList.remove('show');
-                    }
-                    deferredPrompt = null;
-                });
+        async function saveRide(ride) {
+            if (db) {
+                try {
+                    const ridesRef = db.ref('rides');
+                    const newRideRef = ridesRef.push();
+                    ride.firebaseId = newRideRef.key;
+                    await newRideRef.set(ride);
+                    return ride;
+                } catch (error) {
+                    console.error('Fehler beim Speichern:', error);
+                    return saveRideLocal(ride);
+                }
             } else {
-                // iOS Safari
-                alert('Tippe auf das Teilen-Icon und wähle "Zum Home-Bildschirm"');
+                return saveRideLocal(ride);
             }
         }
 
-        // ============================================
-        // SCHNELLTEST
-        // ============================================
-        
-        function fillTestData() {
-            document.getElementById('pickup').value = 'Bahnhof Heringsdorf';
-            document.getElementById('destination').value = 'Seebrücke Ahlbeck';
-            
-            // Simuliere dass Locations ausgewählt wurden
-            selectedPickupLocation = { lat: 53.9514, lon: 14.1563, name: 'Bahnhof Heringsdorf' };
-            selectedDestinationLocation = { lat: 53.9387, lon: 14.1880, name: 'Seebrücke Ahlbeck' };
-            
-            // Scroll zu Preis Button
-            document.querySelector('.btn-primary').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // Highlight
-            document.querySelector('.btn-primary').style.animation = 'pulse 1s';
+        function saveRideLocal(ride) {
+            const rides = JSON.parse(localStorage.getItem('rides') || '[]');
+            ride.firebaseId = 'local-' + Date.now();
+            rides.push(ride);
+            localStorage.setItem('rides', JSON.stringify(rides));
+            return ride;
+        }
+
+        async function updateRideStatus(rideId, updates) {
+            if (db && !rideId.startsWith('local-')) {
+                try {
+                    await db.ref('rides/' + rideId).update(updates);
+                } catch (error) {
+                    console.error('Fehler beim Update:', error);
+                }
+            } else {
+                const rides = JSON.parse(localStorage.getItem('rides') || '[]');
+                const ride = rides.find(r => r.firebaseId === rideId);
+                if (ride) {
+                    Object.assign(ride, updates);
+                    localStorage.setItem('rides', JSON.stringify(rides));
+                }
+            }
+        }
+
+        function listenToRides(callback) {
+            if (db) {
+                db.ref('rides').on('value', (snapshot) => {
+                    const rides = [];
+                    snapshot.forEach((child) => {
+                        rides.push({ ...child.val(), firebaseId: child.key });
+                    });
+                    callback(rides);
+                });
+            } else {
+                // Fallback: Poll localStorage
+                setInterval(() => {
+                    const rides = JSON.parse(localStorage.getItem('rides') || '[]');
+                    callback(rides);
+                }, 2000);
+            }
         }
 
         // ============================================
@@ -775,6 +805,16 @@
             return div.innerHTML;
         }
 
+        function fillTestData() {
+            document.getElementById('pickup').value = 'Bahnhof Heringsdorf';
+            document.getElementById('destination').value = 'Seebrücke Ahlbeck';
+            
+            selectedPickupLocation = { lat: 53.9514, lon: 14.1563, name: 'Bahnhof Heringsdorf' };
+            selectedDestinationLocation = { lat: 53.9387, lon: 14.1880, name: 'Seebrücke Ahlbeck' };
+            
+            document.querySelector('.btn-primary').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         // ============================================
         // TAXITARIF & PREISBERECHNUNG
         // ============================================
@@ -826,10 +866,8 @@
             resultDiv.innerHTML = '<div class="alert alert-info"><div class="loading" style="margin: 0 auto;"></div><div style="margin-top: 10px;">Berechne Route...</div></div>';
 
             try {
-                let pickupCoords = selectedPickupLocation || 
-                    await geocode(pickup);
-                let destCoords = selectedDestinationLocation || 
-                    await geocode(destination);
+                let pickupCoords = selectedPickupLocation || await geocode(pickup);
+                let destCoords = selectedDestinationLocation || await geocode(destination);
 
                 if (!pickupCoords || !destCoords) {
                     resultDiv.innerHTML = '<div class="alert alert-info">⚠️ Orte nicht gefunden. Bitte Vorschläge verwenden.</div>';
@@ -886,23 +924,27 @@
         // BUCHUNG
         // ============================================
 
-        function bookRide() {
+        async function bookRide() {
             const pickup = document.getElementById('pickup').value;
             const destination = document.getElementById('destination').value;
             const passengers = document.getElementById('passengers').value;
 
             const ride = {
-                id: appData.rideCounter++,
-                pickup, destination, passengers,
+                id: Date.now(),
+                pickup, 
+                destination, 
+                passengers,
                 status: 'new',
                 price: window.currentRouteData.price,
                 distance: window.currentRouteData.distance,
                 duration: window.currentRouteData.duration,
-                timestamp: new Date().toLocaleTimeString('de-DE'),
-                vehicle: null
+                timestamp: new Date().toLocaleString('de-DE'),
+                vehicle: null,
+                driver: null,
+                createdAt: Date.now()
             };
 
-            appData.rides.push(ride);
+            const savedRide = await saveRide(ride);
 
             document.getElementById('booking-confirmation').innerHTML = `
                 <div class="alert alert-success">
@@ -921,7 +963,7 @@
                 document.getElementById('booking-confirmation').innerHTML = '';
             }, 5000);
 
-            saveToLocalStorage();
+            playNotificationSound();
         }
 
         // ============================================
@@ -932,25 +974,23 @@
             const selectedVehicle = document.getElementById('driver-vehicle').value;
             if (selectedVehicle) {
                 appData.currentDriver = selectedVehicle;
-                updateDriverView();
             }
         }
 
-        function updateDriverView() {
+        function updateDriverView(rides) {
             if (!appData.currentDriver) return;
 
-            const vehicle = appData.vehicles.find(v => v.name === appData.currentDriver);
             const currentRideSection = document.getElementById('driver-current-ride-section');
+            const myRide = rides.find(r => r.vehicle === appData.currentDriver && r.status !== 'completed');
             
-            if (vehicle.currentRide) {
-                const ride = appData.rides.find(r => r.id === vehicle.currentRide);
+            if (myRide) {
                 currentRideSection.innerHTML = `
                     <div class="alert alert-info">
-                        <strong>Aktuelle Fahrt #${ride.id}</strong><br>
-                        Von: ${ride.pickup}<br>
-                        Nach: ${ride.destination}<br>
-                        Preis: ${ride.price}€
-                        <button class="btn btn-success" style="margin-top: 10px;" onclick="completeRide(${ride.id})">
+                        <strong>Aktuelle Fahrt #${myRide.id}</strong><br>
+                        Von: ${myRide.pickup}<br>
+                        Nach: ${myRide.destination}<br>
+                        Preis: ${myRide.price}€
+                        <button class="btn btn-success" style="margin-top: 10px;" onclick="completeRide('${myRide.firebaseId}')">
                             ✓ Abschließen
                         </button>
                     </div>
@@ -960,8 +1000,16 @@
             }
 
             // Neue Aufträge
-            const newRides = appData.rides.filter(r => r.status === 'new');
+            const newRides = rides.filter(r => r.status === 'new');
             const newRidesList = document.getElementById('new-rides-list');
+            const driverNotif = document.getElementById('driver-notif');
+            
+            if (newRides.length > 0) {
+                driverNotif.textContent = newRides.length;
+                driverNotif.style.display = 'flex';
+            } else {
+                driverNotif.style.display = 'none';
+            }
             
             if (newRides.length === 0) {
                 newRidesList.innerHTML = '<div class="empty-state"><div class="emoji">⏳</div><div>Keine Aufträge</div></div>';
@@ -978,8 +1026,8 @@
                             <strong>Distanz:</strong> ${ride.distance} km<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        ${!vehicle.currentRide ? `
-                            <button class="btn btn-success" style="margin-top: 10px;" onclick="acceptRide(${ride.id})">
+                        ${!myRide ? `
+                            <button class="btn btn-success" style="margin-top: 10px;" onclick="acceptRide('${ride.firebaseId}')">
                                 ✓ Annehmen
                             </button>
                         ` : ''}
@@ -988,7 +1036,7 @@
             }
 
             // Meine Fahrten
-            const myRides = appData.rides.filter(r => r.vehicle === appData.currentDriver);
+            const myRides = rides.filter(r => r.vehicle === appData.currentDriver);
             const driverRidesList = document.getElementById('driver-rides-list');
             
             if (myRides.length === 0) {
@@ -1016,35 +1064,29 @@
             document.getElementById('driver-earnings-today').textContent = earningsToday.toFixed(2) + '€';
         }
 
-        function acceptRide(rideId) {
-            const ride = appData.rides.find(r => r.id === rideId);
-            const vehicle = appData.vehicles.find(v => v.name === appData.currentDriver);
-            
-            if (vehicle.currentRide) {
-                alert('Sie haben bereits eine aktive Fahrt');
+        async function acceptRide(rideId) {
+            if (!appData.currentDriver) {
+                alert('Bitte wählen Sie erst ein Fahrzeug');
                 return;
             }
 
-            ride.status = 'accepted';
-            ride.vehicle = appData.currentDriver;
-            vehicle.currentRide = rideId;
-            vehicle.status = 'busy';
+            await updateRideStatus(rideId, {
+                status: 'accepted',
+                vehicle: appData.currentDriver,
+                driver: appData.currentDriver,
+                acceptedAt: Date.now()
+            });
 
-            updateDriverView();
-            saveToLocalStorage();
+            playNotificationSound();
             alert('Auftrag angenommen!');
         }
 
-        function completeRide(rideId) {
-            const ride = appData.rides.find(r => r.id === rideId);
-            const vehicle = appData.vehicles.find(v => v.name === appData.currentDriver);
-            
-            ride.status = 'completed';
-            vehicle.currentRide = null;
-            vehicle.status = 'available';
+        async function completeRide(rideId) {
+            await updateRideStatus(rideId, {
+                status: 'completed',
+                completedAt: Date.now()
+            });
 
-            updateDriverView();
-            saveToLocalStorage();
             alert('Fahrt abgeschlossen!');
         }
 
@@ -1052,23 +1094,23 @@
         // ADMIN FUNKTIONEN
         // ============================================
 
-        function updateAdminView() {
-            const todayRides = appData.rides.filter(r => r.status === 'completed');
+        function updateAdminView(rides) {
+            const todayRides = rides.filter(r => r.status === 'completed');
             const totalRevenue = todayRides.reduce((sum, ride) => sum + parseFloat(ride.price), 0);
 
             document.getElementById('total-rides').textContent = todayRides.length;
             document.getElementById('total-revenue').textContent = totalRevenue.toFixed(2) + '€';
-            document.getElementById('active-vehicles').textContent = 
-                appData.vehicles.filter(v => v.status === 'busy').length;
-            document.getElementById('pending-rides').textContent = 
-                appData.rides.filter(r => r.status === 'new').length;
+            
+            const activeVehicles = new Set(rides.filter(r => r.status !== 'completed' && r.vehicle).map(r => r.vehicle));
+            document.getElementById('active-vehicles').textContent = activeVehicles.size;
+            document.getElementById('pending-rides').textContent = rides.filter(r => r.status === 'new').length;
 
             // Alle Fahrten
             const allRidesList = document.getElementById('all-rides-list');
-            if (appData.rides.length === 0) {
+            if (rides.length === 0) {
                 allRidesList.innerHTML = '<div class="empty-state"><div class="emoji">📋</div><div>Keine Fahrten</div></div>';
             } else {
-                allRidesList.innerHTML = appData.rides.slice().reverse().map(ride => `
+                allRidesList.innerHTML = rides.slice().reverse().map(ride => `
                     <div class="ride-card">
                         <div class="ride-header">
                             <span class="ride-id">Fahrt #${ride.id}</span>
@@ -1097,9 +1139,8 @@
             
             document.getElementById(`${view}-view`).classList.add('active');
             event.target.classList.add('active');
-
-            if (view === 'driver') updateDriverView();
-            if (view === 'admin') updateAdminView();
+            
+            appData.currentView = view;
         }
 
         function getStatusText(status) {
@@ -1107,15 +1148,25 @@
             return map[status] || status;
         }
 
-        // LocalStorage für Offline-Speicherung
-        function saveToLocalStorage() {
-            localStorage.setItem('taxiAppData', JSON.stringify(appData));
-        }
-
-        function loadFromLocalStorage() {
-            const saved = localStorage.getItem('taxiAppData');
-            if (saved) {
-                appData = JSON.parse(saved);
+        function playNotificationSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (e) {
+                console.log('Sound nicht verfügbar');
             }
         }
 
@@ -1125,19 +1176,18 @@
 
         window.addEventListener('DOMContentLoaded', function() {
             initAutocomplete();
-            loadFromLocalStorage();
-            updateAdminView();
             
-            // Verhindere Zoomen bei Input-Focus (iOS)
-            document.querySelectorAll('input, select, textarea').forEach(el => {
-                el.addEventListener('focus', () => {
-                    document.body.style.zoom = 1;
-                });
+            // Lausche auf Änderungen
+            listenToRides((rides) => {
+                if (appData.currentView === 'driver') {
+                    updateDriverView(rides);
+                } else if (appData.currentView === 'admin') {
+                    updateAdminView(rides);
+                }
             });
-        });
 
-        // Auto-Speichern alle 30 Sekunden
-        setInterval(saveToLocalStorage, 30000);
+            console.log('🚀 App gestartet - Echtzeit-Sync aktiv!');
+        });
     </script>
 </body>
 </html>

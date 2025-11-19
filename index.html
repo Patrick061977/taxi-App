@@ -59,7 +59,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.3 - GPS Rebuilt</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.3.1 - GPS Persist Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -1040,11 +1040,22 @@
                 driverLocation: null,
                 completedAt: Date.now()
             });
+            
             if (etaUpdateInterval) { 
                 clearInterval(etaUpdateInterval); 
                 etaUpdateInterval = null; 
             }
-            stopDriverTracking();
+            
+            console.log('✅ Fahrt abgeschlossen');
+            
+            // GPS läuft noch für diese Fahrt - starte NEU ohne rideId
+            if (isOnline && currentVehicle) {
+                console.log('🔄 Starte GPS neu (ohne rideId)');
+                startDriverTracking(null); // Ohne rideId - nur für drivers/
+            } else {
+                stopDriverTracking();
+            }
+            
             alert('✅ Fahrt abgeschlossen! Sie sind wieder verfügbar.');
         }
 

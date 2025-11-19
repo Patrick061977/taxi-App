@@ -6,7 +6,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#667eea">
     <title>Funk Taxi Heringsdorf</title>
-    
+
+    <!-- Firebase SDK -->
+    <script type="module" src="./firebase-config.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -378,7 +381,17 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import {
+            trackPageView,
+            trackRideBooked,
+            trackRideAccepted,
+            trackRideCompleted,
+            trackPriceCalculation,
+            trackVehicleSelected,
+            trackError
+        } from './firebase-config.js';
+
         console.log('🚀 App startet...');
 
         let currentVehicle = null;
@@ -428,7 +441,7 @@
 
         async function calcPrice() {
             console.log('💰 Berechne Preis...');
-            
+
             const pickup = document.getElementById('pickup').value;
             const dest = document.getElementById('destination').value;
 
@@ -443,7 +456,7 @@
             try {
                 // Simuliere Berechnung
                 await new Promise(r => setTimeout(r, 1000));
-                
+
                 const distance = (Math.random() * 15 + 5).toFixed(1);
                 const price = (4.00 + parseFloat(distance) * 2.20).toFixed(1);
                 const roundedPrice = (Math.round(parseFloat(price) * 10) / 10).toFixed(2);
@@ -463,12 +476,16 @@
 
                 document.getElementById('book-btn').style.display = 'block';
                 document.getElementById('book-btn').scrollIntoView({ behavior: 'smooth' });
-                
+
                 console.log('✅ Preis berechnet:', roundedPrice + '€');
-                
+
+                // Track price calculation in Firebase Analytics
+                trackPriceCalculation(pickup, dest, distance, roundedPrice);
+
             } catch (e) {
                 console.error('❌ Fehler:', e);
                 result.innerHTML = '<div class="alert alert-info">❌ Fehler bei Berechnung</div>';
+                trackError(e.message, 'price_calculation');
             }
         }
 
@@ -506,6 +523,9 @@
 
                 console.log('✅ FAHRT GEBUCHT!', ride);
 
+                // Track ride booking in Firebase Analytics
+                trackRideBooked(ride);
+
                 document.getElementById('confirm').innerHTML = `
                     <div class="alert alert-success">
                         <strong>✓ Buchung erfolgreich!</strong><br>
@@ -529,6 +549,7 @@
             } catch (e) {
                 console.error('❌ FEHLER beim Buchen:', e);
                 alert('❌ FEHLER: ' + e.message);
+                trackError(e.message, 'ride_booking');
             }
         }
 
@@ -539,6 +560,12 @@
         function setVehicle() {
             currentVehicle = document.getElementById('vehicle').value;
             console.log('🚗 Fahrzeug gewählt:', currentVehicle);
+
+            // Track vehicle selection in Firebase Analytics
+            if (currentVehicle) {
+                trackVehicleSelected(currentVehicle);
+            }
+
             updateDriver();
         }
 
@@ -549,6 +576,10 @@
                 ride.status = 'accepted';
                 ride.vehicle = currentVehicle;
                 saveRides();
+
+                // Track ride acceptance in Firebase Analytics
+                trackRideAccepted(id, currentVehicle);
+
                 updateAll();
                 alert('✅ Auftrag angenommen!');
             }
@@ -560,6 +591,10 @@
             if (ride) {
                 ride.status = 'completed';
                 saveRides();
+
+                // Track ride completion in Firebase Analytics
+                trackRideCompleted(ride);
+
                 updateAll();
                 alert('✅ Fahrt abgeschlossen!');
             }
@@ -670,9 +705,12 @@
         function switchView(view) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            
+
             document.getElementById(view + '-view').classList.add('active');
             event.target.classList.add('active');
+
+            // Track page view in Firebase Analytics
+            trackPageView(view);
 
             updateAll();
         }
@@ -690,7 +728,10 @@
             console.log('📱 App geladen!');
             loadRides();
             updateAll();
-            
+
+            // Track initial page view
+            trackPageView('passenger');
+
             // Auto-Update alle 2 Sekunden
             setInterval(() => {
                 loadRides();

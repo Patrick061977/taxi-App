@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Analytics Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 2px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 2px solid #ef4444;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 2px solid #3b82f6;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        #console-output {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Firebase Analytics Test</h1>
+
+        <div id="status" class="status info">
+            Initializing Firebase...
+        </div>
+
+        <h2>Test Actions</h2>
+        <button onclick="testPageView()">Test Page View</button>
+        <button onclick="testCustomEvent()">Test Custom Event</button>
+        <button onclick="testRideBooked()">Test Ride Booked</button>
+        <button onclick="clearConsole()">Clear Console</button>
+
+        <h3>Console Output</h3>
+        <div id="console-output">
+            <div class="log-entry">Waiting for Firebase initialization...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import {
+            trackPageView,
+            trackRideBooked,
+            analytics
+        } from './firebase-config.js';
+        import { logEvent } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+
+        const consoleOutput = document.getElementById('console-output');
+        const statusDiv = document.getElementById('status');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(entry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            console.log(message);
+        }
+
+        // Override console methods to show in UI
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            log(args.join(' '));
+        };
+
+        window.testPageView = function() {
+            log('Testing page_view event...');
+            trackPageView('test-page');
+            log('✅ Page view event sent!');
+        };
+
+        window.testCustomEvent = function() {
+            log('Testing custom event...');
+            logEvent(analytics, 'test_event', {
+                test_param: 'test_value',
+                timestamp: Date.now()
+            });
+            log('✅ Custom event sent!');
+        };
+
+        window.testRideBooked = function() {
+            log('Testing ride_booked event...');
+            const testRide = {
+                id: Date.now(),
+                pickup: 'Test Pickup Location',
+                destination: 'Test Destination',
+                passengers: 2,
+                price: '25.50',
+                distance: '10.5'
+            };
+            trackRideBooked(testRide);
+            log('✅ Ride booked event sent!');
+        };
+
+        window.clearConsole = function() {
+            consoleOutput.innerHTML = '<div class="log-entry">Console cleared.</div>';
+        };
+
+        // Check if Firebase initialized successfully
+        setTimeout(() => {
+            if (analytics) {
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = '✅ Firebase Analytics initialized successfully!<br>You can now test the analytics events below.';
+                log('🔥 Firebase Analytics ready!');
+                log('App ID: 1:886448081276:web:1b54875801c5d89f8efcf9');
+                log('Measurement ID: G-K8ZG238WW6');
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Firebase Analytics initialization failed!';
+                log('❌ Error: Firebase not initialized');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

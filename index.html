@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.7 - Professional</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 2.7.1 - Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -850,7 +850,7 @@
 
         function updateDriverView() {
             const newRides = rides.filter(r => r.status === 'new');
-            const myRides = currentVehicle ? rides.filter(r => r.vehicle === currentVehicle) : [];
+            const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
             const current = myRides.find(r => r.status === 'accepted');
             const completed = myRides.filter(r => r.status === 'completed');
             

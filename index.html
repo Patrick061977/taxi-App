@@ -59,7 +59,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.2.2 - GPS Restart Fix</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.3 - GPS Rebuilt</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -909,12 +909,14 @@
         }
 
         function startDriverTracking(rideId) {
+            // Wenn bereits läuft, erst stoppen
             if (watchId) {
-                console.log('⚠️ GPS läuft bereits');
-                return;
+                console.log('⚠️ GPS läuft bereits - stoppe und starte neu');
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
             }
             
-            console.log('🚀 Starte GPS-Tracking für Fahrt:', rideId);
+            console.log('🚀 Starte GPS-Tracking' + (rideId ? ' für Fahrt: ' + rideId : ''));
             
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
@@ -927,22 +929,34 @@
                         online: isOnline 
                     };
                     
-                    console.log('📍 GPS Update:', location.lat.toFixed(4), location.lon.toFixed(4));
+                    console.log('📍 GPS:', location.lat.toFixed(4), location.lon.toFixed(4));
                     
-                    if (isFirebaseReady) {
-                        db.ref('drivers/' + currentVehicle).set(location);
-                        if (rideId) {
-                            db.ref('rides/' + rideId + '/driverLocation').set(location);
-                            console.log('✅ GPS an Fahrt gesendet:', rideId);
-                        } else {
-                            console.warn('⚠️ Keine rideId - GPS nur an drivers/');
-                        }
-                    } else {
+                    if (!isFirebaseReady) {
                         console.error('❌ Firebase nicht bereit!');
+                        return;
+                    }
+                    
+                    // Immer in drivers/ speichern
+                    db.ref('drivers/' + currentVehicle).set(location).then(() => {
+                        console.log('✅ GPS → drivers/' + currentVehicle);
+                    });
+                    
+                    // Wenn rideId vorhanden, auch in Fahrt speichern
+                    if (rideId) {
+                        db.ref('rides/' + rideId + '/driverLocation').set(location).then(() => {
+                            console.log('✅ GPS → rides/' + rideId + '/driverLocation');
+                        });
                     }
                 },
-                (err) => console.error('❌ GPS Fehler:', err.message),
-                { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+                (err) => {
+                    console.error('❌ GPS Fehler:', err.message);
+                    alert('❌ GPS Fehler: ' + err.message + '\n\nBitte Standort-Berechtigung erteilen!');
+                },
+                { 
+                    enableHighAccuracy: true, 
+                    maximumAge: 0, 
+                    timeout: 30000 
+                }
             );
         }
 
@@ -950,8 +964,12 @@
             if (watchId) { 
                 navigator.geolocation.clearWatch(watchId); 
                 watchId = null; 
+                console.log('🛑 GPS gestoppt');
             }
-            if (isFirebaseReady && currentVehicle) db.ref('drivers/' + currentVehicle).remove();
+            if (isFirebaseReady && currentVehicle) {
+                db.ref('drivers/' + currentVehicle).remove();
+                console.log('🗑️ GPS aus drivers/ entfernt');
+            }
         }
 
         async function acceptRide(rideId) {
@@ -966,6 +984,7 @@
                 return;
             }
             
+            // Zeitwarnung
             if (ride.pickupTimestamp && ride.pickupTimestamp > Date.now()) {
                 const minutesUntilPickup = Math.round((ride.pickupTimestamp - Date.now()) / 60000);
                 const pickupTimeStr = ride.pickupTime || 'später';
@@ -980,6 +999,7 @@
                 if (!confirm) return;
             }
             
+            // Auto-Online wenn offline
             if (!isOnline) {
                 document.getElementById('online-toggle').checked = true;
                 toggleOnline();
@@ -988,6 +1008,9 @@
             const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
             const vehiclePlate = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].plate : '';
             
+            console.log('📝 Akzeptiere Fahrt:', rideId);
+            
+            // Update Fahrt in Firebase
             await updateRide(rideId, { 
                 status: 'accepted', 
                 vehicleId: currentVehicle,
@@ -997,16 +1020,10 @@
                 acceptedAt: Date.now()
             });
             
-            // Stoppe altes GPS und starte neu mit rideId
-            stopDriverTracking();
+            // GPS mit rideId starten (wird neu gestartet wenn schon läuft)
+            startDriverTracking(rideId);
             
-            // Warte kurz damit stopDriverTracking durchläuft
-            setTimeout(() => {
-                startDriverTracking(rideId);
-                console.log('🚀 GPS für Fahrt gestartet:', rideId);
-            }, 500);
-            
-            alert('✅ Auftrag angenommen! GPS wird aktiviert...');
+            alert('✅ Auftrag angenommen! GPS läuft...');
         }
 
         async function pickupCustomer(rideId) {

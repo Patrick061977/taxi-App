@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.9.3 - Fix</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.0 - Views Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -204,9 +204,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let firebaseLoadTimeout, firebaseLoaded = false;
-        firebaseLoadTimeout = setTimeout(() => { if (!firebaseLoaded) initApp(false); }, 5000);
+        firebaseLoadTimeout = setTimeout(() => { 
+            if (!firebaseLoaded && typeof initApp === 'function') initApp(false); 
+        }, 5000);
     </script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="initApp(false);"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="if(typeof initApp === 'function') initApp(false);"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script>
         const VEHICLES = {
@@ -1025,6 +1027,7 @@
                 } catch (e) { console.error(e); }
             }
             updateStatus();
+            updateViews(); // Zeige Views auch wenn Firebase nicht lädt
         }
 
         function updateStatus() {

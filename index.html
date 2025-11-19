@@ -66,7 +66,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 2.7.3 - Fahrzeug Fix</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 2.8 - Wake Lock + Verlauf</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -81,6 +81,7 @@
 
     <div class="view-selector">
         <button class="view-btn active" onclick="switchView('passenger')">Fahrgast</button>
+        <button class="view-btn" onclick="switchView('history')">Verlauf</button>
         <button class="view-btn" onclick="switchView('driver')">Fahrer</button>
         <button class="view-btn" onclick="switchView('admin')">Admin</button>
     </div>
@@ -132,6 +133,11 @@
             <button id="book-btn" class="btn btn-success" style="display: none;" onclick="book()">🚕 JETZT BUCHEN</button>
         </div>
         <div id="confirm"></div>
+    </div>
+
+    <div id="history-view" class="view">
+        <h3 style="margin: 20px 0;">Meine Fahrten</h3>
+        <div id="history-list"></div>
     </div>
 
     <div id="driver-view" class="view">
@@ -213,6 +219,7 @@
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
+        let wakeLock = null;
 
         function useMyLocation() {
             if (!navigator.geolocation) {
@@ -428,6 +435,28 @@
         function showRideStatus(ride) {
             const container = document.getElementById('ride-status-container');
             
+            if (ride.status === 'completed') {
+                // FAHRT ABGESCHLOSSEN
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#d1fae5;border:2px solid #10b981;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                        <h3>Fahrt abgeschlossen!</h3>
+                        <p style="margin-top: 10px;">Vielen Dank für Ihre Fahrt</p>
+                        <div style="margin-top: 15px; font-size: 14px; color: #065f46;">
+                            <strong>Fahrzeug:</strong> ${ride.vehicle || 'Taxi'}<br>
+                            <strong>Von:</strong> ${ride.pickup}<br>
+                            <strong>Nach:</strong> ${ride.destination}<br>
+                            <strong>Preis:</strong> ${ride.price}€
+                        </div>
+                        <button onclick="closeRide()" class="btn btn-primary" style="margin-top:20px;">✓ Schließen</button>
+                    </div>
+                `;
+                
+                // Speichere in Historie
+                saveToHistory(ride);
+                return;
+            }
+            
             if (ride.status === 'new') {
                 container.innerHTML = `
                     <div class="ride-status-box status-waiting">
@@ -459,6 +488,78 @@
                         </div>
                     </div>
                 `;
+            }
+        }
+
+        function saveToHistory(ride) {
+            try {
+                let history = JSON.parse(localStorage.getItem('ride-history') || '[]');
+                
+                // Prüfe ob schon vorhanden
+                if (!history.find(r => r.id === ride.id)) {
+                    history.unshift({ // An den Anfang
+                        id: ride.id,
+                        customerName: ride.customerName,
+                        pickup: ride.pickup,
+                        destination: ride.destination,
+                        vehicle: ride.vehicle,
+                        price: ride.price,
+                        distance: ride.distance,
+                        time: ride.time,
+                        completedAt: new Date().toLocaleString('de-DE')
+                    });
+                    
+                    // Max 50 Fahrten speichern
+                    if (history.length > 50) history = history.slice(0, 50);
+                    
+                    localStorage.setItem('ride-history', JSON.stringify(history));
+                    console.log('✅ Fahrt in Historie gespeichert');
+                }
+            } catch (e) {
+                console.error('Fehler beim Speichern der Historie:', e);
+            }
+        }
+
+        function closeRide() {
+            localStorage.removeItem('myCurrentRideId');
+            myCurrentRide = null;
+            document.getElementById('ride-status-container').innerHTML = '';
+            document.getElementById('booking-form').style.display = 'block';
+            
+            // Zeige kurze Bestätigung
+            document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt wurde in Ihrem Verlauf gespeichert</div>';
+            setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
+        }
+
+        function loadHistory() {
+            try {
+                const history = JSON.parse(localStorage.getItem('ride-history') || '[]');
+                const container = document.getElementById('history-list');
+                
+                if (history.length === 0) {
+                    container.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#999;">Noch keine Fahrten</div>';
+                    return;
+                }
+                
+                container.innerHTML = history.map(r => `
+                    <div class="ride-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <strong style="color:#667eea;">#${r.id}</strong>
+                            <span style="background:#d1fae5;padding:4px 8px;border-radius:12px;font-size:12px;color:#065f46;">Abgeschlossen</span>
+                        </div>
+                        ${r.customerName ? `<div style="font-size:15px;font-weight:600;margin-bottom:8px;">👤 ${r.customerName}</div>` : ''}
+                        <div style="font-size:14px;color:#666;line-height:1.8;">
+                            <strong>Von:</strong> ${r.pickup}<br>
+                            <strong>Nach:</strong> ${r.destination}<br>
+                            <strong>Fahrzeug:</strong> ${r.vehicle || 'Taxi'}<br>
+                            <strong>Distanz:</strong> ${r.distance} km<br>
+                            <strong>Preis:</strong> ${r.price}€<br>
+                            <small style="opacity:0.7;">Abgeschlossen: ${r.completedAt || r.time}</small>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Fehler beim Laden der Historie:', e);
             }
         }
 
@@ -607,6 +708,31 @@
             } catch (e) {}
         }
 
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('✅ Screen Wake Lock aktiviert - Bildschirm bleibt an');
+                    
+                    wakeLock.addEventListener('release', () => {
+                        console.log('⚠️ Wake Lock wurde freigegeben');
+                    });
+                } else {
+                    console.log('⚠️ Wake Lock API nicht verfügbar');
+                }
+            } catch (err) {
+                console.error('Wake Lock Fehler:', err);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release();
+                wakeLock = null;
+                console.log('🔓 Wake Lock freigegeben');
+            }
+        }
+
         function toggleOnline() {
             isOnline = document.getElementById('online-toggle').checked;
             document.getElementById('online-status-text').textContent = isOnline ? 'Online' : 'Offline';
@@ -621,10 +747,16 @@
                 gpsDot.style.background = '#10b981';
                 gpsDot.classList.add('online');
                 gpsStatus.textContent = '📍 GPS On';
+                
+                // Aktiviere Wake Lock
+                requestWakeLock();
             } else {
                 gpsDot.style.background = '#6b7280';
                 gpsDot.classList.remove('online');
                 gpsStatus.textContent = '📍 GPS Off';
+                
+                // Deaktiviere Wake Lock
+                releaseWakeLock();
             }
             
             if (isOnline && currentVehicle) startDriverTracking(null);
@@ -1004,6 +1136,8 @@
             if (view === 'driver') gpsIndicator.style.display = 'flex';
             else gpsIndicator.style.display = 'none';
             
+            if (view === 'history') loadHistory();
+            
             updateViews();
         }
 
@@ -1027,6 +1161,14 @@
                 if (pickupCoords) showAvailableTaxis(); 
                 if (myCurrentRide && myCurrentRide.status === 'accepted') showRideStatus(myCurrentRide);
             }, 30000);
+            
+            // Reaktiviere Wake Lock wenn Seite wieder sichtbar
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && isOnline && wakeLock === null) {
+                    requestWakeLock();
+                    console.log('🔄 Wake Lock reaktiviert');
+                }
+            });
         });
     </script>
 </body>

@@ -59,7 +59,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.2.1 - GPS Debug</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.2.2 - GPS Restart Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -997,7 +997,15 @@
                 acceptedAt: Date.now()
             });
             
-            startDriverTracking(rideId);
+            // Stoppe altes GPS und starte neu mit rideId
+            stopDriverTracking();
+            
+            // Warte kurz damit stopDriverTracking durchläuft
+            setTimeout(() => {
+                startDriverTracking(rideId);
+                console.log('🚀 GPS für Fahrt gestartet:', rideId);
+            }, 500);
+            
             alert('✅ Auftrag angenommen! GPS wird aktiviert...');
         }
 

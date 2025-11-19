@@ -59,7 +59,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.3.1 - GPS Persist Fix</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.3.2 - GPS Lifecycle Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -909,11 +909,10 @@
         }
 
         function startDriverTracking(rideId) {
-            // Wenn bereits läuft, erst stoppen
+            // Wenn schon läuft, ignoriere
             if (watchId) {
-                console.log('⚠️ GPS läuft bereits - stoppe und starte neu');
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
+                console.log('⚠️ GPS läuft bereits - watchId:', watchId);
+                return;
             }
             
             console.log('🚀 Starte GPS-Tracking' + (rideId ? ' für Fahrt: ' + rideId : ''));
@@ -958,6 +957,8 @@
                     timeout: 30000 
                 }
             );
+            
+            console.log('🎯 GPS watchId:', watchId);
         }
 
         function stopDriverTracking() {
@@ -1020,8 +1021,16 @@
                 acceptedAt: Date.now()
             });
             
-            // GPS mit rideId starten (wird neu gestartet wenn schon läuft)
-            startDriverTracking(rideId);
+            // GPS komplett neu starten mit rideId
+            if (watchId) {
+                console.log('🛑 Stoppe altes GPS');
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            
+            setTimeout(() => {
+                startDriverTracking(rideId);
+            }, 100);
             
             alert('✅ Auftrag angenommen! GPS läuft...');
         }
@@ -1048,12 +1057,20 @@
             
             console.log('✅ Fahrt abgeschlossen');
             
-            // GPS läuft noch für diese Fahrt - starte NEU ohne rideId
+            // WICHTIG: Erst komplett stoppen
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                console.log('🛑 GPS gestoppt');
+            }
+            
+            // Dann neu starten wenn noch Online
             if (isOnline && currentVehicle) {
                 console.log('🔄 Starte GPS neu (ohne rideId)');
-                startDriverTracking(null); // Ohne rideId - nur für drivers/
-            } else {
-                stopDriverTracking();
+                // Kurz warten damit clearWatch durchläuft
+                setTimeout(() => {
+                    startDriverTracking(null);
+                }, 100);
             }
             
             alert('✅ Fahrt abgeschlossen! Sie sind wieder verfügbar.');

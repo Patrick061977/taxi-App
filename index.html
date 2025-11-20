@@ -67,7 +67,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.4.2 - Stornogebühr 10€</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.5.0 - Fahrer-Storno-Info</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -383,6 +383,14 @@
             const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
             const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
             const completed = myRides.filter(r => r.status === 'completed');
+            
+            // 🚨 CHECK FÜR STORNIERTE FAHRTEN
+            const cancelledRides = myRides.filter(r => r.status === 'cancelled' && r.driverNotified === false);
+            if (cancelledRides.length > 0) {
+                cancelledRides.forEach(ride => {
+                    notifyDriverOfCancellation(ride);
+                });
+            }
             
             // Current ride
             if (current) {
@@ -958,10 +966,16 @@
                 }
             }
             
-            // Lösche Fahrt aus Firebase
+            // Setze Fahrt auf storniert (nicht löschen!) damit Fahrer benachrichtigt wird
             if (isFirebaseReady && rideId) {
-                await db.ref('rides/' + rideId).remove();
-                console.log('🗑️ Fahrt aus Firebase gelöscht:', rideId);
+                await db.ref('rides/' + rideId).update({
+                    status: 'cancelled',
+                    cancelledAt: Date.now(),
+                    cancelledBy: 'passenger',
+                    cancellationFee: cancellationFee,
+                    driverNotified: false  // Flag: Fahrer muss noch benachrichtigt werden
+                });
+                console.log('❌ Fahrt storniert in Firebase:', rideId);
             }
             
             // Lokalen Status zurücksetzen
@@ -1002,6 +1016,54 @@
                 wakeLock.release();
                 wakeLock = null;
             }
+        }
+
+        // 🚨 FAHRER-BENACHRICHTIGUNG BEI STORNIERUNG
+        async function notifyDriverOfCancellation(ride) {
+            console.log('🚨 STORNIERUNG ERKANNT:', ride);
+            
+            // Spiele Sound ab (falls Browser erlaubt)
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ==');
+                audio.play().catch(e => console.log('Audio play blocked'));
+            } catch (e) {
+                console.log('Audio not supported');
+            }
+            
+            // Schließe Karte falls offen
+            closeDriverMap();
+            
+            // Große Alert-Box
+            const feeText = ride.cancellationFee ? `\n\n💶 Stornogebühr: ${ride.cancellationFee.toFixed(2)}€\n(Wird dem Kunden berechnet)` : '';
+            
+            alert(
+                `🚨 FAHRT STORNIERT!\n\n` +
+                `#${ride.id} - ${ride.customerName || 'Fahrgast'}\n` +
+                `Von: ${ride.pickup}\n` +
+                `Nach: ${ride.destination}\n\n` +
+                `❌ Kunde hat gerade storniert!${feeText}\n\n` +
+                `Fahrt wird archiviert.`
+            );
+            
+            // Markiere als benachrichtigt in Firebase
+            if (isFirebaseReady && ride.firebaseId) {
+                await db.ref('rides/' + ride.firebaseId).update({
+                    driverNotified: true,
+                    driverNotifiedAt: Date.now()
+                });
+                console.log('✅ Fahrer als benachrichtigt markiert');
+            }
+            
+            // Nach 5 Sekunden automatisch zu "completed" verschieben für Archivierung
+            setTimeout(async () => {
+                if (isFirebaseReady && ride.firebaseId) {
+                    await db.ref('rides/' + ride.firebaseId).update({
+                        status: 'completed',
+                        archivedAsCancel: true
+                    });
+                    updateViews();
+                }
+            }, 5000);
         }
 
         function toggleOnline() {

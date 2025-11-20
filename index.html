@@ -67,7 +67,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.4.0 - Mit Fahrer-Karte & Route</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.4.2 - Stornogebühr 10€</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -212,7 +212,9 @@
             <div class="stat-card"><div style="font-size: 28px;" id="a-pending">0</div><div>Offen</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
         </div>
-        <h3>Alle Fahrten</h3>
+        <h3 style="margin-top:20px;">💶 Stornierungen (kostenpflichtig)</h3>
+        <div id="cancellations-list"></div>
+        <h3 style="margin-top:20px;">Alle Fahrten</h3>
         <div id="all-rides"></div>
     </div>
 
@@ -263,6 +265,7 @@
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
+        let cancellations = []; // Neue Variable für Stornierungen
 
         console.log('🚀 Taxi App v3.1 gestartet');
 
@@ -313,6 +316,15 @@
                         drivers = {}; 
                         s.forEach(c => { drivers[c.key] = c.val(); }); 
                         showAvailableTaxis(); 
+                    });
+                    db.ref('cancellations').on('value', (s) => {
+                        cancellations = [];
+                        s.forEach(c => {
+                            const cancel = c.val();
+                            cancel.firebaseId = c.key;
+                            cancellations.push(cancel);
+                        });
+                        if (currentView === 'admin') updateAdminView();
                     });
                 } catch (e) { 
                     console.error('❌ Firebase Fehler:', e); 
@@ -455,6 +467,30 @@
             document.getElementById('a-revenue').textContent = revenue.toFixed(2) + '€';
             document.getElementById('a-pending').textContent = pending.length;
             document.getElementById('a-active').textContent = active.length;
+            
+            // Stornierungen anzeigen
+            if (cancellations.length === 0) {
+                document.getElementById('cancellations-list').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">Keine Stornierungen</div>';
+            } else {
+                const totalFees = cancellations.reduce((sum, c) => sum + parseFloat(c.cancellationFee || 0), 0);
+                document.getElementById('cancellations-list').innerHTML = 
+                    `<div style="background:#fef3c7;border:2px solid #f59e0b;padding:12px;border-radius:8px;margin-bottom:15px;text-align:center;">
+                        <strong>Gesamt Stornogebühren: ${totalFees.toFixed(2)}€</strong> (${cancellations.length} Stornierungen)
+                    </div>` +
+                    cancellations.slice().reverse().map(c => {
+                        const cancelDate = new Date(c.cancelledAt).toLocaleString('de-DE');
+                        return `<div class="ride-card" style="border-left:4px solid #f59e0b;">
+                            <strong>${c.customerName || 'Unbekannt'}</strong> 
+                            <span style="background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:12px;color:#92400e;font-weight:600;">💶 ${c.cancellationFee.toFixed(2)}€</span>
+                            <div style="margin-top:10px;font-size:14px;color:#666;">
+                                <strong>Von:</strong> ${c.pickup}<br>
+                                <strong>Nach:</strong> ${c.destination}<br>
+                                <strong>Original-Preis:</strong> ${c.originalPrice}€<br>
+                                <strong>Storniert:</strong> ${cancelDate}
+                            </div>
+                        </div>`;
+                    }).join('');
+            }
             
             if (rides.length === 0) {
                 document.getElementById('all-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Fahrten</div>';
@@ -867,6 +903,78 @@
                     showRideStatus(ride);
                 }
             });
+        }
+
+        async function cancelRideConfirm(rideId) {
+            const ride = myCurrentRide;
+            
+            let confirmMessage = '🗑️ Fahrt wirklich stornieren?\n\nDie Buchung wird gelöscht.';
+            let hasCancellationFee = false;
+            let cancellationFee = 0;
+            
+            // Stornogebühr wenn Fahrer schon unterwegs
+            if (ride && ride.status === 'accepted') {
+                if (ride.driverLocation) {
+                    // FAHRER IST UNTERWEGS - KOSTENPFLICHTIG!
+                    cancellationFee = 10.00; // 10€ Stornogebühr
+                    hasCancellationFee = true;
+                    
+                    confirmMessage = '⚠️ KOSTENPFLICHTIGE STORNIERUNG!\n\n' +
+                        ride.vehicle + ' ist bereits unterwegs zu dir!\n\n' +
+                        '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n' +
+                        '(Wird bei nächster Fahrt berechnet)\n\n' +
+                        'Trotzdem stornieren?\n\n' +
+                        '(Kostenlos stornieren: 038378 / 1234)';
+                } else {
+                    // Fahrer hat angenommen, aber noch nicht losgefahren
+                    confirmMessage = '⚠️ ACHTUNG!\n\n' +
+                        ride.vehicle + ' hat die Fahrt bereits angenommen!\n\n' +
+                        'Stornierung noch kostenlos möglich.\n\n' +
+                        'Trotzdem stornieren?';
+                }
+            }
+            
+            const confirmed = confirm(confirmMessage);
+            
+            if (!confirmed) return;
+            
+            // Stornogebühr speichern
+            if (hasCancellationFee) {
+                const cancellation = {
+                    rideId: ride.id,
+                    customerName: ride.customerName,
+                    pickup: ride.pickup,
+                    destination: ride.destination,
+                    originalPrice: ride.price,
+                    cancellationFee: cancellationFee,
+                    cancelledAt: Date.now(),
+                    reason: 'customer_cancelled_driver_on_way'
+                };
+                
+                // Speichere Stornierung in Firebase
+                if (isFirebaseReady) {
+                    await db.ref('cancellations').push(cancellation);
+                    console.log('💶 Stornogebühr gespeichert:', cancellationFee + '€');
+                }
+            }
+            
+            // Lösche Fahrt aus Firebase
+            if (isFirebaseReady && rideId) {
+                await db.ref('rides/' + rideId).remove();
+                console.log('🗑️ Fahrt aus Firebase gelöscht:', rideId);
+            }
+            
+            // Lokalen Status zurücksetzen
+            localStorage.removeItem('myCurrentRideId');
+            myCurrentRide = null;
+            document.getElementById('ride-status-container').innerHTML = '';
+            document.getElementById('booking-form').style.display = 'block';
+            
+            if (hasCancellationFee) {
+                alert('✅ Fahrt storniert!\n\n💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n\nWird bei deiner nächsten Fahrt berechnet.');
+            } else {
+                alert('✅ Fahrt storniert!');
+            }
         }
 
         function cancelRide() {
@@ -1298,7 +1406,7 @@
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="cancelRide()" style="margin-top:15px;padding:10px 20px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;">Neue Fahrt buchen</button>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
                     </div>
                 `;
             } else if (ride.status === 'accepted' && ride.driverLocation) {
@@ -1315,6 +1423,7 @@
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:10px 20px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:14px;">🗑️ Stornieren</button>
                     </div>
                 `;
             }
@@ -1369,6 +1478,7 @@
                         <strong>Nach:</strong> ${ride.destination}<br>
                         <strong>Preis:</strong> ${ride.price}€
                     </div>
+                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
                 </div>
                 <div id="map"></div>
             `;

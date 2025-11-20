@@ -71,6 +71,1710 @@
     </style>
 </head>
 <body>
-    <!-- BODY CONTENT TRUNCATED IN THIS SNIPPET FOR BREVITY -->
+    <div class="header">
+        <h1>🚕 Funk Taxi Heringsdorf</h1>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.4.3 - Stornogebühr 10€</p>
+        <div class="status-row">
+            <div class="status-item">
+                <div class="sync-dot" id="sync-dot"></div>
+                <span id="sync-status">💾 Lokal</span>
+            </div>
+            <div class="status-item" id="gps-indicator">
+                <div id="gps-dot"></div>
+                <span id="gps-status">Offline</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="view-selector">
+        <button class="view-btn active" onclick="switchView('passenger')">Fahrgast</button>
+        <button class="view-btn" onclick="switchView('history')">Verlauf</button>
+        <button class="view-btn" onclick="switchView('driver')">Fahrer</button>
+        <button class="view-btn" onclick="switchView('admin')">Admin</button>
+    </div>
+
+    <div id="passenger-view" class="view active">
+        <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
+        <div id="ride-status-container"></div>
+        <div id="booking-form">
+            <div class="input-group">
+                <label>📍 Abholort</label>
+                <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf">
+                <button onclick="useMyLocation()" style="margin-top:8px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">📍 Meinen Standort verwenden</button>
+                <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
+            </div>
+            <div id="available-taxis-display"></div>
+            <div class="input-group">
+                <label>👤 Ihr Name</label>
+                <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
+            </div>
+            <div class="input-group">
+                <label>🕐 Abholzeit</label>
+                <select id="pickup-time">
+                    <option value="jetzt">Sofort</option>
+                    <option value="15min">In 15 Minuten</option>
+                    <option value="30min">In 30 Minuten</option>
+                    <option value="1h">In 1 Stunde</option>
+                    <option value="custom">Bestimmte Uhrzeit...</option>
+                </select>
+                <input type="time" id="custom-time" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
+            </div>
+            <div class="input-group">
+                <label>🎯 Zielort</label>
+                <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck">
+                <div class="autocomplete-dropdown" id="destination-dropdown"></div>
+            </div>
+            <div class="input-group">
+                <label>👥 Personen</label>
+                <select id="passengers">
+                    <option value="1">1 Person</option>
+                    <option value="2">2 Personen</option>
+                    <option value="3">3 Personen</option>
+                    <option value="4">4 Personen</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="calculatePriceAndShow()">💰 Preis berechnen</button>
+            <div id="price-display" style="margin-top: 15px;"></div>
+            <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
+        </div>
+        <div id="confirm"></div>
+    </div>
+
+    <div id="history-view" class="view">
+        <h3 style="margin: 20px 0;">Meine Fahrten</h3>
+        <div id="history-list"></div>
+    </div>
+
+    <div id="driver-view" class="view">
+        <h3 style="margin: 20px 0;">Fahrer Dashboard</h3>
+        <div id="debug-panel" style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;">
+            <strong>🐛 Debug:</strong><br>
+            Firebase: <span id="debug-firebase" style="font-weight:bold;">❓</span><br>
+            Alle Fahrten: <span id="debug-rides" style="font-weight:bold;">❓</span><br>
+            Neue Fahrten: <span id="debug-new" style="font-weight:bold;">❓</span><br>
+            Sync: <span id="debug-sync" style="font-weight:bold;">❓</span>
+        </div>
+        <div class="online-toggle">
+            <div>
+                <strong id="online-status-text">Offline</strong><br>
+                <small>GPS-Tracking</small>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="online-toggle" onchange="toggleOnline()">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="input-group">
+            <label>🚗 Fahrzeug</label>
+            <select id="vehicle" onchange="setVehicle()">
+                <option value="">-- Wählen --</option>
+                <option value="tesla_model3_1">Tesla Model 3 #1 (PW-TX 111)</option>
+                <option value="tesla_model3_2">Tesla Model 3 #2 (PW-TX 222)</option>
+                <option value="tesla_model3_3">Tesla Model 3 #3 (PW-TX 333)</option>
+                <option value="tesla_modely_1">Tesla Model Y #1 (PW-MY 222)</option>
+                <option value="tesla_modely_2">Tesla Model Y #2 (PW-MY 333)</option>
+            </select>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div style="font-size: 28px;" id="d-rides">0</div><div>Fahrten</div></div>
+            <div class="stat-card"><div style="font-size: 28px;" id="d-money">0€</div><div>Verdienst</div></div>
+        </div>
+
+        <!-- DRIVER MAP -->
+        <div id="driver-route-info" style="display:none;">
+            <div class="route-info-box">
+                <h3 style="margin-bottom:10px;">📍 Navigation zum Fahrgast</h3>
+                <div class="route-stats">
+                    <div class="route-stat">
+                        <div class="route-stat-value" id="route-distance">-</div>
+                        <div class="route-stat-label">Kilometer</div>
+                    </div>
+                    <div class="route-stat">
+                        <div class="route-stat-value" id="route-duration">-</div>
+                        <div class="route-stat-label">Minuten</div>
+                    </div>
+                    <div class="route-stat">
+                        <div class="route-stat-value" id="route-eta">-</div>
+                        <div class="route-stat-label">Ankunft</div>
+                    </div>
+                </div>
+            </div>
+            <div id="driver-map"></div>
+        </div>
+
+        <div id="driver-current-ride"></div>
+        <h3>Neue Aufträge</h3>
+        <div id="new-rides"></div>
+    </div>
+
+    <div id="admin-view" class="view">
+        <h3 style="margin: 20px 0;">Dashboard</h3>
+        <button onclick="resetDatabase()" style="width:100%;padding:15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;margin-bottom:20px;cursor:pointer;font-size:15px;">
+            🗑️ Datenbank zurücksetzen (ALLE Fahrten löschen)
+        </button>
+        <div class="stats-grid">
+            <div class="stat-card"><div style="font-size: 28px;" id="a-total">0</div><div>Fahrten</div></div>
+            <div class="stat-card"><div style="font-size: 28px;" id="a-revenue">0€</div><div>Umsatz</div></div>
+            <div class="stat-card"><div style="font-size: 28px;" id="a-pending">0</div><div>Offen</div></div>
+            <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
+        </div>
+        <h3 style="margin-top:20px;">💶 Stornierungen (kostenpflichtig)</h3>
+        <div id="cancellations-list"></div>
+        <h3 style="margin-top:20px;">Alle Fahrten</h3>
+        <div id="all-rides"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let firebaseLoadTimeout, firebaseLoaded = false;
+        firebaseLoadTimeout = setTimeout(() => { 
+            if (!firebaseLoaded && typeof initApp === 'function') initApp(false); 
+        }, 5000);
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="if(typeof initApp === 'function') initApp(false);"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script>
+        // CONFIGURATION
+        const VEHICLES = {
+            'tesla_model3_1': { name: 'Tesla Model 3 #1', id: 'tesla_model3_1', plate: 'PW-TX 111' },
+            'tesla_model3_2': { name: 'Tesla Model 3 #2', id: 'tesla_model3_2', plate: 'PW-TX 222' },
+            'tesla_model3_3': { name: 'Tesla Model 3 #3', id: 'tesla_model3_3', plate: 'PW-TX 333' },
+            'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1', plate: 'PW-MY 222' },
+            'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2', plate: 'PW-MY 333' }
+        };
+        const TARIF = { grundgebuehr: 4.00, kmPreis: 2.20, nachtZuschlag: 0.20, sonntagZuschlag: 0.25, feiertagZuschlag: 0.50 };
+        const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
+
+        // Bekannte Koordinaten für wichtige Orte (Fallback)
+        const KNOWN_PLACES = {
+            'heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Heringsdorf' },
+            'bahnhof heringsdorf': { lat: 53.9533, lon: 14.1633, name: 'Bahnhof Heringsdorf' },
+            'ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Ahlbeck' },
+            'seebrücke ahlbeck': { lat: 53.9444, lon: 14.1933, name: 'Seebrücke Ahlbeck' },
+            'bansin': { lat: 53.9633, lon: 14.1433, name: 'Bansin' },
+            'seebrücke bansin': { lat: 53.9633, lon: 14.1433, name: 'Seebrücke Bansin' },
+            'zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Zinnowitz' },
+            'bahnhof zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Bahnhof Zinnowitz' },
+            'ückeritz': { lat: 53.9878, lon: 14.0519, name: 'Ückeritz' },
+            'loddin': { lat: 54.0083, lon: 13.9917, name: 'Loddin' },
+            'zempin': { lat: 54.0194, lon: 13.9611, name: 'Zempin' },
+            'koserow': { lat: 54.0681, lon: 13.9764, name: 'Koserow' },
+            'karlshagen': { lat: 54.1078, lon: 13.8333, name: 'Karlshagen' },
+            'peenemünde': { lat: 54.1422, lon: 13.7753, name: 'Peenemünde' },
+            'trassenheide': { lat: 54.0997, lon: 13.8875, name: 'Trassenheide' },
+            'usedom': { lat: 53.9533, lon: 14.1633, name: 'Usedom' },
+            'swinemünde': { lat: 53.9167, lon: 14.2500, name: 'Swinemünde' }
+        };
+
+        // STATE
+        let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
+        let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
+        let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
+        let wakeLock = null;
+        let cancellations = []; // Neue Variable für Stornierungen
+
+        console.log('🚀 Taxi App v3.4.3 gestartet');
+
+        // INIT
+        function initApp(hasFirebase) {
+            clearTimeout(firebaseLoadTimeout);
+            console.log('📱 App initialisiert');
+
+            if (hasFirebase && typeof firebase !== 'undefined') {
+                try {
+                    firebase.initializeApp({
+                        apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+                        authDomain: "taxi-heringsdorf.firebaseapp.com",
+                        databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+                        projectId: "taxi-heringsdorf",
+                        storageBucket: "taxi-heringsdorf.firebasestorage.app",
+                        messagingSenderId: "886448081276",
+                        appId: "1:886448081276:web:1b54875801c5d89f8efcf9"
+                    });
+                    db = firebase.database();
+                    isFirebaseReady = true;
+                    console.log('✅ Firebase verbunden');
+
+                    db.ref('.info/connected').on('value', (s) => { isConnected = s.val(); updateStatus(); });
+                    db.ref('rides').on('value', (s) => {
+                        const previousCount = rides.filter(r => r.status === 'new').length;
+                        rides = [];
+                        s.forEach(c => {
+                            const r = c.val();
+                            r.firebaseId = c.key;
+                            rides.push(r);
+                            if (myCurrentRide && r.id === myCurrentRide.id) {
+                                myCurrentRide = r;
+                                if (r.status === 'accepted' && r.driverLocation) showRideStatus(r);
+                                if (r.status === 'picked_up') showRideStatus(r);
+                                if (r.status === 'completed') showRideStatus(r);
+                            }
+                        });
+
+                        const currentCount = rides.filter(r => r.status === 'new').length;
+                        if (currentCount > previousCount && currentView === 'driver') {
+                            playDriverNotificationSound();
+                        }
+
+                        updateViews();
+                    });
+                    db.ref('drivers').on('value', (s) => { 
+                        drivers = {}; 
+                        s.forEach(c => { drivers[c.key] = c.val(); }); 
+                        showAvailableTaxis(); 
+                    });
+                    db.ref('cancellations').on('value', (s) => {
+                        cancellations = [];
+                        s.forEach(c => {
+                            const cancel = c.val();
+                            cancel.firebaseId = c.key;
+                            cancellations.push(cancel);
+                        });
+                        if (currentView === 'admin') updateAdminView();
+                    });
+                } catch (e) { 
+                    console.error('❌ Firebase Fehler:', e); 
+                }
+            } else {
+                console.log('⚠️ Firebase nicht verfügbar - Lokaler Modus');
+            }
+
+            updateStatus();
+            updateViews(); // WICHTIG: Views auch ohne Firebase laden!
+        }
+
+        function updateStatus() {
+            const dot = document.getElementById('sync-dot');
+            const status = document.getElementById('sync-status');
+            if (isFirebaseReady && isConnected) {
+                dot.classList.add('online');
+                status.textContent = '🟢 Live';
+            } else {
+                dot.classList.remove('online');
+                status.textContent = '💾 Lokal';
+            }
+        }
+
+        function switchView(view) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(view + '-view').classList.add('active');
+            event.target.classList.add('active');
+            currentView = view;
+
+            const gpsIndicator = document.getElementById('gps-indicator');
+            if (view === 'driver') gpsIndicator.style.display = 'flex';
+            else gpsIndicator.style.display = 'none';
+
+            if (view === 'history') loadHistory();
+
+            updateViews();
+        }
+
+        function updateViews() {
+            // Update Debug Panel
+            if (document.getElementById('debug-firebase')) {
+                document.getElementById('debug-firebase').textContent = isFirebaseReady ? (isConnected ? '✅ Verbunden' : '⚠️ Offline') : '❌ Fehler';
+                document.getElementById('debug-rides').textContent = rides.length;
+                document.getElementById('debug-new').textContent = rides.filter(r => r.status === 'new').length;
+                document.getElementById('debug-sync').textContent = new Date().toLocaleTimeString('de-DE');
+            }
+
+            if (currentView === 'driver') updateDriverView();
+            else if (currentView === 'admin') updateAdminView();
+        }
+
+        function updateDriverView() {
+            const newRides = rides.filter(r => r.status === 'new');
+            const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+            const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
+            const completed = myRides.filter(r => r.status === 'completed');
+
+            // Current ride
+            if (current) {
+                let buttonHtml = '';
+                if (current.status === 'accepted') {
+                    buttonHtml = `<button class="btn btn-success" onclick="pickupCustomer('${current.firebaseId}')" style="margin-top:10px;">🚕 Kunde abgeholt</button>`;
+                } else if (current.status === 'picked_up') {
+                    buttonHtml = `
+                        <div style="margin-top:10px;padding:12px;background:#fef3c7;border-radius:8px;text-align:center;font-weight:600;color:#92400e;">
+                            🚗 BESETZT - Fahrt läuft
+                        </div>
+                        <button class="btn btn-success" onclick="completeRide('${current.firebaseId}')" style="margin-top:10px;">✓ Fahrt abschließen</button>
+                    `;
+                }
+
+                document.getElementById('driver-current-ride').innerHTML = `
+                    <div class="alert-info">
+                        <strong>Aktuelle Fahrt #${current.id}</strong><br>
+                        ${current.customerName ? `<strong>👤 ${current.customerName}</strong><br>` : ''}
+                        Von: ${current.pickup}<br>
+                        Nach: ${current.destination}<br>
+                        Preis: ${current.price}€
+                        ${buttonHtml}
+                    </div>`;
+            } else {
+                document.getElementById('driver-current-ride').innerHTML = currentVehicle && isOnline ? '<div class="alert-info">🟢 Bereit für Aufträge</div>' : '';
+            }
+
+            // New rides
+            if (!currentVehicle) {
+                document.getElementById('new-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">⚠️ Bitte erst Fahrzeug wählen</div>';
+            } else if (newRides.length === 0) {
+                document.getElementById('new-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine neuen Aufträge</div>';
+            } else {
+                let ridesHtml = newRides.map(r => `
+                    <div class="ride-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <strong>#${r.id}</strong>
+                            <span style="background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:12px;">🆕 Neu</span>
+                        </div>
+                        ${r.customerName ? `
+                        <div style="margin-top:12px;padding:12px;background:#f0f9ff;border-radius:8px;border-left:4px solid #3b82f6;">
+                            <div style="font-size:16px;font-weight:600;color:#1e40af;margin-bottom:8px;">
+                                👤 ${r.customerName}
+                            </div>
+                            <div style="font-size:14px;color:#0369a1;">
+                                🕐 Abholung: <strong>${r.pickupTime || 'Sofort'}</strong>
+                            </div>
+                        </div>
+                        ` : ''}
+                        <div style="margin-top:10px;font-size:14px;">
+                            <strong>Von:</strong> ${r.pickup}<br>
+                            <strong>Nach:</strong> ${r.destination}<br>
+                            <strong>Distanz:</strong> ${r.distance} km • ${r.duration} Min<br>
+                            <strong>Preis:</strong> ${r.price}€<br>
+                            <small style="color:#666;">Bestellt: ${r.time}</small>
+                        </div>
+                        ${!current ? `<button class="btn btn-success" onclick="acceptRide('${r.firebaseId}')" style="margin-top:10px;">✓ Annehmen</button>` : '<div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:13px;text-align:center;">Schließe erst aktuelle Fahrt ab</div>'}
+                    </div>
+                `).join('');
+
+                if (!isOnline) {
+                    ridesHtml = '<div class="alert-info" style="margin-bottom:15px;">⚠️ Du bist <strong>Offline</strong>. Schalte auf Online um Aufträge anzunehmen.</div>' + ridesHtml;
+                }
+
+                document.getElementById('new-rides').innerHTML = ridesHtml;
+            }
+
+            // Stats
+            const revenue = completed.reduce((sum, r) => sum + parseFloat(r.price), 0);
+            document.getElementById('d-rides').textContent = completed.length;
+            document.getElementById('d-money').textContent = revenue.toFixed(2) + '€';
+        }
+
+        function updateAdminView() {
+            const completed = rides.filter(r => r.status === 'completed');
+            const pending = rides.filter(r => r.status === 'new');
+            const active = rides.filter(r => r.status === 'accepted' || r.status === 'picked_up');
+            const revenue = completed.reduce((sum, r) => sum + parseFloat(r.price), 0);
+
+            document.getElementById('a-total').textContent = completed.length;
+            document.getElementById('a-revenue').textContent = revenue.toFixed(2) + '€';
+            document.getElementById('a-pending').textContent = pending.length;
+            document.getElementById('a-active').textContent = active.length;
+
+            // Stornierungen anzeigen
+            if (cancellations.length === 0) {
+                document.getElementById('cancellations-list').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">Keine Stornierungen</div>';
+            } else {
+                const totalFees = cancellations.reduce((sum, c) => sum + parseFloat(c.cancellationFee || 0), 0);
+                document.getElementById('cancellations-list').innerHTML = 
+                    `<div style="background:#fef3c7;border:2px solid #f59e0b;padding:12px;border-radius:8px;margin-bottom:15px;text-align:center;">
+                        <strong>Gesamt Stornogebühren: ${totalFees.toFixed(2)}€</strong> (${cancellations.length} Stornierungen)
+                    </div>` +
+                    cancellations.slice().reverse().map(c => {
+                        const cancelDate = new Date(c.cancelledAt).toLocaleString('de-DE');
+                        return `<div class="ride-card" style="border-left:4px solid #f59e0b;">
+                            <strong>${c.customerName || 'Unbekannt'}</strong> 
+                            <span style="background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:12px;color:#92400e;font-weight:600;">💶 ${c.cancellationFee.toFixed(2)}€</span>
+                            <div style="margin-top:10px;font-size:14px;color:#666;">
+                                <strong>Von:</strong> ${c.pickup}<br>
+                                <strong>Nach:</strong> ${c.destination}<br>
+                                <strong>Original-Preis:</strong> ${c.originalPrice}€<br>
+                                <strong>Storniert:</strong> ${cancelDate}
+                            </div>
+                        </div>`;
+                    }).join('');
+            }
+
+            if (rides.length === 0) {
+                document.getElementById('all-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Fahrten</div>';
+            } else {
+                document.getElementById('all-rides').innerHTML = rides.slice().reverse().map(r => {
+                    let statusText = r.status;
+                    let statusColor = '#fef3c7';
+                    if (r.status === 'completed') { statusText = 'Abgeschlossen'; statusColor = '#d1fae5'; }
+                    else if (r.status === 'accepted') { statusText = 'Unterwegs'; statusColor = '#dbeafe'; }
+                    else if (r.status === 'picked_up') { statusText = 'Besetzt'; statusColor = '#fef3c7'; }
+                    else if (r.status === 'new') { statusText = 'Neu'; statusColor = '#fef3c7'; }
+
+                    return `<div class="ride-card">
+                        <strong>#${r.id}</strong> <span style="background:${statusColor};padding:4px 8px;border-radius:12px;font-size:12px;">${statusText}</span>
+                        <div style="margin-top:10px;font-size:14px;">
+                            Von: ${r.pickup}<br>
+                            Nach: ${r.destination}<br>
+                            ${r.distance} km<br>
+                            Preis: ${r.price}€
+                            ${r.vehicle ? '<br>Fahrzeug: '+r.vehicle : ''}
+                            ${r.vehiclePlate ? ' ('+r.vehiclePlate+')' : ''}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // DATABASE FUNCTIONS
+        async function saveRide(ride) {
+            if (isFirebaseReady) {
+                const ref = db.ref('rides').push();
+                ride.firebaseId = ref.key;
+                await ref.set(ride);
+            }
+            return ride;
+        }
+
+        async function updateRide(id, updates) {
+            if (isFirebaseReady) await db.ref('rides/' + id).update(updates);
+        }
+
+        // GEOCODING & ROUTING
+        async function geocode(address) {
+            // Zuerst in bekannten Orten suchen
+            const searchKey = address.toLowerCase().trim();
+            if (KNOWN_PLACES[searchKey]) {
+                console.log('✅ Ort aus Cache:', KNOWN_PLACES[searchKey].name);
+                return KNOWN_PLACES[searchKey];
+            }
+
+            // Dann via API suchen
+            try {
+                // Versuche zuerst mit Usedom, Deutschland
+                let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=1`);
+                let data = await response.json();
+
+                // Wenn nichts gefunden, versuche nur mit Deutschland
+                if (data.length === 0) {
+                    response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=1`);
+                    data = await response.json();
+                }
+
+                // Wenn immer noch nichts, versuche ohne Zusatz
+                if (data.length === 0) {
+                    response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+                    data = await response.json();
+                }
+
+                if (data.length > 0) {
+                    console.log('✅ Ort gefunden:', address, '→', data[0].display_name);
+                    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+                } else {
+                    console.warn('⚠️ Ort nicht gefunden:', address);
+                }
+            } catch (e) { 
+                console.error('❌ Geocoding Fehler:', e); 
+            }
+            return null;
+        }
+
+        async function calculateRoute(from, to) {
+            try {
+                const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=false`);
+                const data = await response.json();
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    return { distance: (route.distance / 1000).toFixed(1), duration: Math.round(route.duration / 60) };
+                }
+            } catch (e) { console.error(e); }
+            return { distance: 0, duration: 0 };
+        }
+
+        function calculatePrice(distance) {
+            const now = new Date(), hour = now.getHours(), day = now.getDay();
+            let base = TARIF.grundgebuehr + distance * TARIF.kmPreis, zuschlag = 0, text = [];
+            if (hour >= 22 || hour < 6) { zuschlag += base * TARIF.nachtZuschlag; text.push('Nacht +20%'); }
+            if (day === 0) { zuschlag += base * TARIF.sonntagZuschlag; text.push('Sonntag +25%'); }
+
+            const totalRaw = base + zuschlag;
+            const totalRounded = Math.round(totalRaw / 0.1) * 0.1; // Runde auf 10 Cent
+
+            return { total: totalRounded.toFixed(2), zuschlagText: text, distance };
+        }
+
+        // AUTOCOMPLETE
+        let autocompleteTimeout = null;
+        const AUTOCOMPLETE_CACHE = {};
+
+        function setupAutocomplete() {
+            ['pickup', 'destination'].forEach(id => {
+                const input = document.getElementById(id);
+                const dropdown = document.getElementById(id + '-dropdown');
+
+                input.addEventListener('input', (e) => {
+                    // Reset coords wenn User manuell tippt
+                    if (id === 'pickup') pickupCoords = null;
+                    else destCoords = null;
+
+                    clearTimeout(autocompleteTimeout);
+                    const value = e.target.value.trim();
+
+                    if (value.length < 3) {
+                        dropdown.style.display = 'none';
+                        return;
+                    }
+
+                    // Zeige "Lädt..." sofort
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Suche...</div>';
+                    dropdown.style.display = 'block';
+
+                    // Verzögerte Suche (Debounce)
+                    autocompleteTimeout = setTimeout(() => {
+                        searchAddresses(value, id);
+                    }, 300);
+                });
+
+                // Schließe Dropdown wenn außerhalb geklickt
+                document.addEventListener('click', (e) => {
+                    if (e.target !== input && !dropdown.contains(e.target)) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+            });
+
+            document.getElementById('pickup-time').addEventListener('change', (e) => {
+                const customTime = document.getElementById('custom-time');
+                if (e.target.value === 'custom') customTime.style.display = 'block';
+                else customTime.style.display = 'none';
+            });
+        }
+
+        async function searchAddresses(query, inputId) {
+            const dropdown = document.getElementById(inputId + '-dropdown');
+            const key = query.toLowerCase().trim();
+
+            // 1) Lokale Orte auf Usedom zuerst (schnell & offline-sicher)
+            const localMatches = Object.values(KNOWN_PLACES).filter(p => {
+                return (p.name || '').toLowerCase().includes(key);
+            });
+
+            if (localMatches.length > 0) {
+                dropdown.innerHTML = localMatches.map(p => {
+                    const safeName = (p.name || '').replace(/'/g, "\'");
+                    return `
+                        <div class="autocomplete-item"
+                             onclick="selectAddress('${inputId}', '${safeName}', ${p.lat}, ${p.lon})">
+                            ${p.name}
+                        </div>
+                    `;
+                }).join('');
+                dropdown.style.display = 'block';
+                return;
+            }
+
+            // 2) Cache benutzen, wenn schon gesucht
+            if (AUTOCOMPLETE_CACHE[key]) {
+                const cachedResults = AUTOCOMPLETE_CACHE[key];
+                dropdown.innerHTML = cachedResults.map(r => {
+                    const address = r.address || {};
+                    let displayText = '';
+
+                    if (address.road) {
+                        displayText = address.road;
+                        if (address.house_number) displayText += ' ' + address.house_number;
+                        displayText += ', ';
+                    }
+
+                    if (address.village) displayText += address.village;
+                    else if (address.town) displayText += address.town;
+                    else if (address.city) displayText += address.city;
+                    else if (address.municipality) displayText += address.municipality;
+
+                    if (!displayText) displayText = r.display_name;
+
+                    const safeText = displayText.replace(/'/g, "\'");
+                    return `
+                        <div class="autocomplete-item"
+                             onclick="selectAddress('${inputId}', '${safeText}', ${r.lat}, ${r.lon})">
+                            ${displayText}
+                        </div>
+                    `;
+                }).join('');
+                dropdown.style.display = 'block';
+                return;
+            }
+
+            // 3) Externe Suche mit Nominatim (fokussiert auf Usedom)
+            try {
+                const viewbox = [
+                    13.7, 54.2,  // links oben (lon, lat)
+                    14.5, 53.7   // rechts unten (lon, lat)
+                ].join(',');
+
+                const url = 
+                    'https://nominatim.openstreetmap.org/search?' +
+                    'format=json&' +
+                    'q=' + encodeURIComponent(query) + '&' +
+                    'countrycodes=de&' +
+                    'limit=8&' +
+                    'addressdetails=1&' +
+                    'viewbox=' + viewbox + '&' +
+                    'bounded=1';
+
+                const response = await fetch(url);
+                const results = await response.json();
+
+                if (!Array.isArray(results) || results.length === 0) {
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Keine Ergebnisse</div>';
+                    dropdown.style.display = 'block';
+                    return;
+                }
+
+                // 4) Usedom-nahe Ergebnisse bevorzugen
+                const usedomResults = results.filter(r => {
+                    const display = (r.display_name || '').toLowerCase();
+                    return display.includes('usedom') ||
+                           display.includes('heringsdorf') || 
+                           display.includes('ahlbeck') ||
+                           display.includes('bansin') ||
+                           display.includes('zinnowitz') ||
+                           display.includes('karlshagen') ||
+                           display.includes('peenemünde') ||
+                           display.includes('koserow') ||
+                           display.includes('ückeritz') ||
+                           display.includes('loddin') ||
+                           display.includes('zempin') ||
+                           display.includes('trassenheide');
+                });
+
+                const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
+
+                // In Cache ablegen
+                AUTOCOMPLETE_CACHE[key] = resultsToShow;
+
+                dropdown.innerHTML = resultsToShow.map(r => {
+                    const address = r.address || {};
+                    let displayText = '';
+
+                    if (address.road) {
+                        displayText = address.road;
+                        if (address.house_number) displayText += ' ' + address.house_number;
+                        displayText += ', ';
+                    }
+
+                    if (address.village) displayText += address.village;
+                    else if (address.town) displayText += address.town;
+                    else if (address.city) displayText += address.city;
+                    else if (address.municipality) displayText += address.municipality;
+
+                    if (!displayText) displayText = r.display_name;
+
+                    const safeText = displayText.replace(/'/g, "\'");
+                    return `
+                        <div class="autocomplete-item"
+                             onclick="selectAddress('${inputId}', '${safeText}', ${r.lat}, ${r.lon})">
+                            ${displayText}
+                        </div>
+                    `;
+                }).join('');
+                dropdown.style.display = 'block';
+
+            } catch (e) {
+                console.error('Autocomplete Fehler:', e);
+                dropdown.innerHTML = '<div class="autocomplete-item" style="color:#ef4444;">Fehler bei der Suche</div>';
+                dropdown.style.display = 'block';
+            }
+        }
+
+        function selectAddress(inputId, address, lat, lon) {
+            document.getElementById(inputId).value = address;
+            document.getElementById(inputId + '-dropdown').style.display = 'none';
+
+            // Speichere Koordinaten
+            if (inputId === 'pickup') {
+                pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                console.log('✅ Abholort gespeichert:', address, pickupCoords);
+                showAvailableTaxis();
+            } else {
+                destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                console.log('✅ Zielort gespeichert:', address, destCoords);
+            }
+        }
+
+        // LOCATION
+        function useMyLocation() {
+            if (!navigator.geolocation) {
+                alert('❌ GPS nicht verfügbar!');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    pickupCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pickupCoords.lat}&lon=${pickupCoords.lon}`);
+                        const data = await response.json();
+                        const address = data.address;
+                        const street = address.road || address.pedestrian || '';
+                        const houseNumber = address.house_number || '';
+                        const city = address.town || address.village || address.city || 'Heringsdorf';
+                        document.getElementById('pickup').value = `${street} ${houseNumber}, ${city}`.trim();
+                        showAvailableTaxis();
+                    } catch (e) {
+                        console.error(e);
+                        document.getElementById('pickup').value = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
+                    }
+                },
+                (err) => alert('❌ GPS-Fehler: ' + err.message)
+            );
+        }
+
+        async function showAvailableTaxis() {
+            if (!pickupCoords || !isFirebaseReady) return;
+
+            const onlineDrivers = Object.values(drivers).filter(d => d.online && d.timestamp && (Date.now() - d.timestamp) < 60000);
+
+            if (onlineDrivers.length === 0) {
+                document.getElementById('available-taxis-display').innerHTML = '<div class="alert-info">⏳ Momentan keine Taxis verfügbar</div>';
+                return;
+            }
+
+            const taxisWithETA = await Promise.all(onlineDrivers.map(async (d) => {
+                const route = await calculateRoute(d, pickupCoords);
+                return { ...d, ...route };
+            }));
+
+            taxisWithETA.sort((a, b) => a.distance - b.distance);
+
+            const html = `<div class="available-taxis"><h3>🚕 ${taxisWithETA.length} Taxis verfügbar</h3>` +
+                taxisWithETA.slice(0, 3).map(t => {
+                    const plate = VEHICLES[t.vehicleId] ? VEHICLES[t.vehicleId].plate : '';
+                    return `<div class="taxi-item"><strong>${t.vehicle}</strong>${plate ? `<br>🚗 ${plate}` : ''}<br>📍 ${t.distance} km entfernt (ca. ${t.duration} Min)</div>`;
+                }).join('') +
+                `<div style="margin-top:10px;padding:10px;background:#e0f2fe;border-radius:8px;text-align:center;"><strong>Nächstes Taxi in ca. ${taxisWithETA[0].duration} Minuten!</strong></div></div>`;
+            document.getElementById('available-taxis-display').innerHTML = html;
+        }
+
+        // BOOKING
+        async function calculatePriceAndShow() {
+            const pickup = document.getElementById('pickup').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+
+            if (!pickup || !destination) {
+                alert('❌ Bitte Abholort und Zielort eingeben!');
+                return;
+            }
+
+            // Wenn Coords noch nicht vorhanden (User hat nicht aus Autocomplete gewählt), geocode
+            if (!pickupCoords) {
+                pickupCoords = await geocode(pickup);
+                if (!pickupCoords) {
+                    alert('❌ Abholort "' + pickup + '" nicht gefunden!
+
+Tipp: Nutze die Autocomplete-Vorschläge');
+                    return;
+                }
+            }
+
+            if (!destCoords) {
+                destCoords = await geocode(destination);
+                if (!destCoords) {
+                    alert('❌ Zielort "' + destination + '" nicht gefunden!
+
+Tipp: Nutze die Autocomplete-Vorschläge');
+                    return;
+                }
+            }
+
+            const route = await calculateRoute(pickupCoords, destCoords);
+            const pricing = calculatePrice(parseFloat(route.distance));
+
+            window.currentPrice = pricing.total;
+            window.currentDistance = route.distance;
+            window.currentDuration = route.duration;
+
+            let priceHtml = `<div style="background:white;padding:15px;border-radius:8px;border:2px solid #10b981;">
+                <div style="font-size:32px;font-weight:bold;color:#10b981;text-align:center;">${pricing.total}€</div>
+                <div style="text-align:center;margin-top:8px;color:#666;">
+                    ${route.distance} km • ${route.duration} Min Fahrt
+                </div>`;
+
+            if (pricing.zuschlagText.length > 0) {
+                priceHtml += `<div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:13px;text-align:center;">
+                    ${pricing.zuschlagText.join(' • ')}
+                </div>`;
+            }
+
+            priceHtml += '</div>';
+
+            document.getElementById('price-display').innerHTML = priceHtml;
+            document.getElementById('book-btn').style.display = 'block';
+        }
+
+        async function book() {
+            const customerName = document.getElementById('customer-name').value.trim();
+            const pickupTimeSelect = document.getElementById('pickup-time').value;
+            const customTime = document.getElementById('custom-time').value;
+
+            if (!customerName) {
+                alert('❌ Bitte Name eingeben!');
+                return;
+            }
+
+            let pickupTime = 'Sofort';
+            let pickupTimestamp = Date.now();
+            const now = new Date();
+
+            if (pickupTimeSelect === '15min') {
+                pickupTime = new Date(now.getTime() + 15 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                pickupTimestamp = now.getTime() + 15 * 60000;
+            } else if (pickupTimeSelect === '30min') {
+                pickupTime = new Date(now.getTime() + 30 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                pickupTimestamp = now.getTime() + 30 * 60000;
+            } else if (pickupTimeSelect === '1h') {
+                pickupTime = new Date(now.getTime() + 60 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                pickupTimestamp = now.getTime() + 60 * 60000;
+            } else if (pickupTimeSelect === 'custom' && customTime) {
+                pickupTime = customTime;
+                const [hours, minutes] = customTime.split(':');
+                const customDate = new Date();
+                customDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                pickupTimestamp = customDate.getTime();
+            }
+
+            const ride = {
+                id: Date.now(),
+                customerName,
+                pickupTime,
+                pickupTimestamp,
+                pickup: document.getElementById('pickup').value,
+                destination: document.getElementById('destination').value,
+                passengers: document.getElementById('passengers').value,
+                price: window.currentPrice,
+                distance: window.currentDistance,
+                duration: window.currentDuration,
+                pickupCoords, destCoords,
+                status: 'new',
+                time: new Date().toLocaleString('de-DE'),
+                createdAt: Date.now()
+            };
+
+            const savedRide = await saveRide(ride);
+            myCurrentRide = savedRide;
+            localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
+
+            document.getElementById('booking-form').style.display = 'none';
+            document.getElementById('confirm').innerHTML = `<div class="alert-success"><strong>✓ Buchung erfolgreich!</strong><br>Kunde: <strong>${customerName}</strong><br>Abholung: <strong>${pickupTime}</strong><br>Preis: <strong>${ride.price}€</strong></div>`;
+            showRideStatus(savedRide);
+
+            if (isFirebaseReady) listenToMyRide(savedRide.firebaseId);
+
+            setTimeout(() => document.getElementById('confirm').innerHTML = '', 5000);
+        }
+
+        function listenToMyRide(rideId) {
+            if (!isFirebaseReady) return;
+            db.ref('rides/' + rideId).on('value', (s) => {
+                const ride = s.val();
+                if (ride) {
+                    ride.firebaseId = rideId;
+                    myCurrentRide = ride;
+                    showRideStatus(ride);
+                }
+            });
+        }
+
+        async function cancelRideConfirm(rideId) {
+            const ride = myCurrentRide;
+
+            let confirmMessage = '🗑️ Fahrt wirklich stornieren?
+
+Die Buchung wird gelöscht.';
+            let hasCancellationFee = false;
+            let cancellationFee = 0;
+
+            // Stornogebühr wenn Fahrer schon unterwegs
+            if (ride && ride.status === 'accepted') {
+                if (ride.driverLocation) {
+                    // FAHRER IST UNTERWEGS - KOSTENPFLICHTIG!
+                    cancellationFee = 10.00; // 10€ Stornogebühr
+                    hasCancellationFee = true;
+
+                    confirmMessage = '⚠️ KOSTENPFLICHTIGE STORNIERUNG!
+
+' +
+                        ride.vehicle + ' ist bereits unterwegs zu dir!
+
+' +
+                        '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€
+' +
+                        '(Wird bei nächster Fahrt berechnet)
+
+' +
+                        'Trotzdem stornieren?
+
+' +
+                        '(Kostenlos stornieren: 038378 / 1234)';
+                } else {
+                    // Fahrer hat angenommen, aber noch nicht losgefahren
+                    confirmMessage = '⚠️ ACHTUNG!
+
+' +
+                        ride.vehicle + ' hat die Fahrt bereits angenommen!
+
+' +
+                        'Stornierung noch kostenlos möglich.
+
+' +
+                        'Trotzdem stornieren?';
+                }
+            }
+
+            const confirmed = confirm(confirmMessage);
+
+            if (!confirmed) return;
+
+            // Stornogebühr speichern
+            if (hasCancellationFee) {
+                const cancellation = {
+                    rideId: ride.id,
+                    customerName: ride.customerName,
+                    pickup: ride.pickup,
+                    destination: ride.destination,
+                    originalPrice: ride.price,
+                    cancellationFee: cancellationFee,
+                    cancelledAt: Date.now(),
+                    reason: 'customer_cancelled_driver_on_way'
+                };
+
+                // Speichere Stornierung in Firebase
+                if (isFirebaseReady) {
+                    await db.ref('cancellations').push(cancellation);
+                    console.log('💶 Stornogebühr gespeichert:', cancellationFee + '€');
+                }
+            }
+
+            // Lösche Fahrt aus Firebase
+            if (isFirebaseReady && rideId) {
+                await db.ref('rides/' + rideId).remove();
+                console.log('🗑️ Fahrt aus Firebase gelöscht:', rideId);
+            }
+
+            // Lokalen Status zurücksetzen
+            localStorage.removeItem('myCurrentRideId');
+            myCurrentRide = null;
+            document.getElementById('ride-status-container').innerHTML = '';
+            document.getElementById('booking-form').style.display = 'block';
+
+            if (hasCancellationFee) {
+                alert('✅ Fahrt storniert!
+
+💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€
+
+Wird bei deiner nächsten Fahrt berechnet.');
+            } else {
+                alert('✅ Fahrt storniert!');
+            }
+        }
+
+        function cancelRide() {
+            localStorage.removeItem('myCurrentRideId');
+            myCurrentRide = null;
+            document.getElementById('ride-status-container').innerHTML = '';
+            document.getElementById('booking-form').style.display = 'block';
+        }
+
+        // DRIVER FUNCTIONS
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('✅ Screen Wake Lock aktiviert');
+                    wakeLock.addEventListener('release', () => console.log('⚠️ Wake Lock freigegeben'));
+                }
+            } catch (err) {
+                console.error('Wake Lock Fehler:', err);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release();
+                wakeLock = null;
+            }
+        }
+
+        function toggleOnline() {
+            isOnline = document.getElementById('online-toggle').checked;
+            document.getElementById('online-status-text').textContent = isOnline ? 'Online' : 'Offline';
+            document.getElementById('online-status-text').style.color = isOnline ? '#10b981' : '#666';
+
+            const gpsIndicator = document.getElementById('gps-indicator');
+            const gpsDot = document.getElementById('gps-dot');
+            const gpsStatus = document.getElementById('gps-status');
+
+            if (isOnline) {
+                gpsIndicator.style.display = 'flex';
+                gpsDot.style.background = '#10b981';
+                gpsDot.classList.add('online');
+                gpsStatus.textContent = 'Online';
+                requestWakeLock();
+            } else {
+                gpsDot.style.background = '#6b7280';
+                gpsDot.classList.remove('online');
+                gpsStatus.textContent = 'Offline';
+                releaseWakeLock();
+            }
+
+            if (isOnline && currentVehicle) startDriverTracking(null);
+            else stopDriverTracking();
+        }
+
+        function setVehicle() {
+            const vehicleId = document.getElementById('vehicle').value;
+            currentVehicle = vehicleId;
+            console.log('🚗 Fahrzeug gewählt:', currentVehicle);
+            if (currentVehicle && isOnline) startDriverTracking(null);
+            updateViews();
+        }
+
+        function loadSavedVehicle() {
+            const dropdown = document.getElementById('vehicle');
+            if (dropdown && dropdown.value) {
+                currentVehicle = dropdown.value;
+                console.log('🔄 Gespeichertes Fahrzeug geladen:', currentVehicle);
+                updateViews();
+            }
+        }
+
+        function startDriverTracking(rideId) {
+            // Wenn schon läuft, ignoriere
+            if (watchId) {
+                console.log('⚠️ GPS läuft bereits - watchId:', watchId);
+                return;
+            }
+
+            console.log('🚀 Starte GPS-Tracking' + (rideId ? ' für Fahrt: ' + rideId : ''));
+
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const location = { 
+                        lat: pos.coords.latitude, 
+                        lon: pos.coords.longitude, 
+                        timestamp: Date.now(), 
+                        vehicleId: currentVehicle,
+                        vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle,
+                        online: isOnline 
+                    };
+
+                    console.log('📍 GPS:', location.lat.toFixed(4), location.lon.toFixed(4));
+
+                    if (!isFirebaseReady) {
+                        console.error('❌ Firebase nicht bereit!');
+                        return;
+                    }
+
+                    // Immer in drivers/ speichern
+                    db.ref('drivers/' + currentVehicle).set(location).then(() => {
+                        console.log('✅ GPS → drivers/' + currentVehicle);
+                    });
+
+                    // Wenn rideId vorhanden, auch in Fahrt speichern
+                    if (rideId) {
+                        db.ref('rides/' + rideId + '/driverLocation').set(location).then(() => {
+                            console.log('✅ GPS → rides/' + rideId + '/driverLocation');
+                        });
+                    }
+                },
+                (err) => {
+                    console.error('❌ GPS Fehler:', err.message);
+                    alert('❌ GPS Fehler: ' + err.message + '
+
+Bitte Standort-Berechtigung erteilen!');
+                },
+                { 
+                    enableHighAccuracy: true, 
+                    maximumAge: 0, 
+                    timeout: 30000 
+                }
+            );
+
+            console.log('🎯 GPS watchId:', watchId);
+        }
+
+        function stopDriverTracking() {
+            if (watchId) { 
+                navigator.geolocation.clearWatch(watchId); 
+                watchId = null; 
+                console.log('🛑 GPS gestoppt');
+            }
+            if (isFirebaseReady && currentVehicle) {
+                db.ref('drivers/' + currentVehicle).remove();
+                console.log('🗑️ GPS aus drivers/ entfernt');
+            }
+        }
+
+        async function acceptRide(rideId) {
+            if (!currentVehicle) {
+                alert('❌ Bitte Fahrzeug wählen!');
+                return;
+            }
+
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+
+            // Zeitwarnung
+            if (ride.pickupTimestamp && ride.pickupTimestamp > Date.now()) {
+                const minutesUntilPickup = Math.round((ride.pickupTimestamp - Date.now()) / 60000);
+                const pickupTimeStr = ride.pickupTime || 'später';
+
+                const confirm = window.confirm(
+                    `⚠️ ACHTUNG!
+
+` +
+                    `Abholung erst um ${pickupTimeStr}
+` +
+                    `Das ist in ${minutesUntilPickup} Minuten!
+
+` +
+                    `Trotzdem jetzt annehmen und losfahren?`
+                );
+
+                if (!confirm) return;
+            }
+
+            // Auto-Online wenn offline
+            if (!isOnline) {
+                document.getElementById('online-toggle').checked = true;
+                toggleOnline();
+            }
+
+            const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+            const vehiclePlate = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].plate : '';
+
+            console.log('📝 Akzeptiere Fahrt:', rideId);
+
+            // Update Fahrt in Firebase
+            await updateRide(rideId, { 
+                status: 'accepted', 
+                vehicleId: currentVehicle,
+                vehicle: vehicleName,
+                vehiclePlate: vehiclePlate,
+                driver: vehicleName,
+                acceptedAt: Date.now()
+            });
+
+            // GPS komplett neu starten mit rideId
+            if (watchId) {
+                console.log('🛑 Stoppe altes GPS');
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            setTimeout(() => {
+                startDriverTracking(rideId);
+                initDriverMap(ride);  // Karte initialisieren
+            }, 100);
+
+            alert('✅ Auftrag angenommen! GPS läuft...');
+        }
+
+        async function pickupCustomer(rideId) {
+            await updateRide(rideId, { 
+                status: 'picked_up',
+                pickedUpAt: Date.now() 
+            });
+            alert('✅ Kunde eingestiegen! Status: Besetzt');
+        }
+
+        async function completeRide(rideId) {
+            await updateRide(rideId, { 
+                status: 'completed', 
+                driverLocation: null,
+                completedAt: Date.now()
+            });
+
+            // Schließe Karte
+            closeDriverMap();
+
+            if (etaUpdateInterval) { 
+                clearInterval(etaUpdateInterval); 
+                etaUpdateInterval = null; 
+            }
+
+            console.log('✅ Fahrt abgeschlossen');
+
+            // WICHTIG: Erst komplett stoppen
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                console.log('🛑 GPS gestoppt');
+            }
+
+            // Dann neu starten wenn noch Online
+            if (isOnline && currentVehicle) {
+                console.log('🔄 Starte GPS neu (ohne rideId)');
+                // Kurz warten damit clearWatch durchläuft
+                setTimeout(() => {
+                    startDriverTracking(null);
+                }, 100);
+            }
+
+            alert('✅ Fahrt abgeschlossen! Sie sind wieder verfügbar.');
+        }
+
+        function resetDatabase() {
+            if (!confirm('⚠️ WIRKLICH alle Fahrten löschen?')) return;
+            if (!confirm('⚠️ LETZTE WARNUNG! Dies kann nicht rückgängig gemacht werden!')) return;
+            if (isFirebaseReady) {
+                db.ref('rides').remove();
+                alert('✅ Datenbank zurückgesetzt!');
+            }
+        }
+
+        // SOUNDS
+        function playDriverNotificationSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const beeps = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75];
+
+                beeps.forEach((time) => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    oscillator.frequency.value = 1400;
+                    oscillator.type = 'square';
+
+                    gainNode.gain.setValueAtTime(0.8, audioContext.currentTime + time);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + 0.15);
+
+                    oscillator.start(audioContext.currentTime + time);
+                    oscillator.stop(audioContext.currentTime + time + 0.15);
+                });
+            } catch (e) {
+                console.error('Sound Fehler:', e);
+            }
+        }
+
+        function playArrivalSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const beeps = [0, 0.15, 0.3];
+
+                beeps.forEach((time) => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    oscillator.frequency.value = 800;
+                    oscillator.type = 'sine';
+
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + time);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + 0.1);
+
+                    oscillator.start(audioContext.currentTime + time);
+                    oscillator.stop(audioContext.currentTime + time + 0.1);
+                });
+            } catch (e) {
+                console.error('Sound Fehler:', e);
+            }
+        }
+
+        // HISTORY
+        function saveToHistory(ride) {
+            try {
+                let history = JSON.parse(localStorage.getItem('ride-history') || '[]');
+
+                if (!history.find(r => r.id === ride.id)) {
+                    history.unshift({
+                        id: ride.id,
+                        customerName: ride.customerName,
+                        pickup: ride.pickup,
+                        destination: ride.destination,
+                        vehicle: ride.vehicle,
+                        price: ride.price,
+                        distance: ride.distance,
+                        time: ride.time,
+                        completedAt: new Date().toLocaleString('de-DE')
+                    });
+
+                    if (history.length > 50) history = history.slice(0, 50);
+                    localStorage.setItem('ride-history', JSON.stringify(history));
+                }
+            } catch (e) {
+                console.error('Fehler beim Speichern der Historie:', e);
+            }
+        }
+
+        function closeRide() {
+            localStorage.removeItem('myCurrentRideId');
+            myCurrentRide = null;
+            document.getElementById('ride-status-container').innerHTML = '';
+            document.getElementById('booking-form').style.display = 'block';
+            document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt wurde in Ihrem Verlauf gespeichert</div>';
+            setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
+        }
+
+        function loadHistory() {
+            try {
+                const history = JSON.parse(localStorage.getItem('ride-history') || '[]');
+                const container = document.getElementById('history-list');
+
+                if (history.length === 0) {
+                    container.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#999;">Noch keine Fahrten</div>';
+                    return;
+                }
+
+                container.innerHTML = history.map(r => `
+                    <div class="ride-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <strong style="color:#667eea;">#${r.id}</strong>
+                            <span style="background:#d1fae5;padding:4px 8px;border-radius:12px;font-size:12px;color:#065f46;">Abgeschlossen</span>
+                        </div>
+                        ${r.customerName ? `<div style="font-size:15px;font-weight:600;margin-bottom:8px;">👤 ${r.customerName}</div>` : ''}
+                        <div style="font-size:14px;color:#666;line-height:1.8;">
+                            <strong>Von:</strong> ${r.pickup}<br>
+                            <strong>Nach:</strong> ${r.destination}<br>
+                            <strong>Fahrzeug:</strong> ${r.vehicle || 'Taxi'}<br>
+                            <strong>Distanz:</strong> ${r.distance} km<br>
+                            <strong>Preis:</strong> ${r.price}€<br>
+                            <small style="opacity:0.7;">Abgeschlossen: ${r.completedAt || r.time}</small>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Fehler beim Laden der Historie:', e);
+            }
+        }
+
+        // RIDE STATUS & TRACKING
+        function showRideStatus(ride) {
+            const container = document.getElementById('ride-status-container');
+
+            if (ride.status === 'completed') {
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#d1fae5;border:2px solid #10b981;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                        <h3>Fahrt abgeschlossen!</h3>
+                        <p style="margin-top: 10px;">Vielen Dank für Ihre Fahrt</p>
+                        <div style="margin-top: 15px; font-size: 14px; color: #065f46;">
+                            <strong>Fahrzeug:</strong> ${ride.vehicle || 'Taxi'}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''}<br>
+                            <strong>Von:</strong> ${ride.pickup}<br>
+                            <strong>Nach:</strong> ${ride.destination}<br>
+                            <strong>Preis:</strong> ${ride.price}€
+                        </div>
+                        <button onclick="closeRide()" class="btn btn-primary" style="margin-top:20px;">✓ Schließen</button>
+                    </div>
+                `;
+                saveToHistory(ride);
+                return;
+            }
+
+            if (ride.status === 'picked_up') {
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#dcfce7;border:2px solid #10b981;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">🚗</div>
+                        <h3>Gute Fahrt!</h3>
+                        <p style="margin-top: 10px; font-size: 16px; color: #047857;">
+                            ${ride.vehicle || 'Ihr Taxi'}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''} fährt Sie zu Ihrem Ziel
+                        </p>
+                        <div style="margin-top: 15px; font-size: 14px; color: #065f46;">
+                            <strong>Von:</strong> ${ride.pickup}<br>
+                            <strong>Nach:</strong> ${ride.destination}<br>
+                            <strong>Distanz:</strong> ${ride.distance} km<br>
+                            <strong>Preis:</strong> ${ride.price}€
+                        </div>
+                    </div>
+                `;
+
+                if (!window.lastPickedUpRide || window.lastPickedUpRide !== ride.id) {
+                    playArrivalSound();
+                    window.lastPickedUpRide = ride.id;
+                }
+                return;
+            }
+
+            if (ride.status === 'new') {
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#fef3c7;border:2px solid #f59e0b;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">⏳</div>
+                        <h3>Warte auf Fahrer...</h3>
+                        <p style="margin-top: 10px;">Deine Fahrt wird zugewiesen</p>
+                        <div style="margin-top: 15px; font-size: 14px; color: #92400e;">
+                            <strong>Von:</strong> ${ride.pickup}<br>
+                            <strong>Nach:</strong> ${ride.destination}<br>
+                            <strong>Preis:</strong> ${ride.price}€
+                        </div>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
+                    </div>
+                `;
+            } else if (ride.status === 'accepted' && ride.driverLocation) {
+                updateRideTracking(ride);
+            } else if (ride.status === 'accepted' && !ride.driverLocation) {
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#dbeafe;border:2px solid #3b82f6;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                        <h3>${ride.vehicle || 'Fahrer'} hat angenommen!</h3>
+                        <p style="margin-top: 10px;">Warte auf GPS-Position...</p>
+                        <div style="margin-top: 15px; font-size: 14px;">
+                            <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}<br>
+                            <strong>Von:</strong> ${ride.pickup}<br>
+                            <strong>Nach:</strong> ${ride.destination}<br>
+                            <strong>Preis:</strong> ${ride.price}€
+                        </div>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:10px 20px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:14px;">🗑️ Stornieren</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function updateRideTracking(ride) {
+            const driverLoc = ride.driverLocation;
+            const route = await calculateRoute(driverLoc, ride.pickupCoords);
+            const distanceKm = route.distance;
+            const durationMin = route.duration;
+
+            const eta = new Date(Date.now() + durationMin * 60000);
+            const etaTime = eta.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+            let statusIcon = '🚕', statusText = ride.vehicle + ' ist unterwegs', statusClass = 'status-coming';
+            let etaClass = 'green', progressColor = '#10b981', progress = 80;
+
+            if (durationMin <= 2) {
+                statusIcon = '🎯';
+                statusText = ride.vehicle + ' ist gleich da!';
+                etaClass = 'green';
+                progress = 95;
+                if (lastSoundDistance > 2) {
+                    playArrivalSound();
+                    lastSoundDistance = durationMin;
+                }
+            } else if (durationMin <= 5) {
+                etaClass = 'yellow';
+                progressColor = '#f59e0b';
+                progress = 60;
+            } else {
+                etaClass = 'red';
+                progressColor = '#ef4444';
+                progress = 30;
+            }
+
+            const container = document.getElementById('ride-status-container');
+            container.innerHTML = `
+                <div class="ride-status-box ${statusClass}">
+                    <div style="font-size: 48px; margin-bottom: 10px;">${statusIcon}</div>
+                    <h3>${statusText}</h3>
+                    <div class="eta-display ${etaClass}">${distanceKm} km • ${durationMin} Min</div>
+                    <div style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">
+                        Ankunft ca. ${etaTime} Uhr
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progress}%; background: ${progressColor};"></div>
+                    </div>
+                    <div style="margin-top: 15px; font-size: 14px;">
+                        <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''}<br>
+                        <strong>Von:</strong> ${ride.pickup}<br>
+                        <strong>Nach:</strong> ${ride.destination}<br>
+                        <strong>Preis:</strong> ${ride.price}€
+                    </div>
+                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
+                </div>
+                <div id="map"></div>
+            `;
+
+            if (!map) {
+                setTimeout(() => {
+                    map = L.map('map').setView([driverLoc.lat, driverLoc.lon], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                    taxiMarker = L.marker([driverLoc.lat, driverLoc.lon]).addTo(map).bindPopup('🚕 ' + ride.vehicle);
+                    pickupMarker = L.marker([ride.pickupCoords.lat, ride.pickupCoords.lon]).addTo(map).bindPopup('📍 Abholort');
+                    map.fitBounds([[driverLoc.lat, driverLoc.lon], [ride.pickupCoords.lat, ride.pickupCoords.lon]]);
+                }, 100);
+            } else {
+                if (taxiMarker) taxiMarker.setLatLng([driverLoc.lat, driverLoc.lon]);
+                map.setView([driverLoc.lat, driverLoc.lon], map.getZoom());
+            }
+        }
+
+        // DRIVER MAP FUNCTIONS
+        let driverMap = null;
+        let driverMarker = null;
+        let customerMarker = null;
+        let routeLine = null;
+        let driverMapUpdateInterval = null;
+
+        function initDriverMap(ride) {
+            console.log('🗺️ Initialisiere Fahrer-Karte für Fahrt:', ride.id);
+
+            // Zeige Karten-Container
+            document.getElementById('driver-route-info').style.display = 'block';
+
+            // Initialisiere Karte
+            if (!driverMap) {
+                setTimeout(() => {
+                    const pickupCoords = ride.pickupCoords;
+                    driverMap = L.map('driver-map').setView([pickupCoords.lat, pickupCoords.lon], 13);
+
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(driverMap);
+
+                    // Kunden-Marker (rot)
+                    const customerIcon = L.divIcon({
+                        html: '<div style="background:#ef4444;color:white;padding:8px 12px;border-radius:20px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.3);">📍 ' + ride.customerName + '</div>',
+                        className: '',
+                        iconSize: [120, 40]
+                    });
+                    customerMarker = L.marker([pickupCoords.lat, pickupCoords.lon], { icon: customerIcon }).addTo(driverMap);
+
+                    // Fahrer-Marker (blau) - wird später gesetzt
+                    const driverIcon = L.divIcon({
+                        html: '<div style="background:#667eea;color:white;padding:8px 12px;border-radius:20px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🚕 Du</div>',
+                        className: '',
+                        iconSize: [100, 40]
+                    });
+
+                    // Warte auf erste GPS-Position
+                    const checkGPS = setInterval(() => {
+                        const driver = drivers[currentVehicle];
+                        if (driver && driver.lat && driver.lon) {
+                            console.log('✅ GPS-Position erhalten:', driver.lat, driver.lon);
+                            driverMarker = L.marker([driver.lat, driver.lon], { icon: driverIcon }).addTo(driverMap);
+
+                            // Zeige beide Marker
+                            driverMap.fitBounds([
+                                [driver.lat, driver.lon],
+                                [pickupCoords.lat, pickupCoords.lon]
+                            ], { padding: [50, 50] });
+
+                            // Starte Updates
+                            updateDriverRoute(ride);
+                            clearInterval(checkGPS);
+                        }
+                    }, 500);
+
+                    // Timeout nach 10 Sekunden
+                    setTimeout(() => clearInterval(checkGPS), 10000);
+                }, 200);
+            }
+
+            // Update Route alle 5 Sekunden
+            driverMapUpdateInterval = setInterval(() => {
+                updateDriverRoute(ride);
+            }, 5000);
+        }
+
+        async function updateDriverRoute(ride) {
+            const driver = drivers[currentVehicle];
+            if (!driver || !driver.lat || !driver.lon || !driverMap) return;
+
+            const pickupCoords = ride.pickupCoords;
+
+            // Update Fahrer-Position
+            if (driverMarker) {
+                driverMarker.setLatLng([driver.lat, driver.lon]);
+            }
+
+            // Berechne Route
+            const route = await calculateRoute(
+                { lat: driver.lat, lon: driver.lon },
+                { lat: pickupCoords.lat, lon: pickupCoords.lon }
+            );
+
+            // Update Info-Box
+            document.getElementById('route-distance').textContent = route.distance;
+            document.getElementById('route-duration').textContent = route.duration;
+
+            const eta = new Date(Date.now() + route.duration * 60000);
+            document.getElementById('route-eta').textContent = eta.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+            // Hole detaillierte Route für Linie
+            try {
+                const response = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/${driver.lon},${driver.lat};${pickupCoords.lon},${pickupCoords.lat}?overview=full&geometries=geojson`
+                );
+                const data = await response.json();
+
+                if (data.routes && data.routes.length > 0) {
+                    const coords = data.routes[0].geometry.coordinates;
+                    const latLngs = coords.map(c => [c[1], c[0]]);  // [lon,lat] → [lat,lon]
+
+                    // Entferne alte Linie
+                    if (routeLine) {
+                        driverMap.removeLayer(routeLine);
+                    }
+
+                    // Zeichne neue Route
+                    routeLine = L.polyline(latLngs, {
+                        color: '#667eea',
+                        weight: 5,
+                        opacity: 0.8
+                    }).addTo(driverMap);
+
+                    console.log('✅ Route gezeichnet:', route.distance, 'km,', route.duration, 'min');
+                }
+            } catch (e) {
+                console.error('❌ Route-Fehler:', e);
+            }
+        }
+
+        function closeDriverMap() {
+            console.log('🗺️ Schließe Fahrer-Karte');
+
+            // Stoppe Updates
+            if (driverMapUpdateInterval) {
+                clearInterval(driverMapUpdateInterval);
+                driverMapUpdateInterval = null;
+            }
+
+            // Entferne Karte
+            if (driverMap) {
+                driverMap.remove();
+                driverMap = null;
+                driverMarker = null;
+                customerMarker = null;
+                routeLine = null;
+            }
+
+            // Verstecke Container
+            document.getElementById('driver-route-info').style.display = 'none';
+        }
+
+        // EVENT LISTENERS
+        window.addEventListener('DOMContentLoaded', () => {
+            setupAutocomplete();
+
+            setTimeout(() => { 
+                if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true); 
+                else initApp(false); 
+
+                const savedRideId = localStorage.getItem('myCurrentRideId');
+                if (savedRideId && isFirebaseReady) {
+                    console.log('🔄 Lade gespeicherte Fahrt:', savedRideId);
+                    listenToMyRide(savedRideId);
+                }
+
+                loadSavedVehicle();
+            }, 100);
+
+            setInterval(() => { 
+                if (pickupCoords) showAvailableTaxis(); 
+                if (myCurrentRide && myCurrentRide.status === 'accepted') showRideStatus(myCurrentRide);
+            }, 30000);
+
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && isOnline && wakeLock === null) {
+                    requestWakeLock();
+                }
+            });
+        });
+    </script>
 </body>
 </html>

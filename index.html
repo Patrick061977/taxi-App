@@ -238,6 +238,7 @@
         };
         const TARIF = { grundgebuehr: 4.00, kmPreis: 2.20, nachtZuschlag: 0.20, sonntagZuschlag: 0.25, feiertagZuschlag: 0.50 };
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
+        const BOOKING_DRAFT_KEY = 'taxi_booking_draft';
         
         // Bekannte Koordinaten für wichtige Orte (Fallback)
         const KNOWN_PLACES = {
@@ -724,6 +725,8 @@
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 console.log('✅ Zielort gespeichert:', address, destCoords);
             }
+
+            saveBookingDraft();
         }
 
         // LOCATION
@@ -745,6 +748,7 @@
                         const city = address.town || address.village || address.city || 'Heringsdorf';
                         document.getElementById('pickup').value = `${street} ${houseNumber}, ${city}`.trim();
                         showAvailableTaxis();
+                        saveBookingDraft();
                     } catch (e) {
                         console.error(e);
                         document.getElementById('pickup').value = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
@@ -784,11 +788,13 @@
         async function calculatePriceAndShow() {
             const pickup = document.getElementById('pickup').value.trim();
             const destination = document.getElementById('destination').value.trim();
-            
+
             if (!pickup || !destination) {
                 alert('❌ Bitte Abholort und Zielort eingeben!');
                 return;
             }
+
+            saveBookingDraft();
             
             // Wenn Coords noch nicht vorhanden (User hat nicht aus Autocomplete gewählt), geocode
             if (!pickupCoords) {
@@ -836,6 +842,8 @@
             const customerName = document.getElementById('customer-name').value.trim();
             const pickupTimeSelect = document.getElementById('pickup-time').value;
             const customTime = document.getElementById('custom-time').value;
+
+            saveBookingDraft();
             
             if (!customerName) {
                 alert('❌ Bitte Name eingeben!');
@@ -883,14 +891,65 @@
             const savedRide = await saveRide(ride);
             myCurrentRide = savedRide;
             localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
+            clearBookingDraft();
             
             document.getElementById('booking-form').style.display = 'none';
             document.getElementById('confirm').innerHTML = `<div class="alert-success"><strong>✓ Buchung erfolgreich!</strong><br>Kunde: <strong>${customerName}</strong><br>Abholung: <strong>${pickupTime}</strong><br>Preis: <strong>${ride.price}€</strong></div>`;
             showRideStatus(savedRide);
             
             if (isFirebaseReady) listenToMyRide(savedRide.firebaseId);
-            
+
             setTimeout(() => document.getElementById('confirm').innerHTML = '', 5000);
+        }
+
+        function saveBookingDraft() {
+            const draft = {
+                pickup: document.getElementById('pickup').value,
+                destination: document.getElementById('destination').value,
+                customerName: document.getElementById('customer-name').value,
+                pickupTime: document.getElementById('pickup-time').value,
+                customTime: document.getElementById('custom-time').value,
+                passengers: document.getElementById('passengers').value,
+                pickupCoords,
+                destCoords
+            };
+
+            try {
+                localStorage.setItem(BOOKING_DRAFT_KEY, JSON.stringify(draft));
+            } catch (e) {
+                console.warn('Konnte Entwurf nicht speichern', e);
+            }
+        }
+
+        function loadBookingDraft() {
+            const saved = localStorage.getItem(BOOKING_DRAFT_KEY);
+            if (!saved) return;
+
+            try {
+                const draft = JSON.parse(saved);
+                if (draft.pickup) document.getElementById('pickup').value = draft.pickup;
+                if (draft.destination) document.getElementById('destination').value = draft.destination;
+                if (draft.customerName) document.getElementById('customer-name').value = draft.customerName;
+                if (draft.pickupTime) document.getElementById('pickup-time').value = draft.pickupTime;
+                if (draft.customTime) document.getElementById('custom-time').value = draft.customTime;
+                if (draft.passengers) document.getElementById('passengers').value = draft.passengers;
+
+                if (draft.pickupTime === 'custom') {
+                    document.getElementById('custom-time').style.display = 'block';
+                }
+
+                if (draft.pickupCoords) pickupCoords = draft.pickupCoords;
+                if (draft.destCoords) destCoords = draft.destCoords;
+
+                console.log('📝 Buchungsentwurf geladen');
+            } catch (e) {
+                console.warn('Entwurf ungültig, entferne...', e);
+                localStorage.removeItem(BOOKING_DRAFT_KEY);
+            }
+        }
+
+        function clearBookingDraft() {
+            localStorage.removeItem(BOOKING_DRAFT_KEY);
         }
 
         function listenToMyRide(rideId) {
@@ -1646,10 +1705,19 @@
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
             setupAutocomplete();
-            
-            setTimeout(() => { 
-                if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true); 
-                else initApp(false); 
+            loadBookingDraft();
+
+            ['pickup', 'destination', 'customer-name', 'pickup-time', 'custom-time', 'passengers'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const handler = () => saveBookingDraft();
+                el.addEventListener('input', handler);
+                el.addEventListener('change', handler);
+            });
+
+            setTimeout(() => {
+                if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true);
+                else initApp(false);
                 
                 const savedRideId = localStorage.getItem('myCurrentRideId');
                 if (savedRideId && isFirebaseReady) {

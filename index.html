@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Taxi HGW">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
     <title>Funk Taxi Heringsdorf</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -67,7 +73,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.5.1 - GPS & Wake Lock Fix</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.6.0 - Auto-Zuweisung & Push</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -89,6 +95,17 @@
 
     <div id="passenger-view" class="view active">
         <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
+        
+        <!-- 🌟 STAMMKUNDEN-SCHNELLBUCHUNG -->
+        <div id="regular-customer-box" style="display:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:15px;border-radius:12px;margin-bottom:15px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <strong style="font-size:16px;">⭐ Willkommen zurück!</strong>
+                <button onclick="clearRegularCustomer()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">❌ Löschen</button>
+            </div>
+            <div id="regular-customer-info" style="font-size:14px;margin-bottom:10px;"></div>
+            <button onclick="useRegularCustomerData()" style="background:white;color:#667eea;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">⚡ Schnellbuchung starten</button>
+        </div>
+        
         <div id="ride-status-container"></div>
         <div id="booking-form">
             <div class="input-group">
@@ -101,6 +118,12 @@
             <div class="input-group">
                 <label>👤 Ihr Name</label>
                 <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
+                <div style="margin-top:8px;">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
+                        <input type="checkbox" id="save-customer" style="width:auto;">
+                        <span>💾 Als Stammkunde speichern (schnellere Buchung nächstes Mal)</span>
+                    </label>
+                </div>
             </div>
             <div class="input-group">
                 <label>🕐 Abholzeit</label>
@@ -266,8 +289,211 @@
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
         let cancellations = []; // Neue Variable für Stornierungen
+        
+        // 🆕 AUTO-ZUWEISUNG & PUSH
+        let assignmentTimers = {}; // Timer für 30-Sek-Countdown
+        let notificationPermission = null;
+        let serviceWorkerRegistration = null;
+        let pushSubscription = null;
+        let regularCustomer = null; // Stammkunden-Daten
 
-        console.log('🚀 Taxi App v3.1 gestartet');
+        console.log('🚀 Taxi App v3.6.0 gestartet');
+        
+        // 🌟 STAMMKUNDEN-FUNKTIONEN
+        function loadRegularCustomer() {
+            const saved = localStorage.getItem('regularCustomer');
+            if (saved) {
+                regularCustomer = JSON.parse(saved);
+                showRegularCustomerBox();
+            }
+        }
+        
+        function showRegularCustomerBox() {
+            if (!regularCustomer) return;
+            
+            const box = document.getElementById('regular-customer-box');
+            const info = document.getElementById('regular-customer-info');
+            
+            info.innerHTML = `
+                👤 <strong>${regularCustomer.name}</strong><br>
+                📍 Häufig: ${regularCustomer.favoritePickup || 'Noch keine Fahrten'}<br>
+                🚕 ${regularCustomer.rideCount || 0} Fahrten bisher
+            `;
+            
+            box.style.display = 'block';
+        }
+        
+        function useRegularCustomerData() {
+            if (!regularCustomer) return;
+            
+            document.getElementById('customer-name').value = regularCustomer.name;
+            if (regularCustomer.favoritePickup) {
+                document.getElementById('pickup').value = regularCustomer.favoritePickup;
+            }
+            if (regularCustomer.favoriteDestination) {
+                document.getElementById('destination').value = regularCustomer.favoriteDestination;
+            }
+            
+            alert('✅ Deine Daten wurden eingefügt!\n\nÜberprüfe die Adresse und buche dann dein Taxi.');
+        }
+        
+        function clearRegularCustomer() {
+            if (confirm('⚠️ Stammkundendaten löschen?\n\nDu musst beim nächsten Mal alles neu eingeben.')) {
+                localStorage.removeItem('regularCustomer');
+                regularCustomer = null;
+                document.getElementById('regular-customer-box').style.display = 'none';
+                alert('✅ Stammkundendaten gelöscht');
+            }
+        }
+        
+        function saveRegularCustomerData(name, pickup, destination) {
+            const saveCheckbox = document.getElementById('save-customer');
+            if (!saveCheckbox || !saveCheckbox.checked) return;
+            
+            // Lade bestehende Daten oder erstelle neu
+            let customer = regularCustomer || { name: name, rideCount: 0 };
+            
+            // Update
+            customer.name = name;
+            customer.favoritePickup = pickup;
+            customer.favoriteDestination = destination;
+            customer.rideCount = (customer.rideCount || 0) + 1;
+            customer.lastRide = Date.now();
+            
+            // Speichern
+            localStorage.setItem('regularCustomer', JSON.stringify(customer));
+            regularCustomer = customer;
+            
+            console.log('💾 Stammkunde gespeichert:', customer);
+        }
+
+        console.log('🚀 Taxi App v3.6.0 gestartet');
+
+        // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
+        async function initServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    serviceWorkerRegistration = await navigator.serviceWorker.register('/service-worker.js');
+                    console.log('✅ Service Worker registriert:', serviceWorkerRegistration);
+                    
+                    // Warte bis Service Worker aktiv ist
+                    await navigator.serviceWorker.ready;
+                    console.log('✅ Service Worker bereit');
+                    
+                    // Push-Benachrichtigungen aktivieren
+                    await initPushNotifications();
+                } catch (err) {
+                    console.error('❌ Service Worker Fehler:', err);
+                }
+            } else {
+                console.warn('⚠️ Service Worker nicht unterstützt');
+            }
+        }
+
+        async function initPushNotifications() {
+            if (!('Notification' in window)) {
+                console.warn('⚠️ Benachrichtigungen nicht unterstützt');
+                return;
+            }
+            
+            notificationPermission = Notification.permission;
+            console.log('🔔 Notification Permission:', notificationPermission);
+            
+            if (notificationPermission === 'default') {
+                // Zeige Info-Banner
+                showNotificationPrompt();
+            } else if (notificationPermission === 'granted') {
+                console.log('✅ Benachrichtigungen bereits erlaubt');
+            }
+        }
+
+        function showNotificationPrompt() {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;top:95px;left:0;right:0;background:#667eea;color:white;padding:15px;text-align:center;z-index:999;box-shadow:0 2px 10px rgba(0,0,0,0.2);';
+            banner.innerHTML = `
+                <div style="margin-bottom:10px;">
+                    <strong>🔔 Benachrichtigungen aktivieren?</strong><br>
+                    <span style="font-size:13px;">Erhalte sofort Infos über neue Buchungen</span>
+                </div>
+                <button onclick="requestNotificationPermission()" style="background:white;color:#667eea;border:none;padding:10px 20px;border-radius:6px;font-weight:600;cursor:pointer;margin-right:10px;">✓ Aktivieren</button>
+                <button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:10px 20px;border-radius:6px;font-weight:600;cursor:pointer;">Später</button>
+            `;
+            document.body.appendChild(banner);
+        }
+
+        async function requestNotificationPermission() {
+            try {
+                notificationPermission = await Notification.requestPermission();
+                console.log('🔔 Notification Permission:', notificationPermission);
+                
+                if (notificationPermission === 'granted') {
+                    alert('✅ Benachrichtigungen aktiviert!\n\nDu erhältst jetzt Push-Benachrichtigungen für neue Fahrten.');
+                    document.querySelectorAll('div').forEach(el => {
+                        if (el.textContent.includes('Benachrichtigungen aktivieren')) {
+                            el.remove();
+                        }
+                    });
+                } else {
+                    alert('⚠️ Benachrichtigungen wurden blockiert.\n\nAktiviere sie in den Browser-Einstellungen.');
+                }
+            } catch (err) {
+                console.error('❌ Notification Permission Fehler:', err);
+            }
+        }
+
+        // Lokale Benachrichtigung anzeigen
+        function sendLocalNotification(title, body, data = {}) {
+            if (notificationPermission !== 'granted') {
+                console.warn('⚠️ Keine Berechtigung für Benachrichtigungen');
+                // Fallback: Sound abspielen
+                playNotificationSound();
+                return;
+            }
+            
+            // Wenn Service Worker verfügbar, nutze diesen
+            if (serviceWorkerRegistration) {
+                serviceWorkerRegistration.showNotification(title, {
+                    body: body,
+                    icon: '/icon-192.png',
+                    badge: '/icon-192.png',
+                    vibrate: [200, 100, 200, 100, 200],
+                    tag: 'taxi-ride-' + (data.rideId || Date.now()),
+                    requireInteraction: true,
+                    data: data,
+                    actions: [
+                        { action: 'view', title: '👀 Anzeigen' },
+                        { action: 'close', title: '❌ Schließen' }
+                    ]
+                });
+            } else {
+                // Fallback: Browser Notification API
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: '/icon-192.png',
+                    vibrate: [200, 100, 200, 100, 200],
+                    tag: 'taxi-ride-' + (data.rideId || Date.now()),
+                    requireInteraction: true
+                });
+                
+                notification.onclick = () => {
+                    window.focus();
+                    notification.close();
+                };
+            }
+            
+            // Sound abspielen
+            playNotificationSound();
+        }
+
+        function playNotificationSound() {
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+');
+                audio.volume = 0.5;
+                audio.play().catch(e => console.log('🔇 Audio blockiert'));
+            } catch (e) {
+                console.log('🔇 Audio nicht verfügbar');
+            }
+        }
 
         // INIT
         function initApp(hasFirebase) {
@@ -335,6 +561,9 @@
             
             updateStatus();
             updateViews(); // WICHTIG: Views auch ohne Firebase laden!
+            
+            // 🔔 SERVICE WORKER & PUSH initialisieren
+            initServiceWorker();
         }
 
         function updateStatus() {
@@ -346,6 +575,67 @@
             } else {
                 dot.classList.remove('online');
                 status.textContent = '💾 Lokal';
+            }
+        }
+
+        // 🔔 SERVICE WORKER & PUSH BENACHRICHTIGUNGEN
+        async function initServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    serviceWorkerRegistration = await navigator.serviceWorker.register('/service-worker.js');
+                    console.log('✅ Service Worker registriert:', serviceWorkerRegistration.scope);
+                    
+                    // Push-Berechtigung anfragen (nur beim ersten Mal oder wenn abgelehnt)
+                    if ('Notification' in window) {
+                        notificationPermission = await Notification.requestPermission();
+                        console.log('🔔 Notification Permission:', notificationPermission);
+                        
+                        if (notificationPermission === 'granted') {
+                            console.log('✅ Push-Benachrichtigungen erlaubt!');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Service Worker Fehler:', error);
+                }
+            } else {
+                console.warn('⚠️ Service Worker nicht unterstützt');
+            }
+        }
+
+        // Push-Benachrichtigung senden (lokal)
+        function sendLocalNotification(title, body, data = {}) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                if (serviceWorkerRegistration) {
+                    serviceWorkerRegistration.showNotification(title, {
+                        body: body,
+                        icon: '/icon-192.png',
+                        badge: '/badge-72.png',
+                        vibrate: [200, 100, 200, 100, 200],
+                        tag: 'taxi-' + (data.rideId || 'notification'),
+                        requireInteraction: true,
+                        data: data,
+                        actions: [
+                            { action: 'accept', title: '✓ Annehmen' },
+                            { action: 'dismiss', title: '✕ Ablehnen' }
+                        ]
+                    });
+                    
+                    // Sound abspielen
+                    playNotificationSound();
+                }
+            } else {
+                console.warn('⚠️ Notifications nicht verfügbar oder nicht erlaubt');
+            }
+        }
+
+        // Sound für Benachrichtigungen
+        function playNotificationSound() {
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ==');
+                audio.volume = 1.0;
+                audio.play().catch(e => console.log('🔇 Audio play blocked'));
+            } catch (e) {
+                console.log('🔇 Audio not supported');
             }
         }
 
@@ -425,11 +715,28 @@
             } else if (newRides.length === 0) {
                 document.getElementById('new-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine neuen Aufträge</div>';
             } else {
-                let ridesHtml = newRides.map(r => `
-                    <div class="ride-card">
+                let ridesHtml = newRides.map(r => {
+                    // 🎯 Check ob Fahrt diesem Fahrer zugewiesen ist
+                    const isAssignedToMe = r.assignedTo === currentVehicle;
+                    const timeLeft = r.assignmentExpiresAt ? Math.max(0, Math.ceil((r.assignmentExpiresAt - Date.now()) / 1000)) : null;
+                    
+                    let assignmentBadge = '';
+                    let cardStyle = '';
+                    
+                    if (isAssignedToMe && timeLeft > 0) {
+                        assignmentBadge = `<span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:bold;animation:pulse 1s infinite;">⏰ DIR ZUGEWIESEN - ${timeLeft}s</span>`;
+                        cardStyle = 'border:3px solid #ef4444;background:#fef2f2;';
+                    } else if (r.assignedTo && r.assignedTo !== currentVehicle) {
+                        assignmentBadge = `<span style="background:#94a3b8;padding:4px 8px;border-radius:12px;font-size:12px;">👤 Zugewiesen: ${r.assignedVehicleName || r.assignedTo}</span>`;
+                    } else {
+                        assignmentBadge = '<span style="background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:12px;">🆕 Neu</span>';
+                    }
+                    
+                    return `
+                    <div class="ride-card" style="${cardStyle}">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <strong>#${r.id}</strong>
-                            <span style="background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:12px;">🆕 Neu</span>
+                            ${assignmentBadge}
                         </div>
                         ${r.customerName ? `
                         <div style="margin-top:12px;padding:12px;background:#f0f9ff;border-radius:8px;border-left:4px solid #3b82f6;">
@@ -445,12 +752,14 @@
                             <strong>Von:</strong> ${r.pickup}<br>
                             <strong>Nach:</strong> ${r.destination}<br>
                             <strong>Distanz:</strong> ${r.distance} km • ${r.duration} Min<br>
-                            <strong>Preis:</strong> ${r.price}€<br>
+                            <strong>Preis:</strong> ${r.price}€
+                            ${r.assignmentDistance ? `<br><strong>📍 Du bist:</strong> ${r.assignmentDistance.toFixed(1)} km entfernt` : ''}<br>
                             <small style="color:#666;">Bestellt: ${r.time}</small>
                         </div>
                         ${!current ? `<button class="btn btn-success" onclick="acceptRide('${r.firebaseId}')" style="margin-top:10px;">✓ Annehmen</button>` : '<div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:13px;text-align:center;">Schließe erst aktuelle Fahrt ab</div>'}
                     </div>
-                `).join('');
+                    `;
+                }).join('');
                 
                 if (!isOnline) {
                     ridesHtml = '<div class="alert-info" style="margin-bottom:15px;">⚠️ Du bist <strong>Offline</strong>. Schalte auf Online um Aufträge anzunehmen.</div>' + ridesHtml;
@@ -840,6 +1149,118 @@
             document.getElementById('book-btn').style.display = 'block';
         }
 
+        // 🎯 INTELLIGENTE AUTO-ZUWEISUNG MIT 30-SEK-TIMER
+        async function startAutoAssignment(rideId, ride) {
+            console.log('🎯 Starte Auto-Zuweisung für Fahrt:', rideId);
+            
+            // Finde nächstes verfügbares Taxi
+            const nearestVehicle = findNearestAvailableVehicle(ride.pickupCoords);
+            
+            if (!nearestVehicle) {
+                console.log('⚠️ Kein Taxi verfügbar - Fahrt bleibt in Warteschlange');
+                return;
+            }
+            
+            console.log('✅ Nächstes Taxi gefunden:', nearestVehicle.id, 'Entfernung:', nearestVehicle.distance.toFixed(2), 'km');
+            
+            // Markiere Fahrt als zugewiesen
+            await db.ref('rides/' + rideId).update({
+                assignedTo: nearestVehicle.id,
+                assignedVehicleName: nearestVehicle.name,
+                assignedAt: Date.now(),
+                assignmentExpiresAt: Date.now() + 30000, // 30 Sekunden
+                assignmentDistance: nearestVehicle.distance
+            });
+            
+            // Push-Benachrichtigung an Fahrer
+            sendLocalNotification(
+                '🚕 NEUE FAHRT!',
+                `${ride.customerName || 'Fahrgast'} • ${ride.pickup} → ${ride.destination}\n💰 ${ride.price}€ • ⏱️ 30 Sekunden Zeit!`,
+                { rideId: rideId, vehicleId: nearestVehicle.id }
+            );
+            
+            // Starte 30-Sekunden-Timer
+            assignmentTimers[rideId] = setTimeout(async () => {
+                // Prüfe ob Fahrt in 30 Sek. angenommen wurde
+                const rideCheck = await db.ref('rides/' + rideId).once('value');
+                const rideData = rideCheck.val();
+                
+                if (rideData && rideData.status === 'new') {
+                    console.log('⏰ TIMEOUT! Fahrt nicht angenommen - weise nächstem Taxi zu');
+                    
+                    // Zur Blacklist hinzufügen (für diese Fahrt)
+                    const blacklist = rideData.assignmentBlacklist || [];
+                    blacklist.push(nearestVehicle.id);
+                    
+                    await db.ref('rides/' + rideId).update({
+                        assignedTo: null,
+                        assignmentBlacklist: blacklist,
+                        lastAssignmentTimeout: Date.now()
+                    });
+                    
+                    // Nächstes Taxi zuweisen
+                    startAutoAssignment(rideId, rideData);
+                }
+            }, 30000);
+        }
+
+        // Finde nächstes verfügbares Taxi nach GPS-Entfernung
+        function findNearestAvailableVehicle(pickupCoords) {
+            const availableVehicles = [];
+            
+            // Durchsuche alle Online-Fahrer
+            for (const vehicleId in drivers) {
+                const driver = drivers[vehicleId];
+                
+                // Prüfungen:
+                // 1. Fahrer ist online
+                // 2. Hat GPS-Position
+                // 3. Hat keine aktive Fahrt
+                if (driver && driver.online && driver.lat && driver.lon) {
+                    // Prüfe ob Fahrzeug bereits eine Fahrt hat
+                    const hasActiveRide = rides.some(r => 
+                        (r.vehicleId === vehicleId || r.assignedTo === vehicleId) && 
+                        (r.status === 'accepted' || r.status === 'picked_up')
+                    );
+                    
+                    if (!hasActiveRide) {
+                        // Berechne Entfernung
+                        const distance = calculateDistance(
+                            pickupCoords.lat, pickupCoords.lon,
+                            driver.lat, driver.lon
+                        );
+                        
+                        availableVehicles.push({
+                            id: vehicleId,
+                            name: driver.vehicle || VEHICLES[vehicleId]?.name || vehicleId,
+                            distance: distance,
+                            lat: driver.lat,
+                            lon: driver.lon
+                        });
+                    }
+                }
+            }
+            
+            // Sortiere nach Entfernung (nächstes zuerst)
+            availableVehicles.sort((a, b) => a.distance - b.distance);
+            
+            console.log('📍 Verfügbare Taxis:', availableVehicles.length, availableVehicles);
+            
+            return availableVehicles.length > 0 ? availableVehicles[0] : null;
+        }
+
+        // Haversine-Formel für Entfernungsberechnung
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Erdradius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
         async function book() {
             const customerName = document.getElementById('customer-name').value.trim();
             const pickupTimeSelect = document.getElementById('pickup-time').value;
@@ -891,6 +1312,14 @@
             const savedRide = await saveRide(ride);
             myCurrentRide = savedRide;
             localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
+            
+            // 💾 Stammkunde speichern wenn gewünscht
+            saveRegularCustomerData(customerName, ride.pickup, ride.destination);
+            
+            // 🎯 AUTO-ZUWEISUNG starten
+            if (isFirebaseReady && savedRide.firebaseId) {
+                startAutoAssignment(savedRide.firebaseId, savedRide);
+            }
             
             document.getElementById('booking-form').style.display = 'none';
             document.getElementById('confirm').innerHTML = `<div class="alert-success"><strong>✓ Buchung erfolgreich!</strong><br>Kunde: <strong>${customerName}</strong><br>Abholung: <strong>${pickupTime}</strong><br>Preis: <strong>${ride.price}€</strong></div>`;
@@ -1253,6 +1682,13 @@
             
             console.log('📝 Akzeptiere Fahrt:', rideId);
             
+            // 🛑 Stoppe Assignment-Timer
+            if (assignmentTimers[rideId]) {
+                clearTimeout(assignmentTimers[rideId]);
+                delete assignmentTimers[rideId];
+                console.log('⏰ Assignment-Timer gestoppt');
+            }
+            
             // Update Fahrt in Firebase
             await updateRide(rideId, { 
                 status: 'accepted', 
@@ -1260,7 +1696,9 @@
                 vehicle: vehicleName,
                 vehiclePlate: vehiclePlate,
                 driver: vehicleName,
-                acceptedAt: Date.now()
+                acceptedAt: Date.now(),
+                assignedTo: null, // Zurücksetzen
+                assignmentExpiresAt: null
             });
             
             // GPS komplett neu starten mit rideId
@@ -1750,6 +2188,12 @@
         window.addEventListener('DOMContentLoaded', () => {
             setupAutocomplete();
             
+            // 🔔 Service Worker & Push Notifications initialisieren
+            initServiceWorker();
+            
+            // 🌟 Stammkunden-Daten laden
+            loadRegularCustomer();
+            
             setTimeout(() => { 
                 if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true); 
                 else initApp(false); 
@@ -1773,6 +2217,13 @@
                     requestWakeLock();
                 }
             }, 30000);
+            
+            // 🎯 Live-Update für Assignment-Countdown (jede Sekunde)
+            setInterval(() => {
+                if (currentView === 'driver') {
+                    updateViews(); // Aktualisiert Countdown-Timer
+                }
+            }, 1000);
             
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden && isOnline && wakeLock === null) {

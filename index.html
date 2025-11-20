@@ -67,7 +67,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.5.0 - Fahrer-Storno-Info</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.5.1 - GPS & Wake Lock Fix</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -1002,12 +1002,43 @@
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
+                    // Wenn bereits aktiv, nicht neu anfordern
+                    if (wakeLock !== null) {
+                        console.log('✅ Wake Lock bereits aktiv');
+                        return;
+                    }
+                    
                     wakeLock = await navigator.wakeLock.request('screen');
                     console.log('✅ Screen Wake Lock aktiviert');
-                    wakeLock.addEventListener('release', () => console.log('⚠️ Wake Lock freigegeben'));
+                    
+                    wakeLock.addEventListener('release', () => {
+                        console.log('⚠️ Wake Lock freigegeben - versuche Reaktivierung in 1 Sek');
+                        wakeLock = null;
+                        
+                        // Automatisch neu aktivieren wenn noch online
+                        if (isOnline) {
+                            setTimeout(() => {
+                                if (wakeLock === null && isOnline) {
+                                    requestWakeLock();
+                                }
+                            }, 1000);
+                        }
+                    });
+                } else {
+                    console.warn('⚠️ Wake Lock API nicht verfügbar');
                 }
             } catch (err) {
-                console.error('Wake Lock Fehler:', err);
+                console.error('❌ Wake Lock Fehler:', err);
+                wakeLock = null;
+                
+                // Bei Fehler in 5 Sekunden nochmal versuchen
+                if (isOnline) {
+                    setTimeout(() => {
+                        if (wakeLock === null && isOnline) {
+                            requestWakeLock();
+                        }
+                    }, 5000);
+                }
             }
         }
 
@@ -1052,6 +1083,16 @@
                     driverNotifiedAt: Date.now()
                 });
                 console.log('✅ Fahrer als benachrichtigt markiert');
+            }
+            
+            // 🔧 WICHTIG: GPS und Wake Lock neu aktivieren!
+            console.log('🔄 Reaktiviere GPS und Wake Lock...');
+            if (isOnline && currentVehicle) {
+                requestWakeLock();
+                // GPS läuft schon, nur sicherstellen dass es aktiv ist
+                if (!watchId) {
+                    startDriverTracking(null);
+                }
             }
             
             // Nach 5 Sekunden automatisch zu "completed" verschieben für Archivierung
@@ -1725,6 +1766,12 @@
             setInterval(() => { 
                 if (pickupCoords) showAvailableTaxis(); 
                 if (myCurrentRide && myCurrentRide.status === 'accepted') showRideStatus(myCurrentRide);
+                
+                // 🔧 Wake Lock alle 30 Sek. prüfen und neu aktivieren
+                if (isOnline && wakeLock === null) {
+                    console.log('🔄 Wake Lock reaktivieren...');
+                    requestWakeLock();
+                }
             }, 30000);
             
             document.addEventListener('visibilitychange', () => {

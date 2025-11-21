@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.7 - Bugfix: Null-Check 🐛</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.8 - Cache-Button 🧹</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -207,6 +207,16 @@
         </div>
         
         <div id="history-list"></div>
+        
+        <!-- 🧹 Cache-Button für alle -->
+        <div style="margin-top:30px;padding:15px;background:#f0f9ff;border-radius:8px;text-align:center;">
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">
+                ⚠️ Probleme mit der App? Alte Version wird angezeigt?
+            </p>
+            <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                🧹 Cache leeren & App neu laden
+            </button>
+        </div>
     </div>
 
     <div id="driver-view" class="view">
@@ -273,9 +283,16 @@
 
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
-        <button onclick="resetDatabase()" style="width:100%;padding:15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;margin-bottom:20px;cursor:pointer;font-size:15px;">
-            🗑️ Datenbank zurücksetzen (ALLE Fahrten löschen)
-        </button>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+            <button onclick="clearAppCache()" style="padding:15px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                🧹 Cache leeren
+            </button>
+            <button onclick="resetDatabase()" style="padding:15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                🗑️ Datenbank löschen
+            </button>
+        </div>
+        
         <div class="stats-grid">
             <div class="stat-card"><div style="font-size: 28px;" id="a-total">0</div><div>Fahrten</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-revenue">0€</div><div>Umsatz</div></div>
@@ -356,7 +373,6 @@
         let auth = null;
         let currentUser = null;
 
-        console.log('🚀 Taxi App v3.9.1 gestartet');
         
         // 🌟 STAMMKUNDEN-FUNKTIONEN
         function loadRegularCustomer() {
@@ -568,7 +584,7 @@
             console.log('💾 Stammkunde gespeichert:', customer);
         }
 
-        console.log('🚀 Taxi App v3.6.0 gestartet');
+        console.log('🚀 Taxi App v3.9.7 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -2228,6 +2244,43 @@
             if (isFirebaseReady) {
                 db.ref('rides').remove();
                 alert('✅ Datenbank zurückgesetzt!');
+            }
+        }
+        
+        // 🧹 CACHE LEEREN FUNKTION
+        async function clearAppCache() {
+            if (!confirm('🧹 Cache leeren?\n\nDies hilft bei Problemen mit alten Versionen.\nDie App wird neu geladen.')) return;
+            
+            try {
+                // 1. Service Worker deregistrieren
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                        console.log('✅ Service Worker deregistriert');
+                    }
+                }
+                
+                // 2. Cache Storage leeren
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (let name of cacheNames) {
+                        await caches.delete(name);
+                        console.log('✅ Cache gelöscht:', name);
+                    }
+                }
+                
+                // 3. LocalStorage NICHT löschen (Stammkunden-Daten behalten!)
+                // localStorage.clear(); // NICHT ausführen!
+                
+                alert('✅ Cache geleert!\n\nDie App wird jetzt neu geladen.');
+                
+                // 4. Hard Reload
+                window.location.reload(true);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Cache leeren:', error);
+                alert('❌ Fehler beim Cache leeren!\n\nVersuche es manuell:\nEinstellungen → Datenschutz → Browserdaten löschen');
             }
         }
 

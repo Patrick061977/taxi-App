@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.4 - Fix Karte bei Stornierung 🗺️</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.5 - Fix Navigation bei Stornierung 🧭</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -1405,6 +1405,13 @@
                                           'Von: ' + r.pickup + '\n' +
                                           'Nach: ' + r.destination);
                                     
+                                    // Stoppe Navigations-Updates
+                                    if (window.driverMapUpdateInterval) {
+                                        clearInterval(window.driverMapUpdateInterval);
+                                        window.driverMapUpdateInterval = null;
+                                        console.log('🛑 Navigations-Updates gestoppt');
+                                    }
+                                    
                                     // Lösche Karte
                                     if (map) {
                                         map.remove();
@@ -1412,6 +1419,16 @@
                                         taxiMarker = null;
                                         pickupMarker = null;
                                         console.log('🗺️ Karte entfernt');
+                                    }
+                                    
+                                    // Lösche Fahrer-Karte
+                                    if (driverMap) {
+                                        driverMap.remove();
+                                        driverMap = null;
+                                        driverMarker = null;
+                                        pickupMarker = null;
+                                        routeLine = null;
+                                        console.log('🗺️ Fahrer-Karte entfernt');
                                     }
                                     
                                     // Lösche aus myCurrentRide

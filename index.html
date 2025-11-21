@@ -84,10 +84,10 @@
         .route-stat-label { font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px; }
         
         /* 🔐 LOGIN SYSTEM STYLES */
-        .user-profile { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.15); border-radius: 8px; margin-top: 12px; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: white; color: #667eea; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
-        .user-info { flex: 1; }
-        .btn-logout { background: #ef4444; padding: 8px 15px; font-size: 13px; border: none; border-radius: 6px; color: white; cursor: pointer; }
+        .user-profile { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.15); border-radius: 8px; margin-top: 8px; font-size: 12px; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: white; color: #667eea; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }
+        .user-info { flex: 1; min-width: 0; }
+        .btn-logout { background: #ef4444; padding: 6px 12px; font-size: 11px; border: none; border-radius: 6px; color: white; cursor: pointer; white-space: nowrap; }
         .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
         .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 12px; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
         .modal-header { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; }
@@ -2660,6 +2660,12 @@
             console.log('👤 User eingeloggt:', user.email);
             currentUser = user;
             updateUserProfile();
+            
+            // 📝 Fülle Name-Feld automatisch aus
+            const nameField = document.getElementById('customer-name');
+            if (nameField && user.displayName) {
+                nameField.value = user.displayName;
+            }
         }
         
         function onUserLoggedOut() {
@@ -2687,8 +2693,8 @@
                 profileBox.innerHTML = `
                     <div class="user-avatar">${initial}</div>
                     <div class="user-info">
-                        <div style="font-weight: 600;">${displayName}</div>
-                        <div style="font-size: 12px; opacity: 0.8;">${currentUser.email}</div>
+                        <div style="font-weight: 600; font-size: 13px;">${displayName}</div>
+                        <div style="font-size: 10px; opacity: 0.8;">${currentUser.email}</div>
                     </div>
                     <button class="btn-logout" onclick="logoutUser()">Abmelden</button>
                 `;

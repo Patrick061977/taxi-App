@@ -84,10 +84,11 @@
         .route-stat-label { font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px; }
         
         /* 🔐 LOGIN SYSTEM STYLES */
-        .user-profile { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.15); border-radius: 8px; margin-top: 8px; font-size: 12px; }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: white; color: #667eea; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }
-        .user-info { flex: 1; min-width: 0; }
-        .btn-logout { background: #ef4444; padding: 6px 12px; font-size: 11px; border: none; border-radius: 6px; color: white; cursor: pointer; white-space: nowrap; }
+        .user-profile { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(255,255,255,0.15); border-radius: 6px; margin-top: 6px; font-size: 11px; }
+        .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: white; color: #667eea; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; flex-shrink: 0; }
+        .user-info { flex: 1; min-width: 0; overflow: hidden; }
+        .user-info > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .btn-logout { background: #ef4444; padding: 4px 8px; font-size: 10px; border: none; border-radius: 4px; color: white; cursor: pointer; white-space: nowrap; }
         .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
         .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 12px; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
         .modal-header { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; }
@@ -102,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.1 - Debug + Login + Fixes 🔧</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.2 - Kompakt + Fixes 🔧</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -2209,28 +2210,19 @@
             const container = document.getElementById('ride-status-container');
             
             // 📅 CHECK: Ist die Fahrt in der Zukunft?
-            const now = new Date();
-            let pickupTime = null;
-            
-            if (ride.pickupTime && ride.pickupTime !== 'jetzt') {
-                try {
-                    pickupTime = new Date(ride.pickupTime);
-                } catch (e) {
-                    console.error('Fehler beim Parsen der Abholzeit:', e);
-                }
-            }
-            
-            const isFutureRide = pickupTime && pickupTime > now;
+            const now = Date.now();
+            const isFutureRide = ride.pickupTimestamp && ride.pickupTimestamp > now + (5 * 60000); // 5 Min Puffer
             
             // Wenn Fahrt in der Zukunft und Status 'new', zeige Vormerkung
             if (ride.status === 'new' && isFutureRide) {
-                const formattedDate = pickupTime.toLocaleDateString('de-DE', { 
+                const pickupDate = new Date(ride.pickupTimestamp);
+                const formattedDate = pickupDate.toLocaleDateString('de-DE', { 
                     weekday: 'long', 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric' 
                 });
-                const formattedTime = pickupTime.toLocaleTimeString('de-DE', { 
+                const formattedTime = pickupDate.toLocaleTimeString('de-DE', { 
                     hour: '2-digit', 
                     minute: '2-digit' 
                 });
@@ -2693,10 +2685,10 @@
                 profileBox.innerHTML = `
                     <div class="user-avatar">${initial}</div>
                     <div class="user-info">
-                        <div style="font-weight: 600; font-size: 13px;">${displayName}</div>
-                        <div style="font-size: 10px; opacity: 0.8;">${currentUser.email}</div>
+                        <div style="font-weight: 600; font-size: 11px;">${displayName}</div>
+                        <div style="font-size: 9px; opacity: 0.75;">${currentUser.email}</div>
                     </div>
-                    <button class="btn-logout" onclick="logoutUser()">Abmelden</button>
+                    <button class="btn-logout" onclick="logoutUser()">Aus</button>
                 `;
             } else {
                 // User ist nicht eingeloggt - zeige Login-Button

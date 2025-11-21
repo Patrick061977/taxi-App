@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.1 - Fix: Navigation wechselt zum Ziel 🎯</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.2 - Aufgeräumte Fahrer-Ansicht 🧹</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -233,13 +233,16 @@
 
     <div id="driver-view" class="view">
         <h3 style="margin: 20px 0;">Fahrer Dashboard</h3>
-        <div id="debug-panel" style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;">
-            <strong>🐛 Debug:</strong><br>
-            Firebase: <span id="debug-firebase" style="font-weight:bold;">❓</span><br>
-            Alle Fahrten: <span id="debug-rides" style="font-weight:bold;">❓</span><br>
-            Neue Fahrten: <span id="debug-new" style="font-weight:bold;">❓</span><br>
-            Sync: <span id="debug-sync" style="font-weight:bold;">❓</span>
-        </div>
+        <!-- Debug Panel - zusammenklappbar -->
+        <details style="background:#f3f4f6;border-radius:8px;padding:10px;margin-bottom:15px;font-size:12px;">
+            <summary style="cursor:pointer;font-weight:600;color:#666;">🐛 Debug Info</summary>
+            <div style="margin-top:10px;font-size:11px;color:#666;">
+                Firebase: <span id="debug-firebase" style="font-weight:bold;">❓</span><br>
+                Alle Fahrten: <span id="debug-rides" style="font-weight:bold;">❓</span><br>
+                Neue Fahrten: <span id="debug-new" style="font-weight:bold;">❓</span><br>
+                Sync: <span id="debug-sync" style="font-weight:bold;">❓</span>
+            </div>
+        </details>
         <div class="online-toggle">
             <div>
                 <strong id="online-status-text">Offline</strong><br>
@@ -261,9 +264,17 @@
                 <option value="tesla_modely_2">Tesla Model Y #2 (PW-MY 333)</option>
             </select>
         </div>
-        <div class="stats-grid">
-            <div class="stat-card"><div style="font-size: 28px;" id="d-rides">0</div><div>Fahrten</div></div>
-            <div class="stat-card"><div style="font-size: 28px;" id="d-money">0€</div><div>Verdienst</div></div>
+        <!-- Stats kompakt in einer Zeile -->
+        <div style="display: flex; gap: 15px; padding: 10px; background: white; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e0e0e0;">
+            <div style="flex: 1; text-align: center;">
+                <span style="font-size: 18px; font-weight: bold; color: #667eea;" id="d-rides">0</span>
+                <span style="font-size: 12px; color: #666;"> Fahrten</span>
+            </div>
+            <div style="width: 1px; background: #e0e0e0;"></div>
+            <div style="flex: 1; text-align: center;">
+                <span style="font-size: 18px; font-weight: bold; color: #10b981;" id="d-money">0€</span>
+                <span style="font-size: 12px; color: #666;"> Verdienst</span>
+            </div>
         </div>
         
         <!-- DRIVER MAP -->
@@ -305,8 +316,14 @@
         </div>
         
         <div id="driver-current-ride"></div>
-        <h3>Neue Aufträge</h3>
-        <div id="new-rides"></div>
+        
+        <!-- Neue Aufträge - zusammenklappbar -->
+        <details open style="margin-top: 15px;">
+            <summary style="cursor:pointer;font-weight:600;font-size:16px;margin-bottom:10px;padding:10px;background:white;border-radius:8px;">
+                📋 Neue Aufträge <span id="new-rides-count" style="background:#667eea;color:white;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:5px;">0</span>
+            </summary>
+            <div id="new-rides"></div>
+        </details>
     </div>
 
     <div id="admin-view" class="view">
@@ -1708,6 +1725,13 @@
                 }
                 
                 document.getElementById('new-rides').innerHTML = ridesHtml;
+            }
+            
+            // Update Counter für neue Aufträge
+            const countElement = document.getElementById('new-rides-count');
+            if (countElement) {
+                countElement.textContent = newRides.length;
+                countElement.style.display = newRides.length > 0 ? 'inline-block' : 'none';
             }
             
             // Stats

@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.1.0 - Live Fahrer-Status im Admin 🚗</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.1.1 - Fix Online-Fahrer Anzeige 🔧</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -1947,21 +1947,22 @@
             const onlineDrivers = [];
             
             // Durchsuche alle Fahrer
-            Object.keys(VEHICLES).forEach(vehicleId => {
+            Object.keys(drivers).forEach(vehicleId => {
                 const driver = drivers[vehicleId];
-                const vehicle = VEHICLES[vehicleId];
                 
-                // Fahrer ist online wenn: isOnline = true UND letzte Aktualisierung < 2 Min
-                if (driver && driver.isOnline) {
-                    const lastUpdate = driver.lastLocationUpdate || driver.timestamp || 0;
+                // Fahrer ist online wenn: online = true UND letzte Aktualisierung < 2 Min
+                if (driver && driver.online) {
+                    const lastUpdate = driver.timestamp || 0;
                     const minutesSinceUpdate = (now - lastUpdate) / (1000 * 60);
                     
                     // Nur als online zeigen wenn letzte Meldung < 5 Min
                     if (minutesSinceUpdate < 5) {
+                        const vehicle = VEHICLES[vehicleId] || { name: driver.vehicle || vehicleId, plate: '?' };
                         const hasGPS = driver.lat && driver.lng;
                         const gpsAccuracy = driver.accuracy ? Math.round(driver.accuracy) : '?';
                         
                         onlineDrivers.push({
+                            vehicleId: vehicleId,
                             vehicle: vehicle,
                             driver: driver,
                             hasGPS: hasGPS,

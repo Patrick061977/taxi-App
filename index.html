@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.0 - Korrekter Tarif 💰</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.1 - Debug Logs Export 📋</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -296,9 +296,12 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
             <button onclick="clearAppCache()" style="padding:15px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🧹 Cache leeren
+            </button>
+            <button onclick="exportDebugLogs()" style="padding:15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                📋 Logs kopieren
             </button>
             <button onclick="resetDatabase()" style="padding:15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🗑️ Datenbank löschen
@@ -3276,6 +3279,107 @@
             } catch (error) {
                 console.error('❌ Fehler beim Cache leeren:', error);
                 alert('❌ Fehler beim Cache leeren!\n\nVersuche es manuell:\nEinstellungen → Datenschutz → Browserdaten löschen');
+            }
+        }
+
+        // 📋 DEBUG LOGS EXPORTIEREN
+        function exportDebugLogs() {
+            try {
+                // Sammle alle wichtigen Debug-Infos
+                const debugInfo = {
+                    timestamp: new Date().toISOString(),
+                    version: "4.2.0",
+                    userAgent: navigator.userAgent,
+                    
+                    // App-Status
+                    currentView: currentView,
+                    isOnline: isOnline,
+                    isFirebaseReady: isFirebaseReady,
+                    currentUser: currentUser ? { uid: currentUser.uid, email: currentUser.email, name: currentUser.displayName } : null,
+                    
+                    // Daten
+                    rides_count: rides.length,
+                    drivers_count: Object.keys(drivers).length,
+                    localStorage_rideHistory: JSON.parse(localStorage.getItem('rideHistory') || '[]').length,
+                    regularCustomer: regularCustomer ? { name: regularCustomer.name, rideCount: regularCustomer.rideCount } : null,
+                    
+                    // GPS
+                    pickupCoords: pickupCoords,
+                    destCoords: destCoords,
+                    watchId: watchId,
+                    
+                    // Wake Lock
+                    wakeLock_active: wakeLock !== null,
+                    wakeLock_released: wakeLock ? wakeLock.released : null,
+                    
+                    // Fahrer (wenn online)
+                    online_drivers: Object.keys(drivers).filter(id => drivers[id].online).map(id => ({
+                        id: id,
+                        vehicle: drivers[id].vehicle,
+                        hasGPS: !!(drivers[id].lat && drivers[id].lng),
+                        timestamp: drivers[id].timestamp
+                    })),
+                    
+                    // LocalStorage Keys
+                    localStorage_keys: Object.keys(localStorage)
+                };
+                
+                // Formatiere als lesbaren Text
+                const debugText = `
+🚕 TAXI-APP DEBUG EXPORT
+========================
+Version: ${debugInfo.version}
+Zeitpunkt: ${debugInfo.timestamp}
+
+📱 GERÄT:
+${debugInfo.userAgent}
+
+👤 USER:
+- Angemeldet: ${debugInfo.currentUser ? 'Ja (' + debugInfo.currentUser.email + ')' : 'Nein'}
+- Stammkunde: ${debugInfo.regularCustomer ? debugInfo.regularCustomer.name + ' (' + debugInfo.regularCustomer.rideCount + ' Fahrten)' : 'Nein'}
+
+📊 STATUS:
+- Ansicht: ${debugInfo.currentView}
+- Online: ${debugInfo.isOnline}
+- Firebase: ${debugInfo.isFirebaseReady}
+- Wake Lock: ${debugInfo.wakeLock_active ? 'Aktiv' : 'Inaktiv'}
+
+🗃️ DATEN:
+- Fahrten in Firebase: ${debugInfo.rides_count}
+- Fahrten in localStorage: ${debugInfo.localStorage_rideHistory}
+- Fahrer registriert: ${debugInfo.drivers_count}
+- Fahrer online: ${debugInfo.online_drivers.length}
+
+🚗 ONLINE FAHRER:
+${debugInfo.online_drivers.map(d => `- ${d.vehicle} (GPS: ${d.hasGPS ? 'Ja' : 'Nein'})`).join('\n') || '(keine)'}
+
+📍 GPS:
+- Abholort-Coords: ${debugInfo.pickupCoords ? 'Ja' : 'Nein'}
+- Zielort-Coords: ${debugInfo.destCoords ? 'Ja' : 'Nein'}
+- GPS Watch aktiv: ${debugInfo.watchId ? 'Ja' : 'Nein'}
+
+💾 LOCALSTORAGE:
+${debugInfo.localStorage_keys.join(', ')}
+
+========================
+`;
+                
+                // Kopiere in Zwischenablage
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(debugText).then(() => {
+                        alert('✅ Debug-Logs kopiert!\n\nDie Logs sind jetzt in deiner Zwischenablage.\n\nDu kannst sie in eine Notiz-App einfügen.');
+                    }).catch(err => {
+                        // Fallback: Zeige in Alert
+                        prompt('📋 Debug-Logs (Strg+C zum Kopieren):', debugText);
+                    });
+                } else {
+                    // Fallback: Zeige in Prompt
+                    prompt('📋 Debug-Logs (Strg+C zum Kopieren):', debugText);
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Exportieren:', error);
+                alert('❌ Fehler beim Exportieren der Logs!');
             }
         }
 

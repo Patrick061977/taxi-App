@@ -11,6 +11,20 @@
     <link rel="apple-touch-icon" href="/icon-192.png">
     <title>Funk Taxi Heringsdorf</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- 🐛 Eruda Debug-Panel für Mobile -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>
+        // Nur auf Nicht-Desktop-Geräten aktivieren
+        if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            // Desktop - Eruda nicht laden
+        } else {
+            // Mobile - Eruda aktivieren
+            eruda.init();
+            console.log('🐛 Debug-Panel aktiviert! Button unten rechts öffnen.');
+        }
+    </script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, sans-serif; background: #f5f5f5; }
@@ -68,12 +82,27 @@
         .route-stat { text-align: center; padding: 12px; background: rgba(255,255,255,0.2); border-radius: 8px; backdrop-filter: blur(10px); }
         .route-stat-value { font-size: 28px; font-weight: bold; color: white; }
         .route-stat-label { font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px; }
+        
+        /* 🔐 LOGIN SYSTEM STYLES */
+        .user-profile { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.15); border-radius: 8px; margin-top: 12px; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: white; color: #667eea; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
+        .user-info { flex: 1; }
+        .btn-logout { background: #ef4444; padding: 8px 15px; font-size: 13px; border: none; border-radius: 6px; color: white; cursor: pointer; }
+        .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 12px; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .modal-header { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; }
+        .modal-input { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; }
+        .modal-btn { width: 100%; padding: 15px; margin: 10px 0; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .btn-google { background: white; color: #333; border: 2px solid #e0e0e0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-primary-modal { background: #667eea; color: white; }
+        .modal-divider { text-align: center; margin: 20px 0; color: #999; }
+        .modal-link { text-align: center; margin-top: 15px; color: #667eea; cursor: pointer; text-decoration: underline; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.0 - Verlauf-Features</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.1 - Debug + Login + Fixes 🔧</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -310,8 +339,12 @@
         let serviceWorkerRegistration = null;
         let pushSubscription = null;
         let regularCustomer = null; // Stammkunden-Daten
+        
+        // 🔐 AUTH STATE
+        let auth = null;
+        let currentUser = null;
 
-        console.log('🚀 Taxi App v3.6.0 gestartet');
+        console.log('🚀 Taxi App v3.9.1 gestartet');
         
         // 🌟 STAMMKUNDEN-FUNKTIONEN
         function loadRegularCustomer() {
@@ -607,6 +640,16 @@
                     db = firebase.database();
                     isFirebaseReady = true;
                     console.log('✅ Firebase verbunden');
+                    
+                    // 🔐 Firebase Auth initialisieren
+                    auth = firebase.auth();
+                    auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            onUserLoggedIn(user);
+                        } else {
+                            onUserLoggedOut();
+                        }
+                    });
                     
                     db.ref('.info/connected').on('value', (s) => { isConnected = s.val(); updateStatus(); });
                     db.ref('rides').on('value', (s) => {
@@ -2164,6 +2207,57 @@
         function showRideStatus(ride) {
             const container = document.getElementById('ride-status-container');
             
+            // 📅 CHECK: Ist die Fahrt in der Zukunft?
+            const now = new Date();
+            let pickupTime = null;
+            
+            if (ride.pickupTime && ride.pickupTime !== 'jetzt') {
+                try {
+                    pickupTime = new Date(ride.pickupTime);
+                } catch (e) {
+                    console.error('Fehler beim Parsen der Abholzeit:', e);
+                }
+            }
+            
+            const isFutureRide = pickupTime && pickupTime > now;
+            
+            // Wenn Fahrt in der Zukunft und Status 'new', zeige Vormerkung
+            if (ride.status === 'new' && isFutureRide) {
+                const formattedDate = pickupTime.toLocaleDateString('de-DE', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                const formattedTime = pickupTime.toLocaleTimeString('de-DE', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📅</div>
+                        <h3>Fahrt vorgemerkt!</h3>
+                        <div style="margin-top: 15px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                            <div style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 10px;">
+                                🕐 ${formattedDate}<br>
+                                um ${formattedTime} Uhr
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 14px; color: #0c4a6e;">
+                            <strong>📍 Von:</strong> ${ride.pickup}<br>
+                            <strong>🎯 Nach:</strong> ${ride.destination}<br>
+                            <strong>💰 Preis:</strong> ${ride.price}€
+                        </div>
+                        <div style="margin-top: 15px; padding: 12px; background: #dcfce7; border-radius: 8px; font-size: 13px; color: #14532d;">
+                            ✅ Du erhältst 30 Minuten vor der Abholung eine Benachrichtigung, wenn der Fahrer zugewiesen wurde.
+                        </div>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
+                    </div>
+                `;
+                return;
+            }
+            
             if (ride.status === 'completed') {
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#d1fae5;border:2px solid #10b981;">
@@ -2455,6 +2549,156 @@
             document.getElementById('driver-route-info').style.display = 'none';
         }
 
+        // 🔐 LOGIN SYSTEM FUNCTIONS
+        
+        function showLoginModal() {
+            document.getElementById('register-modal').style.display = 'none';
+            document.getElementById('login-modal').style.display = 'block';
+        }
+        
+        function closeLoginModal() {
+            document.getElementById('login-modal').style.display = 'none';
+        }
+        
+        function showRegisterModal() {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('register-modal').style.display = 'block';
+        }
+        
+        function closeRegisterModal() {
+            document.getElementById('register-modal').style.display = 'none';
+        }
+        
+        async function loginWithGoogle() {
+            if (!auth) {
+                alert('Firebase Auth nicht verfügbar');
+                return;
+            }
+            
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await auth.signInWithPopup(provider);
+                closeLoginModal();
+            } catch (error) {
+                console.error('Google Login Fehler:', error);
+                alert('Google Login fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        async function loginWithEmail() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (!email || !password) {
+                alert('Bitte E-Mail und Passwort eingeben');
+                return;
+            }
+            
+            if (!auth) {
+                alert('Firebase Auth nicht verfügbar');
+                return;
+            }
+            
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                closeLoginModal();
+            } catch (error) {
+                console.error('Login Fehler:', error);
+                alert('Login fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        async function registerWithEmail() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            
+            if (!name || !email || !password) {
+                alert('Bitte alle Felder ausfüllen');
+                return;
+            }
+            
+            if (!auth) {
+                alert('Firebase Auth nicht verfügbar');
+                return;
+            }
+            
+            try {
+                const result = await auth.createUserWithEmailAndPassword(email, password);
+                await result.user.updateProfile({ displayName: name });
+                closeRegisterModal();
+                alert('Registrierung erfolgreich! Willkommen, ' + name + '!');
+            } catch (error) {
+                console.error('Registrierung Fehler:', error);
+                alert('Registrierung fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        async function logoutUser() {
+            if (!auth || !currentUser) return;
+            
+            try {
+                await auth.signOut();
+                console.log('✅ Logout erfolgreich');
+            } catch (error) {
+                console.error('❌ Logout-Fehler:', error);
+                alert('Logout fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        function onUserLoggedIn(user) {
+            console.log('👤 User eingeloggt:', user.email);
+            currentUser = user;
+            updateUserProfile();
+        }
+        
+        function onUserLoggedOut() {
+            console.log('👤 User ausgeloggt');
+            currentUser = null;
+            updateUserProfile();
+        }
+        
+        function updateUserProfile() {
+            const header = document.querySelector('.header');
+            let profileBox = document.getElementById('user-profile-box');
+            
+            if (currentUser) {
+                // User ist eingeloggt - zeige Profil
+                const initial = (currentUser.displayName || currentUser.email).charAt(0).toUpperCase();
+                const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+                
+                if (!profileBox) {
+                    profileBox = document.createElement('div');
+                    profileBox.id = 'user-profile-box';
+                    profileBox.className = 'user-profile';
+                    header.appendChild(profileBox);
+                }
+                
+                profileBox.innerHTML = `
+                    <div class="user-avatar">${initial}</div>
+                    <div class="user-info">
+                        <div style="font-weight: 600;">${displayName}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">${currentUser.email}</div>
+                    </div>
+                    <button class="btn-logout" onclick="logoutUser()">Abmelden</button>
+                `;
+            } else {
+                // User ist nicht eingeloggt - zeige Login-Button
+                if (!profileBox) {
+                    profileBox = document.createElement('div');
+                    profileBox.id = 'user-profile-box';
+                    profileBox.style.marginTop = '15px';
+                    header.appendChild(profileBox);
+                }
+                
+                profileBox.innerHTML = `
+                    <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
+                        🔐 Anmelden / Registrieren
+                    </button>
+                `;
+            }
+        }
+
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
             setupAutocomplete();
@@ -2469,6 +2713,9 @@
             
             // 🌟 Stammkunden-Daten laden
             loadRegularCustomer();
+            
+            // 🔐 Zeige Login-Button (wird von Auth Observer aktualisiert)
+            updateUserProfile();
             
             setTimeout(() => { 
                 if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true); 
@@ -2508,5 +2755,43 @@
             });
         });
     </script>
+    <!-- 🔐 LOGIN MODAL -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">🔐 Anmelden</div>
+            
+            <button class="modal-btn btn-google" onclick="loginWithGoogle()">
+                <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Mit Google anmelden
+            </button>
+            
+            <div class="modal-divider">oder</div>
+            
+            <input type="email" id="login-email" class="modal-input" placeholder="E-Mail">
+            <input type="password" id="login-password" class="modal-input" placeholder="Passwort">
+            
+            <button class="modal-btn btn-primary-modal" onclick="loginWithEmail()">Anmelden</button>
+            
+            <div class="modal-link" onclick="showRegisterModal()">Noch kein Konto? Jetzt registrieren</div>
+            <div class="modal-link" onclick="closeLoginModal()">Abbrechen</div>
+        </div>
+    </div>
+    
+    <!-- 📝 REGISTER MODAL -->
+    <div id="register-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">📝 Registrieren</div>
+            
+            <input type="text" id="register-name" class="modal-input" placeholder="Name">
+            <input type="email" id="register-email" class="modal-input" placeholder="E-Mail">
+            <input type="password" id="register-password" class="modal-input" placeholder="Passwort">
+            
+            <button class="modal-btn btn-primary-modal" onclick="registerWithEmail()">Registrieren</button>
+            
+            <div class="modal-link" onclick="showLoginModal()">Bereits ein Konto? Anmelden</div>
+            <div class="modal-link" onclick="closeRegisterModal()">Abbrechen</div>
+        </div>
+    </div>
+
 </body>
 </html>

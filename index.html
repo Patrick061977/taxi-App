@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.2 - Mega Export + Stornierung Fix 🔧</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.3 - GPS Fallback 📍</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -3044,6 +3044,7 @@
             
             console.log('🚀 Starte GPS-Tracking' + (rideId ? ' für Fahrt: ' + rideId : ''));
             
+            // Versuche ERST watchPosition
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
                     const location = { 
@@ -3056,7 +3057,7 @@
                         accuracy: pos.coords.accuracy
                     };
                     
-                    console.log('📍 GPS:', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
+                    console.log('📍 GPS (watchPosition):', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
                     
                     // Update GPS-Indicator
                     const gpsIndicator = document.getElementById('gps-indicator');
@@ -3124,6 +3125,64 @@
             );
             
             console.log('🎯 GPS watchId:', watchId);
+            
+            // FALLBACK: Wenn watchPosition nach 30 Sek kein Update liefert, nutze Intervall
+            setTimeout(() => {
+                if (isOnline && !document.getElementById('gps-dot')?.classList.contains('online')) {
+                    console.warn('⚠️ watchPosition liefert keine Updates - aktiviere Fallback-Modus');
+                    
+                    // Starte Intervall-basiertes GPS
+                    const gpsInterval = setInterval(() => {
+                        if (!isOnline) {
+                            clearInterval(gpsInterval);
+                            return;
+                        }
+                        
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                const location = { 
+                                    lat: pos.coords.latitude, 
+                                    lon: pos.coords.longitude, 
+                                    timestamp: Date.now(), 
+                                    vehicleId: currentVehicle,
+                                    vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle,
+                                    online: isOnline,
+                                    accuracy: pos.coords.accuracy
+                                };
+                                
+                                console.log('📍 GPS (Fallback):', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
+                                
+                                // Update GPS-Indicator
+                                const gpsIndicator = document.getElementById('gps-indicator');
+                                const gpsDot = document.getElementById('gps-dot');
+                                const gpsStatus = document.getElementById('gps-status');
+                                if (gpsIndicator && gpsDot && gpsStatus) {
+                                    gpsIndicator.style.display = 'flex';
+                                    gpsDot.classList.add('online');
+                                    gpsStatus.textContent = '📍 GPS: ' + Math.round(location.accuracy) + 'm (Fallback)';
+                                }
+                                
+                                if (isFirebaseReady) {
+                                    db.ref('drivers/' + currentVehicle).set(location).then(() => {
+                                        console.log('✅ GPS (Fallback) → drivers/' + currentVehicle);
+                                    });
+                                }
+                            },
+                            (err) => {
+                                console.error('❌ GPS Fallback-Fehler:', err);
+                            },
+                            { 
+                                enableHighAccuracy: true, 
+                                maximumAge: 0,
+                                timeout: 10000
+                            }
+                        );
+                    }, 15000); // Alle 15 Sekunden
+                    
+                    // Speichere Intervall-ID zum Aufräumen
+                    window.gpsIntervalId = gpsInterval;
+                }
+            }, 30000);
         }
 
         function stopDriverTracking() {
@@ -3132,6 +3191,14 @@
                 watchId = null; 
                 console.log('🛑 GPS gestoppt');
             }
+            
+            // Stoppe auch Fallback-Intervall
+            if (window.gpsIntervalId) {
+                clearInterval(window.gpsIntervalId);
+                window.gpsIntervalId = null;
+                console.log('🛑 GPS Fallback-Intervall gestoppt');
+            }
+            
             if (isFirebaseReady && currentVehicle) {
                 db.ref('drivers/' + currentVehicle).remove();
                 console.log('🗑️ GPS aus drivers/ entfernt');

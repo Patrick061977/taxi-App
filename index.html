@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.1.2 - Aggressives Wake Lock 💪</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.0 - Korrekter Tarif 💰</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -343,7 +343,22 @@
             'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1', plate: 'PW-MY 222' },
             'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2', plate: 'PW-MY 333' }
         };
-        const TARIF = { grundgebuehr: 4.00, kmPreis: 2.20, nachtZuschlag: 0.20, sonntagZuschlag: 0.25, feiertagZuschlag: 0.50 };
+        const TARIF = { 
+            grundgebuehr: 4.00,
+            // Gestaffelte Kilometerpreise (offizieller Tarif August 2022)
+            km_1_2: 3.30,      // Kilometer 1-2
+            km_3_4: 2.80,      // Kilometer 3-4
+            km_ab_5: 2.20,     // Ab Kilometer 5
+            // Zuschläge
+            nachtZuschlag: 0.20, 
+            sonntagZuschlag: 0.25, 
+            feiertagZuschlag: 0.50,
+            // Nachttarif
+            nacht_grundgebuehr: 5.50,
+            nacht_km_1_2: 3.30,
+            nacht_km_3_4: 2.80,
+            nacht_km_ab_5: 2.40
+        };
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // Bekannte Koordinaten für wichtige Orte (Fallback)
@@ -2181,11 +2196,38 @@
 
         function calculatePrice(distance) {
             const now = new Date(), hour = now.getHours(), day = now.getDay();
-            let base = TARIF.grundgebuehr + distance * TARIF.kmPreis, zuschlag = 0, text = [];
-            if (hour >= 22 || hour < 6) { zuschlag += base * TARIF.nachtZuschlag; text.push('Nacht +20%'); }
-            if (day === 0) { zuschlag += base * TARIF.sonntagZuschlag; text.push('Sonntag +25%'); }
             
-            const totalRaw = base + zuschlag;
+            // Prüfe ob Nachttarif (Mo-Sa 22-6 Uhr, Sonntag ganztägig)
+            const isNight = (hour >= 22 || hour < 6) || (day === 0);
+            
+            // Wähle Tarif
+            const grundgebuehr = isNight ? TARIF.nacht_grundgebuehr : TARIF.grundgebuehr;
+            const km_1_2 = isNight ? TARIF.nacht_km_1_2 : TARIF.km_1_2;
+            const km_3_4 = isNight ? TARIF.nacht_km_3_4 : TARIF.km_3_4;
+            const km_ab_5 = isNight ? TARIF.nacht_km_ab_5 : TARIF.km_ab_5;
+            
+            // Gestaffelte Berechnung
+            let kmPreis = 0;
+            if (distance <= 2) {
+                // 0-2 km: 3,30€ pro km
+                kmPreis = distance * km_1_2;
+            } else if (distance <= 4) {
+                // 2-4 km: erste 2 km à 3,30€ + Rest à 2,80€
+                kmPreis = (2 * km_1_2) + ((distance - 2) * km_3_4);
+            } else {
+                // >4 km: erste 2 km à 3,30€ + nächste 2 km à 2,80€ + Rest à 2,20€
+                kmPreis = (2 * km_1_2) + (2 * km_3_4) + ((distance - 4) * km_ab_5);
+            }
+            
+            let base = grundgebuehr + kmPreis;
+            let text = [];
+            
+            // Nachttarif-Hinweis
+            if (isNight) {
+                text.push('Nachttarif');
+            }
+            
+            const totalRaw = base;
             const totalRounded = Math.round(totalRaw / 0.1) * 0.1; // Runde auf 10 Cent
             
             return { total: totalRounded.toFixed(2), zuschlagText: text, distance };
@@ -2863,7 +2905,6 @@
                 }
             }
         }, 30000); // Alle 30 Sekunden
-        }
 
         function releaseWakeLock() {
             if (wakeLock !== null) {

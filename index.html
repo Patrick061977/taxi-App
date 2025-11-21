@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.5 - Fahrten bearbeiten ✏️</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.6 - Debug Verlauf 🔍</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -490,6 +490,9 @@
             
             // 📦 Hole Fahrten aus localStorage
             const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            console.log('🔍 DEBUG - localStorage Fahrten:', localHistory.length);
+            console.log('🔍 DEBUG - currentHistoryTab:', currentHistoryTab);
+            console.log('🔍 DEBUG - currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
             
             // 🔥 Hole MEINE Fahrten aus Firebase (wenn verfügbar)
             if (isFirebaseReady && currentUser) {
@@ -515,6 +518,11 @@
                 }
             });
             
+            console.log('🔍 DEBUG - Alle Fahrten nach Merge:', allRides.length);
+            if (allRides.length > 0) {
+                console.log('🔍 DEBUG - Status der Fahrten:', allRides.map(r => r.status));
+            }
+            
             if (allRides.length === 0) {
                 historyList.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><p>Noch keine Fahrten</p></div>';
                 return;
@@ -536,6 +544,9 @@
                     return completedStatuses.includes(r.status);
                 }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             }
+            
+            console.log('🔍 DEBUG - Gefilterte Fahrten:', filteredRides.length);
+            console.log('🔍 DEBUG - Gefilterte Status:', filteredRides.map(r => r.status));
             
             if (filteredRides.length === 0) {
                 const emptyMessage = currentHistoryTab === 'upcoming' 

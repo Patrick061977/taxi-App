@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.2 - Kompakt + Fixes 🔧</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.3 - Zukunfts-Fahrten Management 📅</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -203,6 +203,17 @@
 
     <div id="history-view" class="view">
         <h3 style="margin: 20px 0;">Meine Fahrten</h3>
+        
+        <!-- 📅 TABS für Kommende / Vergangene Fahrten -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button id="tab-upcoming" onclick="showHistoryTab('upcoming')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                📅 Kommende Fahrten
+            </button>
+            <button id="tab-past" onclick="showHistoryTab('past')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                📖 Vergangene Fahrten
+            </button>
+        </div>
+        
         <div id="history-list"></div>
     </div>
 
@@ -279,6 +290,10 @@
             <div class="stat-card"><div style="font-size: 28px;" id="a-pending">0</div><div>Offen</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
         </div>
+        
+        <h3 style="margin-top:20px;">📅 Vorgemerkte Fahrten (Zukunft)</h3>
+        <div id="upcoming-rides-admin" style="margin-bottom: 20px;"></div>
+        
         <h3 style="margin-top:20px;">💶 Stornierungen (kostenpflichtig)</h3>
         <div id="cancellations-list"></div>
         <h3 style="margin-top:20px;">Alle Fahrten</h3>
@@ -341,6 +356,9 @@
         let serviceWorkerRegistration = null;
         let pushSubscription = null;
         let regularCustomer = null; // Stammkunden-Daten
+        
+        // 📅 HISTORY TAB STATE
+        let currentHistoryTab = 'upcoming'; // 'upcoming' oder 'past'
         
         // 🔐 AUTH STATE
         let auth = null;
@@ -414,6 +432,97 @@
             regularCustomer = customer;
             
             console.log('💾 Stammkunde gespeichert:', customer);
+        }
+        
+        // 📅 HISTORY TAB FUNCTIONS
+        function showHistoryTab(tab) {
+            currentHistoryTab = tab;
+            
+            // Update Button Styles
+            const upcomingBtn = document.getElementById('tab-upcoming');
+            const pastBtn = document.getElementById('tab-past');
+            
+            if (tab === 'upcoming') {
+                upcomingBtn.style.background = '#667eea';
+                upcomingBtn.style.color = 'white';
+                pastBtn.style.background = 'white';
+                pastBtn.style.color = '#667eea';
+            } else {
+                upcomingBtn.style.background = 'white';
+                upcomingBtn.style.color = '#667eea';
+                pastBtn.style.background = '#667eea';
+                pastBtn.style.color = 'white';
+            }
+            
+            // Update History List
+            updateHistoryView();
+        }
+        
+        function updateHistoryView() {
+            const historyList = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            
+            if (history.length === 0) {
+                historyList.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><p>Noch keine Fahrten</p></div>';
+                return;
+            }
+            
+            const now = Date.now();
+            let filteredRides = [];
+            
+            if (currentHistoryTab === 'upcoming') {
+                // Zeige nur zukünftige Fahrten
+                filteredRides = history.filter(r => r.pickupTimestamp && r.pickupTimestamp > now).sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+            } else {
+                // Zeige nur vergangene Fahrten
+                filteredRides = history.filter(r => !r.pickupTimestamp || r.pickupTimestamp <= now).sort((a, b) => b.createdAt - a.createdAt);
+            }
+            
+            if (filteredRides.length === 0) {
+                const emptyMessage = currentHistoryTab === 'upcoming' 
+                    ? '📅 Keine geplanten Fahrten'
+                    : '📖 Noch keine vergangenen Fahrten';
+                historyList.innerHTML = `<div style="text-align:center;padding:40px;color:#999;"><p>${emptyMessage}</p></div>`;
+                return;
+            }
+            
+            historyList.innerHTML = filteredRides.map(r => {
+                const isUpcoming = r.pickupTimestamp && r.pickupTimestamp > now;
+                const bgColor = isUpcoming ? '#e0f2fe' : 'white';
+                const borderColor = isUpcoming ? '#0ea5e9' : '#e0e0e0';
+                
+                let timeDisplay = r.pickupTime || 'Sofort';
+                if (isUpcoming && r.pickupTimestamp) {
+                    const pickupDate = new Date(r.pickupTimestamp);
+                    timeDisplay = pickupDate.toLocaleString('de-DE', {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
+                
+                return `
+                    <div style="background:${bgColor};border:2px solid ${borderColor};border-radius:8px;padding:15px;margin-bottom:10px;">
+                        ${isUpcoming ? '<div style="font-weight:600;color:#0369a1;margin-bottom:8px;">📅 Geplant</div>' : ''}
+                        <div style="font-size:13px;color:#666;margin-bottom:8px;">
+                            🕐 ${timeDisplay}
+                        </div>
+                        <div style="margin:8px 0;">
+                            📍 <strong>Von:</strong> ${r.pickup}<br>
+                            🎯 <strong>Nach:</strong> ${r.destination}
+                        </div>
+                        <div style="display:flex;gap:10px;margin-top:10px;font-size:13px;">
+                            <span>💰 ${r.price}€</span>
+                            <span>📏 ${r.distance} km</span>
+                        </div>
+                        <button onclick="rebookRide(${r.createdAt})" style="width:100%;margin-top:10px;padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">
+                            🔁 Nochmal buchen
+                        </button>
+                    </div>
+                `;
+            }).join('');
         }
 
         // 📅 DATUM & ZEIT PICKER
@@ -804,6 +913,7 @@
             
             if (currentView === 'driver') updateDriverView();
             else if (currentView === 'admin') updateAdminView();
+            else if (currentView === 'history') updateHistoryView();
         }
 
         function updateDriverView() {
@@ -922,6 +1032,59 @@
             document.getElementById('a-revenue').textContent = revenue.toFixed(2) + '€';
             document.getElementById('a-pending').textContent = pending.length;
             document.getElementById('a-active').textContent = active.length;
+            
+            // 📅 Vorgemerkte Fahrten (Zukunft) anzeigen
+            const now = Date.now();
+            const upcomingRides = rides.filter(r => 
+                r.status === 'new' && 
+                r.pickupTimestamp && 
+                r.pickupTimestamp > now + (5 * 60000)
+            ).sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+            
+            if (upcomingRides.length === 0) {
+                document.getElementById('upcoming-rides-admin').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">Keine vorgemerkten Fahrten</div>';
+            } else {
+                document.getElementById('upcoming-rides-admin').innerHTML = upcomingRides.map(r => {
+                    const pickupDate = new Date(r.pickupTimestamp);
+                    const formattedDate = pickupDate.toLocaleDateString('de-DE', { 
+                        weekday: 'long', 
+                        day: '2-digit', 
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+                    const formattedTime = pickupDate.toLocaleTimeString('de-DE', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    
+                    const hoursUntil = Math.floor((r.pickupTimestamp - now) / (1000 * 60 * 60));
+                    const daysUntil = Math.floor(hoursUntil / 24);
+                    let countdownText = '';
+                    if (daysUntil > 0) {
+                        countdownText = `in ${daysUntil} Tag${daysUntil > 1 ? 'en' : ''}`;
+                    } else if (hoursUntil > 0) {
+                        countdownText = `in ${hoursUntil} Stunde${hoursUntil > 1 ? 'n' : ''}`;
+                    } else {
+                        const minutesUntil = Math.floor((r.pickupTimestamp - now) / (1000 * 60));
+                        countdownText = `in ${minutesUntil} Min`;
+                    }
+                    
+                    return `<div class="ride-card" style="border-left:4px solid #0ea5e9;background:#e0f2fe;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <strong>${r.customerName || 'Unbekannt'}</strong>
+                            <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
+                        </div>
+                        <div style="margin-top:10px;font-size:14px;color:#0c4a6e;">
+                            <strong>📅 ${formattedDate}</strong><br>
+                            <strong>🕐 ${formattedTime} Uhr</strong><br>
+                            <strong>📍 Von:</strong> ${r.pickup}<br>
+                            <strong>🎯 Nach:</strong> ${r.destination}<br>
+                            <strong>💰 Preis:</strong> ${r.price}€<br>
+                            <strong>📏 Distanz:</strong> ${r.distance} km
+                        </div>
+                    </div>`;
+                }).join('');
+            }
             
             // Stornierungen anzeigen
             if (cancellations.length === 0) {

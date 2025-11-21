@@ -1,0 +1,240 @@
+# Changelog
+
+Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
+
+Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
+
+---
+
+## [3.9.3] - 2024-11-21
+
+### ✅ Hinzugefügt
+- **📅 Zukunfts-Fahrten Management** im Verlauf:
+  - Tab "Kommende Fahrten" zeigt alle geplanten Fahrten
+  - Tab "Vergangene Fahrten" zeigt Fahrthistorie
+  - Countdown bis zur Abholung angezeigt
+- **👨‍💼 Admin: Vorgemerkte Fahrten** Kategorie:
+  - Zeigt alle zukünftigen Buchungen
+  - Sortiert nach Abholzeit
+  - Countdown bis zur Abholung
+  - Übersichtliche Darstellung mit Datum, Zeit, Kunde, Route
+- **EmailJS Integration vorbereitet** (deaktiviert, kann später aktiviert werden):
+  - E-Mail mit Buchungsbestätigung
+  - ICS-Kalender-Datei als Anhang
+  - Benachrichtigung an Admin
+
+### 🔧 Geändert
+- History View zeigt jetzt Tabs für bessere Organisation
+- Admin Dashboard zeigt vorgemerkte Fahrten separat
+- Zukunfts-Fahrten werden farblich hervorgehoben (hellblau)
+
+---
+
+## [3.9.2] - 2024-11-21
+
+### ✅ Hinzugefügt
+- Auto-Fill für Name-Feld bei Login
+- Versionsnummer wird bei jedem Update erhöht
+
+### 🔧 Geändert
+- **User-Profil im Header** massiv kompakter (28px Avatar, 11px Text, "Aus" statt "Abmelden")
+- **Zukunfts-Fahrten Check** nutzt jetzt `pickupTimestamp` statt `pickupTime` String
+- Bessere Erkennung von vorgemerkten Fahrten (5 Min Puffer)
+
+### 🐛 Behoben
+- Zukunfts-Fahrten werden jetzt korrekt als "📅 Fahrt vorgemerkt" angezeigt
+- Name wird automatisch aus Login übernommen
+
+---
+
+## [3.9.1] - 2024-11-21
+
+### ✅ Hinzugefügt
+- **🐛 Debug-Panel (Eruda)** für Mobile-Debugging direkt im Handy
+- **🔐 Login-System** mit Firebase Auth:
+  - Google Login
+  - E-Mail/Passwort Login
+  - Registrierung
+  - User-Profil im Header
+  - Abmelden-Funktion
+- **📅 Zukunfts-Fahrten** werden jetzt anders angezeigt:
+  - "Fahrt vorgemerkt" statt "Warte auf Fahrer"
+  - Datum und Zeit prominent angezeigt
+  - Benachrichtigungs-Hinweis 30 Min vorher
+
+### 🔧 Geändert
+- Firebase Auth Script hinzugefügt (`firebase-auth-compat.js`)
+- Auth Observer für automatischen Login-Status
+
+### 🐛 Behoben
+- Firebase Auth nicht verfügbar Fehler
+
+---
+
+## [3.9.0] - 2024-11-20
+
+### ✅ Hinzugefügt
+- **📖 Verlauf-Features** - Erweiterte Fahrthistorie
+- **🔁 Route umkehren** - Rückfahrt mit einem Klick buchen
+- **⭐ Stammkunden-System** - Automatische Wiedererkennung
+- Besseres Autocomplete mit Hotel-Namen und PLZ
+
+### 🔧 Geändert
+- Verlauf zeigt jetzt mehr Details
+- Schnellbuchung aus Verlauf heraus
+
+---
+
+## [3.8.0] - 2024-11-20
+
+### ✅ Hinzugefügt
+- **Verbessertes Autocomplete** für Adressen
+- POI-Namen werden angezeigt (Hotels, Restaurants)
+- PLZ wird in Vorschlägen angezeigt
+- Schönere Formatierung der Adress-Vorschläge
+
+### 🔧 Geändert
+- Autocomplete zeigt jetzt: "🏨 Hotel-Name" + "Straße, PLZ Ort"
+
+---
+
+## [3.7.1] - 2024-11-19
+
+### 🔧 Geändert
+- UI Cleanup und Optimierungen
+
+---
+
+## [3.6.0] - 2024-11-18
+
+### ✅ Hinzugefügt
+- **🔔 Push-Benachrichtigungen** für Fahrer
+- **Service Worker** für Offline-Support
+- **PWA-Features** - App kann installiert werden
+- **Auto-Zuweisung** mit 30 Sekunden Timer
+
+### 🔧 Geändert
+- Benachrichtigungs-Banner beim Start
+- Sound bei neuen Buchungen
+
+---
+
+## [3.5.0] - 2024-11-17
+
+### ✅ Hinzugefügt
+- **🗑️ Stornierung** mit Fahrer-Benachrichtigung
+- **Stornogebühr** von 10€ nach 5 Minuten
+- Fahrer erhält Push-Benachrichtigung bei Stornierung
+
+### 🐛 Behoben
+- Fahrer wurde nicht über Stornierungen informiert
+
+---
+
+## [3.4.0] - 2024-11-16
+
+### ✅ Hinzugefügt
+- **📍 GPS-Tracking** während der Fahrt
+- **⏱️ ETA-Berechnung** - Automatische Ankunftszeit
+- **Live-Karte** für Fahrgast mit Taxi-Position
+- Fortschrittsbalken für Fahrt-Status
+
+---
+
+## [3.3.0] - 2024-11-15
+
+### ✅ Hinzugefügt
+- **🚗 Fahrer-Dashboard** mit GPS-Tracking
+- **Fahrt-Annahme** System mit Timer
+- **Fahrer-Karte** mit Route zum Kunden
+
+---
+
+## [3.2.0] - 2024-11-14
+
+### ✅ Hinzugefügt
+- **📅 Datum & Zeit Auswahl** für Vorausbuchungen
+- Warnung bei Buchungen > 7 Tage im Voraus
+- Prüfung ob Zeit in der Vergangenheit liegt
+
+---
+
+## [3.1.0] - 2024-11-13
+
+### ✅ Hinzugefügt
+- **🔥 Firebase Realtime Database** Integration
+- Live-Synchronisation zwischen Geräten
+- Status-Anzeige (Live/Lokal)
+
+---
+
+## [3.0.0] - 2024-11-12
+
+### ✅ Hinzugefügt
+- **Multi-Device Support** - Firebase Backend
+- Echte Synchronisation zwischen Fahrgast, Fahrer und Admin
+
+### 🔧 Geändert
+- Von localStorage zu Firebase migriert
+
+---
+
+## [2.0.0] - 2024-11-11
+
+### ✅ Hinzugefügt
+- **💰 Preis-Berechnung** nach Vorpommern-Greifswald Tarif
+- **🗺️ OpenStreetMap** Integration
+- **📍 Routing** zwischen Abholort und Ziel
+- **Zuschläge** für Nacht, Sonntag, Feiertage
+
+---
+
+## [1.3.0] - 2024-11-10
+
+### ✅ Hinzugefügt
+- **localStorage** für lokale Datenspeicherung
+- Buchungen bleiben nach Reload erhalten
+
+---
+
+## [1.2.0] - 2024-11-09
+
+### ✅ Hinzugefügt
+- **👤 Fahrgast-View** - Taxi buchen
+- **🚗 Fahrer-View** - Buchungen sehen
+- **👨‍💼 Admin-View** - Übersicht
+
+---
+
+## [1.1.0] - 2024-11-08
+
+### ✅ Hinzugefügt
+- Basis-Formular für Buchungen
+- Eingabefelder für Abholort, Ziel, Passagiere
+
+---
+
+## [1.0.0] - 2024-11-07
+
+### ✅ Hinzugefügt
+- Initiales Projekt-Setup
+- HTML-Grundstruktur
+- CSS-Styling (Purple Gradient Theme)
+- Responsive Design
+
+---
+
+## Legende
+
+- ✅ **Hinzugefügt** - Neue Features
+- 🔧 **Geändert** - Änderungen an bestehenden Features
+- 🗑️ **Entfernt** - Entfernte Features
+- 🐛 **Behoben** - Bug Fixes
+- 🔒 **Sicherheit** - Sicherheits-Updates
+
+---
+
+**Versionsnummern:**
+- **Major** (X.0.0) - Große Änderungen, Breaking Changes
+- **Minor** (x.X.0) - Neue Features, rückwärtskompatibel
+- **Patch** (x.x.X) - Bug Fixes, kleine Verbesserungen

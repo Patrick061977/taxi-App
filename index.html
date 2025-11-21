@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.8 - Cache-Button 🧹</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.9 - Error Handler 🐛</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -3082,6 +3082,17 @@
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
+            // 🐛 Globaler Error Handler für besseres Debugging
+            window.addEventListener('error', (e) => {
+                console.error('❌ FEHLER:', {
+                    message: e.message,
+                    filename: e.filename,
+                    lineno: e.lineno,
+                    colno: e.colno,
+                    error: e.error
+                });
+            });
+            
             setupAutocomplete();
             
             // 🔔 BENACHRICHTIGUNGS-BANNER SOFORT ANZEIGEN
@@ -3096,7 +3107,11 @@
             loadRegularCustomer();
             
             // 🔐 Zeige Login-Button (wird von Auth Observer aktualisiert)
-            updateUserProfile();
+            try {
+                updateUserProfile();
+            } catch (error) {
+                console.error('❌ updateUserProfile Fehler:', error);
+            }
             
             setTimeout(() => { 
                 if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true); 

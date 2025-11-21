@@ -92,12 +92,45 @@
         .user-avatar { width: 50px; height: 50px; border-radius: 50%; background: #667eea; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
         .user-info { flex: 1; }
         .btn-logout { background: #ef4444; padding: 8px 15px; font-size: 13px; }
+        
+        /* UBER-STYLE BOOKING INTERFACE */
+        .uber-container { position: relative; height: calc(100vh - 200px); min-height: 500px; }
+        .uber-map { width: 100%; height: 100%; border-radius: 0; }
+        .uber-overlay { position: absolute; top: 0; left: 0; right: 0; padding: 15px; z-index: 400; pointer-events: none; }
+        .uber-overlay > * { pointer-events: auto; }
+        .location-box { background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+        .location-input { display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; background: #f9fafb; }
+        .location-input input { border: none; background: none; flex: 1; font-size: 15px; outline: none; }
+        .location-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .location-dot.pickup { background: #10b981; }
+        .location-dot.dest { background: #667eea; }
+        .uber-bottom { position: absolute; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); max-height: 70%; overflow-y: auto; }
+        .uber-handle { width: 40px; height: 4px; background: #d1d5db; border-radius: 2px; margin: 12px auto; }
+        .vehicle-option { display: flex; align-items: center; gap: 15px; padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
+        .vehicle-option:hover { background: #f9fafb; }
+        .vehicle-option.selected { background: #eff6ff; border-left: 4px solid #667eea; }
+        .vehicle-icon { font-size: 32px; width: 50px; text-align: center; }
+        .vehicle-info { flex: 1; }
+        .vehicle-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .vehicle-details { font-size: 13px; color: #6b7280; }
+        .vehicle-price { font-size: 18px; font-weight: 700; color: #1f2937; }
+        .vehicle-eta { font-size: 12px; color: #10b981; margin-top: 4px; }
+        .payment-selector { padding: 15px; border-top: 1px solid #e5e7eb; }
+        .payment-option { display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+        .payment-option.selected { border-color: #667eea; background: #eff6ff; }
+        .payment-icon { font-size: 24px; }
+        .payment-label { flex: 1; font-size: 14px; font-weight: 500; }
+        .book-button { background: #000; color: white; padding: 18px; border-radius: 12px; font-size: 16px; font-weight: 600; margin: 15px; border: none; cursor: pointer; }
+        .book-button:active { background: #1f2937; }
+        .price-breakdown { padding: 15px; background: #f9fafb; border-radius: 8px; margin: 15px; font-size: 13px; }
+        .price-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .price-row.total { font-size: 16px; font-weight: 700; padding-top: 8px; border-top: 1px solid #e5e7eb; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.0 - Login-System 🔐</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.1.0 - Uber-Style 🎨</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -129,69 +162,117 @@
     </div>
 
     <div id="passenger-view" class="view active">
-        <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
-        
         <!-- 🌟 STAMMKUNDEN-SCHNELLBUCHUNG -->
-        <div id="regular-customer-box" style="display:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:15px;border-radius:12px;margin-bottom:15px;">
+        <div id="regular-customer-box" style="display:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:15px;border-radius:12px;margin:15px;margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                 <strong style="font-size:16px;">⭐ Willkommen zurück!</strong>
-                <button onclick="clearRegularCustomer()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">❌ Löschen</button>
+                <button onclick="clearRegularCustomer()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">❌</button>
             </div>
             <div id="regular-customer-info" style="font-size:14px;margin-bottom:10px;"></div>
             <button onclick="useRegularCustomerData()" style="background:white;color:#667eea;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">⚡ Schnellbuchung starten</button>
         </div>
-        
-        <div id="ride-status-container"></div>
-        <div id="booking-form">
-            <div class="input-group">
-                <label>📍 Abholort</label>
-                <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf">
-                <button onclick="useMyLocation()" style="margin-top:8px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">📍 Meinen Standort verwenden</button>
-                <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
-            </div>
-            <div id="available-taxis-display"></div>
-            <div class="input-group">
-                <label>👤 Ihr Name</label>
-                <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
-                <div style="margin-top:8px;">
-                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
-                        <input type="checkbox" id="save-customer" style="width:auto;">
-                        <span>💾 Als Stammkunde speichern (schnellere Buchung nächstes Mal)</span>
-                    </label>
+
+        <!-- 🎯 UBER-STYLE BOOKING INTERFACE -->
+        <div class="uber-container" id="uber-booking-interface" style="display:block;">
+            <!-- Karte als Hintergrund -->
+            <div id="uber-map" class="uber-map"></div>
+            
+            <!-- Location Eingaben über der Karte -->
+            <div class="uber-overlay">
+                <div class="location-box">
+                    <div class="location-input" onclick="focusInput('pickup-uber')">
+                        <div class="location-dot pickup"></div>
+                        <input type="text" id="pickup-uber" placeholder="Abholort eingeben" style="width:100%;">
+                    </div>
+                    <div style="height:8px;"></div>
+                    <div class="location-input" onclick="focusInput('destination-uber')">
+                        <div class="location-dot dest"></div>
+                        <input type="text" id="destination-uber" placeholder="Wohin möchten Sie?" style="width:100%;">
+                    </div>
+                    <button onclick="useMyLocation()" style="margin-top:12px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;font-size:14px;">
+                        📍 Meinen Standort verwenden
+                    </button>
                 </div>
             </div>
-            <div class="input-group">
-                <label>🕐 Abholzeit</label>
-                <select id="pickup-time" onchange="handlePickupTimeChange()">
-                    <option value="jetzt">⚡ Sofort</option>
-                    <option value="15min">🕐 In 15 Minuten</option>
-                    <option value="30min">🕐 In 30 Minuten</option>
-                    <option value="1h">🕑 In 1 Stunde</option>
-                    <option value="datetime">📅 Datum & Zeit wählen...</option>
-                </select>
-                <input type="datetime-local" id="custom-datetime" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;font-size:15px;">
-                <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
-                    💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
+            
+            <!-- Bottom Sheet mit Fahrzeugauswahl -->
+            <div class="uber-bottom" id="uber-bottom-sheet" style="display:none;">
+                <div class="uber-handle"></div>
+                
+                <div style="padding:0 15px 15px 15px;">
+                    <h3 style="margin-bottom:15px;font-size:18px;">Fahrzeug wählen</h3>
+                    
+                    <!-- Fahrzeug-Optionen -->
+                    <div id="vehicle-options-container">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                    
+                    <!-- Zahlungsmethode -->
+                    <div class="payment-selector">
+                        <h4 style="margin-bottom:12px;font-size:15px;">💳 Zahlungsmethode</h4>
+                        <div class="payment-option selected" onclick="selectPayment('cash')" data-payment="cash">
+                            <div class="payment-icon">💶</div>
+                            <div class="payment-label">Bargeld</div>
+                            <div style="color:#667eea;font-weight:600;">✓</div>
+                        </div>
+                        <div class="payment-option" onclick="selectPayment('ec')" data-payment="ec">
+                            <div class="payment-icon">💳</div>
+                            <div class="payment-label">EC-Karte</div>
+                        </div>
+                        <div class="payment-option" onclick="selectPayment('credit')" data-payment="credit">
+                            <div class="payment-icon">💳</div>
+                            <div class="payment-label">Kreditkarte</div>
+                        </div>
+                        <div class="payment-option" onclick="selectPayment('invoice')" data-payment="invoice">
+                            <div class="payment-icon">🏢</div>
+                            <div class="payment-label">Firmenrechnung</div>
+                        </div>
+                        <div class="payment-option" onclick="selectPayment('insurance')" data-payment="insurance">
+                            <div class="payment-icon">🏥</div>
+                            <div class="payment-label">Krankenkasse</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Name -->
+                    <div style="margin-top:15px;">
+                        <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px;">👤 Ihr Name</label>
+                        <input type="text" id="customer-name-uber" placeholder="Max Mustermann" style="width:100%;padding:14px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:8px;cursor:pointer;">
+                            <input type="checkbox" id="save-customer-uber" style="width:auto;">
+                            <span>💾 Als Stammkunde speichern</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Preis-Breakdown -->
+                    <div class="price-breakdown" id="price-breakdown-uber" style="display:none;">
+                        <div class="price-row">
+                            <span>Grundgebühr</span>
+                            <span id="price-base">4,00€</span>
+                        </div>
+                        <div class="price-row">
+                            <span id="price-distance-label">Strecke (0 km)</span>
+                            <span id="price-distance-value">0,00€</span>
+                        </div>
+                        <div class="price-row" id="price-surcharge-row" style="display:none;">
+                            <span id="price-surcharge-label">Zuschlag</span>
+                            <span id="price-surcharge-value">0,00€</span>
+                        </div>
+                        <div class="price-row total">
+                            <span>Gesamt</span>
+                            <span id="price-total-uber">0,00€</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Buchen Button -->
+                    <button class="book-button" id="uber-book-button" onclick="bookUber()" style="display:none;">
+                        Taxi buchen
+                    </button>
                 </div>
             </div>
-            <div class="input-group">
-                <label>🎯 Zielort</label>
-                <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck">
-                <div class="autocomplete-dropdown" id="destination-dropdown"></div>
-            </div>
-            <div class="input-group">
-                <label>👥 Personen</label>
-                <select id="passengers">
-                    <option value="1">1 Person</option>
-                    <option value="2">2 Personen</option>
-                    <option value="3">3 Personen</option>
-                    <option value="4">4 Personen</option>
-                </select>
-            </div>
-            <button class="btn btn-primary" onclick="calculatePriceAndShow()">💰 Preis berechnen</button>
-            <div id="price-display" style="margin-top: 15px;"></div>
-            <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
         </div>
+        
+        <!-- Fahrt-Status (wird bei aktiver Fahrt angezeigt) -->
+        <div id="ride-status-container"></div>
         <div id="confirm"></div>
     </div>
 
@@ -369,6 +450,38 @@
             'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1', plate: 'PW-MY 222' },
             'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2', plate: 'PW-MY 333' }
         };
+        
+        // 🚗 FAHRZEUG-TYPEN für Uber-Style Interface
+        const VEHICLE_TYPES = {
+            'standard': {
+                id: 'standard',
+                name: 'Tesla Standard',
+                icon: '🚗',
+                description: 'Model 3 • 4 Personen',
+                baseFare: 4.00,
+                pricePerKm: 2.20,
+                capacity: 4
+            },
+            'comfort': {
+                id: 'comfort',
+                name: 'Tesla Komfort',
+                icon: '🚙',
+                description: 'Model Y • 4 Personen • Mehr Platz',
+                baseFare: 4.00,
+                pricePerKm: 2.50,
+                capacity: 4
+            },
+            'medical': {
+                id: 'medical',
+                name: 'Krankenfahrt',
+                icon: '🚑',
+                description: 'Abrechnung mit Krankenkasse',
+                baseFare: 0,
+                pricePerKm: 0,
+                capacity: 2,
+                special: 'insurance'
+            }
+        };
         const TARIF = { grundgebuehr: 4.00, kmPreis: 2.20, nachtZuschlag: 0.20, sonntagZuschlag: 0.25, feiertagZuschlag: 0.50 };
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
@@ -407,8 +520,15 @@
         let serviceWorkerRegistration = null;
         let pushSubscription = null;
         let regularCustomer = null; // Stammkunden-Daten
+        
+        // 🎨 UBER-STYLE INTERFACE
+        let uberMap = null;
+        let selectedVehicleType = 'standard';
+        let selectedPaymentMethod = 'cash';
+        let calculatedRoute = null;
+        let routePolyline = null;
 
-        console.log('🚀 Taxi App v3.6.0 gestartet');
+        console.log('🚀 Taxi App v4.1.0 gestartet');
         
         // 🌟 STAMMKUNDEN-FUNKTIONEN
         function loadRegularCustomer() {
@@ -785,14 +905,33 @@
 
             try {
                 const provider = new firebase.auth.GoogleAuthProvider();
-                const result = await auth.signInWithPopup(provider);
-                console.log('✅ Google Login erfolgreich:', result.user.email);
-                closeLoginModal();
-                alert('Willkommen, ' + result.user.displayName + '! 🎉');
+                provider.addScope('profile');
+                provider.addScope('email');
+                
+                // Versuche Popup (funktioniert auf Desktop)
+                try {
+                    const result = await auth.signInWithPopup(provider);
+                    console.log('✅ Google Login erfolgreich (Popup):', result.user.email);
+                    closeLoginModal();
+                    alert('Willkommen, ' + (result.user.displayName || result.user.email) + '! 🎉');
+                } catch (popupError) {
+                    // Popup geschlossen oder blockiert → Versuche Redirect (funktioniert auf Mobile)
+                    if (popupError.code === 'auth/popup-blocked' || 
+                        popupError.code === 'auth/popup-closed-by-user' ||
+                        popupError.code === 'auth/cancelled-popup-request') {
+                        console.log('🔄 Popup blockiert, verwende Redirect...');
+                        await auth.signInWithRedirect(provider);
+                        // Nach Redirect wird Seite neu geladen und onAuthStateChanged wird gefeuert
+                    } else {
+                        throw popupError;
+                    }
+                }
             } catch (error) {
                 console.error('❌ Google Login-Fehler:', error);
                 if (error.code === 'auth/popup-closed-by-user') {
                     // User hat Popup geschlossen - kein Alert nötig
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    alert('⚠️ Google Login ist für diese Domain nicht autorisiert.\n\nBitte füge die Domain in der Firebase Console hinzu:\n\nFirebase Console → Authentication → Sign-in method → Authorized domains');
                 } else {
                     alert('Google Login fehlgeschlagen: ' + error.message);
                 }
@@ -1048,6 +1187,11 @@
             else gpsIndicator.style.display = 'none';
             
             if (view === 'history') loadHistory();
+            
+            // 🎨 Initialisiere Uber-Map wenn Passenger View geöffnet wird
+            if (view === 'passenger') {
+                setTimeout(() => initUberMap(), 100);
+            }
             
             updateViews();
         }
@@ -1694,6 +1838,313 @@
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
+        }
+
+        // 🎨 UBER-STYLE INTERFACE FUNCTIONS
+        
+        function initUberMap() {
+            if (uberMap) return;
+            
+            console.log('🗺️ Initialisiere Uber-Karte');
+            const mapContainer = document.getElementById('uber-map');
+            if (!mapContainer) return;
+            
+            uberMap = L.map('uber-map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([53.9533, 14.1633], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(uberMap);
+            
+            // Autocomplete für Uber-Inputs einrichten
+            setupUberAutocomplete();
+            
+            // Event Listeners für Adress-Eingaben
+            document.getElementById('pickup-uber').addEventListener('input', handleUberAddressInput);
+            document.getElementById('destination-uber').addEventListener('input', handleUberAddressInput);
+        }
+        
+        async function handleUberAddressInput() {
+            const pickup = document.getElementById('pickup-uber').value.trim();
+            const dest = document.getElementById('destination-uber').value.trim();
+            
+            if (!pickup || !dest) {
+                document.getElementById('uber-bottom-sheet').style.display = 'none';
+                return;
+            }
+            
+            // Geocode beide Adressen
+            const pickupResult = await geocodeAddress(pickup);
+            const destResult = await geocodeAddress(dest);
+            
+            if (pickupResult && destResult) {
+                pickupCoords = pickupResult;
+                destCoords = destResult;
+                
+                // Route berechnen
+                await calculateUberRoute(pickupResult, destResult);
+                
+                // Bottom Sheet zeigen
+                showUberBottomSheet();
+            }
+        }
+        
+        async function calculateUberRoute(from, to) {
+            try {
+                const response = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`
+                );
+                const data = await response.json();
+                
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    calculatedRoute = {
+                        distance: (route.distance / 1000).toFixed(1), // km
+                        duration: Math.round(route.duration / 60), // min
+                        geometry: route.geometry
+                    };
+                    
+                    // Route auf Karte zeichnen
+                    drawUberRoute(route.geometry);
+                    
+                    // Karte an Route anpassen
+                    const coords = route.geometry.coordinates;
+                    const latLngs = coords.map(c => [c[1], c[0]]);
+                    const bounds = L.latLngBounds(latLngs);
+                    uberMap.fitBounds(bounds, { padding: [50, 50] });
+                    
+                    console.log('✅ Route berechnet:', calculatedRoute);
+                }
+            } catch (e) {
+                console.error('❌ Route-Fehler:', e);
+            }
+        }
+        
+        function drawUberRoute(geometry) {
+            // Entferne alte Route
+            if (routePolyline) {
+                uberMap.removeLayer(routePolyline);
+            }
+            
+            // Zeichne neue Route
+            const coords = geometry.coordinates;
+            const latLngs = coords.map(c => [c[1], c[0]]);
+            
+            routePolyline = L.polyline(latLngs, {
+                color: '#000',
+                weight: 4,
+                opacity: 0.8
+            }).addTo(uberMap);
+            
+            // Marker für Start und Ziel
+            L.circleMarker([latLngs[0][0], latLngs[0][1]], {
+                radius: 8,
+                fillColor: '#10b981',
+                fillOpacity: 1,
+                color: '#fff',
+                weight: 3
+            }).addTo(uberMap);
+            
+            L.circleMarker([latLngs[latLngs.length-1][0], latLngs[latLngs.length-1][1]], {
+                radius: 8,
+                fillColor: '#667eea',
+                fillOpacity: 1,
+                color: '#fff',
+                weight: 3
+            }).addTo(uberMap);
+        }
+        
+        function showUberBottomSheet() {
+            document.getElementById('uber-bottom-sheet').style.display = 'block';
+            
+            // Fahrzeug-Optionen anzeigen
+            showVehicleOptions();
+            
+            // Preis berechnen
+            updateUberPrice();
+            
+            // Buch-Button zeigen
+            document.getElementById('uber-book-button').style.display = 'block';
+        }
+        
+        function showVehicleOptions() {
+            const container = document.getElementById('vehicle-options-container');
+            container.innerHTML = '';
+            
+            // Zähle verfügbare Taxis
+            const availableTaxis = Object.values(drivers).filter(d => d.status === 'available').length;
+            
+            Object.values(VEHICLE_TYPES).forEach(type => {
+                const price = calculateVehiclePrice(type);
+                const eta = availableTaxis > 0 ? `${Math.floor(Math.random() * 5) + 3} Min` : 'Nicht verfügbar';
+                
+                const option = document.createElement('div');
+                option.className = 'vehicle-option' + (type.id === selectedVehicleType ? ' selected' : '');
+                option.onclick = () => selectVehicleType(type.id);
+                
+                option.innerHTML = `
+                    <div class="vehicle-icon">${type.icon}</div>
+                    <div class="vehicle-info">
+                        <div class="vehicle-name">${type.name}</div>
+                        <div class="vehicle-details">${type.description}</div>
+                        <div class="vehicle-eta">⏱️ ${eta}</div>
+                    </div>
+                    <div class="vehicle-price">${price}</div>
+                `;
+                
+                container.appendChild(option);
+            });
+        }
+        
+        function calculateVehiclePrice(vehicleType) {
+            if (!calculatedRoute) return '—';
+            
+            if (vehicleType.special === 'insurance') {
+                return 'Auf Rechnung';
+            }
+            
+            const distance = parseFloat(calculatedRoute.distance);
+            const basePrice = vehicleType.baseFare;
+            const kmPrice = distance * vehicleType.pricePerKm;
+            const total = Math.ceil((basePrice + kmPrice) * 10) / 10;
+            
+            return total.toFixed(2) + '€';
+        }
+        
+        function selectVehicleType(typeId) {
+            selectedVehicleType = typeId;
+            
+            // Update UI
+            document.querySelectorAll('.vehicle-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            event.target.closest('.vehicle-option').classList.add('selected');
+            
+            // Update Preis
+            updateUberPrice();
+        }
+        
+        function selectPayment(method) {
+            selectedPaymentMethod = method;
+            
+            // Update UI
+            document.querySelectorAll('.payment-option').forEach(opt => {
+                opt.classList.remove('selected');
+                opt.querySelector('div:last-child').textContent = '';
+            });
+            
+            const selected = document.querySelector(`[data-payment="${method}"]`);
+            selected.classList.add('selected');
+            selected.querySelector('div:last-child').innerHTML = '<div style="color:#667eea;font-weight:600;">✓</div>';
+        }
+        
+        function updateUberPrice() {
+            const vehicleType = VEHICLE_TYPES[selectedVehicleType];
+            if (!vehicleType || !calculatedRoute) return;
+            
+            const breakdown = document.getElementById('price-breakdown-uber');
+            breakdown.style.display = 'block';
+            
+            if (vehicleType.special === 'insurance') {
+                breakdown.innerHTML = `
+                    <div class="price-row" style="text-align:center;color:#10b981;font-weight:600;">
+                        🏥 Abrechnung mit Krankenkasse<br>
+                        <span style="font-size:12px;color:#6b7280;">Kostenlos für Sie</span>
+                    </div>
+                `;
+                document.getElementById('uber-book-button').textContent = 'Krankenfahrt buchen';
+                return;
+            }
+            
+            const distance = parseFloat(calculatedRoute.distance);
+            const basePrice = vehicleType.baseFare;
+            const kmPrice = distance * vehicleType.pricePerKm;
+            const total = Math.ceil((basePrice + kmPrice) * 10) / 10;
+            
+            document.getElementById('price-base').textContent = basePrice.toFixed(2) + '€';
+            document.getElementById('price-distance-label').textContent = `Strecke (${distance} km)`;
+            document.getElementById('price-distance-value').textContent = kmPrice.toFixed(2) + '€';
+            document.getElementById('price-total-uber').textContent = total.toFixed(2) + '€';
+            document.getElementById('uber-book-button').textContent = `Für ${total.toFixed(2)}€ buchen`;
+        }
+        
+        async function bookUber() {
+            const name = document.getElementById('customer-name-uber').value.trim();
+            
+            if (!name) {
+                alert('Bitte geben Sie Ihren Namen ein!');
+                return;
+            }
+            
+            if (!pickupCoords || !destCoords) {
+                alert('Bitte geben Sie Abholort und Ziel ein!');
+                return;
+            }
+            
+            const vehicleType = VEHICLE_TYPES[selectedVehicleType];
+            const distance = parseFloat(calculatedRoute.distance);
+            
+            let price;
+            if (vehicleType.special === 'insurance') {
+                price = 'Krankenkasse';
+            } else {
+                const basePrice = vehicleType.baseFare;
+                const kmPrice = distance * vehicleType.pricePerKm;
+                price = Math.ceil((basePrice + kmPrice) * 10) / 10;
+            }
+            
+            // Fahrt erstellen
+            const ride = {
+                id: 'R' + Date.now(),
+                customerName: name,
+                pickup: document.getElementById('pickup-uber').value,
+                destination: document.getElementById('destination-uber').value,
+                pickupCoords: pickupCoords,
+                destCoords: destCoords,
+                passengers: 1,
+                vehicleType: selectedVehicleType,
+                vehicleTypeName: vehicleType.name,
+                paymentMethod: selectedPaymentMethod,
+                price: price,
+                distance: distance,
+                status: 'new',
+                timestamp: new Date().toISOString(),
+                pickupTime: 'jetzt'
+            };
+            
+            console.log('🚕 Buche Fahrt:', ride);
+            
+            if (isFirebaseReady) {
+                try {
+                    await db.ref('rides').push(ride);
+                    console.log('✅ Fahrt in Firebase gespeichert');
+                    myCurrentRide = ride;
+                    localStorage.setItem('myCurrentRideId', ride.id);
+                    
+                    // Stammkunde speichern?
+                    if (document.getElementById('save-customer-uber').checked) {
+                        saveRegularCustomer(name, document.getElementById('pickup-uber').value);
+                    }
+                    
+                    alert('✅ Taxi gebucht!\n\nEin Fahrer wird Ihnen gleich zugewiesen.');
+                    
+                    // UI zurücksetzen
+                    document.getElementById('uber-bottom-sheet').style.display = 'none';
+                    
+                } catch (e) {
+                    console.error('❌ Buchungsfehler:', e);
+                    alert('❌ Fehler beim Buchen: ' + e.message);
+                }
+            }
+        }
+        
+        function focusInput(id) {
+            document.getElementById(id).focus();
+        }
+        
+        function setupUberAutocomplete() {
+            // Autocomplete Logik für Uber-Inputs
+            // Wird später implementiert, nutzt bestehende KNOWN_PLACES
         }
 
         async function book() {
@@ -2763,6 +3214,20 @@
         window.addEventListener('DOMContentLoaded', () => {
             setupAutocomplete();
             
+            // 🔐 Google Login Redirect Result abfangen
+            if (typeof firebase !== 'undefined' && firebase.auth) {
+                firebase.auth().getRedirectResult().then((result) => {
+                    if (result.user) {
+                        console.log('✅ Google Login erfolgreich (Redirect):', result.user.email);
+                        alert('Willkommen, ' + (result.user.displayName || result.user.email) + '! 🎉');
+                    }
+                }).catch((error) => {
+                    if (error.code !== 'auth/popup-closed-by-user') {
+                        console.error('❌ Redirect Error:', error);
+                    }
+                });
+            }
+            
             // 🔔 BENACHRICHTIGUNGS-BANNER SOFORT ANZEIGEN
             if ('Notification' in window && Notification.permission !== 'granted') {
                 document.getElementById('static-notification-banner').style.display = 'block';
@@ -2773,6 +3238,9 @@
             
             // 🌟 Stammkunden-Daten laden
             loadRegularCustomer();
+            
+            // 🎨 Initialisiere Uber-Map
+            setTimeout(() => initUberMap(), 500);
             
             setTimeout(() => { 
                 if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true); 

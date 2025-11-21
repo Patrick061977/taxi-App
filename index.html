@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.2 - Aufgeräumte Fahrer-Ansicht 🧹</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.3 - Neue Aufträge oben 📋</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -277,6 +277,17 @@
             </div>
         </div>
         
+        <!-- Neue Aufträge - GANZ OBEN! -->
+        <details open style="margin-bottom: 15px;">
+            <summary style="cursor:pointer;font-weight:600;font-size:16px;margin-bottom:10px;padding:10px;background:white;border-radius:8px;box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                📋 Neue Aufträge <span id="new-rides-count" style="background:#667eea;color:white;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:5px;">0</span>
+            </summary>
+            <div id="new-rides"></div>
+        </details>
+        
+        <!-- Aktuelle Fahrt -->
+        <div id="driver-current-ride"></div>
+        
         <!-- DRIVER MAP -->
         <div id="driver-route-info" style="display:none;">
             <!-- 🎯 TURN-BY-TURN NAVIGATION (GROß & PROMINENT!) -->
@@ -314,16 +325,6 @@
             </div>
             <div id="driver-map"></div>
         </div>
-        
-        <div id="driver-current-ride"></div>
-        
-        <!-- Neue Aufträge - zusammenklappbar -->
-        <details open style="margin-top: 15px;">
-            <summary style="cursor:pointer;font-weight:600;font-size:16px;margin-bottom:10px;padding:10px;background:white;border-radius:8px;">
-                📋 Neue Aufträge <span id="new-rides-count" style="background:#667eea;color:white;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:5px;">0</span>
-            </summary>
-            <div id="new-rides"></div>
-        </details>
     </div>
 
     <div id="admin-view" class="view">

@@ -68,12 +68,36 @@
         .route-stat { text-align: center; padding: 12px; background: rgba(255,255,255,0.2); border-radius: 8px; backdrop-filter: blur(10px); }
         .route-stat-value { font-size: 28px; font-weight: bold; color: white; }
         .route-stat-label { font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px; }
+        
+        /* LOGIN MODAL */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; backdrop-filter: blur(5px); }
+        .modal-overlay.active { display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 16px; max-width: 400px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .modal-header { text-align: center; margin-bottom: 25px; }
+        .modal-header h2 { font-size: 24px; margin-bottom: 8px; }
+        .modal-close { position: absolute; top: 15px; right: 15px; font-size: 28px; cursor: pointer; color: #999; }
+        .auth-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .auth-tab { flex: 1; padding: 12px; border: none; background: #f0f0f0; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .auth-tab.active { background: #667eea; color: white; }
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+        .social-login { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+        .btn-google { background: white; color: #333; border: 2px solid #e0e0e0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-google:hover { background: #f5f5f5; }
+        .divider { text-align: center; margin: 15px 0; color: #999; position: relative; }
+        .divider:before, .divider:after { content: ''; position: absolute; top: 50%; width: 45%; height: 1px; background: #e0e0e0; }
+        .divider:before { left: 0; }
+        .divider:after { right: 0; }
+        .user-profile { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; border: 1px solid #e0e0e0; }
+        .user-avatar { width: 50px; height: 50px; border-radius: 50%; background: #667eea; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
+        .user-info { flex: 1; }
+        .btn-logout { background: #ef4444; padding: 8px 15px; font-size: 13px; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.0 - Verlauf-Features</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.0 - Login-System 🔐</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -255,6 +279,77 @@
         <div id="all-rides"></div>
     </div>
 
+    <!-- 🔐 LOGIN MODAL -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content" style="position: relative;">
+            <div class="modal-close" onclick="closeLoginModal()">×</div>
+            
+            <div class="modal-header">
+                <div style="font-size: 48px; margin-bottom: 10px;">🚕</div>
+                <h2>Willkommen zurück!</h2>
+                <p style="color: #666; font-size: 14px;">Melde dich an um deine Fahrten zu speichern</p>
+            </div>
+
+            <!-- TABS -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Anmelden</button>
+                <button class="auth-tab" onclick="switchAuthTab('register')">Registrieren</button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <div id="login-form" class="auth-form active">
+                <div class="input-group">
+                    <label>E-Mail</label>
+                    <input type="email" id="login-email" placeholder="deine@email.de" onkeypress="if(event.key==='Enter')loginWithEmail()">
+                </div>
+                <div class="input-group">
+                    <label>Passwort</label>
+                    <input type="password" id="login-password" placeholder="••••••••" onkeypress="if(event.key==='Enter')loginWithEmail()">
+                </div>
+                <button class="btn btn-primary" onclick="loginWithEmail()">Anmelden</button>
+                
+                <div class="divider">oder</div>
+                
+                <div class="social-login">
+                    <button class="btn btn-google" onclick="loginWithGoogle()">
+                        <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.836.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.96v2.332C2.44 15.983 5.485 18 9.003 18z" fill="#34A853"/><path d="M3.964 10.712c-.18-.54-.282-1.117-.282-1.71 0-.593.102-1.17.282-1.71V4.96H.957C.347 6.175 0 7.55 0 9.002c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.428 0 9.003 0 5.485 0 2.44 2.017.96 4.958L3.967 7.29c.708-2.127 2.692-3.71 5.036-3.71z" fill="#EA4335"/></svg>
+                        Mit Google anmelden
+                    </button>
+                </div>
+            </div>
+
+            <!-- REGISTER FORM -->
+            <div id="register-form" class="auth-form">
+                <div class="input-group">
+                    <label>Name</label>
+                    <input type="text" id="register-name" placeholder="Max Mustermann" onkeypress="if(event.key==='Enter')registerWithEmail()">
+                </div>
+                <div class="input-group">
+                    <label>E-Mail</label>
+                    <input type="email" id="register-email" placeholder="deine@email.de" onkeypress="if(event.key==='Enter')registerWithEmail()">
+                </div>
+                <div class="input-group">
+                    <label>Passwort (min. 6 Zeichen)</label>
+                    <input type="password" id="register-password" placeholder="••••••••" onkeypress="if(event.key==='Enter')registerWithEmail()">
+                </div>
+                <button class="btn btn-primary" onclick="registerWithEmail()">Registrieren</button>
+                
+                <div class="divider">oder</div>
+                
+                <div class="social-login">
+                    <button class="btn btn-google" onclick="loginWithGoogle()">
+                        <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9.003 18c2.43 0 4.467-.806 5.956-2.18L12.05 13.56c-.806.54-1.836.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.96v2.332C2.44 15.983 5.485 18 9.003 18z" fill="#34A853"/><path d="M3.964 10.712c-.18-.54-.282-1.117-.282-1.71 0-.593.102-1.17.282-1.71V4.96H.957C.347 6.175 0 7.55 0 9.002c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9.003 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.464.891 11.428 0 9.003 0 5.485 0 2.44 2.017.96 4.958L3.967 7.29c.708-2.127 2.692-3.71 5.036-3.71z" fill="#EA4335"/></svg>
+                        Mit Google registrieren
+                    </button>
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+                <a href="#" onclick="closeLoginModal(); return false;" style="color: #667eea;">Als Gast fortfahren</a>
+            </p>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let firebaseLoadTimeout, firebaseLoaded = false;
@@ -264,6 +359,7 @@
     </script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="if(typeof initApp === 'function') initApp(false);"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script>
         // CONFIGURATION
         const VEHICLES = {
@@ -299,6 +395,7 @@
 
         // STATE
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
+        let auth = null, currentUser = null; // 🔐 Firebase Auth
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
@@ -578,6 +675,201 @@
             playNotificationSound();
         }
 
+        // 🔐 AUTH FUNCTIONS
+        function showLoginModal() {
+            document.getElementById('login-modal').classList.add('active');
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').classList.remove('active');
+        }
+
+        function switchAuthTab(tab) {
+            // Tabs umschalten
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            
+            if (tab === 'login') {
+                document.querySelectorAll('.auth-tab')[0].classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                document.querySelectorAll('.auth-tab')[1].classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+            }
+        }
+
+        async function loginWithEmail() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) {
+                alert('Bitte E-Mail und Passwort eingeben!');
+                return;
+            }
+
+            if (!auth) {
+                alert('Firebase Auth nicht geladen!');
+                return;
+            }
+
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                console.log('✅ Login erfolgreich:', userCredential.user.email);
+                closeLoginModal();
+                alert('Willkommen zurück, ' + userCredential.user.email + '! 🎉');
+            } catch (error) {
+                console.error('❌ Login-Fehler:', error);
+                if (error.code === 'auth/user-not-found') {
+                    alert('Diese E-Mail ist nicht registriert.');
+                } else if (error.code === 'auth/wrong-password') {
+                    alert('Falsches Passwort!');
+                } else if (error.code === 'auth/invalid-email') {
+                    alert('Ungültige E-Mail-Adresse!');
+                } else {
+                    alert('Login fehlgeschlagen: ' + error.message);
+                }
+            }
+        }
+
+        async function registerWithEmail() {
+            const name = document.getElementById('register-name').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+
+            if (!name || !email || !password) {
+                alert('Bitte alle Felder ausfüllen!');
+                return;
+            }
+
+            if (password.length < 6) {
+                alert('Passwort muss mindestens 6 Zeichen haben!');
+                return;
+            }
+
+            if (!auth) {
+                alert('Firebase Auth nicht geladen!');
+                return;
+            }
+
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                console.log('✅ Registrierung erfolgreich:', userCredential.user.email);
+                
+                // Name aktualisieren
+                await userCredential.user.updateProfile({ displayName: name });
+                
+                // E-Mail-Verifizierung senden
+                await userCredential.user.sendEmailVerification();
+                
+                closeLoginModal();
+                alert('Registrierung erfolgreich! 🎉\n\nWir haben dir eine Bestätigungs-E-Mail gesendet.\nBitte prüfe dein Postfach.');
+            } catch (error) {
+                console.error('❌ Registrierungs-Fehler:', error);
+                if (error.code === 'auth/email-already-in-use') {
+                    alert('Diese E-Mail ist bereits registriert!');
+                } else if (error.code === 'auth/invalid-email') {
+                    alert('Ungültige E-Mail-Adresse!');
+                } else if (error.code === 'auth/weak-password') {
+                    alert('Passwort ist zu schwach!');
+                } else {
+                    alert('Registrierung fehlgeschlagen: ' + error.message);
+                }
+            }
+        }
+
+        async function loginWithGoogle() {
+            if (!auth) {
+                alert('Firebase Auth nicht geladen!');
+                return;
+            }
+
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                console.log('✅ Google Login erfolgreich:', result.user.email);
+                closeLoginModal();
+                alert('Willkommen, ' + result.user.displayName + '! 🎉');
+            } catch (error) {
+                console.error('❌ Google Login-Fehler:', error);
+                if (error.code === 'auth/popup-closed-by-user') {
+                    // User hat Popup geschlossen - kein Alert nötig
+                } else {
+                    alert('Google Login fehlgeschlagen: ' + error.message);
+                }
+            }
+        }
+
+        async function logoutUser() {
+            if (!auth || !currentUser) return;
+            
+            try {
+                await auth.signOut();
+                console.log('✅ Logout erfolgreich');
+                alert('Erfolgreich abgemeldet!');
+            } catch (error) {
+                console.error('❌ Logout-Fehler:', error);
+                alert('Logout fehlgeschlagen: ' + error.message);
+            }
+        }
+
+        function onUserLoggedIn(user) {
+            console.log('👤 User eingeloggt:', user.email, user.displayName);
+            currentUser = user;
+            
+            // User-Profil-Box in Header einfügen
+            updateUserProfile();
+        }
+
+        function onUserLoggedOut() {
+            console.log('👤 User ausgeloggt');
+            currentUser = null;
+            
+            // User-Profil-Box entfernen
+            updateUserProfile();
+        }
+
+        function updateUserProfile() {
+            const header = document.querySelector('.header');
+            let profileBox = document.getElementById('user-profile-box');
+            
+            if (currentUser) {
+                // User ist eingeloggt - zeige Profil
+                const initial = (currentUser.displayName || currentUser.email).charAt(0).toUpperCase();
+                const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+                
+                if (!profileBox) {
+                    profileBox = document.createElement('div');
+                    profileBox.id = 'user-profile-box';
+                    profileBox.className = 'user-profile';
+                    profileBox.style.marginTop = '15px';
+                    header.appendChild(profileBox);
+                }
+                
+                profileBox.innerHTML = `
+                    <div class="user-avatar">${initial}</div>
+                    <div class="user-info">
+                        <div style="font-weight: 600;">${displayName}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">${currentUser.email}</div>
+                    </div>
+                    <button class="btn btn-logout" onclick="logoutUser()">Abmelden</button>
+                `;
+            } else {
+                // User ist nicht eingeloggt - zeige Login-Button
+                if (!profileBox) {
+                    profileBox = document.createElement('div');
+                    profileBox.id = 'user-profile-box';
+                    profileBox.style.marginTop = '15px';
+                    header.appendChild(profileBox);
+                }
+                
+                profileBox.innerHTML = `
+                    <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
+                        🔐 Anmelden / Registrieren
+                    </button>
+                `;
+            }
+        }
+
         function playNotificationSound() {
             try {
                 const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+ltryxnMnBSh8y/DVfzEHImK38eKTPQsRXrTp66hVFApGn+DyvmwhBCl+zPDTgjMGHm7A7+OZRQ0PVqzn77BfGQg+');
@@ -605,8 +897,20 @@
                         appId: "1:886448081276:web:1b54875801c5d89f8efcf9"
                     });
                     db = firebase.database();
+                    auth = firebase.auth(); // 🔐 Firebase Auth initialisieren
                     isFirebaseReady = true;
                     console.log('✅ Firebase verbunden');
+                    
+                    // 🔐 Auth State Listener
+                    auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            console.log('👤 User eingeloggt:', user.email);
+                            onUserLoggedIn(user);
+                        } else {
+                            console.log('👤 User ausgeloggt');
+                            onUserLoggedOut();
+                        }
+                    });
                     
                     db.ref('.info/connected').on('value', (s) => { isConnected = s.val(); updateStatus(); });
                     db.ref('rides').on('value', (s) => {

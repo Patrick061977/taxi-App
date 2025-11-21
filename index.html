@@ -73,7 +73,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.6.1 - Push-Banner beim Start</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.0 - Verlauf-Features</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -91,6 +91,17 @@
         <button class="view-btn" onclick="switchView('history')">Verlauf</button>
         <button class="view-btn" onclick="switchView('driver')">Fahrer</button>
         <button class="view-btn" onclick="switchView('admin')">Admin</button>
+    </div>
+
+    <!-- 🔔 BENACHRICHTIGUNGS-BANNER -->
+    <div id="static-notification-banner" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;text-align:center;display:none;">
+        <div style="font-size:48px;margin-bottom:10px;">🔔</div>
+        <div style="margin-bottom:15px;">
+            <strong style="font-size:18px;">Benachrichtigungen aktivieren?</strong><br>
+            <span style="font-size:14px;opacity:0.9;margin-top:5px;display:block;">Erhalte sofort Push-Benachrichtigungen bei neuen Buchungen!</span>
+        </div>
+        <button onclick="requestNotificationPermission()" style="background:white;color:#667eea;border:none;padding:14px 24px;border-radius:8px;font-weight:700;cursor:pointer;margin-right:10px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">✓ Jetzt aktivieren</button>
+        <button onclick="document.getElementById('static-notification-banner').style.display='none'" style="background:rgba(255,255,255,0.2);color:white;border:2px solid white;padding:14px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;">Später</button>
     </div>
 
     <div id="passenger-view" class="view active">
@@ -127,14 +138,17 @@
             </div>
             <div class="input-group">
                 <label>🕐 Abholzeit</label>
-                <select id="pickup-time">
-                    <option value="jetzt">Sofort</option>
-                    <option value="15min">In 15 Minuten</option>
-                    <option value="30min">In 30 Minuten</option>
-                    <option value="1h">In 1 Stunde</option>
-                    <option value="custom">Bestimmte Uhrzeit...</option>
+                <select id="pickup-time" onchange="handlePickupTimeChange()">
+                    <option value="jetzt">⚡ Sofort</option>
+                    <option value="15min">🕐 In 15 Minuten</option>
+                    <option value="30min">🕐 In 30 Minuten</option>
+                    <option value="1h">🕑 In 1 Stunde</option>
+                    <option value="datetime">📅 Datum & Zeit wählen...</option>
                 </select>
-                <input type="time" id="custom-time" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
+                <input type="datetime-local" id="custom-datetime" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;font-size:15px;">
+                <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
+                    💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
+                </div>
             </div>
             <div class="input-group">
                 <label>🎯 Zielort</label>
@@ -367,6 +381,54 @@
             console.log('💾 Stammkunde gespeichert:', customer);
         }
 
+        // 📅 DATUM & ZEIT PICKER
+        function handlePickupTimeChange() {
+            const select = document.getElementById('pickup-time');
+            const datetimePicker = document.getElementById('custom-datetime');
+            const helpText = document.getElementById('datetime-help');
+            
+            if (select.value === 'datetime') {
+                datetimePicker.style.display = 'block';
+                if (helpText) helpText.style.display = 'block';
+                
+                // Setze Minimum auf jetzt + 15 Minuten
+                const now = new Date();
+                now.setMinutes(now.getMinutes() + 15);
+                const minDateTime = now.toISOString().slice(0, 16);
+                datetimePicker.min = minDateTime;
+                
+                // Setze Standard auf jetzt + 1 Stunde
+                const defaultTime = new Date();
+                defaultTime.setHours(defaultTime.getHours() + 1);
+                datetimePicker.value = defaultTime.toISOString().slice(0, 16);
+                
+            } else {
+                datetimePicker.style.display = 'none';
+                if (helpText) helpText.style.display = 'none';
+            }
+        }
+
+        function saveRegularCustomerData(name, pickup, destination) {
+            const saveCheckbox = document.getElementById('save-customer');
+            if (!saveCheckbox || !saveCheckbox.checked) return;
+            
+            // Lade bestehende Daten oder erstelle neu
+            let customer = regularCustomer || { name: name, rideCount: 0 };
+            
+            // Update
+            customer.name = name;
+            customer.favoritePickup = pickup;
+            customer.favoriteDestination = destination;
+            customer.rideCount = (customer.rideCount || 0) + 1;
+            customer.lastRide = Date.now();
+            
+            // Speichern
+            localStorage.setItem('regularCustomer', JSON.stringify(customer));
+            regularCustomer = customer;
+            
+            console.log('💾 Stammkunde gespeichert:', customer);
+        }
+
         console.log('🚀 Taxi App v3.6.0 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
@@ -399,13 +461,7 @@
             notificationPermission = Notification.permission;
             console.log('🔔 Notification Permission:', notificationPermission);
             
-            // Zeige Banner IMMER außer bereits erlaubt
-            if (notificationPermission !== 'granted') {
-                // Warte 1 Sekunde damit Seite geladen ist
-                setTimeout(() => {
-                    showNotificationPrompt();
-                }, 1000);
-            } else {
+            if (notificationPermission === 'granted') {
                 console.log('✅ Benachrichtigungen bereits erlaubt');
             }
         }
@@ -440,7 +496,10 @@
 
         async function requestNotificationPermission() {
             try {
-                // Banner entfernen
+                // Banner entfernen (beide Varianten)
+                const staticBanner = document.getElementById('static-notification-banner');
+                if (staticBanner) staticBanner.style.display = 'none';
+                
                 const banner = document.getElementById('notification-banner');
                 if (banner) banner.remove();
                 
@@ -1035,23 +1094,61 @@
                 dropdown.innerHTML = resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
+                    let fullAddress = '';
                     
-                    // Baue schöne Adresse
+                    // 🏨 HOTEL, RESTAURANT, POI Namen (z.B. "Pommerscher Hof")
+                    const poiName = address.amenity || address.tourism || address.building || r.name;
+                    
+                    // Baue Haupt-Adresszeile
                     if (address.road) {
-                        displayText = address.road;
-                        if (address.house_number) displayText += ' ' + address.house_number;
-                        displayText += ', ';
+                        fullAddress = address.road;
+                        if (address.house_number) fullAddress += ' ' + address.house_number;
                     }
                     
-                    if (address.village) displayText += address.village;
-                    else if (address.town) displayText += address.town;
-                    else if (address.city) displayText += address.city;
-                    else if (address.municipality) displayText += address.municipality;
+                    // Ort
+                    let city = '';
+                    if (address.village) city = address.village;
+                    else if (address.town) city = address.town;
+                    else if (address.city) city = address.city;
+                    else if (address.municipality) city = address.municipality;
                     
-                    if (!displayText) displayText = r.display_name;
+                    // PLZ
+                    const zip = address.postcode || '';
+                    
+                    // 🎨 Baue schöne Anzeige
+                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                        // Zeige: "🏨 Pommerscher Hof" in erster Zeile
+                        displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
+                        // Zeige: "   Seestraße 41, 17424 Heringsdorf" in zweiter Zeile
+                        displayText += `<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">`;
+                        if (fullAddress) displayText += fullAddress;
+                        if (zip) displayText += ', ' + zip;
+                        if (city) displayText += ' ' + city;
+                        displayText += '</div>';
+                    } else {
+                        // Normale Adresse ohne POI
+                        if (fullAddress) {
+                            displayText = fullAddress;
+                            if (zip) displayText += ', ' + zip;
+                            if (city) displayText += ' ' + city;
+                        } else {
+                            displayText = r.display_name;
+                        }
+                    }
+                    
+                    // Für selectAddress: Vollständige Adresse als String
+                    let addressString = '';
+                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                        addressString = poiName + '\\n';
+                    }
+                    if (fullAddress) addressString += fullAddress;
+                    if (zip) addressString += ', ' + zip;
+                    if (city) addressString += ' ' + city;
+                    
+                    if (!addressString) addressString = r.display_name;
                     
                     return `<div class="autocomplete-item" 
-                        onclick="selectAddress('${inputId}', '${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})">
+                        onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})">
                         ${displayText}
                     </div>`;
                 }).join('');
@@ -1298,7 +1395,7 @@
         async function book() {
             const customerName = document.getElementById('customer-name').value.trim();
             const pickupTimeSelect = document.getElementById('pickup-time').value;
-            const customTime = document.getElementById('custom-time').value;
+            const customDateTime = document.getElementById('custom-datetime').value;
             
             if (!customerName) {
                 alert('❌ Bitte Name eingeben!');
@@ -1318,12 +1415,36 @@
             } else if (pickupTimeSelect === '1h') {
                 pickupTime = new Date(now.getTime() + 60 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
                 pickupTimestamp = now.getTime() + 60 * 60000;
-            } else if (pickupTimeSelect === 'custom' && customTime) {
-                pickupTime = customTime;
-                const [hours, minutes] = customTime.split(':');
-                const customDate = new Date();
-                customDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                pickupTimestamp = customDate.getTime();
+            } else if (pickupTimeSelect === 'datetime' && customDateTime) {
+                // Datum & Zeit aus datetime-local
+                const selectedDate = new Date(customDateTime);
+                pickupTimestamp = selectedDate.getTime();
+                
+                // Formatiere als "22.11.2024, 08:00"
+                pickupTime = selectedDate.toLocaleString('de-DE', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                // Prüfe ob in der Vergangenheit
+                if (pickupTimestamp < Date.now()) {
+                    alert('❌ Die Abholzeit liegt in der Vergangenheit!\n\nBitte wähle eine Zeit in der Zukunft.');
+                    return;
+                }
+                
+                // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)
+                const daysDiff = (pickupTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
+                if (daysDiff > 7) {
+                    const confirm = window.confirm(
+                        `📅 Buchung für ${Math.floor(daysDiff)} Tage im Voraus\n\n` +
+                        `Abholung: ${pickupTime}\n\n` +
+                        `Möchtest du diese Vorausbuchung bestätigen?`
+                    );
+                    if (!confirm) return;
+                }
             }
             
             const ride = {
@@ -1356,12 +1477,9 @@
             }
             
             document.getElementById('booking-form').style.display = 'none';
-            document.getElementById('confirm').innerHTML = `<div class="alert-success"><strong>✓ Buchung erfolgreich!</strong><br>Kunde: <strong>${customerName}</strong><br>Abholung: <strong>${pickupTime}</strong><br>Preis: <strong>${ride.price}€</strong></div>`;
             showRideStatus(savedRide);
             
             if (isFirebaseReady) listenToMyRide(savedRide.firebaseId);
-            
-            setTimeout(() => document.getElementById('confirm').innerHTML = '', 5000);
         }
 
         function listenToMyRide(rideId) {
@@ -1867,6 +1985,10 @@
                         customerName: ride.customerName,
                         pickup: ride.pickup,
                         destination: ride.destination,
+                        pickupLat: ride.pickupCoords?.lat,
+                        pickupLon: ride.pickupCoords?.lon,
+                        destLat: ride.destCoords?.lat,
+                        destLon: ride.destCoords?.lon,
                         vehicle: ride.vehicle,
                         price: ride.price,
                         distance: ride.distance,
@@ -1879,6 +2001,106 @@
                 }
             } catch (e) {
                 console.error('Fehler beim Speichern der Historie:', e);
+            }
+        }
+
+        function closeRide() {
+            localStorage.removeItem('myCurrentRideId');
+            myCurrentRide = null;
+            document.getElementById('ride-status-container').innerHTML = '';
+            document.getElementById('booking-form').style.display = 'block';
+            document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt wurde in Ihrem Verlauf gespeichert</div>';
+            setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
+        }
+
+        // 🔄 ROUTE UMDREHEN
+        function reverseRoute(pickup, destination, pickupLat, pickupLon, destLat, destLon) {
+            // Tausche Abholort und Zielort
+            document.getElementById('pickup').value = destination;
+            document.getElementById('destination').value = pickup;
+            
+            // Tausche Koordinaten
+            if (destLat && destLon) {
+                pickupCoords = { lat: parseFloat(destLat), lon: parseFloat(destLon) };
+            }
+            if (pickupLat && pickupLon) {
+                destCoords = { lat: parseFloat(pickupLat), lon: parseFloat(pickupLon) };
+            }
+            
+            // Wechsle zur Fahrgast-Ansicht
+            switchView('passenger');
+            
+            // Zeige Bestätigung
+            const banner = document.createElement('div');
+            banner.style.cssText = 'background:#667eea;color:white;padding:15px;border-radius:8px;margin-bottom:15px;text-align:center;';
+            banner.innerHTML = '🔄 <strong>Route wurde umgedreht!</strong><br><span style="font-size:13px;">Überprüfe die Adressen und berechne den Preis.</span>';
+            
+            const bookingForm = document.getElementById('booking-form');
+            bookingForm.insertBefore(banner, bookingForm.firstChild);
+            setTimeout(() => banner.remove(), 4000);
+        }
+
+        // 📋 NOCHMAL BUCHEN
+        function bookAgain(pickup, destination, pickupLat, pickupLon, destLat, destLon) {
+            // Fülle Felder aus
+            document.getElementById('pickup').value = pickup;
+            document.getElementById('destination').value = destination;
+            
+            // Setze Koordinaten
+            if (pickupLat && pickupLon) {
+                pickupCoords = { lat: parseFloat(pickupLat), lon: parseFloat(pickupLon) };
+            }
+            if (destLat && destLon) {
+                destCoords = { lat: parseFloat(destLat), lon: parseFloat(destLon) };
+            }
+            
+            // Wechsle zur Fahrgast-Ansicht
+            switchView('passenger');
+            
+            // Zeige Bestätigung
+            const banner = document.createElement('div');
+            banner.style.cssText = 'background:#10b981;color:white;padding:15px;border-radius:8px;margin-bottom:15px;text-align:center;';
+            banner.innerHTML = '📋 <strong>Route wurde geladen!</strong><br><span style="font-size:13px;">Überprüfe die Adressen und berechne den Preis.</span>';
+            
+            const bookingForm = document.getElementById('booking-form');
+            bookingForm.insertBefore(banner, bookingForm.firstChild);
+            setTimeout(() => banner.remove(), 4000);
+        }
+
+        // ⭐ ALS FAVORIT SPEICHERN
+        function addToFavorites(pickup, destination, pickupLat, pickupLon, destLat, destLon) {
+            try {
+                let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+                
+                // Prüfe ob bereits vorhanden
+                const exists = favorites.some(f => 
+                    f.pickup === pickup && f.destination === destination
+                );
+                
+                if (exists) {
+                    alert('⭐ Diese Route ist bereits in deinen Favoriten!');
+                    return;
+                }
+                
+                // Füge zu Favoriten hinzu
+                favorites.push({
+                    pickup: pickup,
+                    destination: destination,
+                    pickupLat: pickupLat,
+                    pickupLon: pickupLon,
+                    destLat: destLat,
+                    destLon: destLon,
+                    addedAt: Date.now()
+                });
+                
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                
+                alert('⭐ Favorit gespeichert!\n\nDiese Route findest du jetzt in deinen Favoriten.');
+                
+                console.log('⭐ Favorit gespeichert:', { pickup, destination });
+            } catch (e) {
+                console.error('❌ Fehler beim Speichern des Favoriten:', e);
+                alert('❌ Fehler beim Speichern');
             }
         }
 
@@ -1916,6 +2138,21 @@
                             <strong>Preis:</strong> ${r.price}€<br>
                             <small style="opacity:0.7;">Abgeschlossen: ${r.completedAt || r.time}</small>
                         </div>
+                        
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px;">
+                            <button onclick="reverseRoute('${r.pickup.replace(/'/g, "\\'")}', '${r.destination.replace(/'/g, "\\'")}', ${r.pickupLat || 'null'}, ${r.pickupLon || 'null'}, ${r.destLat || 'null'}, ${r.destLon || 'null'})" 
+                                style="padding:10px;border:2px solid #667eea;background:white;color:#667eea;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                🔄 Route umdrehen
+                            </button>
+                            <button onclick="bookAgain('${r.pickup.replace(/'/g, "\\'")}', '${r.destination.replace(/'/g, "\\'")}', ${r.pickupLat || 'null'}, ${r.pickupLon || 'null'}, ${r.destLat || 'null'}, ${r.destLon || 'null'})" 
+                                style="padding:10px;border:2px solid #10b981;background:white;color:#10b981;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                📋 Nochmal buchen
+                            </button>
+                        </div>
+                        <button onclick="addToFavorites('${r.pickup.replace(/'/g, "\\'")}', '${r.destination.replace(/'/g, "\\'")}', ${r.pickupLat || 'null'}, ${r.pickupLon || 'null'}, ${r.destLat || 'null'}, ${r.destLon || 'null'})" 
+                            style="padding:10px;border:2px solid #f59e0b;background:white;color:#f59e0b;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;width:100%;margin-top:8px;">
+                            ⭐ Als Favorit speichern
+                        </button>
                     </div>
                 `).join('');
             } catch (e) {
@@ -2221,6 +2458,11 @@
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
             setupAutocomplete();
+            
+            // 🔔 BENACHRICHTIGUNGS-BANNER SOFORT ANZEIGEN
+            if ('Notification' in window && Notification.permission !== 'granted') {
+                document.getElementById('static-notification-banner').style.display = 'block';
+            }
             
             // 🔔 Service Worker & Push Notifications initialisieren
             initServiceWorker();

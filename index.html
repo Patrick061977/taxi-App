@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.3 - Zukunfts-Fahrten Management 📅</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.6 - 30 Min Vorlauf + Manuelle Zuweisung 🚗</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -138,14 +138,6 @@
         <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
         
         <!-- 🌟 STAMMKUNDEN-SCHNELLBUCHUNG -->
-        <div id="regular-customer-box" style="display:none;background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:15px;border-radius:12px;margin-bottom:15px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <strong style="font-size:16px;">⭐ Willkommen zurück!</strong>
-                <button onclick="clearRegularCustomer()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">❌ Löschen</button>
-            </div>
-            <div id="regular-customer-info" style="font-size:14px;margin-bottom:10px;"></div>
-            <button onclick="useRegularCustomerData()" style="background:white;color:#667eea;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">⚡ Schnellbuchung starten</button>
-        </div>
         
         <div id="ride-status-container"></div>
         <div id="booking-form">
@@ -569,6 +561,9 @@
             // Speichern
             localStorage.setItem('regularCustomer', JSON.stringify(customer));
             regularCustomer = customer;
+            
+            // Update User Profile Box
+            updateUserProfile();
             
             console.log('💾 Stammkunde gespeichert:', customer);
         }
@@ -1121,19 +1116,126 @@
                     else if (r.status === 'picked_up') { statusText = 'Besetzt'; statusColor = '#fef3c7'; }
                     else if (r.status === 'new') { statusText = 'Neu'; statusColor = '#fef3c7'; }
                     
+                    // Abholzeit formatieren
+                    let pickupTimeDisplay = r.pickupTime || 'Sofort';
+                    if (r.pickupTimestamp) {
+                        const pickupDate = new Date(r.pickupTimestamp);
+                        const now = Date.now();
+                        if (pickupDate.getTime() > now + (30 * 60000)) {
+                            // Zukunft
+                            pickupTimeDisplay = '📅 ' + pickupDate.toLocaleString('de-DE', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        }
+                    }
+                    
+                    // Manuelle Zuweisung Button für neue Fahrten
+                    let assignButton = '';
+                    if (r.status === 'new' && r.firebaseId) {
+                        assignButton = `<button onclick="manuallyAssignRide('${r.firebaseId}')" style="width:100%;margin-top:10px;padding:8px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">
+                            🚗 Fahrer manuell zuweisen
+                        </button>`;
+                    }
+                    
                     return `<div class="ride-card">
                         <strong>#${r.id}</strong> <span style="background:${statusColor};padding:4px 8px;border-radius:12px;font-size:12px;">${statusText}</span>
+                        ${r.customerName ? '<div style="margin-top:8px;font-weight:600;">👤 '+r.customerName+'</div>' : ''}
                         <div style="margin-top:10px;font-size:14px;">
-                            Von: ${r.pickup}<br>
-                            Nach: ${r.destination}<br>
-                            ${r.distance} km<br>
-                            Preis: ${r.price}€
-                            ${r.vehicle ? '<br>Fahrzeug: '+r.vehicle : ''}
+                            🕐 ${pickupTimeDisplay}<br>
+                            📍 Von: ${r.pickup}<br>
+                            🎯 Nach: ${r.destination}<br>
+                            📏 ${r.distance} km<br>
+                            💰 Preis: ${r.price}€
+                            ${r.vehicle ? '<br>🚗 Fahrzeug: '+r.vehicle : ''}
                             ${r.vehiclePlate ? ' ('+r.vehiclePlate+')' : ''}
                         </div>
+                        ${assignButton}
                     </div>`;
                 }).join('');
             }
+        }
+        
+        // 🚗 MANUELLE FAHRER-ZUWEISUNG
+        function manuallyAssignRide(rideId) {
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // Fahrzeug-Auswahl
+            const vehicleOptions = Object.keys(VEHICLES).map(key => {
+                const v = VEHICLES[key];
+                return `<option value="${key}">${v.name} (${v.plate})</option>`;
+            }).join('');
+            
+            const html = `
+                <div style="background:white;padding:20px;border-radius:12px;">
+                    <h3>🚗 Fahrer zuweisen</h3>
+                    <div style="margin:15px 0;padding:15px;background:#f0f9ff;border-radius:8px;">
+                        <strong>Fahrt #${ride.id}</strong><br>
+                        📍 ${ride.pickup}<br>
+                        🎯 ${ride.destination}<br>
+                        💰 ${ride.price}€
+                    </div>
+                    <label style="display:block;margin:10px 0;">Fahrzeug wählen:</label>
+                    <select id="manual-vehicle-select" style="width:100%;padding:12px;border:2px solid #667eea;border-radius:8px;font-size:14px;">
+                        <option value="">-- Fahrzeug wählen --</option>
+                        ${vehicleOptions}
+                    </select>
+                    <div style="display:flex;gap:10px;margin-top:20px;">
+                        <button onclick="confirmManualAssignment('${rideId}')" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;">
+                            ✓ Zuweisen
+                        </button>
+                        <button onclick="closeManualAssignment()" style="flex:1;padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;">
+                            ✕ Abbrechen
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Modal anzeigen
+            const modal = document.createElement('div');
+            modal.id = 'manual-assign-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
+        }
+        
+        async function confirmManualAssignment(rideId) {
+            const vehicleId = document.getElementById('manual-vehicle-select').value;
+            if (!vehicleId) {
+                alert('❌ Bitte wähle ein Fahrzeug!');
+                return;
+            }
+            
+            const vehicle = VEHICLES[vehicleId];
+            const ride = rides.find(r => r.firebaseId === rideId);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // Fahrt zuweisen
+            await updateRide(rideId, {
+                status: 'accepted',
+                vehicleId: vehicleId,
+                vehicle: vehicle.name,
+                vehiclePlate: vehicle.plate,
+                acceptedAt: Date.now()
+            });
+            
+            closeManualAssignment();
+            alert(`✅ Fahrt #${ride.id} wurde ${vehicle.name} zugewiesen!`);
+        }
+        
+        function closeManualAssignment() {
+            const modal = document.getElementById('manual-assign-modal');
+            if (modal) modal.remove();
         }
 
         // DATABASE FUNCTIONS
@@ -2320,6 +2422,17 @@
             document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt wurde in Ihrem Verlauf gespeichert</div>';
             setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
         }
+        
+        function closeFutureRide(rideId) {
+            // Fahrt bleibt in Firebase und im Verlauf gespeichert
+            // Display wird nur frei gemacht
+            localStorage.removeItem('myCurrentRideId');
+            myCurrentRide = null;
+            document.getElementById('ride-status-container').innerHTML = '';
+            document.getElementById('booking-form').style.display = 'block';
+            document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt gespeichert! Du findest sie unter "Verlauf" → "Kommende Fahrten"</div>';
+            setTimeout(() => document.getElementById('confirm').innerHTML = '', 5000);
+        }
 
         function loadHistory() {
             try {
@@ -2374,7 +2487,8 @@
             
             // 📅 CHECK: Ist die Fahrt in der Zukunft?
             const now = Date.now();
-            const isFutureRide = ride.pickupTimestamp && ride.pickupTimestamp > now + (5 * 60000); // 5 Min Puffer
+            // Fahrer-Zuweisung beginnt 30 Min vor Abholung
+            const isFutureRide = ride.pickupTimestamp && ride.pickupTimestamp > now + (30 * 60000); // 30 Min Vorlauf
             
             // Wenn Fahrt in der Zukunft und Status 'new', zeige Vormerkung
             if (ride.status === 'new' && isFutureRide) {
@@ -2408,7 +2522,10 @@
                         <div style="margin-top: 15px; padding: 12px; background: #dcfce7; border-radius: 8px; font-size: 13px; color: #14532d;">
                             ✅ Du erhältst 30 Minuten vor der Abholung eine Benachrichtigung, wenn der Fahrer zugewiesen wurde.
                         </div>
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
+                        <div style="display:flex;gap:10px;margin-top:15px;">
+                            <button onclick="closeFutureRide('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#10b981;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">✓ OK</button>
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Stornieren</button>
+                        </div>
                     </div>
                 `;
                 return;
@@ -2834,9 +2951,12 @@
             let profileBox = document.getElementById('user-profile-box');
             
             if (currentUser) {
-                // User ist eingeloggt - zeige Profil
+                // User ist eingeloggt - zeige Profil + Stammkunden-Info
                 const initial = (currentUser.displayName || currentUser.email).charAt(0).toUpperCase();
                 const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+                
+                // Lade Stammkunden-Daten
+                const regularCustomer = JSON.parse(localStorage.getItem('regularCustomer') || 'null');
                 
                 if (!profileBox) {
                     profileBox = document.createElement('div');
@@ -2845,28 +2965,60 @@
                     header.appendChild(profileBox);
                 }
                 
+                // Stammkunden-Info
+                let customerStats = '';
+                if (regularCustomer && regularCustomer.rideCount > 0) {
+                    customerStats = `<div style="font-size: 9px; opacity: 0.8; margin-top: 2px;">🚕 ${regularCustomer.rideCount} Fahrt${regularCustomer.rideCount > 1 ? 'en' : ''} · 📍 ${regularCustomer.favoritePickup ? regularCustomer.favoritePickup.substring(0, 20) + (regularCustomer.favoritePickup.length > 20 ? '...' : '') : 'Keine Adresse'}</div>`;
+                }
+                
                 profileBox.innerHTML = `
                     <div class="user-avatar">${initial}</div>
                     <div class="user-info">
                         <div style="font-weight: 600; font-size: 11px;">${displayName}</div>
                         <div style="font-size: 9px; opacity: 0.75;">${currentUser.email}</div>
+                        ${customerStats}
                     </div>
                     <button class="btn-logout" onclick="logoutUser()">Aus</button>
                 `;
             } else {
-                // User ist nicht eingeloggt - zeige Login-Button
+                // User ist nicht eingeloggt - prüfe ob Stammkunde (lokal)
+                const regularCustomer = JSON.parse(localStorage.getItem('regularCustomer') || 'null');
+                
                 if (!profileBox) {
                     profileBox = document.createElement('div');
                     profileBox.id = 'user-profile-box';
-                    profileBox.style.marginTop = '15px';
                     header.appendChild(profileBox);
                 }
                 
-                profileBox.innerHTML = `
-                    <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
-                        🔐 Anmelden / Registrieren
-                    </button>
-                `;
+                if (regularCustomer && regularCustomer.rideCount > 0) {
+                    // Stammkunde ohne Login
+                    const initial = regularCustomer.name.charAt(0).toUpperCase();
+                    profileBox.className = 'user-profile';
+                    profileBox.style.marginTop = '8px';
+                    
+                    let customerStats = `🚕 ${regularCustomer.rideCount} Fahrt${regularCustomer.rideCount > 1 ? 'en' : ''}`;
+                    if (regularCustomer.favoritePickup) {
+                        customerStats += ` · 📍 ${regularCustomer.favoritePickup.substring(0, 20)}${regularCustomer.favoritePickup.length > 20 ? '...' : ''}`;
+                    }
+                    
+                    profileBox.innerHTML = `
+                        <div class="user-avatar">${initial}</div>
+                        <div class="user-info">
+                            <div style="font-weight: 600; font-size: 11px;">⭐ ${regularCustomer.name}</div>
+                            <div style="font-size: 9px; opacity: 0.75;">${customerStats}</div>
+                        </div>
+                        <button class="btn-logout" onclick="showLoginModal()">Anmelden</button>
+                    `;
+                } else {
+                    // Kein Login, kein Stammkunde
+                    profileBox.className = '';
+                    profileBox.style.marginTop = '15px';
+                    profileBox.innerHTML = `
+                        <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
+                            🔐 Anmelden / Registrieren
+                        </button>
+                    `;
+                }
             }
         }
 

@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.3 - Wiederholen & Favoriten ⭐</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.5 - Fahrten bearbeiten ✏️</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -634,10 +634,19 @@
                 let actionButtons = '';
                 if (isActive && r.status !== 'storniert') {
                     if (r.status === 'vorbestellt' || r.status === 'new') {
-                        actionButtons = `<button onclick="cancelRideFromHistory('${r.firebaseId || r.id}')" 
-                            style="width:100%;margin-top:10px;padding:10px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
-                            🗑️ Stornieren
-                        </button>`;
+                        // Vorbestellungen + Neue Fahrten: Bearbeiten & Stornieren
+                        actionButtons = `
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+                                <button onclick="editRide('${r.firebaseId || r.id}')" 
+                                    style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                    ✏️ Bearbeiten
+                                </button>
+                                <button onclick="cancelRideFromHistory('${r.firebaseId || r.id}')" 
+                                    style="padding:10px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                    🗑️ Stornieren
+                                </button>
+                            </div>
+                        `;
                     } else if (r.firebaseId) {
                         actionButtons = `<button onclick="viewRideDetails('${r.firebaseId}')" 
                             style="width:100%;margin-top:10px;padding:10px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
@@ -744,16 +753,31 @@
             const confirmCancel = confirm('🗑️ Fahrt wirklich stornieren?');
             if (!confirmCancel) return;
             
+            // Update Firebase
             if (isFirebaseReady && rideId) {
                 try {
-                    await db.ref('rides/' + rideId).update({ status: 'storniert' });
-                    alert('✅ Fahrt wurde storniert');
-                    updateHistoryView();
+                    await db.ref('rides/' + rideId).update({ 
+                        status: 'storniert',
+                        cancelledAt: Date.now()
+                    });
+                    console.log('✅ Fahrt in Firebase storniert');
                 } catch (error) {
-                    console.error('❌ Fehler beim Stornieren:', error);
-                    alert('❌ Fehler beim Stornieren der Fahrt');
+                    console.error('❌ Fehler beim Stornieren in Firebase:', error);
                 }
             }
+            
+            // Update localStorage
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = history.find(r => r.firebaseId === rideId || r.id === rideId);
+            if (ride) {
+                ride.status = 'storniert';
+                ride.cancelledAt = Date.now();
+                localStorage.setItem('rideHistory', JSON.stringify(history));
+                console.log('✅ Fahrt in localStorage storniert');
+            }
+            
+            alert('✅ Fahrt wurde storniert');
+            updateHistoryView();
         }
         
         // 👁️ Fahrtdetails anzeigen (wechselt zum Fahrgast-Tab und zeigt Status)
@@ -843,6 +867,263 @@
         function saveAsFavorite(rideId) {
             const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
             const ride = history.find(r => r.createdAt === rideId || r.id === rideId);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Lade bestehende Favoriten
+            const favorites = JSON.parse(localStorage.getItem('favoritRides') || '[]');
+            
+            // Prüfe ob schon vorhanden
+            const exists = favorites.some(f => 
+                f.pickup === ride.pickup && f.destination === ride.destination
+            );
+            
+            if (exists) {
+                alert('⭐ Diese Route ist bereits ein Favorit!');
+                return;
+            }
+            
+            // Füge hinzu
+            const favorite = {
+                id: Date.now(),
+                name: `${ride.pickup} → ${ride.destination}`,
+                pickup: ride.pickup,
+                destination: ride.destination,
+                distance: ride.distance,
+                price: ride.price,
+                addedAt: Date.now()
+            };
+            
+            favorites.push(favorite);
+            localStorage.setItem('favoritRides', JSON.stringify(favorites));
+            
+            alert('⭐ Als Favorit gespeichert!\n\n' +
+                  ride.pickup + ' → ' + ride.destination + '\n\n' +
+                  'Favoriten findest du im Fahrgast-Tab oben.');
+            
+            // TODO: Favoriten-Anzeige implementieren
+        }
+        
+        // ✏️ FAHRT BEARBEITEN
+        async function editRide(rideId) {
+            // Lade Fahrt aus Firebase
+            let ride = null;
+            
+            if (isFirebaseReady) {
+                const snapshot = await db.ref('rides/' + rideId).once('value');
+                ride = snapshot.val();
+                if (ride) ride.firebaseId = rideId;
+            }
+            
+            // Falls nicht in Firebase, suche in localStorage
+            if (!ride) {
+                const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                ride = history.find(r => r.firebaseId === rideId || r.id === rideId);
+            }
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Erstelle Bearbeitungs-Modal
+            const pickupDate = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : new Date();
+            const formattedDateTime = pickupDate.toISOString().slice(0, 16);
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:90%;max-height:80vh;overflow-y:auto;">
+                    <h3 style="margin-bottom:15px;">✏️ Fahrt bearbeiten</h3>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">📍 Abholort</label>
+                        <input type="text" id="edit-pickup" value="${ride.pickup}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">🎯 Zielort</label>
+                        <input type="text" id="edit-destination" value="${ride.destination}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">👤 Kundenname</label>
+                        <input type="text" id="edit-customer" value="${ride.customerName || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">🕐 Abholzeit</label>
+                        <input type="datetime-local" id="edit-datetime" value="${formattedDateTime}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">👥 Personen</label>
+                        <select id="edit-passengers" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                            <option value="1" ${ride.passengers == 1 ? 'selected' : ''}>1 Person</option>
+                            <option value="2" ${ride.passengers == 2 ? 'selected' : ''}>2 Personen</option>
+                            <option value="3" ${ride.passengers == 3 ? 'selected' : ''}>3 Personen</option>
+                            <option value="4" ${ride.passengers == 4 ? 'selected' : ''}>4 Personen</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;margin-top:20px;">
+                        <button onclick="saveEditedRide('${rideId}')" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            ✅ Speichern
+                        </button>
+                        <button onclick="closeEditModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            ❌ Abbrechen
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            window.currentEditModal = modal;
+        }
+        
+        function closeEditModal() {
+            if (window.currentEditModal) {
+                window.currentEditModal.remove();
+                window.currentEditModal = null;
+            }
+        }
+        
+        async function saveEditedRide(rideId) {
+            const newPickup = document.getElementById('edit-pickup').value.trim();
+            const newDestination = document.getElementById('edit-destination').value.trim();
+            const newCustomer = document.getElementById('edit-customer').value.trim();
+            const newDateTime = document.getElementById('edit-datetime').value;
+            const newPassengers = document.getElementById('edit-passengers').value;
+            
+            if (!newPickup || !newDestination) {
+                alert('❌ Abholort und Zielort müssen ausgefüllt sein!');
+                return;
+            }
+            
+            const newTimestamp = new Date(newDateTime).getTime();
+            const now = Date.now();
+            const minutesUntilPickup = (newTimestamp - now) / (1000 * 60);
+            const newStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
+            
+            const updates = {
+                pickup: newPickup,
+                destination: newDestination,
+                customerName: newCustomer,
+                pickupTimestamp: newTimestamp,
+                pickupTime: new Date(newTimestamp).toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+                passengers: newPassengers,
+                status: newStatus,
+                editedAt: Date.now()
+            };
+            
+            // Update Firebase
+            if (isFirebaseReady) {
+                try {
+                    await db.ref('rides/' + rideId).update(updates);
+                    console.log('✅ Fahrt in Firebase aktualisiert');
+                } catch (error) {
+                    console.error('❌ Fehler beim Aktualisieren:', error);
+                }
+            }
+            
+            // Update localStorage
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = history.find(r => r.firebaseId === rideId || r.id === rideId);
+            if (ride) {
+                Object.assign(ride, updates);
+                localStorage.setItem('rideHistory', JSON.stringify(history));
+            }
+            
+            closeEditModal();
+            alert('✅ Fahrt wurde aktualisiert!');
+            
+            // Aktualisiere Views
+            updateHistoryView();
+            updateAdminView();
+        }
+        
+        // 🗑️ FAHRT LÖSCHEN (Admin)
+        async function deleteRide(rideId) {
+            const confirmDelete = confirm('🗑️ Fahrt wirklich LÖSCHEN?\n\nDies kann nicht rückgängig gemacht werden!');
+            if (!confirmDelete) return;
+            
+            // Lösche aus Firebase
+            if (isFirebaseReady) {
+                try {
+                    await db.ref('rides/' + rideId).remove();
+                    console.log('✅ Fahrt aus Firebase gelöscht');
+                } catch (error) {
+                    console.error('❌ Fehler beim Löschen:', error);
+                }
+            }
+            
+            // Lösche aus localStorage
+            let history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            history = history.filter(r => r.firebaseId !== rideId && r.id !== rideId);
+            localStorage.setItem('rideHistory', JSON.stringify(history));
+            
+            alert('✅ Fahrt wurde gelöscht!');
+            updateAdminView();
+        }
+        
+        // 🔄 ROUTE UMDREHEN (Admin - direkt in Firebase)
+        async function reverseRouteAdmin(rideId) {
+            const confirmReverse = confirm('🔄 Route umdrehen?\n\nVon ⇄ Nach werden getauscht.');
+            if (!confirmReverse) return;
+            
+            // Lade Fahrt
+            let ride = null;
+            if (isFirebaseReady) {
+                const snapshot = await db.ref('rides/' + rideId).once('value');
+                ride = snapshot.val();
+            }
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Tausche Von/Nach
+            const updates = {
+                pickup: ride.destination,
+                destination: ride.pickup,
+                editedAt: Date.now()
+            };
+            
+            // Update Firebase
+            if (isFirebaseReady) {
+                try {
+                    await db.ref('rides/' + rideId).update(updates);
+                    console.log('✅ Route in Firebase umgedreht');
+                } catch (error) {
+                    console.error('❌ Fehler:', error);
+                }
+            }
+            
+            // Update localStorage
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const localRide = history.find(r => r.firebaseId === rideId || r.id === rideId);
+            if (localRide) {
+                Object.assign(localRide, updates);
+                localStorage.setItem('rideHistory', JSON.stringify(history));
+            }
+            
+            alert('✅ Route wurde umgedreht!\n\n' + 
+                  'Neu:\n' +
+                  'Von: ' + ride.destination + '\n' +
+                  'Nach: ' + ride.pickup);
+            
+            updateAdminView();
+        }
             
             if (!ride) {
                 alert('❌ Fahrt nicht gefunden');
@@ -1432,6 +1713,27 @@
                             bgColor = '#e0f2fe';
                         }
                         
+                        // 🔘 Aktions-Buttons für offene Fahrten
+                        let actionButtons = '';
+                        if (r.status === 'vorbestellt' || r.status === 'new') {
+                            actionButtons = `
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;">
+                                    <button onclick="editRide('${r.firebaseId || r.id}')" 
+                                        style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                        ✏️ Bearbeiten
+                                    </button>
+                                    <button onclick="reverseRouteAdmin('${r.firebaseId || r.id}')" 
+                                        style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                        🔄 Umdrehen
+                                    </button>
+                                    <button onclick="deleteRide('${r.firebaseId || r.id}')" 
+                                        style="padding:8px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                        🗑️ Löschen
+                                    </button>
+                                </div>
+                            `;
+                        }
+                        
                         html += `<div class="ride-card" style="border-left:4px solid ${borderColor};background:${bgColor};">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
                                 <strong>${r.customerName || 'Unbekannt'}</strong>
@@ -1448,6 +1750,7 @@
                                 <strong>📏 Distanz:</strong> ${r.distance} km
                                 ${r.vehicleLabel ? '<br><strong>🚗 Fahrzeug:</strong> '+r.vehicleLabel : ''}
                             </div>
+                            ${actionButtons}
                         </div>`;
                     });
                     
@@ -2478,10 +2781,21 @@
                         timestamp: Date.now(), 
                         vehicleId: currentVehicle,
                         vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle,
-                        online: isOnline 
+                        online: isOnline,
+                        accuracy: pos.coords.accuracy
                     };
                     
-                    console.log('📍 GPS:', location.lat.toFixed(4), location.lon.toFixed(4));
+                    console.log('📍 GPS:', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
+                    
+                    // Update GPS-Indicator
+                    const gpsIndicator = document.getElementById('gps-indicator');
+                    const gpsDot = document.getElementById('gps-dot');
+                    const gpsStatus = document.getElementById('gps-status');
+                    if (gpsIndicator && gpsDot && gpsStatus) {
+                        gpsIndicator.style.display = 'flex';
+                        gpsDot.classList.add('online');
+                        gpsStatus.textContent = '📍 GPS: ' + Math.round(location.accuracy) + 'm';
+                    }
                     
                     if (!isFirebaseReady) {
                         console.error('❌ Firebase nicht bereit!');
@@ -2491,23 +2805,50 @@
                     // Immer in drivers/ speichern
                     db.ref('drivers/' + currentVehicle).set(location).then(() => {
                         console.log('✅ GPS → drivers/' + currentVehicle);
+                    }).catch(err => {
+                        console.error('❌ Fehler beim GPS-Upload:', err);
                     });
                     
                     // Wenn rideId vorhanden, auch in Fahrt speichern
                     if (rideId) {
                         db.ref('rides/' + rideId + '/driverLocation').set(location).then(() => {
                             console.log('✅ GPS → rides/' + rideId + '/driverLocation');
+                        }).catch(err => {
+                            console.error('❌ Fehler beim GPS-Upload zur Fahrt:', err);
                         });
                     }
                 },
                 (err) => {
-                    console.error('❌ GPS Fehler:', err.message);
-                    alert('❌ GPS Fehler: ' + err.message + '\n\nBitte Standort-Berechtigung erteilen!');
+                    console.error('❌ GPS Fehler:', err.message, err.code);
+                    
+                    // Update GPS-Indicator
+                    const gpsIndicator = document.getElementById('gps-indicator');
+                    const gpsDot = document.getElementById('gps-dot');
+                    const gpsStatus = document.getElementById('gps-status');
+                    if (gpsIndicator && gpsDot && gpsStatus) {
+                        gpsIndicator.style.display = 'flex';
+                        gpsDot.classList.remove('online');
+                        gpsStatus.textContent = '📍 GPS: Fehler';
+                    }
+                    
+                    // Bei Timeout (Code 3) -> Automatisch neu versuchen
+                    if (err.code === 3 && isOnline) {
+                        console.log('⏱️ GPS Timeout - versuche erneut in 5 Sekunden...');
+                        setTimeout(() => {
+                            if (isOnline && !watchId) {
+                                console.log('🔄 GPS-Tracking neu starten...');
+                                startDriverTracking(rideId);
+                            }
+                        }, 5000);
+                    } else if (err.code === 1) {
+                        // Berechtigung verweigert
+                        alert('❌ GPS-Berechtigung verweigert!\n\nBitte in den Einstellungen die Standort-Berechtigung für diese App aktivieren.');
+                    }
                 },
                 { 
                     enableHighAccuracy: true, 
-                    maximumAge: 0, 
-                    timeout: 30000 
+                    maximumAge: 10000,  // Akzeptiere max. 10 Sek alte Position
+                    timeout: 60000      // 60 Sekunden Timeout (erhöht von 30)
                 }
             );
             

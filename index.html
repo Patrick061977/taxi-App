@@ -1461,6 +1461,9 @@
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
                 
+                // Prüfe ob Elemente existieren (existieren nicht im Uber-Style Interface)
+                if (!input || !dropdown) return;
+                
                 input.addEventListener('input', (e) => {
                     // Reset coords wenn User manuell tippt
                     if (id === 'pickup') pickupCoords = null;

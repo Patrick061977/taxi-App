@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.5 - Fix Navigation bei Stornierung 🧭</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.7 - Google Maps Navigation 🗺️</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -1606,13 +1606,29 @@
             if (current) {
                 let buttonHtml = '';
                 if (current.status === 'accepted') {
-                    buttonHtml = `<button class="btn btn-success" onclick="pickupCustomer('${current.firebaseId}')" style="margin-top:10px;">🚕 Kunde abgeholt</button>`;
+                    // Navigation Button für Fahrt zum Kunden
+                    buttonHtml = `
+                        <button class="btn" onclick="openGoogleMapsNavigation('${current.firebaseId}', 'pickup')" 
+                            style="margin-top:10px;background:#4285f4;color:white;font-size:16px;padding:18px;">
+                            🗺️ Navigation zum Kunden starten
+                        </button>
+                        <button class="btn btn-success" onclick="pickupCustomer('${current.firebaseId}')" style="margin-top:10px;">
+                            🚕 Kunde abgeholt
+                        </button>
+                    `;
                 } else if (current.status === 'picked_up') {
+                    // Navigation Button für Fahrt zum Ziel
                     buttonHtml = `
                         <div style="margin-top:10px;padding:12px;background:#fef3c7;border-radius:8px;text-align:center;font-weight:600;color:#92400e;">
                             🚗 BESETZT - Fahrt läuft
                         </div>
-                        <button class="btn btn-success" onclick="completeRide('${current.firebaseId}')" style="margin-top:10px;">✓ Fahrt abschließen</button>
+                        <button class="btn" onclick="openGoogleMapsNavigation('${current.firebaseId}', 'destination')" 
+                            style="margin-top:10px;background:#4285f4;color:white;font-size:16px;padding:18px;">
+                            🗺️ Navigation zum Ziel starten
+                        </button>
+                        <button class="btn btn-success" onclick="completeRide('${current.firebaseId}')" style="margin-top:10px;">
+                            ✓ Fahrt abschließen
+                        </button>
                     `;
                 }
                 
@@ -2414,7 +2430,7 @@
                     // Für selectAddress: Vollständige Adresse als String
                     let addressString = '';
                     if (poiName && poiName !== fullAddress && poiName !== city) {
-                        addressString = poiName + '\\n';
+                        addressString = poiName + ' ';
                     }
                     if (fullAddress) addressString += fullAddress;
                     if (zip) addressString += ', ' + zip;
@@ -4155,6 +4171,57 @@ ${debugJSON}
             
             // Verstecke Container
             document.getElementById('driver-route-info').style.display = 'none';
+        }
+
+        function openGoogleMapsNavigation(rideId, destination) {
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            let targetLat, targetLon, targetName;
+            
+            if (destination === 'pickup') {
+                // Navigation zum Kunden (Abholort)
+                targetLat = ride.pickupCoords.lat;
+                targetLon = ride.pickupCoords.lon;
+                targetName = ride.pickup;
+            } else {
+                // Navigation zum Ziel
+                targetLat = ride.destCoords.lat;
+                targetLon = ride.destCoords.lon;
+                targetName = ride.destination;
+            }
+            
+            // Google Maps URL für Navigation
+            // Für Mobile: google.navigation:q=lat,lon
+            // Für Desktop/Fallback: https://www.google.com/maps/dir/?api=1&destination=lat,lon
+            
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            let mapsUrl;
+            
+            if (isMobile) {
+                // Mobile: Öffne Google Maps App direkt mit Navigation
+                mapsUrl = `google.navigation:q=${targetLat},${targetLon}`;
+                
+                // Fallback für iOS oder wenn Google Maps nicht installiert
+                setTimeout(() => {
+                    window.location.href = `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLon}&travelmode=driving`;
+                }, 500);
+            } else {
+                // Desktop: Öffne Google Maps im Browser
+                mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLon}&travelmode=driving`;
+            }
+            
+            console.log('🗺️ Öffne Google Maps Navigation zu:', targetName);
+            console.log('📍 Koordinaten:', targetLat, targetLon);
+            
+            // Öffne Maps
+            window.open(mapsUrl, '_blank');
+            
+            // Bestätigungsmeldung
+            alert(`✅ Google Maps Navigation gestartet!\n\nZiel: ${targetName}\n\n💡 Tipp: Die Navigation öffnet sich in der Google Maps App.`);
         }
 
         // 🔐 LOGIN SYSTEM FUNCTIONS

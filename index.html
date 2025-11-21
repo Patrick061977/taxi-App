@@ -293,6 +293,7 @@
     </script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="if(typeof initApp === 'function') initApp(false);"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script>
         // CONFIGURATION
         const VEHICLES = {
@@ -2571,8 +2572,13 @@
         
         async function loginWithGoogle() {
             if (!auth) {
-                alert('Firebase Auth nicht verfügbar');
-                return;
+                // Versuche Firebase Auth nochmal zu initialisieren
+                if (typeof firebase !== 'undefined' && firebase.auth) {
+                    auth = firebase.auth();
+                } else {
+                    alert('❌ Firebase Auth ist nicht verfügbar.\n\nBitte lade die Seite neu (Strg+F5) und versuche es nochmal.');
+                    return;
+                }
             }
             
             try {
@@ -2581,7 +2587,11 @@
                 closeLoginModal();
             } catch (error) {
                 console.error('Google Login Fehler:', error);
-                alert('Google Login fehlgeschlagen: ' + error.message);
+                if (error.code === 'auth/popup-blocked') {
+                    alert('❌ Popup wurde blockiert!\n\nBitte erlaube Popups für diese Seite.');
+                } else {
+                    alert('❌ Google Login fehlgeschlagen: ' + error.message);
+                }
             }
         }
         

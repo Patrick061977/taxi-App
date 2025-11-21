@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.3 - Neue Aufträge oben 📋</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.4 - Neue Aufträge GANZ oben! ⭐</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -232,6 +232,14 @@
     </div>
 
     <div id="driver-view" class="view">
+        <!-- ⭐ NEUE AUFTRÄGE - GANZ OBEN ALS ERSTES! -->
+        <details open style="margin: 15px 0;">
+            <summary style="cursor:pointer;font-weight:600;font-size:18px;padding:12px;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;border-radius:8px;box-shadow: 0 3px 8px rgba(0,0,0,0.2);">
+                📋 Neue Aufträge <span id="new-rides-count" style="background:white;color:#667eea;padding:3px 10px;border-radius:12px;font-size:14px;margin-left:8px;font-weight:bold;">0</span>
+            </summary>
+            <div id="new-rides" style="margin-top:10px;"></div>
+        </details>
+        
         <h3 style="margin: 20px 0;">Fahrer Dashboard</h3>
         <!-- Debug Panel - zusammenklappbar -->
         <details style="background:#f3f4f6;border-radius:8px;padding:10px;margin-bottom:15px;font-size:12px;">
@@ -276,14 +284,6 @@
                 <span style="font-size: 12px; color: #666;"> Verdienst</span>
             </div>
         </div>
-        
-        <!-- Neue Aufträge - GANZ OBEN! -->
-        <details open style="margin-bottom: 15px;">
-            <summary style="cursor:pointer;font-weight:600;font-size:16px;margin-bottom:10px;padding:10px;background:white;border-radius:8px;box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                📋 Neue Aufträge <span id="new-rides-count" style="background:#667eea;color:white;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:5px;">0</span>
-            </summary>
-            <div id="new-rides"></div>
-        </details>
         
         <!-- Aktuelle Fahrt -->
         <div id="driver-current-ride"></div>

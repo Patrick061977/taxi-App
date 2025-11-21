@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.6 - Debug Verlauf 🔍</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.1.0 - Live Fahrer-Status im Admin 🚗</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -311,6 +311,9 @@
             <div class="stat-card"><div style="font-size: 28px;" id="a-pending">0</div><div>Offen</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
         </div>
+        
+        <h3 style="margin-top:20px;">🚗 Online-Fahrer</h3>
+        <div id="online-drivers-list" style="margin-bottom:20px;"></div>
         
         <h3 style="margin-top:20px;">📋 Offene Fahrten (nach Zeit sortiert)</h3>
         <div id="upcoming-rides-admin" style="margin-bottom: 20px;"></div>
@@ -1394,7 +1397,8 @@
                     db.ref('drivers').on('value', (s) => { 
                         drivers = {}; 
                         s.forEach(c => { drivers[c.key] = c.val(); }); 
-                        showAvailableTaxis(); 
+                        showAvailableTaxis();
+                        if (currentView === 'admin') updateAdminView(); // ← Update Admin für Online-Fahrer
                     });
                     db.ref('cancellations').on('value', (s) => {
                         cancellations = [];
@@ -1629,9 +1633,24 @@
         }
 
         function updateAdminView() {
-            const completed = rides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
-            const pending = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt');
-            const active = rides.filter(r => r.status === 'accepted' || r.status === 'akzeptiert' || r.status === 'unterwegs' || r.status === 'picked_up');
+            // 📦 Merge Firebase + localStorage für vollständige Ansicht
+            let allRides = [...rides]; // Kopiere Firebase Fahrten
+            
+            // Lade auch aus localStorage (für Offline-Buchungen & stornierte Fahrten)
+            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            localHistory.forEach(localRide => {
+                const existsInFirebase = allRides.some(fbRide => fbRide.id === localRide.id || fbRide.firebaseId === localRide.firebaseId);
+                if (!existsInFirebase) {
+                    allRides.push(localRide);
+                }
+            });
+            
+            console.log('🔍 ADMIN DEBUG - Gesamt Fahrten (Firebase + localStorage):', allRides.length);
+            console.log('🔍 ADMIN DEBUG - Status:', allRides.map(r => r.status));
+            
+            const completed = allRides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
+            const pending = allRides.filter(r => r.status === 'new' || r.status === 'vorbestellt');
+            const active = allRides.filter(r => r.status === 'accepted' || r.status === 'akzeptiert' || r.status === 'unterwegs' || r.status === 'picked_up');
             const revenue = completed.reduce((sum, r) => sum + parseFloat(r.price), 0);
             
             document.getElementById('a-total').textContent = completed.length;
@@ -1641,7 +1660,7 @@
             
             // 📋 OFFENE FAHRTEN = vorbestellt, new, akzeptiert, unterwegs, angekommen
             const now = Date.now();
-            const openRides = rides.filter(r => {
+            const openRides = allRides.filter(r => {
                 const openStatuses = ['vorbestellt', 'new', 'akzeptiert', 'accepted', 'unterwegs', 'picked_up', 'angekommen'];
                 return openStatuses.includes(r.status);
             }).sort((a, b) => {
@@ -1799,10 +1818,10 @@
                     }).join('');
             }
             
-            if (rides.length === 0) {
+            if (allRides.length === 0) {
                 document.getElementById('all-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Fahrten</div>';
             } else {
-                document.getElementById('all-rides').innerHTML = rides.slice().reverse().map(r => {
+                document.getElementById('all-rides').innerHTML = allRides.slice().reverse().map(r => {
                     let statusText = r.status;
                     let statusColor = '#fef3c7';
                     if (r.status === 'completed') { statusText = 'Abgeschlossen'; statusColor = '#d1fae5'; }
@@ -1839,21 +1858,62 @@
                         </button>`;
                     }
                     
-                    // Buttons für abgeschlossene Fahrten
+                    // Buttons für ALLE Fahrten
                     let actionButtons = '';
+                    const rideIdForButtons = r.firebaseId || r.id || r.createdAt;
+                    
                     if (r.status === 'abgeschlossen' || r.status === 'completed') {
+                        // Abgeschlossene: Wiederholen + Umdrehen + Bearbeiten
                         actionButtons = `
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;">
                                 <button onclick="rebookRide(${r.createdAt || r.id})" 
-                                    style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
-                                    🔁 Wiederholen
+                                    style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                    🔁 Nochmal
                                 </button>
                                 <button onclick="reverseRoute(${r.createdAt || r.id})" 
-                                    style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                                    style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
                                     🔄 Umdrehen
+                                </button>
+                                <button onclick="editRide('${rideIdForButtons}')" 
+                                    style="padding:8px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                    ✏️ Bearbeiten
                                 </button>
                             </div>
                         `;
+                    } else if (r.status === 'storniert') {
+                        // Stornierte: Wiederholen + Umdrehen + Bearbeiten
+                        actionButtons = `
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;">
+                                <button onclick="rebookRide(${r.createdAt || r.id})" 
+                                    style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                    🔁 Nochmal
+                                </button>
+                                <button onclick="reverseRoute(${r.createdAt || r.id})" 
+                                    style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                    🔄 Umdrehen
+                                </button>
+                                <button onclick="editRide('${rideIdForButtons}')" 
+                                    style="padding:8px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                    ✏️ Bearbeiten
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        // Andere Status: Nur Bearbeiten + Umdrehen (wenn nicht aktiv unterwegs)
+                        if (r.status !== 'unterwegs' && r.status !== 'akzeptiert' && r.status !== 'picked_up') {
+                            actionButtons = `
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+                                    <button onclick="editRide('${rideIdForButtons}')" 
+                                        style="padding:8px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                                        ✏️ Bearbeiten
+                                    </button>
+                                    <button onclick="reverseRouteAdmin('${rideIdForButtons}')" 
+                                        style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                                        🔄 Umdrehen
+                                    </button>
+                                </div>
+                            `;
+                        }
                     }
                     
                     return `<div class="ride-card">
@@ -1873,6 +1933,92 @@
                     </div>`;
                 }).join('');
             }
+            
+            // 🚗 Update Online-Fahrer Liste
+            updateOnlineDriversList();
+        }
+        
+        // 🚗 ONLINE-FAHRER ANZEIGEN
+        function updateOnlineDriversList() {
+            const driversList = document.getElementById('online-drivers-list');
+            if (!driversList) return;
+            
+            const now = Date.now();
+            const onlineDrivers = [];
+            
+            // Durchsuche alle Fahrer
+            Object.keys(VEHICLES).forEach(vehicleId => {
+                const driver = drivers[vehicleId];
+                const vehicle = VEHICLES[vehicleId];
+                
+                // Fahrer ist online wenn: isOnline = true UND letzte Aktualisierung < 2 Min
+                if (driver && driver.isOnline) {
+                    const lastUpdate = driver.lastLocationUpdate || driver.timestamp || 0;
+                    const minutesSinceUpdate = (now - lastUpdate) / (1000 * 60);
+                    
+                    // Nur als online zeigen wenn letzte Meldung < 5 Min
+                    if (minutesSinceUpdate < 5) {
+                        const hasGPS = driver.lat && driver.lng;
+                        const gpsAccuracy = driver.accuracy ? Math.round(driver.accuracy) : '?';
+                        
+                        onlineDrivers.push({
+                            vehicle: vehicle,
+                            driver: driver,
+                            hasGPS: hasGPS,
+                            accuracy: gpsAccuracy,
+                            lastUpdate: lastUpdate,
+                            minutesSinceUpdate: Math.floor(minutesSinceUpdate)
+                        });
+                    }
+                }
+            });
+            
+            if (onlineDrivers.length === 0) {
+                driversList.innerHTML = `
+                    <div style="background:white;padding:20px;border-radius:8px;text-align:center;color:#999;">
+                        😴 Keine Fahrer online
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sortiere nach letztem Update (neueste zuerst)
+            onlineDrivers.sort((a, b) => b.lastUpdate - a.lastUpdate);
+            
+            driversList.innerHTML = onlineDrivers.map(d => {
+                const gpsStatus = d.hasGPS ? '✅ GPS aktiv' : '❌ Kein GPS';
+                const gpsColor = d.hasGPS ? '#10b981' : '#ef4444';
+                const updateText = d.minutesSinceUpdate === 0 ? 'Gerade eben' : `vor ${d.minutesSinceUpdate} Min`;
+                
+                return `
+                    <div style="background:white;padding:15px;border-radius:8px;margin-bottom:10px;border-left:4px solid ${gpsColor};">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="font-weight:600;font-size:15px;">
+                                    🚗 ${d.vehicle.name}
+                                </div>
+                                <div style="font-size:12px;color:#666;margin-top:4px;">
+                                    ${d.vehicle.plate}
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="color:${gpsColor};font-weight:600;font-size:13px;">
+                                    ${gpsStatus}
+                                </div>
+                                ${d.hasGPS ? `<div style="font-size:11px;color:#999;">±${d.accuracy}m</div>` : ''}
+                                <div style="font-size:11px;color:#999;margin-top:4px;">
+                                    ${updateText}
+                                </div>
+                            </div>
+                        </div>
+                        ${d.hasGPS ? `
+                            <div style="margin-top:10px;font-size:12px;color:#666;">
+                                📍 ${d.driver.lat.toFixed(5)}, ${d.driver.lng.toFixed(5)}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
         }
         
         // 🚗 MANUELLE FAHRER-ZUWEISUNG
@@ -2598,13 +2744,24 @@
             // Setze Fahrt auf storniert (nicht löschen!) damit Fahrer benachrichtigt wird
             if (isFirebaseReady && rideId) {
                 await db.ref('rides/' + rideId).update({
-                    status: 'cancelled',
+                    status: 'storniert',  // ← Einheitlich! (war 'cancelled')
                     cancelledAt: Date.now(),
                     cancelledBy: 'passenger',
                     cancellationFee: cancellationFee,
                     driverNotified: false  // Flag: Fahrer muss noch benachrichtigt werden
                 });
                 console.log('❌ Fahrt storniert in Firebase:', rideId);
+            }
+            
+            // ✅ Update auch localStorage!
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const localRide = history.find(r => r.firebaseId === rideId || r.id === rideId);
+            if (localRide) {
+                localRide.status = 'storniert';
+                localRide.cancelledAt = Date.now();
+                localRide.cancellationFee = cancellationFee;
+                localStorage.setItem('rideHistory', JSON.stringify(history));
+                console.log('✅ Fahrt in localStorage storniert');
             }
             
             // Lokalen Status zurücksetzen
@@ -2620,7 +2777,36 @@
             }
         }
 
-        function cancelRide() {
+        async function cancelRide() {
+            // Statt zu löschen, als "storniert" markieren!
+            if (myCurrentRide) {
+                const rideId = myCurrentRide.firebaseId || myCurrentRide.id;
+                
+                // Update Firebase
+                if (isFirebaseReady && rideId) {
+                    try {
+                        await db.ref('rides/' + rideId).update({ 
+                            status: 'storniert',
+                            cancelledAt: Date.now()
+                        });
+                        console.log('✅ Sofort-Fahrt in Firebase storniert');
+                    } catch (error) {
+                        console.error('❌ Fehler beim Stornieren in Firebase:', error);
+                    }
+                }
+                
+                // Update localStorage
+                const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                const ride = history.find(r => r.firebaseId === rideId || r.id === rideId);
+                if (ride) {
+                    ride.status = 'storniert';
+                    ride.cancelledAt = Date.now();
+                    localStorage.setItem('rideHistory', JSON.stringify(history));
+                    console.log('✅ Sofort-Fahrt in localStorage storniert');
+                }
+            }
+            
+            // UI aufräumen
             localStorage.removeItem('myCurrentRideId');
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';

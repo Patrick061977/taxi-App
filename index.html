@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.0 - Vorbestellungen 📅</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.3 - Wiederholen & Favoriten ⭐</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -312,7 +312,7 @@
             <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
         </div>
         
-        <h3 style="margin-top:20px;">📅 Vorgemerkte Fahrten (Zukunft)</h3>
+        <h3 style="margin-top:20px;">📋 Offene Fahrten (nach Zeit sortiert)</h3>
         <div id="upcoming-rides-admin" style="margin-bottom: 20px;"></div>
         
         <h3 style="margin-top:20px;">💶 Stornierungen (kostenpflichtig)</h3>
@@ -645,11 +645,23 @@
                         </button>`;
                     }
                 } else {
-                    // Vergangene Fahrten: "Nochmal buchen" Button
-                    actionButtons = `<button onclick="rebookRide(${r.createdAt || r.id})" 
-                        style="width:100%;margin-top:10px;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
-                        🔁 Nochmal buchen
-                    </button>`;
+                    // Vergangene Fahrten: 3 Buttons
+                    actionButtons = `
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+                            <button onclick="rebookRide(${r.createdAt || r.id})" 
+                                style="padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                🔁 Nochmal
+                            </button>
+                            <button onclick="reverseRoute(${r.createdAt || r.id})" 
+                                style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                🔄 Umdrehen
+                            </button>
+                        </div>
+                        <button onclick="saveAsFavorite(${r.createdAt || r.id})" 
+                            style="width:100%;margin-top:8px;padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                            ⭐ Als Favorit
+                        </button>
+                    `;
                 }
                 
                 return `
@@ -766,6 +778,109 @@
                     listenToMyRide(rideId);
                 }
             });
+        }
+        
+        // 🔁 FAHRT WIEDERHOLEN
+        function rebookRide(rideId) {
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = history.find(r => r.createdAt === rideId || r.id === rideId);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Wechsel zum Fahrgast-Tab
+            switchView('guest');
+            
+            // Fülle Formular aus
+            document.getElementById('pickup').value = ride.pickup;
+            document.getElementById('destination').value = ride.destination;
+            document.getElementById('customer-name').value = ride.customerName || '';
+            document.getElementById('passengers').value = ride.passengers || '1';
+            
+            // Scroll zum Formular
+            document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
+            
+            // Zeige Hinweis
+            setTimeout(() => {
+                alert('✅ Fahrtdaten übernommen!\n\nBitte Abholzeit wählen und buchen.');
+            }, 500);
+        }
+        
+        // 🔄 ROUTE UMDREHEN
+        function reverseRoute(rideId) {
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = history.find(r => r.createdAt === rideId || r.id === rideId);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Wechsel zum Fahrgast-Tab
+            switchView('guest');
+            
+            // Fülle Formular aus MIT UMGEDREHTER ROUTE
+            document.getElementById('pickup').value = ride.destination;  // ← GETAUSCHT
+            document.getElementById('destination').value = ride.pickup;   // ← GETAUSCHT
+            document.getElementById('customer-name').value = ride.customerName || '';
+            document.getElementById('passengers').value = ride.passengers || '1';
+            
+            // Scroll zum Formular
+            document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
+            
+            // Zeige Hinweis
+            setTimeout(() => {
+                alert('🔄 Route umgedreht!\n\n' + 
+                      'Von: ' + ride.destination + '\n' +
+                      'Nach: ' + ride.pickup + '\n\n' +
+                      'Bitte Abholzeit wählen und buchen.');
+            }, 500);
+        }
+        
+        // ⭐ ALS FAVORIT SPEICHERN
+        function saveAsFavorite(rideId) {
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = history.find(r => r.createdAt === rideId || r.id === rideId);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Lade bestehende Favoriten
+            const favorites = JSON.parse(localStorage.getItem('favoritRides') || '[]');
+            
+            // Prüfe ob schon vorhanden
+            const exists = favorites.some(f => 
+                f.pickup === ride.pickup && f.destination === ride.destination
+            );
+            
+            if (exists) {
+                alert('⭐ Diese Route ist bereits ein Favorit!');
+                return;
+            }
+            
+            // Füge hinzu
+            const favorite = {
+                id: Date.now(),
+                name: `${ride.pickup} → ${ride.destination}`,
+                pickup: ride.pickup,
+                destination: ride.destination,
+                distance: ride.distance,
+                price: ride.price,
+                addedAt: Date.now()
+            };
+            
+            favorites.push(favorite);
+            localStorage.setItem('favoritRides', JSON.stringify(favorites));
+            
+            alert('⭐ Als Favorit gespeichert!\n\n' +
+                  ride.pickup + ' → ' + ride.destination + '\n\n' +
+                  'Favoriten findest du im Fahrgast-Tab oben.');
+            
+            // TODO: Favoriten-Anzeige implementieren
         }
 
         console.log('🚀 Taxi App v3.9.7 gestartet');
@@ -1218,9 +1333,9 @@
         }
 
         function updateAdminView() {
-            const completed = rides.filter(r => r.status === 'completed');
-            const pending = rides.filter(r => r.status === 'new');
-            const active = rides.filter(r => r.status === 'accepted' || r.status === 'picked_up');
+            const completed = rides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
+            const pending = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt');
+            const active = rides.filter(r => r.status === 'accepted' || r.status === 'akzeptiert' || r.status === 'unterwegs' || r.status === 'picked_up');
             const revenue = completed.reduce((sum, r) => sum + parseFloat(r.price), 0);
             
             document.getElementById('a-total').textContent = completed.length;
@@ -1228,65 +1343,118 @@
             document.getElementById('a-pending').textContent = pending.length;
             document.getElementById('a-active').textContent = active.length;
             
-            // 📅 Vorgemerkte Fahrten (Zukunft) anzeigen - inkl. Vorbestellungen
+            // 📋 OFFENE FAHRTEN = vorbestellt, new, akzeptiert, unterwegs, angekommen
             const now = Date.now();
-            const upcomingRides = rides.filter(r => {
-                // Zeige Vorbestellungen UND Fahrten die >5 Min in der Zukunft sind
-                return (r.status === 'vorbestellt') || 
-                       (r.status === 'new' && r.pickupTimestamp && r.pickupTimestamp > now + (5 * 60000));
-            }).sort((a, b) => (a.pickupTimestamp || a.createdAt) - (b.pickupTimestamp || b.createdAt));
+            const openRides = rides.filter(r => {
+                const openStatuses = ['vorbestellt', 'new', 'akzeptiert', 'accepted', 'unterwegs', 'picked_up', 'angekommen'];
+                return openStatuses.includes(r.status);
+            }).sort((a, b) => {
+                // Sortiere nach Abholzeit (falls vorhanden) oder Erstellungszeit
+                const timeA = a.pickupTimestamp || a.createdAt || 0;
+                const timeB = b.pickupTimestamp || b.createdAt || 0;
+                return timeA - timeB;
+            });
             
-            if (upcomingRides.length === 0) {
-                document.getElementById('upcoming-rides-admin').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">Keine vorgemerkten Fahrten</div>';
+            if (openRides.length === 0) {
+                document.getElementById('upcoming-rides-admin').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">Keine offenen Fahrten</div>';
             } else {
-                document.getElementById('upcoming-rides-admin').innerHTML = upcomingRides.map(r => {
-                    const pickupDate = new Date(r.pickupTimestamp);
-                    const formattedDate = pickupDate.toLocaleDateString('de-DE', { 
+                // Gruppiere nach Tag
+                const groupedByDay = {};
+                openRides.forEach(ride => {
+                    const rideTime = ride.pickupTimestamp || ride.createdAt;
+                    const rideDate = new Date(rideTime);
+                    const dayKey = rideDate.toLocaleDateString('de-DE', { 
                         weekday: 'long', 
                         day: '2-digit', 
                         month: '2-digit',
                         year: 'numeric'
                     });
-                    const formattedTime = pickupDate.toLocaleTimeString('de-DE', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                    
+                    if (!groupedByDay[dayKey]) {
+                        groupedByDay[dayKey] = [];
+                    }
+                    groupedByDay[dayKey].push(ride);
+                });
+                
+                // Baue HTML für gruppierte Fahrten
+                let html = '';
+                Object.keys(groupedByDay).forEach(dayKey => {
+                    const ridesForDay = groupedByDay[dayKey];
+                    html += `<div style="margin-bottom:20px;">
+                        <h4 style="background:#667eea;color:white;padding:10px;border-radius:8px;margin-bottom:10px;">
+                            📅 ${dayKey} (${ridesForDay.length} Fahrt${ridesForDay.length !== 1 ? 'en' : ''})
+                        </h4>`;
+                    
+                    ridesForDay.forEach(r => {
+                        const pickupDate = new Date(r.pickupTimestamp || r.createdAt);
+                        const formattedTime = pickupDate.toLocaleTimeString('de-DE', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                        
+                        // Zeitdifferenz berechnen
+                        const hoursUntil = Math.floor((pickupDate.getTime() - now) / (1000 * 60 * 60));
+                        const daysUntil = Math.floor(hoursUntil / 24);
+                        let countdownText = '';
+                        if (daysUntil > 0) {
+                            countdownText = `in ${daysUntil} Tag${daysUntil > 1 ? 'en' : ''}`;
+                        } else if (hoursUntil > 0) {
+                            countdownText = `in ${hoursUntil} Stunde${hoursUntil > 1 ? 'n' : ''}`;
+                        } else {
+                            const minutesUntil = Math.floor((pickupDate.getTime() - now) / (1000 * 60));
+                            if (minutesUntil > 0) {
+                                countdownText = `in ${minutesUntil} Min`;
+                            } else {
+                                countdownText = `JETZT`;
+                            }
+                        }
+                        
+                        // Status-Badge
+                        let statusBadge = '';
+                        let borderColor = '#0ea5e9';
+                        let bgColor = '#e0f2fe';
+                        
+                        if (r.status === 'vorbestellt') {
+                            statusBadge = '<span style="background:#f59e0b;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">📅 Vorbestellt</span>';
+                            borderColor = '#f59e0b';
+                            bgColor = '#fef3c7';
+                        } else if (r.status === 'new') {
+                            statusBadge = '<span style="background:#3b82f6;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">🔔 Neu</span>';
+                            borderColor = '#3b82f6';
+                            bgColor = '#dbeafe';
+                        } else if (r.status === 'akzeptiert' || r.status === 'accepted') {
+                            statusBadge = '<span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">✅ Akzeptiert</span>';
+                            borderColor = '#10b981';
+                            bgColor = '#d1fae5';
+                        } else if (r.status === 'unterwegs' || r.status === 'picked_up') {
+                            statusBadge = '<span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">🚗 Unterwegs</span>';
+                            borderColor = '#0ea5e9';
+                            bgColor = '#e0f2fe';
+                        }
+                        
+                        html += `<div class="ride-card" style="border-left:4px solid ${borderColor};background:${bgColor};">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <strong>${r.customerName || 'Unbekannt'}</strong>
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
+                                    ${statusBadge}
+                                </div>
+                            </div>
+                            <div style="margin-top:10px;font-size:14px;color:#0c4a6e;">
+                                <strong>🕐 ${formattedTime} Uhr</strong><br>
+                                <strong>📍 Von:</strong> ${r.pickup}<br>
+                                <strong>🎯 Nach:</strong> ${r.destination}<br>
+                                <strong>💰 Preis:</strong> ${r.price}€<br>
+                                <strong>📏 Distanz:</strong> ${r.distance} km
+                                ${r.vehicleLabel ? '<br><strong>🚗 Fahrzeug:</strong> '+r.vehicleLabel : ''}
+                            </div>
+                        </div>`;
                     });
                     
-                    const hoursUntil = Math.floor((r.pickupTimestamp - now) / (1000 * 60 * 60));
-                    const daysUntil = Math.floor(hoursUntil / 24);
-                    let countdownText = '';
-                    if (daysUntil > 0) {
-                        countdownText = `in ${daysUntil} Tag${daysUntil > 1 ? 'en' : ''}`;
-                    } else if (hoursUntil > 0) {
-                        countdownText = `in ${hoursUntil} Stunde${hoursUntil > 1 ? 'n' : ''}`;
-                    } else {
-                        const minutesUntil = Math.floor((r.pickupTimestamp - now) / (1000 * 60));
-                        countdownText = `in ${minutesUntil} Min`;
-                    }
-                    
-                    // 📅 Badge für Vorbestellungen
-                    const statusBadge = r.status === 'vorbestellt' 
-                        ? '<span style="background:#f59e0b;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">📅 Vorbestellt</span>'
-                        : '';
-                    
-                    return `<div class="ride-card" style="border-left:4px solid #0ea5e9;background:#e0f2fe;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <strong>${r.customerName || 'Unbekannt'}</strong>
-                            <div style="display:flex;gap:6px;align-items:center;">
-                                <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
-                                ${statusBadge}
-                            </div>
-                        </div>
-                        <div style="margin-top:10px;font-size:14px;color:#0c4a6e;">
-                            <strong>📅 ${formattedDate}</strong><br>
-                            <strong>🕐 ${formattedTime} Uhr</strong><br>
-                            <strong>📍 Von:</strong> ${r.pickup}<br>
-                            <strong>🎯 Nach:</strong> ${r.destination}<br>
-                            <strong>💰 Preis:</strong> ${r.price}€<br>
-                            <strong>📏 Distanz:</strong> ${r.distance} km
-                        </div>
-                    </div>`;
-                }).join('');
+                    html += '</div>';
+                });
+                
+                document.getElementById('upcoming-rides-admin').innerHTML = html;
             }
             
             // Stornierungen anzeigen
@@ -1320,9 +1488,14 @@
                     let statusText = r.status;
                     let statusColor = '#fef3c7';
                     if (r.status === 'completed') { statusText = 'Abgeschlossen'; statusColor = '#d1fae5'; }
+                    else if (r.status === 'abgeschlossen') { statusText = 'Abgeschlossen'; statusColor = '#d1fae5'; }
                     else if (r.status === 'accepted') { statusText = 'Unterwegs'; statusColor = '#dbeafe'; }
+                    else if (r.status === 'akzeptiert') { statusText = 'Akzeptiert'; statusColor = '#d1fae5'; }
+                    else if (r.status === 'unterwegs') { statusText = 'Unterwegs'; statusColor = '#dbeafe'; }
                     else if (r.status === 'picked_up') { statusText = 'Besetzt'; statusColor = '#fef3c7'; }
                     else if (r.status === 'new') { statusText = 'Neu'; statusColor = '#fef3c7'; }
+                    else if (r.status === 'vorbestellt') { statusText = 'Vorbestellt'; statusColor = '#fef3c7'; }
+                    else if (r.status === 'storniert') { statusText = 'Storniert'; statusColor = '#fee2e2'; }
                     
                     // Abholzeit formatieren
                     let pickupTimeDisplay = r.pickupTime || 'Sofort';
@@ -1348,6 +1521,23 @@
                         </button>`;
                     }
                     
+                    // Buttons für abgeschlossene Fahrten
+                    let actionButtons = '';
+                    if (r.status === 'abgeschlossen' || r.status === 'completed') {
+                        actionButtons = `
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+                                <button onclick="rebookRide(${r.createdAt || r.id})" 
+                                    style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                                    🔁 Wiederholen
+                                </button>
+                                <button onclick="reverseRoute(${r.createdAt || r.id})" 
+                                    style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                                    🔄 Umdrehen
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
                     return `<div class="ride-card">
                         <strong>#${r.id}</strong> <span style="background:${statusColor};padding:4px 8px;border-radius:12px;font-size:12px;">${statusText}</span>
                         ${r.customerName ? '<div style="margin-top:8px;font-weight:600;">👤 '+r.customerName+'</div>' : ''}
@@ -1361,6 +1551,7 @@
                             ${r.vehiclePlate ? ' ('+r.vehiclePlate+')' : ''}
                         </div>
                         ${assignButton}
+                        ${actionButtons}
                     </div>`;
                 }).join('');
             }
@@ -1448,11 +1639,23 @@
 
         // DATABASE FUNCTIONS
         async function saveRide(ride) {
+            // 🔐 Füge userId hinzu (für Firebase Query)
+            if (currentUser) {
+                ride.userId = currentUser.uid;
+            }
+            
+            // 🔥 Speichere in Firebase
             if (isFirebaseReady) {
                 const ref = db.ref('rides').push();
                 ride.firebaseId = ref.key;
                 await ref.set(ride);
             }
+            
+            // 💾 Speichere auch in localStorage (für Offline-Support & schnellen Zugriff)
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            history.push(ride);
+            localStorage.setItem('rideHistory', JSON.stringify(history));
+            
             return ride;
         }
 
@@ -1995,8 +2198,11 @@
             // 💾 Stammkunde speichern wenn gewünscht
             saveRegularCustomerData(customerName, ride.pickup, ride.destination);
             
-            // 🎯 AUTO-ZUWEISUNG starten
-            if (isFirebaseReady && savedRide.firebaseId) {
+            // 🔄 Aktualisiere Verlauf (damit Vorbestellung sofort sichtbar ist)
+            updateHistoryView();
+            
+            // 🎯 AUTO-ZUWEISUNG starten (nur wenn NICHT Vorbestellung)
+            if (isFirebaseReady && savedRide.firebaseId && savedRide.status === 'new') {
                 startAutoAssignment(savedRide.firebaseId, savedRide);
             }
             

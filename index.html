@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.9 - Error Handler 🐛</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.10 - Error Handler 🛠️</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -138,6 +138,18 @@
         <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
         
         <!-- 🌟 STAMMKUNDEN-SCHNELLBUCHUNG -->
+        <div id="regular-customer-box" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                <h4 style="margin: 0; font-size: 16px;">🌟 Willkommen zurück!</h4>
+                <button onclick="clearRegularCustomer()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600;">
+                    ✕ Löschen
+                </button>
+            </div>
+            <div id="regular-customer-info" style="font-size: 13px; line-height: 1.6; margin-bottom: 12px;"></div>
+            <button onclick="useRegularCustomerData()" style="width: 100%; background: white; color: #059669; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                ⚡ Daten übernehmen
+            </button>
+        </div>
         
         <div id="ride-status-container"></div>
         <div id="booking-form">
@@ -388,6 +400,12 @@
             
             const box = document.getElementById('regular-customer-box');
             const info = document.getElementById('regular-customer-info');
+            
+            // 🛡️ Sicherheitscheck: Nur setzen wenn Element existiert
+            if (!info || !box) {
+                console.log('Stammkunden-Elemente noch nicht geladen, versuche später...');
+                return;
+            }
             
             info.innerHTML = `
                 👤 <strong>${regularCustomer.name}</strong><br>

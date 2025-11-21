@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.1 - Debug Logs Export 📋</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.2.2 - Mega Export + Stornierung Fix 🔧</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -1398,6 +1398,24 @@
                             r.firebaseId = c.key;
                             rides.push(r);
                             if (myCurrentRide && r.id === myCurrentRide.id) {
+                                // Prüfe ob Fahrt storniert wurde
+                                if (r.status === 'storniert' && myCurrentRide.status !== 'storniert') {
+                                    // Fahrt wurde gerade storniert!
+                                    alert('⚠️ STORNIERUNG!\n\nDer Fahrgast hat die Fahrt storniert.\n\n' + 
+                                          'Von: ' + r.pickup + '\n' +
+                                          'Nach: ' + r.destination);
+                                    
+                                    // Lösche aus myCurrentRide
+                                    localStorage.removeItem('myCurrentRideId');
+                                    myCurrentRide = null;
+                                    document.getElementById('ride-status-container').innerHTML = '';
+                                    
+                                    // Zeige wieder verfügbare Fahrten
+                                    if (currentView === 'driver') {
+                                        updateDriverView();
+                                    }
+                                }
+                                
                                 myCurrentRide = r;
                                 if (r.status === 'accepted' && r.driverLocation) showRideStatus(r);
                                 if (r.status === 'picked_up') showRideStatus(r);
@@ -3283,12 +3301,61 @@
         }
 
         // 📋 DEBUG LOGS EXPORTIEREN
+        let consoleLogHistory = []; // Speichere alle Console-Logs
+        
+        // Console-Logs abfangen und speichern
+        (function() {
+            const originalLog = console.log;
+            const originalError = console.error;
+            const originalWarn = console.warn;
+            
+            console.log = function(...args) {
+                consoleLogHistory.push({ type: 'log', time: new Date().toISOString(), message: args.join(' ') });
+                originalLog.apply(console, args);
+            };
+            
+            console.error = function(...args) {
+                consoleLogHistory.push({ type: 'error', time: new Date().toISOString(), message: args.join(' ') });
+                originalError.apply(console, args);
+            };
+            
+            console.warn = function(...args) {
+                consoleLogHistory.push({ type: 'warn', time: new Date().toISOString(), message: args.join(' ') });
+                originalWarn.apply(console, args);
+            };
+        })();
+        
         function exportDebugLogs() {
             try {
-                // Sammle alle wichtigen Debug-Infos
+                // Sammle ALLE Debug-Infos
+                const allRides = rides.map(r => ({
+                    id: r.id,
+                    status: r.status,
+                    pickup: r.pickup,
+                    destination: r.destination,
+                    customerName: r.customerName,
+                    price: r.price,
+                    createdAt: r.createdAt
+                }));
+                
+                const allDrivers = Object.keys(drivers).map(id => ({
+                    id: id,
+                    vehicle: drivers[id].vehicle,
+                    online: drivers[id].online,
+                    lat: drivers[id].lat,
+                    lng: drivers[id].lng,
+                    timestamp: drivers[id].timestamp
+                }));
+                
+                const localStorageData = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    localStorageData[key] = localStorage.getItem(key);
+                }
+                
                 const debugInfo = {
                     timestamp: new Date().toISOString(),
-                    version: "4.2.0",
+                    version: "4.2.1",
                     userAgent: navigator.userAgent,
                     
                     // App-Status
@@ -3299,9 +3366,11 @@
                     
                     // Daten
                     rides_count: rides.length,
+                    all_rides: allRides,
                     drivers_count: Object.keys(drivers).length,
-                    localStorage_rideHistory: JSON.parse(localStorage.getItem('rideHistory') || '[]').length,
-                    regularCustomer: regularCustomer ? { name: regularCustomer.name, rideCount: regularCustomer.rideCount } : null,
+                    all_drivers: allDrivers,
+                    localStorage_complete: localStorageData,
+                    regularCustomer: regularCustomer,
                     
                     // GPS
                     pickupCoords: pickupCoords,
@@ -3310,23 +3379,17 @@
                     
                     // Wake Lock
                     wakeLock_active: wakeLock !== null,
-                    wakeLock_released: wakeLock ? wakeLock.released : null,
                     
-                    // Fahrer (wenn online)
-                    online_drivers: Object.keys(drivers).filter(id => drivers[id].online).map(id => ({
-                        id: id,
-                        vehicle: drivers[id].vehicle,
-                        hasGPS: !!(drivers[id].lat && drivers[id].lng),
-                        timestamp: drivers[id].timestamp
-                    })),
-                    
-                    // LocalStorage Keys
-                    localStorage_keys: Object.keys(localStorage)
+                    // Console Logs (letzte 100)
+                    console_logs: consoleLogHistory.slice(-100)
                 };
                 
-                // Formatiere als lesbaren Text
+                // Formatiere als JSON für einfaches Kopieren
+                const debugJSON = JSON.stringify(debugInfo, null, 2);
+                
+                // Formatiere auch als lesbaren Text
                 const debugText = `
-🚕 TAXI-APP DEBUG EXPORT
+🚕 TAXI-APP MEGA DEBUG EXPORT
 ========================
 Version: ${debugInfo.version}
 Zeitpunkt: ${debugInfo.timestamp}
@@ -3346,35 +3409,62 @@ ${debugInfo.userAgent}
 
 🗃️ DATEN:
 - Fahrten in Firebase: ${debugInfo.rides_count}
-- Fahrten in localStorage: ${debugInfo.localStorage_rideHistory}
 - Fahrer registriert: ${debugInfo.drivers_count}
-- Fahrer online: ${debugInfo.online_drivers.length}
+- Fahrer online: ${allDrivers.filter(d => d.online).length}
 
-🚗 ONLINE FAHRER:
-${debugInfo.online_drivers.map(d => `- ${d.vehicle} (GPS: ${d.hasGPS ? 'Ja' : 'Nein'})`).join('\n') || '(keine)'}
+🚗 ALLE FAHRER:
+${allDrivers.map(d => `- ${d.vehicle} | Online: ${d.online} | GPS: ${d.lat ? 'Ja' : 'Nein'}`).join('\n') || '(keine)'}
 
-📍 GPS:
-- Abholort-Coords: ${debugInfo.pickupCoords ? 'Ja' : 'Nein'}
-- Zielort-Coords: ${debugInfo.destCoords ? 'Ja' : 'Nein'}
-- GPS Watch aktiv: ${debugInfo.watchId ? 'Ja' : 'Nein'}
+🚖 LETZTE 10 FAHRTEN:
+${allRides.slice(-10).map(r => `- #${r.id} | ${r.status} | ${r.pickup} → ${r.destination} | ${r.price}€`).join('\n') || '(keine)'}
 
-💾 LOCALSTORAGE:
-${debugInfo.localStorage_keys.join(', ')}
+📝 CONSOLE LOGS (letzte 20):
+${consoleLogHistory.slice(-20).map(l => `[${l.type.toUpperCase()}] ${l.time}: ${l.message}`).join('\n') || '(keine)'}
+
+💾 LOCALSTORAGE KEYS:
+${Object.keys(localStorageData).join(', ')}
 
 ========================
+
+📦 KOMPLETTE DATEN ALS JSON:
+Siehe unten für vollständigen JSON-Export...
+
+${debugJSON}
 `;
                 
-                // Kopiere in Zwischenablage
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(debugText).then(() => {
-                        alert('✅ Debug-Logs kopiert!\n\nDie Logs sind jetzt in deiner Zwischenablage.\n\nDu kannst sie in eine Notiz-App einfügen.');
-                    }).catch(err => {
-                        // Fallback: Zeige in Alert
-                        prompt('📋 Debug-Logs (Strg+C zum Kopieren):', debugText);
-                    });
+                // Erstelle Blob für Download
+                const blob = new Blob([debugText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `taxi-app-debug-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+                
+                // Zeige Options-Dialog
+                const choice = confirm(
+                    '📋 DEBUG EXPORT\n\n' +
+                    'Wähle eine Option:\n\n' +
+                    '[OK] = In Zwischenablage kopieren\n' +
+                    '[Abbrechen] = Als Datei herunterladen'
+                );
+                
+                if (choice) {
+                    // Kopiere in Zwischenablage
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(debugText).then(() => {
+                            alert('✅ Mega-Debug-Export kopiert!\n\nAlles ist in deiner Zwischenablage:\n- Console Logs\n- Alle Fahrten\n- Alle Fahrer\n- localStorage\n- etc.');
+                        }).catch(err => {
+                            prompt('📋 Debug-Export (Strg+C zum Kopieren):', debugText);
+                        });
+                    } else {
+                        prompt('📋 Debug-Export (Strg+C zum Kopieren):', debugText);
+                    }
                 } else {
-                    // Fallback: Zeige in Prompt
-                    prompt('📋 Debug-Logs (Strg+C zum Kopieren):', debugText);
+                    // Download als Datei
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    alert('✅ Debug-Export heruntergeladen!\n\nSiehe Downloads-Ordner.');
                 }
                 
             } catch (error) {

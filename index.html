@@ -1629,6 +1629,11 @@
                 return;
             }
             
+            // Zeige Loading
+            const pickupInput = document.getElementById('pickup-uber') || document.getElementById('pickup');
+            const originalPlaceholder = pickupInput.placeholder;
+            pickupInput.placeholder = '📍 Standort wird ermittelt...';
+            
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
                     pickupCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
@@ -1639,14 +1644,49 @@
                         const street = address.road || address.pedestrian || '';
                         const houseNumber = address.house_number || '';
                         const city = address.town || address.village || address.city || 'Heringsdorf';
-                        document.getElementById('pickup').value = `${street} ${houseNumber}, ${city}`.trim();
+                        const locationText = `${street} ${houseNumber}, ${city}`.trim();
+                        
+                        // Fülle BEIDE Input-Felder (Uber-Style und Old-Style)
+                        if (document.getElementById('pickup-uber')) {
+                            document.getElementById('pickup-uber').value = locationText;
+                        }
+                        if (document.getElementById('pickup')) {
+                            document.getElementById('pickup').value = locationText;
+                        }
+                        
+                        pickupInput.placeholder = originalPlaceholder;
+                        
+                        // Zeige auf Karte wenn Uber-Map aktiv ist
+                        if (uberMap) {
+                            uberMap.setView([pickupCoords.lat, pickupCoords.lon], 15);
+                            
+                            // Marker setzen
+                            L.circleMarker([pickupCoords.lat, pickupCoords.lon], {
+                                radius: 8,
+                                fillColor: '#10b981',
+                                fillOpacity: 1,
+                                color: '#fff',
+                                weight: 3
+                            }).addTo(uberMap);
+                        }
+                        
                         showAvailableTaxis();
                     } catch (e) {
                         console.error(e);
-                        document.getElementById('pickup').value = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
+                        const coordsText = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
+                        if (document.getElementById('pickup-uber')) {
+                            document.getElementById('pickup-uber').value = coordsText;
+                        }
+                        if (document.getElementById('pickup')) {
+                            document.getElementById('pickup').value = coordsText;
+                        }
+                        pickupInput.placeholder = originalPlaceholder;
                     }
                 },
-                (err) => alert('❌ GPS-Fehler: ' + err.message)
+                (err) => {
+                    pickupInput.placeholder = originalPlaceholder;
+                    alert('❌ GPS-Fehler: ' + err.message);
+                }
             );
         }
 
@@ -1843,46 +1883,62 @@
         // 🎨 UBER-STYLE INTERFACE FUNCTIONS
         
         function initUberMap() {
-            if (uberMap) return;
+            if (uberMap) {
+                // Map existiert schon, nur invalidateSize aufrufen
+                setTimeout(() => {
+                    if (uberMap) uberMap.invalidateSize();
+                }, 100);
+                return;
+            }
             
             console.log('🗺️ Initialisiere Uber-Karte');
             const mapContainer = document.getElementById('uber-map');
-            if (!mapContainer) return;
+            if (!mapContainer) {
+                console.error('❌ uber-map Container nicht gefunden');
+                return;
+            }
             
-            uberMap = L.map('uber-map', {
-                zoomControl: false,
-                attributionControl: false
-            }).setView([53.9533, 14.1633], 12);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(uberMap);
-            
-            // Autocomplete für Uber-Inputs einrichten
-            setupUberAutocomplete();
-            
-            // Event Listeners für Adress-Eingaben
-            document.getElementById('pickup-uber').addEventListener('input', handleUberAddressInput);
-            document.getElementById('destination-uber').addEventListener('input', handleUberAddressInput);
+            try {
+                uberMap = L.map('uber-map', {
+                    zoomControl: false,
+                    attributionControl: false
+                }).setView([53.9533, 14.1633], 12);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19
+                }).addTo(uberMap);
+                
+                // Force map refresh nach kurzer Verzögerung
+                setTimeout(() => {
+                    if (uberMap) {
+                        uberMap.invalidateSize();
+                        console.log('✅ Uber-Karte initialisiert und refreshed');
+                    }
+                }, 200);
+                
+                // Autocomplete für Uber-Inputs einrichten
+                setupUberAutocomplete();
+                
+                // Event Listeners für Adress-Eingaben
+                const pickupUber = document.getElementById('pickup-uber');
+                const destUber = document.getElementById('destination-uber');
+                
+                if (pickupUber) pickupUber.addEventListener('input', handleUberAddressInput);
+                if (destUber) destUber.addEventListener('input', handleUberAddressInput);
+                
+            } catch (e) {
+                console.error('❌ Fehler beim Initialisieren der Uber-Karte:', e);
+            }
         }
         
         async function handleUberAddressInput() {
             const pickup = document.getElementById('pickup-uber').value.trim();
             const dest = document.getElementById('destination-uber').value.trim();
             
-            if (!pickup || !dest) {
-                document.getElementById('uber-bottom-sheet').style.display = 'none';
-                return;
-            }
-            
-            // Geocode beide Adressen
-            const pickupResult = await geocodeAddress(pickup);
-            const destResult = await geocodeAddress(dest);
-            
-            if (pickupResult && destResult) {
-                pickupCoords = pickupResult;
-                destCoords = destResult;
-                
+            // Prüfe ob beide Koordinaten bereits gesetzt sind (durch Autocomplete)
+            if (pickupCoords && destCoords) {
                 // Route berechnen
-                await calculateUberRoute(pickupResult, destResult);
+                await calculateUberRoute(pickupCoords, destCoords);
                 
                 // Bottom Sheet zeigen
                 showUberBottomSheet();
@@ -2143,8 +2199,123 @@
         }
         
         function setupUberAutocomplete() {
-            // Autocomplete Logik für Uber-Inputs
-            // Wird später implementiert, nutzt bestehende KNOWN_PLACES
+            // Autocomplete für Uber-Style Inputs
+            const pickupInput = document.getElementById('pickup-uber');
+            const destInput = document.getElementById('destination-uber');
+            
+            if (!pickupInput || !destInput) return;
+            
+            // Erstelle Dropdown-Container
+            const pickupDropdown = document.createElement('div');
+            pickupDropdown.className = 'autocomplete-dropdown';
+            pickupDropdown.id = 'pickup-uber-dropdown';
+            pickupDropdown.style.cssText = 'position:absolute;background:white;border:1px solid #e0e0e0;border-radius:8px;margin-top:4px;max-height:250px;overflow-y:auto;display:none;z-index:1000;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+            pickupInput.parentElement.appendChild(pickupDropdown);
+            
+            const destDropdown = document.createElement('div');
+            destDropdown.className = 'autocomplete-dropdown';
+            destDropdown.id = 'destination-uber-dropdown';
+            destDropdown.style.cssText = 'position:absolute;background:white;border:1px solid #e0e0e0;border-radius:8px;margin-top:4px;max-height:250px;overflow-y:auto;display:none;z-index:1000;width:100%;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+            destInput.parentElement.appendChild(destDropdown);
+            
+            // Event Listeners
+            pickupInput.addEventListener('input', () => handleAutocompleteInput(pickupInput, pickupDropdown, 'pickup'));
+            destInput.addEventListener('input', () => handleAutocompleteInput(destInput, destDropdown, 'destination'));
+            
+            // Schließe Dropdown wenn außerhalb geklickt wird
+            document.addEventListener('click', (e) => {
+                if (!pickupInput.contains(e.target) && !pickupDropdown.contains(e.target)) {
+                    pickupDropdown.style.display = 'none';
+                }
+                if (!destInput.contains(e.target) && !destDropdown.contains(e.target)) {
+                    destDropdown.style.display = 'none';
+                }
+            });
+        }
+        
+        async function handleAutocompleteInput(input, dropdown, type) {
+            const query = input.value.trim().toLowerCase();
+            
+            if (query.length < 2) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            // Suche in KNOWN_PLACES
+            const localResults = Object.entries(KNOWN_PLACES)
+                .filter(([key, place]) => {
+                    return key.toLowerCase().includes(query) || 
+                           place.name.toLowerCase().includes(query);
+                })
+                .slice(0, 5)
+                .map(([key, place]) => ({
+                    name: place.name,
+                    lat: place.lat,
+                    lon: place.lon,
+                    type: 'local'
+                }));
+            
+            // Wenn lokale Ergebnisse gefunden, zeige sie
+            if (localResults.length > 0) {
+                showAutocompleteResults(localResults, dropdown, input, type);
+                return;
+            }
+            
+            // Sonst: OpenStreetMap API
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)},Usedom,Germany&limit=5`
+                );
+                const results = await response.json();
+                
+                if (results.length > 0) {
+                    const formatted = results.map(r => ({
+                        name: r.display_name.split(',').slice(0, 3).join(','),
+                        lat: parseFloat(r.lat),
+                        lon: parseFloat(r.lon),
+                        type: 'osm'
+                    }));
+                    showAutocompleteResults(formatted, dropdown, input, type);
+                } else {
+                    dropdown.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Autocomplete Fehler:', e);
+                dropdown.style.display = 'none';
+            }
+        }
+        
+        function showAutocompleteResults(results, dropdown, input, type) {
+            dropdown.innerHTML = results.map(r => {
+                return `<div class="autocomplete-item" style="padding:12px;cursor:pointer;border-bottom:1px solid #f0f0f0;" 
+                        onclick='selectAutocompleteResult(${JSON.stringify(r)}, "${input.id}", "${type}")'>
+                    <div style="font-weight:500;">${r.name}</div>
+                    ${r.type === 'local' ? '<div style="font-size:12px;color:#10b981;">⭐ Bekannter Ort</div>' : ''}
+                </div>`;
+            }).join('');
+            
+            dropdown.style.display = 'block';
+        }
+        
+        function selectAutocompleteResult(result, inputId, type) {
+            const input = document.getElementById(inputId);
+            input.value = result.name;
+            
+            // Speichere Koordinaten
+            if (type === 'pickup') {
+                pickupCoords = { lat: result.lat, lon: result.lon };
+            } else {
+                destCoords = { lat: result.lat, lon: result.lon };
+            }
+            
+            // Schließe Dropdown
+            const dropdown = document.getElementById(inputId + '-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+            
+            // Wenn beide Adressen vorhanden, berechne Route
+            if (pickupCoords && destCoords) {
+                calculateUberRoute(pickupCoords, destCoords);
+            }
         }
 
         async function book() {
@@ -3238,6 +3409,9 @@
             
             // 🌟 Stammkunden-Daten laden
             loadRegularCustomer();
+            
+            // 🔐 Zeige Login-Button im Header (wird später durch Auth-State ersetzt)
+            updateUserProfile();
             
             // 🎨 Initialisiere Uber-Map
             setTimeout(() => initUberMap(), 500);

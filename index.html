@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.9.10 - Error Handler 🛠️</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.0.0 - Vorbestellungen 📅</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -484,11 +484,38 @@
             updateHistoryView();
         }
         
-        function updateHistoryView() {
+        async function updateHistoryView() {
             const historyList = document.getElementById('history-list');
-            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            let allRides = [];
             
-            if (history.length === 0) {
+            // 📦 Hole Fahrten aus localStorage
+            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            
+            // 🔥 Hole MEINE Fahrten aus Firebase (wenn verfügbar)
+            if (isFirebaseReady && currentUser) {
+                try {
+                    const snapshot = await db.ref('rides').orderByChild('userId').equalTo(currentUser.uid).once('value');
+                    if (snapshot.exists()) {
+                        snapshot.forEach(childSnapshot => {
+                            const ride = childSnapshot.val();
+                            ride.firebaseId = childSnapshot.key;
+                            allRides.push(ride);
+                        });
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden der Firebase Fahrten:', error);
+                }
+            }
+            
+            // Merge mit localStorage (dedupliziere)
+            localHistory.forEach(localRide => {
+                const existsInFirebase = allRides.some(fbRide => fbRide.id === localRide.id);
+                if (!existsInFirebase) {
+                    allRides.push(localRide);
+                }
+            });
+            
+            if (allRides.length === 0) {
                 historyList.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><p>Noch keine Fahrten</p></div>';
                 return;
             }
@@ -497,28 +524,86 @@
             let filteredRides = [];
             
             if (currentHistoryTab === 'upcoming') {
-                // Zeige nur zukünftige Fahrten
-                filteredRides = history.filter(r => r.pickupTimestamp && r.pickupTimestamp > now).sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+                // 📅 KOMMENDE FAHRTEN: vorbestellt, neu, akzeptiert, unterwegs, angekommen
+                filteredRides = allRides.filter(r => {
+                    const activeStatuses = ['vorbestellt', 'new', 'akzeptiert', 'unterwegs', 'angekommen'];
+                    return activeStatuses.includes(r.status);
+                }).sort((a, b) => (a.pickupTimestamp || a.createdAt) - (b.pickupTimestamp || b.createdAt));
             } else {
-                // Zeige nur vergangene Fahrten
-                filteredRides = history.filter(r => !r.pickupTimestamp || r.pickupTimestamp <= now).sort((a, b) => b.createdAt - a.createdAt);
+                // 📖 VERGANGENE FAHRTEN: abgeschlossen, storniert
+                filteredRides = allRides.filter(r => {
+                    const completedStatuses = ['abgeschlossen', 'storniert'];
+                    return completedStatuses.includes(r.status);
+                }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             }
             
             if (filteredRides.length === 0) {
                 const emptyMessage = currentHistoryTab === 'upcoming' 
-                    ? '📅 Keine geplanten Fahrten'
+                    ? '📅 Keine kommenden Fahrten'
                     : '📖 Noch keine vergangenen Fahrten';
                 historyList.innerHTML = `<div style="text-align:center;padding:40px;color:#999;"><p>${emptyMessage}</p></div>`;
                 return;
             }
             
             historyList.innerHTML = filteredRides.map(r => {
-                const isUpcoming = r.pickupTimestamp && r.pickupTimestamp > now;
-                const bgColor = isUpcoming ? '#e0f2fe' : 'white';
-                const borderColor = isUpcoming ? '#0ea5e9' : '#e0e0e0';
+                const isActive = currentHistoryTab === 'upcoming';
                 
+                // 🎨 Farben basierend auf Status
+                let bgColor, borderColor, statusEmoji, statusText;
+                
+                switch(r.status) {
+                    case 'vorbestellt':
+                        bgColor = '#fef3c7';
+                        borderColor = '#f59e0b';
+                        statusEmoji = '📅';
+                        statusText = 'Vorbestellt';
+                        break;
+                    case 'new':
+                        bgColor = '#dbeafe';
+                        borderColor = '#3b82f6';
+                        statusEmoji = '🔔';
+                        statusText = 'Sucht Fahrer...';
+                        break;
+                    case 'akzeptiert':
+                        bgColor = '#d1fae5';
+                        borderColor = '#10b981';
+                        statusEmoji = '✅';
+                        statusText = 'Fahrer akzeptiert';
+                        break;
+                    case 'unterwegs':
+                        bgColor = '#e0f2fe';
+                        borderColor = '#0ea5e9';
+                        statusEmoji = '🚗';
+                        statusText = 'Fahrer unterwegs';
+                        break;
+                    case 'angekommen':
+                        bgColor = '#fce7f3';
+                        borderColor = '#ec4899';
+                        statusEmoji = '🎯';
+                        statusText = 'Fahrer angekommen';
+                        break;
+                    case 'abgeschlossen':
+                        bgColor = 'white';
+                        borderColor = '#e0e0e0';
+                        statusEmoji = '✅';
+                        statusText = 'Abgeschlossen';
+                        break;
+                    case 'storniert':
+                        bgColor = '#fee2e2';
+                        borderColor = '#ef4444';
+                        statusEmoji = '❌';
+                        statusText = 'Storniert';
+                        break;
+                    default:
+                        bgColor = 'white';
+                        borderColor = '#e0e0e0';
+                        statusEmoji = '📄';
+                        statusText = r.status;
+                }
+                
+                // 🕐 Zeitanzeige
                 let timeDisplay = r.pickupTime || 'Sofort';
-                if (isUpcoming && r.pickupTimestamp) {
+                if (r.pickupTimestamp) {
                     const pickupDate = new Date(r.pickupTimestamp);
                     timeDisplay = pickupDate.toLocaleString('de-DE', {
                         weekday: 'short',
@@ -529,23 +614,63 @@
                     });
                 }
                 
+                // 🚗 Fahrzeug-Info (falls vorhanden)
+                let vehicleInfo = '';
+                if (r.assignedDriver && r.vehicleLabel) {
+                    vehicleInfo = `<div style="margin-top:8px;padding:8px;background:rgba(102,126,234,0.1);border-radius:6px;font-size:12px;">
+                        🚗 <strong>${r.vehicleLabel}</strong>
+                    </div>`;
+                }
+                
+                // ⏱️ ETA Info (falls Fahrer unterwegs)
+                let etaInfo = '';
+                if (r.status === 'unterwegs' && r.eta) {
+                    etaInfo = `<div style="margin-top:8px;padding:8px;background:#dcfce7;border-radius:6px;font-size:13px;font-weight:600;color:#166534;">
+                        ⏱️ Ankunft in ca. ${r.eta} Min
+                    </div>`;
+                }
+                
+                // 🔘 Aktions-Buttons
+                let actionButtons = '';
+                if (isActive && r.status !== 'storniert') {
+                    if (r.status === 'vorbestellt' || r.status === 'new') {
+                        actionButtons = `<button onclick="cancelRideFromHistory('${r.firebaseId || r.id}')" 
+                            style="width:100%;margin-top:10px;padding:10px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                            🗑️ Stornieren
+                        </button>`;
+                    } else if (r.firebaseId) {
+                        actionButtons = `<button onclick="viewRideDetails('${r.firebaseId}')" 
+                            style="width:100%;margin-top:10px;padding:10px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                            👁️ Details anzeigen
+                        </button>`;
+                    }
+                } else {
+                    // Vergangene Fahrten: "Nochmal buchen" Button
+                    actionButtons = `<button onclick="rebookRide(${r.createdAt || r.id})" 
+                        style="width:100%;margin-top:10px;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                        🔁 Nochmal buchen
+                    </button>`;
+                }
+                
                 return `
-                    <div style="background:${bgColor};border:2px solid ${borderColor};border-radius:8px;padding:15px;margin-bottom:10px;">
-                        ${isUpcoming ? '<div style="font-weight:600;color:#0369a1;margin-bottom:8px;">📅 Geplant</div>' : ''}
-                        <div style="font-size:13px;color:#666;margin-bottom:8px;">
-                            🕐 ${timeDisplay}
+                    <div style="background:${bgColor};border:2px solid ${borderColor};border-radius:12px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                        <div style="font-weight:600;color:#374151;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                            <span>${statusEmoji} ${statusText}</span>
+                            ${isActive ? '<span style="font-size:11px;color:#6b7280;">🕐 ' + timeDisplay + '</span>' : ''}
                         </div>
-                        <div style="margin:8px 0;">
+                        ${!isActive ? `<div style="font-size:12px;color:#666;margin-bottom:8px;">🕐 ${timeDisplay}</div>` : ''}
+                        <div style="margin:10px 0;font-size:14px;">
                             📍 <strong>Von:</strong> ${r.pickup}<br>
                             🎯 <strong>Nach:</strong> ${r.destination}
                         </div>
-                        <div style="display:flex;gap:10px;margin-top:10px;font-size:13px;">
+                        <div style="display:flex;gap:12px;margin-top:8px;font-size:13px;color:#666;">
                             <span>💰 ${r.price}€</span>
                             <span>📏 ${r.distance} km</span>
+                            ${r.passengers ? `<span>👥 ${r.passengers}</span>` : ''}
                         </div>
-                        <button onclick="rebookRide(${r.createdAt})" style="width:100%;margin-top:10px;padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">
-                            🔁 Nochmal buchen
-                        </button>
+                        ${vehicleInfo}
+                        ${etaInfo}
+                        ${actionButtons}
                     </div>
                 `;
             }).join('');
@@ -600,6 +725,47 @@
             updateUserProfile();
             
             console.log('💾 Stammkunde gespeichert:', customer);
+        }
+        
+        // 🗑️ Fahrt aus Verlauf stornieren
+        async function cancelRideFromHistory(rideId) {
+            const confirmCancel = confirm('🗑️ Fahrt wirklich stornieren?');
+            if (!confirmCancel) return;
+            
+            if (isFirebaseReady && rideId) {
+                try {
+                    await db.ref('rides/' + rideId).update({ status: 'storniert' });
+                    alert('✅ Fahrt wurde storniert');
+                    updateHistoryView();
+                } catch (error) {
+                    console.error('❌ Fehler beim Stornieren:', error);
+                    alert('❌ Fehler beim Stornieren der Fahrt');
+                }
+            }
+        }
+        
+        // 👁️ Fahrtdetails anzeigen (wechselt zum Fahrgast-Tab und zeigt Status)
+        function viewRideDetails(rideId) {
+            if (!isFirebaseReady || !rideId) return;
+            
+            // Lade Fahrt und zeige Status an
+            db.ref('rides/' + rideId).once('value', (snapshot) => {
+                const ride = snapshot.val();
+                if (ride) {
+                    ride.firebaseId = rideId;
+                    myCurrentRide = ride;
+                    localStorage.setItem('myCurrentRideId', rideId);
+                    
+                    // Wechsel zum Fahrgast-Tab
+                    switchView('guest');
+                    
+                    // Zeige Fahrt-Status
+                    showRideStatus(ride);
+                    
+                    // Starte Live-Listener
+                    listenToMyRide(rideId);
+                }
+            });
         }
 
         console.log('🚀 Taxi App v3.9.7 gestartet');
@@ -1062,13 +1228,13 @@
             document.getElementById('a-pending').textContent = pending.length;
             document.getElementById('a-active').textContent = active.length;
             
-            // 📅 Vorgemerkte Fahrten (Zukunft) anzeigen
+            // 📅 Vorgemerkte Fahrten (Zukunft) anzeigen - inkl. Vorbestellungen
             const now = Date.now();
-            const upcomingRides = rides.filter(r => 
-                r.status === 'new' && 
-                r.pickupTimestamp && 
-                r.pickupTimestamp > now + (5 * 60000)
-            ).sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+            const upcomingRides = rides.filter(r => {
+                // Zeige Vorbestellungen UND Fahrten die >5 Min in der Zukunft sind
+                return (r.status === 'vorbestellt') || 
+                       (r.status === 'new' && r.pickupTimestamp && r.pickupTimestamp > now + (5 * 60000));
+            }).sort((a, b) => (a.pickupTimestamp || a.createdAt) - (b.pickupTimestamp || b.createdAt));
             
             if (upcomingRides.length === 0) {
                 document.getElementById('upcoming-rides-admin').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">Keine vorgemerkten Fahrten</div>';
@@ -1098,10 +1264,18 @@
                         countdownText = `in ${minutesUntil} Min`;
                     }
                     
+                    // 📅 Badge für Vorbestellungen
+                    const statusBadge = r.status === 'vorbestellt' 
+                        ? '<span style="background:#f59e0b;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">📅 Vorbestellt</span>'
+                        : '';
+                    
                     return `<div class="ride-card" style="border-left:4px solid #0ea5e9;background:#e0f2fe;">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <strong>${r.customerName || 'Unbekannt'}</strong>
-                            <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
+                                ${statusBadge}
+                            </div>
                         </div>
                         <div style="margin-top:10px;font-size:14px;color:#0c4a6e;">
                             <strong>📅 ${formattedDate}</strong><br>
@@ -1791,6 +1965,12 @@
                 }
             }
             
+            // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
+            const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
+            
+            // ⚡ Sofort (≤15 Min) vs 📅 Vorbestellung (>15 Min)
+            const rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
+            
             const ride = {
                 id: Date.now(),
                 customerName,
@@ -1803,7 +1983,7 @@
                 distance: window.currentDistance,
                 duration: window.currentDuration,
                 pickupCoords, destCoords,
-                status: 'new',
+                status: rideStatus,
                 time: new Date().toLocaleString('de-DE'),
                 createdAt: Date.now()
             };
@@ -3161,6 +3341,39 @@
                     updateViews(); // Aktualisiert Countdown-Timer
                 }
             }, 1000);
+            
+            // 📅 VORBESTELLUNGS-CHECK: Prüfe alle 60 Sek. ob Vorbestellungen aktiviert werden müssen
+            setInterval(async () => {
+                if (!isFirebaseReady) return;
+                
+                try {
+                    const snapshot = await db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value');
+                    if (!snapshot.exists()) return;
+                    
+                    const now = Date.now();
+                    snapshot.forEach(childSnapshot => {
+                        const ride = childSnapshot.val();
+                        const rideId = childSnapshot.key;
+                        
+                        // Prüfe ob Abholzeit in ≤ 15 Min
+                        if (ride.pickupTimestamp) {
+                            const minutesUntilPickup = (ride.pickupTimestamp - now) / (1000 * 60);
+                            
+                            if (minutesUntilPickup <= 15) {
+                                console.log('📅 Vorbestellung wird aktiviert:', rideId, minutesUntilPickup, 'Min');
+                                
+                                // Status auf "neu" setzen → Fahrer bekommen Benachrichtigung
+                                db.ref('rides/' + rideId).update({
+                                    status: 'new',
+                                    activatedAt: Date.now()
+                                });
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('❌ Fehler beim Vorbestellungs-Check:', error);
+                }
+            }, 60000); // Alle 60 Sekunden
             
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden && isOnline && wakeLock === null) {

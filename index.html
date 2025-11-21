@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.0 - IN-APP Turn-by-Turn Navigation 🧭</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.1 - Fix: Navigation wechselt zum Ziel 🎯</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -285,7 +285,7 @@
             </div>
             
             <div class="route-info-box">
-                <h3 style="margin-bottom:10px;">📍 Navigation zum Fahrgast</h3>
+                <h3 style="margin-bottom:10px;" id="route-title">📍 Navigation</h3>
                 <div class="route-stats">
                     <div class="route-stat">
                         <div class="route-stat-value" id="route-distance">-</div>
@@ -3330,7 +3330,8 @@
                 status: 'picked_up',
                 pickedUpAt: Date.now() 
             });
-            alert('✅ Kunde eingestiegen! Status: Besetzt');
+            
+            alert('✅ Kunde eingestiegen! Navigation zum Ziel läuft.');
         }
 
         async function completeRide(rideId) {
@@ -4107,17 +4108,44 @@ ${debugJSON}
             const driver = drivers[currentVehicle];
             if (!driver || !driver.lat || !driver.lon || !driverMap) return;
             
-            const pickupCoords = ride.pickupCoords;
+            // FLEXIBEL: Navigation zum Abholort ODER zum Ziel!
+            let targetCoords, targetLabel, routeTitle;
+            if (ride.status === 'picked_up') {
+                // Kunde ist drin → Navigation zum ZIEL
+                targetCoords = ride.destCoords;
+                targetLabel = '🎯 Ziel';
+                routeTitle = '🎯 Navigation zum Ziel';
+            } else {
+                // Fahrt angenommen → Navigation zum ABHOLORT
+                targetCoords = ride.pickupCoords;
+                targetLabel = '📍 Fahrgast';
+                routeTitle = '📍 Navigation zum Fahrgast';
+            }
+            
+            // Update Titel
+            document.getElementById('route-title').textContent = routeTitle;
             
             // Update Fahrer-Position
             if (driverMarker) {
                 driverMarker.setLatLng([driver.lat, driver.lon]);
             }
             
+            // Update Ziel-Marker
+            if (customerMarker && ride.status === 'picked_up') {
+                // Ändere Marker zum Ziel
+                customerMarker.setLatLng([targetCoords.lat, targetCoords.lon]);
+                const destIcon = L.divIcon({
+                    html: '<div style="background:#10b981;color:white;padding:8px 12px;border-radius:20px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🎯 Ziel</div>',
+                    className: '',
+                    iconSize: [100, 40]
+                });
+                customerMarker.setIcon(destIcon);
+            }
+            
             // Berechne Route
             const route = await calculateRoute(
                 { lat: driver.lat, lon: driver.lon },
-                { lat: pickupCoords.lat, lon: pickupCoords.lon }
+                { lat: targetCoords.lat, lon: targetCoords.lon }
             );
             
             // Update Info-Box
@@ -4130,7 +4158,7 @@ ${debugJSON}
             // Hole detaillierte Route MIT TURN-BY-TURN ANWEISUNGEN!
             try {
                 const response = await fetch(
-                    `https://router.project-osrm.org/route/v1/driving/${driver.lon},${driver.lat};${pickupCoords.lon},${pickupCoords.lat}?overview=full&geometries=geojson&steps=true`
+                    `https://router.project-osrm.org/route/v1/driving/${driver.lon},${driver.lat};${targetCoords.lon},${targetCoords.lat}?overview=full&geometries=geojson&steps=true`
                 );
                 const data = await response.json();
                 

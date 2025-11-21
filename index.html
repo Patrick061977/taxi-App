@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.1.1 - Fix Online-Fahrer Anzeige 🔧</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.1.2 - Aggressives Wake Lock 💪</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -2819,7 +2819,7 @@
             try {
                 if ('wakeLock' in navigator) {
                     // Wenn bereits aktiv, nicht neu anfordern
-                    if (wakeLock !== null) {
+                    if (wakeLock !== null && !wakeLock.released) {
                         console.log('✅ Wake Lock bereits aktiv');
                         return;
                     }
@@ -2828,16 +2828,12 @@
                     console.log('✅ Screen Wake Lock aktiviert');
                     
                     wakeLock.addEventListener('release', () => {
-                        console.log('⚠️ Wake Lock freigegeben - versuche Reaktivierung in 1 Sek');
+                        console.log('⚠️ Wake Lock freigegeben - versuche sofortige Reaktivierung');
                         wakeLock = null;
                         
-                        // Automatisch neu aktivieren wenn noch online
+                        // SOFORT neu aktivieren wenn noch online
                         if (isOnline) {
-                            setTimeout(() => {
-                                if (wakeLock === null && isOnline) {
-                                    requestWakeLock();
-                                }
-                            }, 1000);
+                            requestWakeLock();
                         }
                     });
                 } else {
@@ -2847,15 +2843,26 @@
                 console.error('❌ Wake Lock Fehler:', err);
                 wakeLock = null;
                 
-                // Bei Fehler in 5 Sekunden nochmal versuchen
+                // Bei Fehler sofort nochmal versuchen wenn online
                 if (isOnline) {
                     setTimeout(() => {
                         if (wakeLock === null && isOnline) {
                             requestWakeLock();
                         }
-                    }, 5000);
+                    }, 1000);
                 }
             }
+        }
+        
+        // 🔄 Wake Lock alle 30 Sekunden checken & reaktivieren
+        setInterval(() => {
+            if (isOnline && currentView === 'driver') {
+                if (wakeLock === null || wakeLock.released) {
+                    console.log('🔄 Wake Lock Check: Reaktiviere...');
+                    requestWakeLock();
+                }
+            }
+        }, 30000); // Alle 30 Sekunden
         }
 
         function releaseWakeLock() {
@@ -4125,9 +4132,27 @@
             }, 60000); // Alle 60 Sekunden
             
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && isOnline && wakeLock === null) {
-                    requestWakeLock();
+                if (!document.hidden) {
+                    console.log('📱 App wieder sichtbar - prüfe Wake Lock');
+                    if (isOnline && (wakeLock === null || wakeLock.released)) {
+                        console.log('🔄 Reaktiviere Wake Lock');
+                        requestWakeLock();
+                    }
+                    // GPS-Position auch neu senden wenn Fahrer online
+                    if (isOnline && currentView === 'driver' && watchId) {
+                        navigator.geolocation.getCurrentPosition(sendDriverLocation);
+                    }
                 }
+            });
+            
+            // 📱 Zusätzliche Wake Lock Reaktivierung bei User-Interaktion
+            ['focus', 'touchstart', 'click'].forEach(eventType => {
+                document.addEventListener(eventType, () => {
+                    if (isOnline && currentView === 'driver' && (wakeLock === null || wakeLock.released)) {
+                        console.log('👆 User-Interaktion erkannt - reaktiviere Wake Lock');
+                        requestWakeLock();
+                    }
+                }, { once: false, passive: true });
             });
         });
     </script>

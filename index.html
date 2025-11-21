@@ -1124,6 +1124,10 @@
             
             updateAdminView();
         }
+        
+        function saveAsFavorite(rideId) {
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = history.find(r => r.createdAt === rideId || r.id === rideId);
             
             if (!ride) {
                 alert('❌ Fahrt nicht gefunden');

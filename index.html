@@ -73,7 +73,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 3.6.0 - Auto-Zuweisung & Push</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 3.6.1 - Push-Banner beim Start</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -399,45 +399,79 @@
             notificationPermission = Notification.permission;
             console.log('🔔 Notification Permission:', notificationPermission);
             
-            if (notificationPermission === 'default') {
-                // Zeige Info-Banner
-                showNotificationPrompt();
-            } else if (notificationPermission === 'granted') {
+            // Zeige Banner IMMER außer bereits erlaubt
+            if (notificationPermission !== 'granted') {
+                // Warte 1 Sekunde damit Seite geladen ist
+                setTimeout(() => {
+                    showNotificationPrompt();
+                }, 1000);
+            } else {
                 console.log('✅ Benachrichtigungen bereits erlaubt');
             }
         }
 
         function showNotificationPrompt() {
+            // Entferne altes Banner falls vorhanden
+            const oldBanner = document.getElementById('notification-banner');
+            if (oldBanner) oldBanner.remove();
+            
             const banner = document.createElement('div');
-            banner.style.cssText = 'position:fixed;top:95px;left:0;right:0;background:#667eea;color:white;padding:15px;text-align:center;z-index:999;box-shadow:0 2px 10px rgba(0,0,0,0.2);';
+            banner.id = 'notification-banner';
+            banner.style.cssText = 'position:fixed;top:140px;left:10px;right:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:12px;text-align:center;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:slideDown 0.3s ease;';
             banner.innerHTML = `
-                <div style="margin-bottom:10px;">
-                    <strong>🔔 Benachrichtigungen aktivieren?</strong><br>
-                    <span style="font-size:13px;">Erhalte sofort Infos über neue Buchungen</span>
+                <div style="font-size:48px;margin-bottom:10px;">🔔</div>
+                <div style="margin-bottom:15px;">
+                    <strong style="font-size:18px;">Benachrichtigungen aktivieren?</strong><br>
+                    <span style="font-size:14px;opacity:0.9;margin-top:5px;display:block;">Erhalte sofort Push-Benachrichtigungen bei neuen Buchungen - auch wenn die App geschlossen ist!</span>
                 </div>
-                <button onclick="requestNotificationPermission()" style="background:white;color:#667eea;border:none;padding:10px 20px;border-radius:6px;font-weight:600;cursor:pointer;margin-right:10px;">✓ Aktivieren</button>
-                <button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:10px 20px;border-radius:6px;font-weight:600;cursor:pointer;">Später</button>
+                <button onclick="requestNotificationPermission()" style="background:white;color:#667eea;border:none;padding:14px 24px;border-radius:8px;font-weight:700;cursor:pointer;margin-right:10px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">✓ Jetzt aktivieren</button>
+                <button onclick="document.getElementById('notification-banner').remove()" style="background:rgba(255,255,255,0.2);color:white;border:2px solid white;padding:14px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;">Später</button>
             `;
+            
+            // CSS Animation
+            const style = document.createElement('style');
+            style.textContent = '@keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+            document.head.appendChild(style);
+            
             document.body.appendChild(banner);
+            
+            console.log('🔔 Benachrichtigungs-Banner angezeigt');
         }
 
         async function requestNotificationPermission() {
             try {
+                // Banner entfernen
+                const banner = document.getElementById('notification-banner');
+                if (banner) banner.remove();
+                
                 notificationPermission = await Notification.requestPermission();
                 console.log('🔔 Notification Permission:', notificationPermission);
                 
                 if (notificationPermission === 'granted') {
-                    alert('✅ Benachrichtigungen aktiviert!\n\nDu erhältst jetzt Push-Benachrichtigungen für neue Fahrten.');
-                    document.querySelectorAll('div').forEach(el => {
-                        if (el.textContent.includes('Benachrichtigungen aktivieren')) {
-                            el.remove();
-                        }
-                    });
-                } else {
-                    alert('⚠️ Benachrichtigungen wurden blockiert.\n\nAktiviere sie in den Browser-Einstellungen.');
+                    // Zeige Bestätigung
+                    const successMsg = document.createElement('div');
+                    successMsg.style.cssText = 'position:fixed;top:140px;left:10px;right:10px;background:#10b981;color:white;padding:20px;border-radius:12px;text-align:center;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+                    successMsg.innerHTML = `
+                        <div style="font-size:48px;margin-bottom:10px;">✅</div>
+                        <div style="font-size:16px;font-weight:600;">Benachrichtigungen aktiviert!</div>
+                        <div style="font-size:14px;margin-top:8px;opacity:0.9;">Du erhältst jetzt Push-Benachrichtigungen für neue Fahrten</div>
+                    `;
+                    document.body.appendChild(successMsg);
+                    
+                    // Automatisch nach 3 Sekunden ausblenden
+                    setTimeout(() => {
+                        successMsg.style.transition = 'opacity 0.5s';
+                        successMsg.style.opacity = '0';
+                        setTimeout(() => successMsg.remove(), 500);
+                    }, 3000);
+                    
+                } else if (notificationPermission === 'denied') {
+                    // Zeige Hilfe-Info
+                    alert('⚠️ Benachrichtigungen wurden blockiert.\n\nSo kannst du sie aktivieren:\n\n1. Tippe auf das 🔒 Schloss in der Adressleiste\n2. Gehe zu "Berechtigungen"\n3. Stelle "Benachrichtigungen" auf "Zulassen"');
                 }
             } catch (err) {
                 console.error('❌ Notification Permission Fehler:', err);
+                alert('❌ Fehler beim Aktivieren der Benachrichtigungen.\n\nBitte versuche es über die Browser-Einstellungen.');
             }
         }
 

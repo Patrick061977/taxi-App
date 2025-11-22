@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.5.9 - Emergency Fix! 🚨 (Build 20251122-1432)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.5.10 - Karten-Fix! 🗺️ (Build 20251122-1850)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4088,7 +4088,15 @@
         // 📋 UPDATE DRIVER INFO TOP
         // 📋 UPDATE DRIVER CARDS (A3/B3 Design)
         function updateDriverInfoTop(ride) {
-            if (!ride) return;
+            if (!ride) {
+                console.error('❌ updateDriverInfoTop: Kein ride!');
+                return;
+            }
+            
+            console.log('📋 updateDriverInfoTop called with ride:', ride);
+            console.log('   - pickup:', ride.pickup);
+            console.log('   - destination:', ride.destination);
+            console.log('   - status:', ride.status);
             
             const rideId = ride.firebaseId || ride.id;
             
@@ -5473,7 +5481,8 @@ ${debugJSON}
             // 📋 Update Info Box oben
             updateDriverInfoTop(ride);
             
-            // Zeige Karten-Container
+            // Verstecke Ready-State, Zeige Karten-Container
+            document.getElementById('driver-ready').style.display = 'none';
             document.getElementById('driver-route-info').style.display = 'block';
             
             // Initialisiere Karte
@@ -5718,8 +5727,9 @@ ${debugJSON}
                 routeLine = null;
             }
             
-            // Verstecke Container
+            // Verstecke Container, Zeige Ready
             document.getElementById('driver-route-info').style.display = 'none';
+            document.getElementById('driver-ready').style.display = 'block';
         }
 
         function openGoogleMapsNavigation(rideId, destination) {

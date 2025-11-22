@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.0 - Zurück zur Basis (sauber!) 🔧</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.0 - Stabil & funktioniert! ✅</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -3734,9 +3734,6 @@
                 gpsDot.classList.add('online');
                 gpsStatus.textContent = '📍 GPS On';
                 requestWakeLock();
-                
-                // 📍 EINFACH: Frage nach GPS wenn online
-                requestGPSIfNeeded();
             } else {
                 gpsDot.style.background = '#6b7280';
                 gpsDot.classList.remove('online');
@@ -3746,25 +3743,6 @@
             
             if (isOnline && currentVehicle) startDriverTracking(null);
             else stopDriverTracking();
-        }
-        
-        // 📍 EINFACHE GPS-ANFRAGE
-        function requestGPSIfNeeded() {
-            // Versuche GPS zu holen - Browser fragt automatisch wenn nötig
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    console.log('✅ GPS OK:', pos.coords.latitude, pos.coords.longitude);
-                },
-                (err) => {
-                    if (err.code === 1) {
-                        // Berechtigung verweigert
-                        alert('⚠️ GPS-Berechtigung fehlt!\n\nBitte in Browser-Einstellungen:\n1. Klick 🔒 in URL\n2. Standort → Zulassen');
-                    }
-                    console.error('❌ GPS-Fehler:', err.message);
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        }
         }
 
         function setVehicle() {

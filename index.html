@@ -123,7 +123,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.6 - GPS Status & 1-Klick Aktivierung 📍</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.7 - Status-Fix (Fahrzeug) ⚠️</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -2196,7 +2196,7 @@
         }
 
         // 🔄 AUTO-UPDATE SYSTEM
-        const CURRENT_VERSION = '4.4.6';
+        const CURRENT_VERSION = '4.4.7';
         let updateCheckInterval = null;
         
         function startAutoUpdateCheck() {
@@ -2686,9 +2686,9 @@
                     `;
                 } else {
                     document.getElementById('driver-ready').innerHTML = `
-                        <div style="font-size:80px;margin-bottom:20px;">🚕</div>
-                        <div style="font-size:28px;font-weight:600;color:#667eea;margin-bottom:10px;">Bereit!</div>
-                        <div style="font-size:14px;color:#999;">Wähle Fahrzeug & gehe Online</div>
+                        <div style="font-size:80px;margin-bottom:20px;">⚠️</div>
+                        <div style="font-size:28px;font-weight:600;color:#f59e0b;margin-bottom:10px;">Wähle Fahrzeug</div>
+                        <div style="font-size:14px;color:#999;">Bitte wähle dein Fahrzeug aus</div>
                     `;
                 }
             }
@@ -4306,11 +4306,39 @@
                     if (watchId) {
                         stopDriverTracking();
                     }
+                    
+                    // 🆕 STATUS UPDATE: Zeige "Wähle Fahrzeug" wenn kein Fahrzeug
+                    updateDriverStatus();
                 }
             }
             
             if (currentVehicle && isOnline) startDriverTracking(null);
             updateViews();
+        }
+        
+        // 🆕 UPDATE DRIVER STATUS
+        function updateDriverStatus() {
+            const statusText = document.getElementById('driver-status-text');
+            const statusIcon = document.getElementById('driver-status-icon');
+            
+            if (!statusText) return;
+            
+            if (!currentVehicle) {
+                // Kein Fahrzeug gewählt
+                statusText.textContent = 'Wähle Fahrzeug';
+                statusText.style.color = '#f59e0b';
+                if (statusIcon) statusIcon.textContent = '⚠️';
+            } else if (!isOnline) {
+                // Fahrzeug gewählt, aber Offline
+                statusText.textContent = 'Offline';
+                statusText.style.color = '#6b7280';
+                if (statusIcon) statusIcon.textContent = '⚠️';
+            } else {
+                // Fahrzeug gewählt UND Online
+                statusText.textContent = 'Bereit für Aufträge';
+                statusText.style.color = '#10b981';
+                if (statusIcon) statusIcon.textContent = '🚕';
+            }
         }
 
         function loadSavedVehicle() {

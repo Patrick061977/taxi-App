@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.1 - Debug Fix! 🔍 (Build 20251122-1935)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.2 - Firebase Direct! 🔥 (Build 20251122-1945)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4496,7 +4496,7 @@
             
             setTimeout(() => {
                 startDriverTracking(rideId);
-                initDriverMap(ride);  // NEUE FUNKTION: Karte initialisieren
+                initDriverMap(rideId);  // Übergebe rideId - wird aus Firebase geladen
             }, 100);
             
             alert('✅ Auftrag angenommen! GPS läuft...');
@@ -4508,9 +4508,11 @@
                 pickedUpAt: Date.now() 
             });
             
-            // Lade ride neu und update Display
-            const ride = rides.find(r => r.firebaseId === rideId);
+            // Lade ride NEU aus Firebase und update Display
+            const snapshot = await db.ref('rides/' + rideId).once('value');
+            const ride = snapshot.val();
             if (ride) {
+                ride.firebaseId = rideId;
                 updateDriverInfoTop(ride);
             }
             
@@ -5488,8 +5490,26 @@ ${debugJSON}
         let routeLine = null;
         let driverMapUpdateInterval = null;
 
-        function initDriverMap(ride) {
-            console.log('ℹ️ Zeige Fahrt-Info (OHNE KARTE):', ride.id);
+        async function initDriverMap(rideOrId) {
+            // Kann entweder ride Objekt ODER rideId sein
+            const rideId = (typeof rideOrId === 'string') ? rideOrId : (rideOrId.firebaseId || rideOrId.id);
+            
+            console.log('ℹ️ Lade Fahrt-Info aus Firebase:', rideId);
+            
+            // LADE DIREKT AUS FIREBASE!
+            const snapshot = await db.ref('rides/' + rideId).once('value');
+            const ride = snapshot.val();
+            
+            if (!ride) {
+                console.error('❌ Fahrt nicht in Firebase gefunden!');
+                alert('❌ Fehler: Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // Füge firebaseId hinzu
+            ride.firebaseId = rideId;
+            
+            console.log('✅ Fahrt aus Firebase geladen:', ride);
             
             // 📋 Update Info Box oben
             updateDriverInfoTop(ride);

@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.5 - Telefon & Kompakte UI 📞</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.6 - Clean UI & Popup Fix! ✨</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -658,26 +658,25 @@
                     gap: 15px;
                     font-size: 13px;
                     color: #666;
-                    margin-bottom: 12px;
+                    margin-bottom: 8px;
                 ">
                     <span id="driver-price-top">💰 -</span>
                     <span>•</span>
                     <span id="driver-time-top">⏰ -</span>
                 </div>
                 
-                <!-- ACTION BUTTON -->
+                <!-- ACTION BUTTON - KLEIN! -->
                 <button id="driver-action-button" style="
                     width: 100%;
-                    padding: 14px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 10px;
+                    background: #667eea;
                     color: white;
                     border: none;
-                    border-radius: 12px;
-                    font-size: 16px;
-                    font-weight: 700;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 600;
                     cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(102,126,234,0.4);
-                ">🚗 KUNDE ABHOLEN</button>
+                ">🚗 Kunde abholen</button>
             </div>
             
             <!-- Karte (Fullscreen) -->
@@ -752,11 +751,25 @@
                 
                 <!-- Fahrt Info -->
                 <div id="driver-current-ride" style="
-                    font-size: 14px;
+                    font-size: 12px;
                     text-align: center;
-                    margin-bottom: 12px;
-                    font-weight: 600;
+                    margin-bottom: 10px;
+                    color: #666;
                 "></div>
+                
+                <!-- Pickup Button (nur wenn status=accepted) -->
+                <button id="bottom-pickup-button" onclick="pickupCustomerFromBottom()" style="
+                    width: 100%;
+                    padding: 10px;
+                    background: #10b981;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    display: none;
+                ">✅ Kunde abgeholt</button>
             </div>
         </div>
         
@@ -4053,6 +4066,7 @@
             const time = document.getElementById('driver-time-top');
             const callButton = document.getElementById('driver-call-button');
             const actionButton = document.getElementById('driver-action-button');
+            const bottomButton = document.getElementById('bottom-pickup-button');
             
             if (customerName) {
                 customerName.textContent = '👤 ' + (ride.customerName || 'Kunde');
@@ -4081,19 +4095,41 @@
                 }
             }
             
-            // Action Button
+            // Action Button OBEN
             if (actionButton) {
                 const rideId = ride.firebaseId || ride.id;
                 
                 if (ride.status === 'accepted') {
-                    actionButton.textContent = '🚗 KUNDE ABHOLEN';
+                    actionButton.textContent = '🚗 Kunde abholen';
                     actionButton.onclick = () => pickupCustomer(rideId);
-                    actionButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    actionButton.style.background = '#667eea';
                 } else if (ride.status === 'picked_up') {
-                    actionButton.textContent = '🎯 ZUM ZIEL FAHREN';
+                    actionButton.textContent = '🎯 Zum Ziel fahren';
                     actionButton.onclick = () => completeRide(rideId);
-                    actionButton.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    actionButton.style.background = '#10b981';
                 }
+            }
+            
+            // Bottom Button (nur bei accepted)
+            if (bottomButton) {
+                const rideId = ride.firebaseId || ride.id;
+                if (ride.status === 'accepted') {
+                    bottomButton.style.display = 'block';
+                    bottomButton.onclick = () => pickupCustomer(rideId);
+                } else {
+                    bottomButton.style.display = 'none';
+                }
+            }
+        }
+        
+        // Wrapper für Bottom Button
+        function pickupCustomerFromBottom() {
+            const ride = rides.find(r => 
+                r.vehicleId === currentVehicle && 
+                r.status === 'accepted'
+            );
+            if (ride) {
+                pickupCustomer(ride.firebaseId || ride.id);
             }
         }
 
@@ -4768,10 +4804,19 @@ ${debugJSON}
         
         // 🚕 FULLSCREEN POPUP FUNKTIONEN
         function showNewRideFullscreen() {
-            const myRides = currentVehicle ? rides.filter(r => 
-                (r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) &&
-                r.status === 'new'
-            ) : [];
+            if (!currentVehicle) return;
+            
+            // Zeige neue Aufträge die:
+            // 1. Status 'new' haben UND (keine vehicleId ODER mir zugewiesen)
+            // 2. ODER mir zugewiesen sind (assignedTo)
+            const myRides = rides.filter(r => {
+                const isNew = r.status === 'new';
+                const isUnassigned = !r.vehicleId;
+                const isAssignedToMe = r.assignedTo === currentVehicle;
+                const isMyRide = r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle);
+                
+                return (isNew && (isUnassigned || isMyRide || isAssignedToMe));
+            });
             
             if (myRides.length === 0) return;
             

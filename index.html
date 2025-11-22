@@ -123,15 +123,15 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.5 - GPS-Hilfe für Fahrer 📍</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.6 - GPS Status & 1-Klick Aktivierung 📍</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
                 <span id="sync-status">💾 Lokal</span>
             </div>
-            <div class="status-item" id="gps-indicator">
+            <div class="status-item" id="gps-indicator" onclick="handleGPSClick()" style="cursor: pointer; user-select: none;">
                 <div id="gps-dot"></div>
-                <span id="gps-status">📍 GPS Off</span>
+                <span id="gps-status">📍 GPS: ?</span>
             </div>
         </div>
     </div>
@@ -2188,10 +2188,15 @@
             
             // 🔄 AUTO-UPDATE System starten
             startAutoUpdateCheck();
+            
+            // 📍 GPS-STATUS beim Start prüfen
+            setTimeout(() => {
+                checkGPSStatus();
+            }, 2000);
         }
 
         // 🔄 AUTO-UPDATE SYSTEM
-        const CURRENT_VERSION = '4.4.5';
+        const CURRENT_VERSION = '4.4.6';
         let updateCheckInterval = null;
         
         function startAutoUpdateCheck() {
@@ -4114,66 +4119,166 @@
         }
         
         // 📍 GPS-BERECHTIGUNG PRÜFEN
-        async function checkGPSPermission() {
-            try {
-                // Versuche GPS-Position zu holen
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        console.log('✅ GPS-Berechtigung OK');
-                    },
-                    (error) => {
-                        console.error('❌ GPS-Fehler:', error.message, error.code);
-                        
-                        // Fehlercode 1 = User denied
-                        if (error.code === 1) {
-                            // Zeige Hilfe nach 2 Sekunden
-                            setTimeout(() => {
-                                showGPSHelp();
-                            }, 2000);
-                        }
-                    },
-                    {
-                        timeout: 5000,
-                        maximumAge: 0,
-                        enableHighAccuracy: true
-                    }
-                );
-            } catch (error) {
-                console.error('❌ GPS-Check Fehler:', error);
+        // 📍 GPS KLICK-HANDLER (NEU!)
+        async function handleGPSClick() {
+            console.log('📍 GPS-Button geklickt');
+            
+            // Prüfe GPS-Status
+            const status = await checkGPSStatus();
+            
+            if (status === 'granted') {
+                alert('✅ GPS-Berechtigung: ERTEILT\n\nGPS funktioniert!');
+            } else if (status === 'denied') {
+                // Zeige wie man es aktiviert
+                if (confirm('❌ GPS-Berechtigung: VERWEIGERT\n\nMöchtest du GPS jetzt aktivieren?\n\n(Browser wird nach Berechtigung fragen)')) {
+                    requestGPSPermission();
+                }
+            } else if (status === 'prompt') {
+                // Frage jetzt
+                if (confirm('⚠️ GPS-Berechtigung: NICHT ERTEILT\n\nSoll ich jetzt nach GPS-Berechtigung fragen?')) {
+                    requestGPSPermission();
+                }
+            } else {
+                alert('❓ GPS-Status: UNBEKANNT\n\nVersuche GPS zu aktivieren...');
+                requestGPSPermission();
             }
         }
         
-        // 📍 ZEIGE GPS-HILFE
-        function showGPSHelp() {
-            document.getElementById('gps-help-panel').style.display = 'block';
+        // 📍 PRÜFE GPS-STATUS
+        async function checkGPSStatus() {
+            try {
+                // Prüfe mit Permissions API (wenn verfügbar)
+                if ('permissions' in navigator) {
+                    const result = await navigator.permissions.query({ name: 'geolocation' });
+                    console.log('📍 GPS-Status (Permissions API):', result.state);
+                    updateGPSIndicator(result.state);
+                    return result.state; // 'granted', 'denied', 'prompt'
+                }
+            } catch (error) {
+                console.warn('⚠️ Permissions API nicht verfügbar:', error.message);
+            }
             
-            // Animation
-            const panel = document.getElementById('gps-help-panel');
-            panel.style.animation = 'fadeIn 0.3s ease';
+            // Fallback: Teste mit getCurrentPosition
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    () => {
+                        console.log('✅ GPS-Berechtigung: ERTEILT (Fallback-Test)');
+                        updateGPSIndicator('granted');
+                        resolve('granted');
+                    },
+                    (error) => {
+                        if (error.code === 1) {
+                            console.log('❌ GPS-Berechtigung: VERWEIGERT (Fallback-Test)');
+                            updateGPSIndicator('denied');
+                            resolve('denied');
+                        } else {
+                            console.log('⚠️ GPS-Fehler (Fallback-Test):', error.message);
+                            updateGPSIndicator('error');
+                            resolve('error');
+                        }
+                    },
+                    { timeout: 3000, maximumAge: Infinity }
+                );
+            });
+        }
+        
+        // 📍 UPDATE GPS-ANZEIGE
+        function updateGPSIndicator(status) {
+            const gpsDot = document.getElementById('gps-dot');
+            const gpsStatus = document.getElementById('gps-status');
+            
+            if (status === 'granted') {
+                gpsDot.style.background = '#10b981';
+                gpsDot.classList.add('online');
+                gpsStatus.textContent = '✅ GPS: OK';
+                gpsStatus.style.color = '#10b981';
+            } else if (status === 'denied') {
+                gpsDot.style.background = '#ef4444';
+                gpsDot.classList.remove('online');
+                gpsStatus.textContent = '❌ GPS: Nein';
+                gpsStatus.style.color = '#ef4444';
+            } else if (status === 'prompt') {
+                gpsDot.style.background = '#f59e0b';
+                gpsDot.classList.remove('online');
+                gpsStatus.textContent = '⚠️ GPS: ?';
+                gpsStatus.style.color = '#f59e0b';
+            } else {
+                gpsDot.style.background = '#6b7280';
+                gpsDot.classList.remove('online');
+                gpsStatus.textContent = '❓ GPS: ?';
+                gpsStatus.style.color = '#6b7280';
+            }
+        }
+        
+        // 📍 FRAGE NACH GPS-BERECHTIGUNG
+        async function requestGPSPermission() {
+            try {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        console.log('✅ GPS-Berechtigung erteilt!');
+                        updateGPSIndicator('granted');
+                        alert('✅ GPS aktiviert!\n\nPosition: ' + position.coords.latitude + ', ' + position.coords.longitude);
+                        
+                        // Starte GPS-Tracking wenn Online
+                        if (isOnline && currentVehicle) {
+                            startDriverTracking(null);
+                        }
+                    },
+                    (error) => {
+                        console.error('❌ GPS-Berechtigung verweigert:', error.message);
+                        
+                        if (error.code === 1) {
+                            updateGPSIndicator('denied');
+                            alert('❌ GPS-Berechtigung verweigert!\n\nBitte in Browser-Einstellungen aktivieren:\n\n1. Klick 🔒 in URL\n2. Standort → Zulassen');
+                        } else {
+                            alert('❌ GPS-Fehler: ' + error.message);
+                        }
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            } catch (error) {
+                console.error('❌ GPS-Request Fehler:', error);
+                alert('❌ Fehler beim GPS-Zugriff: ' + error.message);
+            }
+        }
+        
+        // 📍 AUTO-CHECK BEIM ONLINE-TOGGLE
+        async function checkGPSPermission() {
+            const status = await checkGPSStatus();
+            
+            if (status === 'denied' || status === 'prompt') {
+                // Nach 2 Sekunden nochmal fragen
+                setTimeout(() => {
+                    if (confirm('⚠️ GPS-Berechtigung fehlt!\n\nFür Taxi-Betrieb wird GPS benötigt.\n\nJetzt aktivieren?')) {
+                        requestGPSPermission();
+                    }
+                }, 2000);
+            }
+        }
+        
+        // 📍 ZEIGE GPS-HILFE (wird nicht mehr gebraucht, aber behalten für Kompatibilität)
+        function showGPSHelp() {
+            if (confirm('📍 GPS-HILFE\n\nMöchtest du GPS jetzt aktivieren?\n\n(Browser wird nach Berechtigung fragen)')) {
+                requestGPSPermission();
+            }
         }
         
         // ❌ SCHLIESSE GPS-HILFE
         function closeGPSHelp() {
             const panel = document.getElementById('gps-help-panel');
-            panel.style.animation = 'fadeOut 0.3s ease';
-            setTimeout(() => {
+            if (panel) {
                 panel.style.display = 'none';
-            }, 300);
+            }
         }
         
         // 🔄 GPS NOCHMAL VERSUCHEN
         async function retryGPS() {
             closeGPSHelp();
-            
-            // Warte kurz, dann versuche GPS zu starten
-            setTimeout(() => {
-                if (isOnline && currentVehicle) {
-                    stopDriverTracking(); // Erst stoppen
-                    setTimeout(() => {
-                        startDriverTracking(null); // Dann neu starten
-                    }, 500);
-                }
-            }, 500);
+            requestGPSPermission();
         }
 
         function setVehicle() {

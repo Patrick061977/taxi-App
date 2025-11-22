@@ -101,23 +101,26 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.7 - A3/B3 Cards Design! 🎴</p>
-        <div class="status-row">
-            <div class="status-item">
-                <div class="sync-dot" id="sync-dot"></div>
-                <span id="sync-status">💾 Lokal</span>
-            </div>
-            <div class="status-item" id="gps-indicator">
-                <div id="gps-dot"></div>
-                <span id="gps-status">📍 GPS Off</span>
-            </div>
-            <div class="status-item" id="alerts-indicator" style="display:none;">
-                <span id="sound-status" style="font-size:16px;" title="Sound Status">🔇</span>
-                <span id="vibration-status" style="font-size:16px;margin-left:5px;" title="Vibration Status">📳</span>
+    <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
+        <div id="header-content">
+            <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.5.8 - 3 Wichtige Fixes! 🔧</p>
+            <div class="status-row" id="header-status-row">
+                <div class="status-item">
+                    <div class="sync-dot" id="sync-dot"></div>
+                    <span id="sync-status">💾 Lokal</span>
+                </div>
+                <div class="status-item" id="gps-indicator">
+                    <div id="gps-dot"></div>
+                    <span id="gps-status">📍 GPS Off</span>
+                </div>
+                <div class="status-item" id="alerts-indicator" style="display:none;">
+                    <span id="sound-status" style="font-size:16px;" title="Sound Status">🔇</span>
+                    <span id="vibration-status" style="font-size:16px;margin-left:5px;" title="Vibration Status">📳</span>
+                </div>
             </div>
         </div>
+        <div id="header-toggle" style="text-align: center; margin-top: 5px; font-size: 12px; opacity: 0.7;">▼</div>
     </div>
 
     <div class="view-selector">
@@ -712,6 +715,7 @@
             
             <!-- Turn-by-Turn Central Overlay (GROß in der Mitte) -->
             <div id="turn-by-turn" style="
+                display: none;
                 position: absolute;
                 top: 60px;
                 left: 50%;
@@ -797,6 +801,26 @@
         </div>
         
         <script>
+            // 📱 HEADER TOGGLE
+            let headerCollapsed = false;
+            function toggleHeader() {
+                const header = document.getElementById('main-header');
+                const content = document.getElementById('header-content');
+                const toggle = document.getElementById('header-toggle');
+                
+                headerCollapsed = !headerCollapsed;
+                
+                if (headerCollapsed) {
+                    content.style.display = 'none';
+                    toggle.textContent = '▶';
+                    header.style.padding = '8px 15px';
+                } else {
+                    content.style.display = 'block';
+                    toggle.textContent = '▼';
+                    header.style.padding = '15px';
+                }
+            }
+            
             function toggleNewRidesPanel() {
                 const panel = document.getElementById('new-rides-panel');
                 panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
@@ -932,8 +956,6 @@
             }
             
             async function confirmCancellation(rideId) {
-                if (!confirm('Stornierung wirklich bestätigen?')) return;
-                
                 try {
                     const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
                     if (!ride) {
@@ -960,9 +982,11 @@
                     Object.assign(ride, updates);
                     saveRides();
                     
+                    // ✅ WICHTIG: Panel SOFORT schließen!
+                    closeCancellationPanel();
+                    
                     // UI Update
                     updateViews();
-                    closeCancellationPanel();
                     
                     alert('✅ Stornierung bestätigt! Gebühr: ' + cancellationFee.toFixed(2) + '€');
                     
@@ -1124,6 +1148,7 @@
             
             info.innerHTML = `
                 👤 <strong>${regularCustomer.name}</strong><br>
+                ${regularCustomer.phone ? `📞 ${regularCustomer.phone}<br>` : ''}
                 📍 Häufig: ${regularCustomer.favoritePickup || 'Noch keine Fahrten'}<br>
                 🚕 ${regularCustomer.rideCount || 0} Fahrten bisher
             `;
@@ -1140,6 +1165,10 @@
             }
             if (regularCustomer.favoriteDestination) {
                 document.getElementById('destination').value = regularCustomer.favoriteDestination;
+            }
+            // ✅ TELEFON LADEN!
+            if (regularCustomer.phone) {
+                document.getElementById('customer-phone').value = regularCustomer.phone;
             }
             
             alert('✅ Deine Daten wurden eingefügt!\n\nÜberprüfe die Adresse und buche dann dein Taxi.');
@@ -1161,10 +1190,14 @@
             // Lade bestehende Daten oder erstelle neu
             let customer = regularCustomer || { name: name, rideCount: 0 };
             
+            // Telefonnummer holen
+            const phone = document.getElementById('customer-phone').value.trim();
+            
             // Update
             customer.name = name;
             customer.favoritePickup = pickup;
             customer.favoriteDestination = destination;
+            customer.phone = phone; // ✅ TELEFON SPEICHERN!
             customer.rideCount = (customer.rideCount || 0) + 1;
             customer.lastRide = Date.now();
             
@@ -1457,10 +1490,14 @@
             // Lade bestehende Daten oder erstelle neu
             let customer = regularCustomer || { name: name, rideCount: 0 };
             
+            // Telefonnummer holen
+            const phone = document.getElementById('customer-phone').value.trim();
+            
             // Update
             customer.name = name;
             customer.favoritePickup = pickup;
             customer.favoriteDestination = destination;
+            customer.phone = phone; // ✅ TELEFON SPEICHERN!
             customer.rideCount = (customer.rideCount || 0) + 1;
             customer.lastRide = Date.now();
             
@@ -3471,7 +3508,11 @@
         }
 
         async function showAvailableTaxis() {
-            if (!pickupCoords || !isFirebaseReady) return;
+            // ✅ NUR ZEIGEN WENN GÜLTIGE ABHOLADRESSE!
+            if (!pickupCoords || !isFirebaseReady) {
+                document.getElementById('available-taxis-display').innerHTML = '';
+                return;
+            }
             
             const onlineDrivers = Object.values(drivers).filter(d => d.online && d.timestamp && (Date.now() - d.timestamp) < 60000);
             

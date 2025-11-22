@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.0 - Stabil & funktioniert! ✅</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.2 - 10x Vibration bis Reaktion! 📳</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -528,6 +528,66 @@
                 max-width: 500px;
                 margin: 0 auto;
             "></div>
+        </div>
+        
+        <!-- 🚕 NEUER AUFTRAG FULLSCREEN POPUP (NEU!) -->
+        <div id="new-ride-fullscreen" style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 10002;
+            padding: 20px;
+            overflow-y: auto;
+        ">
+            <div style="
+                background: white;
+                border-radius: 20px;
+                padding: 0;
+                max-width: 500px;
+                margin: 50px auto;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                overflow: hidden;
+            ">
+                <!-- Header -->
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 30px 20px;
+                    text-align: center;
+                    position: relative;
+                ">
+                    <button onclick="closeNewRideFullscreen()" style="
+                        position: absolute;
+                        top: 15px;
+                        right: 15px;
+                        background: rgba(255,255,255,0.3);
+                        color: white;
+                        border: none;
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 50%;
+                        font-size: 24px;
+                        cursor: pointer;
+                        font-weight: bold;
+                    ">✕</button>
+                    
+                    <div style="font-size: 72px; margin-bottom: 10px;">🚕</div>
+                    <div style="font-size: 32px; font-weight: bold; color: white; margin-bottom: 5px;">
+                        NEUER AUFTRAG!
+                    </div>
+                    <div style="font-size: 14px; color: rgba(255,255,255,0.9);">
+                        Ein Kunde wartet auf dich
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div id="new-ride-fullscreen-content" style="padding: 30px 20px;">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
         </div>
         
         <!-- FULLSCREEN KARTE Container -->
@@ -1973,6 +2033,9 @@
                         const currentCount = rides.filter(r => r.status === 'new').length;
                         if (currentCount > previousCount && currentView === 'driver') {
                             playDriverNotificationSound();
+                            
+                            // 🆕 ZEIGE FULLSCREEN POPUP bei neuem Auftrag
+                            showNewRideFullscreen();
                         }
                         
                         updateViews();
@@ -4328,6 +4391,202 @@ ${debugJSON}
                 });
             } catch (e) {
                 console.error('Sound Fehler:', e);
+            }
+        }
+        
+        // 🚕 FULLSCREEN POPUP FUNKTIONEN
+        function showNewRideFullscreen() {
+            const myRides = currentVehicle ? rides.filter(r => 
+                (r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) &&
+                r.status === 'new'
+            ) : [];
+            
+            if (myRides.length === 0) return;
+            
+            // Zeige ersten neuen Auftrag
+            const ride = myRides[0];
+            
+            const content = `
+                <div style="margin-bottom: 25px;">
+                    <div style="
+                        background: #f3f4f6;
+                        padding: 20px;
+                        border-radius: 12px;
+                        margin-bottom: 20px;
+                    ">
+                        ${ride.customerName ? `
+                        <div style="
+                            background: #dbeafe;
+                            padding: 15px;
+                            border-radius: 8px;
+                            margin-bottom: 15px;
+                        ">
+                            <div style="font-size: 12px; color: #1e40af; margin-bottom: 5px;">KUNDE</div>
+                            <div style="font-size: 22px; font-weight: 600; color: #1e3a8a;">
+                                👤 ${ride.customerName}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">📍 ABHOLUNG</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #111;">
+                                ${ride.pickup}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">🎯 ZIEL</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #111;">
+                                ${ride.destination}
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">⏰ ABHOLZEIT</div>
+                                <div style="font-size: 16px; font-weight: 600;">
+                                    ${ride.pickupTime || '⚡ Sofort'}
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">💰 PREIS</div>
+                                <div style="font-size: 16px; font-weight: 600; color: #10b981;">
+                                    ${ride.price}€
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <button onclick="rejectRide('${ride.firebaseId || ride.id}')" style="
+                        padding: 18px;
+                        background: white;
+                        color: #ef4444;
+                        border: 2px solid #ef4444;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    ">
+                        ❌ Ablehnen
+                    </button>
+                    <button onclick="acceptRideFromFullscreen('${ride.firebaseId || ride.id}')" style="
+                        padding: 18px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(16,185,129,0.4);
+                    ">
+                        ✅ Annehmen
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('new-ride-fullscreen-content').innerHTML = content;
+            document.getElementById('new-ride-fullscreen').style.display = 'block';
+            
+            // 📳 WIEDERKEHRENDE VIBRATION BIS REAKTION!
+            startRepeatingVibration();
+        }
+        
+        // 📳 VIBRATIONS-SYSTEM
+        let vibrationInterval = null;
+        let vibrationCount = 0;
+        
+        function startRepeatingVibration() {
+            // Stoppe alte Vibration falls vorhanden
+            stopRepeatingVibration();
+            
+            vibrationCount = 0;
+            
+            // Sofort erste Vibration
+            doVibration();
+            
+            // Wiederhole alle 3 Sekunden, maximal 10 Mal
+            vibrationInterval = setInterval(() => {
+                vibrationCount++;
+                
+                if (vibrationCount >= 10) {
+                    stopRepeatingVibration();
+                    return;
+                }
+                
+                doVibration();
+            }, 3000); // Alle 3 Sekunden
+        }
+        
+        function doVibration() {
+            if (navigator.vibrate) {
+                // Kurz-Lang-Kurz-Lang-Kurz Pattern
+                navigator.vibrate([200, 100, 400, 100, 200]);
+            }
+        }
+        
+        function stopRepeatingVibration() {
+            if (vibrationInterval) {
+                clearInterval(vibrationInterval);
+                vibrationInterval = null;
+            }
+            vibrationCount = 0;
+        }
+        
+        function closeNewRideFullscreen() {
+            stopRepeatingVibration(); // Stoppe Vibration!
+            document.getElementById('new-ride-fullscreen').style.display = 'none';
+        }
+        
+        async function acceptRideFromFullscreen(rideId) {
+            stopRepeatingVibration(); // Stoppe Vibration!
+            closeNewRideFullscreen();
+            // Nutze existierende acceptRide Funktion
+            await acceptRide(rideId);
+        }
+        
+        async function rejectRide(rideId) {
+            if (!confirm('Auftrag wirklich ablehnen?\n\nDer Auftrag bleibt im System und kann anderen Fahrern zugewiesen werden.')) {
+                return;
+            }
+            
+            stopRepeatingVibration(); // Stoppe Vibration!
+            
+            try {
+                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Update in Firebase
+                const updates = {
+                    status: 'rejected',
+                    rejectedBy: currentVehicle,
+                    rejectedAt: new Date().toISOString(),
+                    rejectedByDriver: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle
+                };
+                
+                if (isFirebaseReady) {
+                    await db.ref('rides/' + rideId).update(updates);
+                    console.log('❌ Auftrag abgelehnt:', rideId);
+                }
+                
+                // Update lokal
+                Object.assign(ride, updates);
+                saveRides();
+                
+                closeNewRideFullscreen();
+                updateViews();
+                
+                alert('✅ Auftrag abgelehnt!\n\nDer Auftrag bleibt im System für andere Fahrer.');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Ablehnen:', error);
+                alert('❌ Fehler: ' + error.message);
             }
         }
 

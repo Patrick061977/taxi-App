@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.4 - Sound/Vibration Check 🔊📳</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.5 - Telefon & Kompakte UI 📞</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -172,6 +172,13 @@
                         <input type="checkbox" id="save-customer" style="width:auto;">
                         <span>💾 Als Stammkunde speichern (schnellere Buchung nächstes Mal)</span>
                     </label>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>📞 Telefonnummer (optional)</label>
+                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567">
+                <div style="font-size:12px;color:#666;margin-top:5px;">
+                    Für Rückfragen durch den Fahrer
                 </div>
             </div>
             <div class="input-group">
@@ -600,6 +607,79 @@
             position: relative;
             height: calc(100vh - 150px);
         ">
+            <!-- 📋 KOMPAKTE FAHRT-INFO OBEN (NEU!) -->
+            <div id="driver-info-top" style="
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                background: white;
+                border-radius: 16px;
+                padding: 15px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+                z-index: 950;
+            ">
+                <!-- Kunde & Telefon -->
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                ">
+                    <div style="
+                        flex: 1;
+                        font-weight: 600;
+                        font-size: 16px;
+                        color: #333;
+                    " id="driver-customer-name">👤 Kunde</div>
+                    <button id="driver-call-button" onclick="callCustomer()" style="
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-size: 14px;
+                        display: none;
+                    ">📞 Anrufen</button>
+                </div>
+                
+                <!-- Ziel -->
+                <div style="
+                    font-size: 14px;
+                    color: #666;
+                    margin-bottom: 10px;
+                " id="driver-destination-top">🎯 Ziel wird geladen...</div>
+                
+                <!-- Preis & Zeit -->
+                <div style="
+                    display: flex;
+                    gap: 15px;
+                    font-size: 13px;
+                    color: #666;
+                    margin-bottom: 12px;
+                ">
+                    <span id="driver-price-top">💰 -</span>
+                    <span>•</span>
+                    <span id="driver-time-top">⏰ -</span>
+                </div>
+                
+                <!-- ACTION BUTTON -->
+                <button id="driver-action-button" style="
+                    width: 100%;
+                    padding: 14px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+                ">🚗 KUNDE ABHOLEN</button>
+            </div>
+            
             <!-- Karte (Fullscreen) -->
             <div id="driver-map" style="height: 100%; width: 100%;"></div>
             
@@ -3590,6 +3670,7 @@
 
         async function book() {
             const customerName = document.getElementById('customer-name').value.trim();
+            const customerPhone = document.getElementById('customer-phone').value.trim();
             const pickupTimeSelect = document.getElementById('pickup-time').value;
             const customDateTime = document.getElementById('custom-datetime').value;
             
@@ -3652,6 +3733,7 @@
             const ride = {
                 id: Date.now(),
                 customerName,
+                customerPhone,
                 pickupTime,
                 pickupTimestamp,
                 pickup: document.getElementById('pickup').value,
@@ -3938,6 +4020,81 @@
                     updateViews();
                 }
             }, 5000);
+        }
+        
+        // 📞 KUNDE ANRUFEN
+        function callCustomer() {
+            const ride = rides.find(r => 
+                r.vehicleId === currentVehicle && 
+                (r.status === 'accepted' || r.status === 'picked_up')
+            );
+            
+            if (!ride) {
+                alert('❌ Keine aktive Fahrt gefunden!');
+                return;
+            }
+            
+            if (!ride.customerPhone) {
+                alert('❌ Keine Telefonnummer hinterlegt!\n\nKunde hat keine Nummer angegeben.');
+                return;
+            }
+            
+            // Öffne Telefon-App
+            window.open('tel:' + ride.customerPhone);
+        }
+        
+        // 📋 UPDATE DRIVER INFO TOP
+        function updateDriverInfoTop(ride) {
+            if (!ride) return;
+            
+            const customerName = document.getElementById('driver-customer-name');
+            const destination = document.getElementById('driver-destination-top');
+            const price = document.getElementById('driver-price-top');
+            const time = document.getElementById('driver-time-top');
+            const callButton = document.getElementById('driver-call-button');
+            const actionButton = document.getElementById('driver-action-button');
+            
+            if (customerName) {
+                customerName.textContent = '👤 ' + (ride.customerName || 'Kunde');
+            }
+            
+            if (destination) {
+                const dest = ride.status === 'picked_up' ? ride.destination : ride.pickup;
+                const icon = ride.status === 'picked_up' ? '🎯' : '📍';
+                destination.textContent = icon + ' ' + dest;
+            }
+            
+            if (price) {
+                price.textContent = '💰 ' + ride.price + '€';
+            }
+            
+            if (time) {
+                time.textContent = '⏰ ' + (ride.pickupTime || 'Sofort');
+            }
+            
+            // Zeige Anruf-Button nur wenn Telefonnummer vorhanden
+            if (callButton) {
+                if (ride.customerPhone) {
+                    callButton.style.display = 'block';
+                } else {
+                    callButton.style.display = 'none';
+                }
+            }
+            
+            // Action Button
+            if (actionButton) {
+                const rideId = ride.firebaseId || ride.id;
+                
+                if (ride.status === 'accepted') {
+                    actionButton.textContent = '🚗 KUNDE ABHOLEN';
+                    actionButton.onclick = () => pickupCustomer(rideId);
+                    actionButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                } else if (ride.status === 'picked_up') {
+                    actionButton.textContent = '🎯 ZUM ZIEL FAHREN';
+                    actionButton.onclick = () => completeRide(rideId);
+                    actionButton.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                }
+            }
         }
 
         function toggleOnline() {
@@ -5234,6 +5391,9 @@ ${debugJSON}
 
         function initDriverMap(ride) {
             console.log('🗺️ Initialisiere Fahrer-Karte für Fahrt:', ride.id);
+            
+            // 📋 Update Info Box oben
+            updateDriverInfoTop(ride);
             
             // Zeige Karten-Container
             document.getElementById('driver-route-info').style.display = 'block';

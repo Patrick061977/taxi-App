@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.2 - Stornierung mit Fahrer-Bestätigung 🚨</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.3 - Fahrzeug-Logik & Tabs 🚗</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -316,7 +316,7 @@
             
             <!-- Online Toggle Mini -->
             <label class="toggle-switch" style="transform: scale(0.6);">
-                <input type="checkbox" id="online-toggle" onchange="toggleOnline()">
+                <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
                 <span class="slider"></span>
             </label>
             
@@ -348,17 +348,165 @@
             Sync: <span id="debug-sync">❓</span>
         </div>
         
-        <!-- Neue Aufträge Slide-In Panel -->
+        <!-- Neue Aufträge Slide-In Panel mit TABS! -->
         <div id="new-rides-panel" style="
             display: none;
-            padding: 10px;
+            padding: 0;
             background: white;
-            max-height: 50vh;
+            max-height: 60vh;
             overflow-y: auto;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         ">
-            <div id="new-rides"></div>
+            <!-- Tabs -->
+            <div style="
+                display: flex;
+                background: #f3f4f6;
+                border-bottom: 2px solid #e0e0e0;
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            ">
+                <button onclick="switchRidesTab('new')" id="rides-tab-new" class="rides-tab active" style="
+                    flex: 1;
+                    padding: 12px;
+                    background: white;
+                    border: none;
+                    border-bottom: 3px solid #667eea;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 13px;
+                ">
+                    📋 Neu
+                </button>
+                <button onclick="switchRidesTab('completed')" id="rides-tab-completed" class="rides-tab" style="
+                    flex: 1;
+                    padding: 12px;
+                    background: transparent;
+                    border: none;
+                    border-bottom: 3px solid transparent;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 13px;
+                    color: #666;
+                ">
+                    ✅ Fertig
+                </button>
+                <button onclick="switchRidesTab('cancelled')" id="rides-tab-cancelled" class="rides-tab" style="
+                    flex: 1;
+                    padding: 12px;
+                    background: transparent;
+                    border: none;
+                    border-bottom: 3px solid transparent;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 13px;
+                    color: #666;
+                ">
+                    🚨 Storniert
+                </button>
+            </div>
+            
+            <!-- Tab Content -->
+            <div style="padding: 10px;">
+                <div id="new-rides"></div>
+                <div id="completed-rides" style="display: none;"></div>
+                <div id="cancelled-rides" style="display: none;"></div>
+            </div>
         </div>
+        
+        <style>
+            .rides-tab.active {
+                background: white !important;
+                border-bottom-color: #667eea !important;
+                color: #667eea !important;
+            }
+        </style>
+        
+        <script>
+            function switchRidesTab(tab) {
+                // Hide all content
+                document.getElementById('new-rides').style.display = 'none';
+                document.getElementById('completed-rides').style.display = 'none';
+                document.getElementById('cancelled-rides').style.display = 'none';
+                
+                // Remove active from all tabs
+                document.querySelectorAll('.rides-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.style.background = 'transparent';
+                    t.style.borderBottomColor = 'transparent';
+                    t.style.color = '#666';
+                });
+                
+                // Show selected content & activate tab
+                if (tab === 'new') {
+                    document.getElementById('new-rides').style.display = 'block';
+                    document.getElementById('rides-tab-new').classList.add('active');
+                } else if (tab === 'completed') {
+                    document.getElementById('completed-rides').style.display = 'block';
+                    document.getElementById('rides-tab-completed').classList.add('active');
+                    loadCompletedRides();
+                } else if (tab === 'cancelled') {
+                    document.getElementById('cancelled-rides').style.display = 'block';
+                    document.getElementById('rides-tab-cancelled').classList.add('active');
+                    loadCancelledRides();
+                }
+            }
+            
+            function loadCompletedRides() {
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                const completed = myRides.filter(r => r.status === 'completed');
+                
+                if (completed.length === 0) {
+                    document.getElementById('completed-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine abgeschlossenen Fahrten</div>';
+                    return;
+                }
+                
+                let html = completed.map(r => `
+                    <div class="ride-card" style="background:#f0fdf4;border-left:4px solid #10b981;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <strong>#${r.id}</strong>
+                            <span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">✅ Fertig</span>
+                        </div>
+                        ${r.customerName ? `<div style="font-weight:600;color:#065f46;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        <div style="font-size:13px;color:#666;">
+                            Von: ${r.pickup}<br>
+                            Nach: ${r.destination}<br>
+                            Preis: <strong>${r.price}€</strong> • ${r.distance} km
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('completed-rides').innerHTML = html;
+            }
+            
+            function loadCancelledRides() {
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                const cancelled = myRides.filter(r => r.status === 'cancelled' || r.status === 'cancelled_pending_driver' || r.status === 'storniert');
+                
+                if (cancelled.length === 0) {
+                    document.getElementById('cancelled-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine stornierten Fahrten</div>';
+                    return;
+                }
+                
+                let html = cancelled.map(r => `
+                    <div class="ride-card" style="background:#fef2f2;border-left:4px solid #ef4444;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <strong>#${r.id}</strong>
+                            <span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">🚨 Storniert</span>
+                        </div>
+                        ${r.customerName ? `<div style="font-weight:600;color:#991b1b;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        <div style="font-size:13px;color:#666;">
+                            Von: ${r.pickup}<br>
+                            Nach: ${r.destination}<br>
+                            ${r.cancellationFee ? `<strong>Gebühr: ${r.cancellationFee.toFixed(2)}€</strong><br>` : ''}
+                            ${r.cancellationReason ? `Grund: ${r.cancellationReason}` : ''}
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('cancelled-rides').innerHTML = html;
+            }
+        </script>
         
         <!-- 🚨 STORNIERUNG PANEL (NEU!) -->
         <div id="cancellation-panel" style="
@@ -3601,6 +3749,30 @@
             const vehicleId = document.getElementById('vehicle').value;
             currentVehicle = vehicleId;
             console.log('🚗 Fahrzeug gewählt:', currentVehicle);
+            
+            // 🔒 NEUE LOGIK: Toggle nur aktivieren wenn Fahrzeug gewählt!
+            const toggle = document.getElementById('online-toggle');
+            if (toggle) {
+                if (currentVehicle) {
+                    toggle.disabled = false;
+                    toggle.style.opacity = '1';
+                    toggle.style.cursor = 'pointer';
+                    console.log('✅ Online-Toggle aktiviert');
+                } else {
+                    toggle.disabled = true;
+                    toggle.checked = false;
+                    toggle.style.opacity = '0.5';
+                    toggle.style.cursor = 'not-allowed';
+                    isOnline = false;
+                    console.log('🔒 Online-Toggle gesperrt - kein Fahrzeug');
+                    
+                    // GPS stoppen wenn kein Fahrzeug
+                    if (watchId) {
+                        stopDriverTracking();
+                    }
+                }
+            }
+            
             if (currentVehicle && isOnline) startDriverTracking(null);
             updateViews();
         }

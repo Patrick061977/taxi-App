@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.6 - Clean UI & Popup Fix! ✨</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.7 - A3/B3 Cards Design! 🎴</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -607,76 +607,104 @@
             position: relative;
             height: calc(100vh - 150px);
         ">
-            <!-- 📋 KOMPAKTE FAHRT-INFO OBEN (NEU!) -->
-            <div id="driver-info-top" style="
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                right: 10px;
+            <!-- 🎴 CARDS INFO TOP (A3/B3 Design) -->
+            <div id="driver-cards-container" style="
+                padding: 10px;
                 background: white;
-                border-radius: 16px;
-                padding: 15px;
-                box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-                z-index: 950;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                display: grid;
+                gap: 8px;
             ">
-                <!-- Kunde & Telefon -->
-                <div style="
+                <!-- Kunde Card (mit Telefon) -->
+                <div id="driver-customer-card" style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 8px;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 10px;
+                    border-left: 4px solid #667eea;
                 ">
-                    <div style="
-                        flex: 1;
-                        font-weight: 600;
-                        font-size: 16px;
-                        color: #333;
-                    " id="driver-customer-name">👤 Kunde</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
+                            Kunde
+                        </div>
+                        <div id="driver-customer-name" style="font-size: 14px; font-weight: 600; color: #333;">
+                            👤 Kunde
+                        </div>
+                    </div>
                     <button id="driver-call-button" onclick="callCustomer()" style="
                         background: #10b981;
                         color: white;
                         border: none;
-                        padding: 8px 16px;
-                        border-radius: 20px;
+                        padding: 8px 12px;
+                        border-radius: 16px;
+                        font-size: 12px;
                         font-weight: 600;
                         cursor: pointer;
-                        font-size: 14px;
                         display: none;
-                    ">📞 Anrufen</button>
+                    ">📞</button>
                 </div>
                 
-                <!-- Ziel -->
-                <div style="
-                    font-size: 14px;
-                    color: #666;
-                    margin-bottom: 10px;
-                " id="driver-destination-top">🎯 Ziel wird geladen...</div>
-                
-                <!-- Preis & Zeit -->
-                <div style="
-                    display: flex;
-                    gap: 15px;
-                    font-size: 13px;
-                    color: #666;
-                    margin-bottom: 8px;
+                <!-- Preis Card (nur bei picked_up) -->
+                <div id="driver-price-card" style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border-left: 4px solid #10b981;
+                    display: none;
                 ">
-                    <span id="driver-price-top">💰 -</span>
-                    <span>•</span>
-                    <span id="driver-time-top">⏰ -</span>
+                    <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
+                        Preis
+                    </div>
+                    <div id="driver-price-value" style="font-size: 14px; font-weight: 600; color: #333;">
+                        💰 -
+                    </div>
                 </div>
                 
-                <!-- ACTION BUTTON - KLEIN! -->
+                <!-- Pickup Card (nur bei accepted) -->
+                <div id="driver-pickup-card" style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border-left: 4px solid #667eea;
+                    display: none;
+                ">
+                    <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
+                        📍 Abholen
+                    </div>
+                    <div id="driver-pickup-value" style="font-size: 14px; font-weight: 600; color: #333;">
+                        -
+                    </div>
+                </div>
+                
+                <!-- Destination Card -->
+                <div id="driver-dest-card" style="
+                    background: #ecfdf5;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border-left: 4px solid #10b981;
+                ">
+                    <div style="font-size: 10px; color: #059669; text-transform: uppercase; margin-bottom: 3px;">
+                        🎯 Ziel
+                    </div>
+                    <div id="driver-dest-value" style="font-size: 14px; font-weight: 600; color: #065f46;">
+                        -
+                    </div>
+                </div>
+                
+                <!-- Action Button -->
                 <button id="driver-action-button" style="
                     width: 100%;
-                    padding: 10px;
+                    padding: 12px;
                     background: #667eea;
                     color: white;
                     border: none;
                     border-radius: 8px;
-                    font-size: 14px;
                     font-weight: 600;
+                    font-size: 14px;
                     cursor: pointer;
-                ">🚗 Kunde abholen</button>
+                ">🚗 Beim Kunden angekommen</button>
             </div>
             
             <!-- Karte (Fullscreen) -->
@@ -702,74 +730,25 @@
                 <div style="font-size: 18px; color: #666;" id="turn-instruction">Geradeaus</div>
             </div>
             
-            <!-- Bottom Slide-Up Panel (Google Maps Style) -->
+            <!-- Bottom Panel - Nur ETA -->
             <div id="bottom-panel" style="
                 position: absolute;
                 bottom: 0;
                 left: 0;
                 right: 0;
                 background: white;
-                border-radius: 20px 20px 0 0;
-                box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
-                padding: 15px;
-                max-height: 220px;
-                overflow-y: auto;
+                padding: 10px;
+                box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+                text-align: center;
+                font-size: 12px;
+                color: #666;
                 z-index: 900;
             ">
-                <!-- Route Progress Bar -->
-                <div style="
-                    height: 4px;
-                    background: #e0e0e0;
-                    border-radius: 2px;
-                    margin-bottom: 10px;
-                    overflow: hidden;
-                ">
-                    <div id="route-progress" style="
-                        height: 100%;
-                        background: #667eea;
-                        width: 30%;
-                        transition: width 0.3s;
-                    "></div>
-                </div>
-                
-                <!-- Route Info kompakt -->
-                <div style="
-                    display: flex;
-                    gap: 20px;
-                    font-size: 12px;
-                    color: #666;
-                    margin-bottom: 10px;
-                    justify-content: center;
-                ">
-                    <span><b id="route-distance">-</b>km</span>
-                    <span>•</span>
-                    <span><b id="route-duration">-</b>min</span>
-                    <span>•</span>
-                    <span>ETA <b id="route-eta">-</b></span>
-                    <span id="route-title" style="display:none;"></span>
-                </div>
-                
-                <!-- Fahrt Info -->
-                <div id="driver-current-ride" style="
-                    font-size: 12px;
-                    text-align: center;
-                    margin-bottom: 10px;
-                    color: #666;
-                "></div>
-                
-                <!-- Pickup Button (nur wenn status=accepted) -->
-                <button id="bottom-pickup-button" onclick="pickupCustomerFromBottom()" style="
-                    width: 100%;
-                    padding: 10px;
-                    background: #10b981;
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    display: none;
-                ">✅ Kunde abgeholt</button>
+                <span><b id="route-distance">-</b>km</span>
+                <span> • </span>
+                <span><b id="route-duration">-</b>min</span>
+                <span> • </span>
+                <span>ETA <b id="route-eta">-</b></span>
             </div>
         </div>
         
@@ -4057,79 +4036,83 @@
         }
         
         // 📋 UPDATE DRIVER INFO TOP
+        // 📋 UPDATE DRIVER CARDS (A3/B3 Design)
         function updateDriverInfoTop(ride) {
             if (!ride) return;
             
-            const customerName = document.getElementById('driver-customer-name');
-            const destination = document.getElementById('driver-destination-top');
-            const price = document.getElementById('driver-price-top');
-            const time = document.getElementById('driver-time-top');
-            const callButton = document.getElementById('driver-call-button');
-            const actionButton = document.getElementById('driver-action-button');
-            const bottomButton = document.getElementById('bottom-pickup-button');
+            const rideId = ride.firebaseId || ride.id;
             
+            // Customer Name
+            const customerName = document.getElementById('driver-customer-name');
             if (customerName) {
                 customerName.textContent = '👤 ' + (ride.customerName || 'Kunde');
             }
             
-            if (destination) {
-                const dest = ride.status === 'picked_up' ? ride.destination : ride.pickup;
-                const icon = ride.status === 'picked_up' ? '🎯' : '📍';
-                destination.textContent = icon + ' ' + dest;
-            }
-            
-            if (price) {
-                price.textContent = '💰 ' + ride.price + '€';
-            }
-            
-            if (time) {
-                time.textContent = '⏰ ' + (ride.pickupTime || 'Sofort');
-            }
-            
-            // Zeige Anruf-Button nur wenn Telefonnummer vorhanden
+            // Call Button
+            const callButton = document.getElementById('driver-call-button');
             if (callButton) {
-                if (ride.customerPhone) {
-                    callButton.style.display = 'block';
-                } else {
-                    callButton.style.display = 'none';
+                callButton.style.display = ride.customerPhone ? 'block' : 'none';
+            }
+            
+            // Cards Container
+            const customerCard = document.getElementById('driver-customer-card');
+            const priceCard = document.getElementById('driver-price-card');
+            const pickupCard = document.getElementById('driver-pickup-card');
+            const destCard = document.getElementById('driver-dest-card');
+            
+            if (ride.status === 'accepted') {
+                // A3 Design: Zum Kunden
+                // Zeige: Kunde, Pickup, Destination
+                // Verstecke: Preis
+                
+                if (customerCard) customerCard.style.gridColumn = '1 / -1';
+                if (priceCard) priceCard.style.display = 'none';
+                if (pickupCard) {
+                    pickupCard.style.display = 'block';
+                    const pickupValue = document.getElementById('driver-pickup-value');
+                    if (pickupValue) pickupValue.textContent = ride.pickup || '-';
+                }
+                if (destCard) {
+                    const destValue = document.getElementById('driver-dest-value');
+                    if (destValue) destValue.textContent = ride.destination || '-';
+                }
+                
+            } else if (ride.status === 'picked_up') {
+                // B3 Design: Kunde an Bord
+                // Zeige: Kunde, Preis, Destination
+                // Verstecke: Pickup
+                
+                const cardsContainer = document.getElementById('driver-cards-container');
+                if (cardsContainer) {
+                    cardsContainer.style.gridTemplateColumns = '2fr 1fr';
+                }
+                
+                if (customerCard) customerCard.style.gridColumn = '';
+                if (priceCard) {
+                    priceCard.style.display = 'block';
+                    const priceValue = document.getElementById('driver-price-value');
+                    if (priceValue) priceValue.textContent = '💰 ' + (ride.price || '-') + '€';
+                }
+                if (pickupCard) pickupCard.style.display = 'none';
+                if (destCard) {
+                    destCard.style.gridColumn = '1 / -1';
+                    const destValue = document.getElementById('driver-dest-value');
+                    if (destValue) destValue.textContent = ride.destination || '-';
                 }
             }
             
-            // Action Button OBEN
+            // Action Button
+            const actionButton = document.getElementById('driver-action-button');
             if (actionButton) {
-                const rideId = ride.firebaseId || ride.id;
-                
                 if (ride.status === 'accepted') {
-                    actionButton.textContent = '🚗 Kunde abholen';
+                    actionButton.textContent = '🚗 Beim Kunden angekommen';
                     actionButton.onclick = () => pickupCustomer(rideId);
                     actionButton.style.background = '#667eea';
                 } else if (ride.status === 'picked_up') {
-                    actionButton.textContent = '🎯 Zum Ziel fahren';
+                    actionButton.textContent = '✅ Ziel erreicht';
                     actionButton.onclick = () => completeRide(rideId);
                     actionButton.style.background = '#10b981';
                 }
-            }
-            
-            // Bottom Button (nur bei accepted)
-            if (bottomButton) {
-                const rideId = ride.firebaseId || ride.id;
-                if (ride.status === 'accepted') {
-                    bottomButton.style.display = 'block';
-                    bottomButton.onclick = () => pickupCustomer(rideId);
-                } else {
-                    bottomButton.style.display = 'none';
-                }
-            }
-        }
-        
-        // Wrapper für Bottom Button
-        function pickupCustomerFromBottom() {
-            const ride = rides.find(r => 
-                r.vehicleId === currentVehicle && 
-                r.status === 'accepted'
-            );
-            if (ride) {
-                pickupCustomer(ride.firebaseId || ride.id);
             }
         }
 

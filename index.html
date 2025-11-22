@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.5.10 - Karten-Fix! 🗺️ (Build 20251122-1850)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.0 - Simple & Stable! ✅ (Build 20251122-1920)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -710,8 +710,7 @@
                 ">🚗 Beim Kunden angekommen</button>
             </div>
             
-            <!-- Karte (Fullscreen) -->
-            <div id="driver-map" style="height: 100%; width: 100%;"></div>
+            <!-- ❌ KARTE ENTFERNT - NUR INFO! -->
             
             <!-- Turn-by-Turn Central Overlay (GROß in der Mitte) -->
             <div id="turn-by-turn" style="
@@ -4109,7 +4108,12 @@
             // Call Button
             const callButton = document.getElementById('driver-call-button');
             if (callButton) {
-                callButton.style.display = ride.customerPhone ? 'block' : 'none';
+                // Nur zeigen wenn: Telefon DA + noch unterwegs zum Kunden
+                if (ride.customerPhone && ride.status === 'accepted') {
+                    callButton.style.display = 'block';
+                } else {
+                    callButton.style.display = 'none';  // Verstecken wenn Kunde an Bord
+                }
             }
             
             // Cards Container
@@ -5476,68 +5480,16 @@ ${debugJSON}
         let driverMapUpdateInterval = null;
 
         function initDriverMap(ride) {
-            console.log('🗺️ Initialisiere Fahrer-Karte für Fahrt:', ride.id);
+            console.log('ℹ️ Zeige Fahrt-Info (OHNE KARTE):', ride.id);
             
             // 📋 Update Info Box oben
             updateDriverInfoTop(ride);
             
-            // Verstecke Ready-State, Zeige Karten-Container
+            // Verstecke Ready-State, Zeige Info-Container
             document.getElementById('driver-ready').style.display = 'none';
             document.getElementById('driver-route-info').style.display = 'block';
             
-            // Initialisiere Karte
-            if (!driverMap) {
-                setTimeout(() => {
-                    const pickupCoords = ride.pickupCoords;
-                    driverMap = L.map('driver-map').setView([pickupCoords.lat, pickupCoords.lon], 13);
-                    
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors'
-                    }).addTo(driverMap);
-                    
-                    // Kunden-Marker (rot)
-                    const customerIcon = L.divIcon({
-                        html: '<div style="background:#ef4444;color:white;padding:8px 12px;border-radius:20px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.3);">📍 ' + ride.customerName + '</div>',
-                        className: '',
-                        iconSize: [120, 40]
-                    });
-                    customerMarker = L.marker([pickupCoords.lat, pickupCoords.lon], { icon: customerIcon }).addTo(driverMap);
-                    
-                    // Fahrer-Marker (blau) - wird später gesetzt
-                    const driverIcon = L.divIcon({
-                        html: '<div style="background:#667eea;color:white;padding:8px 12px;border-radius:20px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🚕 Du</div>',
-                        className: '',
-                        iconSize: [100, 40]
-                    });
-                    
-                    // Warte auf erste GPS-Position
-                    const checkGPS = setInterval(() => {
-                        const driver = drivers[currentVehicle];
-                        if (driver && driver.lat && driver.lon) {
-                            console.log('✅ GPS-Position erhalten:', driver.lat, driver.lon);
-                            driverMarker = L.marker([driver.lat, driver.lon], { icon: driverIcon }).addTo(driverMap);
-                            
-                            // Zeige beide Marker
-                            driverMap.fitBounds([
-                                [driver.lat, driver.lon],
-                                [pickupCoords.lat, pickupCoords.lon]
-                            ], { padding: [50, 50] });
-                            
-                            // Starte Updates
-                            updateDriverRoute(ride);
-                            clearInterval(checkGPS);
-                        }
-                    }, 500);
-                    
-                    // Timeout nach 10 Sekunden
-                    setTimeout(() => clearInterval(checkGPS), 10000);
-                }, 200);
-            }
-            
-            // Update Route alle 5 Sekunden
-            driverMapUpdateInterval = setInterval(() => {
-                updateDriverRoute(ride);
-            }, 5000);
+            // ❌ KEINE KARTE! Nur Info-Anzeige
         }
 
         async function updateDriverRoute(ride) {

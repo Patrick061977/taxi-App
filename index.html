@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.0 - Simple & Stable! ✅ (Build 20251122-1920)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.1 - Debug Fix! 🔍 (Build 20251122-1935)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4092,10 +4092,13 @@
                 return;
             }
             
-            console.log('📋 updateDriverInfoTop called with ride:', ride);
+            console.log('📋 updateDriverInfoTop called with ride:');
+            console.log('   - id:', ride.id || ride.firebaseId);
+            console.log('   - customerName:', ride.customerName);
             console.log('   - pickup:', ride.pickup);
             console.log('   - destination:', ride.destination);
             console.log('   - status:', ride.status);
+            console.log('   - VOLLES OBJEKT:', JSON.stringify(ride));
             
             const rideId = ride.firebaseId || ride.id;
             
@@ -4504,6 +4507,12 @@
                 status: 'picked_up',
                 pickedUpAt: Date.now() 
             });
+            
+            // Lade ride neu und update Display
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (ride) {
+                updateDriverInfoTop(ride);
+            }
             
             alert('✅ Kunde eingestiegen! Navigation zum Ziel läuft.');
         }

@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.2 - Firebase Direct! 🔥 (Build 20251122-1945)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.3 - Delete Fix! 🗑️ (Build 20251122-2145)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4555,12 +4555,32 @@
             alert('✅ Fahrt abgeschlossen! Sie sind wieder verfügbar.');
         }
 
-        function resetDatabase() {
+        async function resetDatabase() {
             if (!confirm('⚠️ WIRKLICH alle Fahrten löschen?')) return;
             if (!confirm('⚠️ LETZTE WARNUNG! Dies kann nicht rückgängig gemacht werden!')) return;
+            
             if (isFirebaseReady) {
-                db.ref('rides').remove();
-                alert('✅ Datenbank zurückgesetzt!');
+                try {
+                    console.log('🗑️ Lösche alle Fahrten aus Firebase...');
+                    await db.ref('rides').remove();
+                    
+                    // Auch lokales Array leeren
+                    rides = [];
+                    
+                    console.log('✅ Firebase gelöscht!');
+                    alert('✅ Datenbank zurückgesetzt! Bitte Seite neu laden (F5).');
+                    
+                    // Auto-Reload nach 2 Sekunden
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Löschen:', error);
+                    alert('❌ Fehler beim Löschen: ' + error.message);
+                }
+            } else {
+                alert('❌ Firebase nicht bereit!');
             }
         }
         

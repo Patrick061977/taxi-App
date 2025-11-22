@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.3.4 - Neue Aufträge GANZ oben! ⭐</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.1 - GPS Auto-Start & Monitoring 📍</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -232,99 +232,225 @@
     </div>
 
     <div id="driver-view" class="view">
-        <!-- ⭐ NEUE AUFTRÄGE - GANZ OBEN ALS ERSTES! -->
-        <details open style="margin: 15px 0;">
-            <summary style="cursor:pointer;font-weight:600;font-size:18px;padding:12px;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;border-radius:8px;box-shadow: 0 3px 8px rgba(0,0,0,0.2);">
-                📋 Neue Aufträge <span id="new-rides-count" style="background:white;color:#667eea;padding:3px 10px;border-radius:12px;font-size:14px;margin-left:8px;font-weight:bold;">0</span>
-            </summary>
-            <div id="new-rides" style="margin-top:10px;"></div>
-        </details>
+        <!-- 🎯 DESIGN C: FULLSCREEN MAP - Google Maps Style -->
         
-        <h3 style="margin: 20px 0;">Fahrer Dashboard</h3>
-        <!-- Debug Panel - zusammenklappbar -->
-        <details style="background:#f3f4f6;border-radius:8px;padding:10px;margin-bottom:15px;font-size:12px;">
-            <summary style="cursor:pointer;font-weight:600;color:#666;">🐛 Debug Info</summary>
-            <div style="margin-top:10px;font-size:11px;color:#666;">
-                Firebase: <span id="debug-firebase" style="font-weight:bold;">❓</span><br>
-                Alle Fahrten: <span id="debug-rides" style="font-weight:bold;">❓</span><br>
-                Neue Fahrten: <span id="debug-new" style="font-weight:bold;">❓</span><br>
-                Sync: <span id="debug-sync" style="font-weight:bold;">❓</span>
+        <!-- Ultra-Mini Top Bar (transparent, sticky) -->
+        <div id="driver-top-bar" style="
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        ">
+            <!-- GPS Status Indicator -->
+            <div id="gps-status-compact" style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 4px 8px;
+                background: rgba(239,68,68,0.1);
+                border-radius: 12px;
+                font-size: 11px;
+                color: #ef4444;
+            ">
+                <span id="gps-icon-compact">❌</span>
+                <span id="gps-text-compact">GPS</span>
             </div>
-        </details>
-        <div class="online-toggle">
-            <div>
-                <strong id="online-status-text">Offline</strong><br>
-                <small>GPS-Tracking</small>
+            
+            <!-- Neue Aufträge Button -->
+            <button onclick="toggleNewRidesPanel()" style="
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 13px;
+            ">
+                📋 <span id="new-rides-count">0</span>
+            </button>
+            
+            <!-- Fahrzeug Select -->
+            <select id="vehicle" onchange="setVehicle()" style="
+                padding: 6px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 12px;
+                flex: 1;
+                max-width: 110px;
+            ">
+                <option value="">Fzg.</option>
+                <option value="tesla_model3_1">#1</option>
+                <option value="tesla_model3_2">#2</option>
+                <option value="tesla_model3_3">#3</option>
+                <option value="tesla_modely_1">Y#1</option>
+                <option value="tesla_modely_2">Y#2</option>
+            </select>
+            
+            <!-- Stats Mini -->
+            <div style="font-size: 10px; color: #666; white-space: nowrap;">
+                <span id="d-rides">0</span>↑ <span id="d-money">0€</span>
             </div>
-            <label class="toggle-switch">
+            
+            <!-- Online Toggle Mini -->
+            <label class="toggle-switch" style="transform: scale(0.6);">
                 <input type="checkbox" id="online-toggle" onchange="toggleOnline()">
                 <span class="slider"></span>
             </label>
-        </div>
-        <div class="input-group">
-            <label>🚗 Fahrzeug</label>
-            <select id="vehicle" onchange="setVehicle()">
-                <option value="">-- Wählen --</option>
-                <option value="tesla_model3_1">Tesla Model 3 #1 (PW-TX 111)</option>
-                <option value="tesla_model3_2">Tesla Model 3 #2 (PW-TX 222)</option>
-                <option value="tesla_model3_3">Tesla Model 3 #3 (PW-TX 333)</option>
-                <option value="tesla_modely_1">Tesla Model Y #1 (PW-MY 222)</option>
-                <option value="tesla_modely_2">Tesla Model Y #2 (PW-MY 333)</option>
-            </select>
-        </div>
-        <!-- Stats kompakt in einer Zeile -->
-        <div style="display: flex; gap: 15px; padding: 10px; background: white; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e0e0e0;">
-            <div style="flex: 1; text-align: center;">
-                <span style="font-size: 18px; font-weight: bold; color: #667eea;" id="d-rides">0</span>
-                <span style="font-size: 12px; color: #666;"> Fahrten</span>
-            </div>
-            <div style="width: 1px; background: #e0e0e0;"></div>
-            <div style="flex: 1; text-align: center;">
-                <span style="font-size: 18px; font-weight: bold; color: #10b981;" id="d-money">0€</span>
-                <span style="font-size: 12px; color: #666;"> Verdienst</span>
-            </div>
-        </div>
-        
-        <!-- Aktuelle Fahrt -->
-        <div id="driver-current-ride"></div>
-        
-        <!-- DRIVER MAP -->
-        <div id="driver-route-info" style="display:none;">
-            <!-- 🎯 TURN-BY-TURN NAVIGATION (GROß & PROMINENT!) -->
-            <div id="turn-by-turn" style="
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 25px;
-                border-radius: 12px;
-                margin-bottom: 15px;
-                text-align: center;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            
+            <!-- Menu Button -->
+            <button onclick="toggleDebugPanel()" style="
+                background: rgba(102,126,234,0.2);
+                color: #667eea;
+                border: none;
+                padding: 6px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
             ">
-                <div style="font-size: 64px; margin-bottom: 15px;" id="turn-icon">↑</div>
-                <div style="font-size: 28px; font-weight: bold; margin-bottom: 10px;" id="turn-distance">150 m</div>
-                <div style="font-size: 20px;" id="turn-instruction">Geradeaus weiter</div>
-                <div style="font-size: 14px; opacity: 0.9; margin-top: 10px;" id="turn-street">Strandstraße</div>
+                ≡
+            </button>
+        </div>
+        
+        <!-- Debug Panel (versteckt by default) -->
+        <div id="debug-panel" style="
+            display: none;
+            padding: 10px;
+            background: #f3f4f6;
+            font-size: 11px;
+            color: #666;
+        ">
+            FB: <span id="debug-firebase">❓</span> | 
+            Fahrten: <span id="debug-rides">❓</span> | 
+            Neu: <span id="debug-new">❓</span> | 
+            Sync: <span id="debug-sync">❓</span>
+        </div>
+        
+        <!-- Neue Aufträge Slide-In Panel -->
+        <div id="new-rides-panel" style="
+            display: none;
+            padding: 10px;
+            background: white;
+            max-height: 50vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        ">
+            <div id="new-rides"></div>
+        </div>
+        
+        <!-- FULLSCREEN KARTE Container -->
+        <div id="driver-route-info" style="
+            display: none;
+            position: relative;
+            height: calc(100vh - 150px);
+        ">
+            <!-- Karte (Fullscreen) -->
+            <div id="driver-map" style="height: 100%; width: 100%;"></div>
+            
+            <!-- Turn-by-Turn Central Overlay (GROß in der Mitte) -->
+            <div id="turn-by-turn" style="
+                position: absolute;
+                top: 60px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255,255,255,0.98);
+                border-radius: 16px;
+                padding: 20px 30px;
+                text-align: center;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                backdrop-filter: blur(10px);
+                border: 3px solid #667eea;
+                z-index: 900;
+            ">
+                <div style="font-size: 56px; color: #667eea; margin-bottom: 8px;" id="turn-icon">↑</div>
+                <div style="font-size: 36px; font-weight: bold; color: #333; margin-bottom: 5px;" id="turn-distance">150m</div>
+                <div style="font-size: 18px; color: #666;" id="turn-instruction">Geradeaus</div>
             </div>
             
-            <div class="route-info-box">
-                <h3 style="margin-bottom:10px;" id="route-title">📍 Navigation</h3>
-                <div class="route-stats">
-                    <div class="route-stat">
-                        <div class="route-stat-value" id="route-distance">-</div>
-                        <div class="route-stat-label">Kilometer</div>
-                    </div>
-                    <div class="route-stat">
-                        <div class="route-stat-value" id="route-duration">-</div>
-                        <div class="route-stat-label">Minuten</div>
-                    </div>
-                    <div class="route-stat">
-                        <div class="route-stat-value" id="route-eta">-</div>
-                        <div class="route-stat-label">Ankunft</div>
-                    </div>
+            <!-- Bottom Slide-Up Panel (Google Maps Style) -->
+            <div id="bottom-panel" style="
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-radius: 20px 20px 0 0;
+                box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+                padding: 15px;
+                max-height: 220px;
+                overflow-y: auto;
+                z-index: 900;
+            ">
+                <!-- Route Progress Bar -->
+                <div style="
+                    height: 4px;
+                    background: #e0e0e0;
+                    border-radius: 2px;
+                    margin-bottom: 10px;
+                    overflow: hidden;
+                ">
+                    <div id="route-progress" style="
+                        height: 100%;
+                        background: #667eea;
+                        width: 30%;
+                        transition: width 0.3s;
+                    "></div>
                 </div>
+                
+                <!-- Route Info kompakt -->
+                <div style="
+                    display: flex;
+                    gap: 20px;
+                    font-size: 12px;
+                    color: #666;
+                    margin-bottom: 10px;
+                    justify-content: center;
+                ">
+                    <span><b id="route-distance">-</b>km</span>
+                    <span>•</span>
+                    <span><b id="route-duration">-</b>min</span>
+                    <span>•</span>
+                    <span>ETA <b id="route-eta">-</b></span>
+                    <span id="route-title" style="display:none;"></span>
+                </div>
+                
+                <!-- Fahrt Info -->
+                <div id="driver-current-ride" style="
+                    font-size: 14px;
+                    text-align: center;
+                    margin-bottom: 12px;
+                    font-weight: 600;
+                "></div>
             </div>
-            <div id="driver-map"></div>
         </div>
+        
+        <!-- Ready State (wenn keine Fahrt) -->
+        <div id="driver-ready" style="
+            padding: 80px 20px;
+            text-align: center;
+        ">
+            <div style="font-size: 80px; margin-bottom: 20px;">🚕</div>
+            <div style="font-size: 28px; font-weight: 600; color: #667eea; margin-bottom: 10px;">Bereit!</div>
+            <div style="font-size: 14px; color: #999;">Wähle Fahrzeug & gehe Online</div>
+        </div>
+        
+        <script>
+            function toggleNewRidesPanel() {
+                const panel = document.getElementById('new-rides-panel');
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+            
+            function toggleDebugPanel() {
+                const panel = document.getElementById('debug-panel');
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+        </script>
     </div>
 
     <div id="admin-view" class="view">
@@ -1600,12 +1726,103 @@
             currentView = view;
             
             const gpsIndicator = document.getElementById('gps-indicator');
-            if (view === 'driver') gpsIndicator.style.display = 'flex';
-            else gpsIndicator.style.display = 'none';
+            if (view === 'driver') {
+                if (gpsIndicator) gpsIndicator.style.display = 'flex';
+                
+                // 🎯 AUTO-START GPS beim Öffnen der Fahrer-Ansicht!
+                console.log('🚕 Fahrer-Ansicht geöffnet - starte GPS automatisch...');
+                setTimeout(() => {
+                    if (!watchId && currentVehicle) {
+                        console.log('🔄 GPS Auto-Start...');
+                        startGPSTracking();
+                    }
+                    // Starte GPS-Monitoring
+                    startGPSMonitoring();
+                }, 500);
+            } else {
+                if (gpsIndicator) gpsIndicator.style.display = 'none';
+                // Stoppe GPS-Monitoring wenn Ansicht gewechselt wird
+                stopGPSMonitoring();
+            }
             
             if (view === 'history') loadHistory();
             
             updateViews();
+        }
+
+        // 🎯 GPS MONITORING - Prüft alle 5 Sekunden ob GPS läuft
+        let gpsMonitoringInterval = null;
+        let lastGPSUpdate = null;
+        
+        function startGPSMonitoring() {
+            console.log('👀 GPS-Monitoring gestartet');
+            
+            if (gpsMonitoringInterval) {
+                clearInterval(gpsMonitoringInterval);
+            }
+            
+            gpsMonitoringInterval = setInterval(() => {
+                const now = Date.now();
+                const timeSinceLastUpdate = lastGPSUpdate ? (now - lastGPSUpdate) / 1000 : null;
+                
+                // Update UI
+                updateGPSStatus(timeSinceLastUpdate);
+                
+                // Warnung wenn kein GPS seit 15 Sekunden
+                if (timeSinceLastUpdate && timeSinceLastUpdate > 15) {
+                    console.warn('⚠️ GPS VERLOREN! Keine Updates seit', Math.round(timeSinceLastUpdate), 'Sekunden');
+                    
+                    // Versuche GPS neu zu starten
+                    if (watchId && currentVehicle) {
+                        console.log('🔄 Versuche GPS neu zu starten...');
+                        navigator.geolocation.clearWatch(watchId);
+                        watchId = null;
+                        setTimeout(() => startGPSTracking(), 1000);
+                    }
+                }
+            }, 5000); // Alle 5 Sekunden prüfen
+        }
+        
+        function stopGPSMonitoring() {
+            if (gpsMonitoringInterval) {
+                clearInterval(gpsMonitoringInterval);
+                gpsMonitoringInterval = null;
+                console.log('⏹️ GPS-Monitoring gestoppt');
+            }
+        }
+        
+        function updateGPSStatus(timeSinceLastUpdate) {
+            const statusDiv = document.getElementById('gps-status-compact');
+            const iconSpan = document.getElementById('gps-icon-compact');
+            const textSpan = document.getElementById('gps-text-compact');
+            
+            if (!statusDiv) return;
+            
+            if (!timeSinceLastUpdate || timeSinceLastUpdate > 30) {
+                // KEIN GPS oder sehr alt
+                statusDiv.style.background = 'rgba(239,68,68,0.1)';
+                statusDiv.style.color = '#ef4444';
+                iconSpan.textContent = '❌';
+                textSpan.textContent = 'GPS';
+            } else if (timeSinceLastUpdate < 5) {
+                // GPS GUT (frisch!)
+                statusDiv.style.background = 'rgba(16,185,129,0.1)';
+                statusDiv.style.color = '#10b981';
+                iconSpan.textContent = '📍';
+                textSpan.textContent = 'GPS';
+            } else if (timeSinceLastUpdate < 15) {
+                // GPS OK (etwas alt)
+                statusDiv.style.background = 'rgba(245,158,11,0.1)';
+                statusDiv.style.color = '#f59e0b';
+                iconSpan.textContent = '⚠️';
+                textSpan.textContent = 'GPS';
+            } else {
+                // GPS SCHWACH
+                statusDiv.style.background = 'rgba(239,68,68,0.1)';
+                statusDiv.style.color = '#ef4444';
+                iconSpan.textContent = '⚠️';
+                textSpan.textContent = 'GPS';
+            }
         }
 
         function updateViews() {
@@ -1636,37 +1853,95 @@
                 });
             }
             
-            // Current ride
+            // Show/Hide Map vs Ready State
             if (current) {
-                let buttonHtml = '';
+                document.getElementById('driver-route-info').style.display = 'block';
+                document.getElementById('driver-ready').style.display = 'none';
+                
+                // Fahrt Info im Bottom Panel
+                let rideInfo = `#${current.id}`;
+                if (current.customerName) rideInfo += ` • ${current.customerName}`;
+                rideInfo += ` → ${current.destination}`;
+                if (current.price) rideInfo += ` • ${current.price}€`;
+                
+                document.getElementById('driver-current-ride').innerHTML = rideInfo;
+                
+                // Buttons im Bottom Panel
+                let buttonsHtml = '';
                 if (current.status === 'accepted') {
-                    buttonHtml = `
-                        <button class="btn btn-success" onclick="pickupCustomer('${current.firebaseId}')" style="margin-top:10px;">
+                    buttonsHtml = `
+                        <button onclick="pickupCustomer('${current.firebaseId}')" style="
+                            width: 100%;
+                            padding: 14px;
+                            background: #10b981;
+                            color: white;
+                            border: none;
+                            border-radius: 12px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            cursor: pointer;
+                        ">
                             🚕 Kunde abgeholt
                         </button>
                     `;
                 } else if (current.status === 'picked_up') {
-                    buttonHtml = `
-                        <div style="margin-top:10px;padding:12px;background:#fef3c7;border-radius:8px;text-align:center;font-weight:600;color:#92400e;">
-                            🚗 BESETZT - Fahrt läuft
+                    buttonsHtml = `
+                        <div style="
+                            display: flex;
+                            gap: 10px;
+                        ">
+                            <button onclick="completeRide('${current.firebaseId}')" style="
+                                flex: 1;
+                                padding: 14px;
+                                background: #10b981;
+                                color: white;
+                                border: none;
+                                border-radius: 12px;
+                                font-size: 16px;
+                                font-weight: bold;
+                                cursor: pointer;
+                            ">
+                                ✓ Fahrt abschließen
+                            </button>
                         </div>
-                        <button class="btn btn-success" onclick="completeRide('${current.firebaseId}')" style="margin-top:10px;">
-                            ✓ Fahrt abschließen
-                        </button>
                     `;
                 }
                 
-                document.getElementById('driver-current-ride').innerHTML = `
-                    <div class="alert-info">
-                        <strong>Aktuelle Fahrt #${current.id}</strong><br>
-                        ${current.customerName ? `<strong>👤 ${current.customerName}</strong><br>` : ''}
-                        Von: ${current.pickup}<br>
-                        Nach: ${current.destination}<br>
-                        Preis: ${current.price}€
-                        ${buttonHtml}
-                    </div>`;
+                // Insert buttons into bottom panel (append after driver-current-ride)
+                const bottomPanel = document.getElementById('bottom-panel');
+                let actionsDiv = bottomPanel.querySelector('#driver-actions');
+                if (!actionsDiv) {
+                    actionsDiv = document.createElement('div');
+                    actionsDiv.id = 'driver-actions';
+                    bottomPanel.appendChild(actionsDiv);
+                }
+                actionsDiv.innerHTML = buttonsHtml;
+                actionsDiv.style.display = 'block';
+                
             } else {
-                document.getElementById('driver-current-ride').innerHTML = currentVehicle && isOnline ? '<div class="alert-info">🟢 Bereit für Aufträge</div>' : '';
+                document.getElementById('driver-route-info').style.display = 'none';
+                document.getElementById('driver-ready').style.display = 'block';
+                
+                // Update ready message
+                if (currentVehicle && isOnline) {
+                    document.getElementById('driver-ready').innerHTML = `
+                        <div style="font-size:64px;margin-bottom:20px;">🚕</div>
+                        <div style="font-size:24px;font-weight:600;color:#10b981;margin-bottom:10px;">Bereit für Aufträge</div>
+                        <div style="font-size:14px;color:#666;">Du bist online & bereit!</div>
+                    `;
+                } else if (currentVehicle) {
+                    document.getElementById('driver-ready').innerHTML = `
+                        <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+                        <div style="font-size:24px;font-weight:600;color:#f59e0b;margin-bottom:10px;">Offline</div>
+                        <div style="font-size:14px;color:#666;">Gehe Online um Aufträge zu erhalten!</div>
+                    `;
+                } else {
+                    document.getElementById('driver-ready').innerHTML = `
+                        <div style="font-size:80px;margin-bottom:20px;">🚕</div>
+                        <div style="font-size:28px;font-weight:600;color:#667eea;margin-bottom:10px;">Bereit!</div>
+                        <div style="font-size:14px;color:#999;">Wähle Fahrzeug & gehe Online</div>
+                    `;
+                }
             }
             
             // New rides
@@ -1732,7 +2007,6 @@
             const countElement = document.getElementById('new-rides-count');
             if (countElement) {
                 countElement.textContent = newRides.length;
-                countElement.style.display = newRides.length > 0 ? 'inline-block' : 'none';
             }
             
             // Stats
@@ -3117,7 +3391,7 @@
             
             console.log('🚀 Starte GPS-Tracking' + (rideId ? ' für Fahrt: ' + rideId : ''));
             
-            // Versuche ERST watchPosition
+            // Versuche ERST watchPosition mit HIGH ACCURACY
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
                     const location = { 
@@ -3129,6 +3403,9 @@
                         online: isOnline,
                         accuracy: pos.coords.accuracy
                     };
+                    
+                    // 🎯 Update lastGPSUpdate für Monitoring
+                    lastGPSUpdate = Date.now();
                     
                     console.log('📍 GPS (watchPosition):', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
                     
@@ -3276,6 +3553,15 @@
                 db.ref('drivers/' + currentVehicle).remove();
                 console.log('🗑️ GPS aus drivers/ entfernt');
             }
+        }
+
+        // 🎯 ALIAS-FUNKTIONEN für bessere Lesbarkeit
+        function startGPSTracking() {
+            startDriverTracking();
+        }
+        
+        function stopGPSTracking() {
+            stopDriverTracking();
         }
 
         async function acceptRide(rideId) {

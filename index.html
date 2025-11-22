@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.1 - GPS Auto-Start & Monitoring 📍</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.2 - Stornierung mit Fahrer-Bestätigung 🚨</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -262,6 +262,22 @@
                 <span id="gps-text-compact">GPS</span>
             </div>
             
+            <!-- Stornierung Badge (NEU!) -->
+            <button id="cancellation-badge" onclick="showCancellationPanel()" style="
+                display: none;
+                background: #ef4444;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 13px;
+                animation: pulse 1s infinite;
+            ">
+                🚨 <span id="cancellation-count">0</span>
+            </button>
+            
             <!-- Neue Aufträge Button -->
             <button onclick="toggleNewRidesPanel()" style="
                 background: #667eea;
@@ -342,6 +358,28 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         ">
             <div id="new-rides"></div>
+        </div>
+        
+        <!-- 🚨 STORNIERUNG PANEL (NEU!) -->
+        <div id="cancellation-panel" style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            padding: 20px;
+            overflow-y: auto;
+        ">
+            <div id="cancellation-list" style="
+                background: white;
+                border-radius: 12px;
+                padding: 20px;
+                max-width: 500px;
+                margin: 0 auto;
+            "></div>
         </div>
         
         <!-- FULLSCREEN KARTE Container -->
@@ -449,6 +487,181 @@
             function toggleDebugPanel() {
                 const panel = document.getElementById('debug-panel');
                 panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+            
+            // 🚨 STORNIERUNG PANEL FUNKTIONEN
+            function showCancellationPanel() {
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                const pendingCancellations = myRides.filter(r => 
+                    (r.status === 'cancelled_pending_driver' || 
+                    (r.status === 'cancelled' && r.driverNotified === false))
+                );
+                
+                if (pendingCancellations.length === 0) {
+                    alert('Keine Stornierungen!');
+                    return;
+                }
+                
+                let html = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h2 style="margin:0;color:#ef4444;">🚨 Stornierungen</h2>
+                        <button onclick="closeCancellationPanel()" style="
+                            background:#ef4444;
+                            color:white;
+                            border:none;
+                            padding:8px 16px;
+                            border-radius:8px;
+                            cursor:pointer;
+                            font-weight:600;
+                        ">✕ Schließen</button>
+                    </div>
+                `;
+                
+                pendingCancellations.forEach(ride => {
+                    const cancellationFee = calculateCancellationFee(ride);
+                    html += `
+                        <div style="
+                            background:#fef2f2;
+                            border:3px solid #ef4444;
+                            border-radius:12px;
+                            padding:20px;
+                            margin-bottom:15px;
+                        ">
+                            <div style="font-size:24px;font-weight:bold;color:#ef4444;margin-bottom:15px;">
+                                Fahrt #${ride.id}
+                            </div>
+                            
+                            ${ride.customerName ? `
+                            <div style="padding:12px;background:#dbeafe;border-radius:8px;margin-bottom:12px;">
+                                <div style="font-size:18px;font-weight:600;color:#1e40af;">
+                                    👤 ${ride.customerName}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div style="margin-bottom:12px;font-size:14px;">
+                                <strong>Von:</strong> ${ride.pickup}<br>
+                                <strong>Nach:</strong> ${ride.destination}<br>
+                                <strong>Abholung:</strong> ${ride.pickupTime || 'Sofort'}<br>
+                                <strong>Preis:</strong> ${ride.price}€
+                            </div>
+                            
+                            ${ride.cancellationReason ? `
+                            <div style="
+                                padding:12px;
+                                background:#fff7ed;
+                                border-left:4px solid #f59e0b;
+                                border-radius:6px;
+                                margin-bottom:12px;
+                            ">
+                                <strong>Grund:</strong> ${ride.cancellationReason}
+                            </div>
+                            ` : ''}
+                            
+                            <div style="
+                                padding:15px;
+                                background:white;
+                                border-radius:8px;
+                                margin-bottom:15px;
+                                text-align:center;
+                            ">
+                                <div style="font-size:12px;color:#666;margin-bottom:5px;">
+                                    Stornierungsgebühr
+                                </div>
+                                <div style="font-size:32px;font-weight:bold;color:#ef4444;">
+                                    ${cancellationFee.toFixed(2)}€
+                                </div>
+                            </div>
+                            
+                            <button onclick="confirmCancellation('${ride.firebaseId || ride.id}')" style="
+                                width:100%;
+                                padding:16px;
+                                background:#ef4444;
+                                color:white;
+                                border:none;
+                                border-radius:12px;
+                                font-size:16px;
+                                font-weight:bold;
+                                cursor:pointer;
+                            ">
+                                ✓ Stornierung bestätigen
+                            </button>
+                            
+                            <button onclick="showRideDetails('${ride.firebaseId || ride.id}')" style="
+                                width:100%;
+                                padding:12px;
+                                background:white;
+                                color:#ef4444;
+                                border:2px solid #ef4444;
+                                border-radius:12px;
+                                font-size:14px;
+                                font-weight:600;
+                                cursor:pointer;
+                                margin-top:10px;
+                            ">
+                                Details ansehen
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('cancellation-list').innerHTML = html;
+                document.getElementById('cancellation-panel').style.display = 'block';
+            }
+            
+            function closeCancellationPanel() {
+                document.getElementById('cancellation-panel').style.display = 'none';
+            }
+            
+            async function confirmCancellation(rideId) {
+                if (!confirm('Stornierung wirklich bestätigen?')) return;
+                
+                try {
+                    const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                    if (!ride) {
+                        alert('❌ Fahrt nicht gefunden!');
+                        return;
+                    }
+                    
+                    const cancellationFee = calculateCancellationFee(ride);
+                    
+                    // Update in Firebase
+                    const updates = {
+                        status: 'cancelled',
+                        driverNotified: true,
+                        driverConfirmedAt: new Date().toISOString(),
+                        cancellationFee: cancellationFee
+                    };
+                    
+                    if (isFirebaseReady) {
+                        await db.ref('rides/' + rideId).update(updates);
+                        console.log('✅ Stornierung bestätigt:', rideId);
+                    }
+                    
+                    // Update lokal
+                    Object.assign(ride, updates);
+                    saveRides();
+                    
+                    // UI Update
+                    updateViews();
+                    closeCancellationPanel();
+                    
+                    alert('✅ Stornierung bestätigt! Gebühr: ' + cancellationFee.toFixed(2) + '€');
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Bestätigen:', error);
+                    alert('❌ Fehler: ' + error.message);
+                }
+            }
+            
+            function calculateCancellationFee(ride) {
+                // Stornierungsgebühr = Grundpreis (4€) + 10% vom Fahrpreis
+                const baseFee = 4.00;
+                const percentageFee = ride.price ? ride.price * 0.1 : 0;
+                const total = baseFee + percentageFee;
+                
+                // Runde auf 10 Cent
+                return Math.round(total * 10) / 10;
             }
         </script>
     </div>
@@ -1845,7 +2058,25 @@
             const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
             const completed = myRides.filter(r => r.status === 'completed');
             
-            // 🚨 CHECK FÜR STORNIERTE FAHRTEN
+            // 🚨 CHECK FÜR STORNIERTE FAHRTEN DIE BESTÄTIGUNG BRAUCHEN
+            const pendingCancellations = myRides.filter(r => 
+                (r.status === 'cancelled_pending_driver' || 
+                (r.status === 'cancelled' && r.driverNotified === false))
+            );
+            
+            // Update Badge
+            const cancellationBadge = document.getElementById('cancellation-badge');
+            const cancellationCount = document.getElementById('cancellation-count');
+            if (cancellationBadge && cancellationCount) {
+                if (pendingCancellations.length > 0) {
+                    cancellationBadge.style.display = 'block';
+                    cancellationCount.textContent = pendingCancellations.length;
+                } else {
+                    cancellationBadge.style.display = 'none';
+                }
+            }
+            
+            // Alte Benachrichtigungs-Logik (für Kompatibilität)
             const cancelledRides = myRides.filter(r => r.status === 'cancelled' && r.driverNotified === false);
             if (cancelledRides.length > 0) {
                 cancelledRides.forEach(ride => {
@@ -3152,23 +3383,24 @@
                 }
             }
             
-            // Setze Fahrt auf storniert (nicht löschen!) damit Fahrer benachrichtigt wird
+            // Setze Fahrt auf cancelled_pending_driver damit Fahrer bestätigen muss!
             if (isFirebaseReady && rideId) {
                 await db.ref('rides/' + rideId).update({
-                    status: 'storniert',  // ← Einheitlich! (war 'cancelled')
+                    status: hasCancellationFee ? 'cancelled_pending_driver' : 'cancelled',  // ← Wenn kostenpflichtig, muss Fahrer bestätigen!
                     cancelledAt: Date.now(),
                     cancelledBy: 'passenger',
                     cancellationFee: cancellationFee,
-                    driverNotified: false  // Flag: Fahrer muss noch benachrichtigt werden
+                    driverNotified: false,  // Flag: Fahrer muss noch benachrichtigt werden
+                    cancellationReason: hasCancellationFee ? 'Fahrer bereits unterwegs' : 'Kunde storniert'
                 });
-                console.log('❌ Fahrt storniert in Firebase:', rideId);
+                console.log('❌ Fahrt storniert in Firebase:', rideId, hasCancellationFee ? '(wartet auf Fahrer-Bestätigung)' : '(sofort storniert)');
             }
             
             // ✅ Update auch localStorage!
             const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
             const localRide = history.find(r => r.firebaseId === rideId || r.id === rideId);
             if (localRide) {
-                localRide.status = 'storniert';
+                localRide.status = hasCancellationFee ? 'cancelled_pending_driver' : 'cancelled';
                 localRide.cancelledAt = Date.now();
                 localRide.cancellationFee = cancellationFee;
                 localStorage.setItem('rideHistory', JSON.stringify(history));

@@ -103,7 +103,7 @@
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.2 - 10x Vibration bis Reaktion! 📳</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.4 - Sound/Vibration Check 🔊📳</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
@@ -112,6 +112,10 @@
             <div class="status-item" id="gps-indicator">
                 <div id="gps-dot"></div>
                 <span id="gps-status">📍 GPS Off</span>
+            </div>
+            <div class="status-item" id="alerts-indicator" style="display:none;">
+                <span id="sound-status" style="font-size:16px;" title="Sound Status">🔇</span>
+                <span id="vibration-status" style="font-size:16px;margin-left:5px;" title="Vibration Status">📳</span>
             </div>
         </div>
     </div>
@@ -686,6 +690,40 @@
             <div style="font-size: 14px; color: #999;">Wähle Fahrzeug & gehe Online</div>
         </div>
         
+        <!-- 🧪 KLEINE TEST-BUTTONS (nur für Fahrer sichtbar) -->
+        <div id="alert-test-buttons" style="
+            display: none;
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 8px 12px;
+            border-radius: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        ">
+            <button onclick="testSound()" style="
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 12px;
+                font-size: 11px;
+                cursor: pointer;
+            ">🔊 Test</button>
+            <button onclick="testVibration()" style="
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 12px;
+                font-size: 11px;
+                cursor: pointer;
+            ">📳 Test</button>
+        </div>
+        
         <script>
             function toggleNewRidesPanel() {
                 const panel = document.getElementById('new-rides-panel');
@@ -901,6 +939,9 @@
         
         <h3 style="margin-top:20px;">📋 Offene Fahrten (nach Zeit sortiert)</h3>
         <div id="upcoming-rides-admin" style="margin-bottom: 20px;"></div>
+        
+        <h3 style="margin-top:20px;">❌ Abgelehnte Fahrten (Neu zuweisen)</h3>
+        <div id="rejected-rides-admin" style="margin-bottom: 20px;"></div>
         
         <h3 style="margin-top:20px;">💶 Stornierungen (kostenpflichtig)</h3>
         <div id="cancellations-list"></div>
@@ -1544,7 +1585,13 @@
             
             // Erstelle Bearbeitungs-Modal
             const pickupDate = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : new Date();
-            const formattedDateTime = pickupDate.toISOString().slice(0, 16);
+            // FIX: Konvertiere zu lokaler Zeit für datetime-local Input
+            const year = pickupDate.getFullYear();
+            const month = String(pickupDate.getMonth() + 1).padStart(2, '0');
+            const day = String(pickupDate.getDate()).padStart(2, '0');
+            const hours = String(pickupDate.getHours()).padStart(2, '0');
+            const minutes = String(pickupDate.getMinutes()).padStart(2, '0');
+            const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
             
             const modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
@@ -1662,6 +1709,47 @@
             // Aktualisiere Views
             updateHistoryView();
             updateAdminView();
+        }
+        
+        // 🔄 FAHRT NEU ZUWEISEN (aus rejected zurück zu new)
+        async function reassignRide(rideId) {
+            if (!confirm('🔄 Fahrt neu zuweisen?\n\nDie Fahrt wird wieder als "neu" markiert und kann von Fahrern angenommen werden.')) {
+                return;
+            }
+            
+            try {
+                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Zurück zu "new" Status
+                const updates = {
+                    status: 'new',
+                    rejectedBy: null,
+                    rejectedAt: null,
+                    rejectedByDriver: null,
+                    vehicleId: null,
+                    vehicle: null
+                };
+                
+                if (isFirebaseReady) {
+                    await db.ref('rides/' + rideId).update(updates);
+                    console.log('🔄 Fahrt neu zugewiesen:', rideId);
+                }
+                
+                // Update lokal
+                Object.assign(ride, updates);
+                saveRides();
+                
+                updateViews();
+                alert('✅ Fahrt neu zugewiesen!\n\nDie Fahrt ist jetzt wieder für alle Fahrer verfügbar.');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Neu-Zuweisen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
         }
         
         // 🗑️ FAHRT LÖSCHEN (Admin)
@@ -2455,6 +2543,15 @@
             const revenue = completed.reduce((sum, r) => sum + parseFloat(r.price), 0);
             document.getElementById('d-rides').textContent = completed.length;
             document.getElementById('d-money').textContent = revenue.toFixed(2) + '€';
+            
+            // 🧪 Zeige Test-Buttons wenn Fahrer-View aktiv
+            const testButtons = document.getElementById('alert-test-buttons');
+            if (testButtons) {
+                testButtons.style.display = (currentView === 'driver' && currentVehicle) ? 'flex' : 'none';
+            }
+            
+            // 📊 Update Alert Status
+            updateAlertStatus();
         }
 
         function updateAdminView() {
@@ -2476,6 +2573,7 @@
             const completed = allRides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
             const pending = allRides.filter(r => r.status === 'new' || r.status === 'vorbestellt');
             const active = allRides.filter(r => r.status === 'accepted' || r.status === 'akzeptiert' || r.status === 'unterwegs' || r.status === 'picked_up');
+            const rejected = allRides.filter(r => r.status === 'rejected'); // 🆕 Abgelehnte Fahrten
             const revenue = completed.reduce((sum, r) => sum + parseFloat(r.price), 0);
             
             document.getElementById('a-total').textContent = completed.length;
@@ -2617,6 +2715,66 @@
                 });
                 
                 document.getElementById('upcoming-rides-admin').innerHTML = html;
+            }
+            
+            // ❌ ABGELEHNTE FAHRTEN anzeigen
+            if (rejected.length === 0) {
+                document.getElementById('rejected-rides-admin').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">✅ Keine abgelehnten Fahrten</div>';
+            } else {
+                let rejectedHTML = '<div style="background:#fef2f2;border:2px solid #ef4444;border-radius:12px;padding:15px;margin-bottom:10px;">';
+                rejectedHTML += `<div style="color:#991b1b;font-weight:bold;margin-bottom:10px;">⚠️ ${rejected.length} Fahrt${rejected.length !== 1 ? 'en' : ''} wurde${rejected.length !== 1 ? 'n' : ''} abgelehnt!</div>`;
+                
+                rejected.forEach(r => {
+                    const rejectedTime = new Date(r.rejectedAt || r.createdAt).toLocaleString('de-DE');
+                    rejectedHTML += `
+                        <div style="background:white;padding:15px;border-radius:8px;margin-bottom:10px;border-left:4px solid #ef4444;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+                                <div style="flex:1;">
+                                    <div style="font-size:12px;color:#666;margin-bottom:5px;">
+                                        ❌ Abgelehnt von: <strong>${r.rejectedByDriver || r.rejectedBy || 'Unbekannt'}</strong>
+                                    </div>
+                                    <div style="font-size:12px;color:#999;">
+                                        ${rejectedTime}
+                                    </div>
+                                </div>
+                                <div style="font-size:24px;font-weight:bold;color:#ef4444;">${r.price}€</div>
+                            </div>
+                            ${r.customerName ? `<div style="font-weight:600;margin-bottom:8px;">👤 ${r.customerName}</div>` : ''}
+                            <div style="font-size:14px;margin-bottom:5px;">
+                                <strong>📍 Von:</strong> ${r.pickup}
+                            </div>
+                            <div style="font-size:14px;margin-bottom:10px;">
+                                <strong>🎯 Nach:</strong> ${r.destination}
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                                <button onclick="reassignRide('${r.firebaseId || r.id}')" style="
+                                    padding:12px;
+                                    background:#10b981;
+                                    color:white;
+                                    border:none;
+                                    border-radius:8px;
+                                    font-weight:bold;
+                                    cursor:pointer;
+                                ">
+                                    🔄 Neu zuweisen
+                                </button>
+                                <button onclick="deleteRide('${r.firebaseId || r.id}')" style="
+                                    padding:12px;
+                                    background:#ef4444;
+                                    color:white;
+                                    border:none;
+                                    border-radius:8px;
+                                    font-weight:bold;
+                                    cursor:pointer;
+                                ">
+                                    🗑️ Löschen
+                                </button>
+                            </div>
+                        </div>`;
+                });
+                
+                rejectedHTML += '</div>';
+                document.getElementById('rejected-rides-admin').innerHTML = rejectedHTML;
             }
             
             // Stornierungen anzeigen
@@ -4368,6 +4526,10 @@ ${debugJSON}
         }
 
         // SOUNDS
+        // 🔊 ALERT STATUS TRACKING
+        let soundAvailable = false;
+        let vibrationAvailable = false;
+        
         function playDriverNotificationSound() {
             try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -4389,8 +4551,61 @@ ${debugJSON}
                     oscillator.start(audioContext.currentTime + time);
                     oscillator.stop(audioContext.currentTime + time + 0.15);
                 });
+                
+                soundAvailable = true;
+                updateAlertStatus();
+                return true;
             } catch (e) {
                 console.error('Sound Fehler:', e);
+                soundAvailable = false;
+                updateAlertStatus();
+                return false;
+            }
+        }
+        
+        // 🧪 TEST FUNKTIONEN
+        function testSound() {
+            const success = playDriverNotificationSound();
+            if (success) {
+                setTimeout(() => alert('✅ Sound funktioniert!'), 500);
+            } else {
+                alert('❌ Sound blockiert!\n\nBitte in Browser-Einstellungen:\nSound erlauben');
+            }
+        }
+        
+        function testVibration() {
+            if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 400, 100, 200]);
+                vibrationAvailable = true;
+                updateAlertStatus();
+                setTimeout(() => alert('✅ Vibration funktioniert!'), 500);
+            } else {
+                vibrationAvailable = false;
+                updateAlertStatus();
+                alert('❌ Vibration nicht verfügbar!\n\nGerät unterstützt keine Vibration.');
+            }
+        }
+        
+        // 📊 UPDATE STATUS INDICATORS
+        function updateAlertStatus() {
+            const soundIcon = document.getElementById('sound-status');
+            const vibrationIcon = document.getElementById('vibration-status');
+            const alertsIndicator = document.getElementById('alerts-indicator');
+            
+            if (currentView === 'driver' && (currentVehicle || isOnline)) {
+                alertsIndicator.style.display = 'flex';
+                
+                if (soundIcon) {
+                    soundIcon.textContent = soundAvailable ? '🔊' : '🔇';
+                    soundIcon.title = soundAvailable ? 'Sound: OK' : 'Sound: Inaktiv';
+                }
+                
+                if (vibrationIcon) {
+                    vibrationIcon.textContent = vibrationAvailable ? '📳' : '📵';
+                    vibrationIcon.title = vibrationAvailable ? 'Vibration: OK' : 'Vibration: Inaktiv';
+                }
+            } else {
+                alertsIndicator.style.display = 'none';
             }
         }
         

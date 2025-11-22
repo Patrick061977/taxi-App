@@ -98,40 +98,20 @@
         .btn-primary-modal { background: #667eea; color: white; }
         .modal-divider { text-align: center; margin: 20px 0; color: #999; }
         .modal-link { text-align: center; margin-top: 15px; color: #667eea; cursor: pointer; text-decoration: underline; }
-        
-        /* 🔄 AUTO-UPDATE Animationen */
-        @keyframes slideDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes slideUp {
-            from { transform: translateY(0); opacity: 1; }
-            to { transform: translateY(-100%); opacity: 0; }
-        }
-        
-        /* 📍 GPS-HILFE Animationen */
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🚕 Funk Taxi Heringsdorf</h1>
-        <p style="font-size: 11px; opacity: 0.8;">Version 4.4.7 - Status-Fix (Fahrzeug) ⚠️</p>
+        <p style="font-size: 11px; opacity: 0.8;">Version 4.5.0 - Zurück zur Basis (sauber!) 🔧</p>
         <div class="status-row">
             <div class="status-item">
                 <div class="sync-dot" id="sync-dot"></div>
                 <span id="sync-status">💾 Lokal</span>
             </div>
-            <div class="status-item" id="gps-indicator" onclick="handleGPSClick()" style="cursor: pointer; user-select: none;">
+            <div class="status-item" id="gps-indicator">
                 <div id="gps-dot"></div>
-                <span id="gps-status">📍 GPS: ?</span>
+                <span id="gps-status">📍 GPS Off</span>
             </div>
         </div>
     </div>
@@ -548,167 +528,6 @@
                 max-width: 500px;
                 margin: 0 auto;
             "></div>
-        </div>
-        
-        <!-- 📍 GPS-HILFE PANEL (NEU!) -->
-        <div id="gps-help-panel" style="
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 10001;
-            padding: 20px;
-            overflow-y: auto;
-        ">
-            <div style="
-                background: white;
-                border-radius: 16px;
-                padding: 30px 20px;
-                max-width: 500px;
-                margin: 0 auto;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            ">
-                <!-- Header -->
-                <div style="text-align: center; margin-bottom: 25px;">
-                    <div style="font-size: 64px; margin-bottom: 15px;">📍</div>
-                    <h2 style="margin: 0 0 10px 0; color: #ef4444; font-size: 24px;">
-                        GPS-Berechtigung fehlt!
-                    </h2>
-                    <p style="color: #666; font-size: 14px; margin: 0;">
-                        Für Taxi-Betrieb wird GPS benötigt
-                    </p>
-                </div>
-                
-                <!-- Anleitung -->
-                <div style="
-                    background: #fef2f2;
-                    border-left: 4px solid #ef4444;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin-bottom: 20px;
-                ">
-                    <h3 style="margin: 0 0 15px 0; font-size: 16px; color: #991b1b;">
-                        🔧 So aktivierst du GPS:
-                    </h3>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <div style="
-                            background: white;
-                            padding: 15px;
-                            border-radius: 8px;
-                            margin-bottom: 10px;
-                            border: 2px solid #fee2e2;
-                        ">
-                            <div style="font-weight: 600; color: #dc2626; margin-bottom: 8px;">
-                                1️⃣ Klick auf 🔒 Schloss
-                            </div>
-                            <div style="font-size: 13px; color: #666;">
-                                Links oben in der URL-Leiste
-                            </div>
-                        </div>
-                        
-                        <div style="
-                            background: white;
-                            padding: 15px;
-                            border-radius: 8px;
-                            margin-bottom: 10px;
-                            border: 2px solid #fee2e2;
-                        ">
-                            <div style="font-weight: 600; color: #dc2626; margin-bottom: 8px;">
-                                2️⃣ Wähle "Standort"
-                            </div>
-                            <div style="font-size: 13px; color: #666;">
-                                In den Berechtigungen
-                            </div>
-                        </div>
-                        
-                        <div style="
-                            background: white;
-                            padding: 15px;
-                            border-radius: 8px;
-                            border: 2px solid #fee2e2;
-                        ">
-                            <div style="font-weight: 600; color: #dc2626; margin-bottom: 8px;">
-                                3️⃣ Klick "Zulassen"
-                            </div>
-                            <div style="font-size: 13px; color: #666;">
-                                GPS wird aktiviert
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Alternative: Popup nochmal -->
-                <div style="
-                    background: #eff6ff;
-                    border-left: 4px solid #3b82f6;
-                    padding: 15px;
-                    border-radius: 8px;
-                    margin-bottom: 20px;
-                ">
-                    <div style="font-weight: 600; color: #1e40af; margin-bottom: 8px;">
-                        💡 Einfacher Weg:
-                    </div>
-                    <div style="font-size: 13px; color: #1e3a8a; margin-bottom: 12px;">
-                        Browser fragt beim nächsten Online-Toggle automatisch nach GPS-Berechtigung!
-                    </div>
-                    <button onclick="retryGPS()" style="
-                        width: 100%;
-                        padding: 14px;
-                        background: #3b82f6;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        font-size: 15px;
-                    ">
-                        🔄 Nochmal versuchen
-                    </button>
-                </div>
-                
-                <!-- Buttons -->
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="closeGPSHelp()" style="
-                        flex: 1;
-                        padding: 14px;
-                        background: white;
-                        color: #666;
-                        border: 2px solid #e0e0e0;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        cursor: pointer;
-                    ">
-                        Später
-                    </button>
-                    <button onclick="window.open('tel:038378/1234')" style="
-                        flex: 1;
-                        padding: 14px;
-                        background: #10b981;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        cursor: pointer;
-                    ">
-                        📞 Hilfe anrufen
-                    </button>
-                </div>
-                
-                <div style="
-                    text-align: center;
-                    margin-top: 20px;
-                    padding-top: 20px;
-                    border-top: 1px solid #e0e0e0;
-                    font-size: 12px;
-                    color: #999;
-                ">
-                    GPS ist notwendig für Navigation und Fahrzeug-Tracking
-                </div>
-            </div>
         </div>
         
         <!-- FULLSCREEN KARTE Container -->
@@ -2185,195 +2004,6 @@
             
             // 🔔 SERVICE WORKER & PUSH initialisieren
             initServiceWorker();
-            
-            // 🔄 AUTO-UPDATE System starten
-            startAutoUpdateCheck();
-            
-            // 📍 GPS-STATUS beim Start prüfen
-            setTimeout(() => {
-                checkGPSStatus();
-            }, 2000);
-        }
-
-        // 🔄 AUTO-UPDATE SYSTEM
-        const CURRENT_VERSION = '4.4.7';
-        let updateCheckInterval = null;
-        
-        function startAutoUpdateCheck() {
-            console.log('🔄 Auto-Update Check gestartet');
-            
-            // Prüfe alle 60 Sekunden
-            updateCheckInterval = setInterval(checkForUpdate, 60000);
-            
-            // Prüfe auch sofort beim Start (nach 5 Sekunden)
-            setTimeout(checkForUpdate, 5000);
-        }
-        
-        async function checkForUpdate() {
-            try {
-                // Hole index.html vom Server (mit Cache-Bypass)
-                const response = await fetch('/index.html?t=' + Date.now(), {
-                    method: 'GET',
-                    cache: 'no-cache',
-                    headers: {
-                        'Cache-Control': 'no-cache'
-                    }
-                });
-                
-                if (!response.ok) {
-                    console.warn('⚠️ Update-Check fehlgeschlagen:', response.status);
-                    return;
-                }
-                
-                const html = await response.text();
-                
-                // Extrahiere Version aus HTML
-                const versionMatch = html.match(/Version\s+([\d.]+)/);
-                if (!versionMatch) {
-                    console.warn('⚠️ Keine Version im HTML gefunden');
-                    return;
-                }
-                
-                const serverVersion = versionMatch[1];
-                console.log('🔍 Versions-Check:', CURRENT_VERSION, '→', serverVersion);
-                
-                // Vergleiche Versionen
-                if (serverVersion !== CURRENT_VERSION) {
-                    console.log('🆕 Neue Version verfügbar:', serverVersion);
-                    showUpdateNotification(serverVersion);
-                }
-            } catch (error) {
-                console.warn('⚠️ Update-Check Fehler:', error.message);
-            }
-        }
-        
-        function showUpdateNotification(newVersion) {
-            // Zeige nur EINMAL pro Session
-            if (sessionStorage.getItem('updateNotificationShown')) {
-                return;
-            }
-            sessionStorage.setItem('updateNotificationShown', 'true');
-            
-            // Erstelle Notification Banner
-            const banner = document.createElement('div');
-            banner.id = 'update-banner';
-            banner.style.cssText = `
-                position: fixed;
-                top: 70px;
-                left: 10px;
-                right: 10px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 20px;
-                border-radius: 12px;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-                z-index: 10000;
-                text-align: center;
-                animation: slideDown 0.5s ease;
-            `;
-            
-            banner.innerHTML = `
-                <div style="font-size: 48px; margin-bottom: 10px;">🔄</div>
-                <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">
-                    Neue Version verfügbar!
-                </div>
-                <div style="font-size: 14px; opacity: 0.9; margin-bottom: 15px;">
-                    Version ${newVersion} ist bereit.<br>
-                    Bitte aktualisiere für neue Features & Fixes.
-                </div>
-                <button onclick="performUpdate()" style="
-                    background: white;
-                    color: #667eea;
-                    border: none;
-                    padding: 14px 28px;
-                    border-radius: 8px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    font-size: 15px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                    margin-right: 10px;
-                ">
-                    🚀 Jetzt updaten
-                </button>
-                <button onclick="dismissUpdate()" style="
-                    background: rgba(255,255,255,0.2);
-                    color: white;
-                    border: 2px solid white;
-                    padding: 14px 28px;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 15px;
-                ">
-                    Später
-                </button>
-            `;
-            
-            document.body.appendChild(banner);
-            
-            // Sound abspielen (optional)
-            playNotificationSound();
-        }
-        
-        async function performUpdate() {
-            const banner = document.getElementById('update-banner');
-            if (banner) {
-                banner.innerHTML = `
-                    <div style="font-size: 48px; margin-bottom: 10px;">⏳</div>
-                    <div style="font-size: 18px; font-weight: 600;">
-                        Aktualisiere App...
-                    </div>
-                `;
-            }
-            
-            console.log('🔄 Führe Update durch...');
-            
-            try {
-                // 1. Cache leeren
-                if ('caches' in window) {
-                    const cacheNames = await caches.keys();
-                    await Promise.all(cacheNames.map(name => caches.delete(name)));
-                    console.log('✅ Cache geleert');
-                }
-                
-                // 2. Service Worker aktualisieren
-                if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(registrations.map(reg => reg.unregister()));
-                    console.log('✅ Service Worker entfernt');
-                }
-                
-                // 3. LocalStorage behalten (wichtig für Daten!)
-                console.log('✅ LocalStorage behalten');
-                
-                // 4. Seite neu laden
-                console.log('🔄 Lade Seite neu...');
-                setTimeout(() => {
-                    window.location.reload(true); // Hard reload
-                }, 500);
-                
-            } catch (error) {
-                console.error('❌ Update Fehler:', error);
-                alert('❌ Update fehlgeschlagen. Bitte manuell Cache leeren.');
-            }
-        }
-        
-        function dismissUpdate() {
-            const banner = document.getElementById('update-banner');
-            if (banner) {
-                banner.style.animation = 'slideUp 0.3s ease';
-                setTimeout(() => banner.remove(), 300);
-            }
-        }
-        
-        function playNotificationSound() {
-            try {
-                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTUIGGa57OmdTxALUKjo77RgGwU7k9nxy3orBSh+zPLaizsKGGS76+yZThEMUKbo8LNhGwU8lNrxynkrBSh+zPLaizsKGGS76+yZThEMUKbo8LNhGwU8lNrxynkrBSh+zPLaizsKGGS76+yZThEMUKbo8LNhGwU8lNrxynkrBSh+zPLaizsKGGS76+yZThEMUKbo8LNhGwU8lNrxynkrBSh+zPLaizsKGGS76+yZThEMUKbo8LNhGwU8lNrxynkrBSh+zPLaizsKGGS76+yZThEMUKbo8LNhGwU8lNrxynkrBSh+zPLaizsKGGS76+yZThEMUKbo8A==');
-                audio.volume = 0.3;
-                audio.play().catch(() => {}); // Ignore wenn nicht erlaubt
-            } catch (e) {
-                // Ignore
-            }
         }
 
         function updateStatus() {
@@ -2686,9 +2316,9 @@
                     `;
                 } else {
                     document.getElementById('driver-ready').innerHTML = `
-                        <div style="font-size:80px;margin-bottom:20px;">⚠️</div>
-                        <div style="font-size:28px;font-weight:600;color:#f59e0b;margin-bottom:10px;">Wähle Fahrzeug</div>
-                        <div style="font-size:14px;color:#999;">Bitte wähle dein Fahrzeug aus</div>
+                        <div style="font-size:80px;margin-bottom:20px;">🚕</div>
+                        <div style="font-size:28px;font-weight:600;color:#667eea;margin-bottom:10px;">Bereit!</div>
+                        <div style="font-size:14px;color:#999;">Wähle Fahrzeug & gehe Online</div>
                     `;
                 }
             }
@@ -4105,8 +3735,8 @@
                 gpsStatus.textContent = '📍 GPS On';
                 requestWakeLock();
                 
-                // 🆕 PRÜFE GPS-BERECHTIGUNG!
-                checkGPSPermission();
+                // 📍 EINFACH: Frage nach GPS wenn online
+                requestGPSIfNeeded();
             } else {
                 gpsDot.style.background = '#6b7280';
                 gpsDot.classList.remove('online');
@@ -4118,167 +3748,23 @@
             else stopDriverTracking();
         }
         
-        // 📍 GPS-BERECHTIGUNG PRÜFEN
-        // 📍 GPS KLICK-HANDLER (NEU!)
-        async function handleGPSClick() {
-            console.log('📍 GPS-Button geklickt');
-            
-            // Prüfe GPS-Status
-            const status = await checkGPSStatus();
-            
-            if (status === 'granted') {
-                alert('✅ GPS-Berechtigung: ERTEILT\n\nGPS funktioniert!');
-            } else if (status === 'denied') {
-                // Zeige wie man es aktiviert
-                if (confirm('❌ GPS-Berechtigung: VERWEIGERT\n\nMöchtest du GPS jetzt aktivieren?\n\n(Browser wird nach Berechtigung fragen)')) {
-                    requestGPSPermission();
-                }
-            } else if (status === 'prompt') {
-                // Frage jetzt
-                if (confirm('⚠️ GPS-Berechtigung: NICHT ERTEILT\n\nSoll ich jetzt nach GPS-Berechtigung fragen?')) {
-                    requestGPSPermission();
-                }
-            } else {
-                alert('❓ GPS-Status: UNBEKANNT\n\nVersuche GPS zu aktivieren...');
-                requestGPSPermission();
-            }
-        }
-        
-        // 📍 PRÜFE GPS-STATUS
-        async function checkGPSStatus() {
-            try {
-                // Prüfe mit Permissions API (wenn verfügbar)
-                if ('permissions' in navigator) {
-                    const result = await navigator.permissions.query({ name: 'geolocation' });
-                    console.log('📍 GPS-Status (Permissions API):', result.state);
-                    updateGPSIndicator(result.state);
-                    return result.state; // 'granted', 'denied', 'prompt'
-                }
-            } catch (error) {
-                console.warn('⚠️ Permissions API nicht verfügbar:', error.message);
-            }
-            
-            // Fallback: Teste mit getCurrentPosition
-            return new Promise((resolve) => {
-                navigator.geolocation.getCurrentPosition(
-                    () => {
-                        console.log('✅ GPS-Berechtigung: ERTEILT (Fallback-Test)');
-                        updateGPSIndicator('granted');
-                        resolve('granted');
-                    },
-                    (error) => {
-                        if (error.code === 1) {
-                            console.log('❌ GPS-Berechtigung: VERWEIGERT (Fallback-Test)');
-                            updateGPSIndicator('denied');
-                            resolve('denied');
-                        } else {
-                            console.log('⚠️ GPS-Fehler (Fallback-Test):', error.message);
-                            updateGPSIndicator('error');
-                            resolve('error');
-                        }
-                    },
-                    { timeout: 3000, maximumAge: Infinity }
-                );
-            });
-        }
-        
-        // 📍 UPDATE GPS-ANZEIGE
-        function updateGPSIndicator(status) {
-            const gpsDot = document.getElementById('gps-dot');
-            const gpsStatus = document.getElementById('gps-status');
-            
-            if (status === 'granted') {
-                gpsDot.style.background = '#10b981';
-                gpsDot.classList.add('online');
-                gpsStatus.textContent = '✅ GPS: OK';
-                gpsStatus.style.color = '#10b981';
-            } else if (status === 'denied') {
-                gpsDot.style.background = '#ef4444';
-                gpsDot.classList.remove('online');
-                gpsStatus.textContent = '❌ GPS: Nein';
-                gpsStatus.style.color = '#ef4444';
-            } else if (status === 'prompt') {
-                gpsDot.style.background = '#f59e0b';
-                gpsDot.classList.remove('online');
-                gpsStatus.textContent = '⚠️ GPS: ?';
-                gpsStatus.style.color = '#f59e0b';
-            } else {
-                gpsDot.style.background = '#6b7280';
-                gpsDot.classList.remove('online');
-                gpsStatus.textContent = '❓ GPS: ?';
-                gpsStatus.style.color = '#6b7280';
-            }
-        }
-        
-        // 📍 FRAGE NACH GPS-BERECHTIGUNG
-        async function requestGPSPermission() {
-            try {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        console.log('✅ GPS-Berechtigung erteilt!');
-                        updateGPSIndicator('granted');
-                        alert('✅ GPS aktiviert!\n\nPosition: ' + position.coords.latitude + ', ' + position.coords.longitude);
-                        
-                        // Starte GPS-Tracking wenn Online
-                        if (isOnline && currentVehicle) {
-                            startDriverTracking(null);
-                        }
-                    },
-                    (error) => {
-                        console.error('❌ GPS-Berechtigung verweigert:', error.message);
-                        
-                        if (error.code === 1) {
-                            updateGPSIndicator('denied');
-                            alert('❌ GPS-Berechtigung verweigert!\n\nBitte in Browser-Einstellungen aktivieren:\n\n1. Klick 🔒 in URL\n2. Standort → Zulassen');
-                        } else {
-                            alert('❌ GPS-Fehler: ' + error.message);
-                        }
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
+        // 📍 EINFACHE GPS-ANFRAGE
+        function requestGPSIfNeeded() {
+            // Versuche GPS zu holen - Browser fragt automatisch wenn nötig
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    console.log('✅ GPS OK:', pos.coords.latitude, pos.coords.longitude);
+                },
+                (err) => {
+                    if (err.code === 1) {
+                        // Berechtigung verweigert
+                        alert('⚠️ GPS-Berechtigung fehlt!\n\nBitte in Browser-Einstellungen:\n1. Klick 🔒 in URL\n2. Standort → Zulassen');
                     }
-                );
-            } catch (error) {
-                console.error('❌ GPS-Request Fehler:', error);
-                alert('❌ Fehler beim GPS-Zugriff: ' + error.message);
-            }
+                    console.error('❌ GPS-Fehler:', err.message);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
         }
-        
-        // 📍 AUTO-CHECK BEIM ONLINE-TOGGLE
-        async function checkGPSPermission() {
-            const status = await checkGPSStatus();
-            
-            if (status === 'denied' || status === 'prompt') {
-                // Nach 2 Sekunden nochmal fragen
-                setTimeout(() => {
-                    if (confirm('⚠️ GPS-Berechtigung fehlt!\n\nFür Taxi-Betrieb wird GPS benötigt.\n\nJetzt aktivieren?')) {
-                        requestGPSPermission();
-                    }
-                }, 2000);
-            }
-        }
-        
-        // 📍 ZEIGE GPS-HILFE (wird nicht mehr gebraucht, aber behalten für Kompatibilität)
-        function showGPSHelp() {
-            if (confirm('📍 GPS-HILFE\n\nMöchtest du GPS jetzt aktivieren?\n\n(Browser wird nach Berechtigung fragen)')) {
-                requestGPSPermission();
-            }
-        }
-        
-        // ❌ SCHLIESSE GPS-HILFE
-        function closeGPSHelp() {
-            const panel = document.getElementById('gps-help-panel');
-            if (panel) {
-                panel.style.display = 'none';
-            }
-        }
-        
-        // 🔄 GPS NOCHMAL VERSUCHEN
-        async function retryGPS() {
-            closeGPSHelp();
-            requestGPSPermission();
         }
 
         function setVehicle() {
@@ -4306,39 +3792,11 @@
                     if (watchId) {
                         stopDriverTracking();
                     }
-                    
-                    // 🆕 STATUS UPDATE: Zeige "Wähle Fahrzeug" wenn kein Fahrzeug
-                    updateDriverStatus();
                 }
             }
             
             if (currentVehicle && isOnline) startDriverTracking(null);
             updateViews();
-        }
-        
-        // 🆕 UPDATE DRIVER STATUS
-        function updateDriverStatus() {
-            const statusText = document.getElementById('driver-status-text');
-            const statusIcon = document.getElementById('driver-status-icon');
-            
-            if (!statusText) return;
-            
-            if (!currentVehicle) {
-                // Kein Fahrzeug gewählt
-                statusText.textContent = 'Wähle Fahrzeug';
-                statusText.style.color = '#f59e0b';
-                if (statusIcon) statusIcon.textContent = '⚠️';
-            } else if (!isOnline) {
-                // Fahrzeug gewählt, aber Offline
-                statusText.textContent = 'Offline';
-                statusText.style.color = '#6b7280';
-                if (statusIcon) statusIcon.textContent = '⚠️';
-            } else {
-                // Fahrzeug gewählt UND Online
-                statusText.textContent = 'Bereit für Aufträge';
-                statusText.style.color = '#10b981';
-                if (statusIcon) statusIcon.textContent = '🚕';
-            }
         }
 
         function loadSavedVehicle() {

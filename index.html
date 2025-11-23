@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.7 - Formular-Reset! ♻️ (Build 20251123-1800)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.8 - Button Fix! 🔘 (Build 20251123-2030)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3861,7 +3861,11 @@
             priceHtml += '</div>';
             
             document.getElementById('price-display').innerHTML = priceHtml;
-            document.getElementById('book-btn').style.display = 'block';
+            const bookBtn = document.getElementById('book-btn');
+            if (bookBtn) {
+                bookBtn.style.display = 'block';
+                bookBtn.style.visibility = 'visible';
+            }
         }
 
         // 🎯 INTELLIGENTE AUTO-ZUWEISUNG MIT 30-SEK-TIMER
@@ -4220,8 +4224,12 @@
             document.getElementById('price-display').innerHTML = '';
             document.getElementById('price-display').style.display = 'none';
             
-            // "Taxi buchen" Button verstecken
-            document.getElementById('book-btn').style.display = 'none';
+            // "Taxi buchen" Button verstecken (WICHTIG!)
+            const bookBtn = document.getElementById('book-btn');
+            if (bookBtn) {
+                bookBtn.style.display = 'none';
+                bookBtn.style.visibility = 'hidden'; // Doppelt sicher!
+            }
             
             // Verfügbare Taxis ausblenden
             document.getElementById('available-taxis-display').innerHTML = '';

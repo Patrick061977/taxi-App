@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.0 - DEBUG CHECK! 🔍 (Build 20251123-2100)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.1 - Coords Fix! 📍 (Build 20251123-2110)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4238,8 +4238,8 @@
             window.currentPrice = null;
             window.currentDistance = null;
             window.currentDuration = null;
-            window.pickupCoords = null;
-            window.destCoords = null;
+            pickupCoords = null;  // ✅ Ohne "window."!
+            destCoords = null;    // ✅ Ohne "window."!
             
             console.log('✅ Formular zurückgesetzt');
         }

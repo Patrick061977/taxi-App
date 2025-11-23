@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.6.3 - Delete Fix! 🗑️ (Build 20251122-2145)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.1 - Super Debug! 🐛 (Build 20251123-0800)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1017,6 +1017,12 @@
             <button onclick="exportDebugLogs()" style="padding:15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 📋 Logs kopieren
             </button>
+            <button onclick="exportSuperDebug()" style="padding:15px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                🐛 Super Debug
+            </button>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:20px;">
             <button onclick="resetDatabase()" style="padding:15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🗑️ Datenbank löschen
             </button>
@@ -1108,6 +1114,92 @@
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
         let cancellations = []; // Neue Variable für Stornierungen
+        
+        // 🐛 SUPER DEBUG SYSTEM
+        let debugErrors = [];
+        let debugLogs = [];
+        let debugFirebaseQueries = [];
+        let debugStateChanges = [];
+        const MAX_DEBUG_LOGS = 200;
+        
+        // Catche ALLE JavaScript Errors
+        window.addEventListener('error', (e) => {
+            const errorInfo = {
+                time: new Date().toISOString(),
+                message: e.message,
+                filename: e.filename || 'unknown',
+                line: e.lineno || 0,
+                column: e.colno || 0,
+                stack: e.error?.stack || 'no stack trace'
+            };
+            debugErrors.push(errorInfo);
+            console.error('🔴 ERROR CAUGHT:', errorInfo);
+        });
+        
+        // Catche Promise Rejections
+        window.addEventListener('unhandledrejection', (e) => {
+            const errorInfo = {
+                time: new Date().toISOString(),
+                message: 'Unhandled Promise Rejection: ' + (e.reason?.message || e.reason),
+                stack: e.reason?.stack || 'no stack trace'
+            };
+            debugErrors.push(errorInfo);
+            console.error('🔴 PROMISE REJECTION:', errorInfo);
+        });
+        
+        // Überschreibe console.log für Debug-Logging
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.log = function(...args) {
+            debugLogs.push({
+                time: new Date().toISOString(),
+                type: 'log',
+                message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+            });
+            if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
+            originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            debugLogs.push({
+                time: new Date().toISOString(),
+                type: 'error',
+                message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+            });
+            if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            debugLogs.push({
+                time: new Date().toISOString(),
+                type: 'warn',
+                message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+            });
+            if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
+            originalWarn.apply(console, args);
+        };
+        
+        // Helper: Log State Change
+        function logStateChange(description, oldValue, newValue) {
+            debugStateChanges.push({
+                time: new Date().toISOString(),
+                description,
+                oldValue,
+                newValue
+            });
+        }
+        
+        // Helper: Log Firebase Query
+        function logFirebaseQuery(path, result) {
+            debugFirebaseQueries.push({
+                time: new Date().toISOString(),
+                path,
+                result: typeof result === 'object' ? JSON.stringify(result).substring(0, 200) : String(result)
+            });
+        }
         
         // 🆕 AUTO-ZUWEISUNG & PUSH
         let assignmentTimers = {}; // Timer für 30-Sek-Countdown
@@ -3279,8 +3371,10 @@
             return { distance: 0, duration: 0 };
         }
 
-        function calculatePrice(distance) {
-            const now = new Date(), hour = now.getHours(), day = now.getDay();
+        function calculatePrice(distance, timestamp = null) {
+            // Nutze entweder übergebenen timestamp oder jetzt
+            const calcTime = timestamp ? new Date(timestamp) : new Date();
+            const hour = calcTime.getHours(), day = calcTime.getDay();
             
             // Prüfe ob Nachttarif (Mo-Sa 22-6 Uhr, Sonntag ganztägig)
             const isNight = (hour >= 22 || hour < 6) || (day === 0);
@@ -3359,8 +3453,10 @@
             
             document.getElementById('pickup-time').addEventListener('change', (e) => {
                 const customTime = document.getElementById('custom-time');
-                if (e.target.value === 'custom') customTime.style.display = 'block';
-                else customTime.style.display = 'none';
+                if (customTime) {  // NULL-CHECK!
+                    if (e.target.value === 'custom') customTime.style.display = 'block';
+                    else customTime.style.display = 'none';
+                }
             });
         }
 
@@ -3573,7 +3669,24 @@
             }
             
             const route = await calculateRoute(pickupCoords, destCoords);
-            const pricing = calculatePrice(parseFloat(route.distance));
+            
+            // Hole Abholzeit für korrekte Tarifberechnung
+            const pickupTimeSelect = document.getElementById('pickup-time').value;
+            const customDateTime = document.getElementById('custom-datetime').value;
+            let pickupTimestamp = Date.now();
+            
+            if (pickupTimeSelect === '15min') {
+                pickupTimestamp = Date.now() + 15 * 60000;
+            } else if (pickupTimeSelect === '30min') {
+                pickupTimestamp = Date.now() + 30 * 60000;
+            } else if (pickupTimeSelect === '1h') {
+                pickupTimestamp = Date.now() + 60 * 60000;
+            } else if (pickupTimeSelect === 'datetime' && customDateTime) {
+                pickupTimestamp = new Date(customDateTime).getTime();
+            }
+            
+            // Berechne Preis MIT Zeitstempel (für korrekten Tag/Nacht-Tarif)
+            const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp);
             
             window.currentPrice = pricing.total;
             window.currentDistance = route.distance;
@@ -3798,6 +3911,26 @@
             
             // 🔄 Aktualisiere Verlauf (damit Vorbestellung sofort sichtbar ist)
             updateHistoryView();
+            
+            // ✅ BESTÄTIGUNG für Nutzer
+            if (savedRide.status === 'vorbestellt') {
+                alert(
+                    '✅ Vorbestellung erfolgreich!\n\n' +
+                    '📅 Abholung: ' + pickupTime + '\n' +
+                    '📍 Von: ' + ride.pickup + '\n' +
+                    '🎯 Nach: ' + ride.destination + '\n' +
+                    '💰 Preis: ' + ride.price + '€\n\n' +
+                    '💡 Du kannst deine Buchung jederzeit im Verlauf ändern oder stornieren.'
+                );
+            } else {
+                alert(
+                    '✅ Buchung erfolgreich!\n\n' +
+                    '📍 Von: ' + ride.pickup + '\n' +
+                    '🎯 Nach: ' + ride.destination + '\n' +
+                    '💰 Preis: ' + ride.price + '€\n\n' +
+                    '🚕 Wir suchen jetzt einen Fahrer für dich!'
+                );
+            }
             
             // 🎯 AUTO-ZUWEISUNG starten (nur wenn NICHT Vorbestellung)
             if (isFirebaseReady && savedRide.firebaseId && savedRide.status === 'new') {
@@ -4791,6 +4924,136 @@ ${debugJSON}
             } catch (error) {
                 console.error('❌ Fehler beim Exportieren:', error);
                 alert('❌ Fehler beim Exportieren der Logs!');
+            }
+        }
+        
+        // 🐛 SUPER DEBUG EXPORT
+        function exportSuperDebug() {
+            try {
+                const now = new Date().toISOString();
+                
+                // System Info
+                const systemInfo = {
+                    version: "4.7.1",
+                    build: "20251123-0800",
+                    timestamp: now,
+                    userAgent: navigator.userAgent,
+                    currentView: currentView,
+                    isOnline: isOnline,
+                    isFirebaseReady: isFirebaseReady,
+                    currentUser: currentUser ? {
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        name: currentUser.displayName
+                    } : null
+                };
+                
+                // Erstelle Text-Export
+                let debugText = `
+=====================================
+🐛 SUPER DEBUG EXPORT
+=====================================
+Version: ${systemInfo.version}
+Build: ${systemInfo.build}
+Zeit: ${systemInfo.timestamp}
+User: ${systemInfo.currentUser?.email || 'Nicht eingeloggt'}
+
+📊 SYSTEM:
+- Browser: ${systemInfo.userAgent}
+- View: ${systemInfo.currentView}
+- Online: ${systemInfo.isOnline}
+- Firebase: ${systemInfo.isFirebaseReady}
+
+🔴 FEHLER (${debugErrors.length}):
+`;
+                
+                if (debugErrors.length === 0) {
+                    debugText += '✅ Keine Fehler aufgetreten!\n';
+                } else {
+                    debugErrors.forEach((err, i) => {
+                        debugText += `
+[${i+1}] ${err.time}
+Message: ${err.message}
+File: ${err.filename}:${err.line}:${err.column}
+Stack: ${err.stack}
+---
+`;
+                    });
+                }
+                
+                debugText += `
+📋 CONSOLE LOGS (letzte ${Math.min(debugLogs.length, 100)}):
+`;
+                debugLogs.slice(-100).forEach(log => {
+                    const icon = log.type === 'error' ? '🔴' : log.type === 'warn' ? '⚠️' : '📝';
+                    debugText += `[${log.time}] ${icon} ${log.message}\n`;
+                });
+                
+                debugText += `
+🔍 FIREBASE QUERIES (${debugFirebaseQueries.length}):
+`;
+                if (debugFirebaseQueries.length === 0) {
+                    debugText += 'Keine Queries aufgezeichnet\n';
+                } else {
+                    debugFirebaseQueries.slice(-20).forEach(query => {
+                        debugText += `[${query.time}] ${query.path}\n  → ${query.result}\n`;
+                    });
+                }
+                
+                debugText += `
+⚡ STATE CHANGES (${debugStateChanges.length}):
+`;
+                if (debugStateChanges.length === 0) {
+                    debugText += 'Keine State Changes aufgezeichnet\n';
+                } else {
+                    debugStateChanges.slice(-20).forEach(change => {
+                        debugText += `[${change.time}] ${change.description}\n  ${change.oldValue} → ${change.newValue}\n`;
+                    });
+                }
+                
+                debugText += `
+💾 AKTUELLER STATE:
+- Rides in Array: ${rides.length}
+- Drivers online: ${Object.values(drivers).filter(d => d.online).length}
+- Current Vehicle: ${currentVehicle || 'none'}
+- Current Ride: ${myCurrentRide?.id || 'none'}
+- Pickup Coords: ${pickupCoords ? 'Set' : 'None'}
+- Dest Coords: ${destCoords ? 'Set' : 'None'}
+
+📦 FAHRTEN (letzte 10):
+`;
+                rides.slice(-10).forEach(r => {
+                    debugText += `#${r.id} | ${r.status} | ${r.customerName || 'N/A'} | ${r.pickup} → ${r.destination}\n`;
+                });
+                
+                debugText += `
+=====================================
+`;
+                
+                // Download als Datei
+                const blob = new Blob([debugText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `super-debug-${now.slice(0,19).replace(/:/g,'-')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert(
+                    '🐛 Super Debug Export erstellt!\n\n' +
+                    `📊 ${debugErrors.length} Fehler\n` +
+                    `📋 ${debugLogs.length} Console Logs\n` +
+                    `🔍 ${debugFirebaseQueries.length} Firebase Queries\n` +
+                    `⚡ ${debugStateChanges.length} State Changes\n\n` +
+                    '✅ Datei heruntergeladen!\n' +
+                    'Schicke mir diese Datei und ich kann ALLES sehen!'
+                );
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Super Debug Export:', error);
+                alert('❌ Fehler beim Export: ' + error.message);
             }
         }
 

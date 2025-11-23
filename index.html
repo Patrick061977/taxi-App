@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.9 - Fix Reverse! 🔄 (Build 20251123-1100)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.0 - Sync & Form Fix! 🔄 (Build 20251123-1130)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1393,6 +1393,7 @@
             console.log('🔍 DEBUG - currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
             
             // 🔥 Hole MEINE Fahrten aus Firebase (wenn verfügbar)
+            let firebaseRideIds = [];
             if (isFirebaseReady && currentUser) {
                 try {
                     const snapshot = await db.ref('rides').orderByChild('userId').equalTo(currentUser.uid).once('value');
@@ -1401,6 +1402,7 @@
                             const ride = childSnapshot.val();
                             ride.firebaseId = childSnapshot.key;
                             allRides.push(ride);
+                            firebaseRideIds.push(ride.id);
                         });
                     }
                 } catch (error) {
@@ -1408,13 +1410,32 @@
                 }
             }
             
-            // Merge mit localStorage (dedupliziere)
+            // ✅ Merge mit localStorage (dedupliziere)
+            // ✅ Aber: Entferne Fahrten aus localStorage die nicht mehr in Firebase sind
+            let cleanedLocalHistory = [];
             localHistory.forEach(localRide => {
                 const existsInFirebase = allRides.some(fbRide => fbRide.id === localRide.id);
                 if (!existsInFirebase) {
-                    allRides.push(localRide);
+                    // Prüfe: Wenn User eingeloggt und Fahrt NICHT in Firebase
+                    // → Könnte gelöscht worden sein, NICHT hinzufügen
+                    if (!currentUser || !isFirebaseReady) {
+                        // Offline oder nicht eingeloggt: behalte lokale Fahrt
+                        allRides.push(localRide);
+                        cleanedLocalHistory.push(localRide);
+                    } else {
+                        // Online & eingeloggt: Fahrt nicht in Firebase = wurde gelöscht
+                        console.log('🗑️ Entferne gelöschte Fahrt aus localStorage:', localRide.id);
+                    }
+                } else {
+                    cleanedLocalHistory.push(localRide);
                 }
             });
+            
+            // ✅ Speichere bereinigte localStorage History
+            if (currentUser && isFirebaseReady && cleanedLocalHistory.length !== localHistory.length) {
+                localStorage.setItem('rideHistory', JSON.stringify(cleanedLocalHistory));
+                console.log('✅ localStorage bereinigt:', cleanedLocalHistory.length, 'Fahrten');
+            }
             
             console.log('🔍 DEBUG - Alle Fahrten nach Merge:', allRides.length);
             if (allRides.length > 0) {
@@ -1734,19 +1755,27 @@
             // Wechsel zum Fahrgast-Tab
             switchView('guest');
             
-            // Fülle Formular aus
-            document.getElementById('pickup').value = ride.pickup;
-            document.getElementById('destination').value = ride.destination;
-            document.getElementById('customer-name').value = ride.customerName || '';
-            document.getElementById('passengers').value = ride.passengers || '1';
-            
-            // Scroll zum Formular
-            document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
-            
-            // Zeige Hinweis
+            // ✅ Warte kurz bis View gewechselt hat
             setTimeout(() => {
-                alert('✅ Fahrtdaten übernommen!\n\nBitte Abholzeit wählen und buchen.');
-            }, 500);
+                // Fülle Formular aus
+                document.getElementById('pickup').value = ride.pickup;
+                document.getElementById('destination').value = ride.destination;
+                document.getElementById('customer-name').value = ride.customerName || '';
+                document.getElementById('passengers').value = ride.passengers || '1';
+                
+                // ✅ Stelle sicher dass Formular sichtbar ist
+                const bookingForm = document.getElementById('booking-form');
+                if (bookingForm) {
+                    bookingForm.style.display = 'block';
+                    // Scroll zum Formular
+                    bookingForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                
+                // Zeige Hinweis
+                setTimeout(() => {
+                    alert('✅ Fahrtdaten übernommen!\n\nBitte Abholzeit wählen und buchen.');
+                }, 300);
+            }, 100);
         }
         
         // 🔄 ROUTE UMDREHEN
@@ -1762,22 +1791,30 @@
             // Wechsel zum Fahrgast-Tab
             switchView('guest');
             
-            // Fülle Formular aus MIT UMGEDREHTER ROUTE
-            document.getElementById('pickup').value = ride.destination;  // ← GETAUSCHT
-            document.getElementById('destination').value = ride.pickup;   // ← GETAUSCHT
-            document.getElementById('customer-name').value = ride.customerName || '';
-            document.getElementById('passengers').value = ride.passengers || '1';
-            
-            // Scroll zum Formular
-            document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
-            
-            // Zeige Hinweis
+            // ✅ Warte kurz bis View gewechselt hat
             setTimeout(() => {
-                alert('🔄 Route umgedreht!\n\n' + 
-                      'Von: ' + ride.destination + '\n' +
-                      'Nach: ' + ride.pickup + '\n\n' +
-                      'Bitte Abholzeit wählen und buchen.');
-            }, 500);
+                // Fülle Formular aus MIT UMGEDREHTER ROUTE
+                document.getElementById('pickup').value = ride.destination;  // ← GETAUSCHT
+                document.getElementById('destination').value = ride.pickup;   // ← GETAUSCHT
+                document.getElementById('customer-name').value = ride.customerName || '';
+                document.getElementById('passengers').value = ride.passengers || '1';
+                
+                // ✅ Stelle sicher dass Formular sichtbar ist
+                const bookingForm = document.getElementById('booking-form');
+                if (bookingForm) {
+                    bookingForm.style.display = 'block';
+                    // Scroll zum Formular
+                    bookingForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                
+                // Zeige Hinweis
+                setTimeout(() => {
+                    alert('🔄 Route umgedreht!\n\n' + 
+                          'Von: ' + ride.destination + '\n' +
+                          'Nach: ' + ride.pickup + '\n\n' +
+                          'Bitte Abholzeit wählen und buchen.');
+                }, 300);
+            }, 100);
         }
         
         // ⭐ ALS FAVORIT SPEICHERN

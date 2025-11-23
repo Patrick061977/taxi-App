@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.1 - Super Debug! 🐛 (Build 20251123-0800)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.3 - Multi-User! 👥 (Build 20251123-0900)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1227,7 +1227,12 @@
         
         // 🌟 STAMMKUNDEN-FUNKTIONEN
         function loadRegularCustomer() {
-            const saved = localStorage.getItem('regularCustomer');
+            // ✅ Nur laden wenn User eingeloggt
+            if (!currentUser) return;
+            
+            // ✅ Stammkunden-Daten pro Email-Adresse
+            const storageKey = `regularCustomer_${currentUser.email}`;
+            const saved = localStorage.getItem(storageKey);
             if (saved) {
                 regularCustomer = JSON.parse(saved);
                 showRegularCustomerBox();
@@ -1276,7 +1281,10 @@
         
         function clearRegularCustomer() {
             if (confirm('⚠️ Stammkundendaten löschen?\n\nDu musst beim nächsten Mal alles neu eingeben.')) {
-                localStorage.removeItem('regularCustomer');
+                if (currentUser) {
+                    const storageKey = `regularCustomer_${currentUser.email}`;
+                    localStorage.removeItem(storageKey);
+                }
                 regularCustomer = null;
                 document.getElementById('regular-customer-box').style.display = 'none';
                 alert('✅ Stammkundendaten gelöscht');
@@ -1286,6 +1294,9 @@
         function saveRegularCustomerData(name, pickup, destination) {
             const saveCheckbox = document.getElementById('save-customer');
             if (!saveCheckbox || !saveCheckbox.checked) return;
+            
+            // ✅ Nur speichern wenn User eingeloggt
+            if (!currentUser) return;
             
             // Lade bestehende Daten oder erstelle neu
             let customer = regularCustomer || { name: name, rideCount: 0 };
@@ -1297,15 +1308,16 @@
             customer.name = name;
             customer.favoritePickup = pickup;
             customer.favoriteDestination = destination;
-            customer.phone = phone; // ✅ TELEFON SPEICHERN!
+            customer.phone = phone;
             customer.rideCount = (customer.rideCount || 0) + 1;
             customer.lastRide = Date.now();
             
-            // Speichern
-            localStorage.setItem('regularCustomer', JSON.stringify(customer));
+            // ✅ Speichern pro Email-Adresse
+            const storageKey = `regularCustomer_${currentUser.email}`;
+            localStorage.setItem(storageKey, JSON.stringify(customer));
             regularCustomer = customer;
             
-            console.log('💾 Stammkunde gespeichert:', customer);
+            console.log('💾 Stammkunde gespeichert für:', currentUser.email);
         }
         
         // 📅 HISTORY TAB FUNCTIONS
@@ -1380,15 +1392,15 @@
             let filteredRides = [];
             
             if (currentHistoryTab === 'upcoming') {
-                // 📅 KOMMENDE FAHRTEN: vorbestellt, neu, akzeptiert, unterwegs, angekommen
+                // 📅 KOMMENDE FAHRTEN: vorbestellt, new, accepted, picked_up, etc.
                 filteredRides = allRides.filter(r => {
-                    const activeStatuses = ['vorbestellt', 'new', 'akzeptiert', 'unterwegs', 'angekommen'];
+                    const activeStatuses = ['vorbestellt', 'new', 'accepted', 'picked_up', 'akzeptiert', 'unterwegs', 'angekommen', 'assigned_to_driver', 'cancelled_pending_driver'];
                     return activeStatuses.includes(r.status);
                 }).sort((a, b) => (a.pickupTimestamp || a.createdAt) - (b.pickupTimestamp || b.createdAt));
             } else {
-                // 📖 VERGANGENE FAHRTEN: abgeschlossen, storniert
+                // 📖 VERGANGENE FAHRTEN: completed, cancelled, storniert
                 filteredRides = allRides.filter(r => {
-                    const completedStatuses = ['abgeschlossen', 'storniert'];
+                    const completedStatuses = ['completed', 'abgeschlossen', 'cancelled', 'storniert'];
                     return completedStatuses.includes(r.status);
                 }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             }
@@ -1587,6 +1599,9 @@
             const saveCheckbox = document.getElementById('save-customer');
             if (!saveCheckbox || !saveCheckbox.checked) return;
             
+            // ✅ Nur speichern wenn User eingeloggt
+            if (!currentUser) return;
+            
             // Lade bestehende Daten oder erstelle neu
             let customer = regularCustomer || { name: name, rideCount: 0 };
             
@@ -1597,18 +1612,19 @@
             customer.name = name;
             customer.favoritePickup = pickup;
             customer.favoriteDestination = destination;
-            customer.phone = phone; // ✅ TELEFON SPEICHERN!
+            customer.phone = phone;
             customer.rideCount = (customer.rideCount || 0) + 1;
             customer.lastRide = Date.now();
             
-            // Speichern
-            localStorage.setItem('regularCustomer', JSON.stringify(customer));
+            // ✅ Speichern pro Email-Adresse
+            const storageKey = `regularCustomer_${currentUser.email}`;
+            localStorage.setItem(storageKey, JSON.stringify(customer));
             regularCustomer = customer;
             
             // Update User Profile Box
             updateUserProfile();
             
-            console.log('💾 Stammkunde gespeichert:', customer);
+            console.log('💾 Stammkunde gespeichert für:', currentUser.email);
         }
         
         // 🗑️ Fahrt aus Verlauf stornieren
@@ -2776,7 +2792,15 @@
                 }
             });
             
-            console.log('🔍 ADMIN DEBUG - Gesamt Fahrten (Firebase + localStorage):', allRides.length);
+            // 🧹 FILTERE ALTE FAHRTEN (älter als 3 Tage) AUTOMATISCH RAUS
+            const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+            allRides = allRides.filter(r => {
+                const rideTime = r.pickupTimestamp || r.createdAt || 0;
+                // Behalte nur: completed (immer), oder Fahrten von letzten 3 Tagen
+                return r.status === 'completed' || r.status === 'abgeschlossen' || rideTime > threeDaysAgo;
+            });
+            
+            console.log('🔍 ADMIN DEBUG - Gesamt Fahrten (nach Filter):', allRides.length);
             console.log('🔍 ADMIN DEBUG - Status:', allRides.map(r => r.status));
             
             const completed = allRides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
@@ -4689,24 +4713,40 @@
         }
 
         async function resetDatabase() {
-            if (!confirm('⚠️ WIRKLICH alle Fahrten löschen?')) return;
-            if (!confirm('⚠️ LETZTE WARNUNG! Dies kann nicht rückgängig gemacht werden!')) return;
+            if (!confirm('⚠️ WIRKLICH alle Fahrten löschen?\n\nLöscht ALLES:\n- Alle Firebase Fahrten\n- localStorage Verlauf\n- Komplett leere Datenbank')) return;
+            if (!confirm('⚠️ LETZTE WARNUNG!\n\nDies kann nicht rückgängig gemacht werden!')) return;
             
             if (isFirebaseReady) {
                 try {
-                    console.log('🗑️ Lösche alle Fahrten aus Firebase...');
-                    await db.ref('rides').remove();
+                    console.log('🗑️ Lösche ALLE Fahrten...');
                     
-                    // Auch lokales Array leeren
+                    // 1. Firebase komplett leeren
+                    await db.ref('rides').remove();
+                    console.log('✅ Firebase rides/ gelöscht');
+                    
+                    // 2. Lokales Array leeren
                     rides = [];
                     
-                    console.log('✅ Firebase gelöscht!');
-                    alert('✅ Datenbank zurückgesetzt! Bitte Seite neu laden (F5).');
+                    // 3. localStorage leeren
+                    localStorage.removeItem('rideHistory');
+                    localStorage.removeItem('myCurrentRideId');
+                    console.log('✅ localStorage geleert');
                     
-                    // Auto-Reload nach 2 Sekunden
+                    // 4. Current Ride zurücksetzen
+                    myCurrentRide = null;
+                    
+                    alert(
+                        '✅ Datenbank komplett gelöscht!\n\n' +
+                        '🔥 Alle Fahrten entfernt\n' +
+                        '🔥 localStorage geleert\n' +
+                        '🔥 Komplett sauber!\n\n' +
+                        'Seite lädt neu...'
+                    );
+                    
+                    // Auto-Reload nach 1 Sekunde
                     setTimeout(() => {
                         window.location.reload();
-                    }, 2000);
+                    }, 1000);
                     
                 } catch (error) {
                     console.error('❌ Fehler beim Löschen:', error);

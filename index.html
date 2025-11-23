@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.3 - GPS Stop Fix! 📍 (Build 20251123-1430)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.4 - Stornierung Check & Preis! 💰 (Build 20251123-1500)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1773,6 +1773,21 @@
                 document.getElementById('customer-name').value = ride.customerName || '';
                 document.getElementById('passengers').value = ride.passengers || '1';
                 
+                // ✅ Lösche alte Koordinaten (müssen neu berechnet werden)
+                pickupCoords = null;
+                destCoords = null;
+                
+                // ✅ Setze Preis-Anzeige zurück
+                document.getElementById('price-display').innerHTML = '';
+                
+                // ✅ Deaktiviere "Taxi buchen" Button
+                const bookBtn = document.getElementById('book-taxi-btn');
+                if (bookBtn) {
+                    bookBtn.disabled = true;
+                    bookBtn.style.opacity = '0.5';
+                    bookBtn.style.cursor = 'not-allowed';
+                }
+                
                 // ✅ Stelle sicher dass Formular sichtbar ist
                 const bookingForm = document.getElementById('booking-form');
                 if (bookingForm) {
@@ -1783,7 +1798,7 @@
                 
                 // Zeige Hinweis
                 setTimeout(() => {
-                    alert('✅ Fahrtdaten übernommen!\n\nBitte Abholzeit wählen und buchen.');
+                    alert('✅ Fahrtdaten übernommen!\n\n⚠️ WICHTIG:\nBitte PREIS NEU BERECHNEN\n(Tarif könnte sich geändert haben!)');
                 }, 300);
             }, 100);
         }
@@ -1809,6 +1824,21 @@
                 document.getElementById('customer-name').value = ride.customerName || '';
                 document.getElementById('passengers').value = ride.passengers || '1';
                 
+                // ✅ Lösche alte Koordinaten (müssen neu berechnet werden)
+                pickupCoords = null;
+                destCoords = null;
+                
+                // ✅ Setze Preis-Anzeige zurück
+                document.getElementById('price-display').innerHTML = '';
+                
+                // ✅ Deaktiviere "Taxi buchen" Button
+                const bookBtn = document.getElementById('book-taxi-btn');
+                if (bookBtn) {
+                    bookBtn.disabled = true;
+                    bookBtn.style.opacity = '0.5';
+                    bookBtn.style.cursor = 'not-allowed';
+                }
+                
                 // ✅ Stelle sicher dass Formular sichtbar ist
                 const bookingForm = document.getElementById('booking-form');
                 if (bookingForm) {
@@ -1822,7 +1852,7 @@
                     alert('🔄 Route umgedreht!\n\n' + 
                           'Von: ' + ride.destination + '\n' +
                           'Nach: ' + ride.pickup + '\n\n' +
-                          'Bitte Abholzeit wählen und buchen.');
+                          '⚠️ WICHTIG:\nBitte PREIS NEU BERECHNEN\n(Tarif könnte sich geändert haben!)');
                 }, 300);
             }, 100);
         }
@@ -4718,6 +4748,16 @@
             const ride = rides.find(r => r.firebaseId === rideId);
             if (!ride) {
                 alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // ✅ CHECK: Wurde Fahrt storniert?
+            if (ride.status === 'storniert' || ride.cancelledBy || ride.cancelledAt) {
+                alert('🚨 STORNIERT!\n\n' +
+                      'Diese Fahrt wurde bereits storniert.\n\n' +
+                      (ride.cancellationReason ? `Grund: ${ride.cancellationReason}\n\n` : '') +
+                      'Du kannst diese Fahrt nicht mehr annehmen.');
+                closeNewRideFullscreen();
                 return;
             }
             

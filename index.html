@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.1 - Toggle Fix! 🔧 (Build 20251123-1345)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.3 - GPS Stop Fix! 📍 (Build 20251123-1430)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1560,6 +1560,15 @@
                     </div>`;
                 }
                 
+                // 🚨 STORNIERUNGSGRUND (falls vorhanden)
+                let cancellationInfo = '';
+                if (r.status === 'storniert' && r.cancellationReason) {
+                    cancellationInfo = `<div style="margin-top:8px;padding:10px;background:#fee2e2;border-left:4px solid #ef4444;border-radius:6px;font-size:13px;color:#991b1b;">
+                        <strong>🚨 Stornierungsgrund:</strong><br>
+                        ${r.cancellationReason}
+                    </div>`;
+                }
+                
                 // 🔘 Aktions-Buttons
                 let actionButtons = '';
                 if (isActive && r.status !== 'storniert') {
@@ -1621,6 +1630,7 @@
                         </div>
                         ${vehicleInfo}
                         ${etaInfo}
+                        ${cancellationInfo}
                         ${actionButtons}
                     </div>
                 `;
@@ -1731,7 +1741,7 @@
                     localStorage.setItem('myCurrentRideId', rideId);
                     
                     // Wechsel zum Fahrgast-Tab
-                    switchView('guest');
+                    switchView('passenger');
                     
                     // Zeige Fahrt-Status
                     showRideStatus(ride);
@@ -1753,7 +1763,7 @@
             }
             
             // Wechsel zum Fahrgast-Tab
-            switchView('guest');
+            switchView('passenger');
             
             // ✅ Warte kurz bis View gewechselt hat
             setTimeout(() => {
@@ -1789,7 +1799,7 @@
             }
             
             // Wechsel zum Fahrgast-Tab
-            switchView('guest');
+            switchView('passenger');
             
             // ✅ Warte kurz bis View gewechselt hat
             setTimeout(() => {
@@ -2533,8 +2543,18 @@
         function switchView(view) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(view + '-view').classList.add('active');
-            event.target.classList.add('active');
+            
+            // ✅ Sichere Zugriffe - Element könnte fehlen
+            const viewElement = document.getElementById(view + '-view');
+            if (viewElement) {
+                viewElement.classList.add('active');
+            }
+            
+            // ✅ Prüfe ob event.target existiert (bei programmatischem Aufruf nicht der Fall)
+            if (typeof event !== 'undefined' && event && event.target) {
+                event.target.classList.add('active');
+            }
+            
             currentView = view;
             
             const gpsIndicator = document.getElementById('gps-indicator');
@@ -2553,8 +2573,10 @@
                 }, 500);
             } else {
                 if (gpsIndicator) gpsIndicator.style.display = 'none';
-                // Stoppe GPS-Monitoring wenn Ansicht gewechselt wird
+                // ✅ Stoppe GPS-Monitoring UND GPS-Tracking wenn Ansicht gewechselt wird
                 stopGPSMonitoring();
+                stopDriverTracking();  // ← FIX: GPS auch stoppen!
+                console.log('🔄 View gewechselt - GPS gestoppt');
             }
             
             if (view === 'history') loadHistory();
@@ -4452,7 +4474,16 @@
         }
 
         function setVehicle() {
+            const previousVehicle = currentVehicle;
             const vehicleId = document.getElementById('vehicle').value;
+            
+            // ✅ Stoppe GPS wenn Fahrzeug wechselt
+            if (previousVehicle && previousVehicle !== vehicleId) {
+                console.log('🔄 Fahrzeugwechsel erkannt - stoppe GPS');
+                stopDriverTracking();
+                stopGPSMonitoring();
+            }
+            
             currentVehicle = vehicleId;
             console.log('🚗 Fahrzeug gewählt:', currentVehicle);
             

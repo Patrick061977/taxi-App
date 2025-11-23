@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.4 - Stornierung Check & Preis! 💰 (Build 20251123-1500)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.5 - GPS & Toggle Fix! 🔧 (Build 20251123-1600)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4553,11 +4553,62 @@
             }
         }
 
+        // 🔄 TOGGLE STATE SYNCHRONISIEREN
+        function syncToggleState() {
+            const toggle = document.getElementById('online-toggle');
+            if (!toggle) return;
+            
+            console.log('🔄 Synchronisiere Toggle-State...');
+            console.log('  - watchId:', watchId);
+            console.log('  - isOnline:', isOnline);
+            console.log('  - currentVehicle:', currentVehicle);
+            
+            // Prüfe ob GPS wirklich läuft
+            if (watchId && currentVehicle) {
+                // GPS läuft - soll online sein
+                if (!isOnline || !toggle.checked) {
+                    console.log('✅ GPS läuft, aber Toggle off → Korrigiere auf ON');
+                    isOnline = true;
+                    toggle.checked = true;
+                    
+                    // Update UI
+                    const statusText = document.getElementById('online-status-text');
+                    if (statusText) {
+                        statusText.textContent = 'Online';
+                        statusText.style.color = '#10b981';
+                    }
+                }
+            } else {
+                // Kein GPS - soll offline sein
+                if (isOnline || toggle.checked) {
+                    console.log('⚠️ Kein GPS, aber Toggle on → Korrigiere auf OFF');
+                    isOnline = false;
+                    toggle.checked = false;
+                    
+                    // Update UI
+                    const statusText = document.getElementById('online-status-text');
+                    if (statusText) {
+                        statusText.textContent = 'Offline';
+                        statusText.style.color = '#666';
+                    }
+                }
+            }
+            
+            console.log('✅ Toggle-State synchronisiert:', isOnline ? 'ON' : 'OFF');
+        }
+
         function startDriverTracking(rideId) {
-            // Wenn schon läuft, ignoriere
-            if (watchId) {
-                console.log('⚠️ GPS läuft bereits - watchId:', watchId);
+            if (!currentVehicle) {
+                console.error('❌ Kein Fahrzeug ausgewählt!');
                 return;
+            }
+            
+            // ✅ WICHTIG: Alte watchId IMMER cleanen BEVOR neu gestartet wird!
+            if (watchId) {
+                console.log('⚠️ GPS läuft bereits - watchId:', watchId, '- STOPPE ERST!');
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                console.log('✅ Alte watchId cleared');
             }
             
             console.log('🚀 Starte GPS-Tracking' + (rideId ? ' für Fahrt: ' + rideId : ''));
@@ -6531,6 +6582,63 @@ Stack: ${err.stack}
                     updateViews(); // Aktualisiert Countdown-Timer
                 }
             }, 1000);
+            
+            // 📱 PAGE VISIBILITY: GPS stoppen wenn App geschlossen/im Hintergrund
+            document.addEventListener('visibilitychange', () => {
+                console.log('👁️ Visibility changed:', document.hidden ? 'HIDDEN' : 'VISIBLE');
+                
+                if (document.hidden) {
+                    // App im Hintergrund oder geschlossen
+                    console.log('📱 App geht in Hintergrund...');
+                    
+                    if (watchId && currentVehicle) {
+                        console.log('⏸️ Pausiere GPS (App im Hintergrund)');
+                        // GPS läuft weiter, aber Wake Lock freigeben
+                        if (wakeLock) {
+                            wakeLock.release();
+                            wakeLock = null;
+                            console.log('⚠️ Wake Lock freigegeben (Hintergrund)');
+                        }
+                    }
+                } else {
+                    // App wieder sichtbar
+                    console.log('📱 App wieder sichtbar');
+                    
+                    if (isOnline && currentVehicle && !watchId) {
+                        console.log('▶️ Starte GPS neu (App wieder aktiv)');
+                        startDriverTracking();
+                    }
+                    
+                    // Wake Lock reaktivieren
+                    if (isOnline && !wakeLock) {
+                        requestWakeLock();
+                    }
+                    
+                    // Synchronisiere Toggle-State
+                    syncToggleState();
+                }
+            });
+            
+            // 🚪 BEFOREUNLOAD: GPS cleanup beim Schließen
+            window.addEventListener('beforeunload', () => {
+                console.log('🚪 App wird geschlossen - cleanup...');
+                
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    console.log('🛑 GPS gestoppt (beforeunload)');
+                }
+                
+                if (wakeLock) {
+                    wakeLock.release();
+                    console.log('⚠️ Wake Lock freigegeben (beforeunload)');
+                }
+                
+                // Firebase cleanup
+                if (currentVehicle && isFirebaseReady) {
+                    db.ref('drivers/' + currentVehicle).remove();
+                    console.log('🗑️ GPS aus Firebase entfernt (beforeunload)');
+                }
+            });
             
             // 📅 VORBESTELLUNGS-CHECK: Prüfe alle 60 Sek. ob Vorbestellungen aktiviert werden müssen
             setInterval(async () => {

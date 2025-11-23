@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.6 - Better Sort! 📊 (Build 20251123-1015)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.7 - Collapsible Admin! 📂 (Build 20251123-1030)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1010,24 +1010,31 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
-            <button onclick="clearAppCache()" style="padding:15px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                🧹 Cache leeren
-            </button>
-            <button onclick="exportDebugLogs()" style="padding:15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                📋 Logs kopieren
-            </button>
-            <button onclick="exportSuperDebug()" style="padding:15px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                🐛 Super Debug
-            </button>
+        <!-- COLLAPSIBLE: Controls -->
+        <div onclick="toggleAdminSection('controls')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">⚙️ Admin Controls</span>
+            <span id="controls-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="controls-content" style="display:none;margin-bottom:20px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+                <button onclick="clearAppCache()" style="padding:15px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                    🧹 Cache leeren
+                </button>
+                <button onclick="exportDebugLogs()" style="padding:15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                    📋 Logs kopieren
+                </button>
+                <button onclick="exportSuperDebug()" style="padding:15px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                    🐛 Super Debug
+                </button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+                <button onclick="resetDatabase()" style="padding:15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                    🗑️ Datenbank löschen
+                </button>
+            </div>
         </div>
         
-        <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:20px;">
-            <button onclick="resetDatabase()" style="padding:15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                🗑️ Datenbank löschen
-            </button>
-        </div>
-        
+        <!-- Stats - immer sichtbar -->
         <div class="stats-grid">
             <div class="stat-card"><div style="font-size: 28px;" id="a-total">0</div><div>Fahrten</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-revenue">0€</div><div>Umsatz</div></div>
@@ -1035,20 +1042,50 @@
             <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
         </div>
         
-        <h3 style="margin-top:20px;">🚗 Online-Fahrer</h3>
-        <div id="online-drivers-list" style="margin-bottom:20px;"></div>
+        <!-- COLLAPSIBLE: Online-Fahrer -->
+        <div onclick="toggleAdminSection('drivers')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🚗 Online-Fahrer</span>
+            <span id="drivers-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="drivers-content" style="display:none;">
+            <div id="online-drivers-list" style="margin-bottom:20px;"></div>
+        </div>
         
-        <h3 style="margin-top:20px;">📋 Offene Fahrten (nach Zeit sortiert)</h3>
-        <div id="upcoming-rides-admin" style="margin-bottom: 20px;"></div>
+        <!-- COLLAPSIBLE: Offene Fahrten -->
+        <div onclick="toggleAdminSection('open')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📋 Offene Fahrten</span>
+            <span id="open-toggle" style="font-size:20px;">▲</span>
+        </div>
+        <div id="open-content" style="display:block;">
+            <div id="upcoming-rides-admin" style="margin-bottom: 20px;"></div>
+        </div>
         
-        <h3 style="margin-top:20px;">❌ Abgelehnte Fahrten (Neu zuweisen)</h3>
-        <div id="rejected-rides-admin" style="margin-bottom: 20px;"></div>
+        <!-- COLLAPSIBLE: Abgelehnte Fahrten -->
+        <div onclick="toggleAdminSection('rejected')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">❌ Abgelehnte Fahrten</span>
+            <span id="rejected-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="rejected-content" style="display:none;">
+            <div id="rejected-rides-admin" style="margin-bottom: 20px;"></div>
+        </div>
         
-        <h3 style="margin-top:20px;">✅ Abgeschlossene Fahrten</h3>
-        <div id="all-rides"></div>
+        <!-- COLLAPSIBLE: Abgeschlossene Fahrten -->
+        <div onclick="toggleAdminSection('completed')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">✅ Abgeschlossene Fahrten</span>
+            <span id="completed-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="completed-content" style="display:none;">
+            <div id="all-rides"></div>
+        </div>
         
-        <h3 style="margin-top:20px;">💶 Stornierungen (kostenpflichtig)</h3>
-        <div id="cancellations-list"></div>
+        <!-- COLLAPSIBLE: Stornierungen -->
+        <div onclick="toggleAdminSection('cancelled')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">💶 Stornierungen</span>
+            <span id="cancelled-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="cancelled-content" style="display:none;">
+            <div id="cancellations-list"></div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4758,6 +4795,20 @@
                 }
             } else {
                 alert('❌ Firebase nicht bereit!');
+            }
+        }
+        
+        // 📂 ADMIN SECTION TOGGLE
+        function toggleAdminSection(section) {
+            const content = document.getElementById(section + '-content');
+            const toggle = document.getElementById(section + '-toggle');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                content.style.display = 'none';
+                toggle.textContent = '▼';
             }
         }
         

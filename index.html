@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.6 - Fahrzeug-Blockierung! 🚫 (Build 20251123-1730)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.7 - Formular-Reset! ♻️ (Build 20251123-1800)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4192,11 +4192,48 @@
             document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
             
+            // 🆕 FORMULAR ZURÜCKSETZEN nach Stornierung
+            resetBookingForm();
+            
             if (hasCancellationFee) {
                 alert('✅ Fahrt storniert!\n\n💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n\nWird bei deiner nächsten Fahrt berechnet.');
             } else {
                 alert('✅ Fahrt storniert!');
             }
+        }
+
+        // 🆕 FORMULAR ZURÜCKSETZEN (nach Stornierung oder abgeschlossener Fahrt)
+        function resetBookingForm() {
+            // Felder LEEREN
+            document.getElementById('pickup').value = '';
+            document.getElementById('destination').value = '';
+            
+            // Zurücksetzen auf Default-Werte
+            document.getElementById('pickup-time').value = 'jetzt';
+            document.getElementById('passengers').value = '1';
+            
+            // datetime-local Feld ausblenden falls sichtbar
+            document.getElementById('custom-datetime').style.display = 'none';
+            document.getElementById('datetime-help').style.display = 'none';
+            
+            // Preis-Anzeige ausblenden
+            document.getElementById('price-display').innerHTML = '';
+            document.getElementById('price-display').style.display = 'none';
+            
+            // "Taxi buchen" Button verstecken
+            document.getElementById('book-btn').style.display = 'none';
+            
+            // Verfügbare Taxis ausblenden
+            document.getElementById('available-taxis-display').innerHTML = '';
+            
+            // Global Variablen zurücksetzen
+            window.currentPrice = null;
+            window.currentDistance = null;
+            window.currentDuration = null;
+            window.pickupCoords = null;
+            window.destCoords = null;
+            
+            console.log('✅ Formular zurückgesetzt');
         }
 
         async function cancelRide() {
@@ -4233,6 +4270,9 @@
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
+            
+            // 🆕 FORMULAR ZURÜCKSETZEN nach Stornierung
+            resetBookingForm();
         }
 
         // DRIVER FUNCTIONS

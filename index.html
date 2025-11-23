@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.0 - Sync & Form Fix! 🔄 (Build 20251123-1130)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.1 - Toggle Fix! 🔧 (Build 20251123-1345)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4418,23 +4418,32 @@
 
         function toggleOnline() {
             isOnline = document.getElementById('online-toggle').checked;
-            document.getElementById('online-status-text').textContent = isOnline ? 'Online' : 'Offline';
-            document.getElementById('online-status-text').style.color = isOnline ? '#10b981' : '#666';
+            
+            // ✅ Sichere Zugriffe auf optionale Elemente
+            const statusText = document.getElementById('online-status-text');
+            if (statusText) {
+                statusText.textContent = isOnline ? 'Online' : 'Offline';
+                statusText.style.color = isOnline ? '#10b981' : '#666';
+            }
             
             const gpsIndicator = document.getElementById('gps-indicator');
             const gpsDot = document.getElementById('gps-dot');
             const gpsStatus = document.getElementById('gps-status');
             
             if (isOnline) {
-                gpsIndicator.style.display = 'flex';
-                gpsDot.style.background = '#10b981';
-                gpsDot.classList.add('online');
-                gpsStatus.textContent = '📍 GPS On';
+                if (gpsIndicator) gpsIndicator.style.display = 'flex';
+                if (gpsDot) {
+                    gpsDot.style.background = '#10b981';
+                    gpsDot.classList.add('online');
+                }
+                if (gpsStatus) gpsStatus.textContent = '📍 GPS On';
                 requestWakeLock();
             } else {
-                gpsDot.style.background = '#6b7280';
-                gpsDot.classList.remove('online');
-                gpsStatus.textContent = '📍 GPS Off';
+                if (gpsDot) {
+                    gpsDot.style.background = '#6b7280';
+                    gpsDot.classList.remove('online');
+                }
+                if (gpsStatus) gpsStatus.textContent = '📍 GPS Off';
                 releaseWakeLock();
             }
             

@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.8 - Button Fix! 🔘 (Build 20251123-2030)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.9 - Input Listener! 🎯 (Build 20251123-2040)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -6581,6 +6581,26 @@ Stack: ${err.stack}
             });
             
             setupAutocomplete();
+            
+            // 🆕 BUTTON-LOGIK: Verstecke "Taxi buchen" wenn Felder geändert werden
+            const pickupField = document.getElementById('pickup');
+            const destField = document.getElementById('destination');
+            const bookBtn = document.getElementById('book-btn');
+            
+            function hideBookButton() {
+                if (bookBtn) {
+                    bookBtn.style.display = 'none';
+                    bookBtn.style.visibility = 'hidden';
+                    console.log('🔒 "Taxi buchen" versteckt (Felder geändert)');
+                }
+            }
+            
+            if (pickupField) {
+                pickupField.addEventListener('input', hideBookButton);
+            }
+            if (destField) {
+                destField.addEventListener('input', hideBookButton);
+            }
             
             // 🔔 BENACHRICHTIGUNGS-BANNER SOFORT ANZEIGEN
             if ('Notification' in window && Notification.permission !== 'granted') {

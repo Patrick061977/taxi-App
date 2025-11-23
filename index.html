@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.7 - Collapsible Admin! 📂 (Build 20251123-1030)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.9 - Fix Reverse! 🔄 (Build 20251123-1100)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1570,7 +1570,7 @@
                                 style="padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
                                 🔁 Nochmal
                             </button>
-                            <button onclick="reverseRoute(${r.createdAt || r.id})" 
+                            <button onclick="reverseRouteFromHistory(${r.createdAt || r.id})" 
                                 style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
                                 🔄 Umdrehen
                             </button>
@@ -1750,7 +1750,7 @@
         }
         
         // 🔄 ROUTE UMDREHEN
-        function reverseRoute(rideId) {
+        function reverseRouteFromHistory(rideId) {
             const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
             const ride = history.find(r => r.createdAt === rideId || r.id === rideId);
             
@@ -3127,7 +3127,7 @@
                                     style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
                                     🔁 Nochmal
                                 </button>
-                                <button onclick="reverseRoute(${r.createdAt || r.id})" 
+                                <button onclick="reverseRouteFromHistory(${r.createdAt || r.id})" 
                                     style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
                                     🔄 Umdrehen
                                 </button>
@@ -3145,7 +3145,7 @@
                                     style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
                                     🔁 Nochmal
                                 </button>
-                                <button onclick="reverseRoute(${r.createdAt || r.id})" 
+                                <button onclick="reverseRouteFromHistory(${r.createdAt || r.id})" 
                                     style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
                                     🔄 Umdrehen
                                 </button>
@@ -4633,6 +4633,10 @@
                 alert('❌ Bitte Fahrzeug wählen!');
                 return;
             }
+            
+            // ✅ SCHLIESSE FULLSCREEN wenn offen
+            closeNewRideFullscreen();
+            stopRepeatingVibration();
             
             const ride = rides.find(r => r.firebaseId === rideId);
             if (!ride) {

@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.3 - Multi-User! 👥 (Build 20251123-0900)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.7.6 - Better Sort! 📊 (Build 20251123-1015)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1044,10 +1044,11 @@
         <h3 style="margin-top:20px;">❌ Abgelehnte Fahrten (Neu zuweisen)</h3>
         <div id="rejected-rides-admin" style="margin-bottom: 20px;"></div>
         
+        <h3 style="margin-top:20px;">✅ Abgeschlossene Fahrten</h3>
+        <div id="all-rides"></div>
+        
         <h3 style="margin-top:20px;">💶 Stornierungen (kostenpflichtig)</h3>
         <div id="cancellations-list"></div>
-        <h3 style="margin-top:20px;">Alle Fahrten</h3>
-        <div id="all-rides"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3034,10 +3035,13 @@
                     }).join('');
             }
             
-            if (allRides.length === 0) {
-                document.getElementById('all-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Fahrten</div>';
+            // ✅ NUR ABGESCHLOSSENE FAHRTEN zeigen
+            const completedRides = allRides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
+            
+            if (completedRides.length === 0) {
+                document.getElementById('all-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine abgeschlossenen Fahrten</div>';
             } else {
-                document.getElementById('all-rides').innerHTML = allRides.slice().reverse().map(r => {
+                document.getElementById('all-rides').innerHTML = completedRides.slice().reverse().map(r => {
                     let statusText = r.status;
                     let statusColor = '#fef3c7';
                     if (r.status === 'completed') { statusText = 'Abgeschlossen'; statusColor = '#d1fae5'; }
@@ -5705,15 +5709,15 @@ Stack: ${err.stack}
             if (ride.status === 'new') {
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#fef3c7;border:2px solid #f59e0b;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">⏳</div>
-                        <h3>Warte auf Fahrer...</h3>
-                        <p style="margin-top: 10px;">Deine Fahrt wird zugewiesen</p>
-                        <div style="margin-top: 15px; font-size: 14px; color: #92400e;">
+                        <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
+                        <h3 style="font-size: 18px; margin: 8px 0;">Warte auf Fahrer...</h3>
+                        <p style="margin-top: 8px; font-size: 14px;">Deine Fahrt wird zugewiesen</p>
+                        <div style="margin-top: 12px; font-size: 13px; color: #92400e;">
                             <strong>Von:</strong> ${ride.pickup}<br>
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:10px 20px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">🗑️ Fahrt stornieren</button>
                     </div>
                 `;
             } else if (ride.status === 'accepted' && ride.driverLocation) {
@@ -5721,16 +5725,16 @@ Stack: ${err.stack}
             } else if (ride.status === 'accepted' && !ride.driverLocation) {
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#dbeafe;border:2px solid #3b82f6;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
-                        <h3>${ride.vehicle || 'Fahrer'} hat angenommen!</h3>
-                        <p style="margin-top: 10px;">Warte auf GPS-Position...</p>
-                        <div style="margin-top: 15px; font-size: 14px;">
+                        <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
+                        <h3 style="font-size: 18px; margin: 8px 0;">${ride.vehicle || 'Fahrer'} hat angenommen!</h3>
+                        <p style="margin-top: 8px; font-size: 14px;">Warte auf GPS-Position...</p>
+                        <div style="margin-top: 12px; font-size: 13px;">
                             <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}<br>
                             <strong>Von:</strong> ${ride.pickup}<br>
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:10px 20px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:14px;">🗑️ Stornieren</button>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:13px;">🗑️ Stornieren</button>
                     </div>
                 `;
             }
@@ -5770,22 +5774,22 @@ Stack: ${err.stack}
             const container = document.getElementById('ride-status-container');
             container.innerHTML = `
                 <div class="ride-status-box ${statusClass}">
-                    <div style="font-size: 48px; margin-bottom: 10px;">${statusIcon}</div>
-                    <h3>${statusText}</h3>
-                    <div class="eta-display ${etaClass}">${distanceKm} km • ${durationMin} Min</div>
-                    <div style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">${statusIcon}</div>
+                    <h3 style="font-size: 18px; margin: 8px 0;">${statusText}</h3>
+                    <div class="eta-display ${etaClass}" style="font-size: 16px;">${distanceKm} km • ${durationMin} Min</div>
+                    <div style="font-size: 13px; opacity: 0.8; margin-bottom: 12px;">
                         Ankunft ca. ${etaTime} Uhr
                     </div>
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${progress}%; background: ${progressColor};"></div>
                     </div>
-                    <div style="margin-top: 15px; font-size: 14px;">
+                    <div style="margin-top: 12px; font-size: 13px;">
                         <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''}<br>
                         <strong>Von:</strong> ${ride.pickup}<br>
                         <strong>Nach:</strong> ${ride.destination}<br>
                         <strong>Preis:</strong> ${ride.price}€
                     </div>
-                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:15px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
+                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
                 </div>
                 <div id="map"></div>
             `;
@@ -6365,22 +6369,49 @@ Stack: ${err.stack}
                     if (!snapshot.exists()) return;
                     
                     const now = Date.now();
-                    snapshot.forEach(childSnapshot => {
+                    snapshot.forEach(async (childSnapshot) => {
                         const ride = childSnapshot.val();
                         const rideId = childSnapshot.key;
+                        
+                        // 🛡️ SICHERHEITS-CHECKS: Verhindere doppelte Aktivierung
+                        
+                        // Check 1: Wurde schon aktiviert?
+                        if (ride.activatedAt) {
+                            console.log('⏭️ Vorbestellung bereits aktiviert, überspringe:', rideId);
+                            return;
+                        }
+                        
+                        // Check 2: Status wirklich "vorbestellt"?
+                        if (ride.status !== 'vorbestellt') {
+                            console.log('⏭️ Status nicht mehr "vorbestellt", überspringe:', rideId, ride.status);
+                            return;
+                        }
+                        
+                        // Check 3: Nicht completed/cancelled?
+                        if (ride.status === 'completed' || ride.status === 'cancelled' || ride.status === 'storniert' || ride.status === 'abgeschlossen') {
+                            console.log('⏭️ Fahrt bereits abgeschlossen, überspringe:', rideId);
+                            return;
+                        }
                         
                         // Prüfe ob Abholzeit in ≤ 15 Min
                         if (ride.pickupTimestamp) {
                             const minutesUntilPickup = (ride.pickupTimestamp - now) / (1000 * 60);
                             
-                            if (minutesUntilPickup <= 15) {
-                                console.log('📅 Vorbestellung wird aktiviert:', rideId, minutesUntilPickup, 'Min');
+                            if (minutesUntilPickup <= 15 && minutesUntilPickup > 0) {
+                                console.log('📅 Vorbestellung wird aktiviert:', rideId, 'noch', minutesUntilPickup.toFixed(1), 'Min');
                                 
-                                // Status auf "neu" setzen → Fahrer bekommen Benachrichtigung
-                                db.ref('rides/' + rideId).update({
+                                // Status auf "new" setzen → Fahrer bekommen Benachrichtigung
+                                await db.ref('rides/' + rideId).update({
                                     status: 'new',
                                     activatedAt: Date.now()
                                 });
+                                
+                                // 🎯 STARTE AUTO-ASSIGNMENT für aktivierte Vorbestellung
+                                const updatedRide = { ...ride, status: 'new', firebaseId: rideId };
+                                startAutoAssignment(rideId, updatedRide);
+                                console.log('🎯 Auto-Assignment gestartet für aktivierte Vorbestellung:', rideId);
+                            } else if (minutesUntilPickup <= 0) {
+                                console.log('⏰ Vorbestellung ist überfällig:', rideId, 'war vor', Math.abs(minutesUntilPickup).toFixed(1), 'Min');
                             }
                         }
                     });

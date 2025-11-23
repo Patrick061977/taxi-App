@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.5 - GPS & Toggle Fix! 🔧 (Build 20251123-1600)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.8.6 - Fahrzeug-Blockierung! 🚫 (Build 20251123-1730)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3932,10 +3932,10 @@
                 // 2. Hat GPS-Position
                 // 3. Hat keine aktive Fahrt
                 if (driver && driver.online && driver.lat && driver.lon) {
-                    // Prüfe ob Fahrzeug bereits eine Fahrt hat
+                    // Prüfe ob Fahrzeug bereits eine Fahrt hat oder zugewiesen bekommen hat
                     const hasActiveRide = rides.some(r => 
                         (r.vehicleId === vehicleId || r.assignedTo === vehicleId) && 
-                        (r.status === 'accepted' || r.status === 'picked_up')
+                        (r.status === 'assigned' || r.status === 'accepted' || r.status === 'picked_up')
                     );
                     
                     if (!hasActiveRide) {

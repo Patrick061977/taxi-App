@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.4.0 - Mein Konto! 👤 (Build 20251124-2300)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.4.1 - Preis-Sync! 💰 (Build 20251124-2320)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1179,7 +1179,7 @@
             <!-- Automatische Anpassung -->
             <div style="margin-bottom:20px;">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:#f9fafb;border-radius:8px;">
-                    <input type="checkbox" id="auto-surge-enabled" onchange="saveePricingSettings()" checked style="width:20px;height:20px;">
+                    <input type="checkbox" id="auto-surge-enabled" onchange="savePricingSettings()" checked style="width:20px;height:20px;">
                     <div>
                         <div style="font-weight:600;font-size:14px;">📊 Automatisch (Auslastung)</div>
                         <div style="font-size:12px;color:#666;">Preis steigt bei hoher Nachfrage</div>
@@ -2462,6 +2462,9 @@
                     isFirebaseReady = true;
                     console.log('✅ Firebase verbunden');
                     
+                    // 💰 Preis-Einstellungen aus Firebase laden
+                    loadPricingSettings();
+                    
                     // 🔐 Firebase Auth initialisieren mit LOCAL Persistence
                     auth = firebase.auth();
                     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
@@ -3618,34 +3621,68 @@
             return { distance: 0, duration: 0, geometry: null };
         }
 
-        // 💰 SURGE PRICING SETTINGS
+        // 💰 SURGE PRICING SETTINGS (Firebase-synchronisiert!)
         let pricingSettings = {
             autoSurgeEnabled: true,
             surgePerTaxi: 10,      // % pro aktivem Taxi
             manualMultiplier: 0    // Manueller +/- %
         };
         
-        // Lade Pricing Settings aus localStorage
+        // Lade Pricing Settings aus Firebase
         function loadPricingSettings() {
-            const saved = localStorage.getItem('pricingSettings');
-            if (saved) {
-                pricingSettings = JSON.parse(saved);
+            if (isFirebaseReady) {
+                // Einmalig laden
+                db.ref('settings/pricing').once('value').then(snapshot => {
+                    if (snapshot.exists()) {
+                        pricingSettings = { ...pricingSettings, ...snapshot.val() };
+                        console.log('💰 Pricing Settings aus Firebase geladen:', pricingSettings);
+                    }
+                    updatePricingUI();
+                });
+                
+                // Live-Updates abonnieren
+                db.ref('settings/pricing').on('value', snapshot => {
+                    if (snapshot.exists()) {
+                        pricingSettings = { ...pricingSettings, ...snapshot.val() };
+                        console.log('💰 Pricing Settings aktualisiert:', pricingSettings);
+                        updatePricingUI();
+                    }
+                });
+            } else {
+                // Fallback: localStorage
+                const saved = localStorage.getItem('pricingSettings');
+                if (saved) {
+                    pricingSettings = JSON.parse(saved);
+                }
+                updatePricingUI();
             }
-            updatePricingUI();
         }
         
-        // Speichere Pricing Settings
+        // Speichere Pricing Settings in Firebase
         function savePricingSettings() {
             pricingSettings.autoSurgeEnabled = document.getElementById('auto-surge-enabled')?.checked ?? true;
             pricingSettings.surgePerTaxi = parseInt(document.getElementById('surge-per-taxi')?.value ?? 10);
+            
+            if (isFirebaseReady) {
+                db.ref('settings/pricing').update({
+                    autoSurgeEnabled: pricingSettings.autoSurgeEnabled,
+                    surgePerTaxi: pricingSettings.surgePerTaxi
+                });
+            }
             localStorage.setItem('pricingSettings', JSON.stringify(pricingSettings));
             updatePricingUI();
             console.log('💰 Pricing Settings gespeichert:', pricingSettings);
         }
         
-        // Manuellen Multiplikator setzen
+        // Manuellen Multiplikator setzen (in Firebase!)
         function setManualMultiplier(value) {
             pricingSettings.manualMultiplier = value;
+            
+            if (isFirebaseReady) {
+                db.ref('settings/pricing').update({
+                    manualMultiplier: value
+                });
+            }
             localStorage.setItem('pricingSettings', JSON.stringify(pricingSettings));
             
             // Button-Styling aktualisieren

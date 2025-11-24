@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.5 - CRM Speicher-Option! 💾 (Build 20251124-1735)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.6 - CSV Import Fix! 📥 (Build 20251124-1745)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5900,18 +5900,28 @@
                     console.log('📥 CSV Headers:', headers);
                     
                     // Finde relevante Spalten (Google CSV Format)
-                    const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name') && !h.toLowerCase().includes('given') && !h.toLowerCase().includes('family'));
-                    const firstNameIdx = headers.findIndex(h => h.toLowerCase().includes('given name') || h.toLowerCase().includes('first name') || h.toLowerCase() === 'vorname');
-                    const lastNameIdx = headers.findIndex(h => h.toLowerCase().includes('family name') || h.toLowerCase().includes('last name') || h.toLowerCase() === 'nachname');
-                    const phoneIdx = headers.findIndex(h => h.toLowerCase().includes('phone') || h.toLowerCase().includes('telefon') || h.toLowerCase().includes('mobile') || h.toLowerCase().includes('mobil'));
-                    const emailIdx = headers.findIndex(h => h.toLowerCase().includes('e-mail') || h.toLowerCase().includes('email'));
-                    const addressIdx = headers.findIndex(h => h.toLowerCase().includes('address') || h.toLowerCase().includes('adresse') || h.toLowerCase().includes('street'));
+                    const firstNameIdx = headers.findIndex(h => h === 'First Name');
+                    const lastNameIdx = headers.findIndex(h => h === 'Last Name');
+                    const orgNameIdx = headers.findIndex(h => h === 'Organization Name');
+                    const phone1Idx = headers.findIndex(h => h === 'Phone 1 - Value');
+                    const phone2Idx = headers.findIndex(h => h === 'Phone 2 - Value');
+                    const email1Idx = headers.findIndex(h => h === 'E-mail 1 - Value');
+                    const addressIdx = headers.findIndex(h => h === 'Address 1 - Formatted');
+                    const streetIdx = headers.findIndex(h => h === 'Address 1 - Street');
+                    const cityIdx = headers.findIndex(h => h === 'Address 1 - City');
+                    const postalIdx = headers.findIndex(h => h === 'Address 1 - Postal Code');
                     
-                    console.log('📥 Spalten-Index: Name=' + nameIdx + ', FirstName=' + firstNameIdx + ', LastName=' + lastNameIdx + ', Phone=' + phoneIdx + ', Email=' + emailIdx + ', Address=' + addressIdx);
+                    console.log('📥 Spalten: FirstName=' + firstNameIdx + ', LastName=' + lastNameIdx + ', Org=' + orgNameIdx + ', Phone1=' + phone1Idx + ', Email=' + email1Idx);
                     
                     let imported = 0;
                     let skipped = 0;
-                    let errors = [];
+                    
+                    // Lade existierende Kunden einmal
+                    const existingSnapshot = await db.ref('customers').once('value');
+                    const existingCustomers = [];
+                    existingSnapshot.forEach(child => {
+                        existingCustomers.push(child.val());
+                    });
                     
                     // Daten parsen (ab Zeile 2)
                     for (let i = 1; i < lines.length; i++) {
@@ -5921,44 +5931,59 @@
                         
                         // Name zusammenbauen
                         let name = '';
-                        if (nameIdx >= 0 && values[nameIdx]) {
-                            name = values[nameIdx].trim();
-                        } else if (firstNameIdx >= 0 || lastNameIdx >= 0) {
-                            const firstName = firstNameIdx >= 0 ? (values[firstNameIdx] || '').trim() : '';
-                            const lastName = lastNameIdx >= 0 ? (values[lastNameIdx] || '').trim() : '';
+                        const firstName = firstNameIdx >= 0 ? (values[firstNameIdx] || '').trim() : '';
+                        const lastName = lastNameIdx >= 0 ? (values[lastNameIdx] || '').trim() : '';
+                        const orgName = orgNameIdx >= 0 ? (values[orgNameIdx] || '').trim() : '';
+                        
+                        // Priorität: Vorname+Nachname, dann Organisation
+                        if (firstName || lastName) {
                             name = (firstName + ' ' + lastName).trim();
+                        } else if (orgName) {
+                            name = orgName;
                         }
                         
-                        // Telefon
-                        let phone = phoneIdx >= 0 ? (values[phoneIdx] || '').trim() : '';
-                        // Bereinige Telefonnummer
+                        // Telefon (erste gefundene)
+                        let phone = '';
+                        if (phone1Idx >= 0) phone = (values[phone1Idx] || '').trim();
+                        if (!phone && phone2Idx >= 0) phone = (values[phone2Idx] || '').trim();
                         phone = phone.replace(/[^\d+\s-]/g, '').trim();
                         
                         // Email
-                        const email = emailIdx >= 0 ? (values[emailIdx] || '').trim() : '';
+                        const email = email1Idx >= 0 ? (values[email1Idx] || '').trim() : '';
                         
-                        // Adresse
-                        const address = addressIdx >= 0 ? (values[addressIdx] || '').trim() : '';
+                        // Adresse zusammenbauen
+                        let address = '';
+                        if (addressIdx >= 0) {
+                            address = (values[addressIdx] || '').trim().replace(/\n/g, ', ');
+                        }
+                        if (!address && streetIdx >= 0) {
+                            const street = (values[streetIdx] || '').trim();
+                            const city = cityIdx >= 0 ? (values[cityIdx] || '').trim() : '';
+                            const postal = postalIdx >= 0 ? (values[postalIdx] || '').trim() : '';
+                            if (street) {
+                                address = street;
+                                if (postal || city) address += ', ' + (postal + ' ' + city).trim();
+                            }
+                        }
                         
-                        // Nur importieren wenn Name UND (Telefon ODER Email) vorhanden
+                        // Nur importieren wenn Name vorhanden
                         if (!name) {
                             skipped++;
                             continue;
                         }
                         
-                        if (!phone && !email) {
-                            skipped++;
-                            continue;
-                        }
-                        
-                        // Prüfe ob Kunde schon existiert (per Telefon oder Email)
-                        const existingSnapshot = await db.ref('customers').once('value');
+                        // Prüfe ob Kunde schon existiert (per Telefon, Email oder Name)
                         let exists = false;
-                        existingSnapshot.forEach(child => {
-                            const c = child.val();
-                            if (phone && c.phone === phone) exists = true;
-                            if (email && c.email === email) exists = true;
-                        });
+                        for (const c of existingCustomers) {
+                            if (phone && c.phone && c.phone.replace(/\D/g, '') === phone.replace(/\D/g, '')) {
+                                exists = true;
+                                break;
+                            }
+                            if (email && c.email && c.email.toLowerCase() === email.toLowerCase()) {
+                                exists = true;
+                                break;
+                            }
+                        }
                         
                         if (exists) {
                             skipped++;
@@ -5980,6 +6005,7 @@
                         };
                         
                         await db.ref('customers').push(newCustomer);
+                        existingCustomers.push(newCustomer); // Für Duplikat-Check
                         imported++;
                     }
                     
@@ -5987,7 +6013,7 @@
                     alert(
                         '📥 Import abgeschlossen!\n\n' +
                         '✅ Importiert: ' + imported + ' Kontakte\n' +
-                        '⏭️ Übersprungen: ' + skipped + ' (bereits vorhanden oder unvollständig)\n\n' +
+                        '⏭️ Übersprungen: ' + skipped + ' (bereits vorhanden oder ohne Name)\n\n' +
                         'Klicke "🔄 Kunden laden" um die Liste zu aktualisieren.'
                     );
                     

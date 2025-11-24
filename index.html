@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.0 - Stammkunden-CRM! 📋 (Build 20251124-1550)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1610)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1016,9 +1016,14 @@
                 <input type="text" id="user-search" placeholder="🔍 Benutzer suchen..." oninput="searchUsers()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
             </div>
             <div id="users-list" style="max-height:300px;overflow-y:auto;"></div>
-            <button onclick="loadAllUsers()" style="width:100%;margin-top:10px;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                🔄 Benutzer laden
-            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                <button onclick="loadAllUsers()" style="padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔄 Benutzer laden
+                </button>
+                <button onclick="showAddUserModal()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    ➕ Neuer Mitarbeiter
+                </button>
+            </div>
         </div>
         
         <!-- 📋 NEU: STAMMKUNDEN-CRM -->
@@ -5435,6 +5440,97 @@
             renderUsersList(filtered);
         }
         
+        // 🚗 Fahrzeug-Liste
+        const vehicles = ['Tesla #1', 'Tesla #2', 'Tesla #3', 'Tesla #4', 'Tesla #5'];
+        
+        // ➕ NEUER MITARBEITER
+        function showAddUserModal() {
+            const modal = document.createElement('div');
+            modal.id = 'add-user-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+                    <h3 style="margin:0 0 15px 0;">➕ Neuer Mitarbeiter</h3>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div>
+                            <label style="font-size:12px;color:#666;">Name *</label>
+                            <input type="text" id="new-user-name" placeholder="Max Mustermann" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#666;">Email *</label>
+                            <input type="email" id="new-user-email" placeholder="fahrer@gmail.com" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#666;">Telefon</label>
+                            <input type="text" id="new-user-phone" placeholder="0173 1234567" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#666;">Rolle *</label>
+                            <select id="new-user-role" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                                <option value="fahrgast">Fahrgast</option>
+                                <option value="fahrer" selected>Fahrer</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#666;">Fahrzeug (für Fahrer)</label>
+                            <select id="new-user-vehicle" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                                <option value="">-- Kein Fahrzeug --</option>
+                                ${vehicles.map(v => `<option value="${v}">${v}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px;margin-top:15px;font-size:12px;">
+                        ⚠️ Der Mitarbeiter muss sich später selbst mit dieser Email registrieren. Die Rolle wird automatisch zugewiesen.
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:15px;">
+                        <button onclick="saveNewUser()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Speichern</button>
+                        <button onclick="closeAddUserModal()" style="flex:1;padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        function closeAddUserModal() {
+            const modal = document.getElementById('add-user-modal');
+            if (modal) modal.remove();
+        }
+        
+        async function saveNewUser() {
+            const name = document.getElementById('new-user-name').value.trim();
+            const email = document.getElementById('new-user-email').value.trim();
+            const role = document.getElementById('new-user-role').value;
+            
+            if (!name || !email) {
+                alert('❌ Name und Email sind erforderlich!');
+                return;
+            }
+            
+            // Erstelle vorab einen Eintrag - wird mit echtem UID verknüpft wenn User sich registriert
+            const userData = {
+                displayName: name,
+                email: email,
+                phone: document.getElementById('new-user-phone').value.trim(),
+                role: role,
+                vehicle: document.getElementById('new-user-vehicle').value,
+                preRegistered: true,
+                createdAt: Date.now()
+            };
+            
+            try {
+                // Speichere unter Email als Key (wird später mit UID verknüpft)
+                const emailKey = email.replace(/\./g, '_').replace(/@/g, '_at_');
+                await db.ref('preRegisteredUsers/' + emailKey).set(userData);
+                console.log('✅ Mitarbeiter vorregistriert:', email);
+                closeAddUserModal();
+                alert('✅ Mitarbeiter "' + name + '" wurde angelegt!\n\nDer Mitarbeiter kann sich jetzt mit ' + email + ' registrieren und bekommt automatisch die Rolle "' + role + '".');
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Speichern');
+            }
+        }
+        
         function renderUsersList(users) {
             const container = document.getElementById('users-list');
             
@@ -5450,18 +5546,91 @@
                 return `
                     <div style="background:white;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <div>
+                            <div style="flex:1;">
                                 <div style="font-weight:600;">${user.displayName || 'Unbekannt'}</div>
                                 <div style="font-size:12px;color:#666;">${user.email}</div>
-                                <div style="font-size:11px;color:#999;">Letzter Login: ${user.lastLogin ? new Date(user.lastLogin).toLocaleString('de-DE') : 'Nie'}</div>
+                                ${user.phone ? `<div style="font-size:11px;color:#888;">📞 ${user.phone}</div>` : ''}
+                                ${user.vehicle ? `<div style="font-size:11px;color:#10b981;">🚗 ${user.vehicle}</div>` : ''}
+                                <div style="font-size:10px;color:#999;">Letzter Login: ${user.lastLogin ? new Date(user.lastLogin).toLocaleString('de-DE') : 'Nie'}</div>
                             </div>
-                            <select onchange="changeUserRole('${user.uid}', this.value)" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;">
-                                ${roleOptions.map(role => `<option value="${role}" ${currentRole === role ? 'selected' : ''}>${role.charAt(0).toUpperCase() + role.slice(1)}</option>`).join('')}
-                            </select>
+                            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
+                                <select onchange="changeUserRole('${user.uid}', this.value)" style="padding:6px;border:2px solid #e0e0e0;border-radius:6px;font-size:12px;">
+                                    ${roleOptions.map(role => `<option value="${role}" ${currentRole === role ? 'selected' : ''}>${role.charAt(0).toUpperCase() + role.slice(1)}</option>`).join('')}
+                                </select>
+                                <button onclick="editUser('${user.uid}')" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;">
+                                    ✏️ Bearbeiten
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+        
+        function editUser(uid) {
+            const user = allUsers.find(u => u.uid === uid);
+            if (!user) return;
+            
+            const currentVehicle = user.vehicle || '';
+            
+            const modal = document.createElement('div');
+            modal.id = 'edit-user-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+                    <h3 style="margin:0 0 15px 0;">✏️ Mitarbeiter bearbeiten</h3>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div>
+                            <label style="font-size:12px;color:#666;">Name</label>
+                            <input type="text" id="edit-user-name" value="${user.displayName || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#666;">Email (nicht änderbar)</label>
+                            <input type="text" value="${user.email}" disabled style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:#f3f4f6;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#666;">Telefon</label>
+                            <input type="text" id="edit-user-phone" value="${user.phone || ''}" placeholder="0173 1234567" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#666;">Fahrzeug (für Fahrer)</label>
+                            <select id="edit-user-vehicle" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                                <option value="">-- Kein Fahrzeug --</option>
+                                ${vehicles.map(v => `<option value="${v}" ${currentVehicle === v ? 'selected' : ''}>${v}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:15px;">
+                        <button onclick="saveUser('${uid}')" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Speichern</button>
+                        <button onclick="closeEditUserModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        function closeEditUserModal() {
+            const modal = document.getElementById('edit-user-modal');
+            if (modal) modal.remove();
+        }
+        
+        async function saveUser(uid) {
+            const updates = {
+                displayName: document.getElementById('edit-user-name').value.trim(),
+                phone: document.getElementById('edit-user-phone').value.trim(),
+                vehicle: document.getElementById('edit-user-vehicle').value
+            };
+            
+            try {
+                await db.ref('users/' + uid).update(updates);
+                console.log('✅ Benutzer aktualisiert');
+                closeEditUserModal();
+                loadAllUsers();
+                alert('✅ Benutzer aktualisiert!');
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Speichern');
+            }
         }
         
         async function changeUserRole(uid, newRole) {
@@ -5564,13 +5733,16 @@
             modal.id = 'add-customer-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
             modal.innerHTML = `
-                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;max-height:90vh;overflow-y:auto;">
                     <h3 style="margin:0 0 15px 0;">➕ Neuer Kunde</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="new-customer-name" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="text" id="new-customer-phone" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="email" id="new-customer-email" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
-                        <input type="text" id="new-customer-address" placeholder="Adresse" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <div style="position:relative;">
+                            <input type="text" id="new-customer-address" placeholder="🏠 Wohnanschrift (mit Autocomplete)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;" oninput="autocompleteCustomerAddress(this.value, 'new')">
+                            <div id="new-customer-address-suggestions" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:150px;overflow-y:auto;display:none;z-index:10000;"></div>
+                        </div>
                         <textarea id="new-customer-notes" placeholder="Notizen (z.B. Kindersitz, Rollstuhl)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;"></textarea>
                     </div>
                     <div style="display:flex;gap:10px;margin-top:15px;">
@@ -5580,6 +5752,42 @@
                 </div>
             `;
             document.body.appendChild(modal);
+        }
+        
+        // 🏠 Autocomplete für Kunden-Wohnanschrift
+        function autocompleteCustomerAddress(query, prefix) {
+            const suggestionsDiv = document.getElementById(prefix + '-customer-address-suggestions');
+            if (!suggestionsDiv) return;
+            
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            
+            // Nutze die vorhandene Adressen-Datenbank
+            const matches = addresses.filter(addr => 
+                addr.toLowerCase().includes(query.toLowerCase())
+            ).slice(0, 8);
+            
+            if (matches.length === 0) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            
+            suggestionsDiv.innerHTML = matches.map(addr => `
+                <div onclick="selectCustomerAddress('${addr.replace(/'/g, "\\'")}', '${prefix}')" 
+                     style="padding:10px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px;"
+                     onmouseover="this.style.background='#f3f4f6'" 
+                     onmouseout="this.style.background='white'">
+                    📍 ${addr}
+                </div>
+            `).join('');
+            suggestionsDiv.style.display = 'block';
+        }
+        
+        function selectCustomerAddress(address, prefix) {
+            document.getElementById(prefix + '-customer-address').value = address;
+            document.getElementById(prefix + '-customer-address-suggestions').style.display = 'none';
         }
         
         function closeAddCustomerModal() {
@@ -5639,13 +5847,16 @@
             modal.id = 'edit-customer-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
             modal.innerHTML = `
-                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;max-height:90vh;overflow-y:auto;">
                     <h3 style="margin:0 0 15px 0;">✏️ Kunde bearbeiten</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="edit-customer-name" value="${customer.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="text" id="edit-customer-phone" value="${customer.phone || ''}" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
-                        <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="Adresse" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <div style="position:relative;">
+                            <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;" oninput="autocompleteCustomerAddress(this.value, 'edit')">
+                            <div id="edit-customer-address-suggestions" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:150px;overflow-y:auto;display:none;z-index:10000;"></div>
+                        </div>
                         <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
                     </div>
                     <div style="font-size:12px;color:#666;margin-top:10px;padding:10px;background:#f9fafb;border-radius:6px;">
@@ -7158,7 +7369,6 @@ Stack: ${err.stack}
         
         async function getUserRole(user) {
             // Admin per Email
-            // Admin per Email
             if (user.email === 'funktaxi.pw@gmail.com') {
                 return 'admin';
             }
@@ -7166,10 +7376,27 @@ Stack: ${err.stack}
             // Prüfe Firebase für zugewiesene Rollen
             if (isFirebaseReady) {
                 try {
+                    // Erst normale User-Tabelle prüfen
                     const snapshot = await db.ref('users/' + user.uid).once('value');
                     const userData = snapshot.val();
                     if (userData && userData.role) {
                         return userData.role;
+                    }
+                    
+                    // Dann vorregistrierte Mitarbeiter prüfen
+                    const emailKey = user.email.replace(/\./g, '_').replace(/@/g, '_at_');
+                    const preRegSnapshot = await db.ref('preRegisteredUsers/' + emailKey).once('value');
+                    const preRegData = preRegSnapshot.val();
+                    if (preRegData && preRegData.role) {
+                        // Übertrage Daten zum echten User
+                        await db.ref('users/' + user.uid).update({
+                            role: preRegData.role,
+                            vehicle: preRegData.vehicle || '',
+                            phone: preRegData.phone || '',
+                            preRegisteredAt: preRegData.createdAt
+                        });
+                        console.log('✅ Vorregistrierten Mitarbeiter aktiviert:', user.email, '→', preRegData.role);
+                        return preRegData.role;
                     }
                 } catch (error) {
                     console.error('❌ Fehler beim Laden der Rolle:', error);

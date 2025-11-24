@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.0.0 - Rollen-System! 🔐 (Build 20251124-1100)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.0.0 - Rollen-System! 🔐 (Build 20251124-1115)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -7076,6 +7076,12 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
+            // 🔐 STARTSEITE: Nur Fahrgast + Verlauf anzeigen (bis Login)
+            const fahrerBtn = document.querySelector('.view-btn[onclick*="driver"]');
+            const adminBtn = document.querySelector('.view-btn[onclick*="admin"]');
+            if (fahrerBtn) fahrerBtn.style.display = 'none';
+            if (adminBtn) adminBtn.style.display = 'none';
+            
             // 🐛 Globaler Error Handler für besseres Debugging
             window.addEventListener('error', (e) => {
                 console.error('❌ FEHLER:', {

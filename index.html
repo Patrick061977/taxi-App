@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1620)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1625)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5763,6 +5763,31 @@
         }
         
         // 🏠 Autocomplete für Kunden-Wohnanschrift
+        // Adressen-Datenbank für Autocomplete
+        const customerAddresses = [
+            // Orte
+            'Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide', 'Swinemünde',
+            // Wichtige Orte
+            'Bahnhof Heringsdorf', 'Bahnhof Ahlbeck', 'Bahnhof Bansin', 'Bahnhof Zinnowitz',
+            'Seebrücke Heringsdorf', 'Seebrücke Ahlbeck', 'Seebrücke Bansin',
+            // Hotels
+            'Steigenberger Grandhotel, Heringsdorf', 'Seetelhotel Ahlbecker Hof, Ahlbeck', 'Strandhotel Atlantic, Bansin',
+            'Travel Charme Strandhotel, Bansin', 'Das Ahlbeck Hotel & Spa, Ahlbeck', 'Maritim Hotel, Heringsdorf',
+            // Straßen Heringsdorf
+            'Amselring, Heringsdorf', 'Bergstraße, Heringsdorf', 'Brunnenstraße, Heringsdorf', 'Delbrückstraße, Heringsdorf',
+            'Friedenstraße, Heringsdorf', 'Kulmstraße, Heringsdorf', 'Liehrstraße, Heringsdorf', 'Maxim-Gorki-Straße, Heringsdorf',
+            'Neuwiesenweg, Heringsdorf', 'Puschkinstraße, Heringsdorf', 'Seestraße, Heringsdorf', 'Strandpromenade, Heringsdorf',
+            // Straßen Ahlbeck
+            'Dünenstraße, Ahlbeck', 'Grenzstraße, Ahlbeck', 'Kaiserstraße, Ahlbeck', 'Lindenstraße, Ahlbeck',
+            'Seestraße, Ahlbeck', 'Strandpromenade, Ahlbeck', 'Waldstraße, Ahlbeck',
+            // Straßen Bansin
+            'Bergstraße, Bansin', 'Langenberg, Bansin', 'Seestraße, Bansin', 'Strandpromenade, Bansin',
+            // Straßen Zinnowitz
+            'Bahnhofstraße, Zinnowitz', 'Dünenstraße, Zinnowitz', 'Neue Strandstraße, Zinnowitz', 'Strandpromenade, Zinnowitz',
+            // Kliniken & Medizinische Einrichtungen
+            'Helios Ostseeklinik, Ahlbeck', 'Ostsee-Kurklinik, Finkenwalde', 'Klinikum Greifswald'
+        ];
+        
         function autocompleteCustomerAddress(query, prefix) {
             const suggestionsDiv = document.getElementById(prefix + '-customer-address-suggestions');
             if (!suggestionsDiv) return;
@@ -5772,8 +5797,8 @@
                 return;
             }
             
-            // Nutze die vorhandene Adressen-Datenbank
-            const matches = addresses.filter(addr => 
+            // Nutze die Kunden-Adressen-Datenbank
+            const matches = customerAddresses.filter(addr => 
                 addr.toLowerCase().includes(query.toLowerCase())
             ).slice(0, 8);
             

@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1625)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1630)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5762,60 +5762,75 @@
             document.body.appendChild(modal);
         }
         
-        // 🏠 Autocomplete für Kunden-Wohnanschrift
-        // Adressen-Datenbank für Autocomplete
-        const customerAddresses = [
-            // Orte
-            'Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide', 'Swinemünde',
-            // Wichtige Orte
-            'Bahnhof Heringsdorf', 'Bahnhof Ahlbeck', 'Bahnhof Bansin', 'Bahnhof Zinnowitz',
-            'Seebrücke Heringsdorf', 'Seebrücke Ahlbeck', 'Seebrücke Bansin',
-            // Hotels
-            'Steigenberger Grandhotel, Heringsdorf', 'Seetelhotel Ahlbecker Hof, Ahlbeck', 'Strandhotel Atlantic, Bansin',
-            'Travel Charme Strandhotel, Bansin', 'Das Ahlbeck Hotel & Spa, Ahlbeck', 'Maritim Hotel, Heringsdorf',
-            // Straßen Heringsdorf
-            'Amselring, Heringsdorf', 'Bergstraße, Heringsdorf', 'Brunnenstraße, Heringsdorf', 'Delbrückstraße, Heringsdorf',
-            'Friedenstraße, Heringsdorf', 'Kulmstraße, Heringsdorf', 'Liehrstraße, Heringsdorf', 'Maxim-Gorki-Straße, Heringsdorf',
-            'Neuwiesenweg, Heringsdorf', 'Puschkinstraße, Heringsdorf', 'Seestraße, Heringsdorf', 'Strandpromenade, Heringsdorf',
-            // Straßen Ahlbeck
-            'Dünenstraße, Ahlbeck', 'Grenzstraße, Ahlbeck', 'Kaiserstraße, Ahlbeck', 'Lindenstraße, Ahlbeck',
-            'Seestraße, Ahlbeck', 'Strandpromenade, Ahlbeck', 'Waldstraße, Ahlbeck',
-            // Straßen Bansin
-            'Bergstraße, Bansin', 'Langenberg, Bansin', 'Seestraße, Bansin', 'Strandpromenade, Bansin',
-            // Straßen Zinnowitz
-            'Bahnhofstraße, Zinnowitz', 'Dünenstraße, Zinnowitz', 'Neue Strandstraße, Zinnowitz', 'Strandpromenade, Zinnowitz',
-            // Kliniken & Medizinische Einrichtungen
-            'Helios Ostseeklinik, Ahlbeck', 'Ostsee-Kurklinik, Finkenwalde', 'Klinikum Greifswald'
-        ];
-        
-        function autocompleteCustomerAddress(query, prefix) {
+        // 🏠 Autocomplete für Kunden-Wohnanschrift (nutzt Nominatim API wie Abholort/Zielort)
+        async function autocompleteCustomerAddress(query, prefix) {
             const suggestionsDiv = document.getElementById(prefix + '-customer-address-suggestions');
             if (!suggestionsDiv) return;
             
-            if (query.length < 2) {
+            if (query.length < 3) {
                 suggestionsDiv.style.display = 'none';
                 return;
             }
             
-            // Nutze die Kunden-Adressen-Datenbank
-            const matches = customerAddresses.filter(addr => 
-                addr.toLowerCase().includes(query.toLowerCase())
-            ).slice(0, 8);
-            
-            if (matches.length === 0) {
+            try {
+                // Suche mit Nominatim API (wie bei Abholort/Zielort)
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?` +
+                    `format=json&` +
+                    `q=${encodeURIComponent(query + ', Usedom')}&` +
+                    `countrycodes=de&` +
+                    `limit=8&` +
+                    `addressdetails=1`
+                );
+                
+                const results = await response.json();
+                
+                if (results.length === 0) {
+                    suggestionsDiv.innerHTML = '<div style="padding:10px;color:#999;font-size:13px;">Keine Ergebnisse</div>';
+                    suggestionsDiv.style.display = 'block';
+                    return;
+                }
+                
+                suggestionsDiv.innerHTML = results.map(r => {
+                    const address = r.address;
+                    let displayText = '';
+                    
+                    // Straße + Hausnummer
+                    if (address.road) {
+                        displayText = address.road;
+                        if (address.house_number) displayText += ' ' + address.house_number;
+                    } else if (r.name) {
+                        displayText = r.name;
+                    }
+                    
+                    // Ort
+                    let city = address.village || address.town || address.city || address.municipality || '';
+                    if (city && displayText) {
+                        displayText += ', ' + city;
+                    } else if (city) {
+                        displayText = city;
+                    }
+                    
+                    // Fallback
+                    if (!displayText) {
+                        displayText = r.display_name.split(',').slice(0, 3).join(',');
+                    }
+                    
+                    return `
+                        <div onclick="selectCustomerAddress('${displayText.replace(/'/g, "\\'")}', '${prefix}')" 
+                             style="padding:10px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px;"
+                             onmouseover="this.style.background='#f3f4f6'" 
+                             onmouseout="this.style.background='white'">
+                            📍 ${displayText}
+                        </div>
+                    `;
+                }).join('');
+                suggestionsDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Autocomplete Fehler:', error);
                 suggestionsDiv.style.display = 'none';
-                return;
             }
-            
-            suggestionsDiv.innerHTML = matches.map(addr => `
-                <div onclick="selectCustomerAddress('${addr.replace(/'/g, "\\'")}', '${prefix}')" 
-                     style="padding:10px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px;"
-                     onmouseover="this.style.background='#f3f4f6'" 
-                     onmouseout="this.style.background='white'">
-                    📍 ${addr}
-                </div>
-            `).join('');
-            suggestionsDiv.style.display = 'block';
         }
         
         function selectCustomerAddress(address, prefix) {

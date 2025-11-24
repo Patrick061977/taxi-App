@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.3.0 - Stammkunden-Erkennung! 👋 (Build 20251124-2220)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.4.0 - Mein Konto! 👤 (Build 20251124-2240)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -144,6 +144,20 @@
 
     <div id="passenger-view" class="view active">
         <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
+        
+        <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
+        <div id="my-profile-box" style="display:none; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin: 0; font-size: 16px;">👤 Mein Konto</h4>
+                <button onclick="showMyProfileModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
+                    ✏️ Bearbeiten
+                </button>
+            </div>
+            <div id="my-profile-info" style="font-size: 13px; line-height: 1.6;"></div>
+            <button onclick="useMyProfileData()" style="width: 100%; background: white; color: #1d4ed8; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; margin-top: 10px;">
+                ⚡ Meine Daten übernehmen
+            </button>
+        </div>
         
         <!-- 🌟 STAMMKUNDEN-SCHNELLBUCHUNG -->
         <div id="regular-customer-box" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
@@ -5819,6 +5833,189 @@
             }, 500);
         }
         
+        // 👤 MEIN PROFIL - Funktionen für eingeloggte Kunden
+        let myProfileData = null;
+        
+        async function loadMyProfile() {
+            if (!currentUser || !isFirebaseReady) {
+                document.getElementById('my-profile-box').style.display = 'none';
+                return;
+            }
+            
+            try {
+                // Suche Profil basierend auf E-Mail
+                const snapshot = await db.ref('customers').once('value');
+                let foundProfile = null;
+                let foundProfileId = null;
+                
+                snapshot.forEach(child => {
+                    const customer = child.val();
+                    if (customer.email && customer.email.toLowerCase() === currentUser.email.toLowerCase()) {
+                        foundProfile = customer;
+                        foundProfileId = child.key;
+                        return true;
+                    }
+                });
+                
+                if (foundProfile) {
+                    myProfileData = { ...foundProfile, id: foundProfileId };
+                } else {
+                    // Neues Profil anlegen
+                    myProfileData = {
+                        name: currentUser.displayName || '',
+                        email: currentUser.email,
+                        phone: '',
+                        address: '',
+                        notes: '',
+                        totalRides: 0,
+                        totalRevenue: 0,
+                        createdAt: Date.now()
+                    };
+                    const newRef = await db.ref('customers').push(myProfileData);
+                    myProfileData.id = newRef.key;
+                }
+                
+                // Box anzeigen
+                const box = document.getElementById('my-profile-box');
+                const info = document.getElementById('my-profile-info');
+                
+                info.innerHTML = `
+                    <div><strong>${myProfileData.name || 'Name nicht gesetzt'}</strong></div>
+                    ${myProfileData.phone ? `<div>📞 ${myProfileData.phone}</div>` : '<div style="opacity:0.7">📞 Telefon nicht gesetzt</div>'}
+                    ${myProfileData.address ? `<div>🏠 ${myProfileData.address}</div>` : '<div style="opacity:0.7">🏠 Adresse nicht gesetzt</div>'}
+                `;
+                box.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Profil laden Fehler:', error);
+            }
+        }
+        
+        function showMyProfileModal() {
+            if (!myProfileData) return;
+            
+            const modal = document.createElement('div');
+            modal.id = 'my-profile-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;max-height:90vh;overflow-y:auto;">
+                    <h3 style="margin:0 0 15px 0;">👤 Meine Daten bearbeiten</h3>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <input type="text" id="my-profile-name" value="${myProfileData.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="tel" id="my-profile-phone" value="${myProfileData.phone || ''}" placeholder="Telefonnummer *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="text" id="my-profile-address" value="${myProfileData.address || ''}" placeholder="Meine Adresse (Abholort)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <div style="font-size:12px;color:#666;padding:8px;background:#f3f4f6;border-radius:6px;">
+                            📧 ${myProfileData.email}<br>
+                            ⭐ ${myProfileData.totalRides || 0} Fahrten | 💰 ${(myProfileData.totalRevenue || 0).toFixed(2)}€
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:15px;">
+                        <button onclick="document.getElementById('my-profile-modal').remove()" style="flex:1;padding:12px;background:#e5e7eb;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveMyProfile()" style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Autocomplete für Adresse
+            setupAddressAutocomplete('my-profile-address');
+        }
+        
+        async function saveMyProfile() {
+            if (!myProfileData || !myProfileData.id) return;
+            
+            const name = document.getElementById('my-profile-name').value.trim();
+            const phone = document.getElementById('my-profile-phone').value.trim();
+            const address = document.getElementById('my-profile-address').value.trim();
+            
+            if (!name) {
+                alert('❌ Bitte Name eingeben!');
+                return;
+            }
+            
+            try {
+                await db.ref('customers/' + myProfileData.id).update({
+                    name: name,
+                    phone: phone,
+                    address: address
+                });
+                
+                myProfileData.name = name;
+                myProfileData.phone = phone;
+                myProfileData.address = address;
+                
+                document.getElementById('my-profile-modal').remove();
+                loadMyProfile(); // Box aktualisieren
+                
+                alert('✅ Daten gespeichert!');
+            } catch (error) {
+                console.error('Speichern Fehler:', error);
+                alert('❌ Fehler beim Speichern: ' + error.message);
+            }
+        }
+        
+        function useMyProfileData() {
+            if (!myProfileData) return;
+            
+            if (myProfileData.name) {
+                document.getElementById('customer-name').value = myProfileData.name;
+            }
+            if (myProfileData.phone) {
+                document.getElementById('customer-phone').value = myProfileData.phone;
+            }
+            if (myProfileData.address) {
+                document.getElementById('pickup').value = myProfileData.address;
+            }
+            
+            // Scroll zum Formular
+            document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Autocomplete Setup für Profil-Adresse
+        function setupAddressAutocomplete(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            
+            let dropdown = document.getElementById(inputId + '-dropdown');
+            if (!dropdown) {
+                dropdown = document.createElement('div');
+                dropdown.id = inputId + '-dropdown';
+                dropdown.className = 'autocomplete-dropdown';
+                dropdown.style.cssText = 'position:absolute;background:white;border:2px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10000;width:calc(100% - 4px);display:none;';
+                input.parentNode.style.position = 'relative';
+                input.parentNode.appendChild(dropdown);
+            }
+            
+            input.addEventListener('input', async () => {
+                const query = input.value.trim();
+                if (query.length < 3) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' Usedom')}&limit=5&addressdetails=1`);
+                    const results = await response.json();
+                    
+                    if (results.length > 0) {
+                        dropdown.innerHTML = results.map(r => {
+                            const addr = r.display_name.split(',').slice(0, 3).join(', ');
+                            return `<div style="padding:10px;cursor:pointer;border-bottom:1px solid #eee;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'" onclick="document.getElementById('${inputId}').value='${addr.replace(/'/g, "\\'")}';document.getElementById('${inputId}-dropdown').style.display='none';">${addr}</div>`;
+                        }).join('');
+                        dropdown.style.display = 'block';
+                    } else {
+                        dropdown.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.error('Autocomplete Fehler:', e);
+                }
+            });
+        }
+        
         // 🗑️ Alle Kunden löschen (für Neu-Import)
         async function deleteAllCustomers() {
             if (!isFirebaseReady) {
@@ -8015,12 +8212,20 @@ Stack: ${err.stack}
             if (nameField && user.displayName) {
                 nameField.value = user.displayName;
             }
+            
+            // 👤 Lade "Mein Profil" für eingeloggte Kunden
+            loadMyProfile();
         }
         
         function onUserLoggedOut() {
             console.log('👤 User ausgeloggt');
             currentUser = null;
             userRole = 'fahrgast';
+            myProfileData = null;
+            
+            // 👤 "Mein Profil" Box ausblenden
+            const profileBox = document.getElementById('my-profile-box');
+            if (profileBox) profileBox.style.display = 'none';
             
             // 🔐 Alle Tabs wieder anzeigen (für nicht eingeloggte User)
             const allBtns = document.querySelectorAll('.view-btn');

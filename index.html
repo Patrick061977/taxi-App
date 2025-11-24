@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.3.0 - Stammkunden-Erkennung! 👋 (Build 20251124-2200)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.3.0 - Stammkunden-Erkennung! 👋 (Build 20251124-2220)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5731,7 +5731,7 @@
             }).join('');
         }
         
-        // 📞 Stammkunden-Erkennung bei Telefonnummer-Eingabe
+        // 📞 Stammkunden-Erkennung bei Telefonnummer-Eingabe (NUR FÜR EINGELOGGTE!)
         let phoneCheckTimeout = null;
         let lastCheckedPhone = '';
         
@@ -5740,12 +5740,19 @@
             const greetingDiv = document.getElementById('crm-greeting');
             if (!phoneInput || !greetingDiv) return;
             
+            // 🔒 NUR für eingeloggte User (Datenschutz!)
+            if (!currentUser) {
+                greetingDiv.style.display = 'none';
+                return;
+            }
+            
             const phone = phoneInput.value.trim();
             
-            // Mindestens 6 Ziffern für Suche
+            // Mindestens 10 Ziffern für Suche (komplette Nummer)
             const digits = phone.replace(/\D/g, '');
-            if (digits.length < 6) {
+            if (digits.length < 10) {
                 greetingDiv.style.display = 'none';
+                lastCheckedPhone = '';
                 return;
             }
             
@@ -5761,15 +5768,22 @@
                     const snapshot = await db.ref('customers').once('value');
                     let foundCustomer = null;
                     
+                    // Letzte 10 Ziffern der eingegebenen Nummer
+                    const inputLast10 = digits.slice(-10);
+                    
                     snapshot.forEach(child => {
                         const customer = child.val();
                         if (customer.phone) {
                             // Prüfe alle Nummern (können mit / getrennt sein)
                             const customerPhones = customer.phone.split('/').map(p => p.replace(/\D/g, ''));
                             for (const cp of customerPhones) {
-                                if (cp && (cp.includes(digits) || digits.includes(cp))) {
-                                    foundCustomer = customer;
-                                    return true; // break forEach
+                                if (cp && cp.length >= 10) {
+                                    // Vergleiche letzte 10 Ziffern (exakt!)
+                                    const cpLast10 = cp.slice(-10);
+                                    if (cpLast10 === inputLast10) {
+                                        foundCustomer = customer;
+                                        return true; // break forEach
+                                    }
                                 }
                             }
                         }

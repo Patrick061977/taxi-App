@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.9 - Kunden Reset! 🗑️ (Build 20251124-2155)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.3.0 - Stammkunden-Erkennung! 👋 (Build 20251124-2200)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -174,7 +174,9 @@
             </div>
             <div class="input-group">
                 <label>📞 Telefonnummer *</label>
-                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567" required>
+                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567" required oninput="checkPhoneInCRM()">
+                <div id="crm-greeting" style="display:none;margin-top:8px;padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:8px;font-size:14px;">
+                </div>
                 <div style="font-size:12px;color:#666;margin-top:5px;">
                     Pflichtfeld – für Rückfragen durch den Fahrer
                 </div>
@@ -5727,6 +5729,80 @@
                     </div>
                 `;
             }).join('');
+        }
+        
+        // 📞 Stammkunden-Erkennung bei Telefonnummer-Eingabe
+        let phoneCheckTimeout = null;
+        let lastCheckedPhone = '';
+        
+        async function checkPhoneInCRM() {
+            const phoneInput = document.getElementById('customer-phone');
+            const greetingDiv = document.getElementById('crm-greeting');
+            if (!phoneInput || !greetingDiv) return;
+            
+            const phone = phoneInput.value.trim();
+            
+            // Mindestens 6 Ziffern für Suche
+            const digits = phone.replace(/\D/g, '');
+            if (digits.length < 6) {
+                greetingDiv.style.display = 'none';
+                return;
+            }
+            
+            // Nicht erneut prüfen wenn gleiche Nummer
+            if (digits === lastCheckedPhone) return;
+            
+            // Debounce: Warte 500ms nach letzter Eingabe
+            clearTimeout(phoneCheckTimeout);
+            phoneCheckTimeout = setTimeout(async () => {
+                if (!isFirebaseReady) return;
+                
+                try {
+                    const snapshot = await db.ref('customers').once('value');
+                    let foundCustomer = null;
+                    
+                    snapshot.forEach(child => {
+                        const customer = child.val();
+                        if (customer.phone) {
+                            // Prüfe alle Nummern (können mit / getrennt sein)
+                            const customerPhones = customer.phone.split('/').map(p => p.replace(/\D/g, ''));
+                            for (const cp of customerPhones) {
+                                if (cp && (cp.includes(digits) || digits.includes(cp))) {
+                                    foundCustomer = customer;
+                                    return true; // break forEach
+                                }
+                            }
+                        }
+                    });
+                    
+                    lastCheckedPhone = digits;
+                    
+                    if (foundCustomer) {
+                        // Stammkunde gefunden! 🎉
+                        const rideText = foundCustomer.totalRides === 1 ? 'Fahrt' : 'Fahrten';
+                        greetingDiv.innerHTML = `
+                            <div style="font-weight:600;font-size:16px;">👋 Willkommen zurück, ${foundCustomer.name}!</div>
+                            <div style="margin-top:4px;opacity:0.9;">⭐ ${foundCustomer.totalRides || 0} ${rideText} | 💰 ${(foundCustomer.totalRevenue || 0).toFixed(2)}€ Umsatz</div>
+                        `;
+                        greetingDiv.style.display = 'block';
+                        
+                        // Daten automatisch ausfüllen
+                        const nameInput = document.getElementById('customer-name');
+                        const pickupInput = document.getElementById('pickup');
+                        
+                        if (nameInput && !nameInput.value.trim()) {
+                            nameInput.value = foundCustomer.name;
+                        }
+                        if (pickupInput && !pickupInput.value.trim() && foundCustomer.address) {
+                            pickupInput.value = foundCustomer.address;
+                        }
+                    } else {
+                        greetingDiv.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('CRM-Check Fehler:', error);
+                }
+            }, 500);
         }
         
         // 🗑️ Alle Kunden löschen (für Neu-Import)

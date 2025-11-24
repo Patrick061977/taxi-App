@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.0 - Stammkunden-CRM! 📋 (Build 20251124-1545)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.0 - Stammkunden-CRM! 📋 (Build 20251124-1550)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -2473,8 +2473,14 @@
                     isFirebaseReady = true;
                     console.log('✅ Firebase verbunden');
                     
-                    // 🔐 Firebase Auth initialisieren
+                    // 🔐 Firebase Auth initialisieren mit LOCAL Persistence
                     auth = firebase.auth();
+                    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
+                        console.log('✅ Auth Persistence: LOCAL');
+                    }).catch((error) => {
+                        console.error('❌ Persistence Fehler:', error);
+                    });
+                    
                     auth.onAuthStateChanged((user) => {
                         if (user) {
                             onUserLoggedIn(user);

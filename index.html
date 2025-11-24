@@ -48,6 +48,7 @@
         .input-group input, .input-group select { width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; }
         .btn { padding: 15px 25px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
         .btn-primary { background: #667eea; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
         .btn-success { background: #10b981; color: white; }
         .alert-success { background: #d1fae5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-bottom: 15px; color: #065f46; }
         .alert-info { background: #dbeafe; border: 2px solid #3b82f6; padding: 15px; border-radius: 8px; margin-bottom: 15px; color: #1e40af; }
@@ -104,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.9 - Abbrechen-Button! ↩️ (Build 20251124-1000)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.9 - Abbrechen-Button! ↩️ (Build 20251124-1030)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3992,6 +3993,10 @@
         
         // 🆕 BUCHUNG ABBRECHEN - setzt alles zurück
         function cancelBooking() {
+            // 🆕 Bestätigungsdialog
+            const confirmed = confirm('↩️ Buchung wirklich abbrechen?\n\nAlle eingegebenen Daten werden gelöscht.');
+            if (!confirmed) return;
+            
             // Felder leeren
             document.getElementById('pickup').value = '';
             document.getElementById('destination').value = '';

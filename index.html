@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.6 - CSV Import Fix! 📥 (Build 20251124-1745)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.7 - Multi-Telefon Import! 📱 (Build 20251124-2115)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5905,6 +5905,7 @@
                     const orgNameIdx = headers.findIndex(h => h === 'Organization Name');
                     const phone1Idx = headers.findIndex(h => h === 'Phone 1 - Value');
                     const phone2Idx = headers.findIndex(h => h === 'Phone 2 - Value');
+                    const phone3Idx = headers.findIndex(h => h === 'Phone 3 - Value');
                     const email1Idx = headers.findIndex(h => h === 'E-mail 1 - Value');
                     const addressIdx = headers.findIndex(h => h === 'Address 1 - Formatted');
                     const streetIdx = headers.findIndex(h => h === 'Address 1 - Street');
@@ -5942,11 +5943,21 @@
                             name = orgName;
                         }
                         
-                        // Telefon (erste gefundene)
-                        let phone = '';
-                        if (phone1Idx >= 0) phone = (values[phone1Idx] || '').trim();
-                        if (!phone && phone2Idx >= 0) phone = (values[phone2Idx] || '').trim();
-                        phone = phone.replace(/[^\d+\s-]/g, '').trim();
+                        // Telefon (ALLE gefundenen sammeln)
+                        let phones = [];
+                        if (phone1Idx >= 0 && values[phone1Idx]) {
+                            const p = values[phone1Idx].trim().replace(/[^\d+\s-]/g, '').trim();
+                            if (p) phones.push(p);
+                        }
+                        if (phone2Idx >= 0 && values[phone2Idx]) {
+                            const p = values[phone2Idx].trim().replace(/[^\d+\s-]/g, '').trim();
+                            if (p) phones.push(p);
+                        }
+                        if (phone3Idx >= 0 && values[phone3Idx]) {
+                            const p = values[phone3Idx].trim().replace(/[^\d+\s-]/g, '').trim();
+                            if (p) phones.push(p);
+                        }
+                        const phone = phones.join(' / ');
                         
                         // Email
                         const email = email1Idx >= 0 ? (values[email1Idx] || '').trim() : '';
@@ -5975,10 +5986,17 @@
                         // Prüfe ob Kunde schon existiert (per Telefon, Email oder Name)
                         let exists = false;
                         for (const c of existingCustomers) {
-                            if (phone && c.phone && c.phone.replace(/\D/g, '') === phone.replace(/\D/g, '')) {
-                                exists = true;
-                                break;
+                            // Prüfe jede importierte Nummer gegen existierende
+                            if (phones.length > 0 && c.phone) {
+                                const existingPhones = c.phone.replace(/\D/g, '');
+                                for (const p of phones) {
+                                    if (p.replace(/\D/g, '') && existingPhones.includes(p.replace(/\D/g, ''))) {
+                                        exists = true;
+                                        break;
+                                    }
+                                }
                             }
+                            if (exists) break;
                             if (email && c.email && c.email.toLowerCase() === email.toLowerCase()) {
                                 exists = true;
                                 break;

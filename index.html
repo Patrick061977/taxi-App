@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.7 - Multi-Telefon Import! 📱 (Build 20251124-2115)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.8 - CSV Parser Fix! 📱 (Build 20251124-2130)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5888,15 +5888,17 @@
             reader.onload = async (e) => {
                 try {
                     const csv = e.target.result;
-                    const lines = csv.split('\n');
                     
-                    if (lines.length < 2) {
+                    // NEUER CSV-Parser der mehrzeilige Felder unterstützt
+                    const rows = parseCSVMultiline(csv);
+                    
+                    if (rows.length < 2) {
                         alert('❌ CSV-Datei ist leer!');
                         return;
                     }
                     
                     // Header parsen (erste Zeile)
-                    const headers = parseCSVLine(lines[0]);
+                    const headers = rows[0];
                     console.log('📥 CSV Headers:', headers);
                     
                     // Finde relevante Spalten (Google CSV Format)
@@ -5912,7 +5914,7 @@
                     const cityIdx = headers.findIndex(h => h === 'Address 1 - City');
                     const postalIdx = headers.findIndex(h => h === 'Address 1 - Postal Code');
                     
-                    console.log('📥 Spalten: FirstName=' + firstNameIdx + ', LastName=' + lastNameIdx + ', Org=' + orgNameIdx + ', Phone1=' + phone1Idx + ', Email=' + email1Idx);
+                    console.log('📥 Spalten: FirstName=' + firstNameIdx + ', LastName=' + lastNameIdx + ', Org=' + orgNameIdx + ', Phone1=' + phone1Idx + ', Phone2=' + phone2Idx + ', Phone3=' + phone3Idx);
                     
                     let imported = 0;
                     let skipped = 0;
@@ -5925,10 +5927,9 @@
                     });
                     
                     // Daten parsen (ab Zeile 2)
-                    for (let i = 1; i < lines.length; i++) {
-                        if (!lines[i].trim()) continue;
-                        
-                        const values = parseCSVLine(lines[i]);
+                    for (let i = 1; i < rows.length; i++) {
+                        const values = rows[i];
+                        if (!values || values.length === 0) continue;
                         
                         // Name zusammenbauen
                         let name = '';
@@ -5958,6 +5959,11 @@
                             if (p) phones.push(p);
                         }
                         const phone = phones.join(' / ');
+                        
+                        // Debug: Zeige gefundene Telefonnummern
+                        if (phones.length > 1) {
+                            console.log('📱 Mehrere Nummern für ' + name + ':', phones);
+                        }
                         
                         // Email
                         const email = email1Idx >= 0 ? (values[email1Idx] || '').trim() : '';
@@ -6068,6 +6074,64 @@
             result.push(current.trim());
             
             return result;
+        }
+        
+        // NEUER CSV-Parser für mehrzeilige Felder (z.B. Adressen mit Zeilenumbrüchen)
+        function parseCSVMultiline(csv) {
+            const rows = [];
+            let currentRow = [];
+            let currentField = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < csv.length; i++) {
+                const char = csv[i];
+                const nextChar = csv[i + 1];
+                
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        // Escaped quote ("") -> single quote
+                        currentField += '"';
+                        i++; // Skip next quote
+                    } else {
+                        // Toggle quote mode
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    // End of field
+                    currentRow.push(currentField.trim());
+                    currentField = '';
+                } else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+                    // End of row (nur wenn nicht in Anführungszeichen!)
+                    if (char === '\r') i++; // Skip \n after \r
+                    currentRow.push(currentField.trim());
+                    if (currentRow.some(f => f !== '')) { // Nur nicht-leere Zeilen
+                        rows.push(currentRow);
+                    }
+                    currentRow = [];
+                    currentField = '';
+                } else if (char === '\r' && !inQuotes) {
+                    // Standalone \r = end of row
+                    currentRow.push(currentField.trim());
+                    if (currentRow.some(f => f !== '')) {
+                        rows.push(currentRow);
+                    }
+                    currentRow = [];
+                    currentField = '';
+                } else {
+                    currentField += char;
+                }
+            }
+            
+            // Letzte Zeile nicht vergessen
+            if (currentField || currentRow.length > 0) {
+                currentRow.push(currentField.trim());
+                if (currentRow.some(f => f !== '')) {
+                    rows.push(currentRow);
+                }
+            }
+            
+            console.log('📥 CSV geparst: ' + rows.length + ' Zeilen');
+            return rows;
         }
         
         // 📋 CRM: Kunde automatisch anlegen/aktualisieren bei Buchung

@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1630)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.5 - CRM Speicher-Option! 💾 (Build 20251124-1725)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -173,10 +173,10 @@
                 <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
             </div>
             <div class="input-group">
-                <label>📞 Telefonnummer (optional)</label>
-                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567">
+                <label>📞 Telefonnummer *</label>
+                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567" required>
                 <div style="font-size:12px;color:#666;margin-top:5px;">
-                    Für Rückfragen durch den Fahrer
+                    Pflichtfeld – für Rückfragen durch den Fahrer
                 </div>
             </div>
             <div class="input-group">
@@ -210,6 +210,18 @@
             <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()">💰 Preis berechnen</button>
             <div id="price-display" style="margin-top: 15px;"></div>
             <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
+            
+            <!-- CRM Speicher-Option -->
+            <div id="crm-save-option" style="display:none;margin-top:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" id="save-to-crm" checked style="width:20px;height:20px;accent-color:#10b981;">
+                    <span style="font-size:14px;">
+                        <strong>📋 Kundendaten im CRM aktualisieren</strong><br>
+                        <span style="font-size:12px;color:#666;">Adresse und Telefon werden gespeichert</span>
+                    </span>
+                </label>
+            </div>
+            
             <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
         </div>
         <div id="confirm"></div>
@@ -1044,6 +1056,12 @@
                     ➕ Neuer Kunde
                 </button>
             </div>
+            <div style="margin-top:10px;">
+                <label for="csv-import" style="display:block;padding:12px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;text-align:center;">
+                    📥 Google Kontakte importieren (CSV)
+                </label>
+                <input type="file" id="csv-import" accept=".csv" onchange="importGoogleCSV(this)" style="display:none;">
+            </div>
         </div>
         
         <!-- COLLAPSIBLE: Controls -->
@@ -1420,32 +1438,8 @@
         }
         
         function saveRegularCustomerData(name, pickup, destination) {
-            const saveCheckbox = document.getElementById('save-customer');
-            if (!saveCheckbox || !saveCheckbox.checked) return;
-            
-            // ✅ Nur speichern wenn User eingeloggt
-            if (!currentUser) return;
-            
-            // Lade bestehende Daten oder erstelle neu
-            let customer = regularCustomer || { name: name, rideCount: 0 };
-            
-            // Telefonnummer holen
-            const phone = document.getElementById('customer-phone').value.trim();
-            
-            // Update
-            customer.name = name;
-            customer.favoritePickup = pickup;
-            customer.favoriteDestination = destination;
-            customer.phone = phone;
-            customer.rideCount = (customer.rideCount || 0) + 1;
-            customer.lastRide = Date.now();
-            
-            // ✅ Speichern pro Email-Adresse
-            const storageKey = `regularCustomer_${currentUser.email}`;
-            localStorage.setItem(storageKey, JSON.stringify(customer));
-            regularCustomer = customer;
-            
-            console.log('💾 Stammkunde gespeichert für:', currentUser.email);
+            // Alte Funktion - nicht mehr benötigt
+            // CRM wird jetzt automatisch über updateCustomerCRM() aktualisiert
         }
         
         // 📅 HISTORY TAB FUNCTIONS
@@ -1754,38 +1748,6 @@
             }
         }
 
-        function saveRegularCustomerData(name, pickup, destination) {
-            const saveCheckbox = document.getElementById('save-customer');
-            if (!saveCheckbox || !saveCheckbox.checked) return;
-            
-            // ✅ Nur speichern wenn User eingeloggt
-            if (!currentUser) return;
-            
-            // Lade bestehende Daten oder erstelle neu
-            let customer = regularCustomer || { name: name, rideCount: 0 };
-            
-            // Telefonnummer holen
-            const phone = document.getElementById('customer-phone').value.trim();
-            
-            // Update
-            customer.name = name;
-            customer.favoritePickup = pickup;
-            customer.favoriteDestination = destination;
-            customer.phone = phone;
-            customer.rideCount = (customer.rideCount || 0) + 1;
-            customer.lastRide = Date.now();
-            
-            // ✅ Speichern pro Email-Adresse
-            const storageKey = `regularCustomer_${currentUser.email}`;
-            localStorage.setItem(storageKey, JSON.stringify(customer));
-            regularCustomer = customer;
-            
-            // Update User Profile Box
-            updateUserProfile();
-            
-            console.log('💾 Stammkunde gespeichert für:', currentUser.email);
-        }
-        
         // 🗑️ Fahrt aus Verlauf stornieren
         async function cancelRideFromHistory(rideId) {
             const confirmCancel = confirm('🗑️ Fahrt wirklich stornieren?');
@@ -4362,6 +4324,12 @@
                 return;
             }
             
+            if (!customerPhone) {
+                alert('❌ Bitte Telefonnummer eingeben!\n\nDie Telefonnummer wird benötigt, damit der Fahrer Sie bei Rückfragen erreichen kann.');
+                document.getElementById('customer-phone').focus();
+                return;
+            }
+            
             let pickupTime = 'Sofort';
             let pickupTimestamp = Date.now();
             const now = new Date();
@@ -4435,8 +4403,27 @@
             myCurrentRide = savedRide;
             localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
             
-            // 💾 Stammkunde speichern wenn gewünscht
-            saveRegularCustomerData(customerName, ride.pickup, ride.destination);
+            // 📋 CRM: Kunde automatisch anlegen/aktualisieren
+            await updateCustomerCRM(customerName, customerPhone, ride.pickup, ride.price);
+            
+            // 📋 CRM: Stammkunden-Daten aktualisieren wenn Checkbox aktiv
+            const saveToCrmCheckbox = document.getElementById('save-to-crm');
+            if (currentBookingCustomerId && saveToCrmCheckbox && saveToCrmCheckbox.checked) {
+                try {
+                    await db.ref('customers/' + currentBookingCustomerId).update({
+                        phone: customerPhone,
+                        address: ride.pickup
+                    });
+                    console.log('📋 Stammkunden-Daten aktualisiert:', currentBookingCustomerId);
+                } catch (error) {
+                    console.error('❌ Fehler beim Aktualisieren:', error);
+                }
+            }
+            
+            // Reset Stammkunden-ID und verstecke Checkbox
+            currentBookingCustomerId = null;
+            const crmOption = document.getElementById('crm-save-option');
+            if (crmOption) crmOption.style.display = 'none';
             
             // 🔄 Aktualisiere Verlauf (damit Vorbestellung sofort sichtbar ist)
             updateHistoryView();
@@ -5748,8 +5735,8 @@
                         <input type="text" id="new-customer-phone" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="email" id="new-customer-email" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;">
-                            <input type="text" id="new-customer-address" placeholder="🏠 Wohnanschrift (mit Autocomplete)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;" oninput="autocompleteCustomerAddress(this.value, 'new')">
-                            <div id="new-customer-address-suggestions" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:150px;overflow-y:auto;display:none;z-index:10000;"></div>
+                            <input type="text" id="new-customer-address" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
+                            <div id="new-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                         </div>
                         <textarea id="new-customer-notes" placeholder="Notizen (z.B. Kindersitz, Rollstuhl)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;"></textarea>
                     </div>
@@ -5760,24 +5747,59 @@
                 </div>
             `;
             document.body.appendChild(modal);
+            
+            // Autocomplete aktivieren nach Modal erscheint
+            setTimeout(() => {
+                setupCustomerAddressAutocomplete('new-customer-address', 'new-customer-address-dropdown');
+            }, 100);
+            `;
+            document.body.appendChild(modal);
         }
         
-        // 🏠 Autocomplete für Kunden-Wohnanschrift (nutzt Nominatim API wie Abholort/Zielort)
-        async function autocompleteCustomerAddress(query, prefix) {
-            const suggestionsDiv = document.getElementById(prefix + '-customer-address-suggestions');
-            if (!suggestionsDiv) return;
+        // 🏠 Autocomplete für Kunden-Wohnanschrift - nutzt GLEICHE Funktion wie Abholort/Zielort
+        let customerAddressTimeout = null;
+        
+        function setupCustomerAddressAutocomplete(inputId, suggestionsId) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(suggestionsId);
+            if (!input || !dropdown) return;
             
-            if (query.length < 3) {
-                suggestionsDiv.style.display = 'none';
-                return;
-            }
+            input.addEventListener('input', (e) => {
+                clearTimeout(customerAddressTimeout);
+                const value = e.target.value.trim();
+                
+                if (value.length < 3) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                
+                // Zeige "Lädt..." sofort
+                dropdown.innerHTML = '<div style="padding:10px;color:#999;font-size:13px;">Suche...</div>';
+                dropdown.style.display = 'block';
+                
+                // Verzögerte Suche (Debounce)
+                customerAddressTimeout = setTimeout(() => {
+                    searchCustomerAddresses(value, inputId, suggestionsId);
+                }, 300);
+            });
+            
+            // Schließe Dropdown wenn außerhalb geklickt
+            document.addEventListener('click', (e) => {
+                if (e.target !== input && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+        
+        async function searchCustomerAddresses(query, inputId, suggestionsId) {
+            const dropdown = document.getElementById(suggestionsId);
             
             try {
-                // Suche mit Nominatim API (wie bei Abholort/Zielort)
+                // GLEICHE Suche wie bei Abholort/Zielort!
                 const response = await fetch(
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
-                    `q=${encodeURIComponent(query + ', Usedom')}&` +
+                    `q=${encodeURIComponent(query)}&` +
                     `countrycodes=de&` +
                     `limit=8&` +
                     `addressdetails=1`
@@ -5786,12 +5808,30 @@
                 const results = await response.json();
                 
                 if (results.length === 0) {
-                    suggestionsDiv.innerHTML = '<div style="padding:10px;color:#999;font-size:13px;">Keine Ergebnisse</div>';
-                    suggestionsDiv.style.display = 'block';
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;font-size:13px;">Keine Ergebnisse gefunden</div>';
                     return;
                 }
                 
-                suggestionsDiv.innerHTML = results.map(r => {
+                // Filtere Usedom-relevante Ergebnisse (wie bei Abholort)
+                const usedomResults = results.filter(r => {
+                    const display = r.display_name.toLowerCase();
+                    return display.includes('usedom') || 
+                           display.includes('heringsdorf') || 
+                           display.includes('ahlbeck') ||
+                           display.includes('bansin') ||
+                           display.includes('zinnowitz') ||
+                           display.includes('karlshagen') ||
+                           display.includes('peenemünde') ||
+                           display.includes('koserow') ||
+                           display.includes('ückeritz') ||
+                           display.includes('loddin') ||
+                           display.includes('zempin') ||
+                           display.includes('trassenheide');
+                });
+                
+                const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
+                
+                dropdown.innerHTML = resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
                     
@@ -5799,25 +5839,23 @@
                     if (address.road) {
                         displayText = address.road;
                         if (address.house_number) displayText += ' ' + address.house_number;
-                    } else if (r.name) {
-                        displayText = r.name;
                     }
                     
-                    // Ort
-                    let city = address.village || address.town || address.city || address.municipality || '';
-                    if (city && displayText) {
-                        displayText += ', ' + city;
-                    } else if (city) {
-                        displayText = city;
-                    }
+                    // PLZ + Ort
+                    let location = '';
+                    if (address.postcode) location = address.postcode + ' ';
+                    location += address.village || address.town || address.city || address.municipality || '';
                     
-                    // Fallback
-                    if (!displayText) {
+                    if (location && displayText) {
+                        displayText += ', ' + location.trim();
+                    } else if (location) {
+                        displayText = location.trim();
+                    } else if (r.display_name) {
                         displayText = r.display_name.split(',').slice(0, 3).join(',');
                     }
                     
                     return `
-                        <div onclick="selectCustomerAddress('${displayText.replace(/'/g, "\\'")}', '${prefix}')" 
+                        <div onclick="document.getElementById('${inputId}').value='${displayText.replace(/'/g, "\\'")}'; document.getElementById('${suggestionsId}').style.display='none';" 
                              style="padding:10px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px;"
                              onmouseover="this.style.background='#f3f4f6'" 
                              onmouseout="this.style.background='white'">
@@ -5825,22 +5863,243 @@
                         </div>
                     `;
                 }).join('');
-                suggestionsDiv.style.display = 'block';
                 
             } catch (error) {
                 console.error('Autocomplete Fehler:', error);
-                suggestionsDiv.style.display = 'none';
+                dropdown.innerHTML = '<div style="padding:10px;color:#ef4444;font-size:13px;">Fehler bei der Suche</div>';
             }
-        }
-        
-        function selectCustomerAddress(address, prefix) {
-            document.getElementById(prefix + '-customer-address').value = address;
-            document.getElementById(prefix + '-customer-address-suggestions').style.display = 'none';
         }
         
         function closeAddCustomerModal() {
             const modal = document.getElementById('add-customer-modal');
             if (modal) modal.remove();
+        }
+        
+        // 📥 Google Kontakte CSV Import
+        async function importGoogleCSV(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const csv = e.target.result;
+                    const lines = csv.split('\n');
+                    
+                    if (lines.length < 2) {
+                        alert('❌ CSV-Datei ist leer!');
+                        return;
+                    }
+                    
+                    // Header parsen (erste Zeile)
+                    const headers = parseCSVLine(lines[0]);
+                    console.log('📥 CSV Headers:', headers);
+                    
+                    // Finde relevante Spalten (Google CSV Format)
+                    const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name') && !h.toLowerCase().includes('given') && !h.toLowerCase().includes('family'));
+                    const firstNameIdx = headers.findIndex(h => h.toLowerCase().includes('given name') || h.toLowerCase().includes('first name') || h.toLowerCase() === 'vorname');
+                    const lastNameIdx = headers.findIndex(h => h.toLowerCase().includes('family name') || h.toLowerCase().includes('last name') || h.toLowerCase() === 'nachname');
+                    const phoneIdx = headers.findIndex(h => h.toLowerCase().includes('phone') || h.toLowerCase().includes('telefon') || h.toLowerCase().includes('mobile') || h.toLowerCase().includes('mobil'));
+                    const emailIdx = headers.findIndex(h => h.toLowerCase().includes('e-mail') || h.toLowerCase().includes('email'));
+                    const addressIdx = headers.findIndex(h => h.toLowerCase().includes('address') || h.toLowerCase().includes('adresse') || h.toLowerCase().includes('street'));
+                    
+                    console.log('📥 Spalten-Index: Name=' + nameIdx + ', FirstName=' + firstNameIdx + ', LastName=' + lastNameIdx + ', Phone=' + phoneIdx + ', Email=' + emailIdx + ', Address=' + addressIdx);
+                    
+                    let imported = 0;
+                    let skipped = 0;
+                    let errors = [];
+                    
+                    // Daten parsen (ab Zeile 2)
+                    for (let i = 1; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
+                        
+                        const values = parseCSVLine(lines[i]);
+                        
+                        // Name zusammenbauen
+                        let name = '';
+                        if (nameIdx >= 0 && values[nameIdx]) {
+                            name = values[nameIdx].trim();
+                        } else if (firstNameIdx >= 0 || lastNameIdx >= 0) {
+                            const firstName = firstNameIdx >= 0 ? (values[firstNameIdx] || '').trim() : '';
+                            const lastName = lastNameIdx >= 0 ? (values[lastNameIdx] || '').trim() : '';
+                            name = (firstName + ' ' + lastName).trim();
+                        }
+                        
+                        // Telefon
+                        let phone = phoneIdx >= 0 ? (values[phoneIdx] || '').trim() : '';
+                        // Bereinige Telefonnummer
+                        phone = phone.replace(/[^\d+\s-]/g, '').trim();
+                        
+                        // Email
+                        const email = emailIdx >= 0 ? (values[emailIdx] || '').trim() : '';
+                        
+                        // Adresse
+                        const address = addressIdx >= 0 ? (values[addressIdx] || '').trim() : '';
+                        
+                        // Nur importieren wenn Name UND (Telefon ODER Email) vorhanden
+                        if (!name) {
+                            skipped++;
+                            continue;
+                        }
+                        
+                        if (!phone && !email) {
+                            skipped++;
+                            continue;
+                        }
+                        
+                        // Prüfe ob Kunde schon existiert (per Telefon oder Email)
+                        const existingSnapshot = await db.ref('customers').once('value');
+                        let exists = false;
+                        existingSnapshot.forEach(child => {
+                            const c = child.val();
+                            if (phone && c.phone === phone) exists = true;
+                            if (email && c.email === email) exists = true;
+                        });
+                        
+                        if (exists) {
+                            skipped++;
+                            continue;
+                        }
+                        
+                        // Neuen Kunden anlegen
+                        const newCustomer = {
+                            name: name,
+                            phone: phone,
+                            email: email,
+                            address: address,
+                            notes: 'Importiert aus Google Kontakte',
+                            totalRides: 0,
+                            totalRevenue: 0,
+                            lastRide: null,
+                            createdAt: Date.now(),
+                            importedFrom: 'google_csv'
+                        };
+                        
+                        await db.ref('customers').push(newCustomer);
+                        imported++;
+                    }
+                    
+                    // Ergebnis anzeigen
+                    alert(
+                        '📥 Import abgeschlossen!\n\n' +
+                        '✅ Importiert: ' + imported + ' Kontakte\n' +
+                        '⏭️ Übersprungen: ' + skipped + ' (bereits vorhanden oder unvollständig)\n\n' +
+                        'Klicke "🔄 Kunden laden" um die Liste zu aktualisieren.'
+                    );
+                    
+                    // Input zurücksetzen
+                    input.value = '';
+                    
+                } catch (error) {
+                    console.error('❌ Import Fehler:', error);
+                    alert('❌ Fehler beim Import: ' + error.message);
+                }
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+        }
+        
+        // CSV Zeile parsen (berücksichtigt Anführungszeichen)
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            
+            return result;
+        }
+        
+        // 📋 CRM: Kunde automatisch anlegen/aktualisieren bei Buchung
+        async function updateCustomerCRM(name, phone, address, price) {
+            if (!isFirebaseReady) return;
+            if (!name || name.trim() === '') return;
+            
+            const cleanName = name.trim();
+            const cleanPhone = phone ? phone.trim() : '';
+            const cleanAddress = address ? address.trim() : '';
+            const ridePrice = parseFloat(price) || 0;
+            
+            try {
+                // Suche existierenden Kunden (per Telefon ODER Name)
+                const snapshot = await db.ref('customers').once('value');
+                let existingCustomerId = null;
+                let existingCustomer = null;
+                
+                snapshot.forEach(child => {
+                    const customer = child.val();
+                    // Priorität 1: Telefonnummer stimmt überein (wenn vorhanden)
+                    if (cleanPhone && customer.phone && customer.phone === cleanPhone) {
+                        existingCustomerId = child.key;
+                        existingCustomer = customer;
+                    }
+                    // Priorität 2: Name stimmt überein (wenn keine Telefonnummer)
+                    if (!existingCustomerId && customer.name && customer.name.toLowerCase() === cleanName.toLowerCase()) {
+                        existingCustomerId = child.key;
+                        existingCustomer = customer;
+                    }
+                });
+                
+                if (existingCustomerId) {
+                    // ✅ Kunde existiert → Update
+                    const updates = {
+                        totalRides: (existingCustomer.totalRides || 0) + 1,
+                        totalRevenue: (existingCustomer.totalRevenue || 0) + ridePrice,
+                        lastRide: Date.now()
+                    };
+                    
+                    // Update Adresse nur wenn leer
+                    if (!existingCustomer.address && cleanAddress) {
+                        updates.address = cleanAddress;
+                    }
+                    // Update Telefon nur wenn leer
+                    if (!existingCustomer.phone && cleanPhone) {
+                        updates.phone = cleanPhone;
+                    }
+                    
+                    await db.ref('customers/' + existingCustomerId).update(updates);
+                    console.log('📋 CRM: Kunde aktualisiert:', cleanName, '→', updates.totalRides, 'Fahrten');
+                    
+                } else {
+                    // 🆕 Neuer Kunde → Anlegen
+                    const newCustomer = {
+                        name: cleanName,
+                        phone: cleanPhone,
+                        email: '',
+                        address: cleanAddress,
+                        notes: '',
+                        totalRides: 1,
+                        totalRevenue: ridePrice,
+                        lastRide: Date.now(),
+                        createdAt: Date.now(),
+                        autoCreated: true // Markiert als automatisch erstellt
+                    };
+                    
+                    await db.ref('customers').push(newCustomer);
+                    console.log('📋 CRM: Neuer Kunde angelegt:', cleanName);
+                }
+                
+            } catch (error) {
+                console.error('📋 CRM Fehler:', error);
+                // Fehler nicht an User zeigen - Buchung soll trotzdem funktionieren
+            }
         }
         
         async function saveNewCustomer() {
@@ -5873,9 +6132,15 @@
             }
         }
         
+        // Globale Variable für aktuellen Stammkunden bei Buchung
+        let currentBookingCustomerId = null;
+        
         function bookForCustomer(customerId) {
             const customer = allCustomers.find(c => c.id === customerId);
             if (!customer) return;
+            
+            // Speichere Kunden-ID für spätere CRM-Aktualisierung
+            currentBookingCustomerId = customerId;
             
             // Wechsel zum Fahrgast-Tab und fülle Daten aus
             switchView('passenger');
@@ -5883,6 +6148,13 @@
             if (customer.name) document.getElementById('customer-name').value = customer.name;
             if (customer.phone) document.getElementById('customer-phone').value = customer.phone;
             if (customer.address) document.getElementById('pickup').value = customer.address;
+            
+            // Zeige CRM-Speicher-Option
+            const crmOption = document.getElementById('crm-save-option');
+            if (crmOption) {
+                crmOption.style.display = 'block';
+                document.getElementById('save-to-crm').checked = true;
+            }
             
             alert('✅ Daten von "' + customer.name + '" wurden eingefüllt!\n\nBitte Ziel eingeben und Preis berechnen.');
         }
@@ -5902,8 +6174,8 @@
                         <input type="text" id="edit-customer-phone" value="${customer.phone || ''}" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;">
-                            <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;" oninput="autocompleteCustomerAddress(this.value, 'edit')">
-                            <div id="edit-customer-address-suggestions" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:150px;overflow-y:auto;display:none;z-index:10000;"></div>
+                            <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
+                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                         </div>
                         <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
                     </div>
@@ -5918,6 +6190,11 @@
                 </div>
             `;
             document.body.appendChild(modal);
+            
+            // Autocomplete aktivieren nach Modal erscheint
+            setTimeout(() => {
+                setupCustomerAddressAutocomplete('edit-customer-address', 'edit-customer-address-dropdown');
+            }, 100);
         }
         
         function closeEditCustomerModal() {

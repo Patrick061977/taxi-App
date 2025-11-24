@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.5 - CRM Speicher-Option! 💾 (Build 20251124-1725)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.5 - CRM Speicher-Option! 💾 (Build 20251124-1730)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1256,6 +1256,7 @@
 
         // STATE
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
+        let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
@@ -6131,9 +6132,6 @@
                 alert('❌ Fehler beim Speichern');
             }
         }
-        
-        // Globale Variable für aktuellen Stammkunden bei Buchung
-        let currentBookingCustomerId = null;
         
         function bookForCustomer(customerId) {
             const customer = allCustomers.find(c => c.id === customerId);

@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.4.0 - Mein Konto! 👤 (Build 20251124-2240)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.4.0 - Mein Konto! 👤 (Build 20251124-2300)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5903,7 +5903,10 @@
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="my-profile-name" value="${myProfileData.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="tel" id="my-profile-phone" value="${myProfileData.phone || ''}" placeholder="Telefonnummer *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
-                        <input type="text" id="my-profile-address" value="${myProfileData.address || ''}" placeholder="Meine Adresse (Abholort)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <div class="input-group" style="position:relative;margin:0;">
+                            <input type="text" id="my-profile-address" value="${myProfileData.address || ''}" placeholder="Meine Adresse (Abholort)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;box-sizing:border-box;">
+                            <div class="autocomplete-dropdown" id="my-profile-address-dropdown" style="z-index:10001;"></div>
+                        </div>
                         <div style="font-size:12px;color:#666;padding:8px;background:#f3f4f6;border-radius:6px;">
                             📧 ${myProfileData.email}<br>
                             ⭐ ${myProfileData.totalRides || 0} Fahrten | 💰 ${(myProfileData.totalRevenue || 0).toFixed(2)}€
@@ -5921,8 +5924,140 @@
             `;
             document.body.appendChild(modal);
             
-            // Autocomplete für Adresse
-            setupAddressAutocomplete('my-profile-address');
+            // Autocomplete für Adresse (wie bei Abholort)
+            const input = document.getElementById('my-profile-address');
+            const dropdown = document.getElementById('my-profile-address-dropdown');
+            let timeout = null;
+            
+            input.addEventListener('input', (e) => {
+                clearTimeout(timeout);
+                const value = e.target.value.trim();
+                
+                if (value.length < 3) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                
+                // Zeige "Lädt..." sofort
+                dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Suche...</div>';
+                dropdown.style.display = 'block';
+                
+                // Verzögerte Suche (Debounce)
+                timeout = setTimeout(() => {
+                    searchProfileAddress(value, dropdown, input);
+                }, 300);
+            });
+            
+            // Schließe Dropdown wenn außerhalb geklickt
+            modal.addEventListener('click', (e) => {
+                if (e.target !== input && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+        
+        async function searchProfileAddress(query, dropdown, input) {
+            try {
+                const response = await fetch(
+                    'https://nominatim.openstreetmap.org/search?' +
+                    'format=json&' +
+                    'q=' + encodeURIComponent(query) + '&' +
+                    'countrycodes=de&' +
+                    'limit=8&' +
+                    'addressdetails=1'
+                );
+                
+                const results = await response.json();
+                
+                if (results.length === 0) {
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Keine Ergebnisse</div>';
+                    return;
+                }
+                
+                // Filtere nur Usedom-relevante Ergebnisse
+                const usedomResults = results.filter(r => {
+                    const display = r.display_name.toLowerCase();
+                    return display.includes('usedom') || 
+                           display.includes('heringsdorf') || 
+                           display.includes('ahlbeck') ||
+                           display.includes('bansin') ||
+                           display.includes('zinnowitz') ||
+                           display.includes('karlshagen') ||
+                           display.includes('peenemünde') ||
+                           display.includes('koserow') ||
+                           display.includes('ückeritz') ||
+                           display.includes('loddin') ||
+                           display.includes('zempin') ||
+                           display.includes('trassenheide');
+                });
+                
+                const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
+                
+                dropdown.innerHTML = resultsToShow.map(r => {
+                    const address = r.address;
+                    let displayText = '';
+                    let fullAddress = '';
+                    
+                    // 🏨 HOTEL, RESTAURANT, POI Namen
+                    const poiName = address.amenity || address.tourism || address.building || r.name;
+                    
+                    // Baue Haupt-Adresszeile
+                    if (address.road) {
+                        fullAddress = address.road;
+                        if (address.house_number) fullAddress += ' ' + address.house_number;
+                    }
+                    
+                    // Ort
+                    let city = '';
+                    if (address.village) city = address.village;
+                    else if (address.town) city = address.town;
+                    else if (address.city) city = address.city;
+                    else if (address.municipality) city = address.municipality;
+                    
+                    // PLZ
+                    const zip = address.postcode || '';
+                    
+                    // 🎨 Baue schöne Anzeige
+                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                        displayText = '<div style="font-weight:600;color:#667eea;">🏨 ' + poiName + '</div>';
+                        displayText += '<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">';
+                        if (fullAddress) displayText += fullAddress;
+                        if (zip) displayText += ', ' + zip;
+                        if (city) displayText += ' ' + city;
+                        displayText += '</div>';
+                    } else {
+                        if (fullAddress) {
+                            displayText = fullAddress;
+                            if (zip) displayText += ', ' + zip;
+                            if (city) displayText += ' ' + city;
+                        } else {
+                            displayText = r.display_name;
+                        }
+                    }
+                    
+                    // Vollständige Adresse als String
+                    let addressString = '';
+                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                        addressString = poiName + ' ';
+                    }
+                    if (fullAddress) addressString += fullAddress;
+                    if (zip) addressString += ', ' + zip;
+                    if (city) addressString += ' ' + city;
+                    
+                    if (!addressString) addressString = r.display_name;
+                    
+                    return '<div class="autocomplete-item" onclick="selectProfileAddress(\'' + addressString.replace(/'/g, "\\'") + '\')">' + displayText + '</div>';
+                }).join('');
+                
+            } catch (e) {
+                console.error('Autocomplete Fehler:', e);
+                dropdown.innerHTML = '<div class="autocomplete-item" style="color:#ef4444;">Fehler bei der Suche</div>';
+            }
+        }
+        
+        function selectProfileAddress(address) {
+            document.getElementById('my-profile-address').value = address;
+            document.getElementById('my-profile-address-dropdown').style.display = 'none';
         }
         
         async function saveMyProfile() {
@@ -5976,45 +6111,6 @@
         }
         
         // Autocomplete Setup für Profil-Adresse
-        function setupAddressAutocomplete(inputId) {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-            
-            let dropdown = document.getElementById(inputId + '-dropdown');
-            if (!dropdown) {
-                dropdown = document.createElement('div');
-                dropdown.id = inputId + '-dropdown';
-                dropdown.className = 'autocomplete-dropdown';
-                dropdown.style.cssText = 'position:absolute;background:white;border:2px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10000;width:calc(100% - 4px);display:none;';
-                input.parentNode.style.position = 'relative';
-                input.parentNode.appendChild(dropdown);
-            }
-            
-            input.addEventListener('input', async () => {
-                const query = input.value.trim();
-                if (query.length < 3) {
-                    dropdown.style.display = 'none';
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' Usedom')}&limit=5&addressdetails=1`);
-                    const results = await response.json();
-                    
-                    if (results.length > 0) {
-                        dropdown.innerHTML = results.map(r => {
-                            const addr = r.display_name.split(',').slice(0, 3).join(', ');
-                            return `<div style="padding:10px;cursor:pointer;border-bottom:1px solid #eee;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'" onclick="document.getElementById('${inputId}').value='${addr.replace(/'/g, "\\'")}';document.getElementById('${inputId}-dropdown').style.display='none';">${addr}</div>`;
-                        }).join('');
-                        dropdown.style.display = 'block';
-                    } else {
-                        dropdown.style.display = 'none';
-                    }
-                } catch (e) {
-                    console.error('Autocomplete Fehler:', e);
-                }
-            });
-        }
         
         // 🗑️ Alle Kunden löschen (für Neu-Import)
         async function deleteAllCustomers() {

@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.1 - Coords Fix! 📍 (Build 20251123-2110)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.4 - Route Map! 🗺️ (Build 20251123-2200)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -214,6 +214,7 @@
             </div>
             <button class="btn btn-primary" onclick="calculatePriceAndShow()">💰 Preis berechnen</button>
             <div id="price-display" style="margin-top: 15px;"></div>
+            <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
             <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
         </div>
         <div id="confirm"></div>
@@ -3744,9 +3745,12 @@
                 return;
             }
             
+            console.log('📍 GPS wird abgerufen...');
+            
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
                     pickupCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                    console.log('✅ Abholort gespeichert (GPS):', pickupCoords);
                     try {
                         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pickupCoords.lat}&lon=${pickupCoords.lon}`);
                         const data = await response.json();
@@ -3754,14 +3758,19 @@
                         const street = address.road || address.pedestrian || '';
                         const houseNumber = address.house_number || '';
                         const city = address.town || address.village || address.city || 'Heringsdorf';
-                        document.getElementById('pickup').value = `${street} ${houseNumber}, ${city}`.trim();
+                        const addressString = `${street} ${houseNumber}, ${city}`.trim();
+                        document.getElementById('pickup').value = addressString;
+                        console.log('✅ Adresse aufgelöst:', addressString);
                         showAvailableTaxis();
                     } catch (e) {
-                        console.error(e);
+                        console.error('❌ Reverse Geocoding Fehler:', e);
                         document.getElementById('pickup').value = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
                     }
                 },
-                (err) => alert('❌ GPS-Fehler: ' + err.message)
+                (err) => {
+                    console.error('❌ GPS-Fehler:', err);
+                    alert('❌ GPS-Fehler: ' + err.message);
+                }
             );
         }
 
@@ -3860,12 +3869,84 @@
             
             priceHtml += '</div>';
             
-            document.getElementById('price-display').innerHTML = priceHtml;
+            const priceDisplay = document.getElementById('price-display');
+            priceDisplay.innerHTML = priceHtml;
+            priceDisplay.style.display = 'block';
+            
+            // 🗺️ ROUTE-KARTE ANZEIGEN
+            showRouteMap(route, pickupCoords, destCoords);
+            
             const bookBtn = document.getElementById('book-btn');
             if (bookBtn) {
                 bookBtn.style.display = 'block';
                 bookBtn.style.visibility = 'visible';
             }
+        }
+
+        // 🗺️ ROUTE-KARTE ANZEIGEN
+        let routeMapInstance = null;
+        function showRouteMap(route, pickupCoords, destCoords) {
+            const mapContainer = document.getElementById('route-map');
+            mapContainer.style.display = 'block';
+            
+            // Karte entfernen falls vorhanden
+            if (routeMapInstance) {
+                routeMapInstance.remove();
+            }
+            
+            // Neue Karte erstellen
+            routeMapInstance = L.map('route-map', {
+                zoomControl: false,
+                attributionControl: false
+            });
+            
+            // OpenStreetMap Tiles laden
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(routeMapInstance);
+            
+            // Start Marker (grün)
+            L.marker([pickupCoords.lat, pickupCoords.lon], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background:#10b981;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(routeMapInstance);
+            
+            // Ziel Marker (rot)
+            L.marker([destCoords.lat, destCoords.lon], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background:#ef4444;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(routeMapInstance);
+            
+            // Route-Linie zeichnen (aus geometry)
+            if (route.geometry && route.geometry.length > 0) {
+                const routeLine = L.polyline(
+                    route.geometry.map(coord => [coord[1], coord[0]]), // [lon, lat] → [lat, lon]
+                    {
+                        color: '#667eea',
+                        weight: 5,
+                        opacity: 0.8
+                    }
+                ).addTo(routeMapInstance);
+                
+                // Zoom auf Route
+                routeMapInstance.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+            } else {
+                // Fallback: Zoom auf Start und Ziel
+                routeMapInstance.fitBounds([
+                    [pickupCoords.lat, pickupCoords.lon],
+                    [destCoords.lat, destCoords.lon]
+                ], { padding: [30, 30] });
+            }
+            
+            console.log('🗺️ Route-Karte angezeigt');
         }
 
         // 🎯 INTELLIGENTE AUTO-ZUWEISUNG MIT 30-SEK-TIMER
@@ -4223,6 +4304,16 @@
             // Preis-Anzeige ausblenden
             document.getElementById('price-display').innerHTML = '';
             document.getElementById('price-display').style.display = 'none';
+            
+            // 🗺️ Route-Karte ausblenden
+            const routeMapEl = document.getElementById('route-map');
+            if (routeMapEl) {
+                routeMapEl.style.display = 'none';
+            }
+            if (routeMapInstance) {
+                routeMapInstance.remove();
+                routeMapInstance = null;
+            }
             
             // "Taxi buchen" Button verstecken (WICHTIG!)
             const bookBtn = document.getElementById('book-btn');

@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.9 - Abbrechen-Button! ↩️ (Build 20251124-1030)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.0.0 - Rollen-System! 🔐 (Build 20251124-1100)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1011,6 +1011,21 @@
 
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
+        
+        <!-- 🔐 NEU: BENUTZER-VERWALTUNG -->
+        <div onclick="toggleAdminSection('users')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">👥 Benutzer-Verwaltung</span>
+            <span id="users-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="users-content" style="display:none;margin-bottom:20px;">
+            <div style="margin-bottom:15px;">
+                <input type="text" id="user-search" placeholder="🔍 Benutzer suchen..." oninput="searchUsers()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+            </div>
+            <div id="users-list" style="max-height:300px;overflow-y:auto;"></div>
+            <button onclick="loadAllUsers()" style="width:100%;margin-top:10px;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                🔄 Benutzer laden
+            </button>
+        </div>
         
         <!-- COLLAPSIBLE: Controls -->
         <div onclick="toggleAdminSection('controls')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
@@ -5365,6 +5380,88 @@
             }
         }
         
+        // 👥 BENUTZER-VERWALTUNG
+        let allUsers = [];
+        
+        async function loadAllUsers() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('users').once('value');
+                allUsers = [];
+                snapshot.forEach(child => {
+                    const user = child.val();
+                    user.uid = child.key;
+                    allUsers.push(user);
+                });
+                
+                console.log('👥 Benutzer geladen:', allUsers.length);
+                renderUsersList(allUsers);
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Benutzer:', error);
+                alert('❌ Fehler beim Laden der Benutzer');
+            }
+        }
+        
+        function searchUsers() {
+            const query = document.getElementById('user-search').value.toLowerCase();
+            const filtered = allUsers.filter(u => 
+                (u.email && u.email.toLowerCase().includes(query)) ||
+                (u.displayName && u.displayName.toLowerCase().includes(query))
+            );
+            renderUsersList(filtered);
+        }
+        
+        function renderUsersList(users) {
+            const container = document.getElementById('users-list');
+            
+            if (users.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Keine Benutzer gefunden</div>';
+                return;
+            }
+            
+            container.innerHTML = users.map(user => {
+                const roleOptions = ['fahrgast', 'fahrer', 'admin'];
+                const currentRole = user.role || 'fahrgast';
+                
+                return `
+                    <div style="background:white;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="font-weight:600;">${user.displayName || 'Unbekannt'}</div>
+                                <div style="font-size:12px;color:#666;">${user.email}</div>
+                                <div style="font-size:11px;color:#999;">Letzter Login: ${user.lastLogin ? new Date(user.lastLogin).toLocaleString('de-DE') : 'Nie'}</div>
+                            </div>
+                            <select onchange="changeUserRole('${user.uid}', this.value)" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;">
+                                ${roleOptions.map(role => `<option value="${role}" ${currentRole === role ? 'selected' : ''}>${role.charAt(0).toUpperCase() + role.slice(1)}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        async function changeUserRole(uid, newRole) {
+            if (!isFirebaseReady) return;
+            
+            try {
+                await db.ref('users/' + uid).update({ role: newRole });
+                console.log('✅ Rolle geändert:', uid, '→', newRole);
+                
+                // Update lokale Liste
+                const user = allUsers.find(u => u.uid === uid);
+                if (user) user.role = newRole;
+                
+                alert('✅ Rolle geändert zu: ' + newRole);
+            } catch (error) {
+                console.error('❌ Fehler beim Ändern der Rolle:', error);
+                alert('❌ Fehler beim Ändern der Rolle');
+            }
+        }
+        
         // 🧹 CACHE LEEREN FUNKTION
         async function clearAppCache() {
             if (!confirm('🧹 Cache leeren?\n\nDies hilft bei Problemen mit alten Versionen.\nDie App wird neu geladen.')) return;
@@ -6801,9 +6898,80 @@ Stack: ${err.stack}
             }
         }
         
-        function onUserLoggedIn(user) {
+        // 🔐 ROLLEN-SYSTEM
+        let userRole = 'fahrgast'; // Standard-Rolle
+        
+        async function getUserRole(user) {
+            // Admin per Email
+            if (user.email === 'funktaxi.pw@gmail.com') {
+                return 'admin';
+            }
+            
+            // Prüfe Firebase für zugewiesene Rollen
+            if (isFirebaseReady) {
+                try {
+                    const snapshot = await db.ref('users/' + user.uid).once('value');
+                    const userData = snapshot.val();
+                    if (userData && userData.role) {
+                        return userData.role;
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden der Rolle:', error);
+                }
+            }
+            
+            return 'fahrgast'; // Standard
+        }
+        
+        function applyRoleRestrictions(role) {
+            console.log('🔐 Rolle anwenden:', role);
+            userRole = role;
+            
+            const fahrgastBtn = document.querySelector('.view-btn[onclick*="passenger"]');
+            const verlaufBtn = document.querySelector('.view-btn[onclick*="history"]');
+            const fahrerBtn = document.querySelector('.view-btn[onclick*="driver"]');
+            const adminBtn = document.querySelector('.view-btn[onclick*="admin"]');
+            
+            // Alle verstecken erstmal
+            if (fahrgastBtn) fahrgastBtn.style.display = 'none';
+            if (verlaufBtn) verlaufBtn.style.display = 'none';
+            if (fahrerBtn) fahrerBtn.style.display = 'none';
+            if (adminBtn) adminBtn.style.display = 'none';
+            
+            // Je nach Rolle anzeigen
+            if (role === 'fahrgast') {
+                if (fahrgastBtn) fahrgastBtn.style.display = 'block';
+                if (verlaufBtn) verlaufBtn.style.display = 'block';
+                switchView('passenger');
+            } else if (role === 'fahrer') {
+                if (fahrerBtn) fahrerBtn.style.display = 'block';
+                switchView('driver');
+            } else if (role === 'admin') {
+                // Admin sieht ALLES
+                if (fahrgastBtn) fahrgastBtn.style.display = 'block';
+                if (verlaufBtn) verlaufBtn.style.display = 'block';
+                if (fahrerBtn) fahrerBtn.style.display = 'block';
+                if (adminBtn) adminBtn.style.display = 'block';
+            }
+        }
+        
+        async function onUserLoggedIn(user) {
             console.log('👤 User eingeloggt:', user.email);
             currentUser = user;
+            
+            // 🔐 Rolle laden und anwenden
+            const role = await getUserRole(user);
+            applyRoleRestrictions(role);
+            
+            // User in Firebase speichern (für Rechteverwaltung)
+            if (isFirebaseReady) {
+                db.ref('users/' + user.uid).update({
+                    email: user.email,
+                    displayName: user.displayName || '',
+                    lastLogin: Date.now()
+                });
+            }
+            
             updateUserProfile();
             
             // 📝 Fülle Name-Feld automatisch aus
@@ -6816,6 +6984,12 @@ Stack: ${err.stack}
         function onUserLoggedOut() {
             console.log('👤 User ausgeloggt');
             currentUser = null;
+            userRole = 'fahrgast';
+            
+            // 🔐 Alle Tabs wieder anzeigen (für nicht eingeloggte User)
+            const allBtns = document.querySelectorAll('.view-btn');
+            allBtns.forEach(btn => btn.style.display = 'block');
+            
             updateUserProfile();
         }
         

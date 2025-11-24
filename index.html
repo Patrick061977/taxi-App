@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1610)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.2 - Mitarbeiter anlegen! 👥 (Build 20251124-1620)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -2676,9 +2676,17 @@
                 viewElement.classList.add('active');
             }
             
-            // ✅ Prüfe ob event.target existiert (bei programmatischem Aufruf nicht der Fall)
-            if (typeof event !== 'undefined' && event && event.target) {
-                event.target.classList.add('active');
+            // ✅ Setze aktiven Button basierend auf View-Name
+            const viewBtnMap = {
+                'passenger': '.view-btn[onclick*="passenger"]',
+                'history': '.view-btn[onclick*="history"]',
+                'driver': '.view-btn[onclick*="driver"]',
+                'admin': '.view-btn[onclick*="admin"]'
+            };
+            const btnSelector = viewBtnMap[view];
+            if (btnSelector) {
+                const btn = document.querySelector(btnSelector);
+                if (btn) btn.classList.add('active');
             }
             
             currentView = view;

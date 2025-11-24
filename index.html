@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.7 - Surge Fix! 🔧 (Build 20251124-0930)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.9 - Abbrechen-Button! ↩️ (Build 20251124-1000)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -212,7 +212,7 @@
                     <option value="4">4 Personen</option>
                 </select>
             </div>
-            <button class="btn btn-primary" onclick="calculatePriceAndShow()">💰 Preis berechnen</button>
+            <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()">💰 Preis berechnen</button>
             <div id="price-display" style="margin-top: 15px;"></div>
             <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
             <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
@@ -3977,6 +3977,57 @@
             document.getElementById('available-taxis-display').innerHTML = html;
         }
 
+        // 🆕 PREIS-BUTTON HANDLER - wechselt zwischen "Preis berechnen" und "Abbrechen"
+        let priceCalculated = false;
+        
+        function handlePriceButton() {
+            if (priceCalculated) {
+                // Abbrechen-Modus: Reset
+                cancelBooking();
+            } else {
+                // Preis-berechnen-Modus
+                calculatePriceAndShow();
+            }
+        }
+        
+        // 🆕 BUCHUNG ABBRECHEN - setzt alles zurück
+        function cancelBooking() {
+            // Felder leeren
+            document.getElementById('pickup').value = '';
+            document.getElementById('destination').value = '';
+            document.getElementById('pickup-time').value = 'jetzt';
+            document.getElementById('passengers').value = '1';
+            
+            // Karte verstecken
+            const routeMap = document.getElementById('route-map');
+            if (routeMap) routeMap.style.display = 'none';
+            
+            // Preis verstecken
+            document.getElementById('price-display').innerHTML = '';
+            
+            // Taxi buchen Button verstecken
+            document.getElementById('book-btn').style.display = 'none';
+            
+            // Verfügbare Taxis verstecken
+            document.getElementById('available-taxis-display').innerHTML = '';
+            
+            // Button zurück zu "Preis berechnen"
+            const priceBtn = document.getElementById('price-btn');
+            priceBtn.innerHTML = '💰 Preis berechnen';
+            priceBtn.classList.remove('btn-danger');
+            priceBtn.classList.add('btn-primary');
+            
+            // Status zurücksetzen
+            priceCalculated = false;
+            window.currentPrice = null;
+            window.currentDistance = null;
+            window.currentDuration = null;
+            pickupCoords = null;
+            destCoords = null;
+            
+            console.log('↩️ Buchung abgebrochen');
+        }
+
         // BOOKING
         async function calculatePriceAndShow() {
             const pickup = document.getElementById('pickup').value.trim();
@@ -4054,6 +4105,15 @@
                 bookBtn.style.display = 'block';
                 bookBtn.style.visibility = 'visible';
             }
+            
+            // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
+            const priceBtn = document.getElementById('price-btn');
+            if (priceBtn) {
+                priceBtn.innerHTML = '↩️ Abbrechen';
+                priceBtn.classList.remove('btn-primary');
+                priceBtn.classList.add('btn-danger');
+            }
+            priceCalculated = true;
         }
 
         // 🗺️ ROUTE-KARTE ANZEIGEN
@@ -4067,10 +4127,14 @@
                 routeMapInstance.remove();
             }
             
-            // Neue Karte erstellen
+            // Neue Karte erstellen - 2-Finger-Zoom, 1-Finger scrollt Seite
             routeMapInstance = L.map('route-map', {
                 zoomControl: false,
-                attributionControl: false
+                attributionControl: false,
+                dragging: false,           // Kein Drag mit 1 Finger
+                tap: false,                // Kein Tap-Drag
+                scrollWheelZoom: false,    // Kein Scroll-Zoom
+                touchZoom: true            // Pinch-Zoom mit 2 Fingern erlaubt
             });
             
             // OpenStreetMap Tiles laden

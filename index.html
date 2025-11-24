@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.0.0 - Rollen-System! 🔐 (Build 20251124-1115)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.0.0 - Rollen-System! 🔐 (Build 20251124-1510)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -127,8 +127,8 @@
     <div class="view-selector">
         <button class="view-btn active" onclick="switchView('passenger')">Fahrgast</button>
         <button class="view-btn" onclick="switchView('history')">Verlauf</button>
-        <button class="view-btn" onclick="switchView('driver')">Fahrer</button>
-        <button class="view-btn" onclick="switchView('admin')">Admin</button>
+        <button class="view-btn" onclick="switchView('driver')" id="driver-tab-btn" style="display:none;">Fahrer</button>
+        <button class="view-btn" onclick="switchView('admin')" id="admin-tab-btn" style="display:none;">Admin</button>
     </div>
 
     <!-- 🔔 BENACHRICHTIGUNGS-BANNER -->
@@ -6902,6 +6902,7 @@ Stack: ${err.stack}
         let userRole = 'fahrgast'; // Standard-Rolle
         
         async function getUserRole(user) {
+            // Admin per Email
             // Admin per Email
             if (user.email === 'funktaxi.pw@gmail.com') {
                 return 'admin';

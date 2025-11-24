@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.5 - Route Line! ━━━ (Build 20251123-2210)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.6 - Surge Pricing! 📈 (Build 20251123-2220)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1086,6 +1086,60 @@
         </div>
         <div id="cancelled-content" style="display:none;">
             <div id="cancellations-list"></div>
+        </div>
+        
+        <!-- 💰 PREIS-STEUERUNG (SURGE PRICING) -->
+        <div onclick="toggleAdminSection('pricing')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">💰 Preis-Steuerung</span>
+            <span id="pricing-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="pricing-content" style="display:none;padding:15px;background:#fff;border-radius:8px;margin-bottom:20px;border:1px solid #e5e7eb;">
+            
+            <!-- Aktueller Multiplikator Anzeige -->
+            <div style="text-align:center;margin-bottom:20px;padding:15px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;color:white;">
+                <div style="font-size:12px;opacity:0.9;">Aktueller Preis-Multiplikator</div>
+                <div id="current-multiplier-display" style="font-size:36px;font-weight:bold;">100%</div>
+                <div id="multiplier-reason" style="font-size:11px;opacity:0.8;">Normalpreis</div>
+            </div>
+            
+            <!-- Automatische Anpassung -->
+            <div style="margin-bottom:20px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:#f9fafb;border-radius:8px;">
+                    <input type="checkbox" id="auto-surge-enabled" onchange="saveePricingSettings()" checked style="width:20px;height:20px;">
+                    <div>
+                        <div style="font-weight:600;font-size:14px;">📊 Automatisch (Auslastung)</div>
+                        <div style="font-size:12px;color:#666;">Preis steigt bei hoher Nachfrage</div>
+                    </div>
+                </label>
+                <div style="margin-top:10px;padding:10px;background:#f0fdf4;border-radius:8px;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:13px;">Pro aktivem Taxi:</span>
+                    <select id="surge-per-taxi" onchange="savePricingSettings()" style="padding:8px;border-radius:6px;border:1px solid #d1d5db;font-size:14px;">
+                        <option value="5">+5%</option>
+                        <option value="10" selected>+10%</option>
+                        <option value="15">+15%</option>
+                        <option value="20">+20%</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Manueller Aufschlag/Rabatt -->
+            <div style="margin-bottom:20px;">
+                <div style="font-weight:600;font-size:14px;margin-bottom:10px;">🎚️ Manueller Aufschlag/Rabatt</div>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+                    <button onclick="setManualMultiplier(-20)" class="multiplier-btn" data-value="-20" style="padding:12px 5px;border:2px solid #e5e7eb;background:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;color:#10b981;">-20%</button>
+                    <button onclick="setManualMultiplier(-10)" class="multiplier-btn" data-value="-10" style="padding:12px 5px;border:2px solid #e5e7eb;background:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;color:#10b981;">-10%</button>
+                    <button onclick="setManualMultiplier(0)" class="multiplier-btn active" data-value="0" style="padding:12px 5px;border:2px solid #667eea;background:#667eea;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;color:white;">0%</button>
+                    <button onclick="setManualMultiplier(10)" class="multiplier-btn" data-value="10" style="padding:12px 5px;border:2px solid #e5e7eb;background:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;color:#ef4444;">+10%</button>
+                    <button onclick="setManualMultiplier(20)" class="multiplier-btn" data-value="20" style="padding:12px 5px;border:2px solid #e5e7eb;background:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;color:#ef4444;">+20%</button>
+                </div>
+            </div>
+            
+            <!-- Status-Info -->
+            <div style="padding:12px;background:#fef3c7;border-radius:8px;font-size:12px;">
+                <strong>📈 So wird der Preis berechnet:</strong><br>
+                Grundpreis × (100% + Auto-Surge + Manuell) = Endpreis<br>
+                <span id="pricing-example" style="color:#666;">Beispiel: 14.60€ × 100% = 14.60€</span>
+            </div>
         </div>
     </div>
 
@@ -3531,6 +3585,104 @@
             return { distance: 0, duration: 0, geometry: null };
         }
 
+        // 💰 SURGE PRICING SETTINGS
+        let pricingSettings = {
+            autoSurgeEnabled: true,
+            surgePerTaxi: 10,      // % pro aktivem Taxi
+            manualMultiplier: 0    // Manueller +/- %
+        };
+        
+        // Lade Pricing Settings aus localStorage
+        function loadPricingSettings() {
+            const saved = localStorage.getItem('pricingSettings');
+            if (saved) {
+                pricingSettings = JSON.parse(saved);
+            }
+            updatePricingUI();
+        }
+        
+        // Speichere Pricing Settings
+        function savePricingSettings() {
+            pricingSettings.autoSurgeEnabled = document.getElementById('auto-surge-enabled')?.checked ?? true;
+            pricingSettings.surgePerTaxi = parseInt(document.getElementById('surge-per-taxi')?.value ?? 10);
+            localStorage.setItem('pricingSettings', JSON.stringify(pricingSettings));
+            updatePricingUI();
+            console.log('💰 Pricing Settings gespeichert:', pricingSettings);
+        }
+        
+        // Manuellen Multiplikator setzen
+        function setManualMultiplier(value) {
+            pricingSettings.manualMultiplier = value;
+            localStorage.setItem('pricingSettings', JSON.stringify(pricingSettings));
+            
+            // Button-Styling aktualisieren
+            document.querySelectorAll('.multiplier-btn').forEach(btn => {
+                const btnValue = parseInt(btn.dataset.value);
+                if (btnValue === value) {
+                    btn.style.border = '2px solid #667eea';
+                    btn.style.background = '#667eea';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.border = '2px solid #e5e7eb';
+                    btn.style.background = 'white';
+                    btn.style.color = btnValue < 0 ? '#10b981' : (btnValue > 0 ? '#ef4444' : '#333');
+                }
+            });
+            
+            updatePricingUI();
+            console.log('💰 Manueller Multiplikator:', value + '%');
+        }
+        
+        // Berechne aktuellen Gesamt-Multiplikator
+        function getCurrentMultiplier() {
+            let multiplier = 100; // Basis 100%
+            let reasons = [];
+            
+            // Auto-Surge basierend auf aktiven Fahrten
+            if (pricingSettings.autoSurgeEnabled) {
+                const activeRides = allRides.filter(r => r.status === 'accepted' || r.status === 'in_progress').length;
+                if (activeRides > 0) {
+                    const autoSurge = activeRides * pricingSettings.surgePerTaxi;
+                    multiplier += autoSurge;
+                    reasons.push(`+${autoSurge}% (${activeRides} Taxi${activeRides > 1 ? 's' : ''} unterwegs)`);
+                }
+            }
+            
+            // Manueller Aufschlag/Rabatt
+            if (pricingSettings.manualMultiplier !== 0) {
+                multiplier += pricingSettings.manualMultiplier;
+                const sign = pricingSettings.manualMultiplier > 0 ? '+' : '';
+                reasons.push(`${sign}${pricingSettings.manualMultiplier}% (Manuell)`);
+            }
+            
+            return {
+                multiplier: multiplier,
+                factor: multiplier / 100,
+                reasons: reasons.length > 0 ? reasons.join(', ') : 'Normalpreis'
+            };
+        }
+        
+        // Update Pricing UI im Admin
+        function updatePricingUI() {
+            const current = getCurrentMultiplier();
+            
+            const displayEl = document.getElementById('current-multiplier-display');
+            const reasonEl = document.getElementById('multiplier-reason');
+            const exampleEl = document.getElementById('pricing-example');
+            
+            if (displayEl) {
+                displayEl.textContent = current.multiplier + '%';
+                displayEl.style.color = current.multiplier > 100 ? '#fecaca' : (current.multiplier < 100 ? '#bbf7d0' : 'white');
+            }
+            if (reasonEl) {
+                reasonEl.textContent = current.reasons;
+            }
+            if (exampleEl) {
+                const example = (14.60 * current.factor).toFixed(2);
+                exampleEl.textContent = `Beispiel: 14.60€ × ${current.multiplier}% = ${example}€`;
+            }
+        }
+
         function calculatePrice(distance, timestamp = null) {
             // Nutze entweder übergebenen timestamp oder jetzt
             const calcTime = timestamp ? new Date(timestamp) : new Date();
@@ -3566,10 +3718,26 @@
                 text.push('Nachttarif');
             }
             
-            const totalRaw = base;
-            const totalRounded = Math.round(totalRaw / 0.1) * 0.1; // Runde auf 10 Cent
+            // 💰 SURGE PRICING ANWENDEN
+            const surge = getCurrentMultiplier();
+            let finalPrice = base * surge.factor;
             
-            return { total: totalRounded.toFixed(2), zuschlagText: text, distance };
+            // Surge-Hinweis für Kunde
+            if (surge.multiplier > 100) {
+                text.push(`📈 +${surge.multiplier - 100}% Nachfrage`);
+            } else if (surge.multiplier < 100) {
+                text.push(`🎉 ${surge.multiplier - 100}% Rabatt`);
+            }
+            
+            const totalRounded = Math.round(finalPrice / 0.1) * 0.1; // Runde auf 10 Cent
+            
+            return { 
+                total: totalRounded.toFixed(2), 
+                zuschlagText: text, 
+                distance,
+                basePrice: base.toFixed(2),
+                surgeMultiplier: surge.multiplier
+            };
         }
 
         // AUTOCOMPLETE
@@ -6708,6 +6876,9 @@ Stack: ${err.stack}
             
             // 🌟 Stammkunden-Daten laden
             loadRegularCustomer();
+            
+            // 💰 Pricing Settings laden
+            loadPricingSettings();
             
             // 🔐 Zeige Login-Button (wird von Auth Observer aktualisiert)
             try {

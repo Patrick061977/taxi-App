@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.0.0 - Rollen-System! 🔐 (Build 20251124-1510)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.0 - Stammkunden-CRM! 📋 (Build 20251124-1545)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -171,12 +171,6 @@
             <div class="input-group">
                 <label>👤 Ihr Name</label>
                 <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
-                <div style="margin-top:8px;">
-                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
-                        <input type="checkbox" id="save-customer" style="width:auto;">
-                        <span>💾 Als Stammkunde speichern (schnellere Buchung nächstes Mal)</span>
-                    </label>
-                </div>
             </div>
             <div class="input-group">
                 <label>📞 Telefonnummer (optional)</label>
@@ -1025,6 +1019,26 @@
             <button onclick="loadAllUsers()" style="width:100%;margin-top:10px;padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                 🔄 Benutzer laden
             </button>
+        </div>
+        
+        <!-- 📋 NEU: STAMMKUNDEN-CRM -->
+        <div onclick="toggleAdminSection('customers')" style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📋 Stammkunden-CRM</span>
+            <span id="customers-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="customers-content" style="display:none;margin-bottom:20px;">
+            <div style="margin-bottom:15px;">
+                <input type="text" id="customer-search" placeholder="🔍 Kunde suchen (Name, Email, Telefon)..." oninput="searchCustomers()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+            </div>
+            <div id="customers-list" style="max-height:400px;overflow-y:auto;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                <button onclick="loadAllCustomers()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔄 Kunden laden
+                </button>
+                <button onclick="showAddCustomerModal()" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    ➕ Neuer Kunde
+                </button>
+            </div>
         </div>
         
         <!-- COLLAPSIBLE: Controls -->
@@ -5462,6 +5476,232 @@
             }
         }
         
+        // 📋 STAMMKUNDEN-CRM FUNKTIONEN
+        let allCustomers = [];
+        
+        async function loadAllCustomers() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('customers').once('value');
+                allCustomers = [];
+                snapshot.forEach(child => {
+                    const customer = child.val();
+                    customer.id = child.key;
+                    allCustomers.push(customer);
+                });
+                
+                // Sortiere nach letzter Fahrt (neueste zuerst)
+                allCustomers.sort((a, b) => (b.lastRide || 0) - (a.lastRide || 0));
+                
+                console.log('📋 Kunden geladen:', allCustomers.length);
+                renderCustomersList(allCustomers);
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Kunden:', error);
+                alert('❌ Fehler beim Laden der Kunden');
+            }
+        }
+        
+        function searchCustomers() {
+            const query = document.getElementById('customer-search').value.toLowerCase();
+            const filtered = allCustomers.filter(c => 
+                (c.name && c.name.toLowerCase().includes(query)) ||
+                (c.email && c.email.toLowerCase().includes(query)) ||
+                (c.phone && c.phone.includes(query)) ||
+                (c.address && c.address.toLowerCase().includes(query))
+            );
+            renderCustomersList(filtered);
+        }
+        
+        function renderCustomersList(customers) {
+            const container = document.getElementById('customers-list');
+            
+            if (customers.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Keine Kunden gefunden</div>';
+                return;
+            }
+            
+            container.innerHTML = customers.map(c => {
+                const lastRideDate = c.lastRide ? new Date(c.lastRide).toLocaleDateString('de-DE') : 'Nie';
+                return `
+                    <div style="background:white;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;font-size:15px;">${c.name || 'Unbekannt'}</div>
+                                ${c.phone ? `<div style="font-size:13px;color:#666;">📞 ${c.phone}</div>` : ''}
+                                ${c.email ? `<div style="font-size:12px;color:#888;">📧 ${c.email}</div>` : ''}
+                                ${c.address ? `<div style="font-size:12px;color:#888;">📍 ${c.address}</div>` : ''}
+                                <div style="font-size:11px;color:#999;margin-top:4px;">
+                                    🚕 ${c.totalRides || 0} Fahrten · 💰 ${(c.totalRevenue || 0).toFixed(2)}€ · 📅 ${lastRideDate}
+                                </div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:5px;">
+                                <button onclick="bookForCustomer('${c.id}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
+                                    🚕 Buchen
+                                </button>
+                                <button onclick="editCustomer('${c.id}')" style="padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
+                                    ✏️ Bearbeiten
+                                </button>
+                            </div>
+                        </div>
+                        ${c.notes ? `<div style="font-size:11px;color:#666;margin-top:8px;padding:8px;background:#f9fafb;border-radius:4px;">📝 ${c.notes}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function showAddCustomerModal() {
+            const modal = document.createElement('div');
+            modal.id = 'add-customer-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+                    <h3 style="margin:0 0 15px 0;">➕ Neuer Kunde</h3>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <input type="text" id="new-customer-name" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="text" id="new-customer-phone" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="email" id="new-customer-email" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="text" id="new-customer-address" placeholder="Adresse" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <textarea id="new-customer-notes" placeholder="Notizen (z.B. Kindersitz, Rollstuhl)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;"></textarea>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:15px;">
+                        <button onclick="saveNewCustomer()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Speichern</button>
+                        <button onclick="closeAddCustomerModal()" style="flex:1;padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        function closeAddCustomerModal() {
+            const modal = document.getElementById('add-customer-modal');
+            if (modal) modal.remove();
+        }
+        
+        async function saveNewCustomer() {
+            const name = document.getElementById('new-customer-name').value.trim();
+            if (!name) {
+                alert('❌ Name ist erforderlich!');
+                return;
+            }
+            
+            const customer = {
+                name: name,
+                phone: document.getElementById('new-customer-phone').value.trim(),
+                email: document.getElementById('new-customer-email').value.trim(),
+                address: document.getElementById('new-customer-address').value.trim(),
+                notes: document.getElementById('new-customer-notes').value.trim(),
+                totalRides: 0,
+                totalRevenue: 0,
+                createdAt: Date.now()
+            };
+            
+            try {
+                await db.ref('customers').push(customer);
+                console.log('✅ Kunde gespeichert:', customer.name);
+                closeAddCustomerModal();
+                loadAllCustomers();
+                alert('✅ Kunde "' + name + '" wurde angelegt!');
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern');
+            }
+        }
+        
+        function bookForCustomer(customerId) {
+            const customer = allCustomers.find(c => c.id === customerId);
+            if (!customer) return;
+            
+            // Wechsel zum Fahrgast-Tab und fülle Daten aus
+            switchView('passenger');
+            
+            if (customer.name) document.getElementById('customer-name').value = customer.name;
+            if (customer.phone) document.getElementById('customer-phone').value = customer.phone;
+            if (customer.address) document.getElementById('pickup').value = customer.address;
+            
+            alert('✅ Daten von "' + customer.name + '" wurden eingefüllt!\n\nBitte Ziel eingeben und Preis berechnen.');
+        }
+        
+        function editCustomer(customerId) {
+            const customer = allCustomers.find(c => c.id === customerId);
+            if (!customer) return;
+            
+            const modal = document.createElement('div');
+            modal.id = 'edit-customer-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+                    <h3 style="margin:0 0 15px 0;">✏️ Kunde bearbeiten</h3>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <input type="text" id="edit-customer-name" value="${customer.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="text" id="edit-customer-phone" value="${customer.phone || ''}" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="Adresse" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
+                    </div>
+                    <div style="font-size:12px;color:#666;margin-top:10px;padding:10px;background:#f9fafb;border-radius:6px;">
+                        🚕 ${customer.totalRides || 0} Fahrten · 💰 ${(customer.totalRevenue || 0).toFixed(2)}€
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:15px;">
+                        <button onclick="updateCustomer('${customerId}')" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Speichern</button>
+                        <button onclick="closeEditCustomerModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
+                    </div>
+                    <button onclick="deleteCustomer('${customerId}')" style="width:100%;margin-top:10px;padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">🗑️ Kunde löschen</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        function closeEditCustomerModal() {
+            const modal = document.getElementById('edit-customer-modal');
+            if (modal) modal.remove();
+        }
+        
+        async function updateCustomer(customerId) {
+            const name = document.getElementById('edit-customer-name').value.trim();
+            if (!name) {
+                alert('❌ Name ist erforderlich!');
+                return;
+            }
+            
+            const updates = {
+                name: name,
+                phone: document.getElementById('edit-customer-phone').value.trim(),
+                email: document.getElementById('edit-customer-email').value.trim(),
+                address: document.getElementById('edit-customer-address').value.trim(),
+                notes: document.getElementById('edit-customer-notes').value.trim()
+            };
+            
+            try {
+                await db.ref('customers/' + customerId).update(updates);
+                console.log('✅ Kunde aktualisiert:', name);
+                closeEditCustomerModal();
+                loadAllCustomers();
+                alert('✅ Kunde aktualisiert!');
+            } catch (error) {
+                console.error('❌ Fehler beim Aktualisieren:', error);
+                alert('❌ Fehler beim Aktualisieren');
+            }
+        }
+        
+        async function deleteCustomer(customerId) {
+            if (!confirm('⚠️ Kunde wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!')) return;
+            
+            try {
+                await db.ref('customers/' + customerId).remove();
+                console.log('🗑️ Kunde gelöscht');
+                closeEditCustomerModal();
+                loadAllCustomers();
+                alert('✅ Kunde gelöscht!');
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler beim Löschen');
+            }
+        }
+        
         // 🧹 CACHE LEEREN FUNKTION
         async function clearAppCache() {
             if (!confirm('🧹 Cache leeren?\n\nDies hilft bei Problemen mit alten Versionen.\nDie App wird neu geladen.')) return;
@@ -6898,6 +7138,15 @@ Stack: ${err.stack}
             }
         }
         
+        // 🆕 Stammkunden-Daten löschen
+        function clearRegularCustomer() {
+            if (confirm('Stammkunden-Daten löschen?\n\nDeine gespeicherten Daten (Name, Adresse, Fahrten-Anzahl) werden entfernt.')) {
+                localStorage.removeItem('regularCustomer');
+                updateUserProfile();
+                console.log('🗑️ Stammkunden-Daten gelöscht');
+            }
+        }
+        
         // 🔐 ROLLEN-SYSTEM
         let userRole = 'fahrgast'; // Standard-Rolle
         
@@ -7034,44 +7283,20 @@ Stack: ${err.stack}
                     <button class="btn-logout" onclick="logoutUser()">Aus</button>
                 `;
             } else {
-                // User ist nicht eingeloggt - prüfe ob Stammkunde (lokal)
-                const regularCustomer = JSON.parse(localStorage.getItem('regularCustomer') || 'null');
-                
+                // User ist nicht eingeloggt - zeige nur Anmelden Button
                 if (!profileBox) {
                     profileBox = document.createElement('div');
                     profileBox.id = 'user-profile-box';
                     header.appendChild(profileBox);
                 }
                 
-                if (regularCustomer && regularCustomer.rideCount > 0) {
-                    // Stammkunde ohne Login
-                    const initial = regularCustomer.name.charAt(0).toUpperCase();
-                    profileBox.className = 'user-profile';
-                    profileBox.style.marginTop = '8px';
-                    
-                    let customerStats = `🚕 ${regularCustomer.rideCount} Fahrt${regularCustomer.rideCount > 1 ? 'en' : ''}`;
-                    if (regularCustomer.favoritePickup) {
-                        customerStats += ` · 📍 ${regularCustomer.favoritePickup.substring(0, 20)}${regularCustomer.favoritePickup.length > 20 ? '...' : ''}`;
-                    }
-                    
-                    profileBox.innerHTML = `
-                        <div class="user-avatar">${initial}</div>
-                        <div class="user-info">
-                            <div style="font-weight: 600; font-size: 11px;">⭐ ${regularCustomer.name}</div>
-                            <div style="font-size: 9px; opacity: 0.75;">${customerStats}</div>
-                        </div>
-                        <button class="btn-logout" onclick="showLoginModal()">Anmelden</button>
-                    `;
-                } else {
-                    // Kein Login, kein Stammkunde
-                    profileBox.className = '';
-                    profileBox.style.marginTop = '15px';
-                    profileBox.innerHTML = `
-                        <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
-                            🔐 Anmelden / Registrieren
-                        </button>
-                    `;
-                }
+                profileBox.className = '';
+                profileBox.style.marginTop = '15px';
+                profileBox.innerHTML = `
+                    <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
+                        🔐 Anmelden / Registrieren
+                    </button>
+                `;
             }
         }
 

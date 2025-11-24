@@ -104,7 +104,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.6 - Surge Pricing! 📈 (Build 20251123-2220)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 4.9.7 - Surge Fix! 🔧 (Build 20251124-0930)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3640,7 +3640,7 @@
             
             // Auto-Surge basierend auf aktiven Fahrten
             if (pricingSettings.autoSurgeEnabled) {
-                const activeRides = allRides.filter(r => r.status === 'accepted' || r.status === 'in_progress').length;
+                const activeRides = rides.filter(r => r.status === 'accepted' || r.status === 'in_progress').length;
                 if (activeRides > 0) {
                     const autoSurge = activeRides * pricingSettings.surgePerTaxi;
                     multiplier += autoSurge;

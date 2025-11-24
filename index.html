@@ -105,7 +105,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.9 - Kunden Reset! 🗑️ (Build 20251124-2145)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.2.9 - Kunden Reset! 🗑️ (Build 20251124-2155)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -5740,15 +5740,18 @@
             const confirm1 = confirm('⚠️ ACHTUNG!\n\nAlle Kunden im CRM werden gelöscht!\n\nDies kann nicht rückgängig gemacht werden.\n\nFortfahren?');
             if (!confirm1) return;
             
-            const confirm2 = confirm('🔴 LETZTE WARNUNG!\n\nAlle ' + (document.querySelectorAll('#crm-list > div').length || 'X') + ' Kunden werden UNWIDERRUFLICH gelöscht!\n\nTippe OK um zu löschen.');
+            const confirm2 = confirm('🔴 LETZTE WARNUNG!\n\nAlle Kunden werden UNWIDERRUFLICH gelöscht!\n\nTippe OK um zu löschen.');
             if (!confirm2) return;
             
             try {
                 await db.ref('customers').remove();
                 alert('✅ Alle Kunden wurden gelöscht!\n\nDu kannst jetzt die CSV neu importieren.');
                 
-                // Liste leeren
-                document.getElementById('crm-list').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Kunden vorhanden</div>';
+                // Liste leeren (falls vorhanden)
+                const crmList = document.getElementById('crm-list');
+                if (crmList) {
+                    crmList.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Kunden vorhanden</div>';
+                }
             } catch (error) {
                 console.error('❌ Fehler beim Löschen:', error);
                 alert('❌ Fehler: ' + error.message);

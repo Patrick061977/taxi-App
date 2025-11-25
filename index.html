@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.1 - Telegram Fix! 📱 (Build 20251125-1100)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.2 - Bessere Details! 📋 (Build 20251125-1115)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4054,17 +4054,51 @@
                     return;
                 }
                 
-                const pickupTime = ride.pickupTime || 'Sofort';
-                const statusEmoji = ride.status === 'vorbestellt' ? '📅' : '🚕';
-                const statusText = ride.status === 'vorbestellt' ? 'VORBESTELLUNG' : 'NEUE FAHRT';
+                // Intelligente Zeit-Formatierung
+                const now = new Date();
+                const pickupDate = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : now;
+                
+                // Ist es heute?
+                const isToday = pickupDate.toDateString() === now.toDateString();
+                
+                // Ist es sofort? (innerhalb 15 Min)
+                const isSofort = ride.status === 'new';
+                
+                let pickupTimeFormatted;
+                let statusEmoji;
+                let statusText;
+                
+                if (isSofort) {
+                    // SOFORT-FAHRT
+                    pickupTimeFormatted = 'SOFORT';
+                    statusEmoji = '🚕';
+                    statusText = 'SOFORT-FAHRT!';
+                } else if (isToday) {
+                    // VORBESTELLUNG - Heute
+                    const time = pickupDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    pickupTimeFormatted = `Heute ${time}`;
+                    statusEmoji = '📅';
+                    statusText = 'VORBESTELLUNG';
+                } else {
+                    // VORBESTELLUNG - Morgen oder später
+                    const date = pickupDate.toLocaleDateString('de-DE', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: '2-digit' 
+                    });
+                    const time = pickupDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    pickupTimeFormatted = `${date} ${time}`;
+                    statusEmoji = '📅';
+                    statusText = 'VORBESTELLUNG';
+                }
                 
                 // Formatiere Nachricht
-                const message = `${statusEmoji} <b>${statusText} - Funk Taxi Heringsdorf!</b>\n\n` +
+                const message = `${statusEmoji} <b>${statusText}</b>\n\n` +
                     `📍 <b>Von:</b> ${ride.pickup}\n` +
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
                     `👤 <b>Name:</b> ${ride.customerName}\n` +
                     `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
-                    `🕐 <b>Abholung:</b> ${pickupTime}\n` +
+                    `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
                     `💰 <b>Preis:</b> ${ride.price}€\n` +
                     `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
                 
@@ -8329,17 +8363,52 @@ Stack: ${err.stack}
             }
             
             if (ride.status === 'new') {
+                // Formatiere Bestellzeit
+                const createdTime = new Date(ride.createdAt || Date.now());
+                const createdTimeStr = createdTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                
+                // Formatiere Abholzeit
+                let pickupTimeStr;
+                const now = new Date();
+                if (ride.pickupTimestamp) {
+                    const pickupDate = new Date(ride.pickupTimestamp);
+                    const isToday = pickupDate.toDateString() === now.toDateString();
+                    
+                    if (isToday) {
+                        const time = pickupDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        pickupTimeStr = `Heute ${time}`;
+                    } else {
+                        const date = pickupDate.toLocaleDateString('de-DE', { 
+                            day: '2-digit', 
+                            month: '2-digit',
+                            year: '2-digit'
+                        });
+                        const time = pickupDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        pickupTimeStr = `${date} ${time}`;
+                    }
+                } else {
+                    pickupTimeStr = 'SOFORT';
+                }
+                
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#fef3c7;border:2px solid #f59e0b;">
-                        <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
-                        <h3 style="font-size: 18px; margin: 8px 0;">Warte auf Fahrer...</h3>
-                        <p style="margin-top: 8px; font-size: 14px;">Deine Fahrt wird zugewiesen</p>
-                        <div style="margin-top: 12px; font-size: 13px; color: #92400e;">
-                            <strong>Von:</strong> ${ride.pickup}<br>
-                            <strong>Nach:</strong> ${ride.destination}<br>
-                            <strong>Preis:</strong> ${ride.price}€
+                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                        <h3 style="font-size: 20px; margin: 0 0 15px 0;">Fahrt bestellt!</h3>
+                        
+                        <div style="background:#fffbeb;padding:15px;border-radius:8px;margin-bottom:15px;text-align:left;">
+                            <div style="font-size:14px;line-height:1.8;color:#92400e;">
+                                <strong>📍 Von:</strong> ${ride.pickup}<br>
+                                <strong>🎯 Nach:</strong> ${ride.destination}<br>
+                                <strong>🕐 Bestellt:</strong> ${createdTimeStr} Uhr<br>
+                                <strong>🚕 Abholung:</strong> ${pickupTimeStr}<br>
+                                <strong>💰 Preis:</strong> ${ride.price}€
+                            </div>
                         </div>
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:10px 20px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">🗑️ Fahrt stornieren</button>
+                        
+                        <div style="font-size:32px;margin:15px 0;">⏳</div>
+                        <p style="font-size:16px;color:#92400e;margin:10px 0;">Warte auf Fahrer...</p>
+                        
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="width:100%;margin-top:15px;padding:12px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
                     </div>
                 `;
             } else if (ride.status === 'accepted' && ride.driverLocation) {

@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.0 - Security & ICS! 🔐📅 (Build 20251125-1045)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.1 - Telegram Fix! 📱 (Build 20251125-1100)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3869,13 +3869,10 @@
                 });
             }
             
-            // 3. Telegram-Benachrichtigung senden
-            sendTelegramAlarm();
-            
-            // 4. Modal anzeigen
+            // 3. Modal anzeigen
             showAdminAlarmModal();
             
-            // 5. Wiederholungs-Timer starten (alle 3 Min)
+            // 4. Wiederholungs-Timer starten (alle 3 Min)
             if (adminAlarmInterval) clearInterval(adminAlarmInterval);
             adminAlarmInterval = setInterval(() => {
                 const stillNewRides = rides.filter(r => 
@@ -3890,7 +3887,6 @@
                             requireInteraction: true
                         });
                     }
-                    sendTelegramAlarm(); // Auch Telegram bei Wiederholung
                 } else {
                     clearInterval(adminAlarmInterval);
                     adminAlarmInterval = null;
@@ -3922,17 +3918,18 @@
                 minute: '2-digit'
             }) : 'Sofort';
             
+            const title = newRides.length === 1 ? 'NEUE FAHRT!' : `${newRides.length} NEUE FAHRTEN!`;
+            
             modal.innerHTML = `
                 <div style="background:white;border-radius:20px;padding:40px;max-width:500px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
                     <div style="font-size:80px;margin-bottom:20px;animation:bounce 1s infinite;">🚕</div>
-                    <h2 style="margin:0 0 10px 0;font-size:32px;color:#dc2626;">NEUE FAHRT!</h2>
+                    <h2 style="margin:0 0 10px 0;font-size:32px;color:#dc2626;">${title}</h2>
                     <div style="background:#fef2f2;padding:20px;border-radius:12px;margin:20px 0;text-align:left;">
                         <div style="margin-bottom:10px;"><strong>📍 Von:</strong> ${ride.pickup}</div>
                         <div style="margin-bottom:10px;"><strong>📍 Nach:</strong> ${ride.destination}</div>
                         <div style="margin-bottom:10px;"><strong>👤 Name:</strong> ${ride.customerName}</div>
                         <div style="margin-bottom:10px;"><strong>📞 Tel:</strong> ${ride.customerPhone}</div>
                         <div style="margin-bottom:10px;"><strong>🕐 Abholung:</strong> ${pickupTime}</div>
-                        ${newRides.length > 1 ? `<div style="margin-top:15px;padding:10px;background:white;border-radius:8px;color:#dc2626;font-weight:600;">+ ${newRides.length - 1} weitere Fahrt${newRides.length > 2 ? 'en' : ''}!</div>` : ''}
                     </div>
                     <button onclick="acknowledgeAdminAlarm()" style="width:100%;padding:18px;background:#dc2626;color:white;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(220,38,38,0.4);">
                         ✓ Bestätigt - Fahrer zuweisen!
@@ -4011,48 +4008,11 @@
             }
         }
         
-        // Alarm über Telegram senden
+        // Alarm über Telegram senden (VERALTET - wird nicht mehr verwendet)
+        // JEDE Fahrt bekommt jetzt ihre eigene Nachricht via sendTelegramForNewRide()
         async function sendTelegramAlarm() {
-            if (!isFirebaseReady) return;
-            
-            try {
-                // Lade Admin Chat IDs aus Firebase
-                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
-                const adminChats = snapshot.val() || [];
-                
-                if (adminChats.length === 0) {
-                    console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
-                    return;
-                }
-                
-                // Finde neue Fahrten (sofort + vorbestellt)
-                const newRides = rides.filter(r => 
-                    (r.status === 'new' || r.status === 'vorbestellt') && 
-                    !acknowledgedRides.has(r.id)
-                );
-                if (newRides.length === 0) return;
-                
-                const ride = newRides[0];
-                const pickupTime = ride.pickupTime ? ride.pickupTime : 'Sofort';
-                
-                // Formatiere Nachricht
-                const message = `🚕 <b>NEUE FAHRT - Funk Taxi Heringsdorf!</b>\n\n` +
-                    `📍 <b>Von:</b> ${ride.pickup}\n` +
-                    `📍 <b>Nach:</b> ${ride.destination}\n` +
-                    `👤 <b>Name:</b> ${ride.customerName}\n` +
-                    `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
-                    `🕐 <b>Abholung:</b> ${pickupTime}\n` +
-                    (newRides.length > 1 ? `\n⚠️ <b>+ ${newRides.length - 1} weitere Fahrt${newRides.length > 2 ? 'en' : ''}!</b>\n` : '') +
-                    `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
-                
-                // Sende an alle Admin-Chats
-                for (const chatId of adminChats) {
-                    await sendTelegramMessage(chatId, message);
-                }
-                
-            } catch (error) {
-                console.error('❌ Telegram Alarm Fehler:', error);
-            }
+            // Diese Funktion ist veraltet
+            console.log('⚠️ sendTelegramAlarm ist veraltet - Fahrten werden einzeln gesendet');
         }
         
         // Telegram Chat registrieren (automatisch beim /start)

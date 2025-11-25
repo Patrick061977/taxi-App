@@ -1,7 +1,7 @@
 {
-  "version": "5.9.2",
-  "build": "20251125-1530",
-  "updated": 1732544100000,
-  "forceUpdate": false,
-  "minVersion": "5.9.0"
+  "version": "5.9.3",
+  "build": "20251125-1703",
+  "updated": 1732551780000,
+  "forceUpdate": true,
+  "minVersion": "5.9.3"
 }

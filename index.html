@@ -19,8 +19,8 @@
     <script>
     (function() {
         'use strict';
-        const CURRENT_APP_VERSION = '5.9.2';
-        const CURRENT_APP_BUILD = '20251125-1530';
+        const CURRENT_APP_VERSION = '5.9.3';
+        const CURRENT_APP_BUILD = '20251125-1700';
         
         // 🛑 Prüfe ob Update-Check unterdrückt werden soll (nach "Später" Klick)
         const updateDismissed = sessionStorage.getItem('updateDismissed');
@@ -1460,10 +1460,10 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.9.2';
-        const APP_BUILD = '20251125-1530';
+        const APP_VERSION = '5.9.3';
+        const APP_BUILD = '20251125-1700';
         
-        // ⚠️ ALTE checkForUpdates() FUNKTION ENTFERNT!
+        // ⚠️ ALTE checkForUpdates() und showUpdateBanner() FUNKTIONEN ENTFERNT!
         // Das Auto-Update-System läuft jetzt direkt im <head> mit version.json
         // → Kein rekursiver Aufruf mehr
         // → Nur 1x beim Start
@@ -5483,13 +5483,8 @@
         }
 
         async function book() {
-            // 🔒 KRITISCHER VERSION-CHECK VOR BUCHUNG!
-            const versionOk = await checkVersionBeforeBooking();
-            if (!versionOk) {
-                // BLOCKIERE Buchung bis Update!
-                showUpdateRequiredBanner();
-                return; // STOP! Keine Buchung möglich!
-            }
+            // ✅ BUGFIX v5.9.3: Version-Check entfernt!
+            // Der alte Check rief nicht-existierende Funktionen auf und blockierte ALLE Buchungen!
             
             const customerName = document.getElementById('customer-name').value.trim();
             const customerPhone = document.getElementById('customer-phone').value.trim();

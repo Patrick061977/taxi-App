@@ -19,8 +19,8 @@
     <script>
     (function() {
         'use strict';
-        const CURRENT_APP_VERSION = '5.9.0';
-        const CURRENT_APP_BUILD = '20251125-1345';
+        const CURRENT_APP_VERSION = '5.9.1';
+        const CURRENT_APP_BUILD = '20251125-1400';
         
         // Prüfe ob wir von einem Update-Redirect kommen
         const urlParams = new URLSearchParams(window.location.search);
@@ -173,7 +173,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.9.0 - Auto-Update System! 🔄 (Build 20251125-1345)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.9.1 - Telegram beim Löschen! 📱 (Build 20251125-1400)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1370,8 +1370,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM
-        const APP_VERSION = '5.9.0';
-        const APP_BUILD = '20251125-1345';
+        const APP_VERSION = '5.9.1';
+        const APP_BUILD = '20251125-1400';
         
         // Prüfe auf neue Version beim Start
         async function checkForUpdates() {
@@ -2448,6 +2448,23 @@
         async function deleteRide(rideId) {
             const confirmDelete = confirm('🗑️ Fahrt wirklich LÖSCHEN?\n\nDies kann nicht rückgängig gemacht werden!');
             if (!confirmDelete) return;
+            
+            // 🆕 Lade Fahrt VORHER um Telegram zu senden
+            let ride = null;
+            if (isFirebaseReady) {
+                try {
+                    const snapshot = await db.ref('rides/' + rideId).once('value');
+                    ride = snapshot.val();
+                    
+                    // 📱 TELEGRAM SENDEN wenn Fahrt zugewiesen war!
+                    if (ride && (ride.assignedDriver || ride.status === 'accepted' || ride.status === 'picked_up')) {
+                        await sendTelegramForDeletedRide(ride);
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden der Fahrt:', error);
+                }
+            }
             
             // Lösche aus Firebase
             if (isFirebaseReady) {
@@ -4541,6 +4558,50 @@
             await updateTelegramStatus();
         }
         
+        // 🆕 TELEGRAM: Fahrt vom Admin gelöscht
+        async function sendTelegramForDeletedRide(ride) {
+            if (!isFirebaseReady) return;
+            
+            try {
+                // Lade Admin Chat IDs aus Firebase
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
+                
+                if (adminChats.length === 0) {
+                    console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
+                    return;
+                }
+                
+                // Formatiere Status
+                let statusText = 'Nicht zugewiesen';
+                if (ride.status === 'accepted') statusText = '✅ Angenommen';
+                if (ride.status === 'picked_up') statusText = '🚗 Unterwegs';
+                if (ride.status === 'vorbestellt') statusText = '📅 Vorbestellt';
+                
+                // Erstelle Nachricht
+                const message = `🗑️ <b>FAHRT GELÖSCHT (Admin)</b>\n\n` +
+                    `⚠️ <b>Status war:</b> ${statusText}\n` +
+                    (ride.vehicle ? `🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` : '') +
+                    `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                    `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
+                    `📍 <b>Von:</b> ${ride.pickup}\n` +
+                    `📍 <b>Nach:</b> ${ride.destination}\n` +
+                    (ride.pickupTime && ride.pickupTime !== 'Sofort' ? `⏰ <b>Abholung:</b> ${ride.pickupTime}\n` : '') +
+                    `💰 <b>Preis:</b> ${ride.price}€\n` +
+                    `\n🚨 <b>Diese Fahrt wurde vom Admin gelöscht!</b>`;
+                
+                // Sende an alle Admin-Chats
+                for (const chatId of adminChats) {
+                    await sendTelegramMessage(chatId, message);
+                }
+                
+                console.log('📱 Telegram: Lösch-Benachrichtigung gesendet');
+                
+            } catch (error) {
+                console.error('❌ Telegram Fehler:', error);
+            }
+        }
+        
         // Telegram Status anzeigen
         async function updateTelegramStatus() {
             const statusEl = document.getElementById('telegram-status');
@@ -5469,6 +5530,14 @@
         }
 
         async function book() {
+            // 🔒 KRITISCHER VERSION-CHECK VOR BUCHUNG!
+            const versionOk = await checkVersionBeforeBooking();
+            if (!versionOk) {
+                // BLOCKIERE Buchung bis Update!
+                showUpdateRequiredBanner();
+                return; // STOP! Keine Buchung möglich!
+            }
+            
             const customerName = document.getElementById('customer-name').value.trim();
             const customerPhone = document.getElementById('customer-phone').value.trim();
             const pickupTimeSelect = document.getElementById('pickup-time').value;

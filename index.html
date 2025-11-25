@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.5.0 - Admin-Alarm! 🚨 (Build 20251125-0900)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.6.0 - Telegram Bot! 📱 (Build 20251125-0930)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1171,6 +1171,33 @@
         </div>
         <div id="cancelled-content" style="display:none;">
             <div id="cancellations-list"></div>
+        </div>
+        
+        <!-- 📱 NEU: TELEGRAM-ALARME -->
+        <div onclick="toggleAdminSection('telegram')" style="background:linear-gradient(135deg,#0088cc,#0077b3);color:white;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📱 Telegram-Alarme</span>
+            <span id="telegram-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="telegram-content" style="display:none;margin-bottom:20px;padding:15px;background:#fff;border-radius:8px;border:1px solid #e5e7eb;">
+            <div style="background:#e0f2fe;padding:15px;border-radius:8px;margin-bottom:15px;">
+                <div style="font-weight:600;margin-bottom:8px;color:#0369a1;">✅ Funktioniert auch bei:</div>
+                <div style="font-size:14px;color:#0c4a6e;line-height:1.8;">
+                    • 📱 Handy gesperrt<br>
+                    • 🌙 App geschlossen<br>
+                    • 🔇 Browser im Hintergrund<br>
+                    • 📵 Keine Internet-Verbindung (Nachricht kommt später)
+                </div>
+            </div>
+            
+            <button onclick="showTelegramActivation()" style="width:100%;padding:15px;background:#0088cc;color:white;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:15px;box-shadow:0 4px 12px rgba(0,136,204,0.3);">
+                📱 Telegram-Alarme aktivieren
+            </button>
+            
+            <button onclick="checkTelegramUpdates()" style="width:100%;padding:12px;background:#f3f4f6;color:#333;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                🔄 Registrierungen prüfen
+            </button>
+            
+            <div id="telegram-status" style="margin-top:15px;padding:12px;background:#f9fafb;border-radius:8px;font-size:13px;color:#666;"></div>
         </div>
         
         <!-- 💰 PREIS-STEUERUNG (SURGE PRICING) -->
@@ -3819,10 +3846,13 @@
                 });
             }
             
-            // 3. Modal anzeigen
+            // 3. Telegram-Benachrichtigung senden
+            sendTelegramAlarm();
+            
+            // 4. Modal anzeigen
             showAdminAlarmModal();
             
-            // 4. Wiederholungs-Timer starten (alle 3 Min)
+            // 5. Wiederholungs-Timer starten (alle 3 Min)
             if (adminAlarmInterval) clearInterval(adminAlarmInterval);
             adminAlarmInterval = setInterval(() => {
                 const stillNewRides = rides.filter(r => r.status === 'new' && !acknowledgedRides.has(r.id)).length;
@@ -3834,6 +3864,7 @@
                             requireInteraction: true
                         });
                     }
+                    sendTelegramAlarm(); // Auch Telegram bei Wiederholung
                 } else {
                     clearInterval(adminAlarmInterval);
                     adminAlarmInterval = null;
@@ -3916,6 +3947,156 @@
                 badge.style.display = 'flex';
             } else {
                 badge.style.display = 'none';
+            }
+        }
+
+        // 📱 TELEGRAM BOT INTEGRATION
+        const TELEGRAM_BOT_TOKEN = '8456598996:AAGEId1DDbQwZ4-10QFoW3FkT9tzI1fTc_FM';
+        const TELEGRAM_BOT_USERNAME = 'FunkTaxiHeringsdorfBot';
+        
+        // Telegram-Nachricht senden
+        async function sendTelegramMessage(chatId, text) {
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: text,
+                        parse_mode: 'HTML'
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.ok) {
+                    console.log('✅ Telegram gesendet an Chat', chatId);
+                } else {
+                    console.error('❌ Telegram Fehler:', data);
+                }
+                return data.ok;
+            } catch (error) {
+                console.error('❌ Telegram Fehler:', error);
+                return false;
+            }
+        }
+        
+        // Alarm über Telegram senden
+        async function sendTelegramAlarm() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                // Lade Admin Chat IDs aus Firebase
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
+                
+                if (adminChats.length === 0) {
+                    console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
+                    return;
+                }
+                
+                // Finde neue Fahrten
+                const newRides = rides.filter(r => r.status === 'new' && !acknowledgedRides.has(r.id));
+                if (newRides.length === 0) return;
+                
+                const ride = newRides[0];
+                const pickupTime = ride.pickupTime ? ride.pickupTime : 'Sofort';
+                
+                // Formatiere Nachricht
+                const message = `🚕 <b>NEUE FAHRT - Funk Taxi Heringsdorf!</b>\n\n` +
+                    `📍 <b>Von:</b> ${ride.pickup}\n` +
+                    `📍 <b>Nach:</b> ${ride.destination}\n` +
+                    `👤 <b>Name:</b> ${ride.customerName}\n` +
+                    `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
+                    `🕐 <b>Abholung:</b> ${pickupTime}\n` +
+                    (newRides.length > 1 ? `\n⚠️ <b>+ ${newRides.length - 1} weitere Fahrt${newRides.length > 2 ? 'en' : ''}!</b>\n` : '') +
+                    `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
+                
+                // Sende an alle Admin-Chats
+                for (const chatId of adminChats) {
+                    await sendTelegramMessage(chatId, message);
+                }
+                
+            } catch (error) {
+                console.error('❌ Telegram Alarm Fehler:', error);
+            }
+        }
+        
+        // Telegram Chat registrieren (automatisch beim /start)
+        async function registerTelegramChat(chatId) {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                let adminChats = snapshot.val() || [];
+                
+                if (!adminChats.includes(chatId)) {
+                    adminChats.push(chatId);
+                    await db.ref('settings/telegram/adminChats').set(adminChats);
+                    console.log('✅ Telegram Chat registriert:', chatId);
+                    
+                    // Bestätigungs-Nachricht senden
+                    await sendTelegramMessage(chatId, 
+                        '✅ <b>Erfolgreich registriert!</b>\n\n' +
+                        'Du bekommst ab jetzt alle neuen Fahrten als Telegram-Nachricht.\n\n' +
+                        '🚕 Funk Taxi Heringsdorf'
+                    );
+                }
+            } catch (error) {
+                console.error('❌ Telegram Registrierung Fehler:', error);
+            }
+        }
+        
+        // Telegram-Aktivierung im Admin-Panel
+        function showTelegramActivation() {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:30px;max-width:400px;text-align:center;">
+                    <div style="font-size:60px;margin-bottom:15px;">📱</div>
+                    <h2 style="margin:0 0 15px 0;">Telegram-Alarme aktivieren</h2>
+                    <p style="color:#666;margin-bottom:25px;">Erhalte Push-Benachrichtigungen über neue Fahrten - auch wenn die App geschlossen ist!</p>
+                    
+                    <div style="background:#f3f4f6;padding:15px;border-radius:10px;margin-bottom:20px;text-align:left;">
+                        <div style="font-weight:600;margin-bottom:10px;">📋 So geht's:</div>
+                        <div style="font-size:14px;line-height:1.8;">
+                            1️⃣ Klicke auf "Bot öffnen"<br>
+                            2️⃣ Schreibe <code>/start</code> im Chat<br>
+                            3️⃣ Fertig! Du bekommst alle Alarme
+                        </div>
+                    </div>
+                    
+                    <button onclick="window.open('https://t.me/${TELEGRAM_BOT_USERNAME}?start=admin', '_blank'); this.closest('div').parentElement.remove();" style="width:100%;padding:15px;background:#0088cc;color:white;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;">
+                        📱 Bot öffnen
+                    </button>
+                    
+                    <button onclick="this.closest('div').parentElement.remove()" style="width:100%;padding:12px;background:#e5e7eb;color:#333;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+                        Abbrechen
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // Telegram Updates abrufen (für automatische Registrierung)
+        async function checkTelegramUpdates() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`);
+                const data = await response.json();
+                
+                if (data.ok && data.result.length > 0) {
+                    for (const update of data.result) {
+                        if (update.message && update.message.text === '/start') {
+                            const chatId = update.message.chat.id;
+                            await registerTelegramChat(chatId);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Telegram Updates Fehler:', error);
             }
         }
 
@@ -8649,6 +8830,12 @@ Stack: ${err.stack}
             
             // 💰 Pricing Settings laden
             loadPricingSettings();
+            
+            // 📱 Telegram Updates prüfen (nur für Admins, alle 60 Sek)
+            if (userRole === 'admin') {
+                checkTelegramUpdates();
+                setInterval(checkTelegramUpdates, 60000); // Alle 60 Sekunden
+            }
             
             // 🔐 Zeige Login-Button (wird von Auth Observer aktualisiert)
             try {

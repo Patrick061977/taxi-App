@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.6.0 - Telegram Bot! 📱 (Build 20251125-0930)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.6.1 - Telegram Fix! 📱 (Build 20251125-0955)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1193,11 +1193,16 @@
                 📱 Telegram-Alarme aktivieren
             </button>
             
-            <button onclick="checkTelegramUpdates()" style="width:100%;padding:12px;background:#f3f4f6;color:#333;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
-                🔄 Registrierungen prüfen
-            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+                <button onclick="sendTelegramTest()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                    🧪 Test-Nachricht
+                </button>
+                <button onclick="updateTelegramStatus()" style="padding:12px;background:#f3f4f6;color:#333;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                    🔄 Status
+                </button>
+            </div>
             
-            <div id="telegram-status" style="margin-top:15px;padding:12px;background:#f9fafb;border-radius:8px;font-size:13px;color:#666;"></div>
+            <div id="telegram-status" style="margin-top:0;padding:12px;background:#f9fafb;border-radius:8px;font-size:13px;color:#666;">⏳ Status wird geladen...</div>
         </div>
         
         <!-- 💰 PREIS-STEUERUNG (SURGE PRICING) -->
@@ -3951,7 +3956,7 @@
         }
 
         // 📱 TELEGRAM BOT INTEGRATION
-        const TELEGRAM_BOT_TOKEN = '8456598996:AAGEId1DDbQwZ4-10QFoW3FkT9tzI1fTc_FM';
+        const TELEGRAM_BOT_TOKEN = '8456598996:AAGEIdlDDbQwZ4-1OQFoW3fkT9tZlfTc_FM';
         const TELEGRAM_BOT_USERNAME = 'FunkTaxiHeringsdorfBot';
         
         // Telegram-Nachricht senden
@@ -4052,22 +4057,34 @@
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';
             
             modal.innerHTML = `
-                <div style="background:white;border-radius:16px;padding:30px;max-width:400px;text-align:center;">
+                <div style="background:white;border-radius:16px;padding:30px;max-width:450px;text-align:center;">
                     <div style="font-size:60px;margin-bottom:15px;">📱</div>
                     <h2 style="margin:0 0 15px 0;">Telegram-Alarme aktivieren</h2>
                     <p style="color:#666;margin-bottom:25px;">Erhalte Push-Benachrichtigungen über neue Fahrten - auch wenn die App geschlossen ist!</p>
                     
                     <div style="background:#f3f4f6;padding:15px;border-radius:10px;margin-bottom:20px;text-align:left;">
-                        <div style="font-weight:600;margin-bottom:10px;">📋 So geht's:</div>
+                        <div style="font-weight:600;margin-bottom:10px;">📋 Anleitung:</div>
                         <div style="font-size:14px;line-height:1.8;">
                             1️⃣ Klicke auf "Bot öffnen"<br>
-                            2️⃣ Schreibe <code>/start</code> im Chat<br>
-                            3️⃣ Fertig! Du bekommst alle Alarme
+                            2️⃣ Schreibe <code>/start</code> im Bot<br>
+                            3️⃣ Klicke auf "Chat ID anzeigen"<br>
+                            4️⃣ Kopiere die Zahl (<code>"id":123456789</code>)<br>
+                            5️⃣ Trage sie hier ein und klicke "Registrieren"
                         </div>
                     </div>
                     
-                    <button onclick="window.open('https://t.me/${TELEGRAM_BOT_USERNAME}?start=admin', '_blank'); this.closest('div').parentElement.remove();" style="width:100%;padding:15px;background:#0088cc;color:white;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;">
+                    <button onclick="window.open('https://t.me/${TELEGRAM_BOT_USERNAME}', '_blank');" style="width:100%;padding:15px;background:#0088cc;color:white;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;">
                         📱 Bot öffnen
+                    </button>
+                    
+                    <button onclick="window.open('https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates', '_blank');" style="width:100%;padding:12px;background:#f3f4f6;color:#333;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:15px;">
+                        🔍 Chat ID anzeigen
+                    </button>
+                    
+                    <input type="text" id="telegram-chat-id-input" placeholder="Chat ID hier eintragen..." style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;margin-bottom:10px;font-size:14px;box-sizing:border-box;">
+                    
+                    <button onclick="registerManualChatId()" style="width:100%;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px;">
+                        ✅ Chat ID registrieren
                     </button>
                     
                     <button onclick="this.closest('div').parentElement.remove()" style="width:100%;padding:12px;background:#e5e7eb;color:#333;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
@@ -4079,25 +4096,89 @@
             document.body.appendChild(modal);
         }
         
-        // Telegram Updates abrufen (für automatische Registrierung)
-        async function checkTelegramUpdates() {
-            if (!isFirebaseReady) return;
+        // Manuelle Chat ID Registrierung
+        async function registerManualChatId() {
+            const input = document.getElementById('telegram-chat-id-input');
+            const chatId = input.value.trim();
+            
+            if (!chatId || isNaN(chatId)) {
+                alert('❌ Bitte gültige Chat ID eingeben!');
+                return;
+            }
+            
+            await registerTelegramChat(parseInt(chatId));
+            alert('✅ Chat ID registriert! Teste jetzt mit "Test-Nachricht senden".');
+            
+            // Schließe Modal
+            const modal = input.closest('div').parentElement;
+            if (modal) modal.remove();
+            
+            // Update Status
+            await updateTelegramStatus();
+        }
+        
+        // Telegram Status anzeigen
+        async function updateTelegramStatus() {
+            const statusEl = document.getElementById('telegram-status');
+            if (!statusEl || !isFirebaseReady) return;
             
             try {
-                const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`);
-                const data = await response.json();
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
                 
-                if (data.ok && data.result.length > 0) {
-                    for (const update of data.result) {
-                        if (update.message && update.message.text === '/start') {
-                            const chatId = update.message.chat.id;
-                            await registerTelegramChat(chatId);
-                        }
-                    }
+                if (adminChats.length === 0) {
+                    statusEl.innerHTML = '⚠️ Noch keine Admins registriert';
+                    statusEl.style.background = '#fef3c7';
+                    statusEl.style.color = '#92400e';
+                } else {
+                    statusEl.innerHTML = `✅ <b>${adminChats.length}</b> Admin${adminChats.length > 1 ? 's' : ''} registriert<br><small style="opacity:0.7;">Chat IDs: ${adminChats.join(', ')}</small>`;
+                    statusEl.style.background = '#d1fae5';
+                    statusEl.style.color = '#065f46';
                 }
             } catch (error) {
-                console.error('❌ Telegram Updates Fehler:', error);
+                console.error('❌ Status Update Fehler:', error);
             }
+        }
+        
+        // Test-Nachricht senden
+        async function sendTelegramTest() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
+                
+                if (adminChats.length === 0) {
+                    alert('❌ Keine Admins registriert! Bitte erst aktivieren.');
+                    return;
+                }
+                
+                const message = '🧪 <b>TEST-NACHRICHT</b>\n\n' +
+                    '✅ Telegram-Alarme funktionieren!\n\n' +
+                    '🚕 Funk Taxi Heringsdorf\n' +
+                    `📅 ${new Date().toLocaleString('de-DE')}`;
+                
+                let success = 0;
+                for (const chatId of adminChats) {
+                    const sent = await sendTelegramMessage(chatId, message);
+                    if (sent) success++;
+                }
+                
+                alert(`✅ Test-Nachricht gesendet an ${success}/${adminChats.length} Admin(s)!`);
+                
+            } catch (error) {
+                console.error('❌ Test-Nachricht Fehler:', error);
+                alert('❌ Fehler beim Senden!');
+            }
+        }
+        
+        // Telegram Updates abrufen (für automatische Registrierung)
+        async function checkTelegramUpdates() {
+            // Diese Funktion ist jetzt optional - manuelle Registrierung ist bevorzugt
+            await updateTelegramStatus();
         }
 
         function calculatePrice(distance, timestamp = null) {
@@ -5805,6 +5886,11 @@
             if (content.style.display === 'none') {
                 content.style.display = 'block';
                 toggle.textContent = '▲';
+                
+                // Spezielle Aktionen beim Öffnen
+                if (section === 'telegram') {
+                    updateTelegramStatus();
+                }
             } else {
                 content.style.display = 'none';
                 toggle.textContent = '▼';

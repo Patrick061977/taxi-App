@@ -15,11 +15,26 @@
     <link rel="apple-touch-icon" href="/icon-192.png">
     <title>Funk Taxi Heringsdorf</title>
     
-    <!-- 📋 VERSION INFO (kein Auto-Update mehr!) -->
+    <!-- 🗑️ SERVICE WORKER KILLER - Löscht alten Cache SOFORT! -->
     <script>
-        // v5.10.0 - OHNE Auto-Update!
-        // Stabil. Sauber. Funktioniert.
-        console.log('🚕 Funk Taxi App v5.10.0 - Build 20251125-1930');
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(reg => {
+                reg.unregister();
+                console.log('🗑️ Alter Service Worker gelöscht!');
+            });
+        });
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                names.forEach(name => caches.delete(name));
+            });
+        }
+    }
+    </script>
+    
+    <!-- 📋 VERSION INFO -->
+    <script>
+        console.log('🚕 Funk Taxi App v5.10.1 - Build 20251125-2035');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -128,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.10.0 - Stabil! ✅ (Build 20251125-1930)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.10.1 - Stabil! ✅ (Build 20251125-2035)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1325,8 +1340,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.10.0';
-        const APP_BUILD = '20251125-1930';
+        const APP_VERSION = '5.10.1';
+        const APP_BUILD = '20251125-2035';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.

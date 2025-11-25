@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.3 - Karte Fix! 🗺️ (Build 20251125-1130)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.0 - Mega-Update! 🚀 (Build 20251125-1200)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3633,7 +3633,26 @@
         }
 
         async function updateRide(id, updates) {
-            if (isFirebaseReady) await db.ref('rides/' + id).update(updates);
+            if (isFirebaseReady) {
+                // Hole alten Status
+                const snapshot = await db.ref('rides/' + id).once('value');
+                const oldRide = snapshot.val();
+                const oldStatus = oldRide ? oldRide.status : null;
+                
+                // Update Firebase
+                await db.ref('rides/' + id).update(updates);
+                
+                // Prüfe ob Status geändert wurde
+                if (updates.status && updates.status !== oldStatus) {
+                    // Hole komplette Fahrt-Daten
+                    const updatedSnapshot = await db.ref('rides/' + id).once('value');
+                    const ride = updatedSnapshot.val();
+                    ride.firebaseId = id;
+                    
+                    // Sende Telegram-Benachrichtigung
+                    await sendTelegramStatusUpdate(ride, oldStatus, updates.status);
+                }
+            }
         }
 
         // GEOCODING & ROUTING
@@ -4111,6 +4130,86 @@
                 
             } catch (error) {
                 console.error('❌ Telegram Benachrichtigung Fehler:', error);
+            }
+        }
+        
+        // 📱 Telegram bei Statusänderungen
+        async function sendTelegramStatusUpdate(ride, oldStatus, newStatus) {
+            if (!isFirebaseReady) return;
+            
+            try {
+                // Lade Admin Chat IDs aus Firebase
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
+                
+                if (adminChats.length === 0) {
+                    console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
+                    return;
+                }
+                
+                let message = '';
+                let statusEmoji = '';
+                
+                // Formatiere Nachricht je nach Status
+                if (newStatus === 'accepted') {
+                    // ✅ Fahrer zugewiesen
+                    statusEmoji = '✅';
+                    message = `${statusEmoji} <b>FAHRER ZUGEWIESEN!</b>\n\n` +
+                        `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` +
+                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
+                        `📍 <b>Von:</b> ${ride.pickup}\n` +
+                        `📍 <b>Nach:</b> ${ride.destination}\n` +
+                        `💰 <b>Preis:</b> ${ride.price}€\n` +
+                        `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
+                        
+                } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
+                    // 🗑️ Fahrt storniert
+                    statusEmoji = '🗑️';
+                    message = `${statusEmoji} <b>FAHRT STORNIERT</b>\n\n` +
+                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
+                        `📍 <b>Von:</b> ${ride.pickup}\n` +
+                        `📍 <b>Nach:</b> ${ride.destination}\n` +
+                        `💰 <b>Preis:</b> ${ride.price}€\n` +
+                        `\n⚠️ Status: Storniert`;
+                        
+                } else if (newStatus === 'picked_up') {
+                    // 🚗 Kunde abgeholt
+                    statusEmoji = '🚗';
+                    message = `${statusEmoji} <b>KUNDE ABGEHOLT!</b>\n\n` +
+                        `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}\n` +
+                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📍 <b>Von:</b> ${ride.pickup}\n` +
+                        `📍 <b>Nach:</b> ${ride.destination}\n` +
+                        `💰 <b>Preis:</b> ${ride.price}€\n` +
+                        `\n🎯 Fahrt zum Ziel läuft...`;
+                        
+                } else if (newStatus === 'completed') {
+                    // ✅ Fahrt abgeschlossen
+                    statusEmoji = '✅';
+                    message = `${statusEmoji} <b>FAHRT ABGESCHLOSSEN!</b>\n\n` +
+                        `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}\n` +
+                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📍 <b>Von:</b> ${ride.pickup}\n` +
+                        `📍 <b>Nach:</b> ${ride.destination}\n` +
+                        `💰 <b>Preis:</b> ${ride.price}€\n` +
+                        `\n✅ Status: Abgeschlossen`;
+                        
+                } else {
+                    // Anderer Status - keine Nachricht
+                    return;
+                }
+                
+                // Sende an alle Admin-Chats
+                for (const chatId of adminChats) {
+                    await sendTelegramMessage(chatId, message);
+                }
+                
+                console.log(`✅ Telegram-Status-Update gesendet: ${oldStatus} → ${newStatus}`);
+                
+            } catch (error) {
+                console.error('❌ Telegram Status-Update Fehler:', error);
             }
         }
         
@@ -5188,7 +5287,7 @@
             
             // Setze Fahrt auf cancelled_pending_driver damit Fahrer bestätigen muss!
             if (isFirebaseReady && rideId) {
-                await db.ref('rides/' + rideId).update({
+                await updateRide(rideId, {
                     status: hasCancellationFee ? 'cancelled_pending_driver' : 'cancelled',  // ← Wenn kostenpflichtig, muss Fahrer bestätigen!
                     cancelledAt: Date.now(),
                     cancelledBy: 'passenger',
@@ -5261,6 +5360,15 @@
                 bookBtn.style.visibility = 'hidden'; // Doppelt sicher!
             }
             
+            // 🆕 PREIS-BUTTON ZURÜCKSETZEN
+            const priceBtn = document.getElementById('price-btn');
+            if (priceBtn) {
+                priceBtn.innerHTML = '💰 Preis berechnen';
+                priceBtn.classList.remove('btn-danger');
+                priceBtn.classList.add('btn-primary');
+            }
+            priceCalculated = false;
+            
             // Verfügbare Taxis ausblenden
             document.getElementById('available-taxis-display').innerHTML = '';
             
@@ -5270,6 +5378,11 @@
             window.currentDuration = null;
             pickupCoords = null;  // ✅ Ohne "window."!
             destCoords = null;    // ✅ Ohne "window."!
+            
+            // Booking-Kunde zurücksetzen
+            currentBookingCustomerId = null;
+            const crmOption = document.getElementById('crm-save-option');
+            if (crmOption) crmOption.style.display = 'none';
             
             console.log('✅ Formular zurückgesetzt');
         }
@@ -9025,9 +9138,9 @@ Stack: ${err.stack}
             
             updateUserProfile();
             
-            // 📝 Fülle Name-Feld automatisch aus
+            // 📝 Fülle Name-Feld NUR wenn NICHT für Kunden gebucht wird
             const nameField = document.getElementById('customer-name');
-            if (nameField && user.displayName) {
+            if (nameField && user.displayName && !currentBookingCustomerId) {
                 nameField.value = user.displayName;
             }
             

@@ -1,7 +1,8 @@
 {
-  "version": "5.9.3",
-  "build": "20251125-1703",
-  "updated": 1732551780000,
+  "version": "5.9.5",
+  "build": "20251125-1830",
+  "updated": 1732552200000,
   "forceUpdate": true,
-  "minVersion": "5.9.3"
+  "minVersion": "5.9.0",
+  "message": "Telegram-Duplikate gefixt + Cache-Fix + Buchung gefixt!"
 }

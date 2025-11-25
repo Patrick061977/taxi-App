@@ -19,8 +19,8 @@
     <script>
     (function() {
         'use strict';
-        const CURRENT_APP_VERSION = '5.9.3';
-        const CURRENT_APP_BUILD = '20251125-1700';
+        const CURRENT_APP_VERSION = '5.9.5';
+        const CURRENT_APP_BUILD = '20251125-1830';
         
         // 🛑 Prüfe ob Update-Check unterdrückt werden soll (nach "Später" Klick)
         const updateDismissed = sessionStorage.getItem('updateDismissed');
@@ -137,14 +137,50 @@
                     console.log('⏸️ Update verschoben - wird nicht mehr geprüft bis zum nächsten Reload');
                 };
                 
-                // Update durchführen
+                // Update durchführen - AGGRESSIV!
                 function doUpdate(version) {
-                    console.log('🔄 Hard Reload wird ausgeführt...');
-                    sessionStorage.removeItem('updateDismissed'); // Damit nach Update normal läuft
+                    console.log('🔄 AGGRESSIVES Update wird ausgeführt...');
+                    sessionStorage.removeItem('updateDismissed');
+                    
+                    // 1. Lösche ALLE Caches zuerst!
+                    if ('caches' in window) {
+                        caches.keys().then(names => {
+                            names.forEach(name => {
+                                caches.delete(name);
+                                console.log('🗑️ Cache gelöscht:', name);
+                            });
+                        });
+                    }
+                    
+                    // 2. Lösche localStorage (außer wichtige Daten)
+                    try {
+                        const keepKeys = ['myCurrentRideId'];
+                        const backup = {};
+                        keepKeys.forEach(key => {
+                            const val = localStorage.getItem(key);
+                            if (val) backup[key] = val;
+                        });
+                        localStorage.clear();
+                        Object.keys(backup).forEach(key => {
+                            localStorage.setItem(key, backup[key]);
+                        });
+                    } catch(e) {}
+                    
+                    // 3. MEGA-RANDOM URL um GARANTIERT keinen Cache zu treffen!
+                    const timestamp = Date.now();
+                    const random = Math.random().toString(36).substring(7);
                     const newUrl = window.location.href.split('?')[0] + 
                                   '?v=' + version + 
-                                  '&t=' + Date.now();
-                    window.location.replace(newUrl);
+                                  '&t=' + timestamp + 
+                                  '&r=' + random +
+                                  '&force=1';
+                    
+                    console.log('🚀 Lade neue Version:', newUrl);
+                    
+                    // 4. WARTE kurz damit Cache wirklich gelöscht ist
+                    setTimeout(() => {
+                        window.location.replace(newUrl);
+                    }, 100);
                 }
             } else {
                 console.log('✅ App v' + CURRENT_APP_VERSION + ' ist aktuell');
@@ -263,7 +299,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.9.1 - Telegram beim Löschen! 📱 (Build 20251125-1400)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.9.5 - Telegram-Duplikate gefixt! 📱 (Build 20251125-1830)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1460,8 +1496,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.9.3';
-        const APP_BUILD = '20251125-1700';
+        const APP_VERSION = '5.9.5';
+        const APP_BUILD = '20251125-1830';
         
         // ⚠️ ALTE checkForUpdates() und showUpdateBanner() FUNKTIONEN ENTFERNT!
         // Das Auto-Update-System läuft jetzt direkt im <head> mit version.json
@@ -1497,6 +1533,9 @@
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
         let cancellations = []; // Neue Variable für Stornierungen
+        
+        // 🛡️ DUPLIKAT-SCHUTZ für Telegram
+        const sentTelegramRides = new Set(); // Speichert Ride-IDs die schon gesendet wurden
         
         // 🐛 SUPER DEBUG SYSTEM
         let debugErrors = [];
@@ -3828,8 +3867,8 @@
                 ride.firebaseId = ref.key;
                 await ref.set(ride);
                 
-                // 📱 TELEGRAM: Sende Benachrichtigung SOFORT (nicht warten auf Admin-Alarm)
-                sendTelegramForNewRide(ride);
+                // 📱 TELEGRAM wird in book() gesendet, NICHT hier!
+                // (Sonst Duplikate weil book() auch sendet)
             }
             
             // 💾 Speichere auch in localStorage (für Offline-Support & schnellen Zugriff)
@@ -4295,6 +4334,13 @@
         async function sendTelegramForNewRide(ride) {
             if (!isFirebaseReady) return;
             
+            // 🛡️ DUPLIKAT-SCHUTZ: Prüfe ob diese Fahrt schon gesendet wurde
+            const rideKey = ride.firebaseId || ride.id || ride.createdAt;
+            if (sentTelegramRides.has(rideKey)) {
+                console.log('⚠️ Telegram DUPLIKAT verhindert für Fahrt:', rideKey);
+                return; // STOP! Nicht nochmal senden!
+            }
+            
             try {
                 // Lade Admin Chat IDs aus Firebase
                 const snapshot = await db.ref('settings/telegram/adminChats').once('value');
@@ -4308,6 +4354,16 @@
                 // Intelligente Zeit-Formatierung
                 const now = new Date();
                 const pickupDate = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : now;
+                
+                // ⏰ ZEITSTEMPEL für Telegram
+                const timestamp = now.toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
                 
                 // Ist es heute?
                 const isToday = pickupDate.toDateString() === now.toDateString();
@@ -4343,7 +4399,7 @@
                     statusText = 'VORBESTELLUNG';
                 }
                 
-                // Formatiere Nachricht
+                // Formatiere Nachricht MIT ZEITSTEMPEL
                 const message = `${statusEmoji} <b>${statusText}</b>\n\n` +
                     `📍 <b>Von:</b> ${ride.pickup}\n` +
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
@@ -4351,6 +4407,7 @@
                     `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                     `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
                     `💰 <b>Preis:</b> ${ride.price}€\n` +
+                    `⏰ <b>Gesendet:</b> ${timestamp}\n` +
                     `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
                 
                 // Sende an alle Admin-Chats
@@ -4358,7 +4415,9 @@
                     await sendTelegramMessage(chatId, message);
                 }
                 
-                console.log('✅ Telegram-Benachrichtigung gesendet für Fahrt:', ride.id);
+                // 🛡️ Markiere als gesendet
+                sentTelegramRides.add(rideKey);
+                console.log('✅ Telegram-Benachrichtigung gesendet für Fahrt:', ride.id, 'um', timestamp);
                 
             } catch (error) {
                 console.error('❌ Telegram Benachrichtigung Fehler:', error);
@@ -4525,13 +4584,23 @@
                     return;
                 }
                 
+                // ⏰ ZEITSTEMPEL
+                const timestamp = new Date().toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
                 // Formatiere Status
                 let statusText = 'Nicht zugewiesen';
                 if (ride.status === 'accepted') statusText = '✅ Angenommen';
                 if (ride.status === 'picked_up') statusText = '🚗 Unterwegs';
                 if (ride.status === 'vorbestellt') statusText = '📅 Vorbestellt';
                 
-                // Erstelle Nachricht
+                // Erstelle Nachricht MIT ZEITSTEMPEL
                 const message = `🗑️ <b>FAHRT GELÖSCHT (Admin)</b>\n\n` +
                     `⚠️ <b>Status war:</b> ${statusText}\n` +
                     (ride.vehicle ? `🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` : '') +
@@ -4541,6 +4610,7 @@
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
                     (ride.pickupTime && ride.pickupTime !== 'Sofort' ? `⏰ <b>Abholung:</b> ${ride.pickupTime}\n` : '') +
                     `💰 <b>Preis:</b> ${ride.price}€\n` +
+                    `⏰ <b>Gesendet:</b> ${timestamp}\n` +
                     `\n🚨 <b>Diese Fahrt wurde vom Admin gelöscht!</b>`;
                 
                 // Sende an alle Admin-Chats
@@ -4548,7 +4618,7 @@
                     await sendTelegramMessage(chatId, message);
                 }
                 
-                console.log('📱 Telegram: Lösch-Benachrichtigung gesendet');
+                console.log('📱 Telegram: Lösch-Benachrichtigung gesendet um', timestamp);
                 
             } catch (error) {
                 console.error('❌ Telegram Fehler:', error);

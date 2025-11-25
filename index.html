@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.2 - Bessere Details! 📋 (Build 20251125-1115)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.3 - Karte Fix! 🗺️ (Build 20251125-1130)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -8482,19 +8482,46 @@ Stack: ${err.stack}
                     </div>
                     <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
                 </div>
-                <div id="map"></div>
+                <div id="map" style="width:100%;height:400px;margin-top:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
             `;
             
             if (!map) {
                 setTimeout(() => {
                     map = L.map('map').setView([driverLoc.lat, driverLoc.lon], 13);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                    
+                    // Marker
                     taxiMarker = L.marker([driverLoc.lat, driverLoc.lon]).addTo(map).bindPopup('🚕 ' + ride.vehicle);
                     pickupMarker = L.marker([ride.pickupCoords.lat, ride.pickupCoords.lon]).addTo(map).bindPopup('📍 Abholort');
+                    
+                    // Route-Linie zeichnen
+                    if (route.geometry) {
+                        // OSRM gibt coords als [lon, lat] - müssen zu [lat, lon] umgewandelt werden!
+                        const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
+                        if (window.routeLine) map.removeLayer(window.routeLine);
+                        window.routeLine = L.polyline(routeCoords, {
+                            color: '#3b82f6',
+                            weight: 4,
+                            opacity: 0.7
+                        }).addTo(map);
+                    }
+                    
                     map.fitBounds([[driverLoc.lat, driverLoc.lon], [ride.pickupCoords.lat, ride.pickupCoords.lon]]);
                 }, 100);
             } else {
                 if (taxiMarker) taxiMarker.setLatLng([driverLoc.lat, driverLoc.lon]);
+                
+                // Route-Linie aktualisieren
+                if (route.geometry) {
+                    const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
+                    if (window.routeLine) map.removeLayer(window.routeLine);
+                    window.routeLine = L.polyline(routeCoords, {
+                        color: '#3b82f6',
+                        weight: 4,
+                        opacity: 0.7
+                    }).addTo(map);
+                }
+                
                 map.setView([driverLoc.lat, driverLoc.lon], map.getZoom());
             }
         }

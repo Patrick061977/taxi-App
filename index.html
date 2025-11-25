@@ -99,13 +99,24 @@
         .btn-primary-modal { background: #667eea; color: white; }
         .modal-divider { text-align: center; margin: 20px 0; color: #999; }
         .modal-link { text-align: center; margin-top: 15px; color: #667eea; cursor: pointer; text-decoration: underline; }
+        
+        /* 🚨 Admin Alarm Animationen */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
     </style>
 </head>
 <body>
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.4.1 - Preis-Sync! 💰 (Build 20251124-2320)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.5.0 - Admin-Alarm! 🚨 (Build 20251125-0900)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -2542,12 +2553,22 @@
                         });
                         
                         const currentCount = rides.filter(r => r.status === 'new').length;
-                        if (currentCount > previousCount && currentView === 'driver') {
-                            playDriverNotificationSound();
+                        
+                        // 🚨 ALARM für Admin bei neuen Fahrten!
+                        if (currentCount > previousCount) {
+                            if (userRole === 'admin') {
+                                triggerAdminAlarm(currentCount);
+                            }
                             
-                            // 🆕 ZEIGE FULLSCREEN POPUP bei neuem Auftrag
-                            showNewRideFullscreen();
+                            // Für Fahrer: alter Alarm
+                            if (currentView === 'driver') {
+                                playDriverNotificationSound();
+                                showNewRideFullscreen();
+                            }
                         }
+                        
+                        // Badge am Admin-Tab aktualisieren
+                        updateAdminBadge(currentCount);
                         
                         updateViews();
                     });
@@ -3750,6 +3771,151 @@
             if (exampleEl) {
                 const example = (14.60 * current.factor).toFixed(2);
                 exampleEl.textContent = `Beispiel: 14.60€ × ${current.multiplier}% = ${example}€`;
+            }
+        }
+
+        // 🚨 ADMIN ALARM SYSTEM für neue Fahrten
+        let adminAlarmInterval = null;
+        let acknowledgedRides = new Set(); // Welche Fahrten wurden bereits bestätigt
+        
+        // Alarm-Sound (Lauter Beep)
+        function playAdminAlarmSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 3x hintereinander abspielen
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = 800; // Hoher Ton
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.3);
+                }, i * 400);
+            }
+        }
+        
+        // Hauptfunktion: Alarm auslösen
+        function triggerAdminAlarm(newRideCount) {
+            console.log('🚨 ADMIN ALARM: Neue Fahrt(en)!', newRideCount);
+            
+            // 1. Sound abspielen
+            playAdminAlarmSound();
+            
+            // 2. Browser-Notification (wenn erlaubt)
+            if (Notification.permission === 'granted') {
+                new Notification('🚕 NEUE FAHRT!', {
+                    body: `${newRideCount} neue Fahrt${newRideCount > 1 ? 'en' : ''} wartet auf Zuweisung!`,
+                    icon: '🚕',
+                    requireInteraction: true
+                });
+            }
+            
+            // 3. Modal anzeigen
+            showAdminAlarmModal();
+            
+            // 4. Wiederholungs-Timer starten (alle 3 Min)
+            if (adminAlarmInterval) clearInterval(adminAlarmInterval);
+            adminAlarmInterval = setInterval(() => {
+                const stillNewRides = rides.filter(r => r.status === 'new' && !acknowledgedRides.has(r.id)).length;
+                if (stillNewRides > 0) {
+                    playAdminAlarmSound();
+                    if (Notification.permission === 'granted') {
+                        new Notification('⚠️ UNBEARBEITETE FAHRT!', {
+                            body: `${stillNewRides} Fahrt${stillNewRides > 1 ? 'en' : ''} noch nicht zugewiesen!`,
+                            requireInteraction: true
+                        });
+                    }
+                } else {
+                    clearInterval(adminAlarmInterval);
+                    adminAlarmInterval = null;
+                }
+            }, 3 * 60 * 1000); // 3 Minuten
+        }
+        
+        // Modal anzeigen
+        function showAdminAlarmModal() {
+            // Entferne altes Modal falls vorhanden
+            const oldModal = document.getElementById('admin-alarm-modal');
+            if (oldModal) oldModal.remove();
+            
+            const newRides = rides.filter(r => r.status === 'new' && !acknowledgedRides.has(r.id));
+            if (newRides.length === 0) return;
+            
+            const modal = document.createElement('div');
+            modal.id = 'admin-alarm-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(220,38,38,0.95);display:flex;align-items:center;justify-content:center;z-index:99999;animation:pulse 1s infinite;';
+            
+            const ride = newRides[0];
+            const pickupTime = ride.pickupTime ? new Date(ride.pickupTime).toLocaleString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : 'Sofort';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:20px;padding:40px;max-width:500px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                    <div style="font-size:80px;margin-bottom:20px;animation:bounce 1s infinite;">🚕</div>
+                    <h2 style="margin:0 0 10px 0;font-size:32px;color:#dc2626;">NEUE FAHRT!</h2>
+                    <div style="background:#fef2f2;padding:20px;border-radius:12px;margin:20px 0;text-align:left;">
+                        <div style="margin-bottom:10px;"><strong>📍 Von:</strong> ${ride.pickup}</div>
+                        <div style="margin-bottom:10px;"><strong>📍 Nach:</strong> ${ride.destination}</div>
+                        <div style="margin-bottom:10px;"><strong>👤 Name:</strong> ${ride.customerName}</div>
+                        <div style="margin-bottom:10px;"><strong>📞 Tel:</strong> ${ride.customerPhone}</div>
+                        <div style="margin-bottom:10px;"><strong>🕐 Abholung:</strong> ${pickupTime}</div>
+                        ${newRides.length > 1 ? `<div style="margin-top:15px;padding:10px;background:white;border-radius:8px;color:#dc2626;font-weight:600;">+ ${newRides.length - 1} weitere Fahrt${newRides.length > 2 ? 'en' : ''}!</div>` : ''}
+                    </div>
+                    <button onclick="acknowledgeAdminAlarm()" style="width:100%;padding:18px;background:#dc2626;color:white;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(220,38,38,0.4);">
+                        ✓ Bestätigt - Fahrer zuweisen!
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // Alarm bestätigen
+        function acknowledgeAdminAlarm() {
+            const newRides = rides.filter(r => r.status === 'new');
+            newRides.forEach(r => acknowledgedRides.add(r.id));
+            
+            const modal = document.getElementById('admin-alarm-modal');
+            if (modal) modal.remove();
+            
+            // Wechsle zum Admin-Tab
+            if (currentView !== 'admin') {
+                switchView('admin');
+            }
+        }
+        
+        // Badge am Admin-Tab aktualisieren
+        function updateAdminBadge(count) {
+            const adminBtn = document.getElementById('admin-tab-btn');
+            if (!adminBtn) return;
+            
+            let badge = adminBtn.querySelector('.admin-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'admin-badge';
+                badge.style.cssText = 'position:absolute;top:-8px;right:-8px;background:#dc2626;color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(220,38,38,0.4);';
+                adminBtn.style.position = 'relative';
+                adminBtn.appendChild(badge);
+            }
+            
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
             }
         }
 
@@ -5312,6 +5478,11 @@
             const vehiclePlate = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].plate : '';
             
             console.log('📝 Akzeptiere Fahrt:', rideId);
+            
+            // 🚨 Admin-Alarm: Fahrt wurde zugewiesen
+            if (typeof acknowledgedRides !== 'undefined') {
+                acknowledgedRides.add(ride.id);
+            }
             
             // 🛑 Stoppe Assignment-Timer
             if (assignmentTimers[rideId]) {

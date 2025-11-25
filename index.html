@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.3 - Mobile ICS Fix! 📱 (Build 20251125-1240)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.5 - 5-Min-Schritte! ⏰ (Build 20251125-1305)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -218,7 +218,7 @@
                 <div style="font-size:12px;color:#667eea;margin-top:5px;font-weight:500;">
                     ⬆️ Klick hier für Vorbestellung oder Termin
                 </div>
-                <input type="datetime-local" id="custom-datetime" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;font-size:15px;">
+                <input type="datetime-local" id="custom-datetime" step="300" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;font-size:15px;">
                 <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
                     💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
                 </div>
@@ -1002,7 +1002,7 @@
                     
                     const cancellationFee = calculateCancellationFee(ride);
                     
-                    // Update in Firebase
+                    // Update in Firebase mit updateRide() für Telegram-Benachrichtigung
                     const updates = {
                         status: 'cancelled',
                         driverNotified: true,
@@ -1011,7 +1011,7 @@
                     };
                     
                     if (isFirebaseReady) {
-                        await db.ref('rides/' + rideId).update(updates);
+                        await updateRide(rideId, updates);
                         console.log('✅ Stornierung bestätigt:', rideId);
                     }
                     
@@ -1811,15 +1811,31 @@
                 datetimePicker.style.display = 'block';
                 if (helpText) helpText.style.display = 'block';
                 
-                // Setze Minimum auf jetzt + 15 Minuten
+                // Setze Minimum auf jetzt + 15 Minuten (gerundet auf 5 Min)
                 const now = new Date();
                 now.setMinutes(now.getMinutes() + 15);
+                
+                // 🔧 Runde auf nächste 5 Minuten
+                const minutes = now.getMinutes();
+                const roundedMinutes = Math.ceil(minutes / 5) * 5;
+                now.setMinutes(roundedMinutes);
+                now.setSeconds(0);
+                now.setMilliseconds(0);
+                
                 const minDateTime = now.toISOString().slice(0, 16);
                 datetimePicker.min = minDateTime;
                 
-                // Setze Standard auf jetzt + 1 Stunde
+                // Setze Standard auf jetzt + 1 Stunde (gerundet auf 5 Min)
                 const defaultTime = new Date();
                 defaultTime.setHours(defaultTime.getHours() + 1);
+                
+                // 🔧 Runde auf nächste 5 Minuten
+                const defaultMinutes = defaultTime.getMinutes();
+                const roundedDefaultMinutes = Math.ceil(defaultMinutes / 5) * 5;
+                defaultTime.setMinutes(roundedDefaultMinutes);
+                defaultTime.setSeconds(0);
+                defaultTime.setMilliseconds(0);
+                
                 datetimePicker.value = defaultTime.toISOString().slice(0, 16);
                 
             } else {
@@ -1833,10 +1849,10 @@
             const confirmCancel = confirm('🗑️ Fahrt wirklich stornieren?');
             if (!confirmCancel) return;
             
-            // Update Firebase
+            // Update Firebase mit updateRide() für Telegram-Benachrichtigung
             if (isFirebaseReady && rideId) {
                 try {
-                    await db.ref('rides/' + rideId).update({ 
+                    await updateRide(rideId, { 
                         status: 'storniert',
                         cancelledAt: Date.now()
                     });
@@ -2088,7 +2104,7 @@
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">🕐 Abholzeit</label>
-                        <input type="datetime-local" id="edit-datetime" value="${formattedDateTime}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                        <input type="datetime-local" id="edit-datetime" step="300" value="${formattedDateTime}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
                     </div>
                     
                     <div style="margin-bottom:15px;">
@@ -3639,7 +3655,7 @@
 
         async function updateRide(id, updates) {
             if (isFirebaseReady) {
-                // Hole alten Status
+                // Hole KOMPLETTE alte Fahrt-Daten
                 const snapshot = await db.ref('rides/' + id).once('value');
                 const oldRide = snapshot.val();
                 const oldStatus = oldRide ? oldRide.status : null;
@@ -3648,14 +3664,17 @@
                 await db.ref('rides/' + id).update(updates);
                 
                 // Prüfe ob Status geändert wurde
-                if (updates.status && updates.status !== oldStatus) {
-                    // Hole komplette Fahrt-Daten
-                    const updatedSnapshot = await db.ref('rides/' + id).once('value');
-                    const ride = updatedSnapshot.val();
-                    ride.firebaseId = id;
+                if (updates.status && updates.status !== oldStatus && oldRide) {
+                    // 🎯 WICHTIG: Nutze die ALTEN Daten + neuen Status
+                    // So haben wir ALLE Fahrtdaten für Telegram!
+                    const rideForTelegram = {
+                        ...oldRide,  // Alle alten Daten
+                        status: updates.status,  // Neuer Status
+                        firebaseId: id
+                    };
                     
-                    // Sende Telegram-Benachrichtigung
-                    await sendTelegramStatusUpdate(ride, oldStatus, updates.status);
+                    // Sende Telegram-Benachrichtigung mit vollständigen Daten
+                    await sendTelegramStatusUpdate(rideForTelegram, oldStatus, updates.status);
                 }
             }
         }
@@ -5513,10 +5532,10 @@
             if (myCurrentRide) {
                 const rideId = myCurrentRide.firebaseId || myCurrentRide.id;
                 
-                // Update Firebase
+                // Update Firebase mit updateRide() für Telegram-Benachrichtigung
                 if (isFirebaseReady && rideId) {
                     try {
-                        await db.ref('rides/' + rideId).update({ 
+                        await updateRide(rideId, { 
                             status: 'storniert',
                             cancelledAt: Date.now()
                         });

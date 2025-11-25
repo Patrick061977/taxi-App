@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.5 - 5-Min-Schritte! ⏰ (Build 20251125-1305)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.7 - Admin-Confirmed Fix! ✅ (Build 20251125-1320)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -2539,6 +2539,13 @@
                     // 💰 Preis-Einstellungen aus Firebase laden
                     loadPricingSettings();
                     
+                    // 🔄 LADE GESPEICHERTE FAHRT (falls vorhanden)
+                    const savedRideId = localStorage.getItem('myCurrentRideId');
+                    if (savedRideId) {
+                        console.log('🔄 Lade gespeicherte Fahrt:', savedRideId);
+                        listenToMyRide(savedRideId);
+                    }
+                    
                     // 🔐 Firebase Auth initialisieren mit LOCAL Persistence
                     auth = firebase.auth();
                     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
@@ -3232,6 +3239,7 @@
                                 <div style="display:flex;gap:6px;align-items:center;">
                                     <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
                                     ${statusBadge}
+                                    ${r.adminConfirmed || acknowledgedRides.has(r.id) ? '<span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">✅ Bestätigt</span>' : ''}
                                     <button onclick="exportSingleRideToICS('${r.firebaseId || r.id}')" 
                                         style="background:#8b5cf6;color:white;padding:4px 8px;border:none;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;"
                                         title="Als Kalender-Termin exportieren">
@@ -3616,8 +3624,13 @@
                 vehicleId: vehicleId,
                 vehicle: vehicle.name,
                 vehiclePlate: vehicle.plate,
-                acceptedAt: Date.now()
+                acceptedAt: Date.now(),
+                adminConfirmed: true  // 🆕 Markiere als bestätigt
             });
+            
+            // Markiere als acknowledged
+            acknowledgedRides.add(ride.id);
+            saveAcknowledgedRides();
             
             closeManualAssignment();
             alert(`✅ Fahrt #${ride.id} wurde ${vehicle.name} zugewiesen!`);
@@ -3869,7 +3882,25 @@
 
         // 🚨 ADMIN ALARM SYSTEM für neue Fahrten
         let adminAlarmInterval = null;
-        let acknowledgedRides = new Set(); // Welche Fahrten wurden bereits bestätigt
+        // 🎯 Welche Fahrten wurden bereits vom Admin bestätigt
+        // Wird in localStorage gespeichert damit es nach Logout erhalten bleibt!
+        function loadAcknowledgedRides() {
+            const saved = localStorage.getItem('acknowledgedRides');
+            if (saved) {
+                try {
+                    return new Set(JSON.parse(saved));
+                } catch (e) {
+                    return new Set();
+                }
+            }
+            return new Set();
+        }
+        
+        function saveAcknowledgedRides() {
+            localStorage.setItem('acknowledgedRides', JSON.stringify([...acknowledgedRides]));
+        }
+        
+        let acknowledgedRides = loadAcknowledgedRides();
         
         // Alarm-Sound (Lauter Beep)
         function playAdminAlarmSound() {
@@ -3989,6 +4020,9 @@
                 r.status === 'new' || r.status === 'vorbestellt'
             );
             newRides.forEach(r => acknowledgedRides.add(r.id));
+            
+            // 💾 Speichere in localStorage
+            saveAcknowledgedRides();
             
             const modal = document.getElementById('admin-alarm-modal');
             if (modal) modal.remove();
@@ -5362,12 +5396,25 @@
 
         function listenToMyRide(rideId) {
             if (!isFirebaseReady) return;
+            
+            console.log('👂 Höre auf Änderungen für Fahrt:', rideId);
+            
             db.ref('rides/' + rideId).on('value', (s) => {
                 const ride = s.val();
                 if (ride) {
                     ride.firebaseId = rideId;
                     myCurrentRide = ride;
+                    
+                    // 🎯 WICHTIG: Formular ausblenden und Status zeigen!
+                    document.getElementById('booking-form').style.display = 'none';
                     showRideStatus(ride);
+                } else {
+                    // Fahrt existiert nicht mehr (wurde gelöscht)
+                    console.log('⚠️ Fahrt existiert nicht mehr:', rideId);
+                    localStorage.removeItem('myCurrentRideId');
+                    myCurrentRide = null;
+                    document.getElementById('booking-form').style.display = 'block';
+                    document.getElementById('ride-status-container').innerHTML = '';
                 }
             });
         }
@@ -9442,12 +9489,7 @@ Stack: ${err.stack}
                 if (firebaseLoaded && typeof firebase !== 'undefined') initApp(true); 
                 else initApp(false); 
                 
-                const savedRideId = localStorage.getItem('myCurrentRideId');
-                if (savedRideId && isFirebaseReady) {
-                    console.log('🔄 Lade gespeicherte Fahrt:', savedRideId);
-                    listenToMyRide(savedRideId);
-                }
-                
+                // 🚗 Lade gespeichertes Fahrzeug
                 loadSavedVehicle();
             }, 100);
             

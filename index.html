@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.6.1 - Telegram Fix! 📱 (Build 20251125-0955)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.7.0 - Security & ICS! 🔐📅 (Build 20251125-1045)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -136,8 +136,8 @@
     </div>
 
     <div class="view-selector">
-        <button class="view-btn active" onclick="switchView('passenger')">Fahrgast</button>
-        <button class="view-btn" onclick="switchView('history')">Verlauf</button>
+        <button class="view-btn active" onclick="switchView('passenger')" id="passenger-tab-btn">Fahrgast</button>
+        <button class="view-btn" onclick="switchView('history')" id="history-tab-btn">Verlauf</button>
         <button class="view-btn" onclick="switchView('driver')" id="driver-tab-btn" style="display:none;">Fahrer</button>
         <button class="view-btn" onclick="switchView('admin')" id="admin-tab-btn" style="display:none;">Admin</button>
     </div>
@@ -208,13 +208,16 @@
             </div>
             <div class="input-group">
                 <label>🕐 Abholzeit</label>
-                <select id="pickup-time" onchange="handlePickupTimeChange()">
-                    <option value="jetzt">⚡ Sofort</option>
-                    <option value="15min">🕐 In 15 Minuten</option>
-                    <option value="30min">🕐 In 30 Minuten</option>
-                    <option value="1h">🕑 In 1 Stunde</option>
-                    <option value="datetime">📅 Datum & Zeit wählen...</option>
+                <select id="pickup-time" onchange="handlePickupTimeChange()" style="padding:14px;border:2px solid #667eea;border-radius:8px;font-size:15px;font-weight:600;background:linear-gradient(135deg,#667eea,#764ba2);color:white;cursor:pointer;">
+                    <option value="jetzt" style="background:white;color:#333;">⚡ Sofort</option>
+                    <option value="15min" style="background:white;color:#333;">🕐 In 15 Minuten</option>
+                    <option value="30min" style="background:white;color:#333;">🕐 In 30 Minuten</option>
+                    <option value="1h" style="background:white;color:#333;">🕑 In 1 Stunde</option>
+                    <option value="datetime" style="background:white;color:#333;">📅 Datum & Zeit wählen...</option>
                 </select>
+                <div style="font-size:12px;color:#667eea;margin-top:5px;font-weight:500;">
+                    ⬆️ Klick hier für Vorbestellung oder Termin
+                </div>
                 <input type="datetime-local" id="custom-datetime" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;font-size:15px;">
                 <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
                     💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
@@ -1171,6 +1174,18 @@
         </div>
         <div id="cancelled-content" style="display:none;">
             <div id="cancellations-list"></div>
+        </div>
+        
+        <!-- 📅 NEU: VORBESTELLUNGEN mit ICS Export -->
+        <div onclick="toggleAdminSection('prebookings')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📅 Vorbestellungen</span>
+            <span id="prebookings-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="prebookings-content" style="display:none;margin-bottom:20px;padding:15px;background:#fff;border-radius:8px;border:1px solid #e5e7eb;">
+            <button onclick="exportPrebookingsToICS()" style="width:100%;padding:15px;background:#8b5cf6;color:white;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:15px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
+                📅 Als Kalender exportieren (.ics)
+            </button>
+            <div id="prebookings-list" style="max-height:400px;overflow-y:auto;"></div>
         </div>
         
         <!-- 📱 NEU: TELEGRAM-ALARME -->
@@ -2526,7 +2541,7 @@
                     
                     db.ref('.info/connected').on('value', (s) => { isConnected = s.val(); updateStatus(); });
                     db.ref('rides').on('value', (s) => {
-                        const previousCount = rides.filter(r => r.status === 'new').length;
+                        const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
                         rides = [];
                         s.forEach(c => {
                             const r = c.val();
@@ -2584,7 +2599,7 @@
                             }
                         });
                         
-                        const currentCount = rides.filter(r => r.status === 'new').length;
+                        const currentCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
                         
                         // 🚨 ALARM für Admin bei neuen Fahrten!
                         if (currentCount > previousCount) {
@@ -3604,6 +3619,9 @@
                 const ref = db.ref('rides').push();
                 ride.firebaseId = ref.key;
                 await ref.set(ride);
+                
+                // 📱 TELEGRAM: Sende Benachrichtigung SOFORT (nicht warten auf Admin-Alarm)
+                sendTelegramForNewRide(ride);
             }
             
             // 💾 Speichere auch in localStorage (für Offline-Support & schnellen Zugriff)
@@ -3860,7 +3878,10 @@
             // 5. Wiederholungs-Timer starten (alle 3 Min)
             if (adminAlarmInterval) clearInterval(adminAlarmInterval);
             adminAlarmInterval = setInterval(() => {
-                const stillNewRides = rides.filter(r => r.status === 'new' && !acknowledgedRides.has(r.id)).length;
+                const stillNewRides = rides.filter(r => 
+                    (r.status === 'new' || r.status === 'vorbestellt') && 
+                    !acknowledgedRides.has(r.id)
+                ).length;
                 if (stillNewRides > 0) {
                     playAdminAlarmSound();
                     if (Notification.permission === 'granted') {
@@ -3883,7 +3904,10 @@
             const oldModal = document.getElementById('admin-alarm-modal');
             if (oldModal) oldModal.remove();
             
-            const newRides = rides.filter(r => r.status === 'new' && !acknowledgedRides.has(r.id));
+            const newRides = rides.filter(r => 
+                (r.status === 'new' || r.status === 'vorbestellt') && 
+                !acknowledgedRides.has(r.id)
+            );
             if (newRides.length === 0) return;
             
             const modal = document.createElement('div');
@@ -3921,7 +3945,9 @@
         
         // Alarm bestätigen
         function acknowledgeAdminAlarm() {
-            const newRides = rides.filter(r => r.status === 'new');
+            const newRides = rides.filter(r => 
+                r.status === 'new' || r.status === 'vorbestellt'
+            );
             newRides.forEach(r => acknowledgedRides.add(r.id));
             
             const modal = document.getElementById('admin-alarm-modal');
@@ -3999,8 +4025,11 @@
                     return;
                 }
                 
-                // Finde neue Fahrten
-                const newRides = rides.filter(r => r.status === 'new' && !acknowledgedRides.has(r.id));
+                // Finde neue Fahrten (sofort + vorbestellt)
+                const newRides = rides.filter(r => 
+                    (r.status === 'new' || r.status === 'vorbestellt') && 
+                    !acknowledgedRides.has(r.id)
+                );
                 if (newRides.length === 0) return;
                 
                 const ride = newRides[0];
@@ -4048,6 +4077,46 @@
                 }
             } catch (error) {
                 console.error('❌ Telegram Registrierung Fehler:', error);
+            }
+        }
+        
+        // Telegram sofort beim Erstellen senden (nicht warten auf Admin-Alarm)
+        async function sendTelegramForNewRide(ride) {
+            if (!isFirebaseReady) return;
+            
+            try {
+                // Lade Admin Chat IDs aus Firebase
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
+                
+                if (adminChats.length === 0) {
+                    console.log('⚠️ Keine Telegram-Admin-Chats konfiguriert');
+                    return;
+                }
+                
+                const pickupTime = ride.pickupTime || 'Sofort';
+                const statusEmoji = ride.status === 'vorbestellt' ? '📅' : '🚕';
+                const statusText = ride.status === 'vorbestellt' ? 'VORBESTELLUNG' : 'NEUE FAHRT';
+                
+                // Formatiere Nachricht
+                const message = `${statusEmoji} <b>${statusText} - Funk Taxi Heringsdorf!</b>\n\n` +
+                    `📍 <b>Von:</b> ${ride.pickup}\n` +
+                    `📍 <b>Nach:</b> ${ride.destination}\n` +
+                    `👤 <b>Name:</b> ${ride.customerName}\n` +
+                    `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
+                    `🕐 <b>Abholung:</b> ${pickupTime}\n` +
+                    `💰 <b>Preis:</b> ${ride.price}€\n` +
+                    `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
+                
+                // Sende an alle Admin-Chats
+                for (const chatId of adminChats) {
+                    await sendTelegramMessage(chatId, message);
+                }
+                
+                console.log('✅ Telegram-Benachrichtigung gesendet für Fahrt:', ride.id);
+                
+            } catch (error) {
+                console.error('❌ Telegram Benachrichtigung Fehler:', error);
             }
         }
         
@@ -4179,6 +4248,118 @@
         async function checkTelegramUpdates() {
             // Diese Funktion ist jetzt optional - manuelle Registrierung ist bevorzugt
             await updateTelegramStatus();
+        }
+
+        // 📅 VORBESTELLUNGEN - ICS Export
+        function exportPrebookingsToICS() {
+            const prebookings = rides.filter(r => r.status === 'vorbestellt');
+            
+            if (prebookings.length === 0) {
+                alert('📅 Keine Vorbestellungen vorhanden!');
+                return;
+            }
+            
+            // ICS Datei erstellen
+            let icsContent = 'BEGIN:VCALENDAR\n';
+            icsContent += 'VERSION:2.0\n';
+            icsContent += 'PRODID:-//Funk Taxi Heringsdorf//DE\n';
+            icsContent += 'CALSCALE:GREGORIAN\n';
+            icsContent += 'METHOD:PUBLISH\n';
+            icsContent += 'X-WR-CALNAME:Funk Taxi Vorbestellungen\n';
+            icsContent += 'X-WR-TIMEZONE:Europe/Berlin\n';
+            
+            prebookings.forEach(ride => {
+                const startDate = new Date(ride.pickupTimestamp);
+                const endDate = new Date(ride.pickupTimestamp + 60 * 60000); // +1 Stunde
+                
+                // Formatiere Datum für ICS (YYYYMMDDTHHMMSS)
+                const formatDate = (date) => {
+                    const pad = (n) => n.toString().padStart(2, '0');
+                    return date.getFullYear() + 
+                           pad(date.getMonth() + 1) + 
+                           pad(date.getDate()) + 'T' +
+                           pad(date.getHours()) +
+                           pad(date.getMinutes()) + '00';
+                };
+                
+                icsContent += 'BEGIN:VEVENT\n';
+                icsContent += `UID:${ride.id}@funktaxi-heringsdorf.de\n`;
+                icsContent += `DTSTAMP:${formatDate(new Date())}\n`;
+                icsContent += `DTSTART:${formatDate(startDate)}\n`;
+                icsContent += `DTEND:${formatDate(endDate)}\n`;
+                icsContent += `SUMMARY:🚕 Taxi ${ride.customerName}\n`;
+                icsContent += `DESCRIPTION:Von: ${ride.pickup}\\nNach: ${ride.destination}\\nTel: ${ride.customerPhone}\\nPreis: ${ride.price}€\n`;
+                icsContent += `LOCATION:${ride.pickup}\n`;
+                icsContent += 'STATUS:CONFIRMED\n';
+                icsContent += 'BEGIN:VALARM\n';
+                icsContent += 'TRIGGER:-PT15M\n';
+                icsContent += 'ACTION:DISPLAY\n';
+                icsContent += `DESCRIPTION:Taxi-Abholung in 15 Minuten: ${ride.customerName}\n`;
+                icsContent += 'END:VALARM\n';
+                icsContent += 'END:VEVENT\n';
+            });
+            
+            icsContent += 'END:VCALENDAR';
+            
+            // Download erstellen
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Taxi-Vorbestellungen_${new Date().toISOString().split('T')[0]}.ics`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert(`✅ ${prebookings.length} Vorbestellung${prebookings.length > 1 ? 'en' : ''} exportiert!\n\nDatei wurde heruntergeladen.`);
+        }
+        
+        // Vorbestellungen-Liste aktualisieren
+        function updatePrebookingsList() {
+            const listEl = document.getElementById('prebookings-list');
+            if (!listEl) return;
+            
+            const prebookings = rides.filter(r => r.status === 'vorbestellt')
+                .sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
+            
+            if (prebookings.length === 0) {
+                listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine Vorbestellungen</div>';
+                return;
+            }
+            
+            listEl.innerHTML = prebookings.map(r => {
+                const date = new Date(r.pickupTimestamp);
+                const dateStr = date.toLocaleDateString('de-DE', { 
+                    day: '2-digit', 
+                    month: '2-digit',
+                    weekday: 'short'
+                });
+                const timeStr = date.toLocaleTimeString('de-DE', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                return `
+                    <div style="background:#f9fafb;padding:15px;border-radius:8px;margin-bottom:10px;border-left:4px solid #8b5cf6;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                            <div>
+                                <div style="font-weight:600;font-size:15px;">${r.customerName}</div>
+                                <div style="color:#666;font-size:13px;">📞 ${r.customerPhone}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-weight:600;color:#8b5cf6;">${dateStr}</div>
+                                <div style="font-size:15px;">${timeStr}</div>
+                            </div>
+                        </div>
+                        <div style="font-size:13px;color:#666;line-height:1.6;">
+                            📍 <b>Von:</b> ${r.pickup}<br>
+                            🎯 <b>Nach:</b> ${r.destination}<br>
+                            💰 <b>Preis:</b> ${r.price}€
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function calculatePrice(distance, timestamp = null) {
@@ -5890,6 +6071,8 @@
                 // Spezielle Aktionen beim Öffnen
                 if (section === 'telegram') {
                     updateTelegramStatus();
+                } else if (section === 'prebookings') {
+                    updatePrebookingsList();
                 }
             } else {
                 content.style.display = 'none';
@@ -8731,10 +8914,10 @@ Stack: ${err.stack}
             console.log('🔐 Rolle anwenden:', role);
             userRole = role;
             
-            const fahrgastBtn = document.querySelector('.view-btn[onclick*="passenger"]');
-            const verlaufBtn = document.querySelector('.view-btn[onclick*="history"]');
-            const fahrerBtn = document.querySelector('.view-btn[onclick*="driver"]');
-            const adminBtn = document.querySelector('.view-btn[onclick*="admin"]');
+            const fahrgastBtn = document.getElementById('passenger-tab-btn');
+            const verlaufBtn = document.getElementById('history-tab-btn');
+            const fahrerBtn = document.getElementById('driver-tab-btn');
+            const adminBtn = document.getElementById('admin-tab-btn');
             
             // Alle verstecken erstmal
             if (fahrgastBtn) fahrgastBtn.style.display = 'none';
@@ -8744,18 +8927,26 @@ Stack: ${err.stack}
             
             // Je nach Rolle anzeigen
             if (role === 'fahrgast') {
+                // Fahrgast sieht: Fahrgast + Verlauf
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block';
                 switchView('passenger');
             } else if (role === 'fahrer') {
+                // Fahrer sieht: Fahrgast + Verlauf + Fahrer
+                if (fahrgastBtn) fahrgastBtn.style.display = 'block';
+                if (verlaufBtn) verlaufBtn.style.display = 'block';
                 if (fahrerBtn) fahrerBtn.style.display = 'block';
                 switchView('driver');
             } else if (role === 'admin') {
-                // Admin sieht ALLES
+                // Admin sieht: ALLES
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block';
                 if (fahrerBtn) fahrerBtn.style.display = 'block';
                 if (adminBtn) adminBtn.style.display = 'block';
+            } else {
+                // Nicht eingeloggt: NUR Fahrgast
+                if (fahrgastBtn) fahrgastBtn.style.display = 'block';
+                switchView('passenger');
             }
         }
         
@@ -8798,9 +8989,8 @@ Stack: ${err.stack}
             const profileBox = document.getElementById('my-profile-box');
             if (profileBox) profileBox.style.display = 'none';
             
-            // 🔐 Alle Tabs wieder anzeigen (für nicht eingeloggte User)
-            const allBtns = document.querySelectorAll('.view-btn');
-            allBtns.forEach(btn => btn.style.display = 'block');
+            // 🔐 Nur Fahrgast-Tab für nicht eingeloggte User
+            applyRoleRestrictions(null); // null = nicht eingeloggt
             
             updateUserProfile();
         }
@@ -8864,11 +9054,8 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
-            // 🔐 STARTSEITE: Nur Fahrgast + Verlauf anzeigen (bis Login)
-            const fahrerBtn = document.querySelector('.view-btn[onclick*="driver"]');
-            const adminBtn = document.querySelector('.view-btn[onclick*="admin"]');
-            if (fahrerBtn) fahrerBtn.style.display = 'none';
-            if (adminBtn) adminBtn.style.display = 'none';
+            // 🔐 STARTSEITE: Nur Fahrgast anzeigen (bis Login)
+            applyRoleRestrictions(null); // null = nicht eingeloggt
             
             // 🐛 Globaler Error Handler für besseres Debugging
             window.addEventListener('error', (e) => {

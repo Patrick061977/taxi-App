@@ -19,8 +19,15 @@
     <script>
     (function() {
         'use strict';
-        const CURRENT_APP_VERSION = '5.9.1';
-        const CURRENT_APP_BUILD = '20251125-1400';
+        const CURRENT_APP_VERSION = '5.9.2';
+        const CURRENT_APP_BUILD = '20251125-1530';
+        
+        // 🛑 Prüfe ob Update-Check unterdrückt werden soll (nach "Später" Klick)
+        const updateDismissed = sessionStorage.getItem('updateDismissed');
+        if (updateDismissed === 'true') {
+            console.log('⏸️ Update-Check übersprungen (User hat "Später" geklickt)');
+            return;
+        }
         
         // Prüfe ob wir von einem Update-Redirect kommen
         const urlParams = new URLSearchParams(window.location.search);
@@ -28,10 +35,14 @@
         
         if (urlVersion) {
             console.log('✅ Update auf', urlVersion, 'erfolgreich!');
+            sessionStorage.removeItem('updateDismissed'); // Reset flag nach Update
             const cleanUrl = window.location.href.split('?')[0];
             window.history.replaceState({}, document.title, cleanUrl);
             return;
         }
+        
+        // ⚠️ WICHTIG: Nur EINMAL prüfen beim Start!
+        let updateCheckDone = false;
         
         // Update-Check
         fetch('version.json?t=' + Date.now(), {
@@ -40,30 +51,109 @@
         })
         .then(r => r.ok ? r.json() : null)
         .then(serverVersion => {
-            if (serverVersion && 
-                (serverVersion.version !== CURRENT_APP_VERSION || 
-                 serverVersion.build !== CURRENT_APP_BUILD)) {
+            if (updateCheckDone) return; // Verhindere doppelte Checks
+            updateCheckDone = true;
+            
+            if (!serverVersion) {
+                console.log('⚠️ version.json nicht gefunden');
+                return;
+            }
+            
+            if (serverVersion.version !== CURRENT_APP_VERSION || 
+                serverVersion.build !== CURRENT_APP_BUILD) {
                 
                 console.log('🆕 Update:', CURRENT_APP_VERSION, '→', serverVersion.version);
                 
-                // Mini-Banner
+                // Banner mit Countdown und Buttons
                 const banner = document.createElement('div');
-                banner.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px 24px;border-radius:25px;font-size:14px;font-weight:600;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-                banner.textContent = '🔄 Update auf v' + serverVersion.version + '...';
+                banner.id = 'auto-update-banner';
+                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;padding:15px;text-align:center;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+                
+                let countdown = 5;
+                
+                banner.innerHTML = `
+                    <div style="font-size:18px;font-weight:700;margin-bottom:8px;">
+                        🔄 NEUE VERSION VERFÜGBAR!
+                    </div>
+                    <div style="font-size:14px;margin-bottom:12px;">
+                        Version ${serverVersion.version} ist verfügbar
+                    </div>
+                    <div style="font-size:16px;font-weight:600;margin-bottom:12px;">
+                        Auto-Update in <span id="update-countdown">${countdown}</span> Sekunden...
+                    </div>
+                    <button id="update-now-btn" style="
+                        padding:12px 30px;
+                        background:white;
+                        color:#f59e0b;
+                        border:none;
+                        border-radius:8px;
+                        font-weight:700;
+                        font-size:15px;
+                        cursor:pointer;
+                        box-shadow:0 2px 8px rgba(0,0,0,0.2);
+                        margin-right:10px;
+                    ">
+                        ⚡ JETZT AKTUALISIEREN
+                    </button>
+                    <button id="update-later-btn" style="
+                        padding:12px 20px;
+                        background:transparent;
+                        color:white;
+                        border:2px solid white;
+                        border-radius:8px;
+                        font-weight:600;
+                        font-size:14px;
+                        cursor:pointer;
+                    ">
+                        Später
+                    </button>
+                `;
+                
                 document.body.appendChild(banner);
                 
-                // Force Reload nach 2 Sek
-                setTimeout(() => {
+                // Countdown starten
+                const countdownInterval = setInterval(() => {
+                    countdown--;
+                    const countdownEl = document.getElementById('update-countdown');
+                    if (countdownEl) countdownEl.textContent = countdown;
+                    
+                    if (countdown <= 0) {
+                        clearInterval(countdownInterval);
+                        doUpdate(serverVersion.version);
+                    }
+                }, 1000);
+                
+                // "Jetzt aktualisieren" Button
+                document.getElementById('update-now-btn').onclick = () => {
+                    clearInterval(countdownInterval);
+                    doUpdate(serverVersion.version);
+                };
+                
+                // "Später" Button
+                document.getElementById('update-later-btn').onclick = () => {
+                    clearInterval(countdownInterval);
+                    banner.remove();
+                    sessionStorage.setItem('updateDismissed', 'true');
+                    console.log('⏸️ Update verschoben - wird nicht mehr geprüft bis zum nächsten Reload');
+                };
+                
+                // Update durchführen
+                function doUpdate(version) {
+                    console.log('🔄 Hard Reload wird ausgeführt...');
+                    sessionStorage.removeItem('updateDismissed'); // Damit nach Update normal läuft
                     const newUrl = window.location.href.split('?')[0] + 
-                                  '?v=' + serverVersion.version + 
+                                  '?v=' + version + 
                                   '&t=' + Date.now();
                     window.location.replace(newUrl);
-                }, 2000);
+                }
             } else {
                 console.log('✅ App v' + CURRENT_APP_VERSION + ' ist aktuell');
             }
         })
-        .catch(err => console.log('⚠️ Update-Check übersprungen'));
+        .catch(err => {
+            console.log('⚠️ Update-Check Fehler:', err);
+            updateCheckDone = true;
+        });
     })();
     </script>
     
@@ -1369,152 +1459,15 @@
         };
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
-        // 🔄 VERSION-CHECK SYSTEM
-        const APP_VERSION = '5.9.1';
-        const APP_BUILD = '20251125-1400';
+        // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
+        const APP_VERSION = '5.9.2';
+        const APP_BUILD = '20251125-1530';
         
-        // Prüfe auf neue Version beim Start
-        async function checkForUpdates() {
-            try {
-                if (!isFirebaseReady) {
-                    console.log('⏳ Warte auf Firebase für Version-Check...');
-                    setTimeout(checkForUpdates, 1000);
-                    return;
-                }
-                
-                // Hole aktuelle Version vom Server
-                const versionRef = db.ref('app/version');
-                const snapshot = await versionRef.once('value');
-                const serverVersion = snapshot.val();
-                
-                if (!serverVersion) {
-                    // Erste Installation - setze Version
-                    await versionRef.set({
-                        version: APP_VERSION,
-                        build: APP_BUILD,
-                        updated: Date.now()
-                    });
-                    console.log('✅ Version gesetzt:', APP_VERSION);
-                    return;
-                }
-                
-                // Vergleiche Versionen
-                if (serverVersion.version !== APP_VERSION || serverVersion.build !== APP_BUILD) {
-                    console.log('🔄 NEUE VERSION VERFÜGBAR!');
-                    console.log('Current:', APP_VERSION, APP_BUILD);
-                    console.log('Server:', serverVersion.version, serverVersion.build);
-                    
-                    // Zeige Update-Banner
-                    showUpdateBanner(serverVersion.version);
-                } else {
-                    console.log('✅ App ist aktuell:', APP_VERSION);
-                }
-            } catch (error) {
-                console.error('❌ Version-Check Fehler:', error);
-            }
-        }
-        
-        // Zeige Update-Banner mit Auto-Reload
-        function showUpdateBanner(newVersion) {
-            // Entferne alten Banner falls vorhanden
-            const oldBanner = document.getElementById('update-banner');
-            if (oldBanner) oldBanner.remove();
-            
-            // Erstelle Banner
-            const banner = document.createElement('div');
-            banner.id = 'update-banner';
-            banner.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
-                color: white;
-                padding: 15px;
-                text-align: center;
-                z-index: 999999;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                animation: slideDown 0.5s ease-out;
-            `;
-            
-            let countdown = 5;
-            
-            banner.innerHTML = `
-                <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">
-                    🔄 NEUE VERSION VERFÜGBAR!
-                </div>
-                <div style="font-size: 14px; margin-bottom: 12px;">
-                    Version ${newVersion} ist verfügbar
-                </div>
-                <div style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
-                    Auto-Update in <span id="countdown">${countdown}</span> Sekunden...
-                </div>
-                <button onclick="updateNow()" style="
-                    padding: 12px 30px;
-                    background: white;
-                    color: #f59e0b;
-                    border: none;
-                    border-radius: 8px;
-                    font-weight: 700;
-                    font-size: 15px;
-                    cursor: pointer;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                    margin-right: 10px;
-                ">
-                    ⚡ JETZT AKTUALISIEREN
-                </button>
-                <button onclick="dismissUpdate()" style="
-                    padding: 12px 20px;
-                    background: transparent;
-                    color: white;
-                    border: 2px solid white;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    font-size: 14px;
-                    cursor: pointer;
-                ">
-                    Später
-                </button>
-            `;
-            
-            // CSS Animation
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes slideDown {
-                    from { transform: translateY(-100%); }
-                    to { transform: translateY(0); }
-                }
-            `;
-            document.head.appendChild(style);
-            
-            document.body.appendChild(banner);
-            
-            // Countdown starten
-            const countdownInterval = setInterval(() => {
-                countdown--;
-                const countdownEl = document.getElementById('countdown');
-                if (countdownEl) countdownEl.textContent = countdown;
-                
-                if (countdown <= 0) {
-                    clearInterval(countdownInterval);
-                    updateNow();
-                }
-            }, 1000);
-            
-            // Global verfügbar machen
-            window.updateNow = function() {
-                console.log('🔄 Hard Reload wird ausgeführt...');
-                // Hard Reload - bypassed Cache!
-                location.reload(true);
-            };
-            
-            window.dismissUpdate = function() {
-                const banner = document.getElementById('update-banner');
-                if (banner) banner.remove();
-                clearInterval(countdownInterval);
-                console.log('⏸️ Update später');
-            };
-        }
+        // ⚠️ ALTE checkForUpdates() FUNKTION ENTFERNT!
+        // Das Auto-Update-System läuft jetzt direkt im <head> mit version.json
+        // → Kein rekursiver Aufruf mehr
+        // → Nur 1x beim Start
+        // → "Später" Button funktioniert korrekt
         
         // Bekannte Koordinaten für wichtige Orte (Fallback)
         const KNOWN_PLACES = {
@@ -9781,10 +9734,8 @@ Stack: ${err.stack}
             // 💰 Pricing Settings laden
             loadPricingSettings();
             
-            // 🔄 VERSION-CHECK beim Start (nach 2 Sekunden damit Firebase ready ist)
-            setTimeout(() => {
-                checkForUpdates();
-            }, 2000);
+            // 🔄 VERSION-CHECK läuft jetzt automatisch im <head>!
+            // (Keine separate checkForUpdates() Funktion mehr nötig)
             
             // 📱 Telegram Updates prüfen (nur für Admins, alle 60 Sek)
             if (userRole === 'admin') {

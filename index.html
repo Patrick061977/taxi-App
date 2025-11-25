@@ -7,9 +7,66 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Taxi HGW">
+    <!-- 🔄 Cache-Control für Updates -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
     <title>Funk Taxi Heringsdorf</title>
+    
+    <!-- 🔄 AUTOMATISCHES UPDATE-SYSTEM - Läuft als ERSTES! -->
+    <script>
+    (function() {
+        'use strict';
+        const CURRENT_APP_VERSION = '5.9.0';
+        const CURRENT_APP_BUILD = '20251125-1345';
+        
+        // Prüfe ob wir von einem Update-Redirect kommen
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlVersion = urlParams.get('v');
+        
+        if (urlVersion) {
+            console.log('✅ Update auf', urlVersion, 'erfolgreich!');
+            const cleanUrl = window.location.href.split('?')[0];
+            window.history.replaceState({}, document.title, cleanUrl);
+            return;
+        }
+        
+        // Update-Check
+        fetch('version.json?t=' + Date.now(), {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(serverVersion => {
+            if (serverVersion && 
+                (serverVersion.version !== CURRENT_APP_VERSION || 
+                 serverVersion.build !== CURRENT_APP_BUILD)) {
+                
+                console.log('🆕 Update:', CURRENT_APP_VERSION, '→', serverVersion.version);
+                
+                // Mini-Banner
+                const banner = document.createElement('div');
+                banner.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px 24px;border-radius:25px;font-size:14px;font-weight:600;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+                banner.textContent = '🔄 Update auf v' + serverVersion.version + '...';
+                document.body.appendChild(banner);
+                
+                // Force Reload nach 2 Sek
+                setTimeout(() => {
+                    const newUrl = window.location.href.split('?')[0] + 
+                                  '?v=' + serverVersion.version + 
+                                  '&t=' + Date.now();
+                    window.location.replace(newUrl);
+                }, 2000);
+            } else {
+                console.log('✅ App v' + CURRENT_APP_VERSION + ' ist aktuell');
+            }
+        })
+        .catch(err => console.log('⚠️ Update-Check übersprungen'));
+    })();
+    </script>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <!-- 🐛 Eruda Debug-Panel für Mobile -->
@@ -116,7 +173,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.7 - Admin-Confirmed Fix! ✅ (Build 20251125-1320)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.9.0 - Auto-Update System! 🔄 (Build 20251125-1345)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1311,6 +1368,153 @@
             nacht_km_ab_5: 2.40
         };
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
+        
+        // 🔄 VERSION-CHECK SYSTEM
+        const APP_VERSION = '5.9.0';
+        const APP_BUILD = '20251125-1345';
+        
+        // Prüfe auf neue Version beim Start
+        async function checkForUpdates() {
+            try {
+                if (!isFirebaseReady) {
+                    console.log('⏳ Warte auf Firebase für Version-Check...');
+                    setTimeout(checkForUpdates, 1000);
+                    return;
+                }
+                
+                // Hole aktuelle Version vom Server
+                const versionRef = db.ref('app/version');
+                const snapshot = await versionRef.once('value');
+                const serverVersion = snapshot.val();
+                
+                if (!serverVersion) {
+                    // Erste Installation - setze Version
+                    await versionRef.set({
+                        version: APP_VERSION,
+                        build: APP_BUILD,
+                        updated: Date.now()
+                    });
+                    console.log('✅ Version gesetzt:', APP_VERSION);
+                    return;
+                }
+                
+                // Vergleiche Versionen
+                if (serverVersion.version !== APP_VERSION || serverVersion.build !== APP_BUILD) {
+                    console.log('🔄 NEUE VERSION VERFÜGBAR!');
+                    console.log('Current:', APP_VERSION, APP_BUILD);
+                    console.log('Server:', serverVersion.version, serverVersion.build);
+                    
+                    // Zeige Update-Banner
+                    showUpdateBanner(serverVersion.version);
+                } else {
+                    console.log('✅ App ist aktuell:', APP_VERSION);
+                }
+            } catch (error) {
+                console.error('❌ Version-Check Fehler:', error);
+            }
+        }
+        
+        // Zeige Update-Banner mit Auto-Reload
+        function showUpdateBanner(newVersion) {
+            // Entferne alten Banner falls vorhanden
+            const oldBanner = document.getElementById('update-banner');
+            if (oldBanner) oldBanner.remove();
+            
+            // Erstelle Banner
+            const banner = document.createElement('div');
+            banner.id = 'update-banner';
+            banner.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+                color: white;
+                padding: 15px;
+                text-align: center;
+                z-index: 999999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideDown 0.5s ease-out;
+            `;
+            
+            let countdown = 5;
+            
+            banner.innerHTML = `
+                <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">
+                    🔄 NEUE VERSION VERFÜGBAR!
+                </div>
+                <div style="font-size: 14px; margin-bottom: 12px;">
+                    Version ${newVersion} ist verfügbar
+                </div>
+                <div style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
+                    Auto-Update in <span id="countdown">${countdown}</span> Sekunden...
+                </div>
+                <button onclick="updateNow()" style="
+                    padding: 12px 30px;
+                    background: white;
+                    color: #f59e0b;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 700;
+                    font-size: 15px;
+                    cursor: pointer;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                    margin-right: 10px;
+                ">
+                    ⚡ JETZT AKTUALISIEREN
+                </button>
+                <button onclick="dismissUpdate()" style="
+                    padding: 12px 20px;
+                    background: transparent;
+                    color: white;
+                    border: 2px solid white;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    cursor: pointer;
+                ">
+                    Später
+                </button>
+            `;
+            
+            // CSS Animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideDown {
+                    from { transform: translateY(-100%); }
+                    to { transform: translateY(0); }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            document.body.appendChild(banner);
+            
+            // Countdown starten
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                const countdownEl = document.getElementById('countdown');
+                if (countdownEl) countdownEl.textContent = countdown;
+                
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    updateNow();
+                }
+            }, 1000);
+            
+            // Global verfügbar machen
+            window.updateNow = function() {
+                console.log('🔄 Hard Reload wird ausgeführt...');
+                // Hard Reload - bypassed Cache!
+                location.reload(true);
+            };
+            
+            window.dismissUpdate = function() {
+                const banner = document.getElementById('update-banner');
+                if (banner) banner.remove();
+                clearInterval(countdownInterval);
+                console.log('⏸️ Update später');
+            };
+        }
         
         // Bekannte Koordinaten für wichtige Orte (Fallback)
         const KNOWN_PLACES = {
@@ -4888,7 +5092,23 @@
                 },
                 (err) => {
                     console.error('❌ GPS-Fehler:', err);
-                    alert('❌ GPS-Fehler: ' + err.message);
+                    // 🆕 NICHT BLOCKIEREND! Nutzer kann manuell eingeben
+                    const pickupField = document.getElementById('pickup');
+                    if (pickupField) {
+                        pickupField.placeholder = '⚠️ GPS nicht verfügbar - bitte manuell eingeben';
+                        pickupField.focus();
+                    }
+                    
+                    // Zeige Info-Banner statt blockendem Alert
+                    const banner = document.createElement('div');
+                    banner.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;background:#fef3c7;padding:15px;border-radius:8px;border:2px solid #f59e0b;z-index:9999;text-align:center;';
+                    banner.innerHTML = `
+                        <div style="font-weight:600;margin-bottom:5px;">⚠️ GPS nicht verfügbar</div>
+                        <div style="font-size:13px;">Bitte gib deinen Abholort manuell ein</div>
+                        <button onclick="this.parentElement.remove()" style="margin-top:10px;padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;">OK</button>
+                    `;
+                    document.body.appendChild(banner);
+                    setTimeout(() => banner.remove(), 5000);
                 }
             );
         }
@@ -5365,6 +5585,11 @@
             
             // ✅ BESTÄTIGUNG für Nutzer
             if (savedRide.status === 'vorbestellt') {
+                // 📱 TELEGRAM für Vorbestellung senden!
+                if (isFirebaseReady) {
+                    await sendTelegramForNewRide(savedRide);
+                }
+                
                 alert(
                     '✅ Vorbestellung erfolgreich!\n\n' +
                     '📅 Abholung: ' + pickupTime + '\n' +
@@ -5374,6 +5599,11 @@
                     '💡 Du kannst deine Buchung jederzeit im Verlauf ändern oder stornieren.'
                 );
             } else {
+                // 📱 TELEGRAM für Sofort-Fahrt senden!
+                if (isFirebaseReady) {
+                    await sendTelegramForNewRide(savedRide);
+                }
+                
                 alert(
                     '✅ Buchung erfolgreich!\n\n' +
                     '📍 Von: ' + ride.pickup + '\n' +
@@ -8402,19 +8632,6 @@ Stack: ${err.stack}
             }
         }
 
-        function closeRide() {
-            localStorage.removeItem('myCurrentRideId');
-            myCurrentRide = null;
-            document.getElementById('ride-status-container').innerHTML = '';
-            document.getElementById('booking-form').style.display = 'block';
-            
-            // 🆕 FORMULAR KOMPLETT ZURÜCKSETZEN
-            resetBookingForm();
-            
-            document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt wurde in Ihrem Verlauf gespeichert</div>';
-            setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
-        }
-
         // 🔄 ROUTE UMDREHEN
         function reverseRoute(pickup, destination, pickupLat, pickupLon, destLat, destLon) {
             // Tausche Abholort und Zielort
@@ -8506,7 +8723,20 @@ Stack: ${err.stack}
             }
         }
 
-        function closeRide() {
+        async function closeRide() {
+            // 🆕 Setze Fahrt auf "completed" in Firebase damit sie nicht wieder auftaucht!
+            if (myCurrentRide && myCurrentRide.firebaseId && isFirebaseReady) {
+                try {
+                    await updateRide(myCurrentRide.firebaseId, {
+                        status: 'completed',
+                        completedAt: Date.now()
+                    });
+                    console.log('✅ Fahrt auf completed gesetzt');
+                } catch (error) {
+                    console.error('❌ Fehler beim Schließen:', error);
+                }
+            }
+            
             localStorage.removeItem('myCurrentRideId');
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';
@@ -8633,7 +8863,7 @@ Stack: ${err.stack}
             
             if (ride.status === 'completed') {
                 container.innerHTML = `
-                    <div class="ride-status-box" style="background:#d1fae5;border:2px solid #10b981;">
+                    <div class="ride-status-box" style="background:#d1fae5;border:2px solid:#10b981;">
                         <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
                         <h3>Fahrt abgeschlossen!</h3>
                         <p style="margin-top: 10px;">Vielen Dank für Ihre Fahrt</p>
@@ -8643,10 +8873,20 @@ Stack: ${err.stack}
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="closeRide()" class="btn btn-primary" style="margin-top:20px;">✓ Schließen</button>
+                        <button onclick="closeRide()" class="btn btn-primary" style="margin-top:20px;">✓ Neue Fahrt buchen</button>
+                        <div style="margin-top:10px;font-size:12px;color:#666;">
+                            (oder warte 5 Sekunden...)
+                        </div>
                     </div>
                 `;
                 saveToHistory(ride);
+                
+                // 🆕 AUTO-CLOSE nach 5 Sekunden
+                setTimeout(() => {
+                    console.log('⏱️ Auto-Close nach 5 Sekunden');
+                    closeRide();
+                }, 5000);
+                
                 return;
             }
             
@@ -9471,6 +9711,11 @@ Stack: ${err.stack}
             
             // 💰 Pricing Settings laden
             loadPricingSettings();
+            
+            // 🔄 VERSION-CHECK beim Start (nach 2 Sekunden damit Firebase ready ist)
+            setTimeout(() => {
+                checkForUpdates();
+            }, 2000);
             
             // 📱 Telegram Updates prüfen (nur für Admins, alle 60 Sek)
             if (userRole === 'admin') {

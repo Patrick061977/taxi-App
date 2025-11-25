@@ -1,113 +1,142 @@
-// Service Worker für Funk Taxi Heringsdorf
-// Version 3.6.0 - Background Sync & Push Notifications
+// 🚀 TAXI APP SERVICE WORKER
+// Version 5.9.0 - Auto-Update System
 
-const CACHE_NAME = 'taxi-hgw-v3.6.0';
+const CACHE_VERSION = 'taxi-app-v5.9.0-1345';
+const CACHE_NAME = CACHE_VERSION;
+
+// Dateien die gecached werden sollen
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/icon-192.png',
+    '/icon-512.png'
 ];
 
-// Installation
+// Installation - Cache erstellen
 self.addEventListener('install', event => {
-  console.log('🔧 Service Worker: Installing...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('✅ Service Worker: Cache opened');
-        return cache.addAll(urlsToCache);
-      })
-      .catch(err => console.error('❌ Cache error:', err))
-  );
-  self.skipWaiting();
-});
-
-// Aktivierung
-self.addEventListener('activate', event => {
-  console.log('✅ Service Worker: Activated');
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Service Worker: Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-  return self.clients.claim();
-});
-
-// Fetch - offline support
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    fetch(event.request)
-      .catch(() => {
-        return caches.match(event.request);
-      })
-  );
-});
-
-// 🔔 PUSH NOTIFICATION HANDLER
-self.addEventListener('push', event => {
-  console.log('🔔 Push empfangen:', event);
-  
-  let data = { title: 'Neue Buchung', body: 'Sie haben eine neue Fahrt!' };
-  
-  if (event.data) {
-    try {
-      data = event.data.json();
-    } catch (e) {
-      data.body = event.data.text();
-    }
-  }
-  
-  const options = {
-    body: data.body,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    vibrate: [200, 100, 200, 100, 200],
-    tag: data.tag || 'taxi-notification',
-    requireInteraction: true,
-    data: data.data || {},
-    actions: [
-      { action: 'view', title: '👀 Anzeigen' },
-      { action: 'close', title: '❌ Schließen' }
-    ]
-  };
-  
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
-});
-
-// Notification Click Handler
-self.addEventListener('notificationclick', event => {
-  console.log('🔔 Notification clicked:', event.action);
-  
-  event.notification.close();
-  
-  if (event.action === 'view' || !event.action) {
+    console.log('📦 Service Worker v5.9.0 installiert');
+    
+    // Sofort aktivieren ohne auf alte Worker zu warten
+    self.skipWaiting();
+    
     event.waitUntil(
-      clients.openWindow('/')
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('✅ Cache geöffnet:', CACHE_NAME);
+                return cache.addAll(urlsToCache);
+            })
     );
-  }
 });
 
-// 🔄 BACKGROUND SYNC für Firebase-Updates
-self.addEventListener('sync', event => {
-  console.log('🔄 Background Sync:', event.tag);
-  
-  if (event.tag === 'sync-rides') {
-    event.waitUntil(syncRides());
-  }
+// Aktivierung - Alte Caches LÖSCHEN!
+self.addEventListener('activate', event => {
+    console.log('🔄 Service Worker aktiviert');
+    
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    // Lösche ALLE alten Caches
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('🗑️ Lösche alten Cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+        .then(() => {
+            console.log('✅ Alle alten Caches gelöscht!');
+            // Übernehme Kontrolle über alle Tabs sofort
+            return self.clients.claim();
+        })
+    );
 });
 
-async function syncRides() {
-  console.log('🔄 Syncing rides in background...');
-  return Promise.resolve();
-}
+// Fetch - Network First Strategie für HTML
+self.addEventListener('fetch', event => {
+    const url = new URL(event.request.url);
+    
+    // Für HTML: IMMER vom Netzwerk laden (für Updates)
+    if (event.request.method === 'GET' && 
+        (url.pathname === '/' || url.pathname.endsWith('.html'))) {
+        
+        event.respondWith(
+            fetch(event.request, { cache: 'no-store' })
+                .then(response => {
+                    // Speichere im Cache
+                    const responseToCache = response.clone();
+                    caches.open(CACHE_NAME)
+                        .then(cache => cache.put(event.request, responseToCache));
+                    return response;
+                })
+                .catch(() => {
+                    // Fallback: Aus Cache wenn offline
+                    return caches.match(event.request);
+                })
+        );
+        return;
+    }
+    
+    // Für andere Dateien: Cache First
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                if (response) {
+                    return response;
+                }
+                return fetch(event.request);
+            })
+    );
+});
 
-console.log('✅ Service Worker loaded - Version 3.6.0');
+// Push Notifications
+self.addEventListener('push', event => {
+    console.log('📬 Push Notification empfangen');
+    
+    const data = event.data ? event.data.json() : {};
+    const title = data.title || '🚕 Funk Taxi Heringsdorf';
+    const options = {
+        body: data.body || 'Neue Benachrichtigung',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: data
+    };
+    
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+    );
+});
+
+// Notification Click
+self.addEventListener('notificationclick', event => {
+    console.log('🔔 Notification geklickt');
+    event.notification.close();
+    
+    event.waitUntil(
+        clients.openWindow('/')
+    );
+});
+
+// Message Handler - Für manuelles Cache-Löschen
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'CLEAR_CACHE') {
+        console.log('🗑️ Manuelles Cache-Löschen angefordert');
+        event.waitUntil(
+            caches.keys().then(cacheNames => {
+                return Promise.all(
+                    cacheNames.map(cacheName => caches.delete(cacheName))
+                );
+            })
+            .then(() => {
+                console.log('✅ Alle Caches gelöscht!');
+                // Sende Bestätigung zurück
+                event.ports[0].postMessage({ success: true });
+            })
+        );
+    }
+    
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});

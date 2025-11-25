@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.2 - ICS Export! 📥 (Build 20251125-1230)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.3 - Mobile ICS Fix! 📱 (Build 20251125-1240)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -4470,17 +4470,44 @@
             icsContent += 'END:VEVENT\n';
             icsContent += 'END:VCALENDAR';
             
-            // Download erstellen
-            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            
             // Dateiname mit Datum und Kundenname
             const dateStr = startDate.toISOString().split('T')[0];
             const timeStr = startDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }).replace(':', '');
             const safeName = ride.customerName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_');
-            link.download = `Taxi_${safeName}_${dateStr}_${timeStr}.ics`;
+            const fileName = `Taxi_${safeName}_${dateStr}_${timeStr}.ics`;
+            
+            // 📱 MOBILE vs DESKTOP Detection
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
+            if (isMobile && navigator.share) {
+                // 📱 MOBILE: Web Share API
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const file = new File([blob], fileName, { type: 'text/calendar' });
+                
+                navigator.share({
+                    files: [file],
+                    title: `🚕 Taxi ${ride.customerName}`,
+                    text: `Taxi-Fahrt am ${startDate.toLocaleDateString('de-DE')}`
+                }).then(() => {
+                    console.log('✅ Erfolgreich geteilt');
+                }).catch((error) => {
+                    console.error('❌ Share-Fehler:', error);
+                    // Fallback zu Download
+                    downloadICS(icsContent, fileName, ride, startDate);
+                });
+            } else {
+                // 💻 DESKTOP: Standard Download
+                downloadICS(icsContent, fileName, ride, startDate);
+            }
+        }
+        
+        // 📥 Helper: ICS Download
+        function downloadICS(icsContent, fileName, ride, startDate) {
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
             
             document.body.appendChild(link);
             link.click();

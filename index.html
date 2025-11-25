@@ -116,7 +116,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.0 - Mega-Update! 🚀 (Build 20251125-1200)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.8.2 - ICS Export! 📥 (Build 20251125-1230)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3216,6 +3216,11 @@
                                 <div style="display:flex;gap:6px;align-items:center;">
                                     <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
                                     ${statusBadge}
+                                    <button onclick="exportSingleRideToICS('${r.firebaseId || r.id}')" 
+                                        style="background:#8b5cf6;color:white;padding:4px 8px;border:none;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;"
+                                        title="Als Kalender-Termin exportieren">
+                                        📥 ICS
+                                    </button>
                                 </div>
                             </div>
                             <div style="margin-top:10px;font-size:14px;color:#0c4a6e;">
@@ -4406,6 +4411,95 @@
             URL.revokeObjectURL(url);
             
             alert(`✅ ${prebookings.length} Vorbestellung${prebookings.length > 1 ? 'en' : ''} exportiert!\n\nDatei wurde heruntergeladen.`);
+        }
+        
+        // 📥 EINZELNE FAHRT als ICS exportieren
+        function exportSingleRideToICS(rideId) {
+            // Finde die Fahrt
+            const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            if (!ride.pickupTimestamp) {
+                alert('❌ Keine Abholzeit vorhanden!');
+                return;
+            }
+            
+            // ICS Datei erstellen
+            let icsContent = 'BEGIN:VCALENDAR\n';
+            icsContent += 'VERSION:2.0\n';
+            icsContent += 'PRODID:-//Funk Taxi Heringsdorf//DE\n';
+            icsContent += 'CALSCALE:GREGORIAN\n';
+            icsContent += 'METHOD:PUBLISH\n';
+            icsContent += 'X-WR-CALNAME:Funk Taxi Heringsdorf\n';
+            icsContent += 'X-WR-TIMEZONE:Europe/Berlin\n';
+            
+            const startDate = new Date(ride.pickupTimestamp);
+            const endDate = new Date(ride.pickupTimestamp + 60 * 60000); // +1 Stunde
+            
+            // Formatiere Datum für ICS (YYYYMMDDTHHMMSS)
+            const formatDate = (date) => {
+                const pad = (n) => n.toString().padStart(2, '0');
+                return date.getFullYear() + 
+                       pad(date.getMonth() + 1) + 
+                       pad(date.getDate()) + 'T' +
+                       pad(date.getHours()) +
+                       pad(date.getMinutes()) + '00';
+            };
+            
+            icsContent += 'BEGIN:VEVENT\n';
+            icsContent += `UID:${ride.id}@funktaxi-heringsdorf.de\n`;
+            icsContent += `DTSTAMP:${formatDate(new Date())}\n`;
+            icsContent += `DTSTART:${formatDate(startDate)}\n`;
+            icsContent += `DTEND:${formatDate(endDate)}\n`;
+            icsContent += `SUMMARY:🚕 Taxi ${ride.customerName}\n`;
+            icsContent += `DESCRIPTION:Kunde: ${ride.customerName}\\nTelefon: ${ride.customerPhone}\\n\\nVon: ${ride.pickup}\\nNach: ${ride.destination}\\n\\nPreis: ${ride.price}€\\nDistanz: ${ride.distance} km\n`;
+            icsContent += `LOCATION:${ride.pickup}\n`;
+            icsContent += 'STATUS:CONFIRMED\n';
+            
+            // Erinnerung 30 Minuten vorher
+            icsContent += 'BEGIN:VALARM\n';
+            icsContent += 'TRIGGER:-PT30M\n';
+            icsContent += 'ACTION:DISPLAY\n';
+            icsContent += `DESCRIPTION:🚕 Taxi-Abholung in 30 Minuten\\n\\nKunde: ${ride.customerName}\\nVon: ${ride.pickup}\\nNach: ${ride.destination}\n`;
+            icsContent += 'END:VALARM\n';
+            
+            icsContent += 'END:VEVENT\n';
+            icsContent += 'END:VCALENDAR';
+            
+            // Download erstellen
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // Dateiname mit Datum und Kundenname
+            const dateStr = startDate.toISOString().split('T')[0];
+            const timeStr = startDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }).replace(':', '');
+            const safeName = ride.customerName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_');
+            link.download = `Taxi_${safeName}_${dateStr}_${timeStr}.ics`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            // Bestätigung
+            const formattedDate = startDate.toLocaleDateString('de-DE', { 
+                weekday: 'short', 
+                day: '2-digit', 
+                month: '2-digit',
+                year: 'numeric'
+            });
+            const formattedTime = startDate.toLocaleTimeString('de-DE', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            alert(`✅ Fahrt exportiert!\n\n📅 ${ride.customerName}\n🕐 ${formattedDate}, ${formattedTime}\n\n✅ Kalender-Termin wurde heruntergeladen.\n\n💡 Tipp: Öffne die .ics-Datei um sie zu deinem Kalender hinzuzufügen.`);
         }
         
         // Vorbestellungen-Liste aktualisieren
@@ -8220,6 +8314,10 @@ Stack: ${err.stack}
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
+            
+            // 🆕 FORMULAR KOMPLETT ZURÜCKSETZEN
+            resetBookingForm();
+            
             document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt wurde in Ihrem Verlauf gespeichert</div>';
             setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
         }
@@ -8320,6 +8418,10 @@ Stack: ${err.stack}
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
+            
+            // 🆕 FORMULAR KOMPLETT ZURÜCKSETZEN
+            resetBookingForm();
+            
             document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt wurde in Ihrem Verlauf gespeichert</div>';
             setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
         }
@@ -8331,6 +8433,10 @@ Stack: ${err.stack}
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
+            
+            // 🆕 FORMULAR KOMPLETT ZURÜCKSETZEN
+            resetBookingForm();
+            
             document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt gespeichert! Du findest sie unter "Verlauf" → "Kommende Fahrten"</div>';
             setTimeout(() => document.getElementById('confirm').innerHTML = '', 5000);
         }

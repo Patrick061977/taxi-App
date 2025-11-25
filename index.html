@@ -15,182 +15,11 @@
     <link rel="apple-touch-icon" href="/icon-192.png">
     <title>Funk Taxi Heringsdorf</title>
     
-    <!-- 🔄 AUTOMATISCHES UPDATE-SYSTEM - Läuft als ERSTES! -->
+    <!-- 📋 VERSION INFO (kein Auto-Update mehr!) -->
     <script>
-    (function() {
-        'use strict';
-        const CURRENT_APP_VERSION = '5.9.5';
-        const CURRENT_APP_BUILD = '20251125-1830';
-        
-        // 🛑 Prüfe ob Update-Check unterdrückt werden soll (nach "Später" Klick)
-        const updateDismissed = sessionStorage.getItem('updateDismissed');
-        if (updateDismissed === 'true') {
-            console.log('⏸️ Update-Check übersprungen (User hat "Später" geklickt)');
-            return;
-        }
-        
-        // Prüfe ob wir von einem Update-Redirect kommen
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlVersion = urlParams.get('v');
-        
-        if (urlVersion) {
-            console.log('✅ Update auf', urlVersion, 'erfolgreich!');
-            sessionStorage.removeItem('updateDismissed'); // Reset flag nach Update
-            const cleanUrl = window.location.href.split('?')[0];
-            window.history.replaceState({}, document.title, cleanUrl);
-            return;
-        }
-        
-        // ⚠️ WICHTIG: Nur EINMAL prüfen beim Start!
-        let updateCheckDone = false;
-        
-        // Update-Check
-        fetch('version.json?t=' + Date.now(), {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-        })
-        .then(r => r.ok ? r.json() : null)
-        .then(serverVersion => {
-            if (updateCheckDone) return; // Verhindere doppelte Checks
-            updateCheckDone = true;
-            
-            if (!serverVersion) {
-                console.log('⚠️ version.json nicht gefunden');
-                return;
-            }
-            
-            if (serverVersion.version !== CURRENT_APP_VERSION || 
-                serverVersion.build !== CURRENT_APP_BUILD) {
-                
-                console.log('🆕 Update:', CURRENT_APP_VERSION, '→', serverVersion.version);
-                
-                // Banner mit Countdown und Buttons
-                const banner = document.createElement('div');
-                banner.id = 'auto-update-banner';
-                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;padding:15px;text-align:center;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-                
-                let countdown = 5;
-                
-                banner.innerHTML = `
-                    <div style="font-size:18px;font-weight:700;margin-bottom:8px;">
-                        🔄 NEUE VERSION VERFÜGBAR!
-                    </div>
-                    <div style="font-size:14px;margin-bottom:12px;">
-                        Version ${serverVersion.version} ist verfügbar
-                    </div>
-                    <div style="font-size:16px;font-weight:600;margin-bottom:12px;">
-                        Auto-Update in <span id="update-countdown">${countdown}</span> Sekunden...
-                    </div>
-                    <button id="update-now-btn" style="
-                        padding:12px 30px;
-                        background:white;
-                        color:#f59e0b;
-                        border:none;
-                        border-radius:8px;
-                        font-weight:700;
-                        font-size:15px;
-                        cursor:pointer;
-                        box-shadow:0 2px 8px rgba(0,0,0,0.2);
-                        margin-right:10px;
-                    ">
-                        ⚡ JETZT AKTUALISIEREN
-                    </button>
-                    <button id="update-later-btn" style="
-                        padding:12px 20px;
-                        background:transparent;
-                        color:white;
-                        border:2px solid white;
-                        border-radius:8px;
-                        font-weight:600;
-                        font-size:14px;
-                        cursor:pointer;
-                    ">
-                        Später
-                    </button>
-                `;
-                
-                document.body.appendChild(banner);
-                
-                // Countdown starten
-                const countdownInterval = setInterval(() => {
-                    countdown--;
-                    const countdownEl = document.getElementById('update-countdown');
-                    if (countdownEl) countdownEl.textContent = countdown;
-                    
-                    if (countdown <= 0) {
-                        clearInterval(countdownInterval);
-                        doUpdate(serverVersion.version);
-                    }
-                }, 1000);
-                
-                // "Jetzt aktualisieren" Button
-                document.getElementById('update-now-btn').onclick = () => {
-                    clearInterval(countdownInterval);
-                    doUpdate(serverVersion.version);
-                };
-                
-                // "Später" Button
-                document.getElementById('update-later-btn').onclick = () => {
-                    clearInterval(countdownInterval);
-                    banner.remove();
-                    sessionStorage.setItem('updateDismissed', 'true');
-                    console.log('⏸️ Update verschoben - wird nicht mehr geprüft bis zum nächsten Reload');
-                };
-                
-                // Update durchführen - AGGRESSIV!
-                function doUpdate(version) {
-                    console.log('🔄 AGGRESSIVES Update wird ausgeführt...');
-                    sessionStorage.removeItem('updateDismissed');
-                    
-                    // 1. Lösche ALLE Caches zuerst!
-                    if ('caches' in window) {
-                        caches.keys().then(names => {
-                            names.forEach(name => {
-                                caches.delete(name);
-                                console.log('🗑️ Cache gelöscht:', name);
-                            });
-                        });
-                    }
-                    
-                    // 2. Lösche localStorage (außer wichtige Daten)
-                    try {
-                        const keepKeys = ['myCurrentRideId'];
-                        const backup = {};
-                        keepKeys.forEach(key => {
-                            const val = localStorage.getItem(key);
-                            if (val) backup[key] = val;
-                        });
-                        localStorage.clear();
-                        Object.keys(backup).forEach(key => {
-                            localStorage.setItem(key, backup[key]);
-                        });
-                    } catch(e) {}
-                    
-                    // 3. MEGA-RANDOM URL um GARANTIERT keinen Cache zu treffen!
-                    const timestamp = Date.now();
-                    const random = Math.random().toString(36).substring(7);
-                    const newUrl = window.location.href.split('?')[0] + 
-                                  '?v=' + version + 
-                                  '&t=' + timestamp + 
-                                  '&r=' + random +
-                                  '&force=1';
-                    
-                    console.log('🚀 Lade neue Version:', newUrl);
-                    
-                    // 4. WARTE kurz damit Cache wirklich gelöscht ist
-                    setTimeout(() => {
-                        window.location.replace(newUrl);
-                    }, 100);
-                }
-            } else {
-                console.log('✅ App v' + CURRENT_APP_VERSION + ' ist aktuell');
-            }
-        })
-        .catch(err => {
-            console.log('⚠️ Update-Check Fehler:', err);
-            updateCheckDone = true;
-        });
-    })();
+        // v5.10.0 - OHNE Auto-Update!
+        // Stabil. Sauber. Funktioniert.
+        console.log('🚕 Funk Taxi App v5.10.0 - Build 20251125-1930');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -299,7 +128,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.9.5 - Telegram-Duplikate gefixt! 📱 (Build 20251125-1830)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.10.0 - Stabil! ✅ (Build 20251125-1930)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1496,11 +1325,12 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.9.5';
-        const APP_BUILD = '20251125-1830';
+        const APP_VERSION = '5.10.0';
+        const APP_BUILD = '20251125-1930';
         
-        // ⚠️ ALTE checkForUpdates() und showUpdateBanner() FUNKTIONEN ENTFERNT!
-        // Das Auto-Update-System läuft jetzt direkt im <head> mit version.json
+        // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
+        // War zu fehleranfällig mit Service Worker Cache-Problemen.
+        // Jetzt: Stabile Version, User lädt bei Bedarf manuell neu.
         // → Kein rekursiver Aufruf mehr
         // → Nur 1x beim Start
         // → "Später" Button funktioniert korrekt
@@ -9800,7 +9630,7 @@ Stack: ${err.stack}
             loadPricingSettings();
             
             // 🔄 VERSION-CHECK läuft jetzt automatisch im <head>!
-            // (Keine separate checkForUpdates() Funktion mehr nötig)
+            // ✅ v5.10.0: Auto-Update ENTFERNT - stabiler ohne!
             
             // 📱 Telegram Updates prüfen (nur für Admins, alle 60 Sek)
             if (userRole === 'admin') {

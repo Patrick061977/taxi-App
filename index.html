@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.11.3 - Build 20251126-0945');
+        console.log('🚕 Funk Taxi App v5.11.4 - Build 20251126-1000');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.11.3 - Stabil! ✅ (Build 20251126-0945)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.11.4 - Stabil! ✅ (Build 20251126-1000)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1085,6 +1085,54 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
+        <!-- 🔴 NEU: LIVE-LOG -->
+        <div onclick="toggleAdminSection('livelog')" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🔴 Live-Log <span id="live-log-status" style="font-size:12px;opacity:0.8;">(gestoppt)</span></span>
+            <span id="livelog-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="livelog-content" style="display:none;margin-bottom:20px;">
+            <!-- Live-Log Konsole -->
+            <div id="live-log-console" style="background:#1e1e1e;color:#00ff00;font-family:monospace;font-size:12px;padding:15px;border-radius:8px;height:300px;overflow-y:auto;margin-bottom:10px;">
+                <div style="color:#888;">// Live-Log gestartet...</div>
+                <div style="color:#888;">// Warte auf Ereignisse...</div>
+            </div>
+            
+            <!-- Live-Log Controls -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                <button id="live-log-toggle-btn" onclick="toggleLiveLog()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    ▶️ Starten
+                </button>
+                <button onclick="clearLiveLogConsole()" style="padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🗑️ Console leeren
+                </button>
+                <button onclick="exportLiveLog()" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    📋 Kopieren
+                </button>
+            </div>
+            
+            <!-- Filter für Live-Log -->
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;">
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;background:#f3f4f6;padding:5px 10px;border-radius:15px;cursor:pointer;">
+                    <input type="checkbox" id="live-filter-booking" checked onchange="updateLiveFilters()"> 📱 Buchungen
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;background:#f3f4f6;padding:5px 10px;border-radius:15px;cursor:pointer;">
+                    <input type="checkbox" id="live-filter-driver" checked onchange="updateLiveFilters()"> 🚗 Fahrer
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;background:#f3f4f6;padding:5px 10px;border-radius:15px;cursor:pointer;">
+                    <input type="checkbox" id="live-filter-assignment" checked onchange="updateLiveFilters()"> 🎯 Vermittlung
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;background:#f3f4f6;padding:5px 10px;border-radius:15px;cursor:pointer;">
+                    <input type="checkbox" id="live-filter-status" checked onchange="updateLiveFilters()"> 📊 Status
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;background:#f3f4f6;padding:5px 10px;border-radius:15px;cursor:pointer;">
+                    <input type="checkbox" id="live-filter-gps" onchange="updateLiveFilters()"> 📍 GPS
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;background:#f3f4f6;padding:5px 10px;border-radius:15px;cursor:pointer;">
+                    <input type="checkbox" id="live-filter-system" checked onchange="updateLiveFilters()"> ⚙️ System
+                </label>
+            </div>
+        </div>
+        
         <!-- 📜 NEU: AKTIVITÄTS-PROTOKOLL -->
         <div onclick="toggleAdminSection('activitylog')" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">📜 Aktivitäts-Protokoll</span>
@@ -1413,8 +1461,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.11.3';
-        const APP_BUILD = '20251126-0945';
+        const APP_VERSION = '5.11.4';
+        const APP_BUILD = '20251126-1000';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6772,7 +6820,226 @@
             } else {
                 content.style.display = 'none';
                 toggle.textContent = '▼';
+                
+                // Stoppe Live-Log wenn geschlossen
+                if (section === 'livelog' && liveLogActive) {
+                    stopLiveLog();
+                }
             }
+        }
+        
+        // 🔴 LIVE-LOG SYSTEM
+        let liveLogActive = false;
+        let liveLogListener = null;
+        let liveLogFilters = {
+            booking: true,
+            driver: true,
+            assignment: true,
+            status: true,
+            gps: false,
+            system: true
+        };
+        let liveLogEntries = [];
+        
+        function toggleLiveLog() {
+            if (liveLogActive) {
+                stopLiveLog();
+            } else {
+                startLiveLog();
+            }
+        }
+        
+        function startLiveLog() {
+            if (!isFirebaseReady) {
+                addLiveLogEntry('error', '❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            liveLogActive = true;
+            
+            // Update UI
+            const btn = document.getElementById('live-log-toggle-btn');
+            const status = document.getElementById('live-log-status');
+            if (btn) {
+                btn.textContent = '⏹️ Stoppen';
+                btn.style.background = '#dc2626';
+            }
+            if (status) {
+                status.textContent = '(🔴 LIVE)';
+                status.style.color = '#ff6b6b';
+            }
+            
+            addLiveLogEntry('system', '🟢 Live-Log gestartet - warte auf Ereignisse...');
+            
+            // Firebase Listener für neue Log-Einträge
+            const now = Date.now();
+            liveLogListener = db.ref('activityLog')
+                .orderByChild('timestamp')
+                .startAt(now)
+                .on('child_added', (snapshot) => {
+                    const log = snapshot.val();
+                    if (log && shouldShowLiveLog(log.type)) {
+                        displayLiveLogEntry(log);
+                    }
+                });
+            
+            console.log('🔴 Live-Log gestartet');
+        }
+        
+        function stopLiveLog() {
+            liveLogActive = false;
+            
+            // Firebase Listener entfernen
+            if (liveLogListener && isFirebaseReady) {
+                db.ref('activityLog').off('child_added', liveLogListener);
+                liveLogListener = null;
+            }
+            
+            // Update UI
+            const btn = document.getElementById('live-log-toggle-btn');
+            const status = document.getElementById('live-log-status');
+            if (btn) {
+                btn.textContent = '▶️ Starten';
+                btn.style.background = '#10b981';
+            }
+            if (status) {
+                status.textContent = '(gestoppt)';
+                status.style.color = 'rgba(255,255,255,0.8)';
+            }
+            
+            addLiveLogEntry('system', '⏹️ Live-Log gestoppt');
+            
+            console.log('⏹️ Live-Log gestoppt');
+        }
+        
+        function shouldShowLiveLog(type) {
+            return liveLogFilters[type] === true;
+        }
+        
+        function updateLiveFilters() {
+            liveLogFilters = {
+                booking: document.getElementById('live-filter-booking')?.checked ?? true,
+                driver: document.getElementById('live-filter-driver')?.checked ?? true,
+                assignment: document.getElementById('live-filter-assignment')?.checked ?? true,
+                status: document.getElementById('live-filter-status')?.checked ?? true,
+                gps: document.getElementById('live-filter-gps')?.checked ?? false,
+                system: document.getElementById('live-filter-system')?.checked ?? true
+            };
+            console.log('📋 Live-Filter aktualisiert:', liveLogFilters);
+        }
+        
+        function displayLiveLogEntry(log) {
+            const time = new Date(log.timestamp).toLocaleTimeString('de-DE', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+            
+            // Farbe basierend auf Typ
+            let color = '#00ff00';
+            let icon = '📝';
+            
+            switch(log.type) {
+                case 'booking':
+                    color = '#60a5fa'; // blau
+                    icon = '📱';
+                    break;
+                case 'driver':
+                    color = log.action === 'online' ? '#34d399' : '#f87171'; // grün/rot
+                    icon = '🚗';
+                    break;
+                case 'assignment':
+                    color = '#fbbf24'; // gelb
+                    icon = '🎯';
+                    break;
+                case 'status':
+                    if (log.action === 'completed') {
+                        color = '#34d399'; // grün
+                        icon = '✅';
+                    } else if (log.action === 'cancelled') {
+                        color = '#f87171'; // rot
+                        icon = '❌';
+                    } else {
+                        color = '#a78bfa'; // lila
+                        icon = '📊';
+                    }
+                    break;
+                case 'gps':
+                    color = log.action === 'active' ? '#34d399' : '#f87171';
+                    icon = log.action === 'active' ? '📍' : '❌';
+                    break;
+                case 'system':
+                    color = '#f472b6'; // pink
+                    icon = '⚙️';
+                    break;
+            }
+            
+            // Device-Info falls vorhanden
+            let deviceInfo = '';
+            if (log.device) {
+                deviceInfo = ` [${log.device.os}/${log.device.browser}]`;
+            }
+            
+            // Zusätzliche Daten
+            let extraInfo = '';
+            if (log.data) {
+                if (log.data.customer) extraInfo += ` 👤${log.data.customer}`;
+                if (log.data.driver) extraInfo += ` 🚗${log.data.driver}`;
+                if (log.data.price) extraInfo += ` 💰${log.data.price}€`;
+            }
+            
+            const entry = `[${time}] ${icon} ${log.message}${extraInfo}${deviceInfo}`;
+            addLiveLogEntry(log.type, entry, color);
+        }
+        
+        function addLiveLogEntry(type, text, color = '#888') {
+            const console = document.getElementById('live-log-console');
+            if (!console) return;
+            
+            const entry = document.createElement('div');
+            entry.style.color = color;
+            entry.style.marginBottom = '4px';
+            entry.style.borderLeft = `3px solid ${color}`;
+            entry.style.paddingLeft = '8px';
+            entry.textContent = text;
+            
+            console.appendChild(entry);
+            
+            // Speichere für Export
+            liveLogEntries.push({ time: new Date().toISOString(), type, text });
+            
+            // Max 200 Einträge behalten
+            while (console.children.length > 200) {
+                console.removeChild(console.firstChild);
+            }
+            
+            // Auto-Scroll nach unten
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        function clearLiveLogConsole() {
+            const console = document.getElementById('live-log-console');
+            if (console) {
+                console.innerHTML = '<div style="color:#888;">// Console geleert...</div>';
+            }
+            liveLogEntries = [];
+        }
+        
+        function exportLiveLog() {
+            const console = document.getElementById('live-log-console');
+            if (!console) return;
+            
+            const text = console.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Live-Log in Zwischenablage kopiert!');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('✅ Live-Log kopiert!');
+            });
         }
         
         // 📜 AKTIVITÄTS-PROTOKOLL SYSTEM
@@ -7556,6 +7823,12 @@
                         statusIcon = '🚗';
                     }
                     
+                    // Escape für onclick
+                    const pickupEsc = (ride.pickup || '').replace(/'/g, "\\'");
+                    const destEsc = (ride.destination || '').replace(/'/g, "\\'");
+                    const nameEsc = (ride.customerName || customerName || '').replace(/'/g, "\\'");
+                    const phoneEsc = (ride.customerPhone || customerPhone || '').replace(/'/g, "\\'");
+                    
                     html += `
                         <div style="background:white;border:1px solid #e5e7eb;border-radius:6px;padding:8px;margin-bottom:6px;font-size:12px;">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -7563,7 +7836,12 @@
                                     <span style="color:${statusColor};font-weight:600;">${statusIcon}</span>
                                     <span style="color:#666;">${date} ${time}</span>
                                 </div>
-                                <div style="font-weight:600;color:#16a34a;">${ride.price || '?'}€</div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-weight:600;color:#16a34a;">${ride.price || '?'}€</span>
+                                    <button onclick="rebookFromHistory('${pickupEsc}', '${destEsc}', '${nameEsc}', '${phoneEsc}')" style="padding:4px 8px;background:#10b981;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
+                                        🔁 Buchen
+                                    </button>
+                                </div>
                             </div>
                             <div style="color:#333;margin-top:4px;">
                                 📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
@@ -7583,6 +7861,37 @@
                 console.error('❌ Fehler beim Laden des Verlaufs:', error);
                 historyDiv.innerHTML = '<div style="color:red;padding:10px;">❌ Fehler beim Laden</div>';
             }
+        }
+        
+        // 🔁 FAHRT AUS KUNDENVERLAUF WIEDER BUCHEN
+        function rebookFromHistory(pickup, destination, customerName, customerPhone) {
+            // Wechsle zum Fahrgast-Tab
+            switchView('passenger');
+            
+            // Fülle das Buchungsformular
+            const pickupField = document.getElementById('pickup');
+            const destField = document.getElementById('destination');
+            const nameField = document.getElementById('customer-name');
+            const phoneField = document.getElementById('customer-phone');
+            
+            if (pickupField) pickupField.value = pickup;
+            if (destField) destField.value = destination;
+            if (nameField) nameField.value = customerName;
+            if (phoneField) phoneField.value = customerPhone;
+            
+            // Berechne Route neu
+            if (pickup && destination) {
+                calculateRoute();
+            }
+            
+            // Scroll zum Formular
+            const form = document.getElementById('booking-form');
+            if (form) {
+                form.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            // Bestätigung
+            alert('✅ Daten übernommen!\n\n📍 ' + pickup + ' → ' + destination + '\n👤 ' + customerName + '\n\nBitte Abholzeit wählen und buchen.');
         }
         
         async function checkPhoneInCRM() {

@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.13.7 - Build 20251126-1530');
+        console.log('🚕 Funk Taxi App v5.14.0 - Build 20251126-1550');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.7 - Stabil! ✅ (Build 20251126-1530)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.0 - Stabil! ✅ (Build 20251126-1550)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1537,8 +1537,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.13.7';
-        const APP_BUILD = '20251126-1530';
+        const APP_VERSION = '5.14.0';
+        const APP_BUILD = '20251126-1550';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -3775,8 +3775,8 @@
                     const lastUpdate = driver.timestamp || 0;
                     const minutesSinceUpdate = (now - lastUpdate) / (1000 * 60);
                     
-                    // Nur als online zeigen wenn letzte Meldung < 5 Min
-                    if (minutesSinceUpdate < 5) {
+                    // Nur als online zeigen wenn letzte Meldung < 2 Min
+                    if (minutesSinceUpdate < 2) {
                         const vehicle = VEHICLES[vehicleId] || { name: driver.vehicle || vehicleId, plate: '?' };
                         const hasGPS = driver.lat && driver.lng;
                         const gpsAccuracy = driver.accuracy ? Math.round(driver.accuracy) : '?';
@@ -5328,7 +5328,7 @@
                 return;
             }
             
-            const onlineDrivers = Object.values(drivers).filter(d => d.online && d.timestamp && (Date.now() - d.timestamp) < 60000);
+            const onlineDrivers = Object.values(drivers).filter(d => d.online && d.timestamp && (Date.now() - d.timestamp) < 120000);
             
             if (onlineDrivers.length === 0) {
                 document.getElementById('available-taxis-display').innerHTML = '<div class="alert-info">⏳ Momentan keine Taxis verfügbar</div>';
@@ -6671,6 +6671,50 @@
             
             console.log('🎯 GPS watchId:', watchId);
             
+            // 🆕 IMMER: Zusätzliches Intervall alle 30 Sekunden (auch bei Stillstand!)
+            window.gpsRegularInterval = setInterval(() => {
+                if (!isOnline || !currentVehicle) {
+                    return;
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const location = { 
+                            lat: pos.coords.latitude, 
+                            lon: pos.coords.longitude, 
+                            timestamp: Date.now(), 
+                            vehicleId: currentVehicle,
+                            vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle,
+                            online: isOnline,
+                            accuracy: pos.coords.accuracy,
+                            userEmail: currentUser ? (currentUser.email || currentUser.phoneNumber || '') : '',
+                            userId: currentUser ? currentUser.uid : ''
+                        };
+                        
+                        lastGPSUpdate = Date.now();
+                        console.log('📍 GPS (30s Intervall):', location.lat.toFixed(4), location.lon.toFixed(4));
+                        
+                        // Update GPS-Indicator
+                        const gpsDot = document.getElementById('gps-dot');
+                        const gpsStatus = document.getElementById('gps-status');
+                        if (gpsDot && gpsStatus) {
+                            gpsDot.classList.add('online');
+                            gpsStatus.textContent = '📍 GPS: ' + Math.round(location.accuracy) + 'm';
+                        }
+                        
+                        if (isFirebaseReady) {
+                            db.ref('drivers/' + currentVehicle).set(location);
+                        }
+                    },
+                    (err) => {
+                        console.warn('⚠️ GPS 30s Intervall-Fehler:', err.message);
+                    },
+                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+                );
+            }, 30000); // Alle 30 Sekunden
+            
+            console.log('✅ GPS 30s Intervall gestartet');
+            
             // FALLBACK: Wenn watchPosition nach 30 Sek kein Update liefert, nutze Intervall
             setTimeout(() => {
                 if (isOnline && !document.getElementById('gps-dot')?.classList.contains('online')) {
@@ -6751,6 +6795,13 @@
                 clearInterval(window.gpsIntervalId);
                 window.gpsIntervalId = null;
                 console.log('🛑 GPS Fallback-Intervall gestoppt');
+            }
+            
+            // 🆕 Stoppe 30s Intervall
+            if (window.gpsRegularInterval) {
+                clearInterval(window.gpsRegularInterval);
+                window.gpsRegularInterval = null;
+                console.log('🛑 GPS 30s Intervall gestoppt');
             }
             
             if (isFirebaseReady && currentVehicle) {
@@ -8011,6 +8062,7 @@
                         ${log.data && Object.keys(log.data).length > 0 ? `
                             <div style="font-size:11px;color:#666;margin-top:5px;">
                                 ${log.data.customer ? `👤 ${log.data.customer}` : ''}
+                                ${log.data.email ? `📧 ${log.data.email}` : ''}
                                 ${log.data.phone ? ` • 📞 ${log.data.phone}` : ''}
                                 ${log.data.driver ? ` • 🚗 ${log.data.driver}` : ''}
                                 ${log.data.vehicle ? ` • ${log.data.vehicle}` : ''}
@@ -8018,6 +8070,7 @@
                                 ${log.data.from || log.data.pickup ? `<br>📍 ${log.data.from || log.data.pickup}` : ''}
                                 ${log.data.to || log.data.destination ? ` → ${log.data.to || log.data.destination}` : ''}
                                 ${log.data.deletedBy ? `<br>🗑️ <strong>Gelöscht von:</strong> ${log.data.deletedBy}` : ''}
+                                ${log.data.reason ? `<br>ℹ️ Grund: ${log.data.reason}` : ''}
                             </div>
                         ` : ''}
                         ${log.device ? `

@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.14.5 - Build 20251126-1245');
+        console.log('🚕 Funk Taxi App v5.14.7 - Build 20251126-1305');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.5 - Stabil! ✅ (Build 20251126-1245)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.7 - Stabil! ✅ (Build 20251126-1305)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1520,8 +1520,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.14.5';
-        const APP_BUILD = '20251126-1245';
+        const APP_VERSION = '5.14.7';
+        const APP_BUILD = '20251126-1305';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2611,7 +2611,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.14.5 gestartet');
+        console.log('🚀 Taxi App v5.14.7 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -10764,6 +10764,22 @@ Stack: ${err.stack}
             }
         }
 
+        // 🔗 TRACKING-LINK KOPIEREN
+        function copyTrackingLink(link) {
+            navigator.clipboard.writeText(link).then(() => {
+                alert('✅ Link kopiert!\n\nDu kannst diesen Link speichern oder per WhatsApp teilen.');
+            }).catch(() => {
+                // Fallback für ältere Browser
+                const input = document.createElement('input');
+                input.value = link;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                alert('✅ Link kopiert!');
+            });
+        }
+        
         async function closeRide() {
             // 🆕 Setze Fahrt auf "completed" in Firebase damit sie nicht wieder auftaucht!
             if (myCurrentRide && myCurrentRide.firebaseId && isFirebaseReady) {
@@ -10860,6 +10876,70 @@ Stack: ${err.stack}
             const now = Date.now();
             // Fahrer-Zuweisung beginnt 30 Min vor Abholung
             const isFutureRide = ride.pickupTimestamp && ride.pickupTimestamp > now + (30 * 60000); // 30 Min Vorlauf
+            
+            // 🆕 VORBESTELLT: Zeige Status für Vorbestellungen
+            if (ride.status === 'vorbestellt') {
+                const pickupDate = new Date(ride.pickupTimestamp);
+                const formattedDate = pickupDate.toLocaleDateString('de-DE', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                const formattedTime = pickupDate.toLocaleTimeString('de-DE', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                // 🔗 Tracking-Link erstellen
+                const trackingLink = `${window.location.origin}${window.location.pathname}?ride=${ride.firebaseId}`;
+                
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📅</div>
+                        <h3>Vorbestellung bestätigt!</h3>
+                        <div style="margin-top: 15px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                            <div style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 10px;">
+                                🕐 ${formattedDate}<br>
+                                um ${formattedTime} Uhr
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 14px; color: #0c4a6e;">
+                            <strong>📍 Von:</strong> ${ride.pickup}<br>
+                            <strong>🎯 Nach:</strong> ${ride.destination}<br>
+                            <strong>💰 Preis:</strong> ${ride.price}€
+                        </div>
+                        
+                        <!-- 🔗 TRACKING-LINK -->
+                        <div style="margin-top: 15px; padding: 12px; background: #dbeafe; border-radius: 8px;">
+                            <div style="font-size: 13px; color: #1e40af; margin-bottom: 8px;">
+                                <strong>🔗 Dein Tracking-Link:</strong>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" value="${trackingLink}" readonly 
+                                    style="flex:1; padding: 8px; border: 1px solid #93c5fd; border-radius: 6px; font-size: 11px; background: white;"
+                                    onclick="this.select()">
+                                <button onclick="copyTrackingLink('${trackingLink}')" 
+                                    style="padding: 8px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                                    📋 Kopieren
+                                </button>
+                            </div>
+                            <div style="font-size: 11px; color: #1e40af; margin-top: 6px; opacity: 0.8;">
+                                💡 Speichere diesen Link um den Status später abzurufen!
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 15px; padding: 12px; background: #dcfce7; border-radius: 8px; font-size: 13px; color: #14532d;">
+                            ✅ 15 Minuten vor der Abholung wird ein Fahrer zugewiesen.
+                        </div>
+                        <div style="display:flex;gap:10px;margin-top:15px;">
+                            <button onclick="closeFutureRide('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#10b981;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">✓ OK</button>
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Stornieren</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
             
             // Wenn Fahrt in der Zukunft und Status 'new', zeige Vormerkung
             if (ride.status === 'new' && isFutureRide) {
@@ -10983,6 +11063,9 @@ Stack: ${err.stack}
                     pickupTimeStr = 'SOFORT';
                 }
                 
+                // 🔗 Tracking-Link erstellen
+                const trackingLink = `${window.location.origin}${window.location.pathname}?ride=${ride.firebaseId}`;
+                
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#fef3c7;border:2px solid #f59e0b;">
                         <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
@@ -10995,6 +11078,25 @@ Stack: ${err.stack}
                                 <strong>🕐 Bestellt:</strong> ${createdTimeStr} Uhr<br>
                                 <strong>🚕 Abholung:</strong> ${pickupTimeStr}<br>
                                 <strong>💰 Preis:</strong> ${ride.price}€
+                            </div>
+                        </div>
+                        
+                        <!-- 🔗 TRACKING-LINK -->
+                        <div style="padding: 12px; background: #fef9c3; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 13px; color: #854d0e; margin-bottom: 8px;">
+                                <strong>🔗 Dein Tracking-Link:</strong>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" value="${trackingLink}" readonly 
+                                    style="flex:1; padding: 8px; border: 1px solid #fbbf24; border-radius: 6px; font-size: 11px; background: white;"
+                                    onclick="this.select()">
+                                <button onclick="copyTrackingLink('${trackingLink}')" 
+                                    style="padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                                    📋
+                                </button>
+                            </div>
+                            <div style="font-size: 11px; color: #854d0e; margin-top: 6px; opacity: 0.8;">
+                                💡 Speichere diesen Link um den Status später abzurufen!
                             </div>
                         </div>
                         
@@ -12027,6 +12129,22 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🔐 STARTSEITE: Nur Fahrgast anzeigen (bis Login)
             applyRoleRestrictions(null); // null = nicht eingeloggt
+            
+            // 🆕 TRACKING-LINK: Prüfe ob ?ride=XXX in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const trackingRideId = urlParams.get('ride');
+            if (trackingRideId) {
+                console.log('🔗 Tracking-Link erkannt:', trackingRideId);
+                // Speichere als aktuelle Fahrt und lade Status
+                localStorage.setItem('myCurrentRideId', trackingRideId);
+                // Warte auf Firebase, dann lade Fahrt
+                setTimeout(() => {
+                    if (isFirebaseReady) {
+                        listenToMyRide(trackingRideId);
+                        document.getElementById('booking-form').style.display = 'none';
+                    }
+                }, 1500);
+            }
             
             // 🐛 Globaler Error Handler für besseres Debugging
             window.addEventListener('error', (e) => {

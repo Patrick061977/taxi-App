@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.12.5 - Build 20251126-1245');
+        console.log('🚕 Funk Taxi App v5.12.7 - Build 20251126-1315');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.5 - Stabil! ✅ (Build 20251126-1245)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.7 - Stabil! ✅ (Build 20251126-1315)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1514,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.12.5';
-        const APP_BUILD = '20251126-1245';
+        const APP_VERSION = '5.12.7';
+        const APP_BUILD = '20251126-1315';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2460,15 +2460,30 @@
             const confirmDelete = confirm('🗑️ Fahrt wirklich LÖSCHEN?\n\nDies kann nicht rückgängig gemacht werden!');
             if (!confirmDelete) return;
             
-            // 🆕 Lade Fahrt VORHER um Telegram zu senden
+            // 🆕 Lade Fahrt VORHER um Telegram zu senden und zu loggen
             let ride = null;
             if (isFirebaseReady) {
                 try {
                     const snapshot = await db.ref('rides/' + rideId).once('value');
                     ride = snapshot.val();
                     
-                    // 📱 TELEGRAM SENDEN wenn Fahrt zugewiesen war!
-                    if (ride && (ride.assignedDriver || ride.status === 'accepted' || ride.status === 'picked_up')) {
+                    // 📜 LOGGING: Fahrt wird gelöscht
+                    if (ride) {
+                        logActivity('status', 'deleted', 
+                            `Fahrt gelöscht: ${ride.customerName} (${ride.pickup} → ${ride.destination})`, {
+                            customer: ride.customerName,
+                            phone: ride.customerPhone,
+                            pickup: ride.pickup,
+                            destination: ride.destination,
+                            status: ride.status,
+                            vehicle: ride.vehicle || 'Nicht zugewiesen',
+                            price: ride.price,
+                            deletedBy: currentUser ? currentUser.email : 'Admin'
+                        });
+                    }
+                    
+                    // 📱 TELEGRAM SENDEN - IMMER wenn Fahrt existiert!
+                    if (ride) {
                         await sendTelegramForDeletedRide(ride);
                     }
                     
@@ -6316,7 +6331,20 @@
             }
             
             if (isOnline && currentVehicle) startDriverTracking(null);
-            else stopDriverTracking();
+            else {
+                stopDriverTracking();
+                // 📊 WICHTIG: Sende offline-Status an Firebase!
+                if (currentVehicle && isFirebaseReady) {
+                    db.ref('drivers/' + currentVehicle).update({
+                        online: false,
+                        lastOffline: Date.now()
+                    }).then(() => {
+                        console.log('📴 Fahrer als OFFLINE in Firebase markiert');
+                    }).catch(err => {
+                        console.error('❌ Fehler beim Offline-Setzen:', err);
+                    });
+                }
+            }
         }
 
         function setVehicle() {
@@ -6970,7 +6998,8 @@
                 // Marker für jedes Fahrzeug erstellen
                 for (const vehicleId in driversData) {
                     const driver = driversData[vehicleId];
-                    if (!driver || !driver.lat || !driver.lon) continue;
+                    // Prüfe ob Fahrer WIRKLICH online ist (nicht nur Position vorhanden)
+                    if (!driver || !driver.lat || !driver.lon || driver.online === false) continue;
                     
                     onlineCount++;
                     
@@ -7096,7 +7125,11 @@
                 
                 // Offline-Fahrzeuge aus VEHICLES hinzufügen
                 for (const vehicleId in VEHICLES) {
-                    if (!driversData[vehicleId]) {
+                    // Zeige als OFFLINE wenn: nicht in driversData ODER online === false
+                    const driver = driversData[vehicleId];
+                    const isOffline = !driver || !driver.lat || !driver.lon || driver.online === false;
+                    
+                    if (isOffline) {
                         vehicleListHtml += `
                             <div style="
                                 display:flex;
@@ -7417,6 +7450,9 @@
                     } else if (log.action === 'cancelled') {
                         color = '#f87171'; // rot
                         icon = '❌';
+                    } else if (log.action === 'deleted') {
+                        color = '#dc2626'; // dunkelrot
+                        icon = '🗑️';
                     } else {
                         color = '#a78bfa'; // lila
                         icon = '📊';

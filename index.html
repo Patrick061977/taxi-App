@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.14.9 - Build 20251126-1315');
+        console.log('🚕 Funk Taxi App v5.15.0 - Build 20251126-1335');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.9 - Stabil! ✅ (Build 20251126-1315)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.15.0 - Stabil! ✅ (Build 20251126-1335)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1520,8 +1520,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.14.9';
-        const APP_BUILD = '20251126-1315';
+        const APP_VERSION = '5.15.0';
+        const APP_BUILD = '20251126-1335';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2611,7 +2611,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.14.9 gestartet');
+        console.log('🚀 Taxi App v5.15.0 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -11180,6 +11180,28 @@ Stack: ${err.stack}
 
         async function updateRideTracking(ride) {
             const driverLoc = ride.driverLocation;
+            
+            // 🛡️ Prüfe ob pickupCoords existiert
+            if (!ride.pickupCoords || !ride.pickupCoords.lat || !ride.pickupCoords.lon) {
+                console.warn('⚠️ Keine pickupCoords für Fahrt - zeige einfache Ansicht');
+                const container = document.getElementById('ride-status-container');
+                container.innerHTML = `
+                    <div class="ride-status-box" style="background:#dbeafe;border:2px solid #3b82f6;">
+                        <div style="font-size: 32px; margin-bottom: 8px;">🚕</div>
+                        <h3 style="font-size: 18px; margin: 8px 0;">${ride.vehicle || 'Fahrer'} ist unterwegs!</h3>
+                        <p style="margin-top: 8px; font-size: 14px; color: #1e40af;">Der Fahrer kommt zu Ihnen.</p>
+                        <div style="margin-top: 12px; font-size: 13px;">
+                            <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}<br>
+                            <strong>Von:</strong> ${ride.pickup}<br>
+                            <strong>Nach:</strong> ${ride.destination}<br>
+                            <strong>Preis:</strong> ${ride.price}€
+                        </div>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
+                    </div>
+                `;
+                return;
+            }
+            
             const route = await calculateRoute(driverLoc, ride.pickupCoords);
             const distanceKm = route.distance;
             const durationMin = route.duration;
@@ -11229,47 +11251,62 @@ Stack: ${err.stack}
                     </div>
                     <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
                 </div>
-                <div id="map" style="width:100%;height:400px;margin-top:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                <div id="passenger-tracking-map" style="width:100%;height:400px;margin-top:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#e5e7eb;"></div>
             `;
             
-            if (!map) {
-                setTimeout(() => {
-                    map = L.map('map').setView([driverLoc.lat, driverLoc.lon], 13);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                    
-                    // Marker
-                    taxiMarker = L.marker([driverLoc.lat, driverLoc.lon]).addTo(map).bindPopup('🚕 ' + ride.vehicle);
-                    pickupMarker = L.marker([ride.pickupCoords.lat, ride.pickupCoords.lon]).addTo(map).bindPopup('📍 Abholort');
-                    
-                    // Route-Linie zeichnen
-                    if (route.geometry) {
-                        // OSRM gibt coords als [lon, lat] - müssen zu [lat, lon] umgewandelt werden!
-                        const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
-                        if (window.routeLine) map.removeLayer(window.routeLine);
-                        window.routeLine = L.polyline(routeCoords, {
-                            color: '#3b82f6',
-                            weight: 4,
-                            opacity: 0.7
-                        }).addTo(map);
-                    }
-                    
-                    map.fitBounds([[driverLoc.lat, driverLoc.lon], [ride.pickupCoords.lat, ride.pickupCoords.lon]]);
-                }, 100);
-            } else {
-                if (taxiMarker) taxiMarker.setLatLng([driverLoc.lat, driverLoc.lon]);
-                
-                // Route-Linie aktualisieren
-                if (route.geometry) {
-                    const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
-                    if (window.routeLine) map.removeLayer(window.routeLine);
-                    window.routeLine = L.polyline(routeCoords, {
-                        color: '#3b82f6',
-                        weight: 4,
-                        opacity: 0.7
-                    }).addTo(map);
+            // 🗺️ Karte initialisieren mit try-catch
+            try {
+                const mapEl = document.getElementById('passenger-tracking-map');
+                if (!mapEl) {
+                    console.error('❌ Map Element nicht gefunden!');
+                    return;
                 }
                 
-                map.setView([driverLoc.lat, driverLoc.lon], map.getZoom());
+                // Alte Karte entfernen falls vorhanden
+                if (map) {
+                    map.remove();
+                    map = null;
+                }
+                
+                setTimeout(() => {
+                    try {
+                        map = L.map('passenger-tracking-map').setView([driverLoc.lat, driverLoc.lon], 14);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap'
+                        }).addTo(map);
+                        
+                        // Taxi Marker
+                        taxiMarker = L.marker([driverLoc.lat, driverLoc.lon]).addTo(map)
+                            .bindPopup('🚕 ' + ride.vehicle).openPopup();
+                        
+                        // Abholort Marker
+                        pickupMarker = L.marker([ride.pickupCoords.lat, ride.pickupCoords.lon]).addTo(map)
+                            .bindPopup('📍 ' + ride.pickup);
+                        
+                        // Route-Linie zeichnen
+                        if (route.geometry && route.geometry.length > 0) {
+                            const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
+                            window.routeLine = L.polyline(routeCoords, {
+                                color: '#3b82f6',
+                                weight: 5,
+                                opacity: 0.8
+                            }).addTo(map);
+                        }
+                        
+                        // Zoom auf beide Punkte
+                        const bounds = L.latLngBounds(
+                            [driverLoc.lat, driverLoc.lon],
+                            [ride.pickupCoords.lat, ride.pickupCoords.lon]
+                        );
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                        
+                        console.log('✅ Tracking-Karte initialisiert');
+                    } catch (mapError) {
+                        console.error('❌ Karten-Fehler:', mapError);
+                    }
+                }, 200);
+            } catch (error) {
+                console.error('❌ Map Setup Fehler:', error);
             }
         }
 

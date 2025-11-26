@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.14.1 - Build 20251126-1205');
+        console.log('🚕 Funk Taxi App v5.14.3 - Build 20251126-1225');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.1 - Stabil! ✅ (Build 20251126-1205)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.3 - Stabil! ✅ (Build 20251126-1225)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1537,8 +1537,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.14.1';
-        const APP_BUILD = '20251126-1205';
+        const APP_VERSION = '5.14.3';
+        const APP_BUILD = '20251126-1225';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -1578,6 +1578,7 @@
         
         // 🛡️ DUPLIKAT-SCHUTZ für Telegram
         const sentTelegramRides = new Set(); // Speichert Ride-IDs die schon gesendet wurden
+        const warnedOpenRides = new Set(); // 🆕 Speichert Ride-IDs für die schon Warnungen gesendet wurden
         
         // 🐛 SUPER DEBUG SYSTEM
         let debugErrors = [];
@@ -4747,6 +4748,89 @@
             } catch (error) {
                 console.error('❌ Telegram Fehler:', error);
             }
+        }
+        
+        // 🆕 TELEGRAM: Warnung für offene Fahrten (15 Min vor Abholzeit)
+        async function sendTelegramOpenRideWarning(ride) {
+            if (!isFirebaseReady) return;
+            
+            const rideKey = ride.firebaseId || ride.id;
+            if (warnedOpenRides.has(rideKey)) {
+                console.log('⚠️ Warnung schon gesendet für Fahrt:', rideKey);
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('settings/telegram/adminChats').once('value');
+                const adminChats = snapshot.val() || [];
+                
+                if (adminChats.length === 0) return;
+                
+                const timestamp = new Date().toLocaleString('de-DE', {
+                    day: '2-digit', month: '2-digit', year: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                
+                const pickupTime = ride.pickupTime || 'Unbekannt';
+                
+                const message = `🚨🚨🚨 <b>ACHTUNG: OFFENE FAHRT!</b> 🚨🚨🚨\n\n` +
+                    `⏰ <b>Abholzeit:</b> ${pickupTime}\n` +
+                    `⚠️ <b>Noch KEIN Fahrer zugewiesen!</b>\n\n` +
+                    `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                    `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
+                    `📍 <b>Von:</b> ${ride.pickup}\n` +
+                    `📍 <b>Nach:</b> ${ride.destination}\n` +
+                    `💰 <b>Preis:</b> ${ride.price}€\n\n` +
+                    `🔴 <b>Bitte SOFORT einen Fahrer zuweisen!</b>\n` +
+                    `⏰ <b>Warnung gesendet:</b> ${timestamp}`;
+                
+                for (const chatId of adminChats) {
+                    await sendTelegramMessage(chatId, message);
+                }
+                
+                warnedOpenRides.add(rideKey);
+                
+                console.log('🚨 Telegram: Offene-Fahrt-Warnung gesendet für', ride.customerName);
+                
+                logActivity('system', 'telegram', `🚨 Telegram: OFFENE FAHRT Warnung - ${ride.customerName}`, {
+                    customer: ride.customerName,
+                    pickupTime: pickupTime,
+                    type: 'Warnung'
+                });
+                
+            } catch (error) {
+                console.error('❌ Telegram Warnung Fehler:', error);
+            }
+        }
+        
+        // 🆕 Periodische Prüfung für offene Vorbestellungen (alle 60 Sek)
+        function startOpenRideChecker() {
+            console.log('🔍 Offene-Fahrten-Checker gestartet (prüft alle 60 Sek)');
+            
+            setInterval(() => {
+                if (!isFirebaseReady || !rides || rides.length === 0) return;
+                
+                const now = Date.now();
+                
+                rides.forEach(ride => {
+                    // Nur Fahrten ohne Fahrer prüfen
+                    if (ride.status !== 'new' && ride.status !== 'vorbestellt') return;
+                    if (ride.vehicle || ride.driverId) return; // Hat schon Fahrer
+                    
+                    // Prüfe ob Abholzeit in <= 10 Minuten (Zuweisung war bei 15 Min!)
+                    const pickupTime = ride.pickupTimestamp || 0;
+                    const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
+                    
+                    if (minutesUntilPickup <= 10 && minutesUntilPickup > 0) {
+                        // Noch nicht gewarnt? → Telegram senden!
+                        const rideKey = ride.firebaseId || ride.id;
+                        if (!warnedOpenRides.has(rideKey)) {
+                            console.log('🚨 Offene Fahrt gefunden! Abholzeit in', Math.round(minutesUntilPickup), 'Min');
+                            sendTelegramOpenRideWarning(ride);
+                        }
+                    }
+                });
+            }, 60000); // Alle 60 Sekunden prüfen
         }
         
         // Telegram Status anzeigen
@@ -11761,6 +11845,9 @@ Stack: ${err.stack}
                 if (verlaufBtn) verlaufBtn.style.display = 'block';
                 if (fahrerBtn) fahrerBtn.style.display = 'block';
                 if (adminBtn) adminBtn.style.display = 'block';
+                
+                // 🆕 Starte Checker für offene Fahrten (nur für Admin)
+                startOpenRideChecker();
             } else {
                 // Nicht eingeloggt: NUR Fahrgast
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';

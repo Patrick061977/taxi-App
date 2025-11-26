@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.15.3 - Build 20251126-1815');
+        console.log('🚕 Funk Taxi App v5.16.0 - Build 20251126-1820');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.15.3 - Stabil! ✅ (Build 20251126-1815)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.0 - Stabil! ✅ (Build 20251126-1820)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1280,6 +1280,18 @@
             </div>
         </div>
         
+        <!-- 🚗 NEU: FAHRZEUG-VERWALTUNG -->
+        <div onclick="toggleAdminSection('vehicles')" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🚗 Fahrzeug-Verwaltung</span>
+            <span id="vehicles-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="vehicles-content" style="display:none;margin-bottom:20px;">
+            <div id="vehicles-list" style="margin-bottom:15px;"></div>
+            <button onclick="showAddVehicleModal()" style="width:100%;padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                ➕ Neues Fahrzeug hinzufügen
+            </button>
+        </div>
+        
         <!-- 📋 NEU: STAMMKUNDEN-CRM -->
         <div onclick="toggleAdminSection('customers')" style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">📋 Stammkunden-CRM</span>
@@ -1509,13 +1521,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script>
         // CONFIGURATION
-        const VEHICLES = {
+        // 🚗 FAHRZEUGE - werden aus Firebase geladen, Fallback auf Hardcoded
+        const DEFAULT_VEHICLES = {
             'tesla_model3_1': { name: 'Tesla Model 3 #1', id: 'tesla_model3_1', plate: 'PW-TX 111' },
             'tesla_model3_2': { name: 'Tesla Model 3 #2', id: 'tesla_model3_2', plate: 'PW-TX 222' },
             'tesla_model3_3': { name: 'Tesla Model 3 #3', id: 'tesla_model3_3', plate: 'PW-TX 333' },
             'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1', plate: 'PW-MY 222' },
             'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2', plate: 'PW-MY 333' }
         };
+        let VEHICLES = { ...DEFAULT_VEHICLES }; // Wird aus Firebase überschrieben
         const TARIF = { 
             grundgebuehr: 4.00,
             // Gestaffelte Kilometerpreise (offizieller Tarif August 2022)
@@ -1535,8 +1549,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.15.3';
-        const APP_BUILD = '20251126-1815';
+        const APP_VERSION = '5.16.0';
+        const APP_BUILD = '20251126-1820';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2632,7 +2646,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.15.3 gestartet');
+        console.log('🚀 Taxi App v5.16.0 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -2818,6 +2832,9 @@
                     
                     // 💰 Preis-Einstellungen aus Firebase laden
                     loadPricingSettings();
+                    
+                    // 🚗 Fahrzeuge aus Firebase laden
+                    loadVehiclesFromFirebase();
                     
                     // 🔄 LADE GESPEICHERTE FAHRT (falls vorhanden)
                     const savedRideId = localStorage.getItem('myCurrentRideId');
@@ -7225,6 +7242,8 @@
                     loadDeletedRides();
                 } else if (section === 'fleetmap') {
                     setTimeout(() => initFleetMap(), 100); // Kleine Verzögerung für DOM
+                } else if (section === 'vehicles') {
+                    renderVehicles();
                 }
             } else {
                 content.style.display = 'none';
@@ -8350,6 +8369,186 @@
             } catch (error) {
                 console.error('❌ Löschen Fehler:', error);
                 alert('❌ Löschen fehlgeschlagen');
+            }
+        }
+        
+        // 🚗 FAHRZEUG-VERWALTUNG
+        async function loadVehiclesFromFirebase() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const snapshot = await db.ref('vehicles').once('value');
+                const data = snapshot.val();
+                
+                if (data && Object.keys(data).length > 0) {
+                    VEHICLES = data;
+                    console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
+                } else {
+                    // Initialisiere Firebase mit Default-Fahrzeugen
+                    await db.ref('vehicles').set(DEFAULT_VEHICLES);
+                    VEHICLES = { ...DEFAULT_VEHICLES };
+                    console.log('🚗 Default-Fahrzeuge in Firebase gespeichert');
+                }
+                
+                // Aktualisiere Fahrer-Dropdown falls vorhanden
+                updateVehicleDropdowns();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
+            }
+        }
+        
+        function updateVehicleDropdowns() {
+            // Aktualisiere alle Fahrzeug-Dropdowns in der App
+            const selects = document.querySelectorAll('#edit-ride-modal select, .vehicle-select');
+            selects.forEach(select => {
+                if (select.id === 'edit-vehicle' || select.classList.contains('vehicle-select')) {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">-- Fahrzeug wählen --</option>';
+                    Object.values(VEHICLES).forEach(v => {
+                        select.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${v.name} (${v.plate})</option>`;
+                    });
+                }
+            });
+        }
+        
+        function renderVehicles() {
+            const container = document.getElementById('vehicles-list');
+            if (!container) return;
+            
+            if (Object.keys(VEHICLES).length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Keine Fahrzeuge vorhanden</div>';
+                return;
+            }
+            
+            let html = '';
+            Object.values(VEHICLES).forEach(v => {
+                html += `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f8fafc;border-radius:8px;margin-bottom:8px;border-left:4px solid #f59e0b;">
+                        <div>
+                            <div style="font-weight:600;color:#1e293b;">${v.name}</div>
+                            <div style="font-size:13px;color:#64748b;">🚗 ${v.plate}</div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="editVehicle('${v.id}')" style="padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">✏️</button>
+                            <button onclick="deleteVehicle('${v.id}')" style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function showAddVehicleModal(vehicleId = null) {
+            const vehicle = vehicleId ? VEHICLES[vehicleId] : null;
+            const isEdit = !!vehicle;
+            
+            const modal = document.createElement('div');
+            modal.id = 'vehicle-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            modal.innerHTML = `
+                <div style="background:white;padding:25px;border-radius:12px;width:90%;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+                    <h3 style="margin:0 0 20px 0;">${isEdit ? '✏️ Fahrzeug bearbeiten' : '➕ Neues Fahrzeug'}</h3>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Fahrzeug-Name *</label>
+                        <input type="text" id="vehicle-name" value="${vehicle ? vehicle.name : ''}" placeholder="z.B. Tesla Model 3 #1" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Kennzeichen *</label>
+                        <input type="text" id="vehicle-plate" value="${vehicle ? vehicle.plate : ''}" placeholder="z.B. PW-TX 111" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Fahrzeug-ID</label>
+                        <input type="text" id="vehicle-id" value="${vehicle ? vehicle.id : ''}" placeholder="z.B. tesla_model3_1" ${isEdit ? 'readonly style="background:#f3f4f6;"' : ''} style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <div style="font-size:11px;color:#666;margin-top:4px;">Eindeutige ID (ohne Leerzeichen)</div>
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="document.getElementById('vehicle-modal').remove()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
+                        <button onclick="saveVehicle('${vehicleId || ''}')" style="flex:1;padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">${isEdit ? 'Speichern' : 'Hinzufügen'}</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        function editVehicle(vehicleId) {
+            showAddVehicleModal(vehicleId);
+        }
+        
+        async function saveVehicle(existingId) {
+            const name = document.getElementById('vehicle-name').value.trim();
+            const plate = document.getElementById('vehicle-plate').value.trim();
+            let id = document.getElementById('vehicle-id').value.trim();
+            
+            if (!name || !plate) {
+                alert('❌ Bitte Name und Kennzeichen eingeben!');
+                return;
+            }
+            
+            // Generiere ID falls nicht vorhanden
+            if (!id) {
+                id = name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+            }
+            
+            // Prüfe ob ID schon existiert (nur bei neuem Fahrzeug)
+            if (!existingId && VEHICLES[id]) {
+                alert('❌ Diese Fahrzeug-ID existiert bereits!');
+                return;
+            }
+            
+            const vehicle = { id, name, plate };
+            
+            try {
+                // Speichere in Firebase
+                await db.ref('vehicles/' + id).set(vehicle);
+                
+                // Lösche altes Fahrzeug falls ID geändert wurde
+                if (existingId && existingId !== id) {
+                    await db.ref('vehicles/' + existingId).remove();
+                    delete VEHICLES[existingId];
+                }
+                
+                VEHICLES[id] = vehicle;
+                
+                console.log('✅ Fahrzeug gespeichert:', vehicle);
+                alert('✅ Fahrzeug gespeichert!');
+                
+                document.getElementById('vehicle-modal').remove();
+                renderVehicles();
+                updateVehicleDropdowns();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern!');
+            }
+        }
+        
+        async function deleteVehicle(vehicleId) {
+            const vehicle = VEHICLES[vehicleId];
+            if (!vehicle) return;
+            
+            if (!confirm(`🗑️ Fahrzeug "${vehicle.name}" wirklich löschen?`)) return;
+            
+            try {
+                await db.ref('vehicles/' + vehicleId).remove();
+                delete VEHICLES[vehicleId];
+                
+                console.log('🗑️ Fahrzeug gelöscht:', vehicleId);
+                alert('✅ Fahrzeug gelöscht!');
+                
+                renderVehicles();
+                updateVehicleDropdowns();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler beim Löschen!');
             }
         }
         

@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.15.0 - Build 20251126-1335');
+        console.log('🚕 Funk Taxi App v5.15.1 - Build 20251126-1415');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.15.0 - Stabil! ✅ (Build 20251126-1335)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.15.1 - Stabil! ✅ (Build 20251126-1415)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1520,8 +1520,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.15.0';
-        const APP_BUILD = '20251126-1335';
+        const APP_VERSION = '5.15.1';
+        const APP_BUILD = '20251126-1415';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2611,7 +2611,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.15.0 gestartet');
+        console.log('🚀 Taxi App v5.15.1 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -12227,13 +12227,28 @@ Stack: ${err.stack}
             const trackingRideId = urlParams.get('ride');
             if (trackingRideId) {
                 console.log('🔗 Tracking-Link erkannt:', trackingRideId);
-                // Speichere als aktuelle Fahrt und lade Status
-                localStorage.setItem('myCurrentRideId', trackingRideId);
                 // Warte auf Firebase, dann lade Fahrt
+                // NICHT sofort localStorage setzen - listenToMyRide entscheidet!
                 setTimeout(() => {
                     if (isFirebaseReady) {
-                        listenToMyRide(trackingRideId);
-                        document.getElementById('booking-form').style.display = 'none';
+                        // Prüfe erst ob Fahrt noch aktiv ist
+                        db.ref('rides/' + trackingRideId).once('value').then(snapshot => {
+                            const ride = snapshot.val();
+                            if (ride && ride.status !== 'completed' && ride.status !== 'storniert') {
+                                // Fahrt ist aktiv - speichern und anzeigen
+                                localStorage.setItem('myCurrentRideId', trackingRideId);
+                                listenToMyRide(trackingRideId);
+                                document.getElementById('booking-form').style.display = 'none';
+                            } else {
+                                // Fahrt ist beendet - Formular anzeigen
+                                console.log('ℹ️ Tracking-Link: Fahrt ist bereits beendet');
+                                localStorage.removeItem('myCurrentRideId');
+                                document.getElementById('booking-form').style.display = 'block';
+                                document.getElementById('ride-status-container').innerHTML = '';
+                                // URL Parameter entfernen
+                                window.history.replaceState({}, '', window.location.pathname);
+                            }
+                        });
                     }
                 }, 1500);
             }
@@ -12276,8 +12291,8 @@ Stack: ${err.stack}
                 document.getElementById('static-notification-banner').style.display = 'block';
             }
             
-            // 🔔 Service Worker & Push Notifications initialisieren
-            initServiceWorker();
+            // 🔔 Service Worker DEAKTIVIERT - Telegram übernimmt!
+            // initServiceWorker();
             
             // 🌟 Stammkunden-Daten laden
             loadRegularCustomer();

@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.15.1 - Build 20251126-1415');
+        console.log('🚕 Funk Taxi App v5.15.3 - Build 20251126-1815');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.15.1 - Stabil! ✅ (Build 20251126-1415)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.15.3 - Stabil! ✅ (Build 20251126-1815)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -152,16 +152,7 @@
         <button class="view-btn" onclick="switchView('admin')" id="admin-tab-btn" style="display:none;">Admin</button>
     </div>
 
-    <!-- 🔔 BENACHRICHTIGUNGS-BANNER -->
-    <div id="static-notification-banner" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;text-align:center;display:none;">
-        <div style="font-size:48px;margin-bottom:10px;">🔔</div>
-        <div style="margin-bottom:15px;">
-            <strong style="font-size:18px;">Benachrichtigungen aktivieren?</strong><br>
-            <span style="font-size:14px;opacity:0.9;margin-top:5px;display:block;">Erhalte sofort Push-Benachrichtigungen bei neuen Buchungen!</span>
-        </div>
-        <button onclick="requestNotificationPermission()" style="background:white;color:#667eea;border:none;padding:14px 24px;border-radius:8px;font-weight:700;cursor:pointer;margin-right:10px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">✓ Jetzt aktivieren</button>
-        <button onclick="document.getElementById('static-notification-banner').style.display='none'" style="background:rgba(255,255,255,0.2);color:white;border:2px solid white;padding:14px 24px;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;">Später</button>
-    </div>
+    <!-- 🔔 PUSH DEAKTIVIERT - Telegram übernimmt! -->
 
     <div id="passenger-view" class="view active">
         <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
@@ -229,6 +220,30 @@
                     ⬆️ Klick hier für Vorbestellung oder Termin
                 </div>
                 <input type="datetime-local" id="custom-datetime" step="300" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;font-size:15px;">
+                <!-- 🆕 ALTERNATIVE: Datum + Zeit getrennt mit 5-Min-Schritten -->
+                <div id="custom-datetime-container" style="display:none;margin-top:8px;">
+                    <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <select id="custom-hour" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
+                            <option value="00">00</option><option value="01">01</option><option value="02">02</option>
+                            <option value="03">03</option><option value="04">04</option><option value="05">05</option>
+                            <option value="06">06</option><option value="07">07</option><option value="08">08</option>
+                            <option value="09">09</option><option value="10">10</option><option value="11">11</option>
+                            <option value="12">12</option><option value="13">13</option><option value="14">14</option>
+                            <option value="15">15</option><option value="16">16</option><option value="17">17</option>
+                            <option value="18">18</option><option value="19">19</option><option value="20">20</option>
+                            <option value="21">21</option><option value="22">22</option><option value="23">23</option>
+                        </select>
+                        <span style="font-size:20px;font-weight:bold;">:</span>
+                        <select id="custom-minute" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
+                            <option value="00">00</option><option value="05">05</option><option value="10">10</option>
+                            <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+                            <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+                            <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+                        </select>
+                        <span style="font-size:14px;color:#666;">Uhr</span>
+                    </div>
+                </div>
                 <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
                     💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
                 </div>
@@ -1520,8 +1535,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.15.1';
-        const APP_BUILD = '20251126-1415';
+        const APP_VERSION = '5.15.3';
+        const APP_BUILD = '20251126-1815';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2027,41 +2042,47 @@
         function handlePickupTimeChange() {
             const select = document.getElementById('pickup-time');
             const datetimePicker = document.getElementById('custom-datetime');
+            const datetimeContainer = document.getElementById('custom-datetime-container');
             const helpText = document.getElementById('datetime-help');
             
             if (select.value === 'datetime') {
-                datetimePicker.style.display = 'block';
+                // Verstecke alten Picker, zeige neuen Container
+                datetimePicker.style.display = 'none';
+                datetimeContainer.style.display = 'block';
                 if (helpText) helpText.style.display = 'block';
-                
-                // Setze Minimum auf jetzt + 15 Minuten (gerundet auf 5 Min)
-                const now = new Date();
-                now.setMinutes(now.getMinutes() + 15);
-                
-                // 🔧 Runde auf nächste 5 Minuten
-                const minutes = now.getMinutes();
-                const roundedMinutes = Math.ceil(minutes / 5) * 5;
-                now.setMinutes(roundedMinutes);
-                now.setSeconds(0);
-                now.setMilliseconds(0);
-                
-                const minDateTime = now.toISOString().slice(0, 16);
-                datetimePicker.min = minDateTime;
                 
                 // Setze Standard auf jetzt + 1 Stunde (gerundet auf 5 Min)
                 const defaultTime = new Date();
                 defaultTime.setHours(defaultTime.getHours() + 1);
                 
                 // 🔧 Runde auf nächste 5 Minuten
-                const defaultMinutes = defaultTime.getMinutes();
-                const roundedDefaultMinutes = Math.ceil(defaultMinutes / 5) * 5;
-                defaultTime.setMinutes(roundedDefaultMinutes);
-                defaultTime.setSeconds(0);
-                defaultTime.setMilliseconds(0);
+                const roundedMinutes = Math.ceil(defaultTime.getMinutes() / 5) * 5;
+                defaultTime.setMinutes(roundedMinutes % 60);
+                if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
                 
-                datetimePicker.value = defaultTime.toISOString().slice(0, 16);
+                // Setze Werte
+                const dateInput = document.getElementById('custom-date');
+                const hourSelect = document.getElementById('custom-hour');
+                const minuteSelect = document.getElementById('custom-minute');
+                
+                // Datum im Format YYYY-MM-DD
+                const year = defaultTime.getFullYear();
+                const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
+                const day = String(defaultTime.getDate()).padStart(2, '0');
+                dateInput.value = `${year}-${month}-${day}`;
+                
+                // Minimum-Datum auf heute setzen
+                const today = new Date();
+                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                dateInput.min = todayStr;
+                
+                // Stunde und Minute
+                hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
+                minuteSelect.value = String(defaultTime.getMinutes()).padStart(2, '0');
                 
             } else {
                 datetimePicker.style.display = 'none';
+                datetimeContainer.style.display = 'none';
                 if (helpText) helpText.style.display = 'none';
             }
         }
@@ -2611,7 +2632,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.15.1 gestartet');
+        console.log('🚀 Taxi App v5.15.3 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -5556,7 +5577,6 @@
             
             // Hole Abholzeit für korrekte Tarifberechnung
             const pickupTimeSelect = document.getElementById('pickup-time').value;
-            const customDateTime = document.getElementById('custom-datetime').value;
             let pickupTimestamp = Date.now();
             
             if (pickupTimeSelect === '15min') {
@@ -5565,8 +5585,14 @@
                 pickupTimestamp = Date.now() + 30 * 60000;
             } else if (pickupTimeSelect === '1h') {
                 pickupTimestamp = Date.now() + 60 * 60000;
-            } else if (pickupTimeSelect === 'datetime' && customDateTime) {
-                pickupTimestamp = new Date(customDateTime).getTime();
+            } else if (pickupTimeSelect === 'datetime') {
+                // 🆕 Lese aus neuen Feldern (Datum + Stunde + Minute)
+                const dateVal = document.getElementById('custom-date').value;
+                const hourVal = document.getElementById('custom-hour').value;
+                const minuteVal = document.getElementById('custom-minute').value;
+                if (dateVal && hourVal && minuteVal) {
+                    pickupTimestamp = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`).getTime();
+                }
             }
             
             // Berechne Preis MIT Zeitstempel (für korrekten Tag/Nacht-Tarif)
@@ -5851,7 +5877,6 @@
             const customerName = document.getElementById('customer-name').value.trim();
             const customerPhone = document.getElementById('customer-phone').value.trim();
             const pickupTimeSelect = document.getElementById('pickup-time').value;
-            const customDateTime = document.getElementById('custom-datetime').value;
             
             if (!customerName) {
                 alert('❌ Bitte Name eingeben!');
@@ -5877,9 +5902,18 @@
             } else if (pickupTimeSelect === '1h') {
                 pickupTime = new Date(now.getTime() + 60 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
                 pickupTimestamp = now.getTime() + 60 * 60000;
-            } else if (pickupTimeSelect === 'datetime' && customDateTime) {
-                // Datum & Zeit aus datetime-local
-                const selectedDate = new Date(customDateTime);
+            } else if (pickupTimeSelect === 'datetime') {
+                // 🆕 Datum & Zeit aus neuen Feldern
+                const dateVal = document.getElementById('custom-date').value;
+                const hourVal = document.getElementById('custom-hour').value;
+                const minuteVal = document.getElementById('custom-minute').value;
+                
+                if (!dateVal) {
+                    alert('❌ Bitte Datum auswählen!');
+                    return;
+                }
+                
+                const selectedDate = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`);
                 pickupTimestamp = selectedDate.getTime();
                 
                 // Formatiere als "22.11.2024, 08:00"
@@ -6167,8 +6201,9 @@
             document.getElementById('pickup-time').value = 'jetzt';
             document.getElementById('passengers').value = '1';
             
-            // datetime-local Feld ausblenden falls sichtbar
+            // datetime Felder ausblenden falls sichtbar
             document.getElementById('custom-datetime').style.display = 'none';
+            document.getElementById('custom-datetime-container').style.display = 'none';
             document.getElementById('datetime-help').style.display = 'none';
             
             // Preis-Anzeige ausblenden
@@ -12286,10 +12321,10 @@ Stack: ${err.stack}
                 destField.addEventListener('input', hideBookButton);
             }
             
-            // 🔔 BENACHRICHTIGUNGS-BANNER SOFORT ANZEIGEN
-            if ('Notification' in window && Notification.permission !== 'granted') {
-                document.getElementById('static-notification-banner').style.display = 'block';
-            }
+            // 🔔 PUSH DEAKTIVIERT - Telegram übernimmt!
+            // if ('Notification' in window && Notification.permission !== 'granted') {
+            //     document.getElementById('static-notification-banner').style.display = 'block';
+            // }
             
             // 🔔 Service Worker DEAKTIVIERT - Telegram übernimmt!
             // initServiceWorker();

@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.16.3 - Build 20251126-1940');
+        console.log('🚕 Funk Taxi App v5.16.5 - Build 20251126-2000');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.3 - Stabil! ✅ (Build 20251126-1940)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.5 - Stabil! ✅ (Build 20251126-2000)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -906,9 +906,9 @@
             // 🚨 STORNIERUNG PANEL FUNKTIONEN
             function showCancellationPanel() {
                 const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                // 🆕 VEREINFACHT: Nur cancelled Fahrten die noch nicht gesehen wurden
                 const pendingCancellations = myRides.filter(r => 
-                    (r.status === 'cancelled_pending_driver' || 
-                    (r.status === 'cancelled' && r.driverNotified === false))
+                    r.status === 'cancelled' && r.driverNotified === false
                 );
                 
                 if (pendingCancellations.length === 0) {
@@ -998,7 +998,7 @@
                                 font-weight:bold;
                                 cursor:pointer;
                             ">
-                                ✓ Stornierung bestätigen
+                                ✓ OK, verstanden
                             </button>
                             
                             <button onclick="showRideDetails('${ride.firebaseId || ride.id}')" style="
@@ -1035,35 +1035,33 @@
                         return;
                     }
                     
-                    const cancellationFee = calculateCancellationFee(ride);
-                    
-                    // Update in Firebase mit updateRide() für Telegram-Benachrichtigung
+                    // 🆕 VEREINFACHT: Nur als "gesehen" markieren, kein Status-Wechsel nötig
                     const updates = {
-                        status: 'cancelled',
                         driverNotified: true,
-                        driverConfirmedAt: new Date().toISOString(),
-                        cancellationFee: cancellationFee
+                        driverConfirmedAt: new Date().toISOString()
                     };
                     
                     if (isFirebaseReady) {
-                        await updateRide(rideId, updates);
-                        console.log('✅ Stornierung bestätigt:', rideId);
+                        await db.ref('rides/' + rideId).update(updates);
+                        console.log('✅ Stornierung zur Kenntnis genommen:', rideId);
                     }
                     
                     // Update lokal
                     Object.assign(ride, updates);
                     saveRides();
                     
-                    // ✅ WICHTIG: Panel SOFORT schließen!
+                    // ✅ Panel schließen
                     closeCancellationPanel();
                     
                     // UI Update
                     updateViews();
                     
-                    alert('✅ Stornierung bestätigt! Gebühr: ' + cancellationFee.toFixed(2) + '€');
+                    // 🆕 Einfache Bestätigung
+                    const feeText = ride.cancellationFee ? ` (Gebühr: ${ride.cancellationFee.toFixed(2)}€)` : '';
+                    alert('✅ OK!' + feeText);
                     
                 } catch (error) {
-                    console.error('❌ Fehler beim Bestätigen:', error);
+                    console.error('❌ Fehler:', error);
                     alert('❌ Fehler: ' + error.message);
                 }
             }
@@ -1549,8 +1547,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.16.3';
-        const APP_BUILD = '20251126-1940';
+        const APP_VERSION = '5.16.5';
+        const APP_BUILD = '20251126-2000';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -1868,7 +1866,7 @@
             if (currentHistoryTab === 'upcoming') {
                 // 📅 KOMMENDE FAHRTEN: vorbestellt, new, accepted, picked_up, etc.
                 filteredRides = allRides.filter(r => {
-                    const activeStatuses = ['vorbestellt', 'new', 'accepted', 'picked_up', 'akzeptiert', 'unterwegs', 'angekommen', 'assigned_to_driver', 'cancelled_pending_driver'];
+                    const activeStatuses = ['vorbestellt', 'new', 'accepted', 'picked_up', 'akzeptiert', 'unterwegs', 'angekommen', 'assigned_to_driver'];
                     return activeStatuses.includes(r.status);
                 }).sort((a, b) => (a.pickupTimestamp || a.createdAt) - (b.pickupTimestamp || b.createdAt));
             } else {
@@ -2646,7 +2644,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.16.3 gestartet');
+        console.log('🚀 Taxi App v5.16.5 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -6081,12 +6079,16 @@
                     ride.firebaseId = rideId;
                     
                     // 🎯 FIX: Prüfe ob Fahrt schon abgeschlossen/storniert ist!
-                    if (ride.status === 'storniert' || ride.status === 'completed') {
+                    // 🆕 Auch 'cancelled' und 'cancelled_pending_driver' prüfen
+                    const endedStatuses = ['storniert', 'completed', 'cancelled', 'cancelled_pending_driver'];
+                    if (endedStatuses.includes(ride.status)) {
                         console.log('✅ Fahrt ist beendet:', ride.status);
                         localStorage.removeItem('myCurrentRideId');
                         myCurrentRide = null;
                         document.getElementById('booking-form').style.display = 'block';
                         document.getElementById('ride-status-container').innerHTML = '';
+                        // 🆕 Formular zurücksetzen
+                        resetBookingForm();
                         // Stoppe Listener
                         db.ref('rides/' + rideId).off();
                         return;
@@ -6174,17 +6176,16 @@
                 }
             }
             
-            // Setze Fahrt auf cancelled_pending_driver damit Fahrer bestätigen muss!
+            // 🆕 VEREINFACHT: Direkt auf 'cancelled' setzen - Fahrer wird nur benachrichtigt, muss nicht bestätigen
             if (isFirebaseReady && rideId) {
                 await updateRide(rideId, {
-                    status: hasCancellationFee ? 'cancelled_pending_driver' : 'cancelled',  // ← Wenn kostenpflichtig, muss Fahrer bestätigen!
+                    status: 'cancelled',  // 🆕 Immer direkt cancelled!
                     cancelledAt: Date.now(),
                     cancelledBy: 'passenger',
                     cancellationFee: cancellationFee,
-                    driverNotified: false,  // Flag: Fahrer muss noch benachrichtigt werden
-                    cancellationReason: hasCancellationFee ? 'Fahrer bereits unterwegs' : 'Kunde storniert'
+                    cancellationReason: hasCancellationFee ? 'Fahrer bereits unterwegs - Stornogebühr' : 'Kunde storniert'
                 });
-                console.log('❌ Fahrt storniert in Firebase:', rideId, hasCancellationFee ? '(wartet auf Fahrer-Bestätigung)' : '(sofort storniert)');
+                console.log('❌ Fahrt storniert in Firebase:', rideId);
                 
                 // 📜 PROTOKOLL: Stornierung
                 logActivity('status', 'cancelled', `Fahrt storniert${hasCancellationFee ? ' (Gebühr: ' + cancellationFee + '€)' : ''}`, {
@@ -6200,7 +6201,7 @@
             const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
             const localRide = history.find(r => r.firebaseId === rideId || r.id === rideId);
             if (localRide) {
-                localRide.status = hasCancellationFee ? 'cancelled_pending_driver' : 'cancelled';
+                localRide.status = 'cancelled';  // 🆕 Immer direkt cancelled
                 localRide.cancelledAt = Date.now();
                 localRide.cancellationFee = cancellationFee;
                 localStorage.setItem('rideHistory', JSON.stringify(history));

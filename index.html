@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.14.3 - Build 20251126-1225');
+        console.log('🚕 Funk Taxi App v5.14.4 - Build 20251126-1240');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.3 - Stabil! ✅ (Build 20251126-1225)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.4 - Stabil! ✅ (Build 20251126-1240)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1537,8 +1537,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.14.3';
-        const APP_BUILD = '20251126-1225';
+        const APP_VERSION = '5.14.4';
+        const APP_BUILD = '20251126-1240';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2628,13 +2628,13 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v3.9.7 gestartet');
+        console.log('🚀 Taxi App v5.14.4 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
             if ('serviceWorker' in navigator) {
                 try {
-                    serviceWorkerRegistration = await navigator.serviceWorker.register('/service-worker.js');
+                    serviceWorkerRegistration = await navigator.serviceWorker.register('./service-worker.js');
                     console.log('✅ Service Worker registriert:', serviceWorkerRegistration);
                     
                     // Warte bis Service Worker aktiv ist
@@ -2974,7 +2974,7 @@
         async function initServiceWorker() {
             if ('serviceWorker' in navigator) {
                 try {
-                    serviceWorkerRegistration = await navigator.serviceWorker.register('/service-worker.js');
+                    serviceWorkerRegistration = await navigator.serviceWorker.register('./service-worker.js');
                     console.log('✅ Service Worker registriert:', serviceWorkerRegistration.scope);
                     
                     // Push-Berechtigung anfragen (nur beim ersten Mal oder wenn abgelehnt)

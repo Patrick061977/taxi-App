@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.16.6 - Build 20251126-2010');
+        console.log('🚕 Funk Taxi App v5.16.7 - Build 20251126-2030');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.6 - Stabil! ✅ (Build 20251126-2010)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.7 - Stabil! ✅ (Build 20251126-2030)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1547,8 +1547,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.16.6';
-        const APP_BUILD = '20251126-2010';
+        const APP_VERSION = '5.16.7';
+        const APP_BUILD = '20251126-2030';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2645,7 +2645,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.16.6 gestartet');
+        console.log('🚀 Taxi App v5.16.7 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -6854,6 +6854,36 @@
             );
             
             console.log('🎯 GPS watchId:', watchId);
+            
+            // 🆕 Intervall alle 30 Sekunden - NUR wenn watchPosition kein Update liefert!
+            window.gpsRegularInterval = setInterval(() => {
+                if (!isOnline || !currentVehicle) {
+                    return;
+                }
+                
+                // Prüfe ob watchPosition kürzlich ein Update geliefert hat
+                const timeSinceLastUpdate = Date.now() - (lastGPSUpdate || 0);
+                if (timeSinceLastUpdate < 25000) {
+                    // watchPosition funktioniert - kein zusätzliches Update nötig
+                    console.log('📍 GPS (30s Check): watchPosition aktiv, überspringe');
+                    return;
+                }
+                
+                // watchPosition hat länger nicht gesendet - hole manuell Position
+                console.log('📍 GPS (30s Intervall): Hole Position manuell...');
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        handleGPSPosition(pos, currentTrackingRideId);
+                        console.log('📍 GPS (30s Intervall): Position erhalten');
+                    },
+                    (err) => {
+                        console.warn('⚠️ GPS 30s Intervall-Fehler:', err.message);
+                    },
+                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+                );
+            }, 30000); // Alle 30 Sekunden prüfen
+            
+            console.log('✅ GPS 30s Intervall gestartet');
         }
         
         // 🆕 Separate Funktion für GPS-Position-Handling
@@ -6905,97 +6935,6 @@
                     console.error('❌ Fehler beim GPS-Upload zur Fahrt:', err);
                 });
             }
-        }
-            
-            // 🆕 Intervall alle 30 Sekunden - NUR wenn watchPosition kein Update liefert!
-            window.gpsRegularInterval = setInterval(() => {
-                if (!isOnline || !currentVehicle) {
-                    return;
-                }
-                
-                // Prüfe ob watchPosition kürzlich ein Update geliefert hat
-                const timeSinceLastUpdate = Date.now() - (lastGPSUpdate || 0);
-                if (timeSinceLastUpdate < 25000) {
-                    // watchPosition funktioniert - kein zusätzliches Update nötig
-                    console.log('📍 GPS (30s Check): watchPosition aktiv, überspringe');
-                    return;
-                }
-                
-                // watchPosition hat länger nicht gesendet - hole manuell Position
-                console.log('📍 GPS (30s Intervall): Hole Position manuell...');
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        handleGPSPosition(pos, currentTrackingRideId);
-                        console.log('📍 GPS (30s Intervall): Position erhalten');
-                    },
-                    (err) => {
-                        console.warn('⚠️ GPS 30s Intervall-Fehler:', err.message);
-                    },
-                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
-                );
-            }, 30000); // Alle 30 Sekunden prüfen
-            
-            console.log('✅ GPS 30s Intervall gestartet');
-            
-            // FALLBACK: Wenn watchPosition nach 30 Sek kein Update liefert, nutze Intervall
-            setTimeout(() => {
-                if (isOnline && !document.getElementById('gps-dot')?.classList.contains('online')) {
-                    console.warn('⚠️ watchPosition liefert keine Updates - aktiviere Fallback-Modus');
-                    
-                    // Starte Intervall-basiertes GPS
-                    const gpsInterval = setInterval(() => {
-                        if (!isOnline) {
-                            clearInterval(gpsInterval);
-                            return;
-                        }
-                        
-                        navigator.geolocation.getCurrentPosition(
-                            (pos) => {
-                                const location = { 
-                                    lat: pos.coords.latitude, 
-                                    lon: pos.coords.longitude, 
-                                    timestamp: Date.now(), 
-                                    vehicleId: currentVehicle,
-                                    vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle,
-                                    online: isOnline,
-                                    accuracy: pos.coords.accuracy,
-                                    userEmail: currentUser ? (currentUser.email || currentUser.phoneNumber || '') : '',
-                                    userId: currentUser ? currentUser.uid : ''
-                                };
-                                
-                                console.log('📍 GPS (Fallback):', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
-                                
-                                // Update GPS-Indicator
-                                const gpsIndicator = document.getElementById('gps-indicator');
-                                const gpsDot = document.getElementById('gps-dot');
-                                const gpsStatus = document.getElementById('gps-status');
-                                if (gpsIndicator && gpsDot && gpsStatus) {
-                                    gpsIndicator.style.display = 'flex';
-                                    gpsDot.classList.add('online');
-                                    gpsStatus.textContent = '📍 GPS: ' + Math.round(location.accuracy) + 'm (Fallback)';
-                                }
-                                
-                                if (isFirebaseReady) {
-                                    db.ref('drivers/' + currentVehicle).set(location).then(() => {
-                                        console.log('✅ GPS (Fallback) → drivers/' + currentVehicle);
-                                    });
-                                }
-                            },
-                            (err) => {
-                                console.error('❌ GPS Fallback-Fehler:', err);
-                            },
-                            { 
-                                enableHighAccuracy: true, 
-                                maximumAge: 0,
-                                timeout: 10000
-                            }
-                        );
-                    }, 15000); // Alle 15 Sekunden
-                    
-                    // Speichere Intervall-ID zum Aufräumen
-                    window.gpsIntervalId = gpsInterval;
-                }
-            }, 30000);
         }
 
         function stopDriverTracking() {

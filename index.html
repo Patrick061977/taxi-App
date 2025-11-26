@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.13.3 - Build 20251126-1450');
+        console.log('🚕 Funk Taxi App v5.13.6 - Build 20251126-1520');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.3 - Stabil! ✅ (Build 20251126-1450)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.6 - Stabil! ✅ (Build 20251126-1520)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1190,6 +1190,7 @@
                     <option value="driver">🚗 Fahrer</option>
                     <option value="assignment">🎯 Vermittlung</option>
                     <option value="status">📊 Status</option>
+                    <option value="deleted">🗑️ Gelöscht</option>
                     <option value="gps">📍 GPS</option>
                 </select>
                 <select id="log-filter-time" onchange="filterActivityLog()" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
@@ -1215,8 +1216,8 @@
                     <div style="font-size:11px;color:#666;">Fahrer Online</div>
                 </div>
                 <div style="background:#fee2e2;padding:10px;border-radius:8px;text-align:center;">
-                    <div style="font-size:20px;font-weight:bold;color:#dc2626;" id="log-stat-cancelled">0</div>
-                    <div style="font-size:11px;color:#666;">Storniert</div>
+                    <div style="font-size:20px;font-weight:bold;color:#dc2626;" id="log-stat-deleted">0</div>
+                    <div style="font-size:11px;color:#666;">Gelöscht</div>
                 </div>
             </div>
             
@@ -1514,8 +1515,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.13.3';
-        const APP_BUILD = '20251126-1450';
+        const APP_VERSION = '5.13.6';
+        const APP_BUILD = '20251126-1520';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6352,12 +6353,16 @@
         function toggleOnline() {
             isOnline = document.getElementById('online-toggle').checked;
             
-            // 📜 PROTOKOLL: Fahrer Online/Offline
+            // 📜 PROTOKOLL: Fahrer Online/Offline (mit Grund + Email!)
             const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+            const userContact = currentUser ? (currentUser.email || currentUser.phoneNumber || 'Unbekannt') : 'Unbekannt';
+            const reason = isOnline ? '' : ' (Toggle)';
             logActivity('driver', isOnline ? 'online' : 'offline', 
-                `Fahrer ${vehicleName} ist jetzt ${isOnline ? 'ONLINE' : 'OFFLINE'}`, {
+                `Fahrer ${userContact} (${vehicleName}) ist jetzt ${isOnline ? 'ONLINE' : 'OFFLINE'}${reason}`, {
                 vehicle: currentVehicle,
-                driver: vehicleName
+                driver: vehicleName,
+                email: userContact,
+                reason: isOnline ? 'toggle_on' : 'toggle_off'
             });
             
             // ✅ Sichere Zugriffe auf optionale Elemente
@@ -6426,10 +6431,12 @@
                     
                     // Log-Eintrag
                     const prevName = VEHICLES[previousVehicle] ? VEHICLES[previousVehicle].name : previousVehicle;
+                    const userContact = currentUser ? (currentUser.email || currentUser.phoneNumber || 'Unbekannt') : 'Unbekannt';
                     logActivity('driver', 'offline', 
-                        `Fahrer ${prevName} ist jetzt OFFLINE (Fahrzeugwechsel)`, {
+                        `Fahrer ${userContact} (${prevName}) ist jetzt OFFLINE (Fahrzeugwechsel)`, {
                         vehicle: previousVehicle,
-                        driver: prevName
+                        driver: prevName,
+                        email: userContact
                     });
                 }
             }
@@ -7793,7 +7800,12 @@
             
             // Nach Typ filtern
             if (filterType !== 'all') {
-                filtered = filtered.filter(l => l.type === filterType);
+                if (filterType === 'deleted') {
+                    // Spezialfall: Gelöschte Fahrten (action === 'deleted')
+                    filtered = filtered.filter(l => l.action === 'deleted');
+                } else {
+                    filtered = filtered.filter(l => l.type === filterType);
+                }
             }
             
             // Nach Zeit filtern
@@ -7841,10 +7853,19 @@
                         bgColor = '#fef3c7';
                         break;
                     case 'status':
-                        icon = '📊';
-                        if (log.action === 'completed') bgColor = '#dcfce7';
-                        else if (log.action === 'cancelled') bgColor = '#fee2e2';
-                        else bgColor = '#e0e7ff';
+                        if (log.action === 'completed') {
+                            icon = '✅';
+                            bgColor = '#dcfce7';
+                        } else if (log.action === 'cancelled') {
+                            icon = '❌';
+                            bgColor = '#fee2e2';
+                        } else if (log.action === 'deleted') {
+                            icon = '🗑️';
+                            bgColor = '#fecaca'; // dunkleres Rot für Löschung
+                        } else {
+                            icon = '📊';
+                            bgColor = '#e0e7ff';
+                        }
                         break;
                     case 'gps':
                         icon = log.action === 'active' ? '📍' : '❌';
@@ -7868,11 +7889,13 @@
                         ${log.data && Object.keys(log.data).length > 0 ? `
                             <div style="font-size:11px;color:#666;margin-top:5px;">
                                 ${log.data.customer ? `👤 ${log.data.customer}` : ''}
+                                ${log.data.phone ? ` • 📞 ${log.data.phone}` : ''}
                                 ${log.data.driver ? ` • 🚗 ${log.data.driver}` : ''}
                                 ${log.data.vehicle ? ` • ${log.data.vehicle}` : ''}
                                 ${log.data.price ? ` • 💰 ${log.data.price}€` : ''}
-                                ${log.data.from ? `<br>📍 ${log.data.from}` : ''}
-                                ${log.data.to ? ` → ${log.data.to}` : ''}
+                                ${log.data.from || log.data.pickup ? `<br>📍 ${log.data.from || log.data.pickup}` : ''}
+                                ${log.data.to || log.data.destination ? ` → ${log.data.to || log.data.destination}` : ''}
+                                ${log.data.deletedBy ? `<br>🗑️ <strong>Gelöscht von:</strong> ${log.data.deletedBy}` : ''}
                             </div>
                         ` : ''}
                         ${log.device ? `
@@ -7900,7 +7923,7 @@
             
             const bookings = todayLogs.filter(l => l.type === 'booking' && l.action === 'created').length;
             const completed = todayLogs.filter(l => l.type === 'status' && l.action === 'completed').length;
-            const cancelled = todayLogs.filter(l => l.type === 'status' && l.action === 'cancelled').length;
+            const deleted = todayLogs.filter(l => l.action === 'deleted').length;
             
             // Fahrer online zählen (aus drivers-Objekt)
             let onlineCount = 0;
@@ -7913,7 +7936,7 @@
             document.getElementById('log-stat-bookings').textContent = bookings;
             document.getElementById('log-stat-completed').textContent = completed;
             document.getElementById('log-stat-online').textContent = onlineCount;
-            document.getElementById('log-stat-cancelled').textContent = cancelled;
+            document.getElementById('log-stat-deleted').textContent = deleted;
         }
         
         // Filter anwenden
@@ -11441,10 +11464,12 @@ Stack: ${err.stack}
                     });
                     
                     // Log-Eintrag
+                    const userContact = currentUser ? (currentUser.email || currentUser.phoneNumber || 'Unbekannt') : 'Unbekannt';
                     logActivity('driver', 'offline', 
-                        `Fahrer ${vehicleName} ist jetzt OFFLINE (Logout)`, {
+                        `Fahrer ${userContact} (${vehicleName}) ist jetzt OFFLINE (Logout)`, {
                         vehicle: currentVehicle,
-                        driver: vehicleName
+                        driver: vehicleName,
+                        email: userContact
                     });
                     
                     console.log('📴 Fahrzeug offline gesetzt vor Logout:', currentVehicle);
@@ -11581,10 +11606,12 @@ Stack: ${err.stack}
                             });
                             
                             const vehicleName = VEHICLES[vehicleId] ? VEHICLES[vehicleId].name : vehicleId;
+                            const userContact = user.email || user.phoneNumber || 'Unbekannt';
                             logActivity('driver', 'offline', 
-                                `Fahrer ${vehicleName} ist jetzt OFFLINE (Neuer Login)`, {
+                                `Fahrer ${userContact} (${vehicleName}) ist jetzt OFFLINE (Neuer Login)`, {
                                 vehicle: vehicleId,
-                                driver: vehicleName
+                                driver: vehicleName,
+                                email: userContact
                             });
                         }
                     }
@@ -11874,6 +11901,19 @@ Stack: ${err.stack}
             // 🚪 BEFOREUNLOAD: GPS cleanup beim Schließen
             window.addEventListener('beforeunload', () => {
                 console.log('🚪 App wird geschlossen - cleanup...');
+                
+                // 📜 PROTOKOLL: App geschlossen (falls online)
+                if (currentVehicle && isOnline) {
+                    const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+                    const userContact = currentUser ? (currentUser.email || currentUser.phoneNumber || 'Unbekannt') : 'Unbekannt';
+                    logActivity('driver', 'offline', 
+                        `Fahrer ${userContact} (${vehicleName}) ist jetzt OFFLINE (App geschlossen)`, {
+                        vehicle: currentVehicle,
+                        driver: vehicleName,
+                        email: userContact,
+                        reason: 'app_closed'
+                    });
+                }
                 
                 if (watchId) {
                     navigator.geolocation.clearWatch(watchId);

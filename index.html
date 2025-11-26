@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.12.7 - Build 20251126-1315');
+        console.log('🚕 Funk Taxi App v5.12.9 - Build 20251126-1345');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.7 - Stabil! ✅ (Build 20251126-1315)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.9 - Stabil! ✅ (Build 20251126-1345)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1514,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.12.7';
-        const APP_BUILD = '20251126-1315';
+        const APP_VERSION = '5.12.9';
+        const APP_BUILD = '20251126-1345';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -7089,6 +7089,8 @@
                     fleetMarkers[vehicleId] = marker;
                     
                     // Fahrzeug-Liste erstellen
+                    const lastUpdate = driver.timestamp ? new Date(driver.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : '?';
+                    
                     vehicleListHtml += `
                         <div onclick="focusVehicle('${vehicleId}')" style="
                             display:flex;
@@ -7109,7 +7111,9 @@
                                         👤 ${activeRide.customerName || 'Kunde'} · 
                                         ${activeRide.destination || '?'}
                                     </div>
-                                ` : ''}
+                                ` : `
+                                    <div style="font-size:11px;color:#888;">📍 GPS: ${lastUpdate}</div>
+                                `}
                             </div>
                             <div style="
                                 background:${color};
@@ -7130,6 +7134,28 @@
                     const isOffline = !driver || !driver.lat || !driver.lon || driver.online === false;
                     
                     if (isOffline) {
+                        // Letzter bekannter Zeitstempel
+                        let lastSeenText = '';
+                        if (driver) {
+                            const lastTime = driver.lastOffline || driver.timestamp;
+                            if (lastTime) {
+                                const lastDate = new Date(lastTime);
+                                const now = new Date();
+                                const diffMs = now - lastDate;
+                                const diffMins = Math.floor(diffMs / 60000);
+                                const diffHours = Math.floor(diffMs / 3600000);
+                                const diffDays = Math.floor(diffMs / 86400000);
+                                
+                                if (diffMins < 60) {
+                                    lastSeenText = `vor ${diffMins} Min`;
+                                } else if (diffHours < 24) {
+                                    lastSeenText = `vor ${diffHours} Std`;
+                                } else {
+                                    lastSeenText = `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
+                                }
+                            }
+                        }
+                        
                         vehicleListHtml += `
                             <div style="
                                 display:flex;
@@ -7145,7 +7171,7 @@
                             ">
                                 <div>
                                     <div style="font-weight:600;">🚗 ${VEHICLES[vehicleId].name}</div>
-                                    <div style="font-size:12px;color:#888;">${VEHICLES[vehicleId].plate}</div>
+                                    <div style="font-size:11px;color:#888;">${VEHICLES[vehicleId].plate}${lastSeenText ? ` · 🕐 ${lastSeenText}` : ''}</div>
                                 </div>
                                 <div style="
                                     background:#6b7280;
@@ -11320,6 +11346,35 @@ Stack: ${err.stack}
         async function logoutUser() {
             if (!auth || !currentUser) return;
             
+            // 🚗 WICHTIG: Fahrzeug offline setzen VOR dem Logout!
+            if (currentVehicle && isFirebaseReady && isOnline) {
+                try {
+                    const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+                    
+                    // Fahrzeug offline setzen
+                    await db.ref('drivers/' + currentVehicle).update({
+                        online: false,
+                        lastOffline: Date.now()
+                    });
+                    
+                    // Log-Eintrag
+                    logActivity('driver', 'offline', 
+                        `Fahrer ${vehicleName} ist jetzt OFFLINE (Logout)`, {
+                        vehicle: currentVehicle,
+                        driver: vehicleName
+                    });
+                    
+                    console.log('📴 Fahrzeug offline gesetzt vor Logout:', currentVehicle);
+                    
+                    // GPS stoppen
+                    stopDriverTracking();
+                    isOnline = false;
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Offline-Setzen:', error);
+                }
+            }
+            
             try {
                 await auth.signOut();
                 console.log('✅ Logout erfolgreich');
@@ -11716,10 +11771,13 @@ Stack: ${err.stack}
                     console.log('⚠️ Wake Lock freigegeben (beforeunload)');
                 }
                 
-                // Firebase cleanup
-                if (currentVehicle && isFirebaseReady) {
-                    db.ref('drivers/' + currentVehicle).remove();
-                    console.log('🗑️ GPS aus Firebase entfernt (beforeunload)');
+                // 📴 Fahrzeug offline setzen (nicht löschen!)
+                if (currentVehicle && isFirebaseReady && isOnline) {
+                    db.ref('drivers/' + currentVehicle).update({
+                        online: false,
+                        lastOffline: Date.now()
+                    });
+                    console.log('📴 Fahrzeug offline gesetzt (beforeunload)');
                 }
             });
             

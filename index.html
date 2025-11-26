@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.14.7 - Build 20251126-1305');
+        console.log('🚕 Funk Taxi App v5.14.8 - Build 20251126-1310');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.7 - Stabil! ✅ (Build 20251126-1305)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.14.8 - Stabil! ✅ (Build 20251126-1310)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1520,8 +1520,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.14.7';
-        const APP_BUILD = '20251126-1305';
+        const APP_VERSION = '5.14.8';
+        const APP_BUILD = '20251126-1310';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2611,7 +2611,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.14.7 gestartet');
+        console.log('🚀 Taxi App v5.14.8 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -4814,6 +4814,58 @@
                     }
                 });
             }, 60000); // Alle 60 Sekunden prüfen
+        }
+        
+        // 🆕 VORBESTELLUNGS-AKTIVIERER: Aktiviert Vorbestellungen 15 Min vor Abholung
+        const activatedPrebookings = new Set(); // Verhindert Doppel-Aktivierung
+        
+        function startPrebookingActivator() {
+            console.log('📅 Vorbestellungs-Aktivierer gestartet (prüft alle 30 Sek)');
+            
+            setInterval(async () => {
+                if (!isFirebaseReady || !rides || rides.length === 0) return;
+                
+                const now = Date.now();
+                
+                for (const ride of rides) {
+                    // Nur vorbestellte Fahrten prüfen
+                    if (ride.status !== 'vorbestellt') continue;
+                    
+                    const rideKey = ride.firebaseId || ride.id;
+                    if (activatedPrebookings.has(rideKey)) continue; // Schon aktiviert
+                    
+                    // Prüfe ob Abholzeit in <= 15 Minuten
+                    const pickupTime = ride.pickupTimestamp || 0;
+                    const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
+                    
+                    if (minutesUntilPickup <= 15 && minutesUntilPickup > -5) { // 15 Min vorher bis 5 Min danach
+                        console.log('📅 AKTIVIERE Vorbestellung:', ride.customerName, '- Abholzeit in', Math.round(minutesUntilPickup), 'Min');
+                        
+                        // Status auf 'new' setzen
+                        try {
+                            await db.ref('rides/' + ride.firebaseId).update({
+                                status: 'new',
+                                activatedAt: Date.now(),
+                                activatedFromPrebooking: true
+                            });
+                            
+                            activatedPrebookings.add(rideKey);
+                            
+                            console.log('✅ Vorbestellung aktiviert:', ride.customerName);
+                            
+                            // 🎯 AUTO-ZUWEISUNG STARTEN!
+                            const updatedRide = { ...ride, status: 'new' };
+                            startAutoAssignment(ride.firebaseId, updatedRide);
+                            
+                            // Telegram Info
+                            sendTelegramStatusUpdate(ride, 'vorbestellt', 'new');
+                            
+                        } catch (error) {
+                            console.error('❌ Fehler beim Aktivieren:', error);
+                        }
+                    }
+                }
+            }, 30000); // Alle 30 Sekunden prüfen
         }
         
         // Telegram Status anzeigen
@@ -11933,6 +11985,9 @@ Stack: ${err.stack}
                 
                 // 🆕 Starte Checker für offene Fahrten (nur für Admin)
                 startOpenRideChecker();
+                
+                // 🆕 Starte Vorbestellungs-Aktivierer (aktiviert 15 Min vor Abholung)
+                startPrebookingActivator();
             } else {
                 // Nicht eingeloggt: NUR Fahrgast
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';

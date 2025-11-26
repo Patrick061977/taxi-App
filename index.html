@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.11.4 - Build 20251126-1000');
+        console.log('🚕 Funk Taxi App v5.12.1 - Build 20251126-1130');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.11.4 - Stabil! ✅ (Build 20251126-1000)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.1 - Stabil! ✅ (Build 20251126-1130)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1085,6 +1085,49 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
+        <!-- 🗺️ NEU: FAHRZEUG-KARTE -->
+        <div onclick="toggleAdminSection('fleetmap')" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🗺️ Fahrzeug-Übersicht <span id="fleet-status" style="font-size:12px;opacity:0.8;"></span></span>
+            <span id="fleetmap-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="fleetmap-content" style="display:none;margin-bottom:20px;">
+            <!-- Legende -->
+            <div style="display:flex;gap:15px;margin-bottom:10px;font-size:13px;">
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <div style="width:12px;height:12px;background:#22c55e;border-radius:50%;"></div>
+                    <span>Frei</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <div style="width:12px;height:12px;background:#ef4444;border-radius:50%;"></div>
+                    <span>Besetzt</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <div style="width:12px;height:12px;background:#f59e0b;border-radius:50%;"></div>
+                    <span>Zugewiesen</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <div style="width:12px;height:12px;background:#6b7280;border-radius:50%;"></div>
+                    <span>Offline</span>
+                </div>
+            </div>
+            
+            <!-- Karte -->
+            <div id="fleet-map" style="height:350px;border-radius:8px;border:2px solid #e0e0e0;"></div>
+            
+            <!-- Fahrzeug-Liste -->
+            <div id="fleet-vehicle-list" style="margin-top:10px;"></div>
+            
+            <!-- Buttons -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                <button onclick="refreshFleetMap()" style="padding:12px;background:#0ea5e9;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔄 Aktualisieren
+                </button>
+                <button onclick="toggleFleetAutoRefresh()" id="fleet-auto-btn" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    ▶️ Auto-Update
+                </button>
+            </div>
+        </div>
+        
         <!-- 🔴 NEU: LIVE-LOG -->
         <div onclick="toggleAdminSection('livelog')" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">🔴 Live-Log <span id="live-log-status" style="font-size:12px;opacity:0.8;">(gestoppt)</span></span>
@@ -1461,8 +1504,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.11.4';
-        const APP_BUILD = '20251126-1000';
+        const APP_VERSION = '5.12.1';
+        const APP_BUILD = '20251126-1130';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6816,6 +6859,8 @@
                     updatePrebookingsList();
                 } else if (section === 'activitylog') {
                     loadActivityLog();
+                } else if (section === 'fleetmap') {
+                    setTimeout(() => initFleetMap(), 100); // Kleine Verzögerung für DOM
                 }
             } else {
                 content.style.display = 'none';
@@ -6825,6 +6870,382 @@
                 if (section === 'livelog' && liveLogActive) {
                     stopLiveLog();
                 }
+                
+                // Stoppe Fleet-Auto-Update wenn geschlossen
+                if (section === 'fleetmap' && fleetAutoRefresh) {
+                    clearInterval(fleetAutoRefresh);
+                    fleetAutoRefresh = null;
+                    const btn = document.getElementById('fleet-auto-btn');
+                    if (btn) {
+                        btn.textContent = '▶️ Auto-Update';
+                        btn.style.background = '#10b981';
+                    }
+                }
+            }
+        }
+        
+        // 🗺️ FAHRZEUG-KARTE SYSTEM
+        let fleetMap = null;
+        let fleetMarkers = {};
+        let fleetRoutes = {};
+        let fleetAutoRefresh = null;
+        let fleetMapInitialized = false;
+        
+        function initFleetMap() {
+            if (fleetMapInitialized) return;
+            
+            const mapContainer = document.getElementById('fleet-map');
+            if (!mapContainer) return;
+            
+            // Karte initialisieren (Usedom-Zentrum)
+            fleetMap = L.map('fleet-map').setView([53.95, 14.05], 11);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(fleetMap);
+            
+            fleetMapInitialized = true;
+            console.log('🗺️ Fahrzeug-Karte initialisiert');
+            
+            // Erste Daten laden
+            refreshFleetMap();
+        }
+        
+        async function refreshFleetMap() {
+            if (!isFirebaseReady) {
+                console.log('❌ Firebase nicht bereit');
+                return;
+            }
+            
+            if (!fleetMapInitialized) {
+                initFleetMap();
+                return;
+            }
+            
+            try {
+                // Lade alle Fahrer-Positionen
+                const driversSnapshot = await db.ref('drivers').once('value');
+                const driversData = driversSnapshot.val() || {};
+                
+                // Lade alle aktiven Fahrten
+                const ridesSnapshot = await db.ref('rides').once('value');
+                const ridesData = ridesSnapshot.val() || {};
+                
+                // Finde aktive Fahrten pro Fahrzeug
+                const vehicleRides = {};
+                for (const rideId in ridesData) {
+                    const ride = ridesData[rideId];
+                    if (ride.vehicleId && ['accepted', 'picked_up', 'assigned'].includes(ride.status)) {
+                        vehicleRides[ride.vehicleId] = {
+                            ...ride,
+                            firebaseId: rideId
+                        };
+                    }
+                }
+                
+                // Alte Marker und Routen entfernen
+                for (const id in fleetMarkers) {
+                    fleetMap.removeLayer(fleetMarkers[id]);
+                }
+                for (const id in fleetRoutes) {
+                    fleetMap.removeLayer(fleetRoutes[id]);
+                }
+                fleetMarkers = {};
+                fleetRoutes = {};
+                
+                let onlineCount = 0;
+                let busyCount = 0;
+                let vehicleListHtml = '';
+                
+                // Marker für jedes Fahrzeug erstellen
+                for (const vehicleId in driversData) {
+                    const driver = driversData[vehicleId];
+                    if (!driver || !driver.lat || !driver.lon) continue;
+                    
+                    onlineCount++;
+                    
+                    const vehicleName = driver.vehicle || VEHICLES[vehicleId]?.name || vehicleId;
+                    const activeRide = vehicleRides[vehicleId];
+                    
+                    // Status bestimmen
+                    let status = 'frei';
+                    let color = '#22c55e'; // Grün
+                    let statusText = '🟢 Frei';
+                    
+                    if (activeRide) {
+                        busyCount++;
+                        if (activeRide.status === 'assigned') {
+                            status = 'zugewiesen';
+                            color = '#f59e0b'; // Orange
+                            statusText = '🟠 Zugewiesen';
+                        } else {
+                            status = 'besetzt';
+                            color = '#ef4444'; // Rot
+                            statusText = '🔴 Besetzt';
+                        }
+                    }
+                    
+                    // Custom Icon erstellen
+                    const icon = L.divIcon({
+                        className: 'fleet-marker',
+                        html: `
+                            <div style="
+                                background: ${color};
+                                width: 36px;
+                                height: 36px;
+                                border-radius: 50%;
+                                border: 3px solid white;
+                                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 18px;
+                            ">🚕</div>
+                        `,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18]
+                    });
+                    
+                    // Popup-Inhalt
+                    let popupContent = `
+                        <div style="min-width:200px;">
+                            <div style="font-weight:bold;font-size:14px;margin-bottom:5px;">
+                                🚗 ${vehicleName}
+                            </div>
+                            <div style="color:${color};font-weight:600;margin-bottom:8px;">
+                                ${statusText}
+                            </div>
+                    `;
+                    
+                    if (activeRide) {
+                        popupContent += `
+                            <div style="background:#f3f4f6;padding:8px;border-radius:6px;font-size:12px;">
+                                <div><strong>👤 ${activeRide.customerName || 'Kunde'}</strong></div>
+                                <div>📍 ${activeRide.pickup || '?'}</div>
+                                <div>➡️ ${activeRide.destination || '?'}</div>
+                                <div>💰 ${activeRide.price || '?'}€</div>
+                            </div>
+                        `;
+                        
+                        // Route zum Ziel einzeichnen (wenn picked_up)
+                        if (activeRide.status === 'picked_up' && activeRide.destCoords) {
+                            drawRouteToDestination(vehicleId, driver, activeRide, color);
+                        } else if (activeRide.pickupCoords) {
+                            // Route zum Abholort
+                            drawRouteToPickup(vehicleId, driver, activeRide, color);
+                        }
+                    }
+                    
+                    popupContent += `
+                        <div style="font-size:10px;color:#888;margin-top:5px;">
+                            📍 ${driver.lat.toFixed(4)}, ${driver.lon.toFixed(4)}
+                        </div>
+                    </div>`;
+                    
+                    // Marker erstellen
+                    const marker = L.marker([driver.lat, driver.lon], { icon })
+                        .bindPopup(popupContent)
+                        .addTo(fleetMap);
+                    
+                    fleetMarkers[vehicleId] = marker;
+                    
+                    // Fahrzeug-Liste erstellen
+                    vehicleListHtml += `
+                        <div onclick="focusVehicle('${vehicleId}')" style="
+                            display:flex;
+                            justify-content:space-between;
+                            align-items:center;
+                            padding:10px;
+                            background:white;
+                            border:1px solid #e0e0e0;
+                            border-left:4px solid ${color};
+                            border-radius:6px;
+                            margin-bottom:6px;
+                            cursor:pointer;
+                        ">
+                            <div>
+                                <div style="font-weight:600;">🚗 ${vehicleName}</div>
+                                ${activeRide ? `
+                                    <div style="font-size:12px;color:#666;">
+                                        👤 ${activeRide.customerName || 'Kunde'} · 
+                                        ${activeRide.destination || '?'}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div style="
+                                background:${color};
+                                color:white;
+                                padding:4px 10px;
+                                border-radius:15px;
+                                font-size:11px;
+                                font-weight:600;
+                            ">${status === 'frei' ? 'FREI' : status === 'zugewiesen' ? 'ZUGEWIESEN' : 'BESETZT'}</div>
+                        </div>
+                    `;
+                }
+                
+                // Offline-Fahrzeuge aus VEHICLES hinzufügen
+                for (const vehicleId in VEHICLES) {
+                    if (!driversData[vehicleId]) {
+                        vehicleListHtml += `
+                            <div style="
+                                display:flex;
+                                justify-content:space-between;
+                                align-items:center;
+                                padding:10px;
+                                background:#f9fafb;
+                                border:1px solid #e0e0e0;
+                                border-left:4px solid #6b7280;
+                                border-radius:6px;
+                                margin-bottom:6px;
+                                opacity:0.6;
+                            ">
+                                <div>
+                                    <div style="font-weight:600;">🚗 ${VEHICLES[vehicleId].name}</div>
+                                    <div style="font-size:12px;color:#888;">${VEHICLES[vehicleId].plate}</div>
+                                </div>
+                                <div style="
+                                    background:#6b7280;
+                                    color:white;
+                                    padding:4px 10px;
+                                    border-radius:15px;
+                                    font-size:11px;
+                                    font-weight:600;
+                                ">OFFLINE</div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                // Update UI
+                document.getElementById('fleet-vehicle-list').innerHTML = vehicleListHtml || 
+                    '<div style="text-align:center;color:#888;padding:20px;">Keine Fahrzeuge online</div>';
+                
+                document.getElementById('fleet-status').textContent = 
+                    `(${onlineCount} online, ${busyCount} besetzt)`;
+                
+                // Karte auf alle Marker zentrieren
+                if (Object.keys(fleetMarkers).length > 0) {
+                    const group = L.featureGroup(Object.values(fleetMarkers));
+                    fleetMap.fitBounds(group.getBounds().pad(0.1));
+                }
+                
+                console.log('🗺️ Fahrzeug-Karte aktualisiert:', onlineCount, 'online,', busyCount, 'besetzt');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Fahrzeug-Daten:', error);
+            }
+        }
+        
+        async function drawRouteToDestination(vehicleId, driver, ride, color) {
+            if (!ride.destCoords) return;
+            
+            try {
+                const response = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/` +
+                    `${driver.lon},${driver.lat};${ride.destCoords.lon},${ride.destCoords.lat}` +
+                    `?overview=full&geometries=geojson`
+                );
+                const data = await response.json();
+                
+                if (data.routes && data.routes[0]) {
+                    const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    const route = L.polyline(coords, {
+                        color: color,
+                        weight: 4,
+                        opacity: 0.7,
+                        dashArray: '10, 10'
+                    }).addTo(fleetMap);
+                    
+                    // Ziel-Marker
+                    const destIcon = L.divIcon({
+                        className: 'dest-marker',
+                        html: `<div style="font-size:24px;">📍</div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 24]
+                    });
+                    
+                    const destMarker = L.marker([ride.destCoords.lat, ride.destCoords.lon], { icon: destIcon })
+                        .bindPopup(`<strong>Ziel:</strong><br>${ride.destination}`)
+                        .addTo(fleetMap);
+                    
+                    fleetRoutes[vehicleId] = L.layerGroup([route, destMarker]);
+                    fleetRoutes[vehicleId].addTo(fleetMap);
+                }
+            } catch (error) {
+                console.error('Route Fehler:', error);
+            }
+        }
+        
+        async function drawRouteToPickup(vehicleId, driver, ride, color) {
+            if (!ride.pickupCoords) return;
+            
+            try {
+                const response = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/` +
+                    `${driver.lon},${driver.lat};${ride.pickupCoords.lon},${ride.pickupCoords.lat}` +
+                    `?overview=full&geometries=geojson`
+                );
+                const data = await response.json();
+                
+                if (data.routes && data.routes[0]) {
+                    const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    const route = L.polyline(coords, {
+                        color: color,
+                        weight: 4,
+                        opacity: 0.7,
+                        dashArray: '5, 10'
+                    }).addTo(fleetMap);
+                    
+                    // Abholort-Marker
+                    const pickupIcon = L.divIcon({
+                        className: 'pickup-marker',
+                        html: `<div style="font-size:24px;">👤</div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 24]
+                    });
+                    
+                    const pickupMarker = L.marker([ride.pickupCoords.lat, ride.pickupCoords.lon], { icon: pickupIcon })
+                        .bindPopup(`<strong>Abholort:</strong><br>${ride.pickup}<br><strong>Kunde:</strong> ${ride.customerName}`)
+                        .addTo(fleetMap);
+                    
+                    fleetRoutes[vehicleId] = L.layerGroup([route, pickupMarker]);
+                    fleetRoutes[vehicleId].addTo(fleetMap);
+                }
+            } catch (error) {
+                console.error('Route Fehler:', error);
+            }
+        }
+        
+        function focusVehicle(vehicleId) {
+            const marker = fleetMarkers[vehicleId];
+            if (marker && fleetMap) {
+                fleetMap.setView(marker.getLatLng(), 14);
+                marker.openPopup();
+            }
+        }
+        
+        function toggleFleetAutoRefresh() {
+            const btn = document.getElementById('fleet-auto-btn');
+            
+            if (fleetAutoRefresh) {
+                // Stoppen
+                clearInterval(fleetAutoRefresh);
+                fleetAutoRefresh = null;
+                if (btn) {
+                    btn.textContent = '▶️ Auto-Update';
+                    btn.style.background = '#10b981';
+                }
+                console.log('⏹️ Auto-Update gestoppt');
+            } else {
+                // Starten (alle 10 Sekunden)
+                fleetAutoRefresh = setInterval(refreshFleetMap, 10000);
+                if (btn) {
+                    btn.textContent = '⏹️ Auto-Update';
+                    btn.style.background = '#ef4444';
+                }
+                console.log('▶️ Auto-Update gestartet (10s)');
+                refreshFleetMap(); // Sofort aktualisieren
             }
         }
         
@@ -10329,10 +10750,215 @@ Stack: ${err.stack}
         function showLoginModal() {
             document.getElementById('register-modal').style.display = 'none';
             document.getElementById('login-modal').style.display = 'block';
+            // Reset auf E-Mail Tab
+            switchLoginTab('email');
         }
         
         function closeLoginModal() {
             document.getElementById('login-modal').style.display = 'none';
+            resetPhoneLogin();
+        }
+        
+        // 📱 TELEFON-LOGIN SYSTEM
+        let recaptchaVerifier = null;
+        let confirmationResult = null;
+        
+        function switchLoginTab(tab) {
+            const emailTab = document.getElementById('login-tab-email');
+            const phoneTab = document.getElementById('login-tab-phone');
+            const emailSection = document.getElementById('login-email-section');
+            const phoneSection = document.getElementById('login-phone-section');
+            
+            if (tab === 'email') {
+                emailTab.style.background = '#667eea';
+                emailTab.style.color = 'white';
+                phoneTab.style.background = '#f3f4f6';
+                phoneTab.style.color = '#333';
+                emailSection.style.display = 'block';
+                phoneSection.style.display = 'none';
+            } else {
+                phoneTab.style.background = '#10b981';
+                phoneTab.style.color = 'white';
+                emailTab.style.background = '#f3f4f6';
+                emailTab.style.color = '#333';
+                emailSection.style.display = 'none';
+                phoneSection.style.display = 'block';
+                
+                // reCAPTCHA initialisieren wenn noch nicht geschehen
+                initRecaptcha();
+            }
+        }
+        
+        function initRecaptcha() {
+            if (recaptchaVerifier) return;
+            
+            if (!auth) {
+                console.error('❌ Firebase Auth nicht verfügbar');
+                return;
+            }
+            
+            try {
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    'size': 'normal',
+                    'callback': (response) => {
+                        // reCAPTCHA gelöst
+                        console.log('✅ reCAPTCHA gelöst');
+                        document.getElementById('send-code-btn').disabled = false;
+                    },
+                    'expired-callback': () => {
+                        // reCAPTCHA abgelaufen
+                        console.log('⚠️ reCAPTCHA abgelaufen');
+                        document.getElementById('send-code-btn').disabled = true;
+                    }
+                });
+                recaptchaVerifier.render();
+                console.log('✅ reCAPTCHA initialisiert');
+            } catch (error) {
+                console.error('❌ reCAPTCHA Fehler:', error);
+            }
+        }
+        
+        async function sendPhoneCode() {
+            const countryCode = document.getElementById('phone-country').value;
+            const phoneNumber = document.getElementById('phone-number').value.trim().replace(/\s/g, '');
+            
+            if (!phoneNumber) {
+                alert('❌ Bitte Telefonnummer eingeben!');
+                return;
+            }
+            
+            // Formatiere Telefonnummer
+            const fullPhoneNumber = countryCode + (phoneNumber.startsWith('0') ? phoneNumber.slice(1) : phoneNumber);
+            
+            if (!auth) {
+                alert('❌ Firebase Auth nicht verfügbar');
+                return;
+            }
+            
+            if (!recaptchaVerifier) {
+                alert('❌ Bitte erst das reCAPTCHA lösen!');
+                return;
+            }
+            
+            const btn = document.getElementById('send-code-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Sende SMS...';
+            
+            try {
+                confirmationResult = await auth.signInWithPhoneNumber(fullPhoneNumber, recaptchaVerifier);
+                console.log('✅ SMS gesendet an:', fullPhoneNumber);
+                
+                // Zeige Schritt 2
+                document.getElementById('phone-step-1').style.display = 'none';
+                document.getElementById('phone-step-2').style.display = 'block';
+                document.getElementById('phone-display').textContent = fullPhoneNumber;
+                document.getElementById('phone-code').focus();
+                
+            } catch (error) {
+                console.error('❌ SMS Fehler:', error);
+                btn.disabled = false;
+                btn.textContent = '📲 SMS-Code senden';
+                
+                if (error.code === 'auth/invalid-phone-number') {
+                    alert('❌ Ungültige Telefonnummer!\n\nBitte im Format "170 1234567" eingeben.');
+                } else if (error.code === 'auth/too-many-requests') {
+                    alert('❌ Zu viele Versuche!\n\nBitte warte einige Minuten.');
+                } else if (error.code === 'auth/captcha-check-failed') {
+                    alert('❌ reCAPTCHA fehlgeschlagen!\n\nBitte lade die Seite neu.');
+                    resetPhoneLogin();
+                } else {
+                    alert('❌ Fehler: ' + error.message);
+                }
+                
+                // reCAPTCHA zurücksetzen
+                if (recaptchaVerifier) {
+                    recaptchaVerifier.clear();
+                    recaptchaVerifier = null;
+                }
+                initRecaptcha();
+            }
+        }
+        
+        async function verifyPhoneCode() {
+            const code = document.getElementById('phone-code').value.trim();
+            
+            if (!code || code.length !== 6) {
+                alert('❌ Bitte 6-stelligen Code eingeben!');
+                return;
+            }
+            
+            if (!confirmationResult) {
+                alert('❌ Keine SMS gesendet. Bitte neu starten.');
+                resetPhoneLogin();
+                return;
+            }
+            
+            try {
+                const result = await confirmationResult.confirm(code);
+                console.log('✅ Telefon-Login erfolgreich:', result.user.phoneNumber);
+                
+                // Prüfe ob User neu ist und Name braucht
+                if (result.additionalUserInfo && result.additionalUserInfo.isNewUser) {
+                    // Neuer User - frage nach Name
+                    const name = prompt('Willkommen! Wie heißt du?');
+                    if (name && result.user) {
+                        await result.user.updateProfile({ displayName: name });
+                        
+                        // In Firebase speichern
+                        if (isFirebaseReady) {
+                            await db.ref('users/' + result.user.uid).update({
+                                phone: result.user.phoneNumber,
+                                displayName: name,
+                                createdAt: Date.now()
+                            });
+                        }
+                    }
+                }
+                
+                closeLoginModal();
+                alert('✅ Erfolgreich angemeldet!\n\n📱 ' + result.user.phoneNumber);
+                
+            } catch (error) {
+                console.error('❌ Code-Verifizierung Fehler:', error);
+                
+                if (error.code === 'auth/invalid-verification-code') {
+                    alert('❌ Falscher Code!\n\nBitte prüfe die SMS und versuche es erneut.');
+                } else if (error.code === 'auth/code-expired') {
+                    alert('❌ Code abgelaufen!\n\nBitte fordere einen neuen Code an.');
+                    resetPhoneLogin();
+                } else {
+                    alert('❌ Fehler: ' + error.message);
+                }
+            }
+        }
+        
+        function resetPhoneLogin() {
+            // Zurück zu Schritt 1
+            document.getElementById('phone-step-1').style.display = 'block';
+            document.getElementById('phone-step-2').style.display = 'none';
+            document.getElementById('phone-number').value = '';
+            document.getElementById('phone-code').value = '';
+            
+            const btn = document.getElementById('send-code-btn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '📲 SMS-Code senden';
+            }
+            
+            // reCAPTCHA zurücksetzen
+            if (recaptchaVerifier) {
+                try {
+                    recaptchaVerifier.clear();
+                } catch (e) {}
+                recaptchaVerifier = null;
+            }
+            confirmationResult = null;
+            
+            // Container leeren und neu initialisieren
+            const container = document.getElementById('recaptcha-container');
+            if (container) {
+                container.innerHTML = '';
+            }
         }
         
         function showRegisterModal() {
@@ -10877,19 +11503,76 @@ Stack: ${err.stack}
         <div class="modal-content">
             <div class="modal-header">🔐 Anmelden</div>
             
-            <button class="modal-btn btn-google" onclick="loginWithGoogle()">
-                <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                Mit Google anmelden
-            </button>
+            <!-- Tab-Auswahl -->
+            <div style="display:flex;margin-bottom:15px;border-radius:8px;overflow:hidden;border:2px solid #e0e0e0;">
+                <button id="login-tab-email" onclick="switchLoginTab('email')" style="flex:1;padding:10px;border:none;background:#667eea;color:white;font-weight:600;cursor:pointer;">
+                    ✉️ E-Mail
+                </button>
+                <button id="login-tab-phone" onclick="switchLoginTab('phone')" style="flex:1;padding:10px;border:none;background:#f3f4f6;color:#333;font-weight:600;cursor:pointer;">
+                    📱 Telefon
+                </button>
+            </div>
             
-            <div class="modal-divider">oder</div>
+            <!-- E-Mail Login -->
+            <div id="login-email-section">
+                <button class="modal-btn btn-google" onclick="loginWithGoogle()">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Mit Google anmelden
+                </button>
+                
+                <div class="modal-divider">oder</div>
+                
+                <input type="email" id="login-email" class="modal-input" placeholder="E-Mail">
+                <input type="password" id="login-password" class="modal-input" placeholder="Passwort">
+                
+                <button class="modal-btn btn-primary-modal" onclick="loginWithEmail()">Anmelden</button>
+                
+                <div class="modal-link" onclick="showRegisterModal()">Noch kein Konto? Jetzt registrieren</div>
+            </div>
             
-            <input type="email" id="login-email" class="modal-input" placeholder="E-Mail">
-            <input type="password" id="login-password" class="modal-input" placeholder="Passwort">
+            <!-- 📱 Telefon Login (NEU!) -->
+            <div id="login-phone-section" style="display:none;">
+                <div style="text-align:center;margin-bottom:15px;">
+                    <div style="font-size:40px;margin-bottom:5px;">📱</div>
+                    <div style="color:#666;font-size:13px;">Melde dich mit deiner Telefonnummer an.<br>Du erhältst einen SMS-Code.</div>
+                </div>
+                
+                <!-- Schritt 1: Telefonnummer -->
+                <div id="phone-step-1">
+                    <div style="display:flex;gap:8px;margin-bottom:10px;">
+                        <select id="phone-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                            <option value="+49">🇩🇪 +49</option>
+                            <option value="+43">🇦🇹 +43</option>
+                            <option value="+41">🇨🇭 +41</option>
+                        </select>
+                        <input type="tel" id="phone-number" class="modal-input" placeholder="170 1234567" style="flex:1;margin:0;">
+                    </div>
+                    
+                    <!-- reCAPTCHA Container -->
+                    <div id="recaptcha-container" style="display:flex;justify-content:center;margin:10px 0;"></div>
+                    
+                    <button id="send-code-btn" class="modal-btn btn-primary-modal" onclick="sendPhoneCode()" style="background:#10b981;">
+                        📲 SMS-Code senden
+                    </button>
+                </div>
+                
+                <!-- Schritt 2: Code eingeben -->
+                <div id="phone-step-2" style="display:none;">
+                    <div style="text-align:center;margin-bottom:15px;">
+                        <div style="color:#666;font-size:13px;">SMS-Code wurde gesendet an:</div>
+                        <div style="font-weight:600;" id="phone-display"></div>
+                    </div>
+                    
+                    <input type="text" id="phone-code" class="modal-input" placeholder="6-stelliger Code" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:8px;">
+                    
+                    <button class="modal-btn btn-primary-modal" onclick="verifyPhoneCode()" style="background:#10b981;">
+                        ✅ Code bestätigen
+                    </button>
+                    
+                    <div class="modal-link" onclick="resetPhoneLogin()">← Andere Nummer verwenden</div>
+                </div>
+            </div>
             
-            <button class="modal-btn btn-primary-modal" onclick="loginWithEmail()">Anmelden</button>
-            
-            <div class="modal-link" onclick="showRegisterModal()">Noch kein Konto? Jetzt registrieren</div>
             <div class="modal-link" onclick="closeLoginModal()">Abbrechen</div>
         </div>
     </div>

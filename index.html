@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.13.1 - Build 20251126-1415');
+        console.log('🚕 Funk Taxi App v5.13.2 - Build 20251126-1440');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.1 - Stabil! ✅ (Build 20251126-1415)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.2 - Stabil! ✅ (Build 20251126-1440)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1514,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.13.1';
-        const APP_BUILD = '20251126-1415';
+        const APP_VERSION = '5.13.2';
+        const APP_BUILD = '20251126-1440';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -4259,12 +4259,18 @@
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(220,38,38,0.95);display:flex;align-items:center;justify-content:center;z-index:99999;animation:pulse 1s infinite;';
             
             const ride = newRides[0];
-            const pickupTime = ride.pickupTime ? new Date(ride.pickupTime).toLocaleString('de-DE', {
-                day: '2-digit',
-                month: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            }) : 'Sofort';
+            // 🛡️ FIX: pickupTimestamp verwenden ODER pickupTime direkt anzeigen
+            let pickupTime = 'Sofort';
+            if (ride.pickupTimestamp) {
+                pickupTime = new Date(ride.pickupTimestamp).toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } else if (ride.pickupTime && ride.pickupTime !== 'Sofort') {
+                pickupTime = ride.pickupTime; // Bereits formatierter String
+            }
             
             const title = newRides.length === 1 ? 'NEUE FAHRT!' : `${newRides.length} NEUE FAHRTEN!`;
             

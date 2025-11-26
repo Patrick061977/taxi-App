@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.12.1 - Build 20251126-1130');
+        console.log('🚕 Funk Taxi App v5.12.2 - Build 20251126-1200');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.1 - Stabil! ✅ (Build 20251126-1130)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.2 - Stabil! ✅ (Build 20251126-1200)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1265,6 +1265,16 @@
             <span id="customers-toggle" style="font-size:20px;">▼</span>
         </div>
         <div id="customers-content" style="display:none;margin-bottom:20px;">
+            <!-- 🔀 Tab-Auswahl: Stammkunden vs App-User -->
+            <div style="display:flex;margin-bottom:15px;border-radius:8px;overflow:hidden;border:2px solid #e0e0e0;">
+                <button id="crm-tab-customers" onclick="switchCrmTab('customers')" style="flex:1;padding:10px;border:none;background:#10b981;color:white;font-weight:600;cursor:pointer;">
+                    📋 Stammkunden
+                </button>
+                <button id="crm-tab-users" onclick="switchCrmTab('users')" style="flex:1;padding:10px;border:none;background:#f3f4f6;color:#333;font-weight:600;cursor:pointer;">
+                    📱 App-User
+                </button>
+            </div>
+            
             <div style="margin-bottom:15px;">
                 <input type="text" id="customer-search" placeholder="🔍 Kunde suchen (Name, Email, Telefon)..." oninput="searchCustomers()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
             </div>
@@ -1504,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.12.1';
-        const APP_BUILD = '20251126-1130';
+        const APP_VERSION = '5.12.2';
+        const APP_BUILD = '20251126-1200';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -8034,6 +8044,172 @@
         
         // 📋 STAMMKUNDEN-CRM FUNKTIONEN
         let allCustomers = [];
+        let allAppUsers = [];
+        let currentCrmTab = 'customers';
+        
+        function switchCrmTab(tab) {
+            currentCrmTab = tab;
+            const customersTab = document.getElementById('crm-tab-customers');
+            const usersTab = document.getElementById('crm-tab-users');
+            
+            if (tab === 'customers') {
+                customersTab.style.background = '#10b981';
+                customersTab.style.color = 'white';
+                usersTab.style.background = '#f3f4f6';
+                usersTab.style.color = '#333';
+                loadAllCustomers();
+            } else {
+                usersTab.style.background = '#3b82f6';
+                usersTab.style.color = 'white';
+                customersTab.style.background = '#f3f4f6';
+                customersTab.style.color = '#333';
+                loadAllAppUsers();
+            }
+        }
+        
+        async function loadAllAppUsers() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            const container = document.getElementById('customers-list');
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#666;">⏳ Lade App-User...</div>';
+            
+            try {
+                const snapshot = await db.ref('users').once('value');
+                allAppUsers = [];
+                snapshot.forEach(child => {
+                    const user = child.val();
+                    user.uid = child.key;
+                    allAppUsers.push(user);
+                });
+                
+                // Sortiere nach Registrierung (neueste zuerst)
+                allAppUsers.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                
+                console.log('📱 App-User geladen:', allAppUsers.length);
+                renderAppUsersList(allAppUsers);
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der User:', error);
+                container.innerHTML = '<div style="text-align:center;color:red;padding:20px;">❌ Fehler beim Laden</div>';
+            }
+        }
+        
+        function renderAppUsersList(users) {
+            const container = document.getElementById('customers-list');
+            
+            if (users.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Keine App-User gefunden</div>';
+                return;
+            }
+            
+            container.innerHTML = users.map(u => {
+                const createdDate = u.createdAt ? new Date(u.createdAt).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Unbekannt';
+                const lastLogin = u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Nie';
+                
+                // Login-Methode ermitteln
+                let loginMethod = '❓';
+                if (u.phone) loginMethod = '📱 Telefon';
+                else if (u.email && u.email.includes('@')) loginMethod = '✉️ E-Mail';
+                if (u.providerId === 'google.com') loginMethod = '🔵 Google';
+                
+                // Rolle mit Farbe
+                let roleColor = '#666';
+                let roleText = u.role || 'Fahrgast';
+                if (u.role === 'admin') { roleColor = '#dc2626'; roleText = '👑 Admin'; }
+                else if (u.role === 'driver') { roleColor = '#2563eb'; roleText = '🚗 Fahrer'; }
+                else { roleText = '👤 Fahrgast'; }
+                
+                return `
+                    <div style="background:white;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;font-size:15px;">${u.displayName || u.name || 'Unbekannt'}</div>
+                                ${u.phone ? `<div style="font-size:13px;color:#666;">📞 ${u.phone}</div>` : ''}
+                                ${u.email ? `<div style="font-size:12px;color:#888;">📧 ${u.email}</div>` : ''}
+                                <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
+                                    <span style="font-size:11px;background:#f3f4f6;padding:2px 8px;border-radius:4px;">${loginMethod}</span>
+                                    <span style="font-size:11px;background:${roleColor}22;color:${roleColor};padding:2px 8px;border-radius:4px;font-weight:600;">${roleText}</span>
+                                </div>
+                                <div style="font-size:11px;color:#999;margin-top:6px;">
+                                    📅 Registriert: ${createdDate}<br>
+                                    🕐 Letzter Login: ${lastLogin}
+                                </div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:5px;">
+                                <button onclick="addUserToCustomers('${u.uid}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
+                                    ➕ Ins CRM
+                                </button>
+                                <button onclick="bookForAppUser('${u.uid}')" style="padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
+                                    🚕 Buchen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // App-User ins CRM übernehmen
+        async function addUserToCustomers(uid) {
+            const user = allAppUsers.find(u => u.uid === uid);
+            if (!user) return;
+            
+            try {
+                // Prüfe ob schon im CRM (per Telefon oder Email)
+                const existingCustomer = allCustomers.find(c => 
+                    (user.phone && c.phone === user.phone) ||
+                    (user.email && c.email === user.email)
+                );
+                
+                if (existingCustomer) {
+                    alert('ℹ️ Dieser User ist bereits im CRM vorhanden!');
+                    return;
+                }
+                
+                // Ins CRM eintragen
+                const customerId = user.phone ? user.phone.replace(/[^0-9]/g, '') : uid;
+                await db.ref('customers/' + customerId).set({
+                    name: user.displayName || user.name || 'Unbekannt',
+                    phone: user.phone || '',
+                    email: user.email || '',
+                    address: user.address || '',
+                    totalRides: 0,
+                    totalRevenue: 0,
+                    createdAt: Date.now(),
+                    source: 'app-registration'
+                });
+                
+                alert('✅ User wurde ins CRM übernommen!');
+                
+                // Wechsle zum CRM Tab
+                switchCrmTab('customers');
+                
+            } catch (error) {
+                console.error('Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Fahrt für App-User buchen
+        function bookForAppUser(uid) {
+            const user = allAppUsers.find(u => u.uid === uid);
+            if (!user) return;
+            
+            // Formular ausfüllen
+            if (user.displayName || user.name) {
+                document.getElementById('customer-name').value = user.displayName || user.name;
+            }
+            if (user.phone) {
+                document.getElementById('customer-phone').value = user.phone;
+            }
+            
+            // Zum Buchungsformular scrollen
+            document.getElementById('booking-section').scrollIntoView({ behavior: 'smooth' });
+            
+            alert('✅ Kundendaten übernommen!\n\nBitte Abholadresse eingeben.');
+        }
         
         async function loadAllCustomers() {
             if (!isFirebaseReady) {
@@ -8063,13 +8239,24 @@
         
         function searchCustomers() {
             const query = document.getElementById('customer-search').value.toLowerCase();
-            const filtered = allCustomers.filter(c => 
-                (c.name && c.name.toLowerCase().includes(query)) ||
-                (c.email && c.email.toLowerCase().includes(query)) ||
-                (c.phone && c.phone.includes(query)) ||
-                (c.address && c.address.toLowerCase().includes(query))
-            );
-            renderCustomersList(filtered);
+            
+            if (currentCrmTab === 'customers') {
+                const filtered = allCustomers.filter(c => 
+                    (c.name && c.name.toLowerCase().includes(query)) ||
+                    (c.email && c.email.toLowerCase().includes(query)) ||
+                    (c.phone && c.phone.includes(query)) ||
+                    (c.address && c.address.toLowerCase().includes(query))
+                );
+                renderCustomersList(filtered);
+            } else {
+                const filtered = allAppUsers.filter(u => 
+                    (u.displayName && u.displayName.toLowerCase().includes(query)) ||
+                    (u.name && u.name.toLowerCase().includes(query)) ||
+                    (u.email && u.email.toLowerCase().includes(query)) ||
+                    (u.phone && u.phone.includes(query))
+                );
+                renderAppUsersList(filtered);
+            }
         }
         
         function renderCustomersList(customers) {

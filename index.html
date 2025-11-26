@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.12.4 - Build 20251126-1230');
+        console.log('🚕 Funk Taxi App v5.12.5 - Build 20251126-1245');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.4 - Stabil! ✅ (Build 20251126-1230)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.5 - Stabil! ✅ (Build 20251126-1245)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1514,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.12.4';
-        const APP_BUILD = '20251126-1230';
+        const APP_VERSION = '5.12.5';
+        const APP_BUILD = '20251126-1245';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -7453,6 +7453,12 @@
                 deviceInfo = ` [${log.device.os}/${log.device.browser}]`;
             }
             
+            // App-Version falls vorhanden
+            let versionInfo = '';
+            if (log.data && log.data.appVersion) {
+                versionInfo = ` v${log.data.appVersion}`;
+            }
+            
             // Zusätzliche Daten
             let extraInfo = '';
             if (log.data) {
@@ -7461,7 +7467,7 @@
                 if (log.data.price) extraInfo += ` 💰${log.data.price}€`;
             }
             
-            const entry = `[${time}] ${icon} ${log.message}${extraInfo}${deviceInfo}`;
+            const entry = `[${time}] ${icon} ${log.message}${extraInfo}${deviceInfo}${versionInfo}`;
             addLiveLogEntry(log.type, entry, color);
         }
         
@@ -11386,11 +11392,13 @@ Stack: ${err.stack}
             const role = await getUserRole(user);
             applyRoleRestrictions(role);
             
-            // 📜 PROTOKOLL: Login
+            // 📜 PROTOKOLL: Login (mit App-Version)
             logActivity('system', 'login', `Login: ${user.email || user.phoneNumber} (${role || 'Fahrgast'})`, {
                 email: user.email || '',
                 phone: user.phoneNumber || '',
-                role: role || 'Fahrgast'
+                role: role || 'Fahrgast',
+                appVersion: APP_VERSION,
+                appBuild: APP_BUILD
             });
             
             // 📊 User in Firebase speichern - IMMER, auch wenn Admin nicht online!

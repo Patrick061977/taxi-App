@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.13.6 - Build 20251126-1520');
+        console.log('🚕 Funk Taxi App v5.13.7 - Build 20251126-1530');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.6 - Stabil! ✅ (Build 20251126-1525)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.7 - Stabil! ✅ (Build 20251126-1530)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1240,6 +1240,28 @@
             </div>
         </div>
         
+        <!-- 🗑️ NEU: GELÖSCHTE FAHRTEN -->
+        <div onclick="toggleAdminSection('deleted')" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🗑️ Gelöschte Fahrten</span>
+            <span id="deleted-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="deleted-content" style="display:none;margin-bottom:20px;">
+            <div style="margin-bottom:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <select id="deleted-filter-time" onchange="loadDeletedRides()" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                    <option value="today">Heute</option>
+                    <option value="yesterday">Gestern</option>
+                    <option value="week">Diese Woche</option>
+                    <option value="all">Alle</option>
+                </select>
+                <button onclick="loadDeletedRides()" style="padding:10px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔄 Aktualisieren
+                </button>
+            </div>
+            <div id="deleted-rides-list" style="max-height:400px;overflow-y:auto;background:#f9fafb;border-radius:8px;padding:10px;">
+                <p style="text-align:center;color:#999;">Klicke auf "Aktualisieren" um gelöschte Fahrten zu laden</p>
+            </div>
+        </div>
+        
         <!-- 🔐 NEU: BENUTZER-VERWALTUNG -->
         <div onclick="toggleAdminSection('users')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">👥 Benutzer-Verwaltung</span>
@@ -1515,8 +1537,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.13.6';
-        const APP_BUILD = '20251126-1525';
+        const APP_VERSION = '5.13.7';
+        const APP_BUILD = '20251126-1530';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6984,6 +7006,8 @@
                     updatePrebookingsList();
                 } else if (section === 'activitylog') {
                     loadActivityLog();
+                } else if (section === 'deleted') {
+                    loadDeletedRides();
                 } else if (section === 'fleetmap') {
                     setTimeout(() => initFleetMap(), 100); // Kleine Verzögerung für DOM
                 }
@@ -7790,6 +7814,100 @@
                 
             } catch (error) {
                 console.error('❌ Log laden Fehler:', error);
+            }
+        }
+        
+        // 🗑️ GELÖSCHTE FAHRTEN LADEN
+        async function loadDeletedRides() {
+            const container = document.getElementById('deleted-rides-list');
+            const filterTime = document.getElementById('deleted-filter-time').value;
+            
+            if (!container) return;
+            container.innerHTML = '<p style="text-align:center;color:#666;">⏳ Lade gelöschte Fahrten...</p>';
+            
+            if (!isFirebaseReady) {
+                container.innerHTML = '<p style="text-align:center;color:#ef4444;">❌ Firebase nicht verbunden</p>';
+                return;
+            }
+            
+            try {
+                // Lade aus activityLog wo action === 'deleted'
+                const snapshot = await db.ref('activityLog')
+                    .orderByChild('action')
+                    .equalTo('deleted')
+                    .once('value');
+                
+                if (!snapshot.exists()) {
+                    container.innerHTML = '<p style="text-align:center;color:#999;">Keine gelöschten Fahrten gefunden</p>';
+                    return;
+                }
+                
+                let deletedRides = [];
+                snapshot.forEach(child => {
+                    deletedRides.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                // Nach Zeit sortieren (neueste zuerst)
+                deletedRides.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                
+                // Zeit-Filter anwenden
+                const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                const yesterday = today - 86400000;
+                const weekAgo = today - 7 * 86400000;
+                
+                if (filterTime === 'today') {
+                    deletedRides = deletedRides.filter(r => r.timestamp >= today);
+                } else if (filterTime === 'yesterday') {
+                    deletedRides = deletedRides.filter(r => r.timestamp >= yesterday && r.timestamp < today);
+                } else if (filterTime === 'week') {
+                    deletedRides = deletedRides.filter(r => r.timestamp >= weekAgo);
+                }
+                
+                if (deletedRides.length === 0) {
+                    container.innerHTML = '<p style="text-align:center;color:#999;">Keine gelöschten Fahrten im gewählten Zeitraum</p>';
+                    return;
+                }
+                
+                // Render
+                let html = '';
+                deletedRides.forEach(ride => {
+                    const data = ride.data || {};
+                    const time = new Date(ride.timestamp);
+                    const timeStr = time.toLocaleString('de-DE', {
+                        day: '2-digit', month: '2-digit', year: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                    
+                    html += `
+                        <div style="background:#fee2e2;padding:12px;border-radius:8px;margin-bottom:10px;border-left:4px solid #ef4444;">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                                <strong style="color:#dc2626;">🗑️ Gelöscht am ${timeStr}</strong>
+                            </div>
+                            <div style="font-size:13px;color:#333;">
+                                <div style="margin-bottom:4px;">👤 <strong>Kunde:</strong> ${data.customer || 'Unbekannt'}</div>
+                                <div style="margin-bottom:4px;">📞 <strong>Telefon:</strong> ${data.phone || '-'}</div>
+                                <div style="margin-bottom:4px;">📍 <strong>Von:</strong> ${data.pickup || data.from || '-'}</div>
+                                <div style="margin-bottom:4px;">📍 <strong>Nach:</strong> ${data.destination || data.to || '-'}</div>
+                                <div style="margin-bottom:4px;">💰 <strong>Preis:</strong> ${data.price ? data.price + '€' : '-'}</div>
+                                <div style="margin-bottom:4px;">🚕 <strong>Status war:</strong> ${data.status || '-'}</div>
+                                ${data.vehicle ? `<div style="margin-bottom:4px;">🚗 <strong>Fahrzeug:</strong> ${data.vehicle}</div>` : ''}
+                            </div>
+                            <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #fca5a5;font-size:11px;color:#991b1b;">
+                                🗑️ <strong>Gelöscht von:</strong> ${data.deletedBy || 'Unbekannt'}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = `<div style="font-size:12px;color:#666;margin-bottom:10px;">📊 ${deletedRides.length} gelöschte Fahrt${deletedRides.length > 1 ? 'en' : ''} gefunden</div>` + html;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden gelöschter Fahrten:', error);
+                container.innerHTML = '<p style="text-align:center;color:#ef4444;">❌ Fehler beim Laden</p>';
             }
         }
         

@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.16.0 - Build 20251126-1820');
+        console.log('🚕 Funk Taxi App v5.16.3 - Build 20251126-1940');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -126,7 +126,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.0 - Stabil! ✅ (Build 20251126-1820)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.3 - Stabil! ✅ (Build 20251126-1940)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1549,8 +1549,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.16.0';
-        const APP_BUILD = '20251126-1820';
+        const APP_VERSION = '5.16.3';
+        const APP_BUILD = '20251126-1940';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2646,7 +2646,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.16.0 gestartet');
+        console.log('🚀 Taxi App v5.16.3 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -5594,7 +5594,8 @@
             
             // Hole Abholzeit für korrekte Tarifberechnung
             const pickupTimeSelect = document.getElementById('pickup-time').value;
-            let pickupTimestamp = Date.now();
+            // 🆕 SOFORT = +5 Min Vorlauf für Logik-Stabilität
+            let pickupTimestamp = Date.now() + 5 * 60000;
             
             if (pickupTimeSelect === '15min') {
                 pickupTimestamp = Date.now() + 15 * 60000;
@@ -5907,7 +5908,8 @@
             }
             
             let pickupTime = 'Sofort';
-            let pickupTimestamp = Date.now();
+            // 🆕 SOFORT = +5 Min Vorlauf für Logik-Stabilität (verhindert "Vergangenheit"-Probleme)
+            let pickupTimestamp = Date.now() + 5 * 60000;
             const now = new Date();
             
             if (pickupTimeSelect === '15min') {
@@ -6106,7 +6108,17 @@
             });
         }
 
+        // 🛡️ Schutz gegen Doppelklick
+        let cancelInProgress = false;
+        
         async function cancelRideConfirm(rideId) {
+            // 🛡️ Verhindere Doppelklick
+            if (cancelInProgress) {
+                console.log('⏳ Stornierung läuft bereits...');
+                return;
+            }
+            cancelInProgress = true;
+            
             const ride = myCurrentRide;
             
             let confirmMessage = '🗑️ Fahrt wirklich stornieren?\n\nDie Buchung wird gelöscht.';
@@ -6137,7 +6149,10 @@
             
             const confirmed = confirm(confirmMessage);
             
-            if (!confirmed) return;
+            if (!confirmed) {
+                cancelInProgress = false; // Reset bei Abbruch
+                return;
+            }
             
             // Stornogebühr speichern
             if (hasCancellationFee) {
@@ -6206,6 +6221,9 @@
             } else {
                 alert('✅ Fahrt storniert!');
             }
+            
+            // 🛡️ Reset Doppelklick-Schutz
+            cancelInProgress = false;
         }
 
         // 🆕 FORMULAR ZURÜCKSETZEN (nach Stornierung oder abgeschlossener Fahrt)
@@ -11466,6 +11484,63 @@ Stack: ${err.stack}
             }
             
             const container = document.getElementById('ride-status-container');
+            
+            // 🆕 PRÜFE: Existiert die Karte schon? Dann nur Update!
+            const existingMap = document.getElementById('passenger-tracking-map');
+            if (existingMap && map) {
+                // ✅ Karte existiert - nur Marker und Info aktualisieren
+                console.log('🔄 Karte Update (Marker bewegen)');
+                
+                // Update Info-Box Elemente
+                const statusBox = container.querySelector('.ride-status-box');
+                if (statusBox) {
+                    // Status Icon
+                    const iconEl = statusBox.querySelector('div');
+                    if (iconEl) iconEl.textContent = statusIcon;
+                    
+                    // Status Text
+                    const h3El = statusBox.querySelector('h3');
+                    if (h3El) h3El.textContent = statusText;
+                    
+                    // ETA Display
+                    const etaEl = statusBox.querySelector('.eta-display');
+                    if (etaEl) {
+                        etaEl.innerHTML = `${distanceKm} km • ${durationMin} Min`;
+                        etaEl.className = `eta-display ${etaClass}`;
+                    }
+                    
+                    // Progress Bar
+                    const progressEl = statusBox.querySelector('.progress-fill');
+                    if (progressEl) {
+                        progressEl.style.width = `${progress}%`;
+                        progressEl.style.background = progressColor;
+                    }
+                }
+                
+                // Update Taxi-Marker Position
+                if (taxiMarker) {
+                    taxiMarker.setLatLng([driverLoc.lat, driverLoc.lon]);
+                }
+                
+                // Update Route-Linie
+                if (route.geometry && route.geometry.length > 0) {
+                    const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
+                    if (window.passengerRouteLine) {
+                        map.removeLayer(window.passengerRouteLine);
+                    }
+                    window.passengerRouteLine = L.polyline(routeCoords, {
+                        color: '#3b82f6',
+                        weight: 5,
+                        opacity: 0.8
+                    }).addTo(map);
+                }
+                
+                return; // Fertig - keine neue Karte nötig!
+            }
+            
+            // 🆕 Karte existiert noch nicht - neu erstellen
+            console.log('🗺️ Erstelle neue Tracking-Karte');
+            
             container.innerHTML = `
                 <div class="ride-status-box ${statusClass}">
                     <div style="font-size: 32px; margin-bottom: 8px;">${statusIcon}</div>
@@ -11520,7 +11595,7 @@ Stack: ${err.stack}
                         // Route-Linie zeichnen
                         if (route.geometry && route.geometry.length > 0) {
                             const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
-                            window.routeLine = L.polyline(routeCoords, {
+                            window.passengerRouteLine = L.polyline(routeCoords, {
                                 color: '#3b82f6',
                                 weight: 5,
                                 opacity: 0.8

@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.10.1 - Build 20251125-2035');
+        console.log('🚕 Funk Taxi App v5.11.3 - Build 20251126-0945');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.10.1 - Stabil! ✅ (Build 20251125-2035)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.11.3 - Stabil! ✅ (Build 20251126-0945)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -282,6 +282,16 @@
             <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
         </div>
         <div id="confirm"></div>
+        
+        <!-- 🧹 Cache-Button für ALLE sichtbar -->
+        <div style="margin-top:30px;padding:15px;background:#f0f9ff;border-radius:8px;text-align:center;">
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">
+                ⚠️ Probleme mit der App? Alte Version wird angezeigt?
+            </p>
+            <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                🧹 Cache leeren & App neu laden
+            </button>
+        </div>
     </div>
 
     <div id="history-view" class="view">
@@ -1075,6 +1085,69 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
+        <!-- 📜 NEU: AKTIVITÄTS-PROTOKOLL -->
+        <div onclick="toggleAdminSection('activitylog')" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📜 Aktivitäts-Protokoll</span>
+            <span id="activitylog-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="activitylog-content" style="display:none;margin-bottom:20px;">
+            <!-- Filter -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                <select id="log-filter-type" onchange="filterActivityLog()" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                    <option value="all">Alle Aktivitäten</option>
+                    <option value="booking">📱 Buchungen</option>
+                    <option value="driver">🚗 Fahrer</option>
+                    <option value="assignment">🎯 Vermittlung</option>
+                    <option value="status">📊 Status</option>
+                    <option value="gps">📍 GPS</option>
+                </select>
+                <select id="log-filter-time" onchange="filterActivityLog()" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                    <option value="today">Heute</option>
+                    <option value="yesterday">Gestern</option>
+                    <option value="week">Diese Woche</option>
+                    <option value="all">Alle</option>
+                </select>
+            </div>
+            
+            <!-- Live-Statistik -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:15px;">
+                <div style="background:#dbeafe;padding:10px;border-radius:8px;text-align:center;">
+                    <div style="font-size:20px;font-weight:bold;color:#1d4ed8;" id="log-stat-bookings">0</div>
+                    <div style="font-size:11px;color:#666;">Buchungen</div>
+                </div>
+                <div style="background:#dcfce7;padding:10px;border-radius:8px;text-align:center;">
+                    <div style="font-size:20px;font-weight:bold;color:#16a34a;" id="log-stat-completed">0</div>
+                    <div style="font-size:11px;color:#666;">Abgeschlossen</div>
+                </div>
+                <div style="background:#fef3c7;padding:10px;border-radius:8px;text-align:center;">
+                    <div style="font-size:20px;font-weight:bold;color:#d97706;" id="log-stat-online">0</div>
+                    <div style="font-size:11px;color:#666;">Fahrer Online</div>
+                </div>
+                <div style="background:#fee2e2;padding:10px;border-radius:8px;text-align:center;">
+                    <div style="font-size:20px;font-weight:bold;color:#dc2626;" id="log-stat-cancelled">0</div>
+                    <div style="font-size:11px;color:#666;">Storniert</div>
+                </div>
+            </div>
+            
+            <!-- Protokoll-Liste -->
+            <div id="activity-log-list" style="max-height:400px;overflow-y:auto;background:#f9fafb;border-radius:8px;padding:10px;">
+                <p style="text-align:center;color:#999;">Protokoll wird geladen...</p>
+            </div>
+            
+            <!-- Buttons -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
+                <button onclick="loadActivityLog()" style="padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔄 Aktualisieren
+                </button>
+                <button onclick="exportActivityLog()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    📥 Exportieren
+                </button>
+                <button onclick="clearActivityLog()" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🗑️ Leeren
+                </button>
+            </div>
+        </div>
+        
         <!-- 🔐 NEU: BENUTZER-VERWALTUNG -->
         <div onclick="toggleAdminSection('users')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">👥 Benutzer-Verwaltung</span>
@@ -1340,8 +1413,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.10.1';
-        const APP_BUILD = '20251125-2035';
+        const APP_VERSION = '5.11.3';
+        const APP_BUILD = '20251126-0945';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2594,6 +2667,11 @@
                     isFirebaseReady = true;
                     console.log('✅ Firebase verbunden');
                     
+                    // 📜 PROTOKOLL: App gestartet & Firebase verbunden
+                    setTimeout(() => {
+                        logActivity('system', 'app_start', 'App gestartet - Firebase verbunden', {});
+                    }, 1000);
+                    
                     // 💰 Preis-Einstellungen aus Firebase laden
                     loadPricingSettings();
                     
@@ -2620,7 +2698,18 @@
                         }
                     });
                     
-                    db.ref('.info/connected').on('value', (s) => { isConnected = s.val(); updateStatus(); });
+                    db.ref('.info/connected').on('value', (s) => { 
+                        const wasConnected = isConnected;
+                        isConnected = s.val(); 
+                        updateStatus();
+                        
+                        // 📜 PROTOKOLL: Verbindungsstatus geändert
+                        if (wasConnected === true && isConnected === false) {
+                            logActivity('system', 'connection_lost', '⚠️ Firebase-Verbindung verloren', {});
+                        } else if (wasConnected === false && isConnected === true) {
+                            logActivity('system', 'connection_restored', '✅ Firebase-Verbindung wiederhergestellt', {});
+                        }
+                    });
                     db.ref('rides').on('value', (s) => {
                         const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
                         rides = [];
@@ -3708,12 +3797,23 @@
             
             // 🔥 Speichere in Firebase
             if (isFirebaseReady) {
-                const ref = db.ref('rides').push();
-                ride.firebaseId = ref.key;
-                await ref.set(ride);
-                
-                // 📱 TELEGRAM wird in book() gesendet, NICHT hier!
-                // (Sonst Duplikate weil book() auch sendet)
+                try {
+                    const ref = db.ref('rides').push();
+                    ride.firebaseId = ref.key;
+                    await ref.set(ride);
+                    
+                    // 📱 TELEGRAM wird in book() gesendet, NICHT hier!
+                    // (Sonst Duplikate weil book() auch sendet)
+                } catch (error) {
+                    console.error('❌ Fehler beim Speichern:', error);
+                    // 📜 PROTOKOLL: Buchung fehlgeschlagen
+                    logActivity('system', 'booking_error', `Buchung fehlgeschlagen: ${error.message}`, {
+                        customer: ride.customerName,
+                        from: ride.pickup,
+                        to: ride.destination
+                    });
+                    throw error; // Weitergeben damit book() es behandeln kann
+                }
             }
             
             // 💾 Speichere auch in localStorage (für Offline-Support & schnellen Zugriff)
@@ -4135,10 +4235,19 @@
                     console.log('✅ Telegram gesendet an Chat', chatId);
                 } else {
                     console.error('❌ Telegram Fehler:', data);
+                    // 📜 PROTOKOLL: Telegram-Fehler
+                    logActivity('system', 'telegram_error', `Telegram-Fehler: ${data.description || 'Unbekannt'}`, {
+                        chatId: chatId,
+                        errorCode: data.error_code
+                    });
                 }
                 return data.ok;
             } catch (error) {
                 console.error('❌ Telegram Fehler:', error);
+                // 📜 PROTOKOLL: Telegram-Fehler
+                logActivity('system', 'telegram_error', `Telegram nicht erreichbar: ${error.message}`, {
+                    chatId: chatId
+                });
                 return false;
             }
         }
@@ -5294,6 +5403,12 @@
             
             if (!nearestVehicle) {
                 console.log('⚠️ Kein Taxi verfügbar - Fahrt bleibt in Warteschlange');
+                // 📜 PROTOKOLL: Kein Fahrer verfügbar
+                logActivity('assignment', 'no_driver', `Kein Fahrer verfügbar für Fahrt`, {
+                    customer: ride.customerName,
+                    from: ride.pickup,
+                    to: ride.destination
+                });
                 return;
             }
             
@@ -5301,11 +5416,23 @@
             
             // Markiere Fahrt als zugewiesen
             await db.ref('rides/' + rideId).update({
+                status: 'assigned',  // 🚕 WICHTIG: Fahrer ist jetzt BESETZT!
                 assignedTo: nearestVehicle.id,
                 assignedVehicleName: nearestVehicle.name,
                 assignedAt: Date.now(),
                 assignmentExpiresAt: Date.now() + 30000, // 30 Sekunden
                 assignmentDistance: nearestVehicle.distance
+            });
+            
+            // 📜 PROTOKOLL: Fahrt zugewiesen
+            logActivity('assignment', 'assigned', `Fahrt zugewiesen an ${nearestVehicle.name}`, {
+                customer: ride.customerName,
+                driver: nearestVehicle.name,
+                vehicle: nearestVehicle.id,
+                distance: nearestVehicle.distance.toFixed(2) + ' km',
+                from: ride.pickup,
+                to: ride.destination,
+                price: ride.price
             });
             
             // Push-Benachrichtigung an Fahrer
@@ -5321,14 +5448,23 @@
                 const rideCheck = await db.ref('rides/' + rideId).once('value');
                 const rideData = rideCheck.val();
                 
-                if (rideData && rideData.status === 'new') {
+                // Wenn Status noch 'assigned' ist = Fahrer hat NICHT angenommen!
+                if (rideData && rideData.status === 'assigned') {
                     console.log('⏰ TIMEOUT! Fahrt nicht angenommen - weise nächstem Taxi zu');
+                    
+                    // 📜 PROTOKOLL: Timeout
+                    logActivity('assignment', 'timeout', `Timeout: ${nearestVehicle.name} hat nicht angenommen`, {
+                        customer: rideData.customerName,
+                        driver: nearestVehicle.name,
+                        vehicle: nearestVehicle.id
+                    });
                     
                     // Zur Blacklist hinzufügen (für diese Fahrt)
                     const blacklist = rideData.assignmentBlacklist || [];
                     blacklist.push(nearestVehicle.id);
                     
                     await db.ref('rides/' + rideId).update({
+                        status: 'new',  // 🔄 Zurück auf 'new' für nächsten Fahrer!
                         assignedTo: null,
                         assignmentBlacklist: blacklist,
                         lastAssignmentTimeout: Date.now()
@@ -5490,6 +5626,15 @@
             myCurrentRide = savedRide;
             localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
             
+            // 📜 PROTOKOLL: Fahrt gebucht
+            logActivity('booking', 'created', `Neue Buchung: ${savedRide.status === 'vorbestellt' ? 'Vorbestellung' : 'Sofort-Fahrt'}`, {
+                customer: customerName,
+                from: ride.pickup,
+                to: ride.destination,
+                price: ride.price,
+                pickupTime: pickupTime
+            });
+            
             // 📋 CRM: Kunde automatisch anlegen/aktualisieren
             await updateCustomerCRM(customerName, customerPhone, ride.pickup, ride.price);
             
@@ -5565,9 +5710,22 @@
                 const ride = s.val();
                 if (ride) {
                     ride.firebaseId = rideId;
+                    
+                    // 🎯 FIX: Prüfe ob Fahrt schon abgeschlossen/storniert ist!
+                    if (ride.status === 'storniert' || ride.status === 'completed') {
+                        console.log('✅ Fahrt ist beendet:', ride.status);
+                        localStorage.removeItem('myCurrentRideId');
+                        myCurrentRide = null;
+                        document.getElementById('booking-form').style.display = 'block';
+                        document.getElementById('ride-status-container').innerHTML = '';
+                        // Stoppe Listener
+                        db.ref('rides/' + rideId).off();
+                        return;
+                    }
+                    
                     myCurrentRide = ride;
                     
-                    // 🎯 WICHTIG: Formular ausblenden und Status zeigen!
+                    // 🎯 Formular ausblenden und Status zeigen für aktive Fahrten
                     document.getElementById('booking-form').style.display = 'none';
                     showRideStatus(ride);
                 } else {
@@ -5645,6 +5803,15 @@
                     cancellationReason: hasCancellationFee ? 'Fahrer bereits unterwegs' : 'Kunde storniert'
                 });
                 console.log('❌ Fahrt storniert in Firebase:', rideId, hasCancellationFee ? '(wartet auf Fahrer-Bestätigung)' : '(sofort storniert)');
+                
+                // 📜 PROTOKOLL: Stornierung
+                logActivity('status', 'cancelled', `Fahrt storniert${hasCancellationFee ? ' (Gebühr: ' + cancellationFee + '€)' : ''}`, {
+                    customer: ride?.customerName,
+                    from: ride?.pickup,
+                    to: ride?.destination,
+                    price: ride?.price,
+                    fee: hasCancellationFee ? cancellationFee : 0
+                });
             }
             
             // ✅ Update auch localStorage!
@@ -6011,6 +6178,14 @@
         function toggleOnline() {
             isOnline = document.getElementById('online-toggle').checked;
             
+            // 📜 PROTOKOLL: Fahrer Online/Offline
+            const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+            logActivity('driver', isOnline ? 'online' : 'offline', 
+                `Fahrer ${vehicleName} ist jetzt ${isOnline ? 'ONLINE' : 'OFFLINE'}`, {
+                vehicle: currentVehicle,
+                driver: vehicleName
+            });
+            
             // ✅ Sichere Zugriffe auf optionale Elemente
             const statusText = document.getElementById('online-status-text');
             if (statusText) {
@@ -6153,6 +6328,14 @@
             
             console.log('🚀 Starte GPS-Tracking' + (rideId ? ' für Fahrt: ' + rideId : ''));
             
+            // 📜 PROTOKOLL: GPS gestartet
+            const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+            logActivity('gps', 'active', `GPS aktiviert: ${vehicleName}`, {
+                vehicle: currentVehicle,
+                driver: vehicleName,
+                forRide: rideId || 'Standby'
+            });
+            
             // Versuche ERST watchPosition mit HIGH ACCURACY
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
@@ -6204,6 +6387,20 @@
                 },
                 (err) => {
                     console.error('❌ GPS Fehler:', err.message, err.code);
+                    
+                    // 📜 PROTOKOLL: GPS-Fehler
+                    let errorReason = 'Unbekannter Fehler';
+                    if (err.code === 1) errorReason = 'Berechtigung verweigert';
+                    else if (err.code === 2) errorReason = 'Position nicht verfügbar';
+                    else if (err.code === 3) errorReason = 'Timeout';
+                    
+                    const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+                    logActivity('gps', 'error', `GPS-Fehler: ${errorReason}`, {
+                        vehicle: currentVehicle,
+                        driver: vehicleName,
+                        errorCode: err.code,
+                        errorMessage: err.message
+                    });
                     
                     // Update GPS-Indicator
                     const gpsIndicator = document.getElementById('gps-indicator');
@@ -6302,6 +6499,13 @@
                 navigator.geolocation.clearWatch(watchId); 
                 watchId = null; 
                 console.log('🛑 GPS gestoppt');
+                
+                // 📜 PROTOKOLL: GPS deaktiviert
+                const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+                logActivity('gps', 'inactive', `GPS deaktiviert: ${vehicleName || 'Unbekannt'}`, {
+                    vehicle: currentVehicle,
+                    driver: vehicleName
+                });
             }
             
             // Stoppe auch Fallback-Intervall
@@ -6402,6 +6606,16 @@
                 assignmentExpiresAt: null
             });
             
+            // 📜 PROTOKOLL: Fahrt angenommen
+            logActivity('status', 'accepted', `Fahrt angenommen von ${vehicleName}`, {
+                customer: ride.customerName,
+                driver: vehicleName,
+                vehicle: currentVehicle,
+                from: ride.pickup,
+                to: ride.destination,
+                price: ride.price
+            });
+            
             // GPS komplett neu starten mit rideId
             if (watchId) {
                 console.log('🛑 Stoppe altes GPS');
@@ -6429,16 +6643,39 @@
             if (ride) {
                 ride.firebaseId = rideId;
                 updateDriverInfoTop(ride);
+                
+                // 📜 PROTOKOLL: Kunde eingestiegen
+                const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+                logActivity('status', 'picked_up', `Kunde eingestiegen`, {
+                    customer: ride.customerName,
+                    driver: vehicleName,
+                    from: ride.pickup,
+                    to: ride.destination,
+                    price: ride.price
+                });
             }
             
             alert('✅ Kunde eingestiegen! Navigation zum Ziel läuft.');
         }
 
         async function completeRide(rideId) {
+            // Hole Fahrt-Daten vor dem Abschluss
+            const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+            const rideData = rideSnapshot.val();
+            
             await updateRide(rideId, { 
                 status: 'completed', 
                 driverLocation: null,
                 completedAt: Date.now()
+            });
+            
+            // 📜 PROTOKOLL: Fahrt abgeschlossen
+            logActivity('status', 'completed', `Fahrt abgeschlossen`, {
+                customer: rideData?.customerName,
+                driver: rideData?.vehicle || currentVehicle,
+                from: rideData?.pickup,
+                to: rideData?.destination,
+                price: rideData?.price
             });
             
             // Schließe Karte
@@ -6529,10 +6766,335 @@
                     updateTelegramStatus();
                 } else if (section === 'prebookings') {
                     updatePrebookingsList();
+                } else if (section === 'activitylog') {
+                    loadActivityLog();
                 }
             } else {
                 content.style.display = 'none';
                 toggle.textContent = '▼';
+            }
+        }
+        
+        // 📜 AKTIVITÄTS-PROTOKOLL SYSTEM
+        
+        /**
+         * Aktivität loggen
+         * @param {string} type - Typ: booking, driver, assignment, status, gps, system
+         * @param {string} action - Aktion: created, online, offline, assigned, accepted, etc.
+         * @param {string} message - Beschreibung
+         * @param {object} data - Zusätzliche Daten
+         */
+        // 📊 DEVICE INFO SAMMELN
+        function getDeviceInfo() {
+            const ua = navigator.userAgent;
+            
+            // Betriebssystem erkennen
+            let os = 'Unbekannt';
+            if (/Android/i.test(ua)) os = 'Android';
+            else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+            else if (/Windows/i.test(ua)) os = 'Windows';
+            else if (/Mac/i.test(ua)) os = 'macOS';
+            else if (/Linux/i.test(ua)) os = 'Linux';
+            
+            // Browser erkennen
+            let browser = 'Unbekannt';
+            if (/Chrome/i.test(ua) && !/Edge/i.test(ua)) browser = 'Chrome';
+            else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+            else if (/Firefox/i.test(ua)) browser = 'Firefox';
+            else if (/Edge/i.test(ua)) browser = 'Edge';
+            else if (/Opera|OPR/i.test(ua)) browser = 'Opera';
+            
+            // Device-Typ
+            let device = 'Desktop';
+            if (/Mobile|Android|iPhone/i.test(ua)) device = 'Mobile';
+            else if (/iPad|Tablet/i.test(ua)) device = 'Tablet';
+            
+            // Login-Status
+            let loginStatus = 'Gast';
+            if (currentUser) {
+                if (userRole === 'admin') loginStatus = 'Admin';
+                else if (userRole === 'driver') loginStatus = 'Fahrer';
+                else loginStatus = 'Eingeloggt';
+            }
+            
+            return {
+                os: os,
+                browser: browser,
+                device: device,
+                loginStatus: loginStatus,
+                appVersion: APP_VERSION,
+                screenWidth: window.innerWidth,
+                screenHeight: window.innerHeight,
+                online: navigator.onLine
+            };
+        }
+        
+        async function logActivity(type, action, message, data = {}) {
+            if (!isFirebaseReady) {
+                console.log('📜 Log (offline):', type, action, message);
+                return;
+            }
+            
+            // 📊 Device-Infos hinzufügen
+            const deviceInfo = getDeviceInfo();
+            
+            const logEntry = {
+                timestamp: Date.now(),
+                type: type,
+                action: action,
+                message: message,
+                data: data,
+                date: new Date().toISOString().split('T')[0],
+                // 📊 NEU: Device-Infos
+                device: deviceInfo
+            };
+            
+            try {
+                await db.ref('activityLog').push(logEntry);
+                console.log('📜 Logged:', type, action, message);
+            } catch (error) {
+                console.error('❌ Log Fehler:', error);
+            }
+        }
+        
+        // Protokoll laden
+        async function loadActivityLog() {
+            if (!isFirebaseReady) {
+                document.getElementById('activity-log-list').innerHTML = 
+                    '<p style="text-align:center;color:#999;">Firebase nicht verbunden</p>';
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('activityLog')
+                    .orderByChild('timestamp')
+                    .limitToLast(200)
+                    .once('value');
+                
+                const logs = [];
+                snapshot.forEach(child => {
+                    const log = child.val();
+                    log.id = child.key;
+                    logs.push(log);
+                });
+                
+                // Neueste zuerst
+                logs.reverse();
+                
+                renderActivityLog(logs);
+                updateLogStats(logs);
+                
+            } catch (error) {
+                console.error('❌ Log laden Fehler:', error);
+            }
+        }
+        
+        // Protokoll rendern
+        function renderActivityLog(logs) {
+            const container = document.getElementById('activity-log-list');
+            const filterType = document.getElementById('log-filter-type').value;
+            const filterTime = document.getElementById('log-filter-time').value;
+            
+            // Filtern
+            let filtered = logs;
+            
+            // Nach Typ filtern
+            if (filterType !== 'all') {
+                filtered = filtered.filter(l => l.type === filterType);
+            }
+            
+            // Nach Zeit filtern
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const yesterday = today - 86400000;
+            const weekAgo = today - 7 * 86400000;
+            
+            if (filterTime === 'today') {
+                filtered = filtered.filter(l => l.timestamp >= today);
+            } else if (filterTime === 'yesterday') {
+                filtered = filtered.filter(l => l.timestamp >= yesterday && l.timestamp < today);
+            } else if (filterTime === 'week') {
+                filtered = filtered.filter(l => l.timestamp >= weekAgo);
+            }
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="text-align:center;color:#999;">Keine Einträge gefunden</p>';
+                return;
+            }
+            
+            let html = '';
+            filtered.forEach(log => {
+                const time = new Date(log.timestamp);
+                const timeStr = time.toLocaleString('de-DE', {
+                    day: '2-digit', month: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+                
+                // Icon basierend auf Typ
+                let icon = '📝';
+                let bgColor = '#f3f4f6';
+                
+                switch(log.type) {
+                    case 'booking':
+                        icon = '📱';
+                        bgColor = '#dbeafe';
+                        break;
+                    case 'driver':
+                        icon = '🚗';
+                        bgColor = log.action === 'online' ? '#dcfce7' : '#fee2e2';
+                        break;
+                    case 'assignment':
+                        icon = '🎯';
+                        bgColor = '#fef3c7';
+                        break;
+                    case 'status':
+                        icon = '📊';
+                        if (log.action === 'completed') bgColor = '#dcfce7';
+                        else if (log.action === 'cancelled') bgColor = '#fee2e2';
+                        else bgColor = '#e0e7ff';
+                        break;
+                    case 'gps':
+                        icon = log.action === 'active' ? '📍' : '❌';
+                        bgColor = log.action === 'active' ? '#dcfce7' : '#fee2e2';
+                        break;
+                    case 'system':
+                        icon = '⚙️';
+                        bgColor = '#f3e8ff';
+                        break;
+                }
+                
+                html += `
+                    <div style="background:${bgColor};padding:10px;border-radius:6px;margin-bottom:8px;font-size:13px;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div>
+                                <span style="font-size:16px;">${icon}</span>
+                                <strong>${log.message}</strong>
+                            </div>
+                            <span style="font-size:11px;color:#666;white-space:nowrap;">${timeStr}</span>
+                        </div>
+                        ${log.data && Object.keys(log.data).length > 0 ? `
+                            <div style="font-size:11px;color:#666;margin-top:5px;">
+                                ${log.data.customer ? `👤 ${log.data.customer}` : ''}
+                                ${log.data.driver ? ` • 🚗 ${log.data.driver}` : ''}
+                                ${log.data.vehicle ? ` • ${log.data.vehicle}` : ''}
+                                ${log.data.price ? ` • 💰 ${log.data.price}€` : ''}
+                                ${log.data.from ? `<br>📍 ${log.data.from}` : ''}
+                                ${log.data.to ? ` → ${log.data.to}` : ''}
+                            </div>
+                        ` : ''}
+                        ${log.device ? `
+                            <div style="font-size:10px;color:#999;margin-top:5px;padding-top:5px;border-top:1px dashed #ddd;">
+                                📱 ${log.device.os} (${log.device.browser}) • 
+                                ${log.device.device} • 
+                                🔐 ${log.device.loginStatus} • 
+                                📦 v${log.device.appVersion}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Statistiken aktualisieren
+        function updateLogStats(logs) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayTimestamp = today.getTime();
+            
+            const todayLogs = logs.filter(l => l.timestamp >= todayTimestamp);
+            
+            const bookings = todayLogs.filter(l => l.type === 'booking' && l.action === 'created').length;
+            const completed = todayLogs.filter(l => l.type === 'status' && l.action === 'completed').length;
+            const cancelled = todayLogs.filter(l => l.type === 'status' && l.action === 'cancelled').length;
+            
+            // Fahrer online zählen (aus drivers-Objekt)
+            let onlineCount = 0;
+            if (typeof drivers !== 'undefined') {
+                for (const id in drivers) {
+                    if (drivers[id] && drivers[id].online) onlineCount++;
+                }
+            }
+            
+            document.getElementById('log-stat-bookings').textContent = bookings;
+            document.getElementById('log-stat-completed').textContent = completed;
+            document.getElementById('log-stat-online').textContent = onlineCount;
+            document.getElementById('log-stat-cancelled').textContent = cancelled;
+        }
+        
+        // Filter anwenden
+        function filterActivityLog() {
+            loadActivityLog();
+        }
+        
+        // Protokoll exportieren
+        async function exportActivityLog() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const snapshot = await db.ref('activityLog')
+                    .orderByChild('timestamp')
+                    .once('value');
+                
+                const logs = [];
+                snapshot.forEach(child => {
+                    logs.push(child.val());
+                });
+                
+                // Als CSV mit Device-Infos
+                let csv = 'Datum;Uhrzeit;Typ;Aktion;Nachricht;Kunde;Fahrer;Preis;Betriebssystem;Browser;Gerät;Login-Status;App-Version\n';
+                logs.forEach(log => {
+                    const time = new Date(log.timestamp);
+                    csv += `${time.toLocaleDateString('de-DE')};`;
+                    csv += `${time.toLocaleTimeString('de-DE')};`;
+                    csv += `${log.type};`;
+                    csv += `${log.action};`;
+                    csv += `"${log.message}";`;
+                    csv += `${log.data?.customer || ''};`;
+                    csv += `${log.data?.driver || ''};`;
+                    csv += `${log.data?.price || ''};`;
+                    // Device-Infos
+                    csv += `${log.device?.os || ''};`;
+                    csv += `${log.device?.browser || ''};`;
+                    csv += `${log.device?.device || ''};`;
+                    csv += `${log.device?.loginStatus || ''};`;
+                    csv += `${log.device?.appVersion || ''}\n`;
+                });
+                
+                // Download
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `aktivitaetsprotokoll_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                
+                alert('✅ Protokoll exportiert!');
+                
+            } catch (error) {
+                console.error('❌ Export Fehler:', error);
+                alert('❌ Export fehlgeschlagen');
+            }
+        }
+        
+        // Protokoll leeren
+        async function clearActivityLog() {
+            if (!confirm('🗑️ Gesamtes Aktivitäts-Protokoll wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!')) {
+                return;
+            }
+            
+            try {
+                await db.ref('activityLog').remove();
+                loadActivityLog();
+                alert('✅ Protokoll gelöscht!');
+                
+                // Selbst loggen
+                logActivity('system', 'cleared', 'Protokoll wurde geleert');
+                
+            } catch (error) {
+                console.error('❌ Löschen Fehler:', error);
+                alert('❌ Löschen fehlgeschlagen');
             }
         }
         
@@ -6848,12 +7410,16 @@
                                 <button onclick="bookForCustomer('${c.id}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
                                     🚕 Buchen
                                 </button>
+                                <button onclick="showCustomerHistory('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}')" style="padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
+                                    📋 Verlauf
+                                </button>
                                 <button onclick="editCustomer('${c.id}')" style="padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
                                     ✏️ Bearbeiten
                                 </button>
                             </div>
                         </div>
                         ${c.notes ? `<div style="font-size:11px;color:#666;margin-top:8px;padding:8px;background:#f9fafb;border-radius:4px;">📝 ${c.notes}</div>` : ''}
+                        <div id="customer-history-${c.id}" style="display:none;margin-top:10px;"></div>
                     </div>
                 `;
             }).join('');
@@ -6862,6 +7428,162 @@
         // 📞 Stammkunden-Erkennung bei Telefonnummer-Eingabe (NUR FÜR EINGELOGGTE!)
         let phoneCheckTimeout = null;
         let lastCheckedPhone = '';
+        
+        // 📋 KUNDEN-FAHRTVERLAUF ANZEIGEN
+        async function showCustomerHistory(customerId, customerName, customerPhone) {
+            const historyDiv = document.getElementById('customer-history-' + customerId);
+            if (!historyDiv) return;
+            
+            // Toggle: Wenn schon offen, schließen
+            if (historyDiv.style.display === 'block') {
+                historyDiv.style.display = 'none';
+                return;
+            }
+            
+            historyDiv.innerHTML = '<div style="text-align:center;padding:10px;color:#666;">⏳ Lade Fahrtverlauf...</div>';
+            historyDiv.style.display = 'block';
+            
+            if (!isFirebaseReady) {
+                historyDiv.innerHTML = '<div style="color:red;padding:10px;">❌ Firebase nicht verbunden</div>';
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('rides').orderByChild('createdAt').once('value');
+                const customerRides = [];
+                
+                // Normalisiere Telefonnummer für Vergleich
+                const normalizedPhone = customerPhone ? customerPhone.replace(/\D/g, '').slice(-10) : '';
+                const normalizedName = customerName ? customerName.toLowerCase().trim() : '';
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    ride.firebaseId = child.key;
+                    
+                    // Prüfe ob Fahrt zu diesem Kunden gehört
+                    let isMatch = false;
+                    
+                    // Match über Telefonnummer
+                    if (normalizedPhone && ride.customerPhone) {
+                        const ridePhone = ride.customerPhone.replace(/\D/g, '').slice(-10);
+                        if (ridePhone === normalizedPhone) {
+                            isMatch = true;
+                        }
+                    }
+                    
+                    // Match über Name (falls Telefon nicht passt)
+                    if (!isMatch && normalizedName && ride.customerName) {
+                        if (ride.customerName.toLowerCase().trim() === normalizedName) {
+                            isMatch = true;
+                        }
+                    }
+                    
+                    if (isMatch) {
+                        customerRides.push(ride);
+                    }
+                });
+                
+                // Sortiere nach Datum (neueste zuerst)
+                customerRides.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                
+                if (customerRides.length === 0) {
+                    historyDiv.innerHTML = `
+                        <div style="background:#f9fafb;border-radius:6px;padding:15px;text-align:center;">
+                            <div style="font-size:24px;margin-bottom:5px;">📭</div>
+                            <div style="color:#666;">Keine Fahrten gefunden</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Statistiken berechnen
+                let totalRevenue = 0;
+                let completedRides = 0;
+                let cancelledRides = 0;
+                
+                customerRides.forEach(r => {
+                    if (r.status === 'completed') {
+                        completedRides++;
+                        totalRevenue += parseFloat(r.price) || 0;
+                    } else if (r.status === 'storniert' || r.status === 'cancelled') {
+                        cancelledRides++;
+                    }
+                });
+                
+                // HTML erstellen
+                let html = `
+                    <div style="background:#f0fdf4;border-radius:6px;padding:10px;margin-bottom:10px;">
+                        <div style="font-weight:600;margin-bottom:5px;">📊 Statistik für ${customerName}</div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;">
+                            <div style="text-align:center;">
+                                <div style="font-size:18px;font-weight:bold;color:#16a34a;">${completedRides}</div>
+                                <div style="color:#666;">Abgeschlossen</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-size:18px;font-weight:bold;color:#dc2626;">${cancelledRides}</div>
+                                <div style="color:#666;">Storniert</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-size:18px;font-weight:bold;color:#2563eb;">${totalRevenue.toFixed(2)}€</div>
+                                <div style="color:#666;">Umsatz</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="font-weight:600;margin-bottom:8px;">📋 Letzte ${Math.min(customerRides.length, 10)} Fahrten:</div>
+                `;
+                
+                // Zeige max 10 Fahrten
+                const displayRides = customerRides.slice(0, 10);
+                
+                displayRides.forEach(ride => {
+                    const date = ride.createdAt ? new Date(ride.createdAt).toLocaleDateString('de-DE', {
+                        day: '2-digit', month: '2-digit', year: '2-digit'
+                    }) : '?';
+                    const time = ride.createdAt ? new Date(ride.createdAt).toLocaleTimeString('de-DE', {
+                        hour: '2-digit', minute: '2-digit'
+                    }) : '';
+                    
+                    let statusColor = '#666';
+                    let statusIcon = '⏳';
+                    if (ride.status === 'completed') {
+                        statusColor = '#16a34a';
+                        statusIcon = '✅';
+                    } else if (ride.status === 'storniert' || ride.status === 'cancelled') {
+                        statusColor = '#dc2626';
+                        statusIcon = '❌';
+                    } else if (ride.status === 'accepted' || ride.status === 'picked_up') {
+                        statusColor = '#2563eb';
+                        statusIcon = '🚗';
+                    }
+                    
+                    html += `
+                        <div style="background:white;border:1px solid #e5e7eb;border-radius:6px;padding:8px;margin-bottom:6px;font-size:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <span style="color:${statusColor};font-weight:600;">${statusIcon}</span>
+                                    <span style="color:#666;">${date} ${time}</span>
+                                </div>
+                                <div style="font-weight:600;color:#16a34a;">${ride.price || '?'}€</div>
+                            </div>
+                            <div style="color:#333;margin-top:4px;">
+                                📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
+                            </div>
+                            ${ride.vehicle ? `<div style="color:#888;font-size:11px;">🚗 ${ride.vehicle}</div>` : ''}
+                        </div>
+                    `;
+                });
+                
+                if (customerRides.length > 10) {
+                    html += `<div style="text-align:center;color:#666;font-size:11px;padding:5px;">... und ${customerRides.length - 10} weitere Fahrten</div>`;
+                }
+                
+                historyDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden des Verlaufs:', error);
+                historyDiv.innerHTML = '<div style="color:red;padding:10px;">❌ Fehler beim Laden</div>';
+            }
+        }
         
         async function checkPhoneInCRM() {
             const phoneInput = document.getElementById('customer-phone');
@@ -9498,6 +10220,12 @@ Stack: ${err.stack}
             const role = await getUserRole(user);
             applyRoleRestrictions(role);
             
+            // 📜 PROTOKOLL: Login
+            logActivity('system', 'login', `Login: ${user.email} (${role || 'Fahrgast'})`, {
+                email: user.email,
+                role: role || 'Fahrgast'
+            });
+            
             // User in Firebase speichern (für Rechteverwaltung)
             if (isFirebaseReady) {
                 db.ref('users/' + user.uid).update({
@@ -9520,6 +10248,13 @@ Stack: ${err.stack}
         }
         
         function onUserLoggedOut() {
+            // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
+            if (currentUser) {
+                logActivity('system', 'logout', `Logout: ${currentUser.email}`, {
+                    email: currentUser.email
+                });
+            }
+            
             console.log('👤 User ausgeloggt');
             currentUser = null;
             userRole = 'fahrgast';

@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.12.9 - Build 20251126-1345');
+        console.log('🚕 Funk Taxi App v5.13.1 - Build 20251126-1415');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.9 - Stabil! ✅ (Build 20251126-1345)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.1 - Stabil! ✅ (Build 20251126-1415)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1514,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.12.9';
-        const APP_BUILD = '20251126-1345';
+        const APP_VERSION = '5.13.1';
+        const APP_BUILD = '20251126-1415';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -5514,6 +5514,28 @@
         async function startAutoAssignment(rideId, ride) {
             console.log('🎯 Starte Auto-Zuweisung für Fahrt:', rideId);
             
+            // 🛡️ WICHTIG: Prüfe ob Fahrt noch zuweisbar ist!
+            if (isFirebaseReady) {
+                try {
+                    const currentRide = await db.ref('rides/' + rideId).once('value');
+                    const rideData = currentRide.val();
+                    
+                    if (!rideData) {
+                        console.log('⏹️ Auto-Zuweisung abgebrochen - Fahrt existiert nicht mehr');
+                        return;
+                    }
+                    
+                    // Nur zuweisen wenn Status 'new' ist!
+                    if (rideData.status !== 'new') {
+                        console.log('⏹️ Auto-Zuweisung abgebrochen - Fahrt hat Status:', rideData.status);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Prüfen der Fahrt:', error);
+                    return;
+                }
+            }
+            
             // Finde nächstes verfügbares Taxi
             const nearestVehicle = findNearestAvailableVehicle(ride.pickupCoords);
             
@@ -6356,6 +6378,24 @@
                 console.log('🔄 Fahrzeugwechsel erkannt - stoppe GPS');
                 stopDriverTracking();
                 stopGPSMonitoring();
+                
+                // 📴 WICHTIG: Altes Fahrzeug in Firebase offline setzen!
+                if (isFirebaseReady) {
+                    db.ref('drivers/' + previousVehicle).update({
+                        online: false,
+                        lastOffline: Date.now()
+                    }).then(() => {
+                        console.log('📴 Altes Fahrzeug offline gesetzt:', previousVehicle);
+                    });
+                    
+                    // Log-Eintrag
+                    const prevName = VEHICLES[previousVehicle] ? VEHICLES[previousVehicle].name : previousVehicle;
+                    logActivity('driver', 'offline', 
+                        `Fahrer ${prevName} ist jetzt OFFLINE (Fahrzeugwechsel)`, {
+                        vehicle: previousVehicle,
+                        driver: prevName
+                    });
+                }
             }
             
             currentVehicle = vehicleId;
@@ -6475,7 +6515,9 @@
                         vehicleId: currentVehicle,
                         vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle,
                         online: isOnline,
-                        accuracy: pos.coords.accuracy
+                        accuracy: pos.coords.accuracy,
+                        userEmail: currentUser ? (currentUser.email || currentUser.phoneNumber || '') : '',
+                        userId: currentUser ? currentUser.uid : ''
                     };
                     
                     // 🎯 Update lastGPSUpdate für Monitoring
@@ -6585,7 +6627,9 @@
                                     vehicleId: currentVehicle,
                                     vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle,
                                     online: isOnline,
-                                    accuracy: pos.coords.accuracy
+                                    accuracy: pos.coords.accuracy,
+                                    userEmail: currentUser ? (currentUser.email || currentUser.phoneNumber || '') : '',
+                                    userId: currentUser ? currentUser.uid : ''
                                 };
                                 
                                 console.log('📍 GPS (Fallback):', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
@@ -11478,6 +11522,37 @@ Stack: ${err.stack}
         async function onUserLoggedIn(user) {
             console.log('👤 User eingeloggt:', user.email || user.phoneNumber);
             currentUser = user;
+            
+            // 🧹 CLEANUP: Alte Fahrzeuge dieses Users offline setzen
+            if (isFirebaseReady) {
+                try {
+                    const driversSnapshot = await db.ref('drivers').once('value');
+                    const driversData = driversSnapshot.val() || {};
+                    
+                    for (const vehicleId in driversData) {
+                        const driver = driversData[vehicleId];
+                        // Prüfe ob dieses Fahrzeug dem aktuellen User gehört
+                        if (driver && driver.online && 
+                            (driver.userId === user.uid || driver.userEmail === (user.email || user.phoneNumber))) {
+                            
+                            console.log('🧹 Altes Fahrzeug gefunden:', vehicleId, '- setze offline');
+                            await db.ref('drivers/' + vehicleId).update({
+                                online: false,
+                                lastOffline: Date.now()
+                            });
+                            
+                            const vehicleName = VEHICLES[vehicleId] ? VEHICLES[vehicleId].name : vehicleId;
+                            logActivity('driver', 'offline', 
+                                `Fahrer ${vehicleName} ist jetzt OFFLINE (Neuer Login)`, {
+                                vehicle: vehicleId,
+                                driver: vehicleName
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Cleanup alter Fahrzeuge:', error);
+                }
+            }
             
             // 🔐 Rolle laden und anwenden
             const role = await getUserRole(user);

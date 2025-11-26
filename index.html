@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.12.2 - Build 20251126-1200');
+        console.log('🚕 Funk Taxi App v5.12.4 - Build 20251126-1230');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.2 - Stabil! ✅ (Build 20251126-1200)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.12.4 - Stabil! ✅ (Build 20251126-1230)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1514,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.12.2';
-        const APP_BUILD = '20251126-1200';
+        const APP_VERSION = '5.12.4';
+        const APP_BUILD = '20251126-1230';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -7280,7 +7280,7 @@
             }
         }
         
-        function startLiveLog() {
+        async function startLiveLog() {
             if (!isFirebaseReady) {
                 addLiveLogEntry('error', '❌ Firebase nicht verbunden!');
                 return;
@@ -7300,9 +7300,38 @@
                 status.style.color = '#ff6b6b';
             }
             
-            addLiveLogEntry('system', '🟢 Live-Log gestartet - warte auf Ereignisse...');
+            addLiveLogEntry('system', '🟢 Live-Log gestartet...');
             
-            // Firebase Listener für neue Log-Einträge
+            // 📜 ZUERST: Letzte Logs laden (letzte 30 Minuten oder max 50)
+            const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+            try {
+                const recentSnapshot = await db.ref('activityLog')
+                    .orderByChild('timestamp')
+                    .startAt(thirtyMinutesAgo)
+                    .limitToLast(50)
+                    .once('value');
+                
+                const recentLogs = [];
+                recentSnapshot.forEach(child => {
+                    recentLogs.push(child.val());
+                });
+                
+                if (recentLogs.length > 0) {
+                    addLiveLogEntry('system', `📜 ${recentLogs.length} Ereignisse aus den letzten 30 Min geladen:`);
+                    recentLogs.forEach(log => {
+                        if (log && shouldShowLiveLog(log.type)) {
+                            displayLiveLogEntry(log);
+                        }
+                    });
+                    addLiveLogEntry('system', '─────────── Live-Modus aktiv ───────────');
+                } else {
+                    addLiveLogEntry('system', '📭 Keine Ereignisse in den letzten 30 Min');
+                }
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der letzten Logs:', error);
+            }
+            
+            // Firebase Listener für NEUE Log-Einträge
             const now = Date.now();
             liveLogListener = db.ref('activityLog')
                 .orderByChild('timestamp')
@@ -7398,8 +7427,23 @@
                     icon = log.action === 'active' ? '📍' : '❌';
                     break;
                 case 'system':
-                    color = '#f472b6'; // pink
-                    icon = '⚙️';
+                    // Spezielle Farben für Login/Logout
+                    if (log.action === 'login') {
+                        color = '#22c55e'; // grün
+                        icon = '🔐';
+                    } else if (log.action === 'logout') {
+                        color = '#f97316'; // orange
+                        icon = '🚪';
+                    } else if (log.action === 'connection_lost') {
+                        color = '#ef4444'; // rot
+                        icon = '⚠️';
+                    } else if (log.action === 'connection_restored') {
+                        color = '#22c55e'; // grün
+                        icon = '✅';
+                    } else {
+                        color = '#f472b6'; // pink
+                        icon = '⚙️';
+                    }
                     break;
             }
             
@@ -11335,7 +11379,7 @@ Stack: ${err.stack}
         }
         
         async function onUserLoggedIn(user) {
-            console.log('👤 User eingeloggt:', user.email);
+            console.log('👤 User eingeloggt:', user.email || user.phoneNumber);
             currentUser = user;
             
             // 🔐 Rolle laden und anwenden
@@ -11343,18 +11387,53 @@ Stack: ${err.stack}
             applyRoleRestrictions(role);
             
             // 📜 PROTOKOLL: Login
-            logActivity('system', 'login', `Login: ${user.email} (${role || 'Fahrgast'})`, {
-                email: user.email,
+            logActivity('system', 'login', `Login: ${user.email || user.phoneNumber} (${role || 'Fahrgast'})`, {
+                email: user.email || '',
+                phone: user.phoneNumber || '',
                 role: role || 'Fahrgast'
             });
             
-            // User in Firebase speichern (für Rechteverwaltung)
+            // 📊 User in Firebase speichern - IMMER, auch wenn Admin nicht online!
             if (isFirebaseReady) {
-                db.ref('users/' + user.uid).update({
-                    email: user.email,
-                    displayName: user.displayName || '',
-                    lastLogin: Date.now()
-                });
+                try {
+                    // Erst prüfen ob User schon existiert
+                    const userSnapshot = await db.ref('users/' + user.uid).once('value');
+                    const existingUser = userSnapshot.val();
+                    
+                    // Update-Daten vorbereiten
+                    const updateData = {
+                        lastLogin: Date.now(),
+                        displayName: user.displayName || existingUser?.displayName || '',
+                    };
+                    
+                    // E-Mail hinzufügen wenn vorhanden
+                    if (user.email) {
+                        updateData.email = user.email;
+                    }
+                    
+                    // Telefonnummer hinzufügen wenn vorhanden
+                    if (user.phoneNumber) {
+                        updateData.phone = user.phoneNumber;
+                    }
+                    
+                    // Provider-Info (Google, Email, Phone)
+                    if (user.providerData && user.providerData[0]) {
+                        updateData.providerId = user.providerData[0].providerId;
+                    }
+                    
+                    // createdAt NUR setzen wenn User neu ist
+                    if (!existingUser) {
+                        updateData.createdAt = Date.now();
+                        updateData.role = 'fahrgast'; // Standard-Rolle
+                        console.log('🆕 Neuer User wird angelegt:', user.uid);
+                    }
+                    
+                    await db.ref('users/' + user.uid).update(updateData);
+                    console.log('📊 User-Daten gespeichert:', updateData);
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Speichern der User-Daten:', error);
+                }
             }
             
             updateUserProfile();

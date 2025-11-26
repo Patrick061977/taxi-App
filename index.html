@@ -34,7 +34,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.13.2 - Build 20251126-1440');
+        console.log('🚕 Funk Taxi App v5.13.3 - Build 20251126-1450');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -143,7 +143,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.2 - Stabil! ✅ (Build 20251126-1440)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.13.3 - Stabil! ✅ (Build 20251126-1450)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1514,8 +1514,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.13.2';
-        const APP_BUILD = '20251126-1440';
+        const APP_VERSION = '5.13.3';
+        const APP_BUILD = '20251126-1450';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -4495,8 +4495,20 @@
                 sentTelegramRides.add(rideKey);
                 console.log('✅ Telegram-Benachrichtigung gesendet für Fahrt:', ride.id, 'um', timestamp);
                 
+                // 📜 PROTOKOLL: Telegram gesendet
+                logActivity('system', 'telegram', `📱 Telegram versendet: Neue ${ride.status === 'vorbestellt' ? 'Vorbestellung' : 'Buchung'}`, {
+                    customer: ride.customerName,
+                    type: ride.status === 'vorbestellt' ? 'Vorbestellung' : 'Sofort-Fahrt',
+                    recipients: adminChats.length
+                });
+                
             } catch (error) {
                 console.error('❌ Telegram Benachrichtigung Fehler:', error);
+                
+                // 📜 PROTOKOLL: Telegram Fehler
+                logActivity('system', 'error', `⚠️ Telegram nicht erreichbar: ${error.message}`, {
+                    error: error.message
+                });
             }
         }
         
@@ -4574,6 +4586,13 @@
                 }
                 
                 console.log(`✅ Telegram-Status-Update gesendet: ${oldStatus} → ${newStatus}`);
+                
+                // 📜 PROTOKOLL: Telegram Status-Update
+                logActivity('system', 'telegram', `📱 Telegram versendet: Status ${oldStatus} → ${newStatus}`, {
+                    customer: ride.customerName,
+                    oldStatus: oldStatus,
+                    newStatus: newStatus
+                });
                 
             } catch (error) {
                 console.error('❌ Telegram Status-Update Fehler:', error);
@@ -4695,6 +4714,12 @@
                 }
                 
                 console.log('📱 Telegram: Lösch-Benachrichtigung gesendet um', timestamp);
+                
+                // 📜 PROTOKOLL: Telegram Lösch-Nachricht
+                logActivity('system', 'telegram', `📱 Telegram versendet: Fahrt gelöscht`, {
+                    customer: ride.customerName,
+                    type: 'Löschung'
+                });
                 
             } catch (error) {
                 console.error('❌ Telegram Fehler:', error);
@@ -5770,13 +5795,18 @@
             myCurrentRide = savedRide;
             localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
             
-            // 📜 PROTOKOLL: Fahrt gebucht
-            logActivity('booking', 'created', `Neue Buchung: ${savedRide.status === 'vorbestellt' ? 'Vorbestellung' : 'Sofort-Fahrt'}`, {
+            // 📜 PROTOKOLL: Fahrt gebucht (mit allen Details!)
+            const bookingType = savedRide.status === 'vorbestellt' ? 'Vorbestellung' : 'Sofort-Fahrt';
+            const pickupDisplay = pickupTime ? pickupTime : 'Sofort';
+            logActivity('booking', 'created', 
+                `Neue Buchung: ${bookingType} 👤${customerName} 📍${ride.pickup} → ${ride.destination} 📞${customerPhone} 💰${ride.price}€${pickupTime ? ' 🕐' + pickupTime : ''}`, {
                 customer: customerName,
+                phone: customerPhone,
                 from: ride.pickup,
                 to: ride.destination,
                 price: ride.price,
-                pickupTime: pickupTime
+                pickupTime: pickupDisplay,
+                type: bookingType
             });
             
             // 📋 CRM: Kunde automatisch anlegen/aktualisieren
@@ -7539,13 +7569,16 @@
                     icon = log.action === 'active' ? '📍' : '❌';
                     break;
                 case 'system':
-                    // Spezielle Farben für Login/Logout
+                    // Spezielle Farben für Login/Logout/Telegram
                     if (log.action === 'login') {
                         color = '#22c55e'; // grün
                         icon = '🔐';
                     } else if (log.action === 'logout') {
                         color = '#f97316'; // orange
                         icon = '🚪';
+                    } else if (log.action === 'telegram') {
+                        color = '#0088cc'; // telegram-blau
+                        icon = '📱';
                     } else if (log.action === 'connection_lost') {
                         color = '#ef4444'; // rot
                         icon = '⚠️';

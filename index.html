@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.19.0 - Build 20251127-DUAL-GPS');
-        console.log('📡 NEU: Standby-Modus (LTE) + Aktiv-Modus (GPS)');
+        console.log('🚕 Funk Taxi App v5.20.0 - Build 20251127-USER-TELEGRAM');
+        console.log('📡 NEU: Telegram Chat-ID pro User (nicht mehr pro Fahrzeug)');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.16.8 - Stabil! ✅ (Build 20251126-2050)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.20.0 - User-Telegram ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -469,7 +469,7 @@
                     ❓ Noch nicht eingerichtet
                 </div>
                 <div style="margin-top: 6px; font-size: 10px; color: #666;">
-                    Hol dir deine Chat-ID: Sende /start an <a href="https://t.me/FunkTaxiHeringsdorfBot" target="_blank" style="color: #0088cc;">@FunkTaxiHeringsdorfBot</a>
+                    Hol dir deine Chat-ID: Schreibe <b>/meineid</b> an <a href="https://t.me/FunkTaxiHeringsdorfBot" target="_blank" style="color: #0088cc;">@FunkTaxiHeringsdorfBot</a>
                 </div>
             </div>
         </div>
@@ -1586,8 +1586,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.16.8';
-        const APP_BUILD = '20251126-2050';
+        const APP_VERSION = '5.20.0';
+        const APP_BUILD = '20251127-USER-TELEGRAM';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2688,7 +2688,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.16.8 gestartet');
+        console.log('🚀 Taxi App v5.20.0 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -4469,22 +4469,42 @@
         }
         
         // 🆕 v5.18.0: TELEGRAM DIREKT AN ZUGEWIESENEN FAHRER!
-        // 🆕 v5.19.0: Erweitert mit GPS-Warnung
+        // 🆕 v5.19.0: Erweitert mit GPS-Warnung + User-basierte Chat-ID
         async function sendTelegramToDriver(vehicleId, ride, gpsAgeMinutes = 0) {
             if (!isFirebaseReady) return false;
             
             try {
-                // Hole Fahrer-Daten aus Firebase (inkl. Telegram Chat-ID)
+                // Hole Fahrer-Daten aus Firebase
                 const driverSnapshot = await db.ref('drivers/' + vehicleId).once('value');
                 const driverData = driverSnapshot.val();
                 
-                if (!driverData || !driverData.telegramChatId) {
-                    console.log('⚠️ Fahrer hat keine Telegram-ID hinterlegt:', vehicleId);
+                if (!driverData) {
+                    console.log('⚠️ Keine Fahrer-Daten für:', vehicleId);
                     return false;
                 }
                 
-                const chatId = driverData.telegramChatId;
                 const driverName = driverData.vehicle || vehicleId;
+                const userId = driverData.userId;
+                
+                // 🆕 v5.19.0: Hole Chat-ID vom USER (nicht vom Fahrzeug!)
+                let chatId = null;
+                
+                if (userId) {
+                    const userSnapshot = await db.ref('users/' + userId + '/telegramChatId').once('value');
+                    chatId = userSnapshot.val();
+                    console.log('📱 Chat-ID von User', userId, ':', chatId);
+                }
+                
+                // Fallback: Alte Struktur (Chat-ID beim Fahrzeug)
+                if (!chatId && driverData.telegramChatId) {
+                    chatId = driverData.telegramChatId;
+                    console.log('📱 Chat-ID von Fahrzeug (Fallback):', chatId);
+                }
+                
+                if (!chatId) {
+                    console.log('⚠️ Fahrer hat keine Telegram-ID hinterlegt:', vehicleId);
+                    return false;
+                }
                 
                 // 🆕 GPS-Warnung wenn Position älter als 3 Minuten
                 let gpsWarning = '';
@@ -6708,19 +6728,26 @@
                 return;
             }
             
+            // 🆕 v5.19.0: Prüfe ob User eingeloggt ist
+            if (!currentUser || !currentUser.uid) {
+                alert('❌ Bitte erst einloggen!');
+                return;
+            }
+            
             try {
-                // Speichere Telegram-ID beim Fahrzeug
-                await db.ref('drivers/' + currentVehicle + '/telegramChatId').set(chatId);
+                // 🆕 v5.19.0: Speichere Telegram-ID beim USER (nicht Fahrzeug!)
+                const userContact = currentUser.email || currentUser.phoneNumber || 'Unbekannt';
+                await db.ref('users/' + currentUser.uid + '/telegramChatId').set(chatId);
                 
                 // Update Status-Anzeige
                 document.getElementById('driver-telegram-status').innerHTML = 
-                    '✅ <span style="color:#10b981">Telegram aktiv! Chat-ID: ' + chatId + '</span>';
+                    '✅ <span style="color:#10b981">Telegram aktiv für ' + userContact + '</span>';
                 
-                // Speichere auch lokal für späteren Zugriff
-                localStorage.setItem('driverTelegramId_' + currentVehicle, chatId);
+                // Speichere auch lokal
+                localStorage.setItem('driverTelegramId_' + currentUser.uid, chatId);
                 
-                console.log('✅ Telegram-ID gespeichert für', currentVehicle, ':', chatId);
-                alert('✅ Telegram-ID gespeichert!\n\nDu bekommst jetzt Fahrt-Alarme direkt aufs Handy!');
+                console.log('✅ Telegram-ID gespeichert für User', userContact, ':', chatId);
+                alert('✅ Telegram-ID gespeichert!\n\nDu bekommst jetzt Fahrt-Alarme direkt aufs Handy - egal welches Fahrzeug du fährst!');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Speichern:', error);
@@ -6730,8 +6757,9 @@
         
         // 🆕 v5.18.0: TEST TELEGRAM AN FAHRER
         async function testDriverTelegram() {
-            if (!currentVehicle) {
-                alert('❌ Bitte erst ein Fahrzeug wählen!');
+            // 🆕 v5.19.0: Prüfe User statt Fahrzeug
+            if (!currentUser || !currentUser.uid) {
+                alert('❌ Bitte erst einloggen!');
                 return;
             }
             
@@ -6741,8 +6769,9 @@
                 return;
             }
             
+            const userContact = currentUser.email || currentUser.phoneNumber || 'Unbekannt';
             const testMessage = `✅ <b>Test erfolgreich!</b>\n\n` +
-                `Du erhältst jetzt Fahrt-Alarme für Fahrzeug: ${VEHICLES[currentVehicle]?.name || currentVehicle}\n\n` +
+                `Du erhältst jetzt Fahrt-Alarme für: ${userContact}\n\n` +
                 `🚕 Funk Taxi Heringsdorf`;
             
             const success = await sendTelegramMessage(chatId, testMessage);
@@ -6754,21 +6783,22 @@
             }
         }
         
-        // 🆕 v5.18.0: TELEGRAM-ID BEIM FAHRZEUGWECHSEL LADEN
+        // 🆕 v5.19.0: TELEGRAM-ID VOM USER LADEN (nicht mehr vom Fahrzeug!)
         async function loadDriverTelegramId() {
-            if (!currentVehicle || !isFirebaseReady) return;
+            if (!currentUser || !currentUser.uid || !isFirebaseReady) return;
             
             try {
-                const snapshot = await db.ref('drivers/' + currentVehicle + '/telegramChatId').once('value');
+                const snapshot = await db.ref('users/' + currentUser.uid + '/telegramChatId').once('value');
                 const chatId = snapshot.val();
                 
                 const input = document.getElementById('driver-telegram-id');
                 const status = document.getElementById('driver-telegram-status');
+                const userContact = currentUser.email || currentUser.phoneNumber || 'Unbekannt';
                 
-                if (chatId) {
+                if (chatId && input && status) {
                     input.value = chatId;
-                    status.innerHTML = '✅ <span style="color:#10b981">Telegram aktiv! Chat-ID: ' + chatId + '</span>';
-                } else {
+                    status.innerHTML = '✅ <span style="color:#10b981">Telegram aktiv für ' + userContact + '</span>';
+                } else if (input && status) {
                     input.value = '';
                     status.innerHTML = '❓ Noch nicht eingerichtet';
                 }
@@ -12827,6 +12857,9 @@ Stack: ${err.stack}
             
             // 👤 Lade "Mein Profil" für eingeloggte Kunden
             loadMyProfile();
+            
+            // 🆕 v5.19.0: Lade Telegram-ID für diesen User
+            loadDriverTelegramId();
         }
         
         function onUserLoggedOut() {

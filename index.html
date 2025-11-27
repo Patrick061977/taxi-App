@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.21.6 - Build 20251127-GPS-WATCHDOG');
-        console.log('📡 NEU: GPS läuft weiter im Hintergrund + 5-Min Watchdog');
+        console.log('🚕 Funk Taxi App v5.21.8 - Build 20251127-BLACKLIST-FIX');
+        console.log('📡 FIX: Keine Endlos-Zuweisung + nur neue Stornierungen');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.6 - GPS-Watchdog ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.8 - Blacklist-Fix ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1623,8 +1623,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.21.6';
-        const APP_BUILD = '20251127-GPS-WATCHDOG';
+        const APP_VERSION = '5.21.8';
+        const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -1662,6 +1662,7 @@
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
         let cancellations = []; // Neue Variable für Stornierungen
+        let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
         
         // 🆕 v5.19.0: DUAL-GPS MODUS
         let gpsMode = 'off'; // 'off', 'standby' (LTE), 'active' (GPS)
@@ -2725,7 +2726,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.21.6 gestartet');
+        console.log('🚀 Taxi App v5.21.8 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -3088,7 +3089,7 @@
                         // Badge am Admin-Tab aktualisieren
                         updateAdminBadge(currentCount);
                         
-                        updateViews();
+                        updateViewsDebounced(); // 🆕 v5.21.7: Debounced um Flackern zu vermeiden
                     });
                     db.ref('drivers').on('value', (s) => { 
                         drivers = {}; 
@@ -3319,6 +3320,17 @@
             }
         }
 
+        // 🆕 v5.21.7: Debounce für updateViews (verhindert Flackern)
+        let updateViewsTimeout = null;
+        function updateViewsDebounced() {
+            if (updateViewsTimeout) {
+                clearTimeout(updateViewsTimeout);
+            }
+            updateViewsTimeout = setTimeout(() => {
+                updateViews();
+            }, 100); // 100ms warten
+        }
+
         function updateViews() {
             // Update Debug Panel
             if (document.getElementById('debug-firebase')) {
@@ -3358,10 +3370,21 @@
             }
             
             // Alte Benachrichtigungs-Logik (für Kompatibilität)
-            const cancelledRides = myRides.filter(r => r.status === 'cancelled' && r.driverNotified === false);
+            // 🆕 v5.21.8: Nur NEUE Stornierungen anzeigen (letzte 10 Min)
+            const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+            const cancelledRides = myRides.filter(r => 
+                r.status === 'cancelled' && 
+                r.driverNotified === false &&
+                r.cancelledAt && r.cancelledAt > tenMinutesAgo // Nur letzte 10 Min!
+            );
             if (cancelledRides.length > 0) {
                 cancelledRides.forEach(ride => {
-                    notifyDriverOfCancellation(ride);
+                    // 🆕 v5.21.7: Nur anzeigen wenn noch nicht gezeigt!
+                    const rideKey = ride.firebaseId || ride.id;
+                    if (!notifiedCancellations.has(rideKey)) {
+                        notifiedCancellations.add(rideKey);
+                        notifyDriverOfCancellation(ride);
+                    }
                 });
             }
             
@@ -6038,16 +6061,30 @@
             }
             
             // Finde nächstes verfügbares Taxi
-            const nearestVehicle = findNearestAvailableVehicle(ride.pickupCoords);
+            // 🆕 v5.21.8: Blacklist übergeben um Endlos-Zuweisung zu verhindern
+            const blacklist = ride.assignmentBlacklist || [];
+            const nearestVehicle = findNearestAvailableVehicle(ride.pickupCoords, blacklist);
             
             if (!nearestVehicle) {
                 console.log('⚠️ Kein Taxi verfügbar - Fahrt bleibt in Warteschlange');
-                // 📜 PROTOKOLL: Kein Fahrer verfügbar
-                logActivity('assignment', 'no_driver', `Kein Fahrer verfügbar für Fahrt`, {
-                    customer: ride.customerName,
-                    from: ride.pickup,
-                    to: ride.destination
-                });
+                
+                // 🆕 v5.21.8: Unterscheide zwischen "keiner online" und "alle haben abgelehnt"
+                if (blacklist.length > 0) {
+                    console.log('📋 Blacklist hat', blacklist.length, 'Fahrer - alle haben nicht angenommen');
+                    logActivity('assignment', 'all_rejected', `Alle ${blacklist.length} Fahrer haben nicht angenommen`, {
+                        customer: ride.customerName,
+                        from: ride.pickup,
+                        to: ride.destination,
+                        blacklist: blacklist.join(', ')
+                    });
+                } else {
+                    // 📜 PROTOKOLL: Kein Fahrer verfügbar
+                    logActivity('assignment', 'no_driver', `Kein Fahrer verfügbar für Fahrt`, {
+                        customer: ride.customerName,
+                        from: ride.pickup,
+                        to: ride.destination
+                    });
+                }
                 return;
             }
             
@@ -6122,8 +6159,9 @@
 
         // Finde nächstes verfügbares Taxi nach GPS-Entfernung
         // 🆕 v5.19.0: Angepasst für Standby-Modus
+        // 🆕 v5.21.8: Blacklist-Parameter um abgelehnte Fahrer zu überspringen
         // Findet Fahrer auch wenn GPS nicht ganz aktuell (< 10 Min)
-        function findNearestAvailableVehicle(pickupCoords) {
+        function findNearestAvailableVehicle(pickupCoords, blacklist = []) {
             const availableVehicles = [];
             const now = Date.now();
             const MAX_GPS_AGE = 10 * 60 * 1000; // 10 Minuten
@@ -6131,6 +6169,12 @@
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
                 const driver = drivers[vehicleId];
+                
+                // 🆕 v5.21.8: Blacklist-Check ZUERST!
+                if (blacklist.includes(vehicleId)) {
+                    console.log(`⛔ ${vehicleId}: Auf Blacklist (hat nicht angenommen)`);
+                    continue;
+                }
                 
                 // Prüfungen:
                 // 1. Hat GPS-Position

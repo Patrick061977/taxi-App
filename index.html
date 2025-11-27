@@ -469,7 +469,7 @@
                     ❓ Noch nicht eingerichtet
                 </div>
                 <div style="margin-top: 6px; font-size: 10px; color: #666;">
-                    Hol dir deine Chat-ID: Schreibe <b>/meineid</b> an <a href="https://t.me/FunkTaxiHeringsdorfBot" target="_blank" style="color: #0088cc;">@FunkTaxiHeringsdorfBot</a>
+                    Hol dir deine Chat-ID: Schreibe /getid an <a href="https://t.me/myidbot" target="_blank" style="color: #0088cc;">@myidbot</a>
                 </div>
             </div>
         </div>
@@ -6705,9 +6705,11 @@
         }
 
         // 🆕 v5.18.0: FAHRER TELEGRAM-ID SPEICHERN
+        // 🆕 v5.20.0: Speichert jetzt pro USER (nicht mehr pro Fahrzeug!)
         async function saveDriverTelegramId() {
-            if (!currentVehicle) {
-                alert('❌ Bitte erst ein Fahrzeug wählen!');
+            // 🆕 v5.20.0: Prüfe ob User eingeloggt ist (Fahrzeug nicht mehr nötig!)
+            if (!currentUser || !currentUser.uid) {
+                alert('❌ Bitte erst einloggen!');
                 return;
             }
             

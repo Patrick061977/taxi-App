@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.21.1 - Build 20251127-AUTH-DEBUG');
-        console.log('📡 FIX: Auth Persistence + Logout-Logging im Live-Log');
+        console.log('🚕 Funk Taxi App v5.21.2 - Build 20251127-EXTENDED-LOG');
+        console.log('📡 NEU: Live-Log 2 Stunden + Auto-Restore Online-Status');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.1 - Auth-Debug ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.2 - Extended-Log ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1623,8 +1623,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.21.1';
-        const APP_BUILD = '20251127-AUTH-DEBUG';
+        const APP_VERSION = '5.21.2';
+        const APP_BUILD = '20251127-EXTENDED-LOG';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2725,7 +2725,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.21.1 gestartet');
+        console.log('🚀 Taxi App v5.21.2 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -8492,13 +8492,14 @@
             
             addLiveLogEntry('system', '🟢 Live-Log gestartet...');
             
-            // 📜 ZUERST: Letzte Logs laden (letzte 30 Minuten oder max 50)
-            const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+            // 📜 ZUERST: Letzte Logs laden (letzte 2 STUNDEN oder max 100)
+            // 🆕 v5.21.2: Von 30 Min auf 120 Min erweitert!
+            const twoHoursAgo = Date.now() - (120 * 60 * 1000);
             try {
                 const recentSnapshot = await db.ref('activityLog')
                     .orderByChild('timestamp')
-                    .startAt(thirtyMinutesAgo)
-                    .limitToLast(50)
+                    .startAt(twoHoursAgo)
+                    .limitToLast(100)
                     .once('value');
                 
                 const recentLogs = [];
@@ -8507,7 +8508,7 @@
                 });
                 
                 if (recentLogs.length > 0) {
-                    addLiveLogEntry('system', `📜 ${recentLogs.length} Ereignisse aus den letzten 30 Min geladen:`);
+                    addLiveLogEntry('system', `📜 ${recentLogs.length} Ereignisse aus den letzten 2 Stunden geladen:`);
                     recentLogs.forEach(log => {
                         if (log && shouldShowLiveLog(log.type)) {
                             displayLiveLogEntry(log);
@@ -8515,7 +8516,7 @@
                     });
                     addLiveLogEntry('system', '─────────── Live-Modus aktiv ───────────');
                 } else {
-                    addLiveLogEntry('system', '📭 Keine Ereignisse in den letzten 30 Min');
+                    addLiveLogEntry('system', '📭 Keine Ereignisse in den letzten 2 Stunden');
                 }
             } catch (error) {
                 console.error('❌ Fehler beim Laden der letzten Logs:', error);
@@ -13560,6 +13561,13 @@ Stack: ${err.stack}
                     // App im Hintergrund oder geschlossen
                     console.log('📱 App geht in Hintergrund...');
                     
+                    // 🆕 v5.21.2: Logging im Live-Log!
+                    logActivity('system', 'visibility', `📱 App geht in Hintergrund - User: ${currentUser?.email || 'nicht eingeloggt'}`, {
+                        isOnline: isOnline,
+                        vehicle: currentVehicle,
+                        gpsMode: gpsMode
+                    });
+                    
                     if (watchId && currentVehicle) {
                         console.log('⏸️ Pausiere GPS (App im Hintergrund)');
                         // GPS läuft weiter, aber Wake Lock freigeben
@@ -13573,16 +13581,43 @@ Stack: ${err.stack}
                     // App wieder sichtbar
                     console.log('📱 App wieder sichtbar');
                     
-                    // 🆕 v5.21.0: Auth-Status prüfen und loggen!
+                    // 🆕 v5.21.1: Auth-Status prüfen und loggen!
                     if (auth && auth.currentUser) {
                         console.log('✅ User noch eingeloggt:', auth.currentUser.email);
-                        logActivity('system', 'visibility', `📱 App wieder aktiv - User: ${auth.currentUser.email}`, {});
+                        logActivity('system', 'visibility', `📱 App wieder aktiv - User: ${auth.currentUser.email}`, {
+                            isOnline: isOnline,
+                            vehicle: currentVehicle,
+                            gpsMode: gpsMode
+                        });
                     } else if (auth) {
                         console.log('⚠️ User ist NICHT mehr eingeloggt!');
-                        logActivity('system', 'visibility', `⚠️ App wieder aktiv - KEIN USER!`, {});
+                        logActivity('system', 'visibility', `⚠️ App wieder aktiv - KEIN USER!`, {
+                            wasOnline: isOnline,
+                            vehicle: currentVehicle
+                        });
                         
                         // Versuche Session wiederherzustellen
                         console.log('🔄 Versuche Auth-Session wiederherzustellen...');
+                    }
+                    
+                    // 🆕 v5.21.2: Prüfe ob Online-Status noch stimmt
+                    if (currentUser && currentVehicle) {
+                        const savedOnline = localStorage.getItem('lastOnlineStatus_' + currentUser.uid);
+                        if (savedOnline === 'true' && !isOnline) {
+                            console.log('⚠️ War online, jetzt offline - stelle wieder her!');
+                            logActivity('system', 'restore', `🔄 Stelle Online-Status wieder her`, {
+                                vehicle: currentVehicle
+                            });
+                            // Status wiederherstellen
+                            isOnline = true;
+                            const toggle = document.getElementById('online-toggle');
+                            if (toggle) toggle.checked = true;
+                            
+                            // GPS neu starten
+                            if (gpsMode === 'standby' || gpsMode === 'off') {
+                                startStandbyTracking();
+                            }
+                        }
                     }
                     
                     // 🆕 v5.20.6: SOFORT GPS senden wenn App wieder aufwacht!

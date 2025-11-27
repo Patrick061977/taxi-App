@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.21.4 - Build 20251127-NO-OFFLINE-TAB');
-        console.log('📡 FIX: Fahrer bleibt online bei Tab-Wechsel');
+        console.log('🚕 Funk Taxi App v5.21.6 - Build 20251127-GPS-WATCHDOG');
+        console.log('📡 NEU: GPS läuft weiter im Hintergrund + 5-Min Watchdog');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.4 - No-Offline-Tab ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.6 - GPS-Watchdog ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1623,8 +1623,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.21.4';
-        const APP_BUILD = '20251127-NO-OFFLINE-TAB';
+        const APP_VERSION = '5.21.6';
+        const APP_BUILD = '20251127-GPS-WATCHDOG';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2725,7 +2725,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.21.4 gestartet');
+        console.log('🚀 Taxi App v5.21.6 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -13659,23 +13659,19 @@ Stack: ${err.stack}
                         });
                     }
                     
-                    // 🆕 v5.20.6: SOFORT GPS senden wenn App wieder aufwacht!
+                    // 🆕 v5.21.6: GPS prüfen und ggf. neu starten
                     if (isOnline && currentVehicle) {
-                        console.log('🔄 App aufgewacht - sende sofort GPS!');
+                        console.log('🔄 App aufgewacht - prüfe GPS...');
+                        console.log('   watchId:', watchId, ', standbyIntervalId:', standbyIntervalId, ', gpsMode:', gpsMode);
                         
-                        if (gpsMode === 'standby') {
-                            // Im Standby-Modus: Sofort Position senden
+                        // Prüfe ob GPS/Standby noch läuft
+                        if (standbyIntervalId || watchId) {
+                            // GPS läuft noch! Nur Position aktualisieren
+                            console.log('✅ GPS/Standby läuft noch - hole aktuelle Position');
                             getStandbyPosition();
-                            console.log('📡 Standby-Position gesendet (Aufwachen)');
-                        } else if (gpsMode === 'active' || watchId) {
-                            // Im Aktiv-Modus: GPS neu starten falls nötig
-                            if (!watchId) {
-                                console.log('▶️ Starte GPS neu (App wieder aktiv)');
-                                startDriverTracking();
-                            }
                         } else {
-                            // GPS war aus, aber Online - starte Standby
-                            console.log('🔄 Starte Standby-Tracking (Aufwachen)');
+                            // GPS wurde vom Browser gestoppt - neu starten!
+                            console.log('⚠️ GPS/Standby wurde gestoppt - starte neu!');
                             startStandbyTracking();
                         }
                     }
@@ -13690,44 +13686,81 @@ Stack: ${err.stack}
                 }
             });
             
-            // 🚪 BEFOREUNLOAD: GPS cleanup beim Schließen
-            // 🆕 v5.21.4: Fahrer wird NICHT offline gesetzt!
-            // Grund: beforeunload feuert auch bei Tab-Wechsel auf Android
-            // Der Fahrer bleibt online bis er manuell den Toggle benutzt
+            // 🚪 BEFOREUNLOAD: Nur loggen, NICHT GPS stoppen!
+            // 🆕 v5.21.6: GPS weiterlaufen lassen im Hintergrund
+            // Der Browser stoppt es sowieso wenn er will, aber vielleicht
+            // läuft es noch 5-10 Minuten weiter und sendet Positionen!
             window.addEventListener('beforeunload', () => {
-                console.log('🚪 App wird geschlossen/Tab-Wechsel - cleanup...');
+                console.log('🚪 App geht in Hintergrund - GPS läuft weiter!');
                 
-                // 📜 PROTOKOLL: Nur loggen, NICHT offline setzen!
+                // 📜 PROTOKOLL: Nur loggen
                 if (currentVehicle && isOnline) {
                     const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
                     const userContact = currentUser ? (currentUser.email || currentUser.phoneNumber || 'Unbekannt') : 'Unbekannt';
                     
-                    // 🆕 v5.21.4: Nur Info-Log, kein Offline!
                     logActivity('system', 'background', 
-                        `📱 App-Wechsel: ${userContact} (${vehicleName}) - bleibt ONLINE`, {
+                        `📱 App-Wechsel: ${userContact} (${vehicleName}) - GPS läuft weiter`, {
                         vehicle: currentVehicle,
                         driver: vehicleName,
                         email: userContact,
-                        reason: 'beforeunload'
+                        reason: 'beforeunload',
+                        gpsMode: gpsMode,
+                        watchId: watchId ? 'aktiv' : 'inaktiv'
                     });
                 }
                 
-                // GPS stoppen ist OK - wird beim Zurückkommen neu gestartet
-                if (watchId) {
-                    navigator.geolocation.clearWatch(watchId);
-                    console.log('🛑 GPS gestoppt (beforeunload)');
-                }
+                // 🆕 v5.21.6: GPS NICHT stoppen!
+                // Lass es weiterlaufen - der Browser entscheidet wann es stoppt
+                console.log('ℹ️ GPS bleibt aktiv (watchId:', watchId, ', gpsMode:', gpsMode, ')');
                 
+                // Wake Lock freigeben (das müssen wir)
                 if (wakeLock) {
                     wakeLock.release();
-                    console.log('⚠️ Wake Lock freigegeben (beforeunload)');
+                    console.log('⚠️ Wake Lock freigegeben');
                 }
-                
-                // 🆕 v5.21.4: NICHT offline setzen!
-                // Der Fahrer bleibt online in Firebase
-                // GPS wird beim Zurückkommen automatisch wieder gestartet
-                console.log('ℹ️ Fahrer bleibt ONLINE in Firebase (kein Offline bei Tab-Wechsel)');
             });
+            
+            // 🆕 v5.21.6: GPS-HEALTH-CHECK alle 5 Minuten
+            // Prüft ob GPS noch sendet und startet es ggf. neu
+            setInterval(() => {
+                if (!isOnline || !currentVehicle || !currentUser) return;
+                
+                const now = Date.now();
+                const timeSinceLastGps = lastGPSUpdate ? (now - lastGPSUpdate) / 1000 / 60 : 999; // in Minuten
+                
+                console.log(`🔍 GPS-Health-Check: Letzte GPS-Sendung vor ${timeSinceLastGps.toFixed(1)} Min`);
+                console.log(`   standbyIntervalId: ${standbyIntervalId ? 'aktiv' : 'INAKTIV'}, watchId: ${watchId ? 'aktiv' : 'inaktiv'}`);
+                
+                // Wenn GPS länger als 4 Minuten nicht gesendet hat ODER kein Interval läuft → neu starten!
+                if (timeSinceLastGps > 4 || (!standbyIntervalId && !watchId)) {
+                    console.log('⚠️ GPS-Problem erkannt! Starte neu...');
+                    
+                    logActivity('gps', 'restart', 
+                        `🔄 GPS-Neustart: ${!standbyIntervalId ? 'Interval gestoppt' : 'Position ' + timeSinceLastGps.toFixed(0) + ' Min alt'}`, {
+                        vehicle: currentVehicle,
+                        lastGps: lastGPSUpdate,
+                        timeSinceLastGps: timeSinceLastGps.toFixed(1),
+                        standbyActive: !!standbyIntervalId,
+                        watchActive: !!watchId
+                    });
+                    
+                    // GPS komplett neu starten
+                    if (watchId) {
+                        navigator.geolocation.clearWatch(watchId);
+                        watchId = null;
+                    }
+                    if (standbyIntervalId) {
+                        clearInterval(standbyIntervalId);
+                        standbyIntervalId = null;
+                    }
+                    
+                    // Standby-Tracking neu starten
+                    startStandbyTracking();
+                    console.log('✅ GPS neu gestartet!');
+                } else {
+                    console.log('✅ GPS OK - läuft normal');
+                }
+            }, 5 * 60 * 1000); // Alle 5 Minuten
             
             // 📅 VORBESTELLUNGS-CHECK: Prüfe alle 60 Sek. ob Vorbestellungen aktiviert werden müssen
             setInterval(async () => {
@@ -13788,6 +13821,56 @@ Stack: ${err.stack}
                     console.error('❌ Fehler beim Vorbestellungs-Check:', error);
                 }
             }, 60000); // Alle 60 Sekunden
+            
+            // 🆕 v5.21.6: GPS-WATCHDOG - Prüft alle 5 Min ob GPS noch funktioniert
+            setInterval(() => {
+                // Nur für Online-Fahrer relevant
+                if (!isOnline || !currentVehicle || currentView !== 'driver') return;
+                
+                console.log('🔍 GPS-Watchdog: Prüfe GPS-Status... (watchId:', watchId, ', gpsMode:', gpsMode, ')');
+                
+                // Wenn GPS aus ist aber Fahrer online → neu starten!
+                if (!watchId) {
+                    console.log('⚠️ GPS-Watchdog: GPS ist aus - starte neu!');
+                    startStandbyTracking();
+                    
+                    logActivity('gps', 'watchdog', 
+                        `🔄 GPS-Watchdog: GPS war aus, wurde neu gestartet`, {
+                        vehicle: currentVehicle,
+                        gpsMode: gpsMode
+                    });
+                } else {
+                    // GPS läuft - hole aktuelle Position
+                    console.log('✅ GPS-Watchdog: GPS läuft - aktualisiere Position');
+                    getStandbyPosition();
+                }
+                
+                // Prüfe auch ob letzte Position zu alt ist
+                if (currentVehicle && isFirebaseReady) {
+                    db.ref('drivers/' + currentVehicle + '/timestamp').once('value').then(snapshot => {
+                        const lastTimestamp = snapshot.val();
+                        if (lastTimestamp) {
+                            const ageMinutes = (Date.now() - lastTimestamp) / (1000 * 60);
+                            console.log('📊 GPS-Watchdog: Letzte Position ist', ageMinutes.toFixed(1), 'Min alt');
+                            
+                            if (ageMinutes > 5) {
+                                console.log('⚠️ GPS ist zu alt! Erzwinge neue Position...');
+                                // Erzwinge neue Position
+                                navigator.geolocation.getCurrentPosition(
+                                    (pos) => {
+                                        sendDriverLocation(pos);
+                                        console.log('✅ Neue Position erzwungen!');
+                                    },
+                                    (err) => {
+                                        console.error('❌ GPS-Fehler:', err.message);
+                                    },
+                                    { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+                                );
+                            }
+                        }
+                    });
+                }
+            }, 5 * 60 * 1000); // Alle 5 Minuten
             
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {

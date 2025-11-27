@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.20.4 - Build 20251127-SESSION-RESTORE');
-        console.log('📡 NEU: Session wird wiederhergestellt, Logout setzt alles zurück');
+        console.log('🚕 Funk Taxi App v5.20.7 - Build 20251127-GPS-RELIABLE');
+        console.log('📡 NEU: GPS alle 2 Min + sofort bei App-Aufwachen');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.20.4 - Session-Restore ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.20.7 - GPS-Reliable ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1586,8 +1586,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.20.4';
-        const APP_BUILD = '20251127-SESSION-RESTORE';
+        const APP_VERSION = '5.20.7';
+        const APP_BUILD = '20251127-GPS-RELIABLE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2688,7 +2688,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.20.4 gestartet');
+        console.log('🚀 Taxi App v5.20.7 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -2921,12 +2921,14 @@
                             r.firebaseId = c.key;
                             rides.push(r);
                             if (myCurrentRide && r.id === myCurrentRide.id) {
-                                // Prüfe ob Fahrt storniert wurde
-                                if (r.status === 'storniert' && myCurrentRide.status !== 'storniert') {
+                                // 🆕 v5.20.4: Prüfe ALLE Stornierung-Status!
+                                const cancelledStatuses = ['storniert', 'cancelled', 'cancelled_pending_driver'];
+                                const wasNotCancelled = !cancelledStatuses.includes(myCurrentRide.status);
+                                const isNowCancelled = cancelledStatuses.includes(r.status);
+                                
+                                if (isNowCancelled && wasNotCancelled) {
                                     // Fahrt wurde gerade storniert!
-                                    alert('⚠️ STORNIERUNG!\n\nDer Fahrgast hat die Fahrt storniert.\n\n' + 
-                                          'Von: ' + r.pickup + '\n' +
-                                          'Nach: ' + r.destination);
+                                    console.log('🚫 Fahrt wurde storniert:', r.id, r.status);
                                     
                                     // Stoppe Navigations-Updates
                                     if (window.driverMapUpdateInterval) {
@@ -2958,11 +2960,30 @@
                                     localStorage.removeItem('myCurrentRideId');
                                     myCurrentRide = null;
                                     document.getElementById('ride-status-container').innerHTML = '';
+                                    document.getElementById('booking-form').style.display = 'block';
+                                    
+                                    // 🆕 v5.20.4: Stoppe auch den einzelnen Listener
+                                    db.ref('rides/' + r.firebaseId).off();
+                                    
+                                    // 🆕 v5.20.4: Formular zurücksetzen
+                                    resetBookingForm();
                                     
                                     // Zeige wieder verfügbare Fahrten
                                     if (currentView === 'driver') {
+                                        // Alert für Fahrer
+                                        alert('⚠️ STORNIERUNG!\n\nDer Fahrgast hat die Fahrt storniert.\n\n' + 
+                                              'Von: ' + r.pickup + '\n' +
+                                              'Nach: ' + r.destination);
                                         updateDriverView();
                                     }
+                                    
+                                    // WICHTIG: Nicht weitermachen!
+                                    return;
+                                }
+                                
+                                // 🆕 v5.20.4: Wenn Fahrt storniert ist, NICHT anzeigen!
+                                if (isNowCancelled) {
+                                    return;
                                 }
                                 
                                 myCurrentRide = r;
@@ -4541,6 +4562,53 @@
                 
             } catch (error) {
                 console.error('❌ Telegram an Fahrer Fehler:', error);
+                return false;
+            }
+        }
+        
+        // 🆕 v5.20.4: TELEGRAM AN FAHRER BEI STORNIERUNG
+        async function sendTelegramToDriverCancel(vehicleId, message) {
+            if (!isFirebaseReady) return false;
+            
+            try {
+                // Hole Fahrer-Daten aus Firebase
+                const driverSnapshot = await db.ref('drivers/' + vehicleId).once('value');
+                const driverData = driverSnapshot.val();
+                
+                if (!driverData) {
+                    console.log('⚠️ Keine Fahrer-Daten für:', vehicleId);
+                    return false;
+                }
+                
+                const userId = driverData.userId;
+                let chatId = null;
+                
+                // Chat-ID vom USER holen
+                if (userId) {
+                    const userSnapshot = await db.ref('users/' + userId + '/telegramChatId').once('value');
+                    chatId = userSnapshot.val();
+                }
+                
+                // Fallback: Chat-ID vom Fahrzeug
+                if (!chatId && driverData.telegramChatId) {
+                    chatId = driverData.telegramChatId;
+                }
+                
+                if (!chatId) {
+                    console.log('⚠️ Fahrer hat keine Telegram-ID:', vehicleId);
+                    return false;
+                }
+                
+                const success = await sendTelegramMessage(chatId, message);
+                
+                if (success) {
+                    console.log('✅ Stornierung-Telegram an Fahrer gesendet:', vehicleId);
+                }
+                
+                return success;
+                
+            } catch (error) {
+                console.error('❌ Telegram Stornierung Fehler:', error);
                 return false;
             }
         }
@@ -6320,9 +6388,24 @@
             
             // 🆕 VEREINFACHT: Direkt auf 'cancelled' setzen - Fahrer wird nur benachrichtigt, muss nicht bestätigen
             if (isFirebaseReady && rideId) {
-                // 🆕 v5.20.0: ZUERST Listener stoppen BEVOR Update!
+                // 🆕 v5.20.4: ZUERST alle Listener stoppen!
                 db.ref('rides/' + rideId).off();
                 console.log('🛑 Listener für Fahrt gestoppt:', rideId);
+                
+                // 🆕 v5.20.4: TELEGRAM AN FAHRER BEI STORNIERUNG!
+                if (ride && ride.assignedTo) {
+                    const cancelMessage = `🚫 <b>FAHRT STORNIERT!</b>\n\n` +
+                        `👤 Kunde: ${ride.customerName}\n` +
+                        `📍 Von: ${ride.pickup}\n` +
+                        `🎯 Nach: ${ride.destination}\n` +
+                        `💰 Preis: ${ride.price}€\n\n` +
+                        `❌ Der Kunde hat die Fahrt storniert.` +
+                        (hasCancellationFee ? `\n💶 Stornogebühr: ${cancellationFee}€` : '');
+                    
+                    // Hole Fahrer-Telegram-ID und sende
+                    sendTelegramToDriverCancel(ride.assignedTo, cancelMessage);
+                    console.log('📱 Stornierung an Fahrer gesendet:', ride.assignedTo);
+                }
                 
                 await updateRide(rideId, {
                     status: 'cancelled',  // 🆕 Immer direkt cancelled!
@@ -6346,9 +6429,13 @@
                     from: ride?.pickup,
                     to: ride?.destination,
                     price: ride?.price,
-                    fee: hasCancellationFee ? cancellationFee : 0
+                    fee: hasCancellationFee ? cancellationFee : 0,
+                    driver: ride?.assignedTo
                 });
             }
+            
+            // 🆕 v5.20.4: Globale rides-Listener kurz pausieren und neu starten
+            // um sicherzustellen dass die stornierte Fahrt nicht wieder angezeigt wird
             
             // ✅ Update auch localStorage!
             const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
@@ -7120,7 +7207,7 @@
             }
             
             gpsMode = 'standby';
-            console.log('📡 STANDBY-MODUS gestartet (LTE/WiFi, alle 5 Min)');
+            console.log('📡 STANDBY-MODUS gestartet (LTE/WiFi, alle 2 Min)');
             
             // Update UI
             const statusDiv = document.getElementById('gps-status-compact');
@@ -7144,14 +7231,14 @@
             // SOFORT erste Position holen (grob)
             getStandbyPosition();
             
-            // Dann alle 5 Minuten
+            // 🆕 v5.20.6: Alle 2 Minuten (statt 5) für bessere Zuverlässigkeit
             standbyIntervalId = setInterval(() => {
                 if (isOnline && currentVehicle && gpsMode === 'standby') {
                     getStandbyPosition();
                 }
-            }, 5 * 60 * 1000); // 5 Minuten
+            }, 2 * 60 * 1000); // 2 Minuten
             
-            console.log('✅ Standby-Interval gestartet (alle 5 Min)');
+            console.log('✅ Standby-Interval gestartet (alle 2 Min)');
         }
         
         // 🆕 Grobe Position holen (Mobilfunk/WiFi)
@@ -7970,6 +8057,36 @@
                     // Fahrzeug-Liste erstellen
                     const lastUpdate = driver.timestamp ? new Date(driver.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : '?';
                     
+                    // 🆕 v5.20.5: GPS-Alter berechnen und farbig anzeigen
+                    let gpsAgeMinutes = 0;
+                    let gpsAgeColor = '#10b981'; // Grün = frisch
+                    let gpsAgeIcon = '🟢';
+                    let isStale = false;
+                    
+                    if (driver.timestamp) {
+                        gpsAgeMinutes = Math.floor((Date.now() - driver.timestamp) / 60000);
+                        
+                        if (gpsAgeMinutes < 6) {
+                            gpsAgeColor = '#10b981'; // Grün
+                            gpsAgeIcon = '🟢';
+                        } else if (gpsAgeMinutes < 11) {
+                            gpsAgeColor = '#f59e0b'; // Gelb/Orange
+                            gpsAgeIcon = '🟡';
+                        } else {
+                            gpsAgeColor = '#ef4444'; // Rot
+                            gpsAgeIcon = '🔴';
+                            isStale = true;
+                        }
+                    }
+                    
+                    // 🆕 Status-Farbe und Text anpassen wenn GPS veraltet
+                    let displayStatus = status;
+                    let displayColor = color;
+                    if (isStale && status === 'frei') {
+                        displayStatus = 'stale';
+                        displayColor = '#9ca3af'; // Grau
+                    }
+                    
                     vehicleListHtml += `
                         <div onclick="focusVehicle('${vehicleId}')" style="
                             display:flex;
@@ -7978,7 +8095,7 @@
                             padding:10px;
                             background:white;
                             border:1px solid #e0e0e0;
-                            border-left:4px solid ${color};
+                            border-left:4px solid ${displayColor};
                             border-radius:6px;
                             margin-bottom:6px;
                             cursor:pointer;
@@ -7991,17 +8108,20 @@
                                         ${activeRide.destination || '?'}
                                     </div>
                                 ` : `
-                                    <div style="font-size:11px;color:#888;">📍 GPS: ${lastUpdate}</div>
+                                    <div style="font-size:11px;color:${gpsAgeColor};">
+                                        ${gpsAgeIcon} GPS: ${lastUpdate}
+                                        ${gpsAgeMinutes > 0 ? `<span style="color:#888;font-size:10px;">(${gpsAgeMinutes} Min)</span>` : ''}
+                                    </div>
                                 `}
                             </div>
                             <div style="
-                                background:${color};
+                                background:${displayColor};
                                 color:white;
                                 padding:4px 10px;
                                 border-radius:15px;
                                 font-size:11px;
                                 font-weight:600;
-                            ">${status === 'frei' ? 'FREI' : status === 'zugewiesen' ? 'ZUGEWIESEN' : 'BESETZT'}</div>
+                            ">${displayStatus === 'frei' ? 'FREI' : displayStatus === 'zugewiesen' ? 'ZUGEWIESEN' : displayStatus === 'stale' ? 'GPS ALT!' : 'BESETZT'}</div>
                         </div>
                     `;
                 }
@@ -13208,9 +13328,25 @@ Stack: ${err.stack}
                     // App wieder sichtbar
                     console.log('📱 App wieder sichtbar');
                     
-                    if (isOnline && currentVehicle && !watchId) {
-                        console.log('▶️ Starte GPS neu (App wieder aktiv)');
-                        startDriverTracking();
+                    // 🆕 v5.20.6: SOFORT GPS senden wenn App wieder aufwacht!
+                    if (isOnline && currentVehicle) {
+                        console.log('🔄 App aufgewacht - sende sofort GPS!');
+                        
+                        if (gpsMode === 'standby') {
+                            // Im Standby-Modus: Sofort Position senden
+                            getStandbyPosition();
+                            console.log('📡 Standby-Position gesendet (Aufwachen)');
+                        } else if (gpsMode === 'active' || watchId) {
+                            // Im Aktiv-Modus: GPS neu starten falls nötig
+                            if (!watchId) {
+                                console.log('▶️ Starte GPS neu (App wieder aktiv)');
+                                startDriverTracking();
+                            }
+                        } else {
+                            // GPS war aus, aber Online - starte Standby
+                            console.log('🔄 Starte Standby-Tracking (Aufwachen)');
+                            startStandbyTracking();
+                        }
                     }
                     
                     // Wake Lock reaktivieren

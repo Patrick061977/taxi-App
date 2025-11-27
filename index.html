@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.21.2 - Build 20251127-EXTENDED-LOG');
-        console.log('📡 NEU: Live-Log 2 Stunden + Auto-Restore Online-Status');
+        console.log('🚕 Funk Taxi App v5.21.3 - Build 20251127-FIREBASE-RESTORE');
+        console.log('📡 FIX: Prüft echten Firebase-Status beim Aufwachen');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.2 - Extended-Log ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.3 - Firebase-Restore ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1623,8 +1623,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.21.2';
-        const APP_BUILD = '20251127-EXTENDED-LOG';
+        const APP_VERSION = '5.21.3';
+        const APP_BUILD = '20251127-FIREBASE-RESTORE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2725,7 +2725,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.21.2 gestartet');
+        console.log('🚀 Taxi App v5.21.3 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -13600,24 +13600,63 @@ Stack: ${err.stack}
                         console.log('🔄 Versuche Auth-Session wiederherzustellen...');
                     }
                     
-                    // 🆕 v5.21.2: Prüfe ob Online-Status noch stimmt
-                    if (currentUser && currentVehicle) {
+                    // 🆕 v5.21.3: Prüfe ECHTEN Status in Firebase!
+                    // Problem: isOnline ist noch true, aber Firebase sagt offline
+                    if (currentUser && currentVehicle && isFirebaseReady) {
                         const savedOnline = localStorage.getItem('lastOnlineStatus_' + currentUser.uid);
-                        if (savedOnline === 'true' && !isOnline) {
-                            console.log('⚠️ War online, jetzt offline - stelle wieder her!');
-                            logActivity('system', 'restore', `🔄 Stelle Online-Status wieder her`, {
-                                vehicle: currentVehicle
-                            });
-                            // Status wiederherstellen
-                            isOnline = true;
-                            const toggle = document.getElementById('online-toggle');
-                            if (toggle) toggle.checked = true;
+                        
+                        // Prüfe Firebase-Status
+                        db.ref('drivers/' + currentVehicle).once('value').then(snapshot => {
+                            const driverData = snapshot.val();
+                            const firebaseOnline = driverData && driverData.online === true;
                             
-                            // GPS neu starten
-                            if (gpsMode === 'standby' || gpsMode === 'off') {
-                                startStandbyTracking();
+                            console.log('🔍 Status-Check: localStorage=' + savedOnline + ', JS=' + isOnline + ', Firebase=' + firebaseOnline);
+                            
+                            // Wenn localStorage sagt online, aber Firebase sagt offline → wiederherstellen!
+                            if (savedOnline === 'true' && !firebaseOnline) {
+                                console.log('🔄 Firebase offline aber sollte online sein → Restore!');
+                                
+                                // Status wiederherstellen
+                                isOnline = true;
+                                const toggle = document.getElementById('online-toggle');
+                                if (toggle) toggle.checked = true;
+                                
+                                // In Firebase wieder online setzen
+                                const userContact = currentUser.email || currentUser.phoneNumber || 'Unbekannt';
+                                const vehicleName = VEHICLES[currentVehicle]?.name || currentVehicle;
+                                
+                                db.ref('drivers/' + currentVehicle).update({
+                                    online: true,
+                                    userId: currentUser.uid,
+                                    userEmail: userContact,
+                                    lastOnline: Date.now()
+                                }).then(() => {
+                                    console.log('✅ Fahrer wieder ONLINE in Firebase!');
+                                    
+                                    // Protokoll
+                                    logActivity('driver', 'online', 
+                                        `Fahrer ${userContact} (${vehicleName}) ist jetzt ONLINE (Visibility-Restore)`, {
+                                        vehicle: currentVehicle,
+                                        driver: vehicleName,
+                                        email: userContact,
+                                        reason: 'visibility_restore'
+                                    });
+                                });
+                                
+                                // GPS neu starten
+                                if (gpsMode === 'standby' || gpsMode === 'off') {
+                                    startStandbyTracking();
+                                }
+                            } else if (firebaseOnline && !isOnline) {
+                                // Firebase sagt online, aber JS sagt offline → JS korrigieren
+                                console.log('🔄 JS offline aber Firebase online → korrigiere JS');
+                                isOnline = true;
+                                const toggle = document.getElementById('online-toggle');
+                                if (toggle) toggle.checked = true;
                             }
-                        }
+                        }).catch(err => {
+                            console.error('❌ Firebase Status-Check Fehler:', err);
+                        });
                     }
                     
                     // 🆕 v5.20.6: SOFORT GPS senden wenn App wieder aufwacht!

@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.20.0 - Build 20251127-USER-TELEGRAM');
-        console.log('📡 NEU: Telegram Chat-ID pro User (nicht mehr pro Fahrzeug)');
+        console.log('🚕 Funk Taxi App v5.20.4 - Build 20251127-SESSION-RESTORE');
+        console.log('📡 NEU: Session wird wiederhergestellt, Logout setzt alles zurück');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.20.0 - User-Telegram ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.20.4 - Session-Restore ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1586,8 +1586,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.20.0';
-        const APP_BUILD = '20251127-USER-TELEGRAM';
+        const APP_VERSION = '5.20.4';
+        const APP_BUILD = '20251127-SESSION-RESTORE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2688,7 +2688,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.20.0 gestartet');
+        console.log('🚀 Taxi App v5.20.4 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -6320,6 +6320,10 @@
             
             // 🆕 VEREINFACHT: Direkt auf 'cancelled' setzen - Fahrer wird nur benachrichtigt, muss nicht bestätigen
             if (isFirebaseReady && rideId) {
+                // 🆕 v5.20.0: ZUERST Listener stoppen BEVOR Update!
+                db.ref('rides/' + rideId).off();
+                console.log('🛑 Listener für Fahrt gestoppt:', rideId);
+                
                 await updateRide(rideId, {
                     status: 'cancelled',  // 🆕 Immer direkt cancelled!
                     cancelledAt: Date.now(),
@@ -6328,6 +6332,13 @@
                     cancellationReason: hasCancellationFee ? 'Fahrer bereits unterwegs - Stornogebühr' : 'Kunde storniert'
                 });
                 console.log('❌ Fahrt storniert in Firebase:', rideId);
+                
+                // 🆕 v5.20.0: Stoppe auch den Assignment-Timer falls aktiv!
+                if (assignmentTimers && assignmentTimers[rideId]) {
+                    clearTimeout(assignmentTimers[rideId]);
+                    delete assignmentTimers[rideId];
+                    console.log('🛑 Assignment-Timer gestoppt für:', rideId);
+                }
                 
                 // 📜 PROTOKOLL: Stornierung
                 logActivity('status', 'cancelled', `Fahrt storniert${hasCancellationFee ? ' (Gebühr: ' + cancellationFee + '€)' : ''}`, {
@@ -6812,6 +6823,12 @@
         function toggleOnline() {
             isOnline = document.getElementById('online-toggle').checked;
             
+            // 🆕 v5.20.2: Online-Status speichern für Auto-Restore
+            if (currentUser && currentUser.uid) {
+                localStorage.setItem('lastOnlineStatus_' + currentUser.uid, isOnline ? 'true' : 'false');
+                console.log('💾 Online-Status gespeichert:', isOnline);
+            }
+            
             // 📜 PROTOKOLL: Fahrer Online/Offline (mit Grund + Email!)
             const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
             const userContact = currentUser ? (currentUser.email || currentUser.phoneNumber || 'Unbekannt') : 'Unbekannt';
@@ -6912,6 +6929,12 @@
             currentVehicle = vehicleId;
             console.log('🚗 Fahrzeug gewählt:', currentVehicle);
             
+            // 🆕 v5.20.1: Fahrzeug in localStorage speichern (für Wiederherstellung)
+            if (currentVehicle && currentUser) {
+                localStorage.setItem('lastVehicle_' + currentUser.uid, currentVehicle);
+                console.log('💾 Fahrzeug gespeichert für User:', currentUser.uid);
+            }
+            
             // 🔒 NEUE LOGIK: Toggle nur aktivieren wenn Fahrzeug gewählt!
             const toggle = document.getElementById('online-toggle');
             if (toggle) {
@@ -6945,12 +6968,90 @@
             updateViews();
         }
 
-        function loadSavedVehicle() {
-            const dropdown = document.getElementById('vehicle');
-            if (dropdown && dropdown.value) {
-                currentVehicle = dropdown.value;
-                console.log('🔄 Gespeichertes Fahrzeug geladen:', currentVehicle);
-                updateViews();
+        // 🆕 v5.20.2: GESPEICHERTES FAHRZEUG + STATUS LADEN (aus localStorage)
+        async function loadSavedVehicle() {
+            if (!currentUser || !currentUser.uid) {
+                console.log('⏳ Warte auf Login für Fahrzeug-Wiederherstellung...');
+                return;
+            }
+            
+            const savedVehicle = localStorage.getItem('lastVehicle_' + currentUser.uid);
+            const savedOnlineStatus = localStorage.getItem('lastOnlineStatus_' + currentUser.uid);
+            
+            if (!savedVehicle) {
+                console.log('ℹ️ Kein gespeichertes Fahrzeug gefunden');
+                return;
+            }
+            
+            console.log('🔄 Gespeichertes Fahrzeug gefunden:', savedVehicle, 'Online:', savedOnlineStatus);
+            
+            // Prüfe ob Fahrzeug von jemand anderem benutzt wird
+            if (isFirebaseReady) {
+                try {
+                    const driverSnapshot = await db.ref('drivers/' + savedVehicle).once('value');
+                    const driverData = driverSnapshot.val();
+                    
+                    if (driverData && driverData.online && driverData.userId && driverData.userId !== currentUser.uid) {
+                        // Fahrzeug wird von jemand anderem benutzt!
+                        console.log('⚠️ Fahrzeug wird von anderem User benutzt:', driverData.userId);
+                        alert('⚠️ Dein letztes Fahrzeug (' + (VEHICLES[savedVehicle]?.name || savedVehicle) + ') wird gerade von einem anderen Fahrer benutzt.\n\nBitte wähle ein anderes Fahrzeug.');
+                        return;
+                    }
+                    
+                    // Fahrzeug ist frei - automatisch auswählen
+                    const dropdown = document.getElementById('vehicle');
+                    if (dropdown) {
+                        dropdown.value = savedVehicle;
+                        currentVehicle = savedVehicle;
+                        console.log('✅ Fahrzeug automatisch wiederhergestellt:', savedVehicle);
+                        
+                        // Toggle aktivieren
+                        const toggle = document.getElementById('online-toggle');
+                        if (toggle) {
+                            toggle.disabled = false;
+                            toggle.style.opacity = '1';
+                            toggle.style.cursor = 'pointer';
+                            
+                            // 🆕 v5.20.2: War der Fahrer vorher online? Dann automatisch wieder online!
+                            if (savedOnlineStatus === 'true') {
+                                console.log('🟢 Fahrer war online - stelle Status wieder her...');
+                                toggle.checked = true;
+                                isOnline = true;
+                                
+                                // GPS starten
+                                startDriverTracking(null);
+                                
+                                // In Firebase als online markieren
+                                const userContact = currentUser.email || currentUser.phoneNumber || 'Unbekannt';
+                                db.ref('drivers/' + savedVehicle).update({
+                                    online: true,
+                                    userId: currentUser.uid,
+                                    userEmail: userContact,
+                                    lastOnline: Date.now()
+                                });
+                                
+                                console.log('✅ Fahrer automatisch wieder ONLINE!');
+                                
+                                // Protokoll
+                                const vehicleName = VEHICLES[savedVehicle]?.name || savedVehicle;
+                                logActivity('driver', 'online', 
+                                    `Fahrer ${userContact} (${vehicleName}) ist jetzt ONLINE (Auto-Restore)`, {
+                                    vehicle: savedVehicle,
+                                    driver: vehicleName,
+                                    email: userContact
+                                });
+                            }
+                        }
+                        
+                        // Telegram-ID laden
+                        loadDriverTelegramId();
+                        
+                        updateViews();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Prüfen des Fahrzeugs:', error);
+                }
             }
         }
 
@@ -12619,6 +12720,12 @@ Stack: ${err.stack}
         async function logoutUser() {
             if (!auth || !currentUser) return;
             
+            // 🆕 v5.20.3: Gespeicherten Online-Status löschen bei Logout!
+            if (currentUser.uid) {
+                localStorage.setItem('lastOnlineStatus_' + currentUser.uid, 'false');
+                console.log('💾 Online-Status auf FALSE gesetzt (Logout)');
+            }
+            
             // 🚗 WICHTIG: Fahrzeug offline setzen VOR dem Logout!
             if (currentVehicle && isFirebaseReady && isOnline) {
                 try {
@@ -12643,6 +12750,14 @@ Stack: ${err.stack}
                     
                     // GPS stoppen
                     stopDriverTracking();
+                    
+                    // Stoppe auch Standby
+                    if (standbyIntervalId) {
+                        clearInterval(standbyIntervalId);
+                        standbyIntervalId = null;
+                    }
+                    gpsMode = 'off';
+                    
                     isOnline = false;
                     
                 } catch (error) {
@@ -12862,6 +12977,9 @@ Stack: ${err.stack}
             
             // 🆕 v5.19.0: Lade Telegram-ID für diesen User
             loadDriverTelegramId();
+            
+            // 🆕 v5.20.1: Lade gespeichertes Fahrzeug
+            loadSavedVehicle();
         }
         
         function onUserLoggedOut() {

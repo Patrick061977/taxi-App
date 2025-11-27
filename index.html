@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.20.7 - Build 20251127-GPS-RELIABLE');
-        console.log('📡 NEU: GPS alle 2 Min + sofort bei App-Aufwachen');
+        console.log('🚕 Funk Taxi App v5.21.1 - Build 20251127-AUTH-DEBUG');
+        console.log('📡 FIX: Auth Persistence + Logout-Logging im Live-Log');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -127,7 +127,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.20.7 - GPS-Reliable ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.1 - Auth-Debug ✅ (Build 20251127)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -606,7 +606,12 @@
             }
             
             function loadCancelledRides() {
-                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                // 🆕 v5.20.8: Auch assignedTo prüfen (nicht nur vehicleId)!
+                const myRides = currentVehicle ? rides.filter(r => 
+                    r.vehicleId === currentVehicle || 
+                    r.assignedTo === currentVehicle ||
+                    r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)
+                ) : [];
                 const cancelled = myRides.filter(r => r.status === 'cancelled' || r.status === 'cancelled_pending_driver' || r.status === 'storniert');
                 
                 if (cancelled.length === 0) {
@@ -614,21 +619,53 @@
                     return;
                 }
                 
-                let html = cancelled.map(r => `
+                // 🆕 v5.20.7: Mit Uhrzeiten anzeigen
+                let html = cancelled.map(r => {
+                    // Buchungszeit formatieren
+                    let buchungZeit = '?';
+                    if (r.timestamp || r.createdAt) {
+                        const bookingDate = new Date(r.timestamp || r.createdAt);
+                        buchungZeit = bookingDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    // Stornierungszeit formatieren
+                    let stornoZeit = '?';
+                    if (r.cancelledAt) {
+                        const cancelDate = new Date(r.cancelledAt);
+                        stornoZeit = cancelDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    // Abholzeit formatieren (falls Vorbestellung)
+                    let abholZeit = '';
+                    if (r.pickupTime && r.pickupTime !== 'Sofort') {
+                        abholZeit = `⏰ Geplant: ${r.pickupTime}<br>`;
+                    }
+                    
+                    return `
                     <div class="ride-card" style="background:#fef2f2;border-left:4px solid #ef4444;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <strong>#${r.id}</strong>
+                            <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
                             <span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">🚨 Storniert</span>
                         </div>
                         ${r.customerName ? `<div style="font-weight:600;color:#991b1b;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
                         <div style="font-size:13px;color:#666;">
-                            Von: ${r.pickup}<br>
-                            Nach: ${r.destination}<br>
-                            ${r.cancellationFee ? `<strong>Gebühr: ${r.cancellationFee.toFixed(2)}€</strong><br>` : ''}
-                            ${r.cancellationReason ? `Grund: ${r.cancellationReason}` : ''}
+                            📍 Von: ${r.pickup}<br>
+                            🎯 Nach: ${r.destination}<br>
+                            ${abholZeit}
+                            💰 Preis: ${r.price || '?'}€<br>
+                            ${r.cancellationFee ? `<strong style="color:#dc2626;">💶 Stornogebühr: ${r.cancellationFee.toFixed(2)}€</strong><br>` : ''}
+                            ❌ Storniert: ${stornoZeit}<br>
+                            ${r.cancellationReason ? `📝 Grund: ${r.cancellationReason}` : ''}
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
                 
                 document.getElementById('cancelled-rides').innerHTML = html;
             }
@@ -1586,8 +1623,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.20.7';
-        const APP_BUILD = '20251127-GPS-RELIABLE';
+        const APP_VERSION = '5.21.1';
+        const APP_BUILD = '20251127-AUTH-DEBUG';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -2688,7 +2725,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.20.7 gestartet');
+        console.log('🚀 Taxi App v5.21.1 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -2887,18 +2924,40 @@
                     
                     // 🔐 Firebase Auth initialisieren mit LOCAL Persistence
                     auth = firebase.auth();
+                    
+                    // 🆕 v5.21.0: ERST Persistence setzen, DANN Observer!
                     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
                         console.log('✅ Auth Persistence: LOCAL');
+                        
+                        // Jetzt erst den Observer starten!
+                        auth.onAuthStateChanged((user) => {
+                            console.log('🔐 Auth State Changed:', user ? user.email : 'KEIN USER');
+                            
+                            // 📜 PROTOKOLL im Live-Log
+                            if (user) {
+                                logActivity('system', 'auth', `🔐 User eingeloggt: ${user.email || user.phoneNumber}`, {
+                                    email: user.email,
+                                    phone: user.phoneNumber,
+                                    uid: user.uid
+                                });
+                                onUserLoggedIn(user);
+                            } else {
+                                logActivity('system', 'auth', `🔐 User ausgeloggt`, {});
+                                onUserLoggedOut();
+                            }
+                        });
+                        
                     }).catch((error) => {
                         console.error('❌ Persistence Fehler:', error);
-                    });
-                    
-                    auth.onAuthStateChanged((user) => {
-                        if (user) {
-                            onUserLoggedIn(user);
-                        } else {
-                            onUserLoggedOut();
-                        }
+                        
+                        // Fallback: Observer trotzdem starten
+                        auth.onAuthStateChanged((user) => {
+                            if (user) {
+                                onUserLoggedIn(user);
+                            } else {
+                                onUserLoggedOut();
+                            }
+                        });
                     });
                     
                     db.ref('.info/connected').on('value', (s) => { 
@@ -2920,6 +2979,26 @@
                             const r = c.val();
                             r.firebaseId = c.key;
                             rides.push(r);
+                            
+                            // 🆕 v5.20.7: Ignoriere kürzlich stornierte Fahrten KOMPLETT!
+                            if (recentlyCancelledRideIds && recentlyCancelledRideIds.has(r.firebaseId)) {
+                                console.log('🛡️ Ignoriere stornierte Fahrt:', r.firebaseId);
+                                return; // Überspringen!
+                            }
+                            
+                            // 🆕 v5.20.8: Prüfe ob mir ZUGEWIESENE Fahrt storniert wurde
+                            if (currentVehicle && r.assignedTo === currentVehicle && currentView === 'driver') {
+                                const cancelledStatuses = ['storniert', 'cancelled', 'cancelled_pending_driver'];
+                                if (cancelledStatuses.includes(r.status)) {
+                                    // Prüfe ob wir das schon gemeldet haben (mit Set)
+                                    if (!shownCancelAlarmIds.has(r.firebaseId)) {
+                                        shownCancelAlarmIds.add(r.firebaseId);
+                                        console.log('🚨 Mir zugewiesene Fahrt wurde storniert:', r.firebaseId);
+                                        showCancellationAlarm(r);
+                                    }
+                                }
+                            }
+                            
                             if (myCurrentRide && r.id === myCurrentRide.id) {
                                 // 🆕 v5.20.4: Prüfe ALLE Stornierung-Status!
                                 const cancelledStatuses = ['storniert', 'cancelled', 'cancelled_pending_driver'];
@@ -2968,16 +3047,14 @@
                                     // 🆕 v5.20.4: Formular zurücksetzen
                                     resetBookingForm();
                                     
-                                    // Zeige wieder verfügbare Fahrten
+                                    // 🆕 v5.20.8: Zeige VISUELLEN Stornierung-Alarm für Fahrer!
                                     if (currentView === 'driver') {
-                                        // Alert für Fahrer
-                                        alert('⚠️ STORNIERUNG!\n\nDer Fahrgast hat die Fahrt storniert.\n\n' + 
-                                              'Von: ' + r.pickup + '\n' +
-                                              'Nach: ' + r.destination);
+                                        showCancellationAlarm(r);
                                         updateDriverView();
                                     }
                                     
                                     // WICHTIG: Nicht weitermachen!
+                                    return;
                                     return;
                                 }
                                 
@@ -4568,12 +4645,19 @@
         
         // 🆕 v5.20.4: TELEGRAM AN FAHRER BEI STORNIERUNG
         async function sendTelegramToDriverCancel(vehicleId, message) {
-            if (!isFirebaseReady) return false;
+            console.log('📱 sendTelegramToDriverCancel gestartet für:', vehicleId);
+            
+            if (!isFirebaseReady) {
+                console.log('❌ Firebase nicht bereit!');
+                return false;
+            }
             
             try {
                 // Hole Fahrer-Daten aus Firebase
                 const driverSnapshot = await db.ref('drivers/' + vehicleId).once('value');
                 const driverData = driverSnapshot.val();
+                
+                console.log('📊 Fahrer-Daten:', driverData ? 'gefunden' : 'NICHT gefunden', driverData);
                 
                 if (!driverData) {
                     console.log('⚠️ Keine Fahrer-Daten für:', vehicleId);
@@ -4581,17 +4665,21 @@
                 }
                 
                 const userId = driverData.userId;
+                console.log('👤 userId:', userId);
+                
                 let chatId = null;
                 
                 // Chat-ID vom USER holen
                 if (userId) {
                     const userSnapshot = await db.ref('users/' + userId + '/telegramChatId').once('value');
                     chatId = userSnapshot.val();
+                    console.log('📱 Chat-ID von User:', chatId);
                 }
                 
                 // Fallback: Chat-ID vom Fahrzeug
                 if (!chatId && driverData.telegramChatId) {
                     chatId = driverData.telegramChatId;
+                    console.log('📱 Chat-ID von Fahrzeug (Fallback):', chatId);
                 }
                 
                 if (!chatId) {
@@ -4599,10 +4687,19 @@
                     return false;
                 }
                 
+                console.log('📤 Sende Telegram an Chat-ID:', chatId);
                 const success = await sendTelegramMessage(chatId, message);
                 
                 if (success) {
-                    console.log('✅ Stornierung-Telegram an Fahrer gesendet:', vehicleId);
+                    console.log('✅ Stornierung-Telegram an Fahrer gesendet:', vehicleId, chatId);
+                    
+                    // Protokoll
+                    logActivity('system', 'telegram_cancel', `📱 Stornierung an Fahrer: ${vehicleId}`, {
+                        vehicleId: vehicleId,
+                        chatId: chatId
+                    });
+                } else {
+                    console.log('❌ Telegram senden fehlgeschlagen!');
                 }
                 
                 return success;
@@ -6281,9 +6378,22 @@
         function listenToMyRide(rideId) {
             if (!isFirebaseReady) return;
             
+            // 🆕 v5.20.7: Nicht zuhören wenn kürzlich storniert!
+            if (recentlyCancelledRideIds && recentlyCancelledRideIds.has(rideId)) {
+                console.log('🛡️ Höre NICHT auf stornierte Fahrt:', rideId);
+                return;
+            }
+            
             console.log('👂 Höre auf Änderungen für Fahrt:', rideId);
             
             db.ref('rides/' + rideId).on('value', (s) => {
+                // 🆕 v5.20.7: Nochmal prüfen bei jedem Update!
+                if (recentlyCancelledRideIds && recentlyCancelledRideIds.has(rideId)) {
+                    console.log('🛡️ Ignoriere Update für stornierte Fahrt:', rideId);
+                    db.ref('rides/' + rideId).off();
+                    return;
+                }
+                
                 const ride = s.val();
                 if (ride) {
                     ride.firebaseId = rideId;
@@ -6322,6 +6432,12 @@
 
         // 🛡️ Schutz gegen Doppelklick
         let cancelInProgress = false;
+        
+        // 🆕 v5.20.7: Set für kürzlich stornierte Fahrten (verhindert Wieder-Anzeige)
+        const recentlyCancelledRideIds = new Set();
+        
+        // 🆕 v5.20.9: Set für bereits angezeigte Stornierung-Alarme
+        const shownCancelAlarmIds = new Set();
         
         async function cancelRideConfirm(rideId) {
             // 🛡️ Verhindere Doppelklick
@@ -6388,12 +6504,18 @@
             
             // 🆕 VEREINFACHT: Direkt auf 'cancelled' setzen - Fahrer wird nur benachrichtigt, muss nicht bestätigen
             if (isFirebaseReady && rideId) {
+                // 🆕 v5.20.7: SOFORT zur cancelled-Liste hinzufügen BEVOR alles andere!
+                recentlyCancelledRideIds.add(rideId);
+                console.log('🛡️ Ride-ID zu cancelled-Set hinzugefügt:', rideId);
+                
                 // 🆕 v5.20.4: ZUERST alle Listener stoppen!
                 db.ref('rides/' + rideId).off();
                 console.log('🛑 Listener für Fahrt gestoppt:', rideId);
                 
                 // 🆕 v5.20.4: TELEGRAM AN FAHRER BEI STORNIERUNG!
                 if (ride && ride.assignedTo) {
+                    console.log('📱 Versuche Stornierung-Telegram zu senden an:', ride.assignedTo);
+                    
                     const cancelMessage = `🚫 <b>FAHRT STORNIERT!</b>\n\n` +
                         `👤 Kunde: ${ride.customerName}\n` +
                         `📍 Von: ${ride.pickup}\n` +
@@ -6402,9 +6524,19 @@
                         `❌ Der Kunde hat die Fahrt storniert.` +
                         (hasCancellationFee ? `\n💶 Stornogebühr: ${cancellationFee}€` : '');
                     
-                    // Hole Fahrer-Telegram-ID und sende
-                    sendTelegramToDriverCancel(ride.assignedTo, cancelMessage);
-                    console.log('📱 Stornierung an Fahrer gesendet:', ride.assignedTo);
+                    // 🆕 v5.20.9: Mit await und besserem Error-Handling!
+                    try {
+                        const telegramSuccess = await sendTelegramToDriverCancel(ride.assignedTo, cancelMessage);
+                        if (telegramSuccess) {
+                            console.log('✅ Stornierung-Telegram erfolgreich gesendet!');
+                        } else {
+                            console.log('⚠️ Stornierung-Telegram konnte nicht gesendet werden');
+                        }
+                    } catch (telegramError) {
+                        console.error('❌ Telegram Fehler:', telegramError);
+                    }
+                } else {
+                    console.log('ℹ️ Keine assignedTo für Telegram - Fahrt war nicht zugewiesen');
                 }
                 
                 await updateRide(rideId, {
@@ -11352,6 +11484,109 @@ Stack: ${err.stack}
             }
         }
         
+        // 🆕 v5.20.8: STORNIERUNG-ALARM FÜR FAHRER
+        function showCancellationAlarm(ride) {
+            if (!ride) return;
+            
+            console.log('🚨 Zeige Stornierung-Alarm für:', ride.id);
+            
+            // Vibration
+            if (navigator.vibrate) {
+                navigator.vibrate([500, 200, 500, 200, 500]); // SOS Pattern
+            }
+            
+            // Sound
+            playDriverNotificationSound();
+            
+            // 🚨 FULLSCREEN STORNIERUNG-ALARM
+            const overlay = document.createElement('div');
+            overlay.id = 'cancellation-alarm-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(220, 38, 38, 0.95);
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+                animation: pulseRed 0.5s ease-in-out infinite alternate;
+            `;
+            
+            // Animation CSS hinzufügen
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes pulseRed {
+                    from { background: rgba(220, 38, 38, 0.9); }
+                    to { background: rgba(185, 28, 28, 0.95); }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            overlay.innerHTML = `
+                <div style="text-align: center; color: white; max-width: 400px;">
+                    <div style="font-size: 80px; margin-bottom: 20px;">🚫</div>
+                    <div style="font-size: 28px; font-weight: bold; margin-bottom: 20px;">
+                        FAHRT STORNIERT!
+                    </div>
+                    
+                    <div style="
+                        background: rgba(255,255,255,0.15);
+                        padding: 20px;
+                        border-radius: 12px;
+                        margin-bottom: 25px;
+                        text-align: left;
+                    ">
+                        ${ride.customerName ? `<div style="font-size: 18px; margin-bottom: 10px;">👤 ${ride.customerName}</div>` : ''}
+                        <div style="font-size: 14px; margin-bottom: 8px;">📍 Von: ${ride.pickup}</div>
+                        <div style="font-size: 14px; margin-bottom: 8px;">🎯 Nach: ${ride.destination}</div>
+                        <div style="font-size: 16px; font-weight: bold;">💰 ${ride.price}€</div>
+                    </div>
+                    
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 25px;">
+                        Der Kunde hat die Fahrt storniert.
+                    </div>
+                    
+                    <button onclick="closeCancellationAlarm()" style="
+                        padding: 15px 40px;
+                        background: white;
+                        color: #dc2626;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 18px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">
+                        ✓ Verstanden
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            
+            // Auch im Aktivitäts-Protokoll loggen
+            logActivity('status', 'cancel_alert', `🚨 Stornierung-Alarm: ${ride.customerName || 'Kunde'}`, {
+                customer: ride.customerName,
+                from: ride.pickup,
+                to: ride.destination,
+                price: ride.price
+            });
+        }
+        
+        function closeCancellationAlarm() {
+            const overlay = document.getElementById('cancellation-alarm-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+            // Aktualisiere stornierte Fahrten Liste
+            loadCancelledRides();
+            updateViews();
+        }
+        
         // 🚕 FULLSCREEN POPUP FUNKTIONEN
         function showNewRideFullscreen() {
             if (!currentVehicle) return;
@@ -13103,10 +13338,20 @@ Stack: ${err.stack}
         }
         
         function onUserLoggedOut() {
+            // 🆕 v5.21.0: Stack Trace um zu sehen WOHER der Logout kommt
+            console.log('👤 onUserLoggedOut aufgerufen');
+            console.trace('📍 Logout Stack Trace:');
+            
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
-                logActivity('system', 'logout', `Logout: ${currentUser.email}`, {
-                    email: currentUser.email
+                logActivity('system', 'logout', `🔐 Logout: ${currentUser.email}`, {
+                    email: currentUser.email,
+                    reason: 'auth_state_changed'
+                });
+            } else {
+                // User war schon null - unerwarteter Logout!
+                logActivity('system', 'logout', `⚠️ Unerwarteter Logout (User war bereits null)`, {
+                    reason: 'unexpected'
                 });
             }
             
@@ -13327,6 +13572,18 @@ Stack: ${err.stack}
                 } else {
                     // App wieder sichtbar
                     console.log('📱 App wieder sichtbar');
+                    
+                    // 🆕 v5.21.0: Auth-Status prüfen und loggen!
+                    if (auth && auth.currentUser) {
+                        console.log('✅ User noch eingeloggt:', auth.currentUser.email);
+                        logActivity('system', 'visibility', `📱 App wieder aktiv - User: ${auth.currentUser.email}`, {});
+                    } else if (auth) {
+                        console.log('⚠️ User ist NICHT mehr eingeloggt!');
+                        logActivity('system', 'visibility', `⚠️ App wieder aktiv - KEIN USER!`, {});
+                        
+                        // Versuche Session wiederherzustellen
+                        console.log('🔄 Versuche Auth-Session wiederherzustellen...');
+                    }
                     
                     // 🆕 v5.20.6: SOFORT GPS senden wenn App wieder aufwacht!
                     if (isOnline && currentVehicle) {

@@ -2991,11 +2991,13 @@
                             if (currentVehicle && r.assignedTo === currentVehicle && currentView === 'driver') {
                                 const cancelledStatuses = ['storniert', 'cancelled', 'cancelled_pending_driver'];
                                 if (cancelledStatuses.includes(r.status)) {
-                                    // Prüfe ob wir das schon gemeldet haben (mit Set)
-                                    if (!shownCancelAlarmIds.has(r.firebaseId)) {
-                                        shownCancelAlarmIds.add(r.firebaseId);
+                                    // Prüfe ob wir das schon gemeldet haben (PERSISTENT!)
+                                    if (!hasShownCancelAlarm(r.firebaseId)) {
+                                        saveShownCancelAlarm(r.firebaseId);
                                         console.log('🚨 Mir zugewiesene Fahrt wurde storniert:', r.firebaseId);
                                         showCancellationAlarm(r);
+                                    } else {
+                                        console.log('🛡️ Stornierung bereits gezeigt (Skip):', r.firebaseId);
                                     }
                                 }
                             }
@@ -3050,7 +3052,13 @@
                                     
                                     // 🆕 v5.20.8: Zeige VISUELLEN Stornierung-Alarm für Fahrer!
                                     if (currentView === 'driver') {
-                                        showCancellationAlarm(r);
+                                        // Prüfe ob wir diesen Alarm schon gezeigt haben
+                                        if (!hasShownCancelAlarm(r.firebaseId)) {
+                                            saveShownCancelAlarm(r.firebaseId);
+                                            showCancellationAlarm(r);
+                                        } else {
+                                            console.log('🛡️ Stornierung bereits gezeigt (Skip):', r.firebaseId);
+                                        }
                                         updateDriverView();
                                     }
                                     
@@ -6480,8 +6488,48 @@
         // 🆕 v5.20.7: Set für kürzlich stornierte Fahrten (verhindert Wieder-Anzeige)
         const recentlyCancelledRideIds = new Set();
         
-        // 🆕 v5.20.9: Set für bereits angezeigte Stornierung-Alarme
-        const shownCancelAlarmIds = new Set();
+        // 🆕 v5.21.9: PERSISTENT Set für bereits angezeigte Stornierung-Alarme
+        function loadShownCancelAlarms() {
+            try {
+                const stored = localStorage.getItem('shownCancelAlarmIds');
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    // Lösche Einträge älter als 7 Tage
+                    const now = Date.now();
+                    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+                    Object.keys(data).forEach(key => {
+                        if (now - data[key] > sevenDays) {
+                            delete data[key];
+                        }
+                    });
+                    localStorage.setItem('shownCancelAlarmIds', JSON.stringify(data));
+                    return data;
+                }
+            } catch (e) {
+                console.error('❌ Fehler beim Laden von shownCancelAlarmIds:', e);
+            }
+            return {};
+        }
+        
+        function saveShownCancelAlarm(rideId) {
+            try {
+                const data = loadShownCancelAlarms();
+                data[rideId] = Date.now();
+                localStorage.setItem('shownCancelAlarmIds', JSON.stringify(data));
+                console.log('✅ Stornierung-Alarm gespeichert:', rideId);
+            } catch (e) {
+                console.error('❌ Fehler beim Speichern von shownCancelAlarmIds:', e);
+            }
+        }
+        
+        function hasShownCancelAlarm(rideId) {
+            const data = loadShownCancelAlarms();
+            return !!data[rideId];
+        }
+        
+        // Initialisiere beim App-Start
+        console.log('📦 Lade gespeicherte Stornierung-Alarme...');
+        loadShownCancelAlarms();
         
         async function cancelRideConfirm(rideId) {
             // 🛡️ Verhindere Doppelklick

@@ -429,7 +429,7 @@ const DriverSettingsManager = {
                     ✅ Position-Updates<br>
                     ✅ Neue Aufträge (Vibration)
                     <br><br>
-                    <strong>Tippe Screen um zurückzukommen</strong>
+                    <strong>👆 Button unten zum Aufwecken</strong>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <button onclick="DriverSettingsManager.cancelScreenOff()" style="
@@ -472,6 +472,17 @@ const DriverSettingsManager = {
         const dialog = document.getElementById('screen-off-confirmation');
         if (dialog) dialog.remove();
         
+        // 🔒 IMMERSIVE MODE - Vollbild aktivieren
+        const enterFullscreen = () => {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(err => console.log('Fullscreen nicht möglich:', err));
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            }
+        };
+        enterFullscreen();
+        
         // Screen komplett schwarz
         const blackScreen = document.createElement('div');
         blackScreen.id = 'black-screen';
@@ -484,33 +495,96 @@ const DriverSettingsManager = {
             background: #000;
             z-index: 999999;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
         `;
         
         blackScreen.innerHTML = `
             <div style="
-                color: #333;
+                color: #222;
                 text-align: center;
-                font-size: 13px;
+                font-size: 12px;
                 padding: 20px;
+                flex: 1;
+                display: flex;
+                align-items: center;
+                pointer-events: none;
             ">
-                GPS läuft...<br>
-                <small>Tippe zum Zurückkommen</small>
+                📍 GPS aktiv...
+            </div>
+            
+            <!-- Wake-Up Zone - NUR dieser Button weckt auf -->
+            <div id="wake-up-zone" style="
+                width: 200px;
+                height: 60px;
+                background: rgba(255,255,255,0.1);
+                border: 2px solid rgba(255,255,255,0.3);
+                border-radius: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 50px;
+                cursor: pointer;
+            ">
+                <span style="color: rgba(255,255,255,0.5); font-size: 14px;">
+                    👆 Aufwecken
+                </span>
             </div>
         `;
         
-        // Tippen = Zurück
-        blackScreen.addEventListener('touchstart', () => {
-            blackScreen.remove();
-            console.log('✅ Screen wieder an');
-        });
-        
         document.body.appendChild(blackScreen);
         
+        // Wake-Up Funktion
+        const wakeUp = () => {
+            // Entferne Visibility-Listener
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            
+            // Beende Fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+            
+            blackScreen.remove();
+            console.log('✅ Screen aufgeweckt');
+            if (navigator.vibrate) navigator.vibrate(50);
+        };
+        
+        // NUR der Wake-Up Button reagiert auf Touch
+        const wakeZone = document.getElementById('wake-up-zone');
+        wakeZone.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            wakeUp();
+        });
+        
+        // 🔋 POWER BUTTON PROTECTION
+        // Wenn User Power drückt und zurückkommt → schwarzer Screen bleibt!
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log('📱 App wieder sichtbar - schwarzer Screen bleibt aktiv');
+                
+                // Fullscreen erneut aktivieren (falls verloren)
+                setTimeout(() => {
+                    if (document.getElementById('black-screen')) {
+                        enterFullscreen();
+                    }
+                }, 100);
+                
+                // Wake Lock reaktivieren
+                if (typeof requestWakeLock === 'function') {
+                    requestWakeLock();
+                }
+            }
+        };
+        
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        
         // GPS läuft weiter!
+        // Wake Lock bleibt aktiv!
         // Neue Aufträge kommen an (Vibration)
-        // Position wird gesendet
+        console.log('🔒 Sleep-Mode aktiv - Power-Button wird abgefangen');
     },
     
     // ═══════════════════════════════════════════════════════════════════════

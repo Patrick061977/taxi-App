@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.25.1 - Build 20251129-1445');
+        console.log('🚕 Funk Taxi App v5.25.1 - Build 20251129-1455');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.25.1 - Full Cleanup 🧹 (Build 20251129-1445)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.25.7 - Zeitstempel überall 🚫 (Build 20251129-1455)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -761,20 +761,43 @@
                     return;
                 }
                 
-                let html = completed.map(r => `
+                // 🆕 v5.25.6: Mit Zeitstempel anzeigen
+                let html = completed.map(r => {
+                    // Buchungszeit formatieren
+                    let buchungZeit = '?';
+                    if (r.timestamp || r.createdAt) {
+                        const bookingDate = new Date(r.timestamp || r.createdAt);
+                        buchungZeit = bookingDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    // Abschlusszeit formatieren
+                    let abschlussZeit = '?';
+                    if (r.completedAt) {
+                        const completeDate = new Date(r.completedAt);
+                        abschlussZeit = completeDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    return `
                     <div class="ride-card" style="background:#f0fdf4;border-left:4px solid #10b981;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <strong>#${r.id}</strong>
+                            <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
                             <span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">✅ Fertig</span>
                         </div>
                         ${r.customerName ? `<div style="font-weight:600;color:#065f46;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
                         <div style="font-size:13px;color:#666;">
                             Von: ${r.pickup}<br>
                             Nach: ${r.destination}<br>
-                            Preis: <strong>${r.price}€</strong> • ${r.distance} km
+                            Preis: <strong>${r.price}€</strong> • ${r.distance} km<br>
+                            <span style="font-size:11px;color:#10b981;">✅ Abgeschlossen: ${abschlussZeit}</span>
                         </div>
                     </div>
-                `).join('');
+                `}).join('');
                 
                 document.getElementById('completed-rides').innerHTML = html;
             }
@@ -3772,11 +3795,19 @@
                 document.getElementById('driver-route-info').style.display = 'block';
                 document.getElementById('driver-ready').style.display = 'none';
                 
-                // Fahrt Info im Bottom Panel
-                let rideInfo = `#${current.id}`;
-                if (current.customerName) rideInfo += ` • ${current.customerName}`;
-                rideInfo += ` → ${current.destination}`;
-                if (current.price) rideInfo += ` • ${current.price}€`;
+                // Fahrt Info im Bottom Panel - mit Zeitstempel
+                let rideInfo = '';
+                
+                // Buchungszeit formatieren
+                if (current.createdAt || current.timestamp) {
+                    const bookingDate = new Date(current.createdAt || current.timestamp);
+                    const timeStr = bookingDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    rideInfo += `<span style="font-size:11px;color:#888;">📅 ${timeStr}</span> • `;
+                }
+                
+                if (current.customerName) rideInfo += `👤 ${current.customerName} • `;
+                rideInfo += `→ ${current.destination}`;
+                if (current.price) rideInfo += ` • 💰 ${current.price}€`;
                 
                 document.getElementById('driver-current-ride').innerHTML = rideInfo;
                 

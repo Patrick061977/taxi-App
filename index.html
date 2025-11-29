@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.24.8 - Build 20251129-1130');
+        console.log('🚕 Funk Taxi App v5.24.9 - Build 20251129-1140');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.8 - Storno-Alarm deaktiviert 🔇 (Build 20251129-1130)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.9 - Stuck-Ride Cleanup 🧹 (Build 20251129-1140)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -2122,7 +2122,7 @@
             if (currentHistoryTab === 'upcoming') {
                 // 📅 KOMMENDE FAHRTEN: vorbestellt, new, accepted, picked_up, etc.
                 filteredRides = allRides.filter(r => {
-                    const activeStatuses = ['vorbestellt', 'new', 'accepted', 'picked_up', 'akzeptiert', 'unterwegs', 'angekommen', 'assigned_to_driver'];
+                    const activeStatuses = ['vorbestellt', 'new', 'accepted', 'picked_up', 'akzeptiert', 'unterwegs', 'angekommen', 'assigned_to_driver', 'assigned'];
                     return activeStatuses.includes(r.status);
                 }).sort((a, b) => (a.pickupTimestamp || a.createdAt) - (b.pickupTimestamp || b.createdAt));
             } else {
@@ -3064,6 +3064,52 @@
                 console.log('🔇 Audio nicht verfügbar');
             }
         }
+        
+        // 🧹 v5.24.8: CLEANUP für hängende 'assigned' Fahrten
+        async function cleanupStuckAssignedRides() {
+            if (!db) return;
+            
+            try {
+                const snapshot = await db.ref('rides').orderByChild('status').equalTo('assigned').once('value');
+                const stuckRides = snapshot.val();
+                
+                if (!stuckRides) {
+                    console.log('✅ Keine hängenden assigned Fahrten gefunden');
+                    return;
+                }
+                
+                const now = Date.now();
+                const MAX_ASSIGNED_AGE = 2 * 60 * 1000; // 2 Minuten
+                
+                for (const rideId in stuckRides) {
+                    const ride = stuckRides[rideId];
+                    const assignedAge = now - (ride.assignedAt || 0);
+                    
+                    if (assignedAge > MAX_ASSIGNED_AGE) {
+                        console.log(`🧹 Cleanup: Fahrt ${rideId} hängt seit ${Math.round(assignedAge/1000)}s im assigned Status`);
+                        
+                        // Zurücksetzen auf 'new'
+                        await db.ref('rides/' + rideId).update({
+                            status: 'new',
+                            assignedTo: null,
+                            assignedVehicleName: null,
+                            cleanedUp: true,
+                            cleanedUpAt: now
+                        });
+                        
+                        console.log(`✅ Fahrt ${rideId} zurückgesetzt auf 'new'`);
+                        
+                        logActivity('system', 'cleanup', `Hängende Fahrt zurückgesetzt: ${ride.customerName || 'Kunde'}`, {
+                            rideId: rideId,
+                            wasAssignedTo: ride.assignedTo,
+                            stuckFor: Math.round(assignedAge/1000) + 's'
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Cleanup-Fehler:', error);
+            }
+        }
 
         // INIT
         function initApp(hasFirebase) {
@@ -3089,6 +3135,9 @@
                     setTimeout(() => {
                         logActivity('system', 'app_start', 'App gestartet - Firebase verbunden', {});
                     }, 1000);
+                    
+                    // 🧹 CLEANUP: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
+                    setTimeout(() => cleanupStuckAssignedRides(), 2000);
                     
                     // 💰 Preis-Einstellungen aus Firebase laden
                     loadPricingSettings();

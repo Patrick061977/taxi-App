@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.25.1 - Build 20251129-1455');
+        console.log('🚕 Funk Taxi App v5.26.0 - Build 20251129-1510');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.25.7 - Zeitstempel überall 🚫 (Build 20251129-1455)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.26.0 - Telefon-Registrierung 🚫 (Build 20251129-1510)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -328,6 +328,110 @@
     </div>
 
     <!-- 🔔 PUSH DEAKTIVIERT - Telegram übernimmt! -->
+
+    <!-- 🆕 v5.26.0: TELEFON-REGISTRIERUNG / LOGIN SCREEN -->
+    <div id="phone-auth-screen" style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        z-index: 10000;
+        padding: 20px;
+        overflow-y: auto;
+    ">
+        <div style="max-width: 400px; margin: 40px auto;">
+            <!-- Logo & Titel -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
+                <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
+                <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
+            </div>
+            
+            <!-- SCHRITT 1: Telefonnummer eingeben -->
+            <div id="phone-step-1" style="background: white; border-radius: 16px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                <h3 style="margin: 0 0 20px 0; font-size: 18px; text-align: center;">📱 Telefonnummer eingeben</h3>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 13px; color: #666; margin-bottom: 5px;">Deine Handynummer</label>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="phone-country-code" style="padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; width: 90px;">
+                            <option value="+49">🇩🇪 +49</option>
+                            <option value="+43">🇦🇹 +43</option>
+                            <option value="+41">🇨🇭 +41</option>
+                            <option value="+48">🇵🇱 +48</option>
+                        </select>
+                        <input type="tel" id="phone-number-input" placeholder="173 1234567" 
+                            style="flex: 1; padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px;"
+                            oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                    </div>
+                </div>
+                
+                <!-- reCAPTCHA Container -->
+                <div id="recaptcha-container" style="margin-bottom: 15px;"></div>
+                
+                <button onclick="sendVerificationCode()" id="send-code-btn" style="
+                    width: 100%;
+                    padding: 16px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                ">
+                    📤 SMS-Code anfordern
+                </button>
+                
+                <p style="text-align: center; font-size: 12px; color: #999; margin-top: 15px;">
+                    Du erhältst einen 6-stelligen Code per SMS
+                </p>
+            </div>
+            
+            <!-- SCHRITT 2: Code eingeben (anfangs versteckt) -->
+            <div id="phone-step-2" style="display: none; background: white; border-radius: 16px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                <h3 style="margin: 0 0 10px 0; font-size: 18px; text-align: center;">✅ Code eingeben</h3>
+                <p id="phone-sent-to" style="text-align: center; font-size: 13px; color: #666; margin-bottom: 20px;"></p>
+                
+                <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;">
+                    <input type="text" id="code-1" maxlength="1" class="code-input" style="width: 45px; height: 55px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid #e5e7eb; border-radius: 8px;" oninput="moveToNext(this, 'code-2')">
+                    <input type="text" id="code-2" maxlength="1" class="code-input" style="width: 45px; height: 55px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid #e5e7eb; border-radius: 8px;" oninput="moveToNext(this, 'code-3')">
+                    <input type="text" id="code-3" maxlength="1" class="code-input" style="width: 45px; height: 55px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid #e5e7eb; border-radius: 8px;" oninput="moveToNext(this, 'code-4')">
+                    <input type="text" id="code-4" maxlength="1" class="code-input" style="width: 45px; height: 55px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid #e5e7eb; border-radius: 8px;" oninput="moveToNext(this, 'code-5')">
+                    <input type="text" id="code-5" maxlength="1" class="code-input" style="width: 45px; height: 55px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid #e5e7eb; border-radius: 8px;" oninput="moveToNext(this, 'code-6')">
+                    <input type="text" id="code-6" maxlength="1" class="code-input" style="width: 45px; height: 55px; text-align: center; font-size: 24px; font-weight: bold; border: 2px solid #e5e7eb; border-radius: 8px;" oninput="verifyCodeAuto()">
+                </div>
+                
+                <button onclick="verifyCode()" id="verify-code-btn" style="
+                    width: 100%;
+                    padding: 16px;
+                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                ">
+                    ✅ Bestätigen
+                </button>
+                
+                <div style="text-align: center; margin-top: 15px;">
+                    <button onclick="goBackToPhone()" style="background: none; border: none; color: #667eea; font-size: 13px; cursor: pointer;">
+                        ← Andere Nummer verwenden
+                    </button>
+                </div>
+                
+                <div id="resend-timer" style="text-align: center; font-size: 12px; color: #999; margin-top: 10px;"></div>
+            </div>
+            
+            <!-- Error Message -->
+            <div id="phone-auth-error" style="display: none; background: #fef2f2; color: #dc2626; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: center; font-size: 14px;"></div>
+        </div>
+    </div>
 
     <div id="passenger-view" class="view active">
         <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
@@ -3609,6 +3713,15 @@
             }
             
             currentView = view;
+            
+            // 🆕 v5.26.0: Telefon-Auth prüfen bei Fahrgast-Tab
+            if (view === 'passenger') {
+                setTimeout(() => checkPassengerAuth(), 100);
+            } else {
+                // Login-Screen verstecken bei anderen Tabs
+                const authScreen = document.getElementById('phone-auth-screen');
+                if (authScreen) authScreen.style.display = 'none';
+            }
             
             const gpsIndicator = document.getElementById('gps-indicator');
             if (view === 'driver') {
@@ -14400,9 +14513,254 @@ Stack: ${err.stack}
             }
         }
         
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.26.0: TELEFON-AUTHENTIFIZIERUNG
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let phoneConfirmationResult = null;
+        let phoneRecaptchaVerifier = null;
+        let phoneResendTimer = null;
+        
+        // Prüfe ob Fahrgast eingeloggt ist - zeige Login-Screen wenn nicht
+        function checkPassengerAuth() {
+            const user = firebase.auth().currentUser;
+            const authScreen = document.getElementById('phone-auth-screen');
+            
+            // Wenn User eingeloggt ist (egal ob Phone oder Email) → verstecke Login-Screen
+            if (user) {
+                console.log('✅ User eingeloggt:', user.phoneNumber || user.email);
+                if (authScreen) authScreen.style.display = 'none';
+                return true;
+            }
+            
+            // Kein User → zeige Login-Screen nur für Fahrgast-Tab
+            console.log('🔒 Kein User eingeloggt - zeige Login-Screen');
+            if (authScreen && currentView === 'passenger') {
+                authScreen.style.display = 'block';
+                initRecaptcha();
+            }
+            return false;
+        }
+        
+        // reCAPTCHA initialisieren (nötig für Firebase Phone Auth)
+        function initRecaptcha() {
+            if (phoneRecaptchaVerifier) return;
+            
+            try {
+                phoneRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    'size': 'invisible',
+                    'callback': (response) => {
+                        console.log('✅ reCAPTCHA gelöst');
+                    },
+                    'expired-callback': () => {
+                        console.log('⚠️ reCAPTCHA abgelaufen');
+                        phoneRecaptchaVerifier = null;
+                    }
+                });
+                phoneRecaptchaVerifier.render();
+                console.log('✅ reCAPTCHA initialisiert');
+            } catch (error) {
+                console.error('❌ reCAPTCHA Fehler:', error);
+            }
+        }
+        
+        // SMS-Code anfordern
+        async function sendVerificationCode() {
+            const countryCode = document.getElementById('phone-country-code').value;
+            const phoneNumber = document.getElementById('phone-number-input').value.trim();
+            const errorDiv = document.getElementById('phone-auth-error');
+            const sendBtn = document.getElementById('send-code-btn');
+            
+            // Validierung
+            if (!phoneNumber || phoneNumber.length < 6) {
+                errorDiv.textContent = '❌ Bitte gültige Telefonnummer eingeben';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Führende 0 entfernen
+            const cleanNumber = phoneNumber.replace(/^0+/, '');
+            const fullPhoneNumber = countryCode + cleanNumber;
+            
+            console.log('📱 Sende Code an:', fullPhoneNumber);
+            
+            sendBtn.disabled = true;
+            sendBtn.textContent = '⏳ Sende...';
+            errorDiv.style.display = 'none';
+            
+            try {
+                // reCAPTCHA neu initialisieren falls nötig
+                if (!phoneRecaptchaVerifier) {
+                    initRecaptcha();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                phoneConfirmationResult = await firebase.auth().signInWithPhoneNumber(
+                    fullPhoneNumber, 
+                    phoneRecaptchaVerifier
+                );
+                
+                console.log('✅ SMS gesendet!');
+                
+                // Wechsel zu Schritt 2
+                document.getElementById('phone-step-1').style.display = 'none';
+                document.getElementById('phone-step-2').style.display = 'block';
+                document.getElementById('phone-sent-to').textContent = 'Code gesendet an ' + fullPhoneNumber;
+                
+                // Fokus auf erstes Code-Feld
+                document.getElementById('code-1').focus();
+                
+                // Resend-Timer starten
+                startResendTimer();
+                
+            } catch (error) {
+                console.error('❌ SMS Fehler:', error);
+                
+                let errorMessage = '❌ Fehler beim Senden der SMS';
+                if (error.code === 'auth/invalid-phone-number') {
+                    errorMessage = '❌ Ungültige Telefonnummer';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMessage = '❌ Zu viele Versuche. Bitte später erneut versuchen.';
+                } else if (error.code === 'auth/captcha-check-failed') {
+                    errorMessage = '❌ Sicherheitsprüfung fehlgeschlagen. Bitte neu laden.';
+                    phoneRecaptchaVerifier = null;
+                }
+                
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+                
+                sendBtn.disabled = false;
+                sendBtn.textContent = '📤 SMS-Code anfordern';
+            }
+        }
+        
+        // Code-Eingabe: automatisch zum nächsten Feld
+        function moveToNext(current, nextId) {
+            if (current.value.length === 1) {
+                const nextInput = document.getElementById(nextId);
+                if (nextInput) nextInput.focus();
+            }
+        }
+        
+        // Automatisch verifizieren wenn alle 6 Ziffern eingegeben
+        function verifyCodeAuto() {
+            const code = getEnteredCode();
+            if (code.length === 6) {
+                verifyCode();
+            }
+        }
+        
+        // Eingegebenen Code auslesen
+        function getEnteredCode() {
+            let code = '';
+            for (let i = 1; i <= 6; i++) {
+                code += document.getElementById('code-' + i).value;
+            }
+            return code;
+        }
+        
+        // Code verifizieren
+        async function verifyCode() {
+            const code = getEnteredCode();
+            const errorDiv = document.getElementById('phone-auth-error');
+            const verifyBtn = document.getElementById('verify-code-btn');
+            
+            if (code.length !== 6) {
+                errorDiv.textContent = '❌ Bitte 6-stelligen Code eingeben';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = '⏳ Prüfe...';
+            errorDiv.style.display = 'none';
+            
+            try {
+                const result = await phoneConfirmationResult.confirm(code);
+                console.log('✅ Telefon verifiziert!', result.user);
+                
+                // Login-Screen verstecken
+                document.getElementById('phone-auth-screen').style.display = 'none';
+                
+                // Telefonnummer ins Formular übernehmen
+                const phoneField = document.getElementById('customer-phone');
+                if (phoneField && result.user.phoneNumber) {
+                    phoneField.value = result.user.phoneNumber;
+                }
+                
+                // Erfolgs-Meldung
+                alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
+                
+            } catch (error) {
+                console.error('❌ Code-Fehler:', error);
+                
+                let errorMessage = '❌ Falscher Code';
+                if (error.code === 'auth/invalid-verification-code') {
+                    errorMessage = '❌ Falscher Code. Bitte erneut versuchen.';
+                } else if (error.code === 'auth/code-expired') {
+                    errorMessage = '❌ Code abgelaufen. Bitte neuen Code anfordern.';
+                }
+                
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+                
+                // Code-Felder leeren
+                for (let i = 1; i <= 6; i++) {
+                    document.getElementById('code-' + i).value = '';
+                }
+                document.getElementById('code-1').focus();
+                
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = '✅ Bestätigen';
+            }
+        }
+        
+        // Zurück zu Schritt 1
+        function goBackToPhone() {
+            document.getElementById('phone-step-1').style.display = 'block';
+            document.getElementById('phone-step-2').style.display = 'none';
+            document.getElementById('phone-auth-error').style.display = 'none';
+            document.getElementById('send-code-btn').disabled = false;
+            document.getElementById('send-code-btn').textContent = '📤 SMS-Code anfordern';
+            
+            // Code-Felder leeren
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById('code-' + i).value = '';
+            }
+            
+            // Timer stoppen
+            if (phoneResendTimer) {
+                clearInterval(phoneResendTimer);
+            }
+        }
+        
+        // Resend-Timer (60 Sekunden warten)
+        function startResendTimer() {
+            let seconds = 60;
+            const timerDiv = document.getElementById('resend-timer');
+            
+            if (phoneResendTimer) clearInterval(phoneResendTimer);
+            
+            phoneResendTimer = setInterval(() => {
+                seconds--;
+                if (seconds > 0) {
+                    timerDiv.textContent = `Neuen Code anfordern in ${seconds}s`;
+                } else {
+                    clearInterval(phoneResendTimer);
+                    timerDiv.innerHTML = '<button onclick="goBackToPhone()" style="background:none;border:none;color:#667eea;cursor:pointer;text-decoration:underline;">📤 Neuen Code anfordern</button>';
+                }
+            }, 1000);
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+
         async function onUserLoggedIn(user) {
             console.log('👤 User eingeloggt:', user.email || user.phoneNumber);
             currentUser = user;
+            
+            // 🆕 v5.26.0: Login-Screen verstecken
+            const authScreen = document.getElementById('phone-auth-screen');
+            if (authScreen) authScreen.style.display = 'none';
             
             // 🧹 CLEANUP: Alte Fahrzeuge dieses Users offline setzen
             if (isFirebaseReady) {

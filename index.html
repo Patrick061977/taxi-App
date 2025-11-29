@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.24.0 - Build 20251129-DRIVER-SETTINGS');
-        console.log('📡 FIX: Keine Endlos-Zuweisung + nur neue Stornierungen');
+        console.log('🚕 Funk Taxi App v5.24.1 - Build 20251129-1027');
+        console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -262,7 +262,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.0 - Driver Settings ⚙️ (Build 20251129)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.1 - Integration Complete ✅ (Build 20251129-1027)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3374,6 +3374,11 @@
                 // 🔋 Initialisiere Batterie-Spar-System
                 if (typeof PowerSaveManager !== 'undefined') {
                     setTimeout(() => PowerSaveManager.init(), 500);
+                }
+                
+                // ⚙️ Initialisiere Driver-Settings-Manager
+                if (typeof DriverSettingsManager !== 'undefined' && currentVehicle) {
+                    setTimeout(() => DriverSettingsManager.init(currentVehicle), 500);
                 }
                 
                 // 🎯 AUTO-START GPS beim Öffnen der Fahrer-Ansicht!
@@ -6791,6 +6796,26 @@
                 powerButton.onclick = () => this.cyclePowerMode();
                 topBar.appendChild(powerButton);
                 
+                // Settings-Button
+                const settingsBtn = document.createElement('button');
+                settingsBtn.id = 'settings-btn';
+                settingsBtn.style.cssText = `
+                    background: #6b7280;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 20px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                `;
+                settingsBtn.innerHTML = '⚙️';
+                settingsBtn.onclick = () => DriverSettingsManager.showSettingsDialog();
+                topBar.appendChild(settingsBtn);
+                
                 // Warnung-Overlay (versteckt)
                 const warning = document.createElement('div');
                 warning.id = 'power-save-warning';
@@ -7802,6 +7827,11 @@
             // 🆕 v5.18.0: Telegram-ID für dieses Fahrzeug laden
             if (currentVehicle) {
                 loadDriverTelegramId();
+                
+                // ⚙️ v5.24.0: Driver-Settings laden
+                if (typeof DriverSettingsManager !== 'undefined') {
+                    DriverSettingsManager.init(currentVehicle);
+                }
             }
             
             updateViews();
@@ -14618,6 +14648,10 @@ Stack: ${err.stack}
             <div class="modal-link" onclick="closeRegisterModal()">Abbrechen</div>
         </div>
     </div>
+
+    <!-- 📱 v5.24.0: External JavaScript -->
+    <script src="improved-gps-tracking.js"></script>
+    <script src="driver-settings-manager.js"></script>
 
 </body>
 </html>

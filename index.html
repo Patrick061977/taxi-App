@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.24.1 - Build 20251129-1027');
+        console.log('🚕 Funk Taxi App v5.24.2 - Build 20251129-0946');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -131,14 +131,53 @@
                 min-height: 50px;
             }
             
-            /* Fahrer-Ansicht - größere Buttons */
-            #power-save-btn,
-            #battery-btn,
+            /* 🔧 FIX: Driver Top-Bar auf Mobile - flex-wrap aktivieren */
+            #driver-top-bar {
+                flex-wrap: wrap !important;
+                gap: 6px !important;
+                padding: 8px !important;
+            }
+            
+            /* Batterie-Display auf der rechten Seite der ersten Zeile halten */
+            #battery-display {
+                margin-left: auto !important;
+                order: 10 !important;
+            }
+            
+            /* Power-Save und Settings in neuer Zeile auf voller Breite */
+            #power-save-btn {
+                order: 11 !important;
+                flex: 1 !important;
+                justify-content: center !important;
+                min-width: 45% !important;
+            }
+            
             #settings-btn {
-                padding: 10px 16px !important;
-                font-size: 16px !important;
-                min-width: 50px;
-                min-height: 44px;
+                order: 12 !important;
+                flex: 0 !important;
+                min-width: 50px !important;
+            }
+            
+            /* Fahrzeug-Select nicht zu breit */
+            #vehicle {
+                max-width: 80px !important;
+                flex: 0 0 auto !important;
+            }
+            
+            /* Stats kompakter */
+            #driver-top-bar > div[style*="font-size: 10px"] {
+                font-size: 11px !important;
+                white-space: nowrap !important;
+            }
+            
+            /* Online Toggle kleiner auf Mobile */
+            #driver-top-bar .toggle-switch {
+                transform: scale(0.55) !important;
+            }
+            
+            /* Menu Button */
+            #driver-top-bar button[onclick*="toggleDebugPanel"] {
+                padding: 6px 8px !important;
             }
             
             /* Input-Felder größer */
@@ -262,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.1 - Integration Complete ✅ (Build 20251129-1027)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.2 - Mobile Layout Fix 📱 (Build 20251129-0946)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>

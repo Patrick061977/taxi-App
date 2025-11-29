@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.24.7 - Build 20251129-1125');
+        console.log('🚕 Funk Taxi App v5.24.8 - Build 20251129-1130');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.7 - Duplikat-Fix 🔧 (Build 20251129-1125)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.8 - Storno-Alarm deaktiviert 🔇 (Build 20251129-1130)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -3231,6 +3231,8 @@
                                     resetBookingForm();
                                     
                                     // 🆕 v5.20.8: Zeige VISUELLEN Stornierung-Alarm für Fahrer!
+                                    // ⚠️ v5.24.7: DEAKTIVIERT - löst Spam aus bei App-Start
+                                    /*
                                     if (currentView === 'driver') {
                                         // Prüfe ob wir diesen Alarm schon gezeigt haben
                                         if (!hasShownCancelAlarm(r.firebaseId)) {
@@ -3239,6 +3241,10 @@
                                         } else {
                                             console.log('🛡️ Stornierung bereits gezeigt (Skip):', r.firebaseId);
                                         }
+                                        updateDriverView();
+                                    }
+                                    */
+                                    if (currentView === 'driver') {
                                         updateDriverView();
                                     }
                                     

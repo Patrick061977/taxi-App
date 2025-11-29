@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.24.9 - Build 20251129-1140');
+        console.log('🚕 Funk Taxi App v5.25.1 - Build 20251129-1200');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.9 - Stuck-Ride Cleanup 🧹 (Build 20251129-1140)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.25.1 - Full Cleanup 🧹 (Build 20251129-1200)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -1330,6 +1330,25 @@
 
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
+        
+        <!-- 🚨 NEU: AKTIVE FAHRTEN ÜBERSICHT -->
+        <div onclick="toggleAdminSection('activerides')" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🚨 Aktive Fahrten <span id="active-rides-count" style="background:white;color:#d97706;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+            <span id="activerides-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="activerides-content" style="display:none;margin-bottom:20px;">
+            <div style="display:flex;gap:10px;margin-bottom:10px;">
+                <button onclick="loadActiveRides()" style="padding:10px 15px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔄 Aktualisieren
+                </button>
+                <button onclick="cleanupAllStuckRides()" style="padding:10px 15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🧹 Hängende zurücksetzen
+                </button>
+            </div>
+            <div id="active-rides-list" style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;max-height:400px;overflow-y:auto;">
+                <div style="padding:20px;text-align:center;color:#999;">Lade aktive Fahrten...</div>
+            </div>
+        </div>
         
         <!-- 🗺️ NEU: FAHRZEUG-KARTE -->
         <div onclick="toggleAdminSection('fleetmap')" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
@@ -3066,29 +3085,26 @@
         }
         
         // 🧹 v5.24.8: CLEANUP für hängende 'assigned' Fahrten
+        // 🧹 v5.24.9: ERWEITERT - auch alte 'new' und 'vorbestellt' Fahrten (älter als 24h)
         async function cleanupStuckAssignedRides() {
             if (!db) return;
             
             try {
-                const snapshot = await db.ref('rides').orderByChild('status').equalTo('assigned').once('value');
-                const stuckRides = snapshot.val();
-                
-                if (!stuckRides) {
-                    console.log('✅ Keine hängenden assigned Fahrten gefunden');
-                    return;
-                }
-                
                 const now = Date.now();
-                const MAX_ASSIGNED_AGE = 2 * 60 * 1000; // 2 Minuten
+                const MAX_ASSIGNED_AGE = 2 * 60 * 1000; // 2 Minuten für assigned
+                const MAX_NEW_AGE = 24 * 60 * 60 * 1000; // 24 Stunden für new/vorbestellt
                 
-                for (const rideId in stuckRides) {
-                    const ride = stuckRides[rideId];
+                // 1. Cleanup für 'assigned' Fahrten (älter als 2 Min)
+                const assignedSnapshot = await db.ref('rides').orderByChild('status').equalTo('assigned').once('value');
+                const assignedRides = assignedSnapshot.val() || {};
+                
+                for (const rideId in assignedRides) {
+                    const ride = assignedRides[rideId];
                     const assignedAge = now - (ride.assignedAt || 0);
                     
                     if (assignedAge > MAX_ASSIGNED_AGE) {
                         console.log(`🧹 Cleanup: Fahrt ${rideId} hängt seit ${Math.round(assignedAge/1000)}s im assigned Status`);
                         
-                        // Zurücksetzen auf 'new'
                         await db.ref('rides/' + rideId).update({
                             status: 'new',
                             assignedTo: null,
@@ -3098,14 +3114,111 @@
                         });
                         
                         console.log(`✅ Fahrt ${rideId} zurückgesetzt auf 'new'`);
+                    }
+                }
+                
+                // 2. Cleanup für alte 'new' Fahrten (älter als 24h)
+                const newSnapshot = await db.ref('rides').orderByChild('status').equalTo('new').once('value');
+                const newRides = newSnapshot.val() || {};
+                
+                for (const rideId in newRides) {
+                    const ride = newRides[rideId];
+                    const createdAt = ride.createdAt || ride.timestamp || 0;
+                    const pickupTime = ride.pickupTimestamp || 0;
+                    const relevantTime = pickupTime || createdAt;
+                    const age = now - relevantTime;
+                    
+                    if (age > MAX_NEW_AGE) {
+                        console.log(`🧹 Cleanup: Alte Fahrt ${rideId} - ${Math.round(age/3600000)}h alt - wird storniert`);
                         
-                        logActivity('system', 'cleanup', `Hängende Fahrt zurückgesetzt: ${ride.customerName || 'Kunde'}`, {
+                        await db.ref('rides/' + rideId).update({
+                            status: 'cancelled',
+                            cancelledReason: 'Auto-Storno: Fahrt älter als 24h',
+                            cancelledAt: now,
+                            autoCleanup: true
+                        });
+                        
+                        console.log(`🗑️ Alte Fahrt ${rideId} automatisch storniert`);
+                        
+                        logActivity('system', 'auto_cancel', `Alte Fahrt auto-storniert: ${ride.customerName || 'Kunde'}`, {
                             rideId: rideId,
-                            wasAssignedTo: ride.assignedTo,
-                            stuckFor: Math.round(assignedAge/1000) + 's'
+                            age: Math.round(age/3600000) + 'h'
                         });
                     }
                 }
+                
+                // 3. Cleanup für alte 'vorbestellt' Fahrten (Abholzeit in der Vergangenheit + 2h)
+                const vorbestelltSnapshot = await db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value');
+                const vorbestelltRides = vorbestelltSnapshot.val() || {};
+                
+                for (const rideId in vorbestelltRides) {
+                    const ride = vorbestelltRides[rideId];
+                    const pickupTime = ride.pickupTimestamp || 0;
+                    const timeSincePickup = now - pickupTime;
+                    
+                    // Wenn Abholzeit mehr als 2 Stunden vorbei ist
+                    if (pickupTime > 0 && timeSincePickup > 2 * 60 * 60 * 1000) {
+                        console.log(`🧹 Cleanup: Verpasste Vorbestellung ${rideId} - Abholzeit war vor ${Math.round(timeSincePickup/3600000)}h`);
+                        
+                        await db.ref('rides/' + rideId).update({
+                            status: 'cancelled',
+                            cancelledReason: 'Auto-Storno: Abholzeit verpasst',
+                            cancelledAt: now,
+                            autoCleanup: true
+                        });
+                        
+                        console.log(`🗑️ Verpasste Vorbestellung ${rideId} automatisch storniert`);
+                    }
+                }
+                
+                // 4. Cleanup für alte 'accepted' Fahrten (älter als 24h)
+                const acceptedSnapshot = await db.ref('rides').orderByChild('status').equalTo('accepted').once('value');
+                const acceptedRides = acceptedSnapshot.val() || {};
+                
+                for (const rideId in acceptedRides) {
+                    const ride = acceptedRides[rideId];
+                    const acceptedAt = ride.acceptedAt || ride.createdAt || 0;
+                    const age = now - acceptedAt;
+                    
+                    if (age > MAX_NEW_AGE) { // 24h
+                        console.log(`🧹 Cleanup: Alte accepted Fahrt ${rideId} - ${Math.round(age/3600000)}h alt`);
+                        
+                        await db.ref('rides/' + rideId).update({
+                            status: 'cancelled',
+                            cancelledReason: 'Auto-Storno: Fahrt älter als 24h (nie abgeschlossen)',
+                            cancelledAt: now,
+                            autoCleanup: true
+                        });
+                        
+                        console.log(`🗑️ Alte accepted Fahrt ${rideId} automatisch storniert`);
+                    }
+                }
+                
+                // 5. Cleanup für alte 'picked_up' Fahrten (älter als 24h)
+                const pickedUpSnapshot = await db.ref('rides').orderByChild('status').equalTo('picked_up').once('value');
+                const pickedUpRides = pickedUpSnapshot.val() || {};
+                
+                for (const rideId in pickedUpRides) {
+                    const ride = pickedUpRides[rideId];
+                    const pickedUpAt = ride.pickedUpAt || ride.acceptedAt || ride.createdAt || 0;
+                    const age = now - pickedUpAt;
+                    
+                    if (age > MAX_NEW_AGE) { // 24h
+                        console.log(`🧹 Cleanup: Alte picked_up Fahrt ${rideId} - ${Math.round(age/3600000)}h alt`);
+                        
+                        await db.ref('rides/' + rideId).update({
+                            status: 'completed',
+                            completedAt: now,
+                            completedReason: 'Auto-Abschluss: Fahrt älter als 24h',
+                            autoCleanup: true
+                        });
+                        
+                        console.log(`✅ Alte picked_up Fahrt ${rideId} automatisch abgeschlossen`);
+                    }
+                }
+                
+                console.log('✅ Cleanup abgeschlossen');
+                
             } catch (error) {
                 console.error('❌ Cleanup-Fehler:', error);
             }
@@ -3777,7 +3890,10 @@
                             <strong>Distanz:</strong> ${r.distance} km • ${r.duration} Min<br>
                             <strong>Preis:</strong> ${r.price}€
                             ${r.assignmentDistance ? `<br><strong>📍 Du bist:</strong> ${r.assignmentDistance.toFixed(1)} km entfernt` : ''}<br>
-                            <small style="color:#666;">Bestellt: ${r.time}</small>
+                            <div style="margin-top:6px;padding:6px 8px;background:#f3f4f6;border-radius:4px;font-size:12px;color:#4b5563;">
+                                📅 Bestellt: <strong>${r.time}</strong>
+                                ${r.pickupTime && r.pickupTime !== 'Sofort' ? ` | ⏰ Abholung: <strong>${r.pickupTime}</strong>` : ' | ⚡ Sofort'}
+                            </div>
                         </div>
                         ${!current ? `<button class="btn btn-success" onclick="acceptRide('${r.firebaseId}')" style="margin-top:10px;">✓ Annehmen</button>` : '<div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:13px;text-align:center;">Schließe erst aktuelle Fahrt ab</div>'}
                     </div>
@@ -8754,6 +8870,8 @@
                     setTimeout(() => initFleetMap(), 100); // Kleine Verzögerung für DOM
                 } else if (section === 'vehicles') {
                     renderVehicles();
+                } else if (section === 'activerides') {
+                    loadActiveRides();
                 }
             } else {
                 content.style.display = 'none';
@@ -8781,6 +8899,211 @@
         let fleetMap = null;
         let fleetMarkers = {};
         let fleetRoutes = {};
+        
+        // 🚨 AKTIVE FAHRTEN SYSTEM
+        async function loadActiveRides() {
+            const container = document.getElementById('active-rides-list');
+            const countBadge = document.getElementById('active-rides-count');
+            
+            if (!db) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">❌ Firebase nicht verbunden</div>';
+                return;
+            }
+            
+            container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">⏳ Lade...</div>';
+            
+            try {
+                const snapshot = await db.ref('rides').once('value');
+                const allRides = snapshot.val() || {};
+                
+                // Aktive Status definieren
+                const activeStatuses = ['new', 'assigned', 'accepted', 'picked_up', 'vorbestellt'];
+                const finishedStatuses = ['completed', 'cancelled', 'storniert', 'abgeschlossen'];
+                
+                // Fahrten sortieren
+                const activeRides = [];
+                const recentFinished = [];
+                const now = Date.now();
+                const oneHourAgo = now - (60 * 60 * 1000);
+                
+                for (const rideId in allRides) {
+                    const ride = allRides[rideId];
+                    ride.firebaseId = rideId;
+                    
+                    if (activeStatuses.includes(ride.status)) {
+                        activeRides.push(ride);
+                    } else if (finishedStatuses.includes(ride.status) && (ride.completedAt || ride.cancelledAt || ride.createdAt) > oneHourAgo) {
+                        recentFinished.push(ride);
+                    }
+                }
+                
+                // Sortieren nach Zeit
+                activeRides.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                recentFinished.sort((a, b) => (b.completedAt || b.cancelledAt || b.createdAt || 0) - (a.completedAt || a.cancelledAt || a.createdAt || 0));
+                
+                countBadge.textContent = activeRides.length;
+                
+                let html = '';
+                
+                // AKTIVE FAHRTEN
+                if (activeRides.length > 0) {
+                    html += '<div style="background:#fef3c7;padding:10px;font-weight:bold;border-bottom:1px solid #e5e7eb;">🚨 AKTIVE FAHRTEN (' + activeRides.length + ')</div>';
+                    activeRides.forEach(ride => {
+                        html += renderActiveRideRow(ride, true);
+                    });
+                } else {
+                    html += '<div style="background:#d1fae5;padding:15px;text-align:center;color:#059669;">✅ Keine aktiven Fahrten - alles abgearbeitet!</div>';
+                }
+                
+                // KÜRZLICH ABGESCHLOSSEN (letzte Stunde)
+                if (recentFinished.length > 0) {
+                    html += '<div style="background:#e0e7ff;padding:10px;font-weight:bold;border-bottom:1px solid #e5e7eb;margin-top:10px;">📋 KÜRZLICH ABGESCHLOSSEN (' + recentFinished.length + ')</div>';
+                    recentFinished.forEach(ride => {
+                        html += renderActiveRideRow(ride, false);
+                    });
+                }
+                
+                container.innerHTML = html || '<div style="padding:20px;text-align:center;color:#999;">Keine Fahrten gefunden</div>';
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden aktiver Fahrten:', error);
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">❌ Fehler: ' + error.message + '</div>';
+            }
+        }
+        
+        function renderActiveRideRow(ride, isActive) {
+            const createdTime = ride.createdAt ? formatDateTime(ride.createdAt) : 'Unbekannt';
+            const pickupTime = ride.pickupTimestamp ? formatDateTime(ride.pickupTimestamp) : createdTime;
+            
+            // Status-Farbe und Text
+            let statusColor, statusText, statusEmoji;
+            switch(ride.status) {
+                case 'new':
+                    statusColor = '#3b82f6'; statusText = 'Neu'; statusEmoji = '🆕';
+                    break;
+                case 'assigned':
+                    statusColor = '#f59e0b'; statusText = 'Zugewiesen'; statusEmoji = '⏳';
+                    break;
+                case 'accepted':
+                    statusColor = '#10b981'; statusText = 'Angenommen'; statusEmoji = '✅';
+                    break;
+                case 'picked_up':
+                    statusColor = '#8b5cf6'; statusText = 'Unterwegs'; statusEmoji = '🚗';
+                    break;
+                case 'vorbestellt':
+                    statusColor = '#ec4899'; statusText = 'Vorbestellt'; statusEmoji = '📅';
+                    break;
+                case 'completed':
+                    statusColor = '#059669'; statusText = 'Abgeschlossen'; statusEmoji = '✔️';
+                    break;
+                case 'cancelled':
+                case 'storniert':
+                    statusColor = '#dc2626'; statusText = 'Storniert'; statusEmoji = '❌';
+                    break;
+                default:
+                    statusColor = '#6b7280'; statusText = ride.status; statusEmoji = '❓';
+            }
+            
+            // Zeit seit Erstellung
+            const ageMinutes = Math.round((Date.now() - (ride.createdAt || 0)) / 60000);
+            const ageText = ageMinutes < 60 ? ageMinutes + ' Min' : Math.round(ageMinutes / 60) + ' Std';
+            
+            return `
+                <div style="padding:12px;border-bottom:1px solid #e5e7eb;${isActive ? 'background:#fffbeb;' : ''}">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                        <div>
+                            <span style="background:${statusColor};color:white;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;">
+                                ${statusEmoji} ${statusText}
+                            </span>
+                            <span style="margin-left:8px;font-size:11px;color:#6b7280;">vor ${ageText}</span>
+                        </div>
+                        ${isActive ? `
+                            <button onclick="forceCompleteRide('${ride.firebaseId}')" style="background:#ef4444;color:white;border:none;padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;">
+                                🗑️ Löschen
+                            </button>
+                        ` : ''}
+                    </div>
+                    <div style="font-size:13px;">
+                        <div><strong>👤 ${ride.customerName || 'Unbekannt'}</strong> ${ride.customerPhone ? '📞 ' + ride.customerPhone : ''}</div>
+                        <div style="color:#6b7280;margin-top:4px;">
+                            📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
+                        </div>
+                        <div style="color:#6b7280;margin-top:4px;font-size:11px;">
+                            🕐 Erstellt: ${createdTime}
+                            ${ride.assignedTo ? ' | 🚗 ' + (ride.assignedVehicleName || ride.assignedTo) : ''}
+                            ${ride.price ? ' | 💰 ' + ride.price + '€' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function formatDateTime(timestamp) {
+            if (!timestamp) return 'Unbekannt';
+            const date = new Date(timestamp);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}. ${hours}:${minutes}`;
+        }
+        
+        async function forceCompleteRide(rideId) {
+            if (!confirm('Fahrt wirklich löschen/stornieren?')) return;
+            
+            try {
+                await db.ref('rides/' + rideId).update({
+                    status: 'cancelled',
+                    cancelledAt: Date.now(),
+                    cancelReason: 'Admin: Manuell gelöscht',
+                    forceClosed: true
+                });
+                
+                console.log('✅ Fahrt ' + rideId + ' gelöscht');
+                loadActiveRides(); // Neu laden
+                
+                logActivity('admin', 'force_cancel', 'Admin hat Fahrt manuell gelöscht', {
+                    rideId: rideId
+                });
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('Fehler beim Löschen: ' + error.message);
+            }
+        }
+        
+        async function cleanupAllStuckRides() {
+            if (!confirm('Alle hängenden "assigned" Fahrten zurücksetzen?')) return;
+            
+            try {
+                const snapshot = await db.ref('rides').orderByChild('status').equalTo('assigned').once('value');
+                const stuckRides = snapshot.val();
+                
+                if (!stuckRides) {
+                    alert('Keine hängenden Fahrten gefunden!');
+                    return;
+                }
+                
+                let count = 0;
+                for (const rideId in stuckRides) {
+                    await db.ref('rides/' + rideId).update({
+                        status: 'new',
+                        assignedTo: null,
+                        assignedVehicleName: null,
+                        cleanedUp: true,
+                        cleanedUpAt: Date.now()
+                    });
+                    count++;
+                }
+                
+                alert(`✅ ${count} Fahrt(en) zurückgesetzt!`);
+                loadActiveRides();
+                
+                logActivity('admin', 'bulk_cleanup', `Admin hat ${count} hängende Fahrten zurückgesetzt`, {});
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('Fehler: ' + error.message);
+            }
+        }
         let fleetAutoRefresh = null;
         let fleetMapInitialized = false;
         

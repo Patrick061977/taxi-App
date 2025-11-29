@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.21.8 - Build 20251127-BLACKLIST-FIX');
+        console.log('🚕 Funk Taxi App v5.24.0 - Build 20251129-DRIVER-SETTINGS');
         console.log('📡 FIX: Keine Endlos-Zuweisung + nur neue Stornierungen');
     </script>
     
@@ -2538,14 +2538,20 @@
         
         // 🔄 FAHRT NEU ZUWEISEN (aus rejected zurück zu new)
         async function reassignRide(rideId) {
-            if (!confirm('🔄 Fahrt neu zuweisen?\n\nDie Fahrt wird wieder als "neu" markiert und kann von Fahrern angenommen werden.')) {
-                return;
-            }
-            
             try {
                 const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
                 if (!ride) {
                     alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // ⚠️ WICHTIG: Verhindere Neu-Zuweisung von angenommenen Fahrten!
+                if (ride.status === 'accepted' || ride.status === 'picked_up') {
+                    alert('❌ Fehler!\n\nDiese Fahrt wurde bereits angenommen und kann nicht neu zugewiesen werden.\n\nStatus: ' + ride.status);
+                    return;
+                }
+                
+                if (!confirm('🔄 Fahrt neu zuweisen?\n\nDie Fahrt wird wieder als "neu" markiert und kann von Fahrern angenommen werden.')) {
                     return;
                 }
                 
@@ -2726,7 +2732,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.21.8 gestartet');
+        console.log('🚀 Taxi App v5.23.1 gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -3229,6 +3235,11 @@
             const gpsIndicator = document.getElementById('gps-indicator');
             if (view === 'driver') {
                 if (gpsIndicator) gpsIndicator.style.display = 'flex';
+                
+                // 🔋 Initialisiere Batterie-Spar-System
+                if (typeof PowerSaveManager !== 'undefined') {
+                    setTimeout(() => PowerSaveManager.init(), 500);
+                }
                 
                 // 🎯 AUTO-START GPS beim Öffnen der Fahrer-Ansicht!
                 console.log('🚕 Fahrer-Ansicht geöffnet - starte GPS automatisch...');
@@ -6044,7 +6055,8 @@
 
         // 🎯 INTELLIGENTE AUTO-ZUWEISUNG MIT 30-SEK-TIMER
         async function startAutoAssignment(rideId, ride) {
-            console.log('🎯 Starte Auto-Zuweisung für Fahrt:', rideId);
+            console.log('🎯 startAutoAssignment aufgerufen für Fahrt:', rideId, 'Status:', ride?.status);
+            console.log('📞 Aufruf-Stack:', new Error().stack.split('\n').slice(2, 4).join('\n'));
             
             // 🛡️ WICHTIG: Prüfe ob Fahrt noch zuweisbar ist!
             if (isFirebaseReady) {
@@ -6057,9 +6069,11 @@
                         return;
                     }
                     
-                    // Nur zuweisen wenn Status 'new' ist!
+                    // ⚠️ KRITISCH: Nur zuweisen wenn Status 'new' ist!
+                    // Verhindert Doppel-Zuweisung bei accepted/assigned/cancelled Fahrten
                     if (rideData.status !== 'new') {
-                        console.log('⏹️ Auto-Zuweisung abgebrochen - Fahrt hat Status:', rideData.status);
+                        console.log('⏹️ Auto-Zuweisung abgebrochen - Fahrt hat Status:', rideData.status, '(erwartet: new)');
+                        console.log('🛡️ Verhindere Doppel-Zuweisung für rideId:', rideId);
                         return;
                     }
                 } catch (error) {
@@ -6530,6 +6544,385 @@
         // Initialisiere beim App-Start
         console.log('📦 Lade gespeicherte Stornierung-Alarme...');
         loadShownCancelAlarms();
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🔋 BATTERIE-SPAR-SYSTEM - VERSION 5.23.0
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        const PowerSaveManager = {
+            mode: 'NORMAL', // NORMAL, ECO, POWER_SAVE
+            autoTimer: null,
+            warningTimer: null,
+            lastActivity: Date.now(),
+            batteryLevel: 100,
+            isMobile: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent),
+            isNativeApp: window.Capacitor && window.Capacitor.isNativePlatform(),
+            
+            // Modi-Konfiguration
+            modes: {
+                NORMAL: {
+                    name: 'Normal',
+                    screenBrightness: 1.0,
+                    gpsInterval: 10, // Meter
+                    icon: '☀️',
+                    color: '#10b981'
+                },
+                ECO: {
+                    name: 'Eco',
+                    screenBrightness: 0.6,
+                    gpsInterval: 30,
+                    icon: '🌤️',
+                    color: '#f59e0b'
+                },
+                POWER_SAVE: {
+                    name: 'Power Save',
+                    screenBrightness: 0.1,
+                    gpsInterval: 50,
+                    icon: '💤',
+                    color: '#6366f1'
+                }
+            },
+            
+            init: function() {
+                console.log('🔋 Initialisiere Batterie-Spar-System...');
+                console.log(`📱 Platform: ${this.isMobile ? 'Mobile' : 'Desktop'} | Native App: ${this.isNativeApp ? 'Ja' : 'Nein'}`);
+                
+                // Hinweis bei Desktop
+                if (!this.isMobile) {
+                    console.log('💻 Desktop erkannt - Dark Mode & Screen Dimming deaktiviert (nur GPS-Intervall aktiv)');
+                }
+                
+                // Batterie-Level abfragen (wenn verfügbar)
+                if ('getBattery' in navigator) {
+                    navigator.getBattery().then(battery => {
+                        this.batteryLevel = Math.round(battery.level * 100);
+                        battery.addEventListener('levelchange', () => {
+                            this.batteryLevel = Math.round(battery.level * 100);
+                            this.updateBatteryDisplay();
+                        });
+                        this.updateBatteryDisplay();
+                    });
+                }
+                
+                // UI erstellen
+                this.createUI();
+                
+                // Auto-Timer starten wenn Fahrer online geht
+                this.startAutoTimer();
+                
+                console.log('✅ Batterie-Spar-System bereit');
+            },
+            
+            createUI: function() {
+                // Power-Save Button in driver-top-bar einfügen
+                const topBar = document.getElementById('driver-top-bar');
+                if (!topBar) return;
+                
+                // Batterie-Anzeige
+                const batteryDisplay = document.createElement('div');
+                batteryDisplay.id = 'battery-display';
+                batteryDisplay.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 8px;
+                    background: rgba(16,185,129,0.1);
+                    border-radius: 12px;
+                    font-size: 11px;
+                    color: #10b981;
+                    font-weight: bold;
+                    margin-left: auto;
+                `;
+                batteryDisplay.innerHTML = '🔋 100%';
+                topBar.appendChild(batteryDisplay);
+                
+                // Power-Save Button
+                const powerButton = document.createElement('button');
+                powerButton.id = 'power-save-btn';
+                powerButton.style.cssText = `
+                    background: #10b981;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 20px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    font-size: 13px;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                `;
+                powerButton.innerHTML = '☀️ Normal';
+                powerButton.onclick = () => this.cyclePowerMode();
+                topBar.appendChild(powerButton);
+                
+                // Warnung-Overlay (versteckt)
+                const warning = document.createElement('div');
+                warning.id = 'power-save-warning';
+                warning.style.cssText = `
+                    display: none;
+                    position: fixed;
+                    top: 60px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 9999;
+                    background: #fef3c7;
+                    border: 2px solid #f59e0b;
+                    border-radius: 12px;
+                    padding: 16px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    max-width: 300px;
+                    text-align: center;
+                `;
+                warning.innerHTML = `
+                    <div style="font-size: 24px; margin-bottom: 8px;">⚡</div>
+                    <div style="font-weight: bold; margin-bottom: 8px;">Power-Save in <span id="countdown">30</span> Sek</div>
+                    <div style="font-size: 12px; color: #92400e; margin-bottom: 12px;">Screen wird gedimmt, GPS verlangsamt</div>
+                    <button onclick="PowerSaveManager.cancelAuto()" style="
+                        background: white;
+                        border: 2px solid #f59e0b;
+                        color: #f59e0b;
+                        padding: 8px 16px;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    ">Abbrechen</button>
+                `;
+                document.body.appendChild(warning);
+            },
+            
+            cyclePowerMode: function() {
+                // Modus wechseln: NORMAL → ECO → POWER_SAVE → NORMAL
+                const modes = ['NORMAL', 'ECO', 'POWER_SAVE'];
+                const currentIndex = modes.indexOf(this.mode);
+                const nextMode = modes[(currentIndex + 1) % modes.length];
+                
+                this.setMode(nextMode, 'manual');
+            },
+            
+            setMode: function(mode, trigger = 'manual') {
+                if (!this.modes[mode]) return;
+                
+                this.mode = mode;
+                const config = this.modes[mode];
+                
+                console.log(`🔋 Power-Save Modus: ${config.name} (${trigger}) | Platform: ${this.isMobile ? 'Mobile' : 'Desktop'}`);
+                
+                // Screen Brightness anpassen (nur auf Mobile!)
+                if (this.isMobile) {
+                    this.setScreenBrightness(config.screenBrightness);
+                } else {
+                    console.log('💻 Desktop erkannt - Screen Brightness übersprungen');
+                }
+                
+                // GPS-Intervall anpassen (wird beim nächsten GPS-Update angewendet)
+                window.currentGPSInterval = config.gpsInterval;
+                
+                // UI updaten
+                const btn = document.getElementById('power-save-btn');
+                if (btn) {
+                    btn.innerHTML = `${config.icon} ${config.name}`;
+                    btn.style.background = config.color;
+                }
+                
+                // Dark Mode bei POWER_SAVE (nur auf Mobile!)
+                if (mode === 'POWER_SAVE' && this.isMobile) {
+                    this.enableDarkMode();
+                } else {
+                    this.disableDarkMode();
+                }
+                
+                // Log Activity
+                logActivity('system', 'power_mode', `Power-Modus: ${config.name}`, {
+                    mode: mode,
+                    trigger: trigger,
+                    brightness: config.screenBrightness,
+                    gpsInterval: config.gpsInterval,
+                    platform: this.isMobile ? 'mobile' : 'desktop'
+                });
+            },
+            
+            setScreenBrightness: function(level) {
+                // Nur auf Mobile!
+                if (!this.isMobile) {
+                    return; // Überspringe auf Desktop
+                }
+                
+                // CSS Filter für Helligkeit
+                const driverView = document.getElementById('driver-view');
+                if (driverView) {
+                    driverView.style.filter = `brightness(${level})`;
+                    console.log(`💡 Screen Brightness: ${Math.round(level * 100)}% (Mobile)`);
+                }
+                
+                // Native Screen Brightness (wenn verfügbar)
+                if (window.ScreenBrightness) {
+                    window.ScreenBrightness.setBrightness(level);
+                }
+            },
+            
+            enableDarkMode: function() {
+                // Nur auf Mobile aktivieren!
+                if (!this.isMobile) {
+                    console.log('💻 Dark Mode übersprungen (Desktop)');
+                    return;
+                }
+                
+                const style = document.getElementById('dark-mode-style');
+                if (style) return; // Bereits aktiv
+                
+                const darkStyle = document.createElement('style');
+                darkStyle.id = 'dark-mode-style';
+                darkStyle.textContent = `
+                    #driver-view {
+                        background: #000 !important;
+                        color: #fff !important;
+                    }
+                    #driver-view .view {
+                        background: #000 !important;
+                    }
+                    #driver-top-bar {
+                        background: rgba(0,0,0,0.95) !important;
+                        color: #fff !important;
+                    }
+                    #driver-view button:not(#power-save-btn) {
+                        background: #1f2937 !important;
+                        color: #fff !important;
+                    }
+                `;
+                document.head.appendChild(darkStyle);
+                console.log('🌑 Dark Mode aktiviert (Mobile)');
+            },
+            
+            disableDarkMode: function() {
+                const style = document.getElementById('dark-mode-style');
+                if (style) {
+                    style.remove();
+                    console.log('☀️ Dark Mode deaktiviert');
+                }
+            },
+            
+            startAutoTimer: function() {
+                // Stoppe bestehende Timer
+                this.cancelAuto();
+                
+                // Prüfe alle 10 Sekunden
+                this.autoTimer = setInterval(() => {
+                    // Nur wenn Fahrer FREI ist (online, kein aktueller Auftrag)
+                    if (!isOnline || !currentVehicle || myCurrentRide) {
+                        return;
+                    }
+                    
+                    // Nur wenn NICHT bereits in Power-Save
+                    if (this.mode === 'POWER_SAVE') return;
+                    
+                    // Prüfe Inaktivität
+                    const inactiveMinutes = (Date.now() - this.lastActivity) / 60000;
+                    
+                    // Nach 4.5 Min: Zeige Warnung (30 Sek Countdown)
+                    if (inactiveMinutes >= 4.5 && !this.warningTimer) {
+                        this.showAutoWarning();
+                    }
+                }, 10000);
+            },
+            
+            showAutoWarning: function() {
+                console.log('⚠️ Auto Power-Save Warnung');
+                
+                const warning = document.getElementById('power-save-warning');
+                if (!warning) return;
+                
+                warning.style.display = 'block';
+                let countdown = 30;
+                
+                this.warningTimer = setInterval(() => {
+                    countdown--;
+                    const countdownEl = document.getElementById('countdown');
+                    if (countdownEl) countdownEl.textContent = countdown;
+                    
+                    if (countdown <= 0) {
+                        this.activateAutoPowerSave();
+                    }
+                }, 1000);
+            },
+            
+            activateAutoPowerSave: function() {
+                this.cancelAuto();
+                const warning = document.getElementById('power-save-warning');
+                if (warning) warning.style.display = 'none';
+                
+                console.log('🔋 Auto Power-Save aktiviert');
+                this.setMode('POWER_SAVE', 'auto');
+            },
+            
+            cancelAuto: function() {
+                if (this.warningTimer) {
+                    clearInterval(this.warningTimer);
+                    this.warningTimer = null;
+                }
+                
+                const warning = document.getElementById('power-save-warning');
+                if (warning) warning.style.display = 'none';
+                
+                // Reset Activity
+                this.resetActivity();
+            },
+            
+            resetActivity: function() {
+                this.lastActivity = Date.now();
+                
+                // Wenn in Power-Save und User ist aktiv → zurück zu Normal
+                if (this.mode === 'POWER_SAVE') {
+                    this.setMode('NORMAL', 'user_activity');
+                }
+            },
+            
+            updateBatteryDisplay: function() {
+                const display = document.getElementById('battery-display');
+                if (!display) return;
+                
+                const level = this.batteryLevel;
+                let color = '#10b981'; // Grün
+                let icon = '🔋';
+                
+                if (level <= 20) {
+                    color = '#ef4444';
+                    icon = '🪫';
+                } else if (level <= 50) {
+                    color = '#f59e0b';
+                    icon = '🔋';
+                }
+                
+                display.style.color = color;
+                display.style.background = `rgba(${color === '#ef4444' ? '239,68,68' : color === '#f59e0b' ? '245,158,11' : '16,185,129'},0.1)`;
+                display.innerHTML = `${icon} ${level}%`;
+            },
+            
+            // Bei neuem Auftrag: Zurück zu NORMAL
+            onNewRide: function() {
+                if (this.mode !== 'NORMAL') {
+                    console.log('📱 Neuer Auftrag → Normal Modus');
+                    this.setMode('NORMAL', 'new_ride');
+                }
+                this.resetActivity();
+            }
+        };
+        
+        // Initialisiere Batterie-System beim App-Start
+        setTimeout(() => {
+            if (currentView === 'driver') {
+                PowerSaveManager.init();
+            }
+        }, 1000);
+        
+        // Aktivität-Tracking (bei jedem Touch)
+        document.addEventListener('touchstart', () => {
+            if (currentView === 'driver') {
+                PowerSaveManager.resetActivity();
+            }
+        });
+        
+        // ═══════════════════════════════════════════════════════════════════════════
         
         async function cancelRideConfirm(rideId) {
             // 🛡️ Verhindere Doppelklick
@@ -7850,6 +8243,11 @@
             closeNewRideFullscreen();
             stopRepeatingVibration();
             
+            // 🔋 Aktiviere Normal-Modus bei neuem Auftrag
+            if (typeof PowerSaveManager !== 'undefined') {
+                PowerSaveManager.onNewRide();
+            }
+            
             const ride = rides.find(r => r.firebaseId === rideId);
             if (!ride) {
                 alert('❌ Fahrt nicht gefunden!');
@@ -7903,11 +8301,13 @@
                 acknowledgedRides.add(ride.id);
             }
             
-            // 🛑 Stoppe Assignment-Timer
+            // 🛑 KRITISCH: Stoppe Assignment-Timer um Timeout zu verhindern!
             if (assignmentTimers[rideId]) {
                 clearTimeout(assignmentTimers[rideId]);
                 delete assignmentTimers[rideId];
-                console.log('⏰ Assignment-Timer gestoppt');
+                console.log('⏰ ✅ Assignment-Timer erfolgreich gestoppt für rideId:', rideId);
+            } else {
+                console.log('⏰ ℹ️ Kein Assignment-Timer gefunden für rideId:', rideId, '(evtl. manuell zugewiesen)');
             }
             
             // Update Fahrt in Firebase

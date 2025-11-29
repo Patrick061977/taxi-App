@@ -162,7 +162,15 @@ const DriverSettingsManager = {
     // ─────────────────────────────────────────────────────────────────────
     activateTripleTap: function() {
         const batteryDisplay = document.getElementById('battery-display');
-        if (!batteryDisplay) return;
+        
+        // Falls Element noch nicht existiert, warte und versuche erneut
+        if (!batteryDisplay) {
+            console.log('⏳ battery-display noch nicht da, warte 500ms...');
+            setTimeout(() => this.activateTripleTap(), 500);
+            return;
+        }
+        
+        console.log('✅ Triple-Tap aktiviert auf battery-display');
         
         let tapCount = 0;
         let tapTimer = null;
@@ -516,18 +524,19 @@ const DriverSettingsManager = {
             
             <!-- Wake-Up Zone - NUR dieser Button weckt auf -->
             <div id="wake-up-zone" style="
-                width: 200px;
-                height: 60px;
-                background: rgba(255,255,255,0.1);
-                border: 2px solid rgba(255,255,255,0.3);
-                border-radius: 30px;
+                width: 250px;
+                height: 80px;
+                background: rgba(255,255,255,0.15);
+                border: 3px solid rgba(255,255,255,0.5);
+                border-radius: 40px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                margin-bottom: 50px;
+                margin-bottom: 60px;
                 cursor: pointer;
+                -webkit-tap-highlight-color: rgba(255,255,255,0.3);
             ">
-                <span style="color: rgba(255,255,255,0.5); font-size: 14px;">
+                <span style="color: rgba(255,255,255,0.7); font-size: 18px; font-weight: bold;">
                     👆 Aufwecken
                 </span>
             </div>
@@ -552,12 +561,17 @@ const DriverSettingsManager = {
             if (navigator.vibrate) navigator.vibrate(50);
         };
         
-        // NUR der Wake-Up Button reagiert auf Touch
+        // NUR der Wake-Up Button reagiert auf Touch UND Click
         const wakeZone = document.getElementById('wake-up-zone');
-        wakeZone.addEventListener('touchstart', (e) => {
+        
+        const handleWakeUp = (e) => {
             e.stopPropagation();
+            e.preventDefault();
             wakeUp();
-        });
+        };
+        
+        wakeZone.addEventListener('touchstart', handleWakeUp);
+        wakeZone.addEventListener('click', handleWakeUp);
         
         // 🔋 POWER BUTTON PROTECTION
         // Wenn User Power drückt und zurückkommt → schwarzer Screen bleibt!

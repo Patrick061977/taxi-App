@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.25.1 - Build 20251129-1200');
+        console.log('🚕 Funk Taxi App v5.25.1 - Build 20251129-1445');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.25.1 - Full Cleanup 🧹 (Build 20251129-1200)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.25.1 - Full Cleanup 🧹 (Build 20251129-1445)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -875,54 +875,59 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.95);
+            background: rgba(0,0,0,0.85);
             z-index: 10002;
-            padding: 20px;
+            padding: 15px;
             overflow-y: auto;
+            display: none;
+            align-items: center;
+            justify-content: center;
         ">
             <div style="
                 background: white;
-                border-radius: 20px;
+                border-radius: 16px;
                 padding: 0;
-                max-width: 500px;
-                margin: 50px auto;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                max-width: 380px;
+                width: 100%;
+                margin: 20px auto;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.4);
                 overflow: hidden;
             ">
-                <!-- Header -->
+                <!-- Header - kompakter -->
                 <div style="
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    padding: 30px 20px;
+                    padding: 15px;
                     text-align: center;
                     position: relative;
                 ">
                     <button onclick="closeNewRideFullscreen()" style="
                         position: absolute;
-                        top: 15px;
-                        right: 15px;
-                        background: rgba(255,255,255,0.3);
+                        top: 8px;
+                        right: 8px;
+                        background: rgba(0,0,0,0.4);
                         color: white;
-                        border: none;
-                        width: 40px;
-                        height: 40px;
+                        border: 2px solid white;
+                        width: 36px;
+                        height: 36px;
                         border-radius: 50%;
-                        font-size: 24px;
+                        font-size: 20px;
                         cursor: pointer;
                         font-weight: bold;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
                     ">✕</button>
                     
-                    <div style="font-size: 72px; margin-bottom: 10px;">🚕</div>
-                    <div style="font-size: 32px; font-weight: bold; color: white; margin-bottom: 5px;">
-                        NEUER AUFTRAG!
-                    </div>
-                    <div style="font-size: 14px; color: rgba(255,255,255,0.9);">
-                        Ein Kunde wartet auf dich
+                    <div style="font-size: 40px; margin-bottom: 5px;">🚕</div>
+                    <div style="font-size: 22px; font-weight: bold; color: white;">
+                        NEUE FAHRT!
                     </div>
                 </div>
                 
                 <!-- Content -->
-                <div id="new-ride-fullscreen-content" style="padding: 30px 20px;">
+                <div id="new-ride-fullscreen-content" style="padding: 15px;">
                     <!-- Wird dynamisch gefüllt -->
+                </div>
                 </div>
             </div>
         </div>
@@ -3105,15 +3110,23 @@
                     if (assignedAge > MAX_ASSIGNED_AGE) {
                         console.log(`🧹 Cleanup: Fahrt ${rideId} hängt seit ${Math.round(assignedAge/1000)}s im assigned Status`);
                         
+                        // 🔧 FIX: Blacklist beibehalten UND aktuellen Fahrer hinzufügen!
+                        const currentBlacklist = ride.assignmentBlacklist || [];
+                        if (ride.assignedTo && !currentBlacklist.includes(ride.assignedTo)) {
+                            currentBlacklist.push(ride.assignedTo);
+                        }
+                        
                         await db.ref('rides/' + rideId).update({
                             status: 'new',
                             assignedTo: null,
                             assignedVehicleName: null,
+                            assignmentBlacklist: currentBlacklist, // Blacklist behalten!
                             cleanedUp: true,
-                            cleanedUpAt: now
+                            cleanedUpAt: now,
+                            lastAssignmentTimeout: now
                         });
                         
-                        console.log(`✅ Fahrt ${rideId} zurückgesetzt auf 'new'`);
+                        console.log(`✅ Fahrt ${rideId} zurückgesetzt auf 'new' - Blacklist: ${currentBlacklist.join(', ')}`);
                     }
                 }
                 
@@ -4958,6 +4971,26 @@
             console.log('⚠️ sendTelegramAlarm ist veraltet - Fahrten werden einzeln gesendet');
         }
         
+        // 🆕 v5.25.6: TELEGRAM AN ADMIN bei wichtigen Events
+        async function sendTelegramToAdmin(message) {
+            if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+                console.log('⚠️ Telegram nicht konfiguriert');
+                return false;
+            }
+            
+            try {
+                // Sende an Haupt-Chat-ID (Admin)
+                const success = await sendTelegramMessage(TELEGRAM_CHAT_ID, message);
+                if (success) {
+                    console.log('📱 Admin-Telegram gesendet');
+                }
+                return success;
+            } catch (error) {
+                console.error('❌ Admin-Telegram Fehler:', error);
+                return false;
+            }
+        }
+        
         // 🆕 v5.18.0: TELEGRAM DIREKT AN ZUGEWIESENEN FAHRER!
         // 🆕 v5.19.0: Erweitert mit GPS-Warnung + User-basierte Chat-ID
         async function sendTelegramToDriver(vehicleId, ride, gpsAgeMinutes = 0) {
@@ -6505,12 +6538,36 @@
                 if (rideData && rideData.status === 'assigned') {
                     console.log('⏰ TIMEOUT! Fahrt nicht angenommen - weise nächstem Taxi zu');
                     
-                    // 📜 PROTOKOLL: Timeout
-                    logActivity('assignment', 'timeout', `Timeout: ${nearestVehicle.name} hat nicht angenommen`, {
+                    // 🆕 v5.25.6: TEMPORÄRE SPERRE FÜR FAHRER (3 Minuten)
+                    const blockUntil = Date.now() + (3 * 60 * 1000); // 3 Minuten
+                    await db.ref('drivers/' + nearestVehicle.id + '/temporaryBlock').set({
+                        blockedAt: Date.now(),
+                        blockedUntil: blockUntil,
+                        reason: 'Keine Reaktion auf Fahrt-Zuweisung',
+                        rideId: rideId,
+                        customerName: rideData.customerName
+                    });
+                    
+                    console.log(`🚫 Fahrer ${nearestVehicle.name} für 3 Min. gesperrt (bis ${new Date(blockUntil).toLocaleTimeString('de-DE')})`);
+                    
+                    // 📜 PROTOKOLL: Timeout + Sperre
+                    logActivity('assignment', 'driver_blocked', 
+                        `⚠️ ${nearestVehicle.name} hat nicht reagiert → 3 Min. Sperre`, {
                         customer: rideData.customerName,
                         driver: nearestVehicle.name,
-                        vehicle: nearestVehicle.id
+                        vehicle: nearestVehicle.id,
+                        blockedUntil: new Date(blockUntil).toLocaleTimeString('de-DE')
                     });
+                    
+                    // 📱 TELEGRAM AN ADMIN
+                    sendTelegramToAdmin(
+                        `⚠️ <b>FAHRER REAGIERT NICHT!</b>\n\n` +
+                        `🚗 Fahrer: ${nearestVehicle.name}\n` +
+                        `👤 Kunde: ${rideData.customerName || 'Unbekannt'}\n` +
+                        `📍 Fahrt: ${rideData.pickup} → ${rideData.destination}\n\n` +
+                        `🚫 <b>3 Minuten Sperre aktiv</b>\n` +
+                        `⏰ Bis: ${new Date(blockUntil).toLocaleTimeString('de-DE')}`
+                    );
                     
                     // Zur Blacklist hinzufügen (für diese Fahrt)
                     const blacklist = rideData.assignmentBlacklist || [];
@@ -6532,6 +6589,7 @@
         // Finde nächstes verfügbares Taxi nach GPS-Entfernung
         // 🆕 v5.19.0: Angepasst für Standby-Modus
         // 🆕 v5.21.8: Blacklist-Parameter um abgelehnte Fahrer zu überspringen
+        // 🆕 v5.25.6: Temporäre Sperre prüfen
         // Findet Fahrer auch wenn GPS nicht ganz aktuell (< 10 Min)
         function findNearestAvailableVehicle(pickupCoords, blacklist = []) {
             const availableVehicles = [];
@@ -6545,6 +6603,13 @@
                 // 🆕 v5.21.8: Blacklist-Check ZUERST!
                 if (blacklist.includes(vehicleId)) {
                     console.log(`⛔ ${vehicleId}: Auf Blacklist (hat nicht angenommen)`);
+                    continue;
+                }
+                
+                // 🆕 v5.25.6: Temporäre Sperre prüfen
+                if (driver.temporaryBlock && driver.temporaryBlock.blockedUntil > now) {
+                    const remainingMinutes = Math.ceil((driver.temporaryBlock.blockedUntil - now) / 60000);
+                    console.log(`🚫 ${vehicleId}: Temporär gesperrt (noch ${remainingMinutes} Min.)`);
                     continue;
                 }
                 
@@ -7312,27 +7377,43 @@
             
             let confirmMessage = '🗑️ Fahrt wirklich stornieren?\n\nDie Buchung wird gelöscht.';
             let hasCancellationFee = false;
-            let cancellationFee = 0;
+            let cancellationFee = 10.00; // 10€ Stornogebühr
             
-            // Stornogebühr wenn Fahrer schon unterwegs
-            if (ride && ride.status === 'accepted') {
-                if (ride.driverLocation) {
-                    // FAHRER IST UNTERWEGS - KOSTENPFLICHTIG!
-                    cancellationFee = 10.00; // 10€ Stornogebühr
+            // 🆕 NEUE REGEL: 60 Minuten vor Abholzeit = kostenpflichtig
+            if (ride) {
+                const now = Date.now();
+                // Abholzeit: pickupTimestamp oder bei Sofort-Fahrten: createdAt
+                const pickupTime = ride.pickupTimestamp || ride.createdAt || now;
+                const minutesUntilPickup = (pickupTime - now) / 60000;
+                
+                console.log('⏰ Minuten bis Abholung:', Math.round(minutesUntilPickup));
+                
+                if (minutesUntilPickup <= 60) {
+                    // WENIGER ALS 60 MINUTEN - KOSTENPFLICHTIG!
                     hasCancellationFee = true;
                     
-                    confirmMessage = '⚠️ KOSTENPFLICHTIGE STORNIERUNG!\n\n' +
-                        ride.vehicle + ' ist bereits unterwegs zu dir!\n\n' +
-                        '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n' +
-                        '(Wird bei nächster Fahrt berechnet)\n\n' +
-                        'Trotzdem stornieren?\n\n' +
-                        '(Kostenlos stornieren: 038378 / 1234)';
+                    if (minutesUntilPickup <= 0) {
+                        // Sofort-Fahrt oder Abholzeit schon vorbei
+                        confirmMessage = '⚠️ KOSTENPFLICHTIGE STORNIERUNG!\n\n' +
+                            '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n' +
+                            '(Wird bei nächster Fahrt berechnet)\n\n' +
+                            'Trotzdem stornieren?\n\n' +
+                            '(Kostenlos stornieren: 038378 / 1234)';
+                    } else {
+                        confirmMessage = '⚠️ KOSTENPFLICHTIGE STORNIERUNG!\n\n' +
+                            'Abholung in ' + Math.round(minutesUntilPickup) + ' Minuten.\n' +
+                            '(Kostenlos bis 60 Min. vorher)\n\n' +
+                            '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n' +
+                            '(Wird bei nächster Fahrt berechnet)\n\n' +
+                            'Trotzdem stornieren?\n\n' +
+                            '(Kostenlos stornieren: 038378 / 1234)';
+                    }
                 } else {
-                    // Fahrer hat angenommen, aber noch nicht losgefahren
-                    confirmMessage = '⚠️ ACHTUNG!\n\n' +
-                        ride.vehicle + ' hat die Fahrt bereits angenommen!\n\n' +
-                        'Stornierung noch kostenlos möglich.\n\n' +
-                        'Trotzdem stornieren?';
+                    // MEHR ALS 60 MINUTEN - KOSTENLOS
+                    confirmMessage = '🗑️ Fahrt stornieren?\n\n' +
+                        'Abholung in ' + Math.round(minutesUntilPickup) + ' Minuten.\n\n' +
+                        '✅ Stornierung ist kostenlos.\n' +
+                        '(Bis 60 Min. vor Abholung)';
                 }
             }
             
@@ -7353,7 +7434,7 @@
                     originalPrice: ride.price,
                     cancellationFee: cancellationFee,
                     cancelledAt: Date.now(),
-                    reason: 'customer_cancelled_driver_on_way'
+                    reason: 'less_than_60min_before_pickup'
                 };
                 
                 // Speichere Stornierung in Firebase
@@ -12690,83 +12771,60 @@ Stack: ${err.stack}
             const ride = myRides[0];
             
             const content = `
-                <div style="margin-bottom: 25px;">
-                    <div style="
-                        background: #f3f4f6;
-                        padding: 20px;
-                        border-radius: 12px;
-                        margin-bottom: 20px;
-                    ">
-                        ${ride.customerName ? `
-                        <div style="
-                            background: #dbeafe;
-                            padding: 15px;
-                            border-radius: 8px;
-                            margin-bottom: 15px;
-                        ">
-                            <div style="font-size: 12px; color: #1e40af; margin-bottom: 5px;">KUNDE</div>
-                            <div style="font-size: 22px; font-weight: 600; color: #1e3a8a;">
-                                👤 ${ride.customerName}
-                            </div>
+                <div style="background: #f3f4f6; padding: 12px; border-radius: 10px; margin-bottom: 12px;">
+                    ${ride.customerName ? `
+                    <div style="background: #dbeafe; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+                        <div style="font-size: 16px; font-weight: 600; color: #1e3a8a;">
+                            👤 ${ride.customerName}
                         </div>
-                        ` : ''}
-                        
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">📍 ABHOLUNG</div>
-                            <div style="font-size: 18px; font-weight: 600; color: #111;">
-                                ${ride.pickup}
-                            </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="margin-bottom: 8px;">
+                        <span style="font-size: 11px; color: #666;">📍</span>
+                        <span style="font-size: 14px; font-weight: 500;">${ride.pickup}</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <span style="font-size: 11px; color: #666;">🎯</span>
+                        <span style="font-size: 14px; font-weight: 500;">${ride.destination}</span>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                        <div>
+                            <span style="font-size: 11px; color: #666;">⏰</span>
+                            <span style="font-size: 14px; font-weight: 600;">${ride.pickupTime || 'Sofort'}</span>
                         </div>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">🎯 ZIEL</div>
-                            <div style="font-size: 18px; font-weight: 600; color: #111;">
-                                ${ride.destination}
-                            </div>
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                            <div>
-                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">⏰ ABHOLZEIT</div>
-                                <div style="font-size: 16px; font-weight: 600;">
-                                    ${ride.pickupTime || '⚡ Sofort'}
-                                </div>
-                            </div>
-                            <div>
-                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">💰 PREIS</div>
-                                <div style="font-size: 16px; font-weight: 600; color: #10b981;">
-                                    ${ride.price}€
-                                </div>
-                            </div>
+                        <div>
+                            <span style="font-size: 14px; font-weight: 700; color: #10b981;">💰 ${ride.price}€</span>
                         </div>
                     </div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <button onclick="rejectRide('${ride.firebaseId || ride.id}')" style="
-                        padding: 18px;
+                        padding: 14px;
                         background: white;
                         color: #ef4444;
                         border: 2px solid #ef4444;
-                        border-radius: 12px;
-                        font-size: 16px;
+                        border-radius: 10px;
+                        font-size: 14px;
                         font-weight: 700;
                         cursor: pointer;
                     ">
-                        ❌ Ablehnen
+                        ❌ Nein
                     </button>
                     <button onclick="acceptRideFromFullscreen('${ride.firebaseId || ride.id}')" style="
-                        padding: 18px;
+                        padding: 14px;
                         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
                         color: white;
                         border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
+                        border-radius: 10px;
+                        font-size: 14px;
                         font-weight: 700;
                         cursor: pointer;
-                        box-shadow: 0 4px 12px rgba(16,185,129,0.4);
                     ">
-                        ✅ Annehmen
+                        ✅ Ja
                     </button>
                 </div>
             `;
@@ -13291,7 +13349,11 @@ Stack: ${err.stack}
                 return;
             }
             
-            if (ride.status === 'new') {
+            if (ride.status === 'new' || ride.status === 'assigned') {
+                // 🔧 FIX: assigned Status genauso behandeln wie new - Fahrt wurde noch nicht akzeptiert!
+                const statusText = ride.status === 'assigned' ? 'Wird vermittelt...' : 'Warte auf Fahrer...';
+                const statusIcon = ride.status === 'assigned' ? '🔄' : '⏳';
+                
                 // Formatiere Bestellzeit
                 const createdTime = new Date(ride.createdAt || Date.now());
                 const createdTimeStr = createdTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -13356,8 +13418,8 @@ Stack: ${err.stack}
                             </div>
                         </div>
                         
-                        <div style="font-size:32px;margin:15px 0;">⏳</div>
-                        <p style="font-size:16px;color:#92400e;margin:10px 0;">Warte auf Fahrer...</p>
+                        <div style="font-size:32px;margin:15px 0;">${statusIcon}</div>
+                        <p style="font-size:16px;color:#92400e;margin:10px 0;">${statusText}</p>
                         
                         <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="width:100%;margin-top:15px;padding:12px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
                     </div>
@@ -13400,7 +13462,7 @@ Stack: ${err.stack}
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">🗑️ Stornieren</button>
                     </div>
                 `;
                 return;
@@ -13510,7 +13572,7 @@ Stack: ${err.stack}
                         <strong>Nach:</strong> ${ride.destination}<br>
                         <strong>Preis:</strong> ${ride.price}€
                     </div>
-                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">💶 Kostenpflichtig stornieren (10€)</button>
+                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🗑️ Stornieren</button>
                 </div>
                 <div id="passenger-tracking-map" style="width:100%;height:400px;margin-top:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#e5e7eb;"></div>
             `;

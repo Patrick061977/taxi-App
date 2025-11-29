@@ -121,13 +121,148 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-20px); }
         }
+        
+        /* 📱 MOBILE RESPONSIVE CSS */
+        @media only screen and (max-width: 768px) {
+            /* Größere Touch-Targets */
+            .btn { 
+                padding: 18px 25px !important; 
+                font-size: 16px !important;
+                min-height: 50px;
+            }
+            
+            /* Fahrer-Ansicht - größere Buttons */
+            #power-save-btn,
+            #battery-btn,
+            #settings-btn {
+                padding: 10px 16px !important;
+                font-size: 16px !important;
+                min-width: 50px;
+                min-height: 44px;
+            }
+            
+            /* Input-Felder größer */
+            .input-group input,
+            .input-group select {
+                padding: 16px !important;
+                font-size: 16px !important;
+                min-height: 50px;
+            }
+            
+            /* Header kompakter auf Mobile */
+            .header {
+                padding: 15px 10px !important;
+            }
+            
+            .header h1 {
+                font-size: 18px !important;
+            }
+            
+            /* Status-Row responsive */
+            .status-row {
+                gap: 10px !important;
+                font-size: 10px !important;
+                flex-wrap: wrap;
+            }
+            
+            /* View-Selector größer */
+            .view-btn {
+                padding: 18px 10px !important;
+                font-size: 15px !important;
+                min-height: 50px;
+            }
+            
+            /* Karten mit mehr Padding */
+            .ride-card,
+            .stat-card {
+                padding: 18px !important;
+                font-size: 15px !important;
+            }
+            
+            /* Map auf Mobile höher */
+            #map,
+            #driver-map {
+                height: 400px !important;
+            }
+            
+            /* Modal auf Mobile anpassen */
+            .modal-content {
+                margin: 5% auto !important;
+                padding: 25px 20px !important;
+                max-width: 95% !important;
+            }
+            
+            /* Online Toggle größer */
+            .toggle-switch {
+                width: 70px !important;
+                height: 40px !important;
+            }
+            
+            .slider:before {
+                height: 32px !important;
+                width: 32px !important;
+            }
+            
+            input:checked + .slider:before {
+                transform: translateX(30px) !important;
+            }
+            
+            /* Stats Grid auf Mobile single column */
+            .stats-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* User Profile kompakter */
+            .user-profile {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            /* Telegram Box auf Mobile */
+            #telegram-box {
+                padding: 15px !important;
+            }
+            
+            #telegram-box input {
+                font-size: 16px !important;
+                padding: 14px !important;
+            }
+            
+            /* Besseres Spacing auf Mobile */
+            .view {
+                padding: 12px !important;
+            }
+            
+            /* Alert-Boxen größer */
+            .alert-success,
+            .alert-info {
+                padding: 16px !important;
+                font-size: 14px !important;
+            }
+        }
+        
+        /* 📱 Sehr kleine Screens (unter 400px) */
+        @media only screen and (max-width: 400px) {
+            .header h1 {
+                font-size: 16px !important;
+            }
+            
+            .status-row {
+                font-size: 9px !important;
+            }
+            
+            .view-btn {
+                font-size: 13px !important;
+                padding: 15px 5px !important;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.21.8 - Blacklist-Fix ✅ (Build 20251127)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.0 - Driver Settings ⚙️ (Build 20251129)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>

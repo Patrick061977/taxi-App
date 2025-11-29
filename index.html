@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.24.6 - Build 20251129-1020');
+        console.log('🚕 Funk Taxi App v5.24.7 - Build 20251129-1125');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.6 - Wake-Up Button Fix 👆 (Build 20251129-1020)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.24.7 - Duplikat-Fix 🔧 (Build 20251129-1125)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -6796,6 +6796,12 @@
                 // Power-Save Button in driver-top-bar einfügen
                 const topBar = document.getElementById('driver-top-bar');
                 if (!topBar) return;
+                
+                // ⚠️ DUPLIKAT-CHECK: Nicht nochmal erstellen wenn schon da!
+                if (document.getElementById('battery-display')) {
+                    console.log('⚠️ UI bereits erstellt - überspringe');
+                    return;
+                }
                 
                 // Batterie-Anzeige
                 const batteryDisplay = document.createElement('div');

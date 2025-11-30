@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.14c - Build 20251130-1350');
-        console.log('🐛 BUGFIX: Modal schließen funktioniert jetzt!');
+        console.log('🚕 Funk Taxi App v5.26.14d - Build 20251130-1415');
+        console.log('✅ RECHNUNG-DOWNLOAD + VERLAUF-BUTTON + BUGFIXES');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14c - Modal Bugfix (Build 20251130-1350)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14d - Rechnung + Verlauf (Build 20251130-1415)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -455,7 +455,12 @@
     </div>
 
     <div id="passenger-view" class="view active">
-        <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <h3 style="margin:0;">Taxi buchen</h3>
+            <button onclick="showView('history')" style="padding:10px 15px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                📖 Meine Fahrten
+            </button>
+        </div>
         
         <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
         <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
@@ -1281,8 +1286,9 @@
             </div>
         </div>
         
-        <!-- Ready State (wenn keine Fahrt) -->
+        <!-- Ready State (wenn keine Fahrt) - NUR FÜR FAHRER -->
         <div id="driver-ready" style="
+            display: none;
             padding: 80px 20px;
             text-align: center;
         ">
@@ -2253,6 +2259,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
         let firebaseLoadTimeout, firebaseLoaded = false;
         firebaseLoadTimeout = setTimeout(() => { 
@@ -2757,7 +2764,15 @@
                         </button>`;
                     }
                 } else {
-                    // Vergangene Fahrten: 3 Buttons
+                    // Vergangene Fahrten: Buttons inkl. Rechnung
+                    // 📄 RECHNUNG-Button für abgeschlossene Fahrten
+                    const rechnungButton = (r.status === 'abgeschlossen' || r.status === 'completed') ? `
+                        <button onclick="downloadReceipt(${r.createdAt || r.id})" 
+                            style="width:100%;margin-top:8px;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                            📄 Rechnung laden
+                        </button>
+                    ` : '';
+                    
                     actionButtons = `
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
                             <button onclick="rebookRide(${r.createdAt || r.id})" 
@@ -2773,6 +2788,7 @@
                             style="width:100%;margin-top:8px;padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
                             ⭐ Als Favorit
                         </button>
+                        ${rechnungButton}
                     `;
                 }
                 
@@ -5341,6 +5357,120 @@
                 tarif: tarifName,
                 tarifDetails: tarif
             };
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.26.14d: RECHNUNG-DOWNLOAD FÜR FAHRGAST
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        function downloadReceipt(rideIdOrTimestamp) {
+            // Finde Fahrt
+            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = localHistory.find(r => r.createdAt === rideIdOrTimestamp || r.id === rideIdOrTimestamp);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // Erstelle PDF mit jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Schriftart und Größe
+            doc.setFont('helvetica');
+            
+            // HEADER
+            doc.setFontSize(20);
+            doc.setTextColor(102, 126, 234); // #667eea
+            doc.text('Funk Taxi Heringsdorf', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(16);
+            doc.setTextColor(0, 0, 0);
+            doc.text('RECHNUNG', 105, 30, { align: 'center' });
+            
+            // Linie
+            doc.setDrawColor(200, 200, 200);
+            doc.line(20, 35, 190, 35);
+            
+            // FAHRT-NUMMER & DATUM
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            const fahrtNr = ride.id || String(ride.createdAt).substring(0, 10);
+            doc.text('Fahrt-Nr: #' + fahrtNr, 20, 45);
+            
+            if (ride.createdAt) {
+                const datum = new Date(ride.createdAt);
+                const datumStr = datum.toLocaleString('de-DE', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                doc.text('Datum: ' + datumStr, 20, 52);
+            }
+            
+            // FAHRT-DETAILS
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            
+            doc.text('Von:', 20, 65);
+            doc.setFont('helvetica', 'normal');
+            doc.text(ride.pickup || 'Unbekannt', 20, 72);
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('Nach:', 20, 85);
+            doc.setFont('helvetica', 'normal');
+            doc.text(ride.destination || 'Unbekannt', 20, 92);
+            
+            // STRECKE & PREIS
+            doc.setFont('helvetica', 'bold');
+            doc.text('Strecke:', 20, 105);
+            doc.setFont('helvetica', 'normal');
+            doc.text((ride.distance || '?') + ' km', 20, 112);
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('Preis:', 20, 125);
+            doc.setFontSize(18);
+            doc.setTextColor(102, 126, 234);
+            doc.text((ride.price || '?') + ',00 EUR', 20, 135);
+            
+            // ZAHLUNGSMETHODE (falls vorhanden)
+            if (ride.paymentMethod) {
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Zahlungsmethode:', 20, 148);
+                doc.setFont('helvetica', 'normal');
+                const paymentText = {
+                    'bar': 'Bargeld',
+                    'karte': 'EC-Karte/Kreditkarte',
+                    'paypal': 'PayPal/Digitale Zahlung',
+                    'rechnung': 'Rechnung (Firmenkunden)'
+                }[ride.paymentMethod] || ride.paymentMethod;
+                doc.text(paymentText, 20, 155);
+            }
+            
+            // FAHRZEUG-INFO (falls vorhanden)
+            if (ride.vehicleLabel) {
+                doc.setFont('helvetica', 'bold');
+                doc.text('Fahrzeug:', 20, 168);
+                doc.setFont('helvetica', 'normal');
+                doc.text(ride.vehicleLabel, 20, 175);
+            }
+            
+            // FOOTER
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Funk Taxi Heringsdorf', 105, 280, { align: 'center' });
+            doc.text('Vielen Dank für Ihre Fahrt!', 105, 285, { align: 'center' });
+            
+            // DOWNLOAD
+            const filename = 'Rechnung_Taxi_' + fahrtNr + '.pdf';
+            doc.save(filename);
+            
+            console.log('📄 Rechnung erstellt:', filename);
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -15288,7 +15418,7 @@ Stack: ${err.stack}
             if (role === 'fahrgast') {
                 // Fahrgast sieht: Fahrgast + Verlauf
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
-                if (verlaufBtn) verlaufBtn.style.display = 'block';
+                if (verlaufBtn) verlaufBtn.style.display = 'block'; // ✅ IMMER anzeigen!
                 switchView('passenger');
             } else if (role === 'fahrer') {
                 // Fahrer sieht: Fahrgast + Verlauf + Fahrer
@@ -15309,8 +15439,9 @@ Stack: ${err.stack}
                 // 🆕 Starte Vorbestellungs-Aktivierer (aktiviert 15 Min vor Abholung)
                 startPrebookingActivator();
             } else {
-                // Nicht eingeloggt: NUR Fahrgast
+                // 🆕 v5.26.14d: Nicht eingeloggt: Fahrgast + Verlauf BEIDE anzeigen!
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
+                if (verlaufBtn) verlaufBtn.style.display = 'block'; // ✅ AUCH ohne Login!
                 switchView('passenger');
             }
         }

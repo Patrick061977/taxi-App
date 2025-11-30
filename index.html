@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.14d - Build 20251130-1415');
-        console.log('✅ RECHNUNG-DOWNLOAD + VERLAUF-BUTTON + BUGFIXES');
+        console.log('🚕 Funk Taxi App v5.26.14e - Build 20251130-1430');
+        console.log('✅ VIEW SEPARATION FIX - Jeder Tab zeigt nur seine Inhalte!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14d - Rechnung + Verlauf (Build 20251130-1415)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14e - View Separation (Build 20251130-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4050,12 +4050,23 @@
         }
 
         function switchView(view) {
+            // Entferne active von allen Views
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             
-            // ✅ Sichere Zugriffe - Element könnte fehlen
+            // 🆕 v5.26.14e: EXPLIZIT alle Views verstecken
+            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
+            allViews.forEach(viewId => {
+                const viewEl = document.getElementById(viewId);
+                if (viewEl) {
+                    viewEl.style.display = 'none';
+                }
+            });
+            
+            // ✅ Zeige nur die aktive View
             const viewElement = document.getElementById(view + '-view');
             if (viewElement) {
+                viewElement.style.display = 'block';
                 viewElement.classList.add('active');
             }
             
@@ -4073,6 +4084,8 @@
             }
             
             currentView = view;
+            
+            console.log('🔄 View gewechselt zu:', view);
             
             // 🆕 v5.26.0: Telefon-Auth prüfen bei Fahrgast-Tab
             if (view === 'passenger') {
@@ -16430,6 +16443,22 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
+            // 🆕 v5.26.14e: Initialisiere Views - NUR passenger sichtbar!
+            console.log('🎬 Initialisiere Views...');
+            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
+            allViews.forEach(viewId => {
+                const viewEl = document.getElementById(viewId);
+                if (viewEl) {
+                    if (viewId === 'passenger-view') {
+                        viewEl.style.display = 'block';
+                        console.log('✅ passenger-view sichtbar');
+                    } else {
+                        viewEl.style.display = 'none';
+                        console.log('🚫 ' + viewId + ' versteckt');
+                    }
+                }
+            });
+            
             // 🔐 STARTSEITE: Nur Fahrgast anzeigen (bis Login)
             applyRoleRestrictions(null); // null = nicht eingeloggt
             

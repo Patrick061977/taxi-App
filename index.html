@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.29.0 - Build 20251130-1900');
-        console.log('🔥 KALENDER HOT-SPOT DETECTION - SEHE WENN ES ENG WIRD!');
+        console.log('🚕 Funk Taxi App v5.29.1 - Build 20251130-1948');
+        console.log('🔧 KALENDER VORBESTELL-FIX - Zeigt jetzt korrekt Vorbestellungen!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.29.0 - Kalender Hot-Spot Detection (Build 20251130-1900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.29.1 - Kalender Vorbestell-Fix (Build 20251130-1948)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -17519,7 +17519,8 @@ Stack: ${err.stack}
             // Gruppiere Fahrten nach Datum
             const ridesByDate = {};
             allRides.forEach(ride => {
-                const rideDate = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                // 🔧 v5.29.1: FÜR KALENDER: Nutze pickupTimestamp (Abholzeit) statt createdAt!
+                const rideDate = new Date(ride.pickupTimestamp || ride.createdAt || 0);
                 if (rideDate.getMonth() === month && rideDate.getFullYear() === year) {
                     const day = rideDate.getDate();
                     if (!ridesByDate[day]) ridesByDate[day] = [];
@@ -17638,7 +17639,8 @@ Stack: ${err.stack}
             }
             
             allRides.forEach(ride => {
-                const rideDate = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                // 🔧 v5.29.1: FÜR KALENDER: Nutze pickupTimestamp (Abholzeit) statt createdAt!
+                const rideDate = new Date(ride.pickupTimestamp || ride.createdAt || 0);
                 const key = rideDate.toISOString().split('T')[0];
                 if (ridesByDay[key]) {
                     ridesByDay[key].rides.push(ride);
@@ -17704,9 +17706,15 @@ Stack: ${err.stack}
             
             // Filtere Fahrten für diesen Tag
             const dayRides = allRides.filter(ride => {
-                const rideDate = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                // 🔧 v5.29.1: FÜR KALENDER: Nutze pickupTimestamp (Abholzeit) statt createdAt!
+                const rideDate = new Date(ride.pickupTimestamp || ride.createdAt || 0);
                 return rideDate.toDateString() === date.toDateString();
-            }).sort((a, b) => (a.createdAt || a.pickupTimestamp || 0) - (b.createdAt || b.pickupTimestamp || 0));
+            }).sort((a, b) => {
+                // 🔧 v5.29.1: Sortiere nach Abholzeit
+                const timeA = a.pickupTimestamp || a.createdAt || 0;
+                const timeB = b.pickupTimestamp || b.createdAt || 0;
+                return timeA - timeB;
+            });
             
             // 🆕 v5.29.0: Analysiere Tag
             const analysis = analyzeDayCapacity(dayRides);
@@ -17786,7 +17794,8 @@ Stack: ${err.stack}
                 html += '<div style="font-weight:600;font-size:15px;color:#1f2937;padding:0 5px;">📋 Alle Fahrten:</div>';
                 
                 dayRides.forEach(ride => {
-                    const time = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                    // 🔧 v5.29.1: FÜR KALENDER: Zeige Abholzeit, nicht Buchungszeit!
+                    const time = new Date(ride.pickupTimestamp || ride.createdAt || 0);
                     const timeStr = time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
                     const color = getRideColor(ride.status);
                     

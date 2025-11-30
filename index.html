@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.4 - Build 20251129-1220');
+        console.log('🚕 Funk Taxi App v5.26.6 - Build 20251130-0715');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.26.4 - Rechnungsadresse Autocomplete 🧾 (Build 20251129-1220)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.26.6 - Invisible reCAPTCHA 🔓 (Build 20251130-0715)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -14308,22 +14308,23 @@ Stack: ${err.stack}
                 return;
             }
             
+            // Container prüfen - nutze den im Login-Modal
+            const containerId = document.getElementById('login-recaptcha-container') ? 'login-recaptcha-container' : 'recaptcha-container';
+            
             try {
-                recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                    'size': 'normal',
+                recaptchaVerifier = new firebase.auth.RecaptchaVerifier(containerId, {
+                    'size': 'invisible',  // UNSICHTBAR - läuft im Hintergrund!
                     'callback': (response) => {
-                        // reCAPTCHA gelöst
-                        console.log('✅ reCAPTCHA gelöst');
-                        document.getElementById('send-code-btn').disabled = false;
+                        console.log('✅ reCAPTCHA automatisch gelöst');
                     },
                     'expired-callback': () => {
-                        // reCAPTCHA abgelaufen
-                        console.log('⚠️ reCAPTCHA abgelaufen');
-                        document.getElementById('send-code-btn').disabled = true;
+                        console.log('⚠️ reCAPTCHA abgelaufen - neu initialisieren');
+                        recaptchaVerifier = null;
+                        initRecaptcha();
                     }
                 });
                 recaptchaVerifier.render();
-                console.log('✅ reCAPTCHA initialisiert');
+                console.log('✅ Invisible reCAPTCHA initialisiert');
             } catch (error) {
                 console.error('❌ reCAPTCHA Fehler:', error);
             }
@@ -14757,30 +14758,30 @@ Stack: ${err.stack}
             console.log('🔒 Kein User eingeloggt - zeige Login-Screen');
             if (authScreen && currentView === 'passenger') {
                 authScreen.style.display = 'block';
-                initRecaptcha();
+                initAuthScreenRecaptcha();
             }
             return false;
         }
         
-        // reCAPTCHA initialisieren (nötig für Firebase Phone Auth)
-        function initRecaptcha() {
+        // reCAPTCHA initialisieren für Auth-Screen (nötig für Firebase Phone Auth)
+        function initAuthScreenRecaptcha() {
             if (phoneRecaptchaVerifier) return;
             
             try {
                 phoneRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
                     'size': 'invisible',
                     'callback': (response) => {
-                        console.log('✅ reCAPTCHA gelöst');
+                        console.log('✅ Auth-Screen reCAPTCHA gelöst');
                     },
                     'expired-callback': () => {
-                        console.log('⚠️ reCAPTCHA abgelaufen');
+                        console.log('⚠️ Auth-Screen reCAPTCHA abgelaufen');
                         phoneRecaptchaVerifier = null;
                     }
                 });
                 phoneRecaptchaVerifier.render();
-                console.log('✅ reCAPTCHA initialisiert');
+                console.log('✅ Auth-Screen reCAPTCHA initialisiert');
             } catch (error) {
-                console.error('❌ reCAPTCHA Fehler:', error);
+                console.error('❌ Auth-Screen reCAPTCHA Fehler:', error);
             }
         }
         
@@ -14893,7 +14894,7 @@ Stack: ${err.stack}
             try {
                 // reCAPTCHA neu initialisieren falls nötig
                 if (!phoneRecaptchaVerifier) {
-                    initRecaptcha();
+                    initAuthScreenRecaptcha();
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
@@ -15805,8 +15806,8 @@ Stack: ${err.stack}
                         <input type="tel" id="phone-number" class="modal-input" placeholder="170 1234567" style="flex:1;margin:0;">
                     </div>
                     
-                    <!-- reCAPTCHA Container -->
-                    <div id="recaptcha-container" style="display:flex;justify-content:center;margin:10px 0;"></div>
+                    <!-- reCAPTCHA Container (invisible - läuft im Hintergrund) -->
+                    <div id="login-recaptcha-container"></div>
                     
                     <button id="send-code-btn" class="modal-btn btn-primary-modal" onclick="sendPhoneCode()" style="background:#10b981;">
                         📲 SMS-Code senden

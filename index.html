@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.27.0 - Build 20251130-1700');
-        console.log('✨ KALENDER-FEATURE MIT 3 ANSICHTEN!');
+        console.log('🚕 Funk Taxi App v5.29.0 - Build 20251130-1900');
+        console.log('🔥 KALENDER HOT-SPOT DETECTION - SEHE WENN ES ENG WIRD!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.27.0 - Kalender-Feature (Build 20251130-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.29.0 - Kalender Hot-Spot Detection (Build 20251130-1900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -342,7 +342,6 @@
     <div class="view-selector">
         <button class="view-btn active" onclick="switchView('passenger')" id="passenger-tab-btn">Fahrgast</button>
         <button class="view-btn" onclick="switchView('history')" id="history-tab-btn">Verlauf</button>
-        <button class="view-btn" onclick="switchView('calendar')" id="calendar-tab-btn">📅 Kalender</button>
         <button class="view-btn" onclick="switchView('driver')" id="driver-tab-btn" style="display:none;">Fahrer</button>
         <button class="view-btn" onclick="switchView('admin')" id="admin-tab-btn" style="display:none;">Admin</button>
     </div>
@@ -675,65 +674,6 @@
     </div>
 
     <!-- 🆕 v5.27.0: KALENDER VIEW -->
-    <div id="calendar-view" class="view">
-        <h3 style="margin: 20px 0;">📅 Fahrten-Kalender</h3>
-        
-        <!-- Ansichts-Toggle -->
-        <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-            <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                📅 Monat
-            </button>
-            <button id="cal-week-btn" onclick="switchCalendarView('week')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                📊 Woche
-            </button>
-            <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                📋 Tag
-            </button>
-        </div>
-        
-        <!-- Monats-Navigation -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #f9fafb; border-radius: 8px;">
-            <button onclick="previousPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                ◀️ Zurück
-            </button>
-            <div style="font-weight: 700; font-size: 16px; color: #1f2937;" id="calendar-period-title">
-                November 2025
-            </div>
-            <button onclick="nextPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                Vor ▶️
-            </button>
-        </div>
-        
-        <!-- Legende -->
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding: 12px; background: #f9fafb; border-radius: 8px; font-size: 13px;">
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <div style="width: 12px; height: 12px; background: #10b981; border-radius: 50%;"></div>
-                <span>Abgeschlossen</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%;"></div>
-                <span>Storniert</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <div style="width: 12px; height: 12px; background: #f59e0b; border-radius: 50%;"></div>
-                <span>Vorbestellt</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 4px;">
-                <div style="width: 12px; height: 12px; background: #3b82f6; border-radius: 50%;"></div>
-                <span>In Bearbeitung</span>
-            </div>
-        </div>
-        
-        <!-- Kalender-Container -->
-        <div id="calendar-container" style="margin-bottom: 20px;">
-            <!-- Wird dynamisch gefüllt -->
-        </div>
-        
-        <!-- Statistik -->
-        <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
-            <!-- Wird dynamisch gefüllt -->
-        </div>
-    </div>
 
     <div id="driver-view" class="view">
         <!-- 🎯 DESIGN C: FULLSCREEN MAP - Google Maps Style -->
@@ -1695,6 +1635,93 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
+        <!-- 🆕 v5.27.1: KALENDER (NUR FÜR ADMIN!) -->
+        <div onclick="toggleAdminSection('calendar')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📅 Fahrten-Kalender</span>
+            <span id="calendar-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="calendar-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
+            <!-- Ansichts-Toggle -->
+            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                    📅 Monat
+                </button>
+                <button id="cal-week-btn" onclick="switchCalendarView('week')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                    📊 Woche
+                </button>
+                <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                    📋 Tag
+                </button>
+            </div>
+            
+            <!-- Monats-Navigation -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #f9fafb; border-radius: 8px;">
+                <button onclick="previousPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                    ◀️ Zurück
+                </button>
+                <div style="font-weight: 700; font-size: 16px; color: #1f2937;" id="calendar-period-title">
+                    November 2025
+                </div>
+                <button onclick="nextPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                    Vor ▶️
+                </button>
+            </div>
+            
+            <!-- Legende -->
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 15px; padding: 12px; background: #f9fafb; border-radius: 8px; font-size: 13px;">
+                <div style="font-weight: 600; width: 100%; margin-bottom: 5px; color: #1f2937;">Status:</div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="width: 12px; height: 12px; background: #10b981; border-radius: 50%;"></div>
+                    <span>Abgeschlossen</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%;"></div>
+                    <span>Storniert</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="width: 12px; height: 12px; background: #f59e0b; border-radius: 50%;"></div>
+                    <span>Vorbestellt</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="width: 12px; height: 12px; background: #3b82f6; border-radius: 50%;"></div>
+                    <span>In Bearbeitung</span>
+                </div>
+            </div>
+            
+            <!-- 🆕 v5.29.0: KAPAZITÄTS-LEGENDE -->
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding: 12px; background: #fffbeb; border-radius: 8px; font-size: 13px; border: 2px solid #fcd34d;">
+                <div style="font-weight: 600; width: 100%; margin-bottom: 5px; color: #1f2937;">🔥 Auslastung:</div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="padding: 4px 8px; background: #f0fdf4; border: 2px solid #86efac; border-radius: 6px; font-weight: 600; color: #166534;">
+                        ✅ 1-3
+                    </div>
+                    <span style="color: #166534;">OK</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="padding: 4px 8px; background: #fef3c7; border: 2px solid #fcd34d; border-radius: 6px; font-weight: 600; color: #92400e;">
+                        ⚠️ 4-5
+                    </div>
+                    <span style="color: #92400e;">Könnte eng werden</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="padding: 4px 8px; background: #fef2f2; border: 2px solid: #fca5a5; border-radius: 6px; font-weight: 600; color: #991b1b;">
+                        🔥 6+
+                    </div>
+                    <span style="color: #991b1b;">Viele Fahrten!</span>
+                </div>
+            </div>
+            
+            <!-- Kalender-Container -->
+            <div id="calendar-container" style="margin-bottom: 20px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <!-- Statistik -->
+            <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+        
         <!-- 🚨 NEU: AKTIVE FAHRTEN ÜBERSICHT -->
         <div onclick="toggleAdminSection('activerides')" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">🚨 Aktive Fahrten <span id="active-rides-count" style="background:white;color:#d97706;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
@@ -1802,6 +1829,36 @@
                 <label style="display:flex;align-items:center;gap:4px;font-size:12px;background:#f3f4f6;padding:5px 10px;border-radius:15px;cursor:pointer;">
                     <input type="checkbox" id="live-filter-system" checked onchange="updateLiveFilters()"> ⚙️ System
                 </label>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.28.0: ANTI-BETRUGS-ALARME -->
+        <div id="antifraud-alert-badge" onclick="toggleAdminSection('antifraud')" style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:none;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🚨 Anti-Betrugs-Alarme <span id="antifraud-alert-count" style="background:white;color:#dc2626;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+            <span id="antifraud-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="antifraud-content" style="display:none;margin-bottom:20px;">
+            <div style="padding:15px;background:#fef2f2;border-radius:8px;margin-bottom:15px;">
+                <div style="font-weight:600;margin-bottom:8px;color:#991b1b;">⚠️ Verdächtige ÖPNV-Mehrfach-Abrechnungen</div>
+                <div style="font-size:13px;color:#7f1d1d;">
+                    Diese Fahrten könnten Mehrfach-Abrechnungen derselben Fahrt sein.<br>
+                    Prüfen Sie ob es sich um verschiedene Personen oder um Betrug handelt.
+                </div>
+            </div>
+            
+            <!-- Buttons -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+                <button onclick="loadAntiFraudAlerts()" style="padding:10px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔄 Aktualisieren
+                </button>
+                <button onclick="clearResolvedAlerts()" style="padding:10px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🗑️ Erledigte löschen
+                </button>
+            </div>
+            
+            <!-- Alarm-Liste -->
+            <div id="antifraud-alerts-list" style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;max-height:400px;overflow-y:auto;">
+                <div style="padding:20px;text-align:center;color:#999;">Keine Alarme vorhanden</div>
             </div>
         </div>
         
@@ -2255,6 +2312,72 @@
                         <br>
                         Bei Taxi-Preis 15,00€:<br>
                         <strong>Gemeinde zahlt: 5,00€</strong>
+                    </div>
+                </div>
+                
+                <!-- 🆕 v5.28.0: ANTI-BETRUGS-SYSTEM -->
+                <div style="margin-top:30px;padding:20px;background:#fef2f2;border:2px solid #ef4444;border-radius:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                        <div style="font-size:28px;">🚨</div>
+                        <div>
+                            <div style="font-weight:700;font-size:16px;color:#991b1b;">Anti-Betrugs-System</div>
+                            <div style="font-size:12px;color:#7f1d1d;">Verhindert Mehrfach-Abrechnungen bei Sammelfahrten</div>
+                        </div>
+                    </div>
+                    
+                    <!-- TOGGLE -->
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:white;border-radius:8px;margin-bottom:15px;">
+                        <input type="checkbox" id="oepnv-antifraud-enabled" onchange="saveOEPNVSettings()" style="width:20px;height:20px;">
+                        <div style="flex:1;">
+                            <div style="font-weight:600;font-size:14px;color:#1f2937;">🛡️ Anti-Betrugs-System aktivieren</div>
+                            <div style="font-size:12px;color:#6b7280;margin-top:2px;">Erkennt automatisch verdächtige Mehrfach-Abrechnungen</div>
+                        </div>
+                    </label>
+                    
+                    <!-- MODUS -->
+                    <div id="antifraud-mode-section" style="display:none;padding:12px;background:white;border-radius:8px;margin-bottom:15px;">
+                        <div style="font-weight:600;font-size:13px;color:#1f2937;margin-bottom:10px;">Betriebsmodus:</div>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:#f9fafb;border-radius:6px;margin-bottom:6px;">
+                            <input type="radio" name="antifraud-mode" value="warn" checked style="width:16px;height:16px;">
+                            <div>
+                                <div style="font-weight:600;font-size:13px;color:#10b981;">⚠️ Nur Warnen (Empfohlen für Start)</div>
+                                <div style="font-size:11px;color:#6b7280;">Erkennt Duplikate, blockiert aber nicht → Admin sieht Warnungen</div>
+                            </div>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:#f9fafb;border-radius:6px;">
+                            <input type="radio" name="antifraud-mode" value="block" style="width:16px;height:16px;">
+                            <div>
+                                <div style="font-weight:600;font-size:13px;color:#ef4444;">🚫 Blockieren</div>
+                                <div style="font-size:11px;color:#6b7280;">Verhindert Mehrfach-Abrechnungen aktiv → Blockiert zweite Buchung</div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- ERKENNUNGS-KRITERIEN -->
+                    <div id="antifraud-criteria" style="display:none;padding:12px;background:white;border-radius:8px;margin-bottom:15px;">
+                        <div style="font-weight:600;font-size:13px;color:#1f2937;margin-bottom:8px;">🔍 Erkennungs-Kriterien:</div>
+                        <div style="font-size:12px;color:#4b5563;line-height:1.6;">
+                            System markiert als verdächtig wenn:<br>
+                            ✓ Gleicher Fahrer<br>
+                            ✓ Gleiche Start-Adresse<br>
+                            ✓ Gleiches Ziel<br>
+                            ✓ Zeitdifferenz &lt; 5 Minuten<br>
+                            <br>
+                            <div style="padding:8px;background:#fef3c7;border-radius:6px;font-size:11px;">
+                                <strong>💡 Tipp:</strong> Starten Sie im "Nur Warnen" Modus um Daten zu sammeln, bevor Sie blockieren!
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- INFO BOX -->
+                    <div style="padding:12px;background:#dbeafe;border-radius:8px;font-size:12px;color:#1e40af;">
+                        <strong>ℹ️ Was passiert bei Aktivierung?</strong><br>
+                        • Admin sieht verdächtige Muster im Dashboard<br>
+                        • Automatische Duplikats-Erkennung<br>
+                        • Warnungen in Echtzeit<br>
+                        • Excel-Export für Gemeinde<br>
+                        <br>
+                        <strong>👍 Vorteile:</strong> Gemeinde spart Geld, Betrug wird verhindert, professionelles System!
                     </div>
                 </div>
                 
@@ -4179,8 +4302,8 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             
-            // 🆕 v5.27.0: Kalender-View hinzugefügt
-            const allViews = ['passenger-view', 'history-view', 'calendar-view', 'driver-view', 'admin-view'];
+            // 🆕 v5.27.1: calendar-view entfernt (jetzt im Admin)
+            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -4199,7 +4322,6 @@
             const viewBtnMap = {
                 'passenger': '.view-btn[onclick*="passenger"]',
                 'history': '.view-btn[onclick*="history"]',
-                'calendar': '.view-btn[onclick*="calendar"]',
                 'driver': '.view-btn[onclick*="driver"]',
                 'admin': '.view-btn[onclick*="admin"]'
             };
@@ -4212,11 +4334,6 @@
             currentView = view;
             
             console.log('🔄 View gewechselt zu:', view);
-            
-            // 🆕 v5.27.0: Kalender rendern
-            if (view === 'calendar') {
-                setTimeout(() => renderCalendar(), 100);
-            }
             
             // 🆕 v5.26.0: Telefon-Auth prüfen bei Fahrgast-Tab
             if (view === 'passenger') {
@@ -5368,10 +5485,19 @@
                     qr: true,
                     app: true,
                     pdf: true
+                },
+                // 🆕 v5.28.0: Anti-Betrugs-Defaults
+                antiFraud: {
+                    enabled: false,
+                    mode: 'warn'
                 }
             };
             
             const merged = { ...defaults, ...settings };
+            // Ensure antiFraud object exists
+            if (!merged.antiFraud) {
+                merged.antiFraud = defaults.antiFraud;
+            }
             
             // UI befüllen
             document.getElementById('oepnv-enabled').checked = merged.enabled;
@@ -5399,8 +5525,21 @@
             document.getElementById('oepnv-beleg-app').checked = merged.belegOptions.app;
             document.getElementById('oepnv-beleg-pdf').checked = merged.belegOptions.pdf;
             
+            // 🆕 v5.28.0: Anti-Betrugs UI laden
+            document.getElementById('oepnv-antifraud-enabled').checked = merged.antiFraud.enabled;
+            const modeRadios = document.querySelectorAll('input[name="antifraud-mode"]');
+            modeRadios.forEach(radio => {
+                if (radio.value === merged.antiFraud.mode) {
+                    radio.checked = true;
+                }
+            });
+            
             // Settings anzeigen/verstecken
             document.getElementById('oepnv-settings').style.display = merged.enabled ? 'block' : 'none';
+            
+            // 🆕 v5.28.0: Anti-Betrugs UI anzeigen/verstecken
+            document.getElementById('antifraud-mode-section').style.display = merged.antiFraud.enabled ? 'block' : 'none';
+            document.getElementById('antifraud-criteria').style.display = merged.antiFraud.enabled ? 'block' : 'none';
             
             // In globale Variable speichern
             window.oepnvSettings = merged;
@@ -5411,6 +5550,10 @@
         // ÖPNV-Einstellungen speichern
         function saveOEPNVSettings() {
             const enabled = document.getElementById('oepnv-enabled').checked;
+            
+            // 🆕 v5.28.0: Anti-Betrugs-System
+            const antiFraudEnabled = document.getElementById('oepnv-antifraud-enabled').checked;
+            const antiFraudMode = document.querySelector('input[name="antifraud-mode"]:checked')?.value || 'warn';
             
             const settings = {
                 enabled: enabled,
@@ -5444,6 +5587,11 @@
                     qr: document.getElementById('oepnv-beleg-qr').checked,
                     app: document.getElementById('oepnv-beleg-app').checked,
                     pdf: document.getElementById('oepnv-beleg-pdf').checked
+                },
+                // 🆕 v5.28.0: Anti-Betrugs-Settings
+                antiFraud: {
+                    enabled: antiFraudEnabled,
+                    mode: antiFraudMode
                 }
             };
             
@@ -5458,11 +5606,22 @@
             // Settings anzeigen/verstecken
             document.getElementById('oepnv-settings').style.display = enabled ? 'block' : 'none';
             
+            // 🆕 v5.28.0: Anti-Betrugs UI anzeigen/verstecken
+            document.getElementById('antifraud-mode-section').style.display = antiFraudEnabled ? 'block' : 'none';
+            document.getElementById('antifraud-criteria').style.display = antiFraudEnabled ? 'block' : 'none';
+            
             // Global speichern
             window.oepnvSettings = settings;
             
             console.log('🚍 ÖPNV-Settings gespeichert:', settings);
-            alert('✅ ÖPNV-Einstellungen gespeichert!');
+            
+            // 🆕 v5.28.0: Info über Anti-Betrugs-Status
+            if (antiFraudEnabled) {
+                console.log('🚨 Anti-Betrugs-System:', antiFraudMode === 'warn' ? 'NUR WARNEN' : 'BLOCKIEREN');
+            }
+            
+            alert('✅ ÖPNV-Einstellungen gespeichert!' + 
+                  (antiFraudEnabled ? '\n\n🚨 Anti-Betrugs-System: ' + (antiFraudMode === 'warn' ? 'Nur Warnen' : 'Blockieren') : ''));
         }
         
         // Berechne Busticket-Preis basierend auf km und Personen
@@ -5501,6 +5660,234 @@
                 tarif: tarifName,
                 tarifDetails: tarif
             };
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.28.0: ANTI-BETRUGS-SYSTEM - DUPLIKATS-ERKENNUNG
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        // Prüfe ob ÖPNV-Fahrt Duplikat ist (Mehrfach-Abrechnung)
+        function checkOEPNVDuplicate(newRide) {
+            // Nur wenn Anti-Betrugs-System aktiviert
+            if (!window.oepnvSettings?.antiFraud?.enabled) {
+                return { isDuplicate: false, duplicates: [] };
+            }
+            
+            console.log('🚨 Prüfe auf Duplikate:', newRide);
+            
+            // Hole alle ÖPNV-Fahrten der letzten 10 Minuten
+            const now = Date.now();
+            const tenMinutesAgo = now - (10 * 60 * 1000);
+            
+            // Suche in rides-Objekt (alle aktiven/letzten Fahrten)
+            const recentOepnvRides = Object.values(rides).filter(r => 
+                r.isOEPNV && 
+                r.timestamp >= tenMinutesAgo &&
+                r.id !== newRide.id // Nicht sich selbst
+            );
+            
+            console.log('🔍 Gefundene ÖPNV-Fahrten (10 Min):', recentOepnvRides.length);
+            
+            // Suche Duplikate
+            const duplicates = recentOepnvRides.filter(existingRide => {
+                const timeDiff = Math.abs(newRide.timestamp - existingRide.timestamp);
+                const fiveMinutes = 5 * 60 * 1000;
+                
+                const sameDriver = existingRide.driverId === newRide.driverId;
+                const samePickup = existingRide.pickup === newRide.pickup;
+                const sameDestination = existingRide.destination === newRide.destination;
+                const sameTime = timeDiff < fiveMinutes;
+                
+                console.log('  Vergleiche mit Fahrt:', existingRide.id, {
+                    sameDriver,
+                    samePickup,
+                    sameDestination,
+                    sameTime,
+                    timeDiff: Math.round(timeDiff / 1000) + 's'
+                });
+                
+                return sameDriver && samePickup && sameDestination && sameTime;
+            });
+            
+            if (duplicates.length > 0) {
+                console.log('🚨 DUPLIKAT ERKANNT!', duplicates);
+                
+                // Speichere Alarm für Admin-Dashboard
+                saveAntiFraudAlert(newRide, duplicates);
+            }
+            
+            return {
+                isDuplicate: duplicates.length > 0,
+                duplicates: duplicates
+            };
+        }
+        
+        // Speichere Anti-Betrugs-Alarm für Admin
+        function saveAntiFraudAlert(newRide, duplicates) {
+            const alert = {
+                id: 'af-' + Date.now(),
+                timestamp: Date.now(),
+                newRide: {
+                    id: newRide.id,
+                    pickup: newRide.pickup,
+                    destination: newRide.destination,
+                    driverId: newRide.driverId,
+                    customerName: newRide.customerName
+                },
+                duplicates: duplicates.map(d => ({
+                    id: d.id,
+                    pickup: d.pickup,
+                    destination: d.destination,
+                    timestamp: d.timestamp
+                })),
+                resolved: false
+            };
+            
+            // In localStorage speichern
+            const alerts = JSON.parse(localStorage.getItem('antiFraudAlerts') || '[]');
+            alerts.unshift(alert);
+            // Nur letzte 50 behalten
+            const trimmed = alerts.slice(0, 50);
+            localStorage.setItem('antiFraudAlerts', JSON.stringify(trimmed));
+            
+            // Firebase
+            if (isFirebaseReady) {
+                db.ref('antiFraudAlerts/' + alert.id).set(alert);
+            }
+            
+            console.log('🚨 Anti-Betrugs-Alarm gespeichert:', alert);
+            
+            // Badge-Update im Admin-Dashboard
+            updateAntiFraudBadge();
+        }
+        
+        // Update Badge-Anzahl für Anti-Betrugs-Alarme
+        function updateAntiFraudBadge() {
+            const alerts = JSON.parse(localStorage.getItem('antiFraudAlerts') || '[]');
+            const unresolved = alerts.filter(a => !a.resolved);
+            
+            const badge = document.getElementById('antifraud-alert-count');
+            if (badge) {
+                badge.textContent = unresolved.length;
+                badge.parentElement.style.display = unresolved.length > 0 ? 'flex' : 'none';
+            }
+        }
+        
+        // Lade und zeige Anti-Betrugs-Alarme im Admin-Dashboard
+        function loadAntiFraudAlerts() {
+            const alerts = JSON.parse(localStorage.getItem('antiFraudAlerts') || '[]');
+            console.log('🚨 Lade Anti-Betrugs-Alarme:', alerts.length);
+            
+            const container = document.getElementById('antifraud-alerts-list');
+            
+            if (alerts.length === 0) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">✅ Keine Alarme vorhanden</div>';
+                return;
+            }
+            
+            // Sortiere nach Timestamp (neueste zuerst)
+            alerts.sort((a, b) => b.timestamp - a.timestamp);
+            
+            let html = '';
+            alerts.forEach(alert => {
+                const date = new Date(alert.timestamp);
+                const timeStr = date.toLocaleString('de-DE');
+                
+                html += `
+                    <div style="padding:15px;border-bottom:1px solid #e5e7eb;${alert.resolved ? 'opacity:0.5;background:#f9fafb;' : ''}">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+                            <div>
+                                <div style="font-weight:600;font-size:14px;color:${alert.resolved ? '#6b7280' : '#dc2626'};">
+                                    ${alert.resolved ? '✅' : '🚨'} ${alert.duplicates.length + 1} Fahrten verdächtig
+                                </div>
+                                <div style="font-size:12px;color:#6b7280;">${timeStr}</div>
+                            </div>
+                            ${!alert.resolved ? `
+                                <button onclick="resolveAlert('${alert.id}')" style="padding:6px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
+                                    ✅ Erledigt
+                                </button>
+                            ` : ''}
+                        </div>
+                        
+                        <div style="background:#f9fafb;padding:10px;border-radius:6px;margin-bottom:8px;">
+                            <div style="font-weight:600;font-size:13px;color:#1f2937;margin-bottom:4px;">📍 Route:</div>
+                            <div style="font-size:12px;color:#4b5563;">
+                                ${alert.newRide.pickup} → ${alert.newRide.destination}
+                            </div>
+                        </div>
+                        
+                        <div style="font-size:12px;color:#6b7280;">
+                            <strong>Fahrt ${alert.newRide.id}</strong> (${alert.newRide.customerName || 'Unbekannt'})<br>
+                            ${alert.duplicates.length} ähnliche Fahrt${alert.duplicates.length > 1 ? 'en' : ''} zur gleichen Zeit erkannt!
+                        </div>
+                        
+                        ${alert.duplicates.length > 0 ? `
+                            <details style="margin-top:8px;">
+                                <summary style="cursor:pointer;font-size:12px;color:#667eea;">🔍 Details anzeigen</summary>
+                                <div style="margin-top:8px;padding:8px;background:white;border-radius:4px;font-size:11px;">
+                                    ${alert.duplicates.map((d, i) => {
+                                        const dupDate = new Date(d.timestamp);
+                                        const timeDiff = Math.round((alert.timestamp - d.timestamp) / 1000 / 60);
+                                        return `
+                                            <div style="padding:6px 0;border-top:1px solid #e5e7eb;">
+                                                <strong>Duplikat ${i+1}:</strong> Fahrt ${d.id}<br>
+                                                Zeitdifferenz: ${timeDiff} Minuten
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </details>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateAntiFraudBadge();
+        }
+        
+        // Markiere Alarm als erledigt
+        function resolveAlert(alertId) {
+            const alerts = JSON.parse(localStorage.getItem('antiFraudAlerts') || '[]');
+            const alert = alerts.find(a => a.id === alertId);
+            
+            if (alert) {
+                alert.resolved = true;
+                alert.resolvedAt = Date.now();
+                
+                localStorage.setItem('antiFraudAlerts', JSON.stringify(alerts));
+                
+                // Firebase
+                if (isFirebaseReady) {
+                    db.ref('antiFraudAlerts/' + alertId + '/resolved').set(true);
+                    db.ref('antiFraudAlerts/' + alertId + '/resolvedAt').set(alert.resolvedAt);
+                }
+                
+                console.log('✅ Alarm erledigt:', alertId);
+                loadAntiFraudAlerts();
+            }
+        }
+        
+        // Lösche erledigte Alarme
+        function clearResolvedAlerts() {
+            const confirmed = confirm('❓ Alle erledigten Alarme löschen?');
+            if (!confirmed) return;
+            
+            const alerts = JSON.parse(localStorage.getItem('antiFraudAlerts') || '[]');
+            const unresolved = alerts.filter(a => !a.resolved);
+            
+            localStorage.setItem('antiFraudAlerts', JSON.stringify(unresolved));
+            
+            // Firebase: Lösche resolved
+            if (isFirebaseReady) {
+                alerts.filter(a => a.resolved).forEach(a => {
+                    db.ref('antiFraudAlerts/' + a.id).remove();
+                });
+            }
+            
+            console.log('🗑️ Erledigte Alarme gelöscht');
+            alert('✅ Erledigte Alarme wurden gelöscht!');
+            loadAntiFraudAlerts();
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -7313,13 +7700,36 @@
         }
 
         async function showAvailableTaxis() {
+            console.log('📍 showAvailableTaxis aufgerufen - pickupCoords:', pickupCoords, 'isFirebaseReady:', isFirebaseReady);
+            
             // ✅ NUR ZEIGEN WENN GÜLTIGE ABHOLADRESSE!
-            if (!pickupCoords || !isFirebaseReady) {
+            if (!pickupCoords) {
                 document.getElementById('available-taxis-display').innerHTML = '';
                 return;
             }
             
+            // 🆕 v5.27.1: WARTE AUF FIREBASE!
+            if (!isFirebaseReady) {
+                console.log('⏳ Warte auf Firebase...');
+                document.getElementById('available-taxis-display').innerHTML = `
+                    <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                        <div style="font-size:20px;margin-bottom:10px;">⏳</div>
+                        <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Verbinde mit Server...</div>
+                        <div style="font-size:13px;opacity:0.9;">Einen Moment bitte...</div>
+                    </div>
+                `;
+                
+                // Versuche erneut nach 2 Sekunden
+                setTimeout(() => {
+                    if (pickupCoords) {
+                        showAvailableTaxis();
+                    }
+                }, 2000);
+                return;
+            }
+            
             const onlineDrivers = Object.values(drivers).filter(d => d.online && d.timestamp && (Date.now() - d.timestamp) < 120000);
+            console.log('🚕 Online Fahrer gefunden:', onlineDrivers.length);
             
             // 🆕 v5.26.14i: BESSERE "KEINE TAXIS"-MELDUNG
             if (onlineDrivers.length === 0) {
@@ -10189,6 +10599,12 @@
                     loadActiveRides();
                 } else if (section === 'oepnv') {
                     loadOEPNVSettings();
+                } else if (section === 'calendar') {
+                    // 🆕 v5.27.1: Kalender rendern
+                    setTimeout(() => renderCalendar(), 100);
+                } else if (section === 'antifraud') {
+                    // 🆕 v5.28.0: Anti-Betrugs-Alarme laden
+                    loadAntiFraudAlerts();
                 }
             } else {
                 content.style.display = 'none';
@@ -17025,6 +17441,65 @@ Stack: ${err.stack}
             }
         }
         
+        // 🆕 v5.29.0: Analysiere Tag und erkenne Hot-Spots
+        function analyzeDayCapacity(rides) {
+            const total = rides.length;
+            
+            // Gruppiere nach Stunden
+            const hourly = {};
+            rides.forEach(r => {
+                const timestamp = r.pickupTimestamp || r.createdAt || 0;
+                const date = new Date(timestamp);
+                const hour = date.getHours();
+                if (!hourly[hour]) hourly[hour] = [];
+                hourly[hour].push(r);
+            });
+            
+            // Finde Hot Spots (3+ Fahrten zur gleichen Stunde)
+            const hotSpots = [];
+            Object.keys(hourly).forEach(hour => {
+                if (hourly[hour].length >= 3) {
+                    hotSpots.push({
+                        hour: parseInt(hour),
+                        count: hourly[hour].length,
+                        level: hourly[hour].length >= 4 ? 'red' : 'yellow'
+                    });
+                }
+            });
+            
+            // Gesamte Farb-Level Logik
+            let level = 'green';
+            let bgColor = '#f0fdf4';
+            let borderColor = '#86efac';
+            let textColor = '#166534';
+            let emoji = '✅';
+            
+            if (total >= 6) {
+                level = 'red';
+                bgColor = '#fef2f2';
+                borderColor = '#fca5a5';
+                textColor = '#991b1b';
+                emoji = '🔥';
+            } else if (total >= 4) {
+                level = 'yellow';
+                bgColor = '#fef3c7';
+                borderColor = '#fcd34d';
+                textColor = '#92400e';
+                emoji = '⚠️';
+            }
+            
+            return {
+                total,
+                level,
+                bgColor,
+                borderColor,
+                textColor,
+                emoji,
+                hotSpots,
+                hourly
+            };
+        }
+        
         function renderMonthView(allRides) {
             const year = currentCalendarDate.getFullYear();
             const month = currentCalendarDate.getMonth();
@@ -17077,6 +17552,9 @@ Stack: ${err.stack}
                 const today = new Date();
                 const isToday = (day === today.getDate() && month === today.getMonth() && year === today.getFullYear());
                 
+                // 🆕 v5.29.0: Hot-Spot Analyse
+                const analysis = analyzeDayCapacity(rides);
+                
                 // Farbige Punkte für Status
                 let statusDots = '';
                 const statusCounts = {};
@@ -17089,22 +17567,37 @@ Stack: ${err.stack}
                     statusDots += `<div style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block; margin: 0 1px;" title="${count} Fahrten"></div>`;
                 });
                 
+                // 🆕 v5.29.0: Hot-Spot Indikator
+                let hotSpotBadge = '';
+                if (analysis.hotSpots.length > 0) {
+                    const worst = analysis.hotSpots.reduce((a, b) => a.count > b.count ? a : b);
+                    hotSpotBadge = `
+                        <div style="background:${worst.level === 'red' ? '#fca5a5' : '#fcd34d'};color:#1f2937;font-size:10px;font-weight:700;padding:2px 4px;border-radius:4px;margin-top:2px;">
+                            🔥 ${worst.hour}:00
+                        </div>
+                    `;
+                }
+                
                 html += `
                     <div onclick="showDayDetails(${day}, ${month}, ${year})" style="
-                        background: ${isToday ? '#dbeafe' : 'white'};
-                        border: ${isToday ? '2px solid #3b82f6' : '1px solid #e5e7eb'};
+                        background: ${isToday ? '#dbeafe' : (rides.length > 0 ? analysis.bgColor : 'white')};
+                        border: 2px solid ${isToday ? '#3b82f6' : (rides.length > 0 ? analysis.borderColor : '#e5e7eb')};
                         padding: 8px;
                         border-radius: 6px;
-                        min-height: 60px;
+                        min-height: 70px;
                         cursor: ${rides.length > 0 ? 'pointer' : 'default'};
                         transition: all 0.2s;
-                    " ${rides.length > 0 ? 'onmouseenter="this.style.background=\'#f0f9ff\'" onmouseleave="this.style.background=\'' + (isToday ? '#dbeafe' : 'white') + '\'"' : ''}>
-                        <div style="font-weight: ${isToday ? '700' : '600'}; color: ${isToday ? '#1e40af' : '#374151'}; margin-bottom: 4px; font-size: 14px;">
-                            ${day}
+                        position: relative;
+                    " ${rides.length > 0 ? 'onmouseenter="this.style.transform=\'scale(1.02)\'" onmouseleave="this.style.transform=\'scale(1)\'"' : ''}>
+                        <div style="font-weight: ${isToday ? '700' : '600'}; color: ${isToday ? '#1e40af' : (rides.length > 0 ? analysis.textColor : '#374151')}; margin-bottom: 4px; font-size: 14px;">
+                            ${day} ${rides.length > 0 ? analysis.emoji : ''}
                         </div>
                         ${rides.length > 0 ? `
-                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">${rides.length} Fahrt${rides.length > 1 ? 'en' : ''}</div>
-                            <div style="text-align: center;">${statusDots}</div>
+                            <div style="font-size: 12px; color: ${analysis.textColor}; font-weight: 600; margin-bottom: 4px;">
+                                ${rides.length} Fahrt${rides.length > 1 ? 'en' : ''}
+                            </div>
+                            <div style="text-align: center; margin-bottom: 2px;">${statusDots}</div>
+                            ${hotSpotBadge}
                         ` : ''}
                     </div>
                 `;
@@ -17215,8 +17708,11 @@ Stack: ${err.stack}
                 return rideDate.toDateString() === date.toDateString();
             }).sort((a, b) => (a.createdAt || a.pickupTimestamp || 0) - (b.createdAt || b.pickupTimestamp || 0));
             
-            // Erstelle Tagesansicht (Liste)
-            let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+            // 🆕 v5.29.0: Analysiere Tag
+            const analysis = analyzeDayCapacity(dayRides);
+            
+            // Erstelle Tagesansicht
+            let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
             
             if (dayRides.length === 0) {
                 html += `
@@ -17227,6 +17723,68 @@ Stack: ${err.stack}
                     </div>
                 `;
             } else {
+                // 🆕 v5.29.0: ZEITFENSTER-ÜBERSICHT
+                html += `
+                    <div style="background:${analysis.bgColor};border:2px solid ${analysis.borderColor};padding:20px;border-radius:12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                            <div>
+                                <div style="font-size:28px;margin-bottom:5px;">${analysis.emoji}</div>
+                                <div style="font-weight:700;font-size:20px;color:${analysis.textColor};">
+                                    ${dayRides.length} Fahrt${dayRides.length > 1 ? 'en' : ''}
+                                </div>
+                                <div style="font-size:13px;color:${analysis.textColor};opacity:0.8;">
+                                    ${analysis.level === 'red' ? 'VIELE FAHRTEN!' : (analysis.level === 'yellow' ? 'Könnte eng werden' : 'Entspannte Auslastung')}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${analysis.hotSpots.length > 0 ? `
+                            <div style="background:white;padding:12px;border-radius:8px;margin-top:15px;">
+                                <div style="font-weight:600;font-size:14px;color:#991b1b;margin-bottom:10px;">
+                                    ⚠️ Hot-Spots erkannt:
+                                </div>
+                                ${analysis.hotSpots.map(hs => `
+                                    <div style="padding:8px;background:${hs.level === 'red' ? '#fef2f2' : '#fef3c7'};border-radius:6px;margin-bottom:6px;">
+                                        <div style="font-weight:600;color:#1f2937;">
+                                            🔥 ${hs.hour}:00 Uhr - ${hs.count} Fahrten
+                                        </div>
+                                        <div style="font-size:12px;color:#6b7280;margin-top:2px;">
+                                            ${hs.level === 'red' ? 'Sehr hohe Auslastung!' : 'Erhöhte Auslastung'}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <!-- ZEITFENSTER-BALKEN -->
+                        <div style="margin-top:15px;">
+                            <div style="font-weight:600;font-size:13px;color:${analysis.textColor};margin-bottom:10px;">
+                                📊 Zeitliche Verteilung:
+                            </div>
+                            ${Object.keys(analysis.hourly).sort((a, b) => a - b).map(hour => {
+                                const count = analysis.hourly[hour].length;
+                                const percent = Math.round((count / dayRides.length) * 100);
+                                const barColor = count >= 4 ? '#ef4444' : (count >= 3 ? '#f59e0b' : '#10b981');
+                                
+                                return `
+                                    <div style="margin-bottom:8px;">
+                                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#4b5563;margin-bottom:4px;">
+                                            <span>${hour}:00 - ${parseInt(hour)+1}:00</span>
+                                            <span style="font-weight:600;">${count} Fahrt${count > 1 ? 'en' : ''} (${percent}%)</span>
+                                        </div>
+                                        <div style="background:#e5e7eb;height:8px;border-radius:4px;overflow:hidden;">
+                                            <div style="background:${barColor};height:100%;width:${percent}%;transition:width 0.3s;"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                // FAHRT-LISTE
+                html += '<div style="font-weight:600;font-size:15px;color:#1f2937;padding:0 5px;">📋 Alle Fahrten:</div>';
+                
                 dayRides.forEach(ride => {
                     const time = new Date(ride.createdAt || ride.pickupTimestamp || 0);
                     const timeStr = time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -17321,9 +17879,9 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
-            // 🆕 v5.27.0: Kalender-View hinzugefügt
+            // 🆕 v5.27.1: calendar-view entfernt (jetzt im Admin)
             console.log('🎬 Initialisiere Views...');
-            const allViews = ['passenger-view', 'history-view', 'calendar-view', 'driver-view', 'admin-view'];
+            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -17342,6 +17900,9 @@ Stack: ${err.stack}
             
             // 🆕 v5.26.13: Lade gespeicherte Orte
             loadSavedLocations();
+            
+            // 🆕 v5.28.0: Update Anti-Betrugs Badge
+            updateAntiFraudBadge();
             
             // 🆕 TRACKING-LINK: Prüfe ob ?ride=XXX in URL
             const urlParams = new URLSearchParams(window.location.search);

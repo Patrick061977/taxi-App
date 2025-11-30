@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.8 - Build 20251130-1000');
-        console.log('🔧 SMS-Login Fix v2: Code-Eingabe erscheint SOFORT + Debug-Logging');
+        console.log('🚕 Funk Taxi App v5.26.14-BETA - Build 20251130-1200');
+        console.log('🚍 ÖPNV-TAXI: Admin-Einstellungen + Berechnung (TEIL 1)');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,26 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.26.6 - Invisible reCAPTCHA 🔓 (Build 20251130-0715)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14-BETA - ÖPNV Teil 1 (Build 20251130-1200)</p>
+            
+            <!-- Cache Leeren Button -->
+            <button onclick="clearAppCache(event)" style="
+                margin-top: 8px;
+                padding: 6px 12px;
+                background: rgba(255,255,255,0.2);
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 6px;
+                color: white;
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+            ">
+                🔄 Cache & Daten leeren
+            </button>
+            
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -442,13 +461,18 @@
         <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
         <div id="quick-login-box" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
+                <div style="flex: 1;">
                     <div style="font-size: 12px; opacity: 0.9;">✅ Angemeldet als</div>
                     <div id="quick-login-phone" style="font-size: 16px; font-weight: 600;"></div>
                 </div>
-                <button onclick="logoutQuickLogin()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                    🚪 Abmelden
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="showQuickLoginProfile()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
+                        ✏️ Profil
+                    </button>
+                    <button onclick="logoutQuickLogin()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
+                        🚪 Abmelden
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -483,7 +507,16 @@
         <div id="booking-form">
             <div class="input-group">
                 <label>📍 Abholort</label>
-                <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" style="flex:1;">
+                    <button onclick="saveLocationPOI('pickup')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
+                        ⭐
+                    </button>
+                </div>
+                
+                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
+                <div id="pickup-saved-locations" style="display:none;margin-top:8px;"></div>
+                
                 <button onclick="useMyLocation()" style="margin-top:8px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">📍 Meinen Standort verwenden</button>
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
@@ -544,7 +577,16 @@
             </div>
             <div class="input-group">
                 <label>🎯 Zielort</label>
-                <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" style="flex:1;">
+                    <button onclick="saveLocationPOI('destination')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
+                        ⭐
+                    </button>
+                </div>
+                
+                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
+                <div id="destination-saved-locations" style="display:none;margin-top:8px;"></div>
+                
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
             <div class="input-group">
@@ -569,6 +611,20 @@
                         <span style="font-size:12px;color:#666;">Adresse und Telefon werden gespeichert</span>
                     </span>
                 </label>
+            </div>
+            
+            <!-- 💳 ZAHLUNGSMETHODE -->
+            <div class="input-group" style="margin-top:15px;">
+                <label>💳 Zahlungsmethode</label>
+                <select id="payment-method" style="padding:14px;border:2px solid #10b981;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;width:100%;">
+                    <option value="bar">💶 Bar (Bargeld)</option>
+                    <option value="karte">💳 EC-Karte / Kreditkarte</option>
+                    <option value="paypal">📱 PayPal / Digitale Zahlung</option>
+                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
+                </select>
+                <div style="font-size:12px;color:#666;margin-top:5px;">
+                    ℹ️ Der Fahrer sieht Ihre Zahlungsmethode
+                </div>
             </div>
             
             <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
@@ -1290,6 +1346,99 @@
                 }
             }
             
+            // 🔄 CACHE & DATEN LEEREN
+            function clearAppCache(event) {
+                // Verhindere dass Header collapsed wird
+                if (event) event.stopPropagation();
+                
+                console.log('🔄 CACHE LEEREN GESTARTET...');
+                
+                const confirmed = confirm(
+                    '🔄 Cache & Daten leeren?\n\n' +
+                    'Das löscht:\n' +
+                    '✓ LocalStorage (gespeicherte Daten)\n' +
+                    '✓ SessionStorage\n' +
+                    '✓ Service Worker\n\n' +
+                    'Die Seite wird neu geladen.\n\n' +
+                    'Fortfahren?'
+                );
+                
+                if (!confirmed) {
+                    console.log('❌ Abgebrochen');
+                    return;
+                }
+                
+                let cleared = [];
+                
+                try {
+                    // 1. LocalStorage leeren
+                    localStorage.clear();
+                    console.log('✅ LocalStorage gelöscht');
+                    cleared.push('LocalStorage');
+                } catch (e) {
+                    console.error('❌ LocalStorage Fehler:', e);
+                }
+                
+                try {
+                    // 2. SessionStorage leeren
+                    sessionStorage.clear();
+                    console.log('✅ SessionStorage gelöscht');
+                    cleared.push('SessionStorage');
+                } catch (e) {
+                    console.error('❌ SessionStorage Fehler:', e);
+                }
+                
+                try {
+                    // 3. Service Worker deregistrieren
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(registrations => {
+                            registrations.forEach(registration => {
+                                registration.unregister();
+                                console.log('✅ Service Worker deregistriert');
+                            });
+                            cleared.push('Service Worker');
+                        });
+                    }
+                } catch (e) {
+                    console.error('❌ Service Worker Fehler:', e);
+                }
+                
+                // 4. IndexedDB leeren (falls vorhanden)
+                try {
+                    if (window.indexedDB) {
+                        indexedDB.databases().then(databases => {
+                            databases.forEach(db => {
+                                indexedDB.deleteDatabase(db.name);
+                                console.log('✅ IndexedDB gelöscht:', db.name);
+                            });
+                        });
+                        cleared.push('IndexedDB');
+                    }
+                } catch (e) {
+                    console.error('❌ IndexedDB Fehler:', e);
+                }
+                
+                console.log('✅ Gelöscht:', cleared.join(', '));
+                
+                // Zeige Erfolg + Anleitung für Browser-Cache
+                alert(
+                    '✅ App-Daten gelöscht!\n\n' +
+                    'Gelöscht: ' + cleared.join(', ') + '\n\n' +
+                    '⚠️ BROWSER-CACHE:\n' +
+                    'Muss manuell gelöscht werden:\n\n' +
+                    'Desktop: Strg+Shift+R\n' +
+                    'Android: Chrome Menü → Verlauf →\n' +
+                    'Browserdaten löschen → Cache\n\n' +
+                    'Seite wird jetzt neu geladen...'
+                );
+                
+                // Hard Reload
+                setTimeout(() => {
+                    console.log('🔄 Hard Reload...');
+                    window.location.reload(true);
+                }, 500);
+            }
+            
             function toggleNewRidesPanel() {
                 const panel = document.getElementById('new-rides-panel');
                 panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
@@ -1869,6 +2018,185 @@
         </div>
         
         <!-- 💰 PREIS-STEUERUNG (SURGE PRICING) -->
+        
+        <!-- 🚍 ÖPNV-TAXI SYSTEM -->
+        <div onclick="toggleAdminSection('oepnv')" style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🚍 ÖPNV-Taxi System</span>
+            <span id="oepnv-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="oepnv-content" style="display:none;padding:15px;background:#fff;border-radius:8px;margin-bottom:20px;border:1px solid #e5e7eb;">
+            
+            <!-- AKTIVIERUNG -->
+            <div style="margin-bottom:20px;padding:15px;background:#f0fdf4;border-radius:8px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" id="oepnv-enabled" onchange="saveOEPNVSettings()" style="width:20px;height:20px;">
+                    <div>
+                        <div style="font-weight:600;font-size:16px;">🚍 ÖPNV-Taxi aktivieren</div>
+                        <div style="font-size:12px;color:#666;margin-top:2px;">Fahrer können bei Fahrtannahme zwischen Normal und ÖPNV wählen</div>
+                    </div>
+                </label>
+            </div>
+            
+            <div id="oepnv-settings" style="display:none;">
+                
+                <!-- TAXI-ZUSCHLAG -->
+                <div style="margin-bottom:20px;">
+                    <div style="font-weight:600;font-size:14px;margin-bottom:8px;">💰 Taxi-Zuschlag (einmalig pro Fahrt)</div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="number" id="oepnv-surcharge" step="0.50" min="0" value="2.00" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;">
+                        <span>€</span>
+                    </div>
+                    <div style="font-size:12px;color:#666;margin-top:5px;">Wird einmalig zum Busticket addiert (weil Taxi komfortabler als Bus)</div>
+                </div>
+                
+                <!-- TARIFSTUFEN -->
+                <div style="margin-bottom:20px;">
+                    <div style="font-weight:600;font-size:14px;margin-bottom:10px;">📊 Busticket-Tarifstufen</div>
+                    
+                    <!-- Kurzstrecke -->
+                    <div style="padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:10px;">
+                        <div style="font-weight:600;margin-bottom:8px;">Kurzstrecke (bis <input type="number" id="tarif-kurz-km" value="3" min="1" style="width:50px;padding:4px;border:1px solid #d1d5db;border-radius:4px;"> km)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label style="font-size:12px;color:#666;">Erwachsener</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-kurz-erw" step="0.50" value="2.00" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:#666;">Kind (6-14 J.)</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-kurz-kind" step="0.50" value="1.50" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Normalstrecke -->
+                    <div style="padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:10px;">
+                        <div style="font-weight:600;margin-bottom:8px;">Normalstrecke (bis <input type="number" id="tarif-normal-km" value="7" min="1" style="width:50px;padding:4px;border:1px solid #d1d5db;border-radius:4px;"> km)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label style="font-size:12px;color:#666;">Erwachsener</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-normal-erw" step="0.50" value="3.00" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:#666;">Kind (6-14 J.)</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-normal-kind" step="0.50" value="2.00" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Längere Strecke -->
+                    <div style="padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:10px;">
+                        <div style="font-weight:600;margin-bottom:8px;">Längere Strecke (bis <input type="number" id="tarif-lang-km" value="15" min="1" style="width:50px;padding:4px;border:1px solid #d1d5db;border-radius:4px;"> km)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label style="font-size:12px;color:#666;">Erwachsener</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-lang-erw" step="0.50" value="4.50" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:#666;">Kind (6-14 J.)</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-lang-kind" step="0.50" value="3.00" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Insel-Ticket -->
+                    <div style="padding:12px;background:#f9fafb;border-radius:8px;">
+                        <div style="font-weight:600;margin-bottom:8px;">Insel-Ticket (über 15 km)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label style="font-size:12px;color:#666;">Erwachsener</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-insel-erw" step="0.50" value="6.00" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:#666;">Kind (6-14 J.)</label>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <input type="number" id="tarif-insel-kind" step="0.50" value="4.00" style="padding:8px;border:2px solid #e0e0e0;border-radius:6px;width:80px;">
+                                    <span>€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- GEMEINDE/ABRECHNUNGSSTELLE -->
+                <div style="margin-bottom:20px;">
+                    <div style="font-weight:600;font-size:14px;margin-bottom:8px;">🏛️ Abrechnungsstelle</div>
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Name</label>
+                        <input type="text" id="oepnv-community-name" value="Gemeinde Heringsdorf" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Email</label>
+                        <input type="email" id="oepnv-community-email" placeholder="finanzen@heringsdorf.de" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;">
+                    </div>
+                </div>
+                
+                <!-- BELEG-OPTIONEN -->
+                <div style="margin-bottom:20px;">
+                    <div style="font-weight:600;font-size:14px;margin-bottom:8px;">📄 Beleg-Optionen für Kunden</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:#f9fafb;border-radius:6px;">
+                            <input type="checkbox" id="oepnv-beleg-qr" checked style="width:18px;height:18px;">
+                            <span style="font-size:14px;">QR-Code anzeigen</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:#f9fafb;border-radius:6px;">
+                            <input type="checkbox" id="oepnv-beleg-app" checked style="width:18px;height:18px;">
+                            <span style="font-size:14px;">In-App Beleg (Verlauf)</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:#f9fafb;border-radius:6px;">
+                            <input type="checkbox" id="oepnv-beleg-pdf" checked style="width:18px;height:18px;">
+                            <span style="font-size:14px;">PDF-Download anbieten</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- BEISPIEL-BERECHNUNG -->
+                <div style="padding:15px;background:#fef3c7;border-radius:8px;">
+                    <div style="font-weight:600;margin-bottom:8px;">📋 Beispiel-Berechnung:</div>
+                    <div style="font-size:13px;color:#666;">
+                        <strong>Strecke:</strong> 5 km (Normalstrecke)<br>
+                        <strong>Personen:</strong> 2 Erwachsene + 1 Kind<br>
+                        <br>
+                        <strong>Bustickets:</strong><br>
+                        2× 3,00€ = 6,00€<br>
+                        1× 2,00€ = 2,00€<br>
+                        Busticket gesamt: 8,00€<br>
+                        + Taxi-Zuschlag: 2,00€<br>
+                        ────────────────<br>
+                        <strong>Kunde zahlt: 10,00€</strong><br>
+                        <br>
+                        Bei Taxi-Preis 15,00€:<br>
+                        <strong>Gemeinde zahlt: 5,00€</strong>
+                    </div>
+                </div>
+                
+                <button onclick="saveOEPNVSettings()" style="width:100%;margin-top:15px;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;">
+                    💾 Einstellungen speichern
+                </button>
+                
+            </div>
+        </div>
+        
         <div onclick="toggleAdminSection('pricing')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">💰 Preis-Steuerung</span>
             <span id="pricing-toggle" style="font-size:20px;">▼</span>
@@ -1924,6 +2252,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         let firebaseLoadTimeout, firebaseLoaded = false;
         firebaseLoadTimeout = setTimeout(() => { 
@@ -4853,6 +5182,169 @@
             console.log('💰 Manueller Multiplikator:', value + '%');
         }
         
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.26.14: ÖPNV-TAXI SYSTEM
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        // ÖPNV-Einstellungen laden
+        function loadOEPNVSettings() {
+            const settings = JSON.parse(localStorage.getItem('oepnvSettings') || '{}');
+            
+            // Defaults
+            const defaults = {
+                enabled: false,
+                surcharge: 2.00,
+                tariffs: {
+                    kurz: { km: 3, erw: 2.00, kind: 1.50 },
+                    normal: { km: 7, erw: 3.00, kind: 2.00 },
+                    lang: { km: 15, erw: 4.50, kind: 3.00 },
+                    insel: { erw: 6.00, kind: 4.00 }
+                },
+                community: {
+                    name: 'Gemeinde Heringsdorf',
+                    email: ''
+                },
+                belegOptions: {
+                    qr: true,
+                    app: true,
+                    pdf: true
+                }
+            };
+            
+            const merged = { ...defaults, ...settings };
+            
+            // UI befüllen
+            document.getElementById('oepnv-enabled').checked = merged.enabled;
+            document.getElementById('oepnv-surcharge').value = merged.surcharge;
+            
+            document.getElementById('tarif-kurz-km').value = merged.tariffs.kurz.km;
+            document.getElementById('tarif-kurz-erw').value = merged.tariffs.kurz.erw;
+            document.getElementById('tarif-kurz-kind').value = merged.tariffs.kurz.kind;
+            
+            document.getElementById('tarif-normal-km').value = merged.tariffs.normal.km;
+            document.getElementById('tarif-normal-erw').value = merged.tariffs.normal.erw;
+            document.getElementById('tarif-normal-kind').value = merged.tariffs.normal.kind;
+            
+            document.getElementById('tarif-lang-km').value = merged.tariffs.lang.km;
+            document.getElementById('tarif-lang-erw').value = merged.tariffs.lang.erw;
+            document.getElementById('tarif-lang-kind').value = merged.tariffs.lang.kind;
+            
+            document.getElementById('tarif-insel-erw').value = merged.tariffs.insel.erw;
+            document.getElementById('tarif-insel-kind').value = merged.tariffs.insel.kind;
+            
+            document.getElementById('oepnv-community-name').value = merged.community.name;
+            document.getElementById('oepnv-community-email').value = merged.community.email;
+            
+            document.getElementById('oepnv-beleg-qr').checked = merged.belegOptions.qr;
+            document.getElementById('oepnv-beleg-app').checked = merged.belegOptions.app;
+            document.getElementById('oepnv-beleg-pdf').checked = merged.belegOptions.pdf;
+            
+            // Settings anzeigen/verstecken
+            document.getElementById('oepnv-settings').style.display = merged.enabled ? 'block' : 'none';
+            
+            // In globale Variable speichern
+            window.oepnvSettings = merged;
+            
+            console.log('🚍 ÖPNV-Settings geladen:', merged);
+        }
+        
+        // ÖPNV-Einstellungen speichern
+        function saveOEPNVSettings() {
+            const enabled = document.getElementById('oepnv-enabled').checked;
+            
+            const settings = {
+                enabled: enabled,
+                surcharge: parseFloat(document.getElementById('oepnv-surcharge').value),
+                tariffs: {
+                    kurz: {
+                        km: parseInt(document.getElementById('tarif-kurz-km').value),
+                        erw: parseFloat(document.getElementById('tarif-kurz-erw').value),
+                        kind: parseFloat(document.getElementById('tarif-kurz-kind').value)
+                    },
+                    normal: {
+                        km: parseInt(document.getElementById('tarif-normal-km').value),
+                        erw: parseFloat(document.getElementById('tarif-normal-erw').value),
+                        kind: parseFloat(document.getElementById('tarif-normal-kind').value)
+                    },
+                    lang: {
+                        km: parseInt(document.getElementById('tarif-lang-km').value),
+                        erw: parseFloat(document.getElementById('tarif-lang-erw').value),
+                        kind: parseFloat(document.getElementById('tarif-lang-kind').value)
+                    },
+                    insel: {
+                        erw: parseFloat(document.getElementById('tarif-insel-erw').value),
+                        kind: parseFloat(document.getElementById('tarif-insel-kind').value)
+                    }
+                },
+                community: {
+                    name: document.getElementById('oepnv-community-name').value,
+                    email: document.getElementById('oepnv-community-email').value
+                },
+                belegOptions: {
+                    qr: document.getElementById('oepnv-beleg-qr').checked,
+                    app: document.getElementById('oepnv-beleg-app').checked,
+                    pdf: document.getElementById('oepnv-beleg-pdf').checked
+                }
+            };
+            
+            // Speichern
+            localStorage.setItem('oepnvSettings', JSON.stringify(settings));
+            
+            // Firebase
+            if (isFirebaseReady) {
+                db.ref('settings/oepnv').set(settings);
+            }
+            
+            // Settings anzeigen/verstecken
+            document.getElementById('oepnv-settings').style.display = enabled ? 'block' : 'none';
+            
+            // Global speichern
+            window.oepnvSettings = settings;
+            
+            console.log('🚍 ÖPNV-Settings gespeichert:', settings);
+            alert('✅ ÖPNV-Einstellungen gespeichert!');
+        }
+        
+        // Berechne Busticket-Preis basierend auf km und Personen
+        function calculateBusticket(km, adults, children) {
+            if (!window.oepnvSettings) {
+                loadOEPNVSettings();
+            }
+            
+            const tariffs = window.oepnvSettings.tariffs;
+            let tarif, tarifName;
+            
+            // Bestimme Tarifstufe
+            if (km <= tariffs.kurz.km) {
+                tarif = tariffs.kurz;
+                tarifName = 'Kurzstrecke';
+            } else if (km <= tariffs.normal.km) {
+                tarif = tariffs.normal;
+                tarifName = 'Normalstrecke';
+            } else if (km <= tariffs.lang.km) {
+                tarif = tariffs.lang;
+                tarifName = 'Längere Strecke';
+            } else {
+                tarif = tariffs.insel;
+                tarifName = 'Insel-Ticket';
+            }
+            
+            // Berechne Ticketpreis
+            const adultPrice = adults * tarif.erw;
+            const childPrice = children * tarif.kind;
+            const busticket = adultPrice + childPrice;
+            
+            return {
+                busticket: busticket,
+                adultPrice: adultPrice,
+                childPrice: childPrice,
+                tarif: tarifName,
+                tarifDetails: tarif
+            };
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        
         // Berechne aktuellen Gesamt-Multiplikator
         function getCurrentMultiplier() {
             let multiplier = 100; // Basis 100%
@@ -6928,7 +7420,8 @@
                 pickupCoords, destCoords,
                 status: rideStatus,
                 time: new Date().toLocaleString('de-DE'),
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                paymentMethod: document.getElementById('payment-method').value // 💳 Zahlungsmethode
             };
             
             const savedRide = await saveRide(ride);
@@ -7536,7 +8029,10 @@
             
             let confirmMessage = '🗑️ Fahrt wirklich stornieren?\n\nDie Buchung wird gelöscht.';
             let hasCancellationFee = false;
-            let cancellationFee = 10.00; // 10€ Stornogebühr
+            
+            // 🆕 v5.26.13: PROZENTUALE Stornogebühr (15% vom Fahrpreis)
+            const cancellationPercentage = 15; // 15% Stornogebühr
+            const cancellationFee = ride ? (parseFloat(ride.price) * cancellationPercentage / 100) : 0;
             
             // 🆕 NEUE REGEL: 60 Minuten vor Abholzeit = kostenpflichtig
             if (ride) {
@@ -7546,6 +8042,8 @@
                 const minutesUntilPickup = (pickupTime - now) / 60000;
                 
                 console.log('⏰ Minuten bis Abholung:', Math.round(minutesUntilPickup));
+                console.log('💰 Fahrpreis:', ride.price + '€');
+                console.log('📊 Stornogebühr (15%):', cancellationFee.toFixed(2) + '€');
                 
                 if (minutesUntilPickup <= 60) {
                     // WENIGER ALS 60 MINUTEN - KOSTENPFLICHTIG!
@@ -7554,7 +8052,7 @@
                     if (minutesUntilPickup <= 0) {
                         // Sofort-Fahrt oder Abholzeit schon vorbei
                         confirmMessage = '⚠️ KOSTENPFLICHTIGE STORNIERUNG!\n\n' +
-                            '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n' +
+                            '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€ (' + cancellationPercentage + '% vom Fahrpreis)\n' +
                             '(Wird bei nächster Fahrt berechnet)\n\n' +
                             'Trotzdem stornieren?\n\n' +
                             '(Kostenlos stornieren: 038378 / 1234)';
@@ -7562,7 +8060,7 @@
                         confirmMessage = '⚠️ KOSTENPFLICHTIGE STORNIERUNG!\n\n' +
                             'Abholung in ' + Math.round(minutesUntilPickup) + ' Minuten.\n' +
                             '(Kostenlos bis 60 Min. vorher)\n\n' +
-                            '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€\n' +
+                            '💶 Stornogebühr: ' + cancellationFee.toFixed(2) + '€ (' + cancellationPercentage + '% vom Fahrpreis)\n' +
                             '(Wird bei nächster Fahrt berechnet)\n\n' +
                             'Trotzdem stornieren?\n\n' +
                             '(Kostenlos stornieren: 038378 / 1234)';
@@ -9112,6 +9610,8 @@
                     renderVehicles();
                 } else if (section === 'activerides') {
                     loadActiveRides();
+                } else if (section === 'oepnv') {
+                    loadOEPNVSettings();
                 }
             } else {
                 content.style.display = 'none';
@@ -14848,6 +15348,13 @@ Stack: ${err.stack}
                     document.getElementById('quick-login-phone').textContent = quickLoginPhone;
                 }
                 
+                // ✅ FIX: Anmelden-Button verstecken wenn eingeloggt!
+                const loginButton = document.querySelector('button[onclick="showLoginModal()"]');
+                if (loginButton) {
+                    loginButton.style.display = 'none';
+                    console.log('✅ Anmelden-Button ausgeblendet (User ist eingeloggt)');
+                }
+                
                 // Telefon ins Formular übernehmen falls leer
                 const phoneField = document.getElementById('customer-phone');
                 if (phoneField && !phoneField.value) phoneField.value = quickLoginPhone;
@@ -14861,6 +15368,14 @@ Stack: ${err.stack}
             
             // Kein User → zeige Login-Screen nur für Fahrgast-Tab
             console.log('🔒 Kein User eingeloggt - zeige Login-Screen');
+            
+            // ✅ FIX: Anmelden-Button ANZEIGEN wenn nicht eingeloggt!
+            const loginButton = document.querySelector('button[onclick="showLoginModal()"]');
+            if (loginButton) {
+                loginButton.style.display = 'inline-block';
+                console.log('✅ Anmelden-Button angezeigt (User nicht eingeloggt)');
+            }
+            
             if (authScreen && currentView === 'passenger') {
                 authScreen.style.display = 'block';
                 initAuthScreenRecaptcha();
@@ -15160,6 +15675,144 @@ Stack: ${err.stack}
             }, 1000);
         }
         
+        // 🆕 v5.26.12: Quick-Login Profil bearbeiten
+        function showQuickLoginProfile() {
+            console.log('✏️ Öffne Quick-Login Profil...');
+            
+            // Lade gespeicherte Daten
+            const phone = localStorage.getItem('loggedInPhone') || '';
+            const name = localStorage.getItem('loggedInUserName') || '';
+            const address = localStorage.getItem('loggedInUserAddress') || '';
+            const billingName = localStorage.getItem('loggedInBillingName') || '';
+            const billingStreet = localStorage.getItem('loggedInBillingStreet') || '';
+            const billingZip = localStorage.getItem('loggedInBillingZip') || '';
+            const billingCity = localStorage.getItem('loggedInBillingCity') || '';
+            
+            // Erstelle Modal
+            const modal = document.createElement('div');
+            modal.id = 'quick-login-profile-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;">
+                    <h3 style="margin:0 0 15px 0;">✏️ Meine Daten bearbeiten</h3>
+                    
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <!-- Name -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">👤 Name</label>
+                            <input type="text" id="quick-profile-name" value="${name}" placeholder="Max Mustermann" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                        </div>
+                        
+                        <!-- Telefon (nicht editierbar) -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">📱 Telefonnummer</label>
+                            <input type="tel" value="${phone}" disabled style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;background:#f3f4f6;color:#666;box-sizing:border-box;font-size:14px;">
+                            <div style="font-size:11px;color:#999;margin-top:4px;">Telefonnummer kann nicht geändert werden</div>
+                        </div>
+                        
+                        <!-- Abholadresse -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">📍 Standard-Abholadresse</label>
+                            <input type="text" id="quick-profile-address" value="${address}" placeholder="z.B. Bahnhof Heringsdorf" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                            <div style="font-size:11px;color:#999;margin-top:4px;">Wird automatisch als Abholort verwendet</div>
+                        </div>
+                        
+                        <!-- Rechnungsadresse Header -->
+                        <div style="margin-top:10px;padding-top:15px;border-top:1px solid #e5e7eb;">
+                            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🧾 Rechnungsadresse (optional)</div>
+                        </div>
+                        
+                        <!-- Rechnungsname -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">Name / Firma</label>
+                            <input type="text" id="quick-profile-billing-name" value="${billingName}" placeholder="Max Mustermann oder Firma GmbH" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                        </div>
+                        
+                        <!-- Rechnungsstraße -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">Straße + Hausnummer</label>
+                            <input type="text" id="quick-profile-billing-street" value="${billingStreet}" placeholder="Musterstraße 123" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                        </div>
+                        
+                        <!-- PLZ + Ort -->
+                        <div style="display:flex;gap:10px;">
+                            <div style="width:100px;">
+                                <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">PLZ</label>
+                                <input type="text" id="quick-profile-billing-zip" value="${billingZip}" placeholder="17424" maxlength="5" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                            </div>
+                            <div style="flex:1;">
+                                <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">Ort</label>
+                                <input type="text" id="quick-profile-billing-city" value="${billingCity}" placeholder="Heringsdorf" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="display:flex;gap:10px;margin-top:20px;">
+                        <button onclick="closeQuickProfileModal()" style="flex:1;padding:12px;background:#e5e7eb;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                            ❌ Abbrechen
+                        </button>
+                        <button onclick="saveQuickLoginProfile()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Fokus auf Name-Feld
+            setTimeout(() => {
+                document.getElementById('quick-profile-name')?.focus();
+            }, 100);
+        }
+        
+        function closeQuickProfileModal() {
+            const modal = document.getElementById('quick-login-profile-modal');
+            if (modal) modal.remove();
+        }
+        
+        function saveQuickLoginProfile() {
+            console.log('💾 Speichere Quick-Login Profil...');
+            
+            // Lese Daten aus Formular
+            const name = document.getElementById('quick-profile-name')?.value.trim() || '';
+            const address = document.getElementById('quick-profile-address')?.value.trim() || '';
+            const billingName = document.getElementById('quick-profile-billing-name')?.value.trim() || '';
+            const billingStreet = document.getElementById('quick-profile-billing-street')?.value.trim() || '';
+            const billingZip = document.getElementById('quick-profile-billing-zip')?.value.trim() || '';
+            const billingCity = document.getElementById('quick-profile-billing-city')?.value.trim() || '';
+            
+            // Validierung
+            if (!name) {
+                alert('❌ Bitte Name eingeben!');
+                return;
+            }
+            
+            // Speichere in localStorage
+            localStorage.setItem('loggedInUserName', name);
+            if (address) localStorage.setItem('loggedInUserAddress', address);
+            if (billingName) localStorage.setItem('loggedInBillingName', billingName);
+            if (billingStreet) localStorage.setItem('loggedInBillingStreet', billingStreet);
+            if (billingZip) localStorage.setItem('loggedInBillingZip', billingZip);
+            if (billingCity) localStorage.setItem('loggedInBillingCity', billingCity);
+            
+            console.log('✅ Profil gespeichert:', { name, address, billingName, billingStreet, billingZip, billingCity });
+            
+            // Schließe Modal
+            closeQuickProfileModal();
+            
+            // Zeige Erfolg
+            alert('✅ Profil gespeichert!\n\n👤 ' + name + (address ? '\n📍 ' + address : ''));
+            
+            // Aktualisiere Formularfelder falls leer
+            const nameField = document.getElementById('customer-name');
+            if (nameField && !nameField.value) nameField.value = name;
+            
+            const addressField = document.getElementById('pickup-location');
+            if (addressField && !addressField.value && address) addressField.value = address;
+        }
+        
         // 🆕 Quick-Login Logout
         function logoutQuickLogin() {
             if (!confirm('Wirklich abmelden?')) return;
@@ -15172,6 +15825,13 @@ Stack: ${err.stack}
             // Quick-Login Box verstecken
             const quickBox = document.getElementById('quick-login-box');
             if (quickBox) quickBox.style.display = 'none';
+            
+            // ✅ FIX: Anmelden-Button wieder ANZEIGEN nach Logout!
+            const loginButton = document.querySelector('button[onclick="showLoginModal()"]');
+            if (loginButton) {
+                loginButton.style.display = 'inline-block';
+                console.log('✅ Anmelden-Button wieder angezeigt nach Logout');
+            }
             
             // Formular leeren
             const phoneField = document.getElementById('customer-phone');
@@ -15392,10 +16052,239 @@ Stack: ${err.stack}
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.26.13: POI / FAVORITEN-ORTE MANAGEMENT
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        // Lade gespeicherte Orte beim Start
+        function loadSavedLocations() {
+            const locations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
+            
+            // Pickup Orte
+            const pickupContainer = document.getElementById('pickup-saved-locations');
+            if (locations.length > 0) {
+                pickupContainer.style.display = 'flex';
+                pickupContainer.style.flexWrap = 'wrap';
+                pickupContainer.style.gap = '6px';
+                pickupContainer.innerHTML = locations.map(loc => `
+                    <button onclick="useSavedLocation('pickup', '${loc.address.replace(/'/g, "\\'")}')" 
+                        style="padding:8px 12px;background:#dbeafe;border:2px solid #3b82f6;color:#1e40af;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                        ${loc.icon} ${loc.name}
+                    </button>
+                `).join('') + `
+                    <button onclick="manageLocations()" 
+                        style="padding:8px 12px;background:#f3f4f6;border:2px solid #d1d5db;color:#6b7280;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+                        ⚙️ Verwalten
+                    </button>
+                `;
+            } else {
+                pickupContainer.style.display = 'none';
+            }
+            
+            // Destination Orte
+            const destContainer = document.getElementById('destination-saved-locations');
+            if (locations.length > 0) {
+                destContainer.style.display = 'flex';
+                destContainer.style.flexWrap = 'wrap';
+                destContainer.style.gap = '6px';
+                destContainer.innerHTML = locations.map(loc => `
+                    <button onclick="useSavedLocation('destination', '${loc.address.replace(/'/g, "\\'")}')" 
+                        style="padding:8px 12px;background:#fef3c7;border:2px solid #f59e0b;color:#92400e;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                        ${loc.icon} ${loc.name}
+                    </button>
+                `).join('') + `
+                    <button onclick="manageLocations()" 
+                        style="padding:8px 12px;background:#f3f4f6;border:2px solid #d1d5db;color:#6b7280;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+                        ⚙️ Verwalten
+                    </button>
+                `;
+            } else {
+                destContainer.style.display = 'none';
+            }
+        }
+        
+        // Ort speichern
+        function saveLocationPOI(field) {
+            const fieldElement = document.getElementById(field);
+            const address = fieldElement.value.trim();
+            
+            if (!address) {
+                alert('❌ Bitte erst einen Ort eingeben!');
+                fieldElement.focus();
+                return;
+            }
+            
+            // Modal für Namen & Icon
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:100%;max-width:400px;">
+                    <h3 style="margin:0 0 15px 0;">⭐ Ort speichern</h3>
+                    
+                    <div style="font-size:13px;color:#666;margin-bottom:10px;">
+                        <strong>Adresse:</strong><br>
+                        ${address}
+                    </div>
+                    
+                    <div style="margin:15px 0;">
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:5px;font-weight:600;">Name (z.B. "Zuhause", "Arbeit")</label>
+                        <input type="text" id="location-name" placeholder="Zuhause" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                    </div>
+                    
+                    <div style="margin:15px 0;">
+                        <label style="display:block;font-size:12px;color:#666;margin-bottom:5px;font-weight:600;">Icon auswählen</label>
+                        <div id="icon-selector" style="display:flex;flex-wrap:wrap;gap:8px;">
+                            ${['🏠', '💼', '🚉', '🏨', '🍽️', '🏥', '✈️', '🏖️', '⛪', '🏛️', '🎭', '🏪', '💒', '🎓', '🏋️'].map(icon => `
+                                <button onclick="selectIcon('${icon}')" data-icon="${icon}" 
+                                    style="width:44px;height:44px;font-size:24px;border:2px solid #e5e7eb;background:white;border-radius:8px;cursor:pointer;">
+                                    ${icon}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;margin-top:20px;">
+                        <button onclick="closeLocationModal()" style="flex:1;padding:12px;background:#e5e7eb;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveLocationConfirm('${address.replace(/'/g, "\\'")}', '${field}')" style="flex:1;padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            document.getElementById('location-name').focus();
+            
+            // Wähle erstes Icon automatisch
+            window.selectedLocationIcon = '🏠';
+            document.querySelector('[data-icon="🏠"]').style.background = '#dbeafe';
+            document.querySelector('[data-icon="🏠"]').style.borderColor = '#3b82f6';
+        }
+        
+        function selectIcon(icon) {
+            window.selectedLocationIcon = icon;
+            // Reset alle Icons
+            document.querySelectorAll('[data-icon]').forEach(btn => {
+                btn.style.background = 'white';
+                btn.style.borderColor = '#e5e7eb';
+            });
+            // Markiere gewähltes Icon
+            document.querySelector(`[data-icon="${icon}"]`).style.background = '#dbeafe';
+            document.querySelector(`[data-icon="${icon}"]`).style.borderColor = '#3b82f6';
+        }
+        
+        function closeLocationModal() {
+            document.querySelector('[style*="position:fixed"]')?.remove();
+        }
+        
+        function saveLocationConfirm(address, field) {
+            const name = document.getElementById('location-name').value.trim();
+            
+            if (!name) {
+                alert('❌ Bitte einen Namen eingeben!');
+                return;
+            }
+            
+            const locations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
+            
+            // Prüfe ob Ort schon existiert
+            if (locations.some(loc => loc.address === address)) {
+                alert('⚠️ Dieser Ort ist bereits gespeichert!');
+                return;
+            }
+            
+            // Speichere neuen Ort
+            locations.push({
+                name,
+                address,
+                icon: window.selectedLocationIcon || '📍',
+                createdAt: Date.now()
+            });
+            
+            localStorage.setItem('savedLocations', JSON.stringify(locations));
+            
+            console.log('✅ Ort gespeichert:', { name, address, icon: window.selectedLocationIcon });
+            
+            closeLocationModal();
+            loadSavedLocations();
+            
+            alert('✅ Ort gespeichert!\n\n' + window.selectedLocationIcon + ' ' + name + '\n' + address);
+        }
+        
+        function useSavedLocation(field, address) {
+            document.getElementById(field).value = address;
+            
+            // Trigger Autocomplete falls nötig
+            if (field === 'pickup') {
+                showAvailableTaxis();
+            }
+            
+            console.log('✅ Gespeicherter Ort verwendet:', address);
+        }
+        
+        function manageLocations() {
+            const locations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
+            
+            if (locations.length === 0) {
+                alert('📍 Keine gespeicherten Orte vorhanden.');
+                return;
+            }
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;overflow-y:auto;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;">
+                    <h3 style="margin:0 0 15px 0;">⚙️ Orte verwalten</h3>
+                    
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        ${locations.map((loc, index) => `
+                            <div style="padding:12px;background:#f9fafb;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+                                <div style="flex:1;">
+                                    <div style="font-weight:600;margin-bottom:4px;">${loc.icon} ${loc.name}</div>
+                                    <div style="font-size:12px;color:#666;">${loc.address}</div>
+                                </div>
+                                <button onclick="deleteSavedLocation(${index})" style="padding:8px 12px;background:#fee2e2;border:2px solid #ef4444;color:#991b1b;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+                                    🗑️
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <button onclick="closeLocationModal()" style="width:100%;margin-top:15px;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                        Schließen
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        function deleteSavedLocation(index) {
+            if (!confirm('🗑️ Ort wirklich löschen?')) return;
+            
+            const locations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
+            locations.splice(index, 1);
+            localStorage.setItem('savedLocations', JSON.stringify(locations));
+            
+            console.log('🗑️ Ort gelöscht');
+            
+            closeLocationModal();
+            loadSavedLocations();
+            
+            alert('✅ Ort gelöscht!');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
             // 🔐 STARTSEITE: Nur Fahrgast anzeigen (bis Login)
             applyRoleRestrictions(null); // null = nicht eingeloggt
+            
+            // 🆕 v5.26.13: Lade gespeicherte Orte
+            loadSavedLocations();
             
             // 🆕 TRACKING-LINK: Prüfe ob ?ride=XXX in URL
             const urlParams = new URLSearchParams(window.location.search);

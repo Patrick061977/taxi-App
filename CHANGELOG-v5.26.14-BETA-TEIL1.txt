@@ -1,0 +1,319 @@
+═══════════════════════════════════════════════════════════════════════════════
+🚕 CHANGELOG v5.26.14-BETA - ÖPNV-TAXI SYSTEM (TEIL 1)
+═══════════════════════════════════════════════════════════════════════════════
+
+📅 Datum: 30. November 2025 - 12:00 Uhr
+🔧 Version: v5.26.14-BETA (TEIL 1 von 2)
+
+⚠️ WICHTIG: DAS IST TEIL 1 - ES FEHLT NOCH:
+- Fahrer-Interface (bei Fahrtannahme Normal/ÖPNV wählen)
+- Nach Fahrt: QR-Code + digitaler Beleg
+- Dashboard-Statistiken
+- Excel-Export
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ WAS SCHON FERTIG IST (TEIL 1)
+═══════════════════════════════════════════════════════════════════════════════
+
+### **1. ADMIN-BEREICH MIT KOMPLETTEN EINSTELLUNGEN** ✅
+
+**NEU IM ADMIN:**
+```
+⚙️ ADMIN-EINSTELLUNGEN
+└── 🚍 ÖPNV-TAXI SYSTEM (neue Section)
+    
+    AKTIVIERUNG:
+    ☐ ÖPNV-Taxi aktivieren
+    
+    TAXI-ZUSCHLAG:
+    [2,00] € pro Fahrt (einmalig)
+    
+    TARIFSTUFEN:
+    - Kurzstrecke (bis 3 km)
+    - Normalstrecke (bis 7 km)
+    - Längere Strecke (bis 15 km)
+    - Insel-Ticket (über 15 km)
+    
+    Jeweils: Erwachsener / Kind
+    
+    ABRECHNUNGSSTELLE:
+    Name: [Gemeinde Heringsdorf]
+    Email: [...]
+    
+    BELEG-OPTIONEN:
+    ☑ QR-Code anzeigen
+    ☑ In-App Beleg
+    ☑ PDF-Download
+```
+
+**WIE ES FUNKTIONIERT:**
+- Admin öffnet Dashboard
+- Klickt auf "🚍 ÖPNV-Taxi System"
+- Aktiviert Checkbox
+- Stellt Tarife ein
+- Speichert
+
+**SPEICHERUNG:**
+- localStorage: 'oepnvSettings'
+- Firebase: 'settings/oepnv'
+
+---
+
+### **2. BERECHNUNG-SYSTEM** ✅
+
+**FUNKTION:** `calculateBusticket(km, adults, children)`
+
+**BEISPIEL:**
+```javascript
+calculateBusticket(5, 2, 1)
+// 5 km, 2 Erwachsene, 1 Kind
+
+ERGEBNIS:
+{
+    busticket: 8.00,        // 2×3€ + 1×2€
+    adultPrice: 6.00,
+    childPrice: 2.00,
+    tarif: "Normalstrecke",
+    tarifDetails: { km: 7, erw: 3.00, kind: 2.00 }
+}
+
++ Taxi-Zuschlag: 2,00€
+= Kunde zahlt: 10,00€
+
+Bei Taxipreis 15€:
+Gemeinde zahlt: 5,00€
+```
+
+**TARIFSTUFEN-LOGIC:**
+```
+km ≤ 3:  Kurzstrecke
+km ≤ 7:  Normalstrecke
+km ≤ 15: Längere Strecke
+km > 15: Insel-Ticket
+```
+
+---
+
+### **3. QR-CODE LIBRARY EINGEBUNDEN** ✅
+
+**HINZUGEFÜGT:**
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+```
+
+Bereit für Beleg-QR-Codes in TEIL 2!
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+❌ WAS NOCH FEHLT (TEIL 2)
+═══════════════════════════════════════════════════════════════════════════════
+
+### **1. FAHRER-INTERFACE BEI FAHRTANNAHME**
+
+**WAS NOCH GEBAUT WERDEN MUSS:**
+```
+WENN FAHRER FAHRT SIEHT:
+┌─────────────────────────────┐
+│ 🔔 NEUE FAHRT              │
+│ Max Mustermann             │
+│ Bahnhof → Seebrücke        │
+│ 💰 15,00€ | 5 km           │
+│                            │
+│ FAHRTTYP:                  │
+│ ⚫ Normale Fahrt (15€)     │ ← DEFAULT
+│ ⚪ ÖPNV-Taxi               │
+│                            │
+│ [WENN ÖPNV GEWÄHLT:]      │
+│ Erwachsene: [2] [+] [-]   │
+│ Kinder: [1] [+] [-]       │
+│                            │
+│ Busticket: 8,00€          │
+│ + Zuschlag: 2,00€         │
+│ Kunde zahlt: 10,00€       │
+│ Gemeinde: 5,00€           │
+│                            │
+│ [✅ Fahrt annehmen]        │
+└─────────────────────────────┘
+```
+
+---
+
+### **2. NACH FAHRT: BELEG-SYSTEM**
+
+**WAS NOCH GEBAUT WERDEN MUSS:**
+```
+WENN ÖPNV-FAHRT ENDET:
+┌─────────────────────────────┐
+│ ✅ FAHRT BEENDET           │
+│ ÖPNV-TAXI                  │
+│                            │
+│ Taxipreis: 15,00€          │
+│ Busticket: 8,00€           │
+│ Zuschlag: 2,00€            │
+│ Kunde zahlt: 10,00€        │
+│ Gemeinde: 5,00€            │
+│                            │
+│ [📱 QR-Code zeigen]        │
+│ [📥 PDF erstellen]         │
+│                            │
+│ [✅ Fertig]                │
+└─────────────────────────────┘
+```
+
+**QR-CODE FUNKTIONALITÄT:**
+- Generiert eindeutige Beleg-ID
+- Speichert Beleg in Firebase
+- Zeigt QR auf Fahrer-Screen
+- Kunde scannt → sieht Beleg online
+
+**BELEG-SEITE:**
+```
+https://patrick061977.github.io/taxi-App/?beleg=OEPNV-20251130-123456
+
+═══════════════════════════════
+🚕 FUNK TAXI HERINGSDORF
+ÖPNV-TAXI BELEG
+═══════════════════════════════
+
+Von: Bahnhof Heringsdorf
+Nach: Seebrücke Ahlbeck
+5,2 km | 30.11.2025 14:30
+
+PERSONEN:
+2× Erwachsene (2× 3,00€ = 6€)
+1× Kind (1× 2,00€ = 2€)
+
+BUSTICKET: 8,00€
++ Taxi-Zuschlag: 2,00€
+─────────────────────────
+✅ SIE ZAHLEN: 10,00€
+
+Taxi-Preis: 15,00€
+Gemeinde zahlt: 5,00€
+
+Beleg-ID: OEPNV-20251130-123456
+═══════════════════════════════
+
+[📥 Als PDF speichern]
+```
+
+---
+
+### **3. DASHBOARD-STATISTIKEN**
+
+**WAS NOCH GEBAUT WERDEN MUSS:**
+```
+📊 NOVEMBER 2025
+
+🚕 NORMALE FAHRTEN:
+   47 Fahrten | 705,00€
+
+🚍 ÖPNV-FAHRTEN:
+   12 Fahrten
+   Kunde: 48,00€
+   Gemeinde: 132,00€
+   
+[📄 Normale Abrechnung]
+[📄 ÖPNV-Gemeinde-Abrechnung]
+```
+
+---
+
+### **4. EXCEL-EXPORT FÜR GEMEINDE**
+
+**WAS NOCH GEBAUT WERDEN MUSS:**
+```
+Datum       | Von       | Nach      | Taxi  | Bus  | Gemeinde
+30.11 14:30 | Bahnhof  | Seebrücke | 15€   | 10€  | 5€
+30.11 18:45 | Seebrücke| Bahnhof   | 12€   | 8€   | 4€
+...
+SUMME:                            | 705€  | 180€ | 525€
+```
+
+---
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 WIE GEHT ES WEITER?
+═══════════════════════════════════════════════════════════════════════════════
+
+**OPTION A: JETZT TEIL 2 BAUEN**
+Ich baue sofort weiter:
+- Fahrer-Interface erweitern
+- Beleg-System mit QR-Code
+- Dashboard-Statistiken
+- Excel-Export
+
+Dauer: ca. 45-60 Min
+
+**OPTION B: TEIL 1 ERSTMAL TESTEN**
+Du testest die Admin-Einstellungen:
+- Öffne Dashboard
+- Aktiviere ÖPNV
+- Stelle Tarife ein
+- Speichere
+
+Dann sagst du Bescheid und ich baue TEIL 2!
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 TECHNISCHE DETAILS
+═══════════════════════════════════════════════════════════════════════════════
+
+**NEUE FUNKTIONEN:**
+- loadOEPNVSettings() - Lädt Einstellungen
+- saveOEPNVSettings() - Speichert Einstellungen
+- calculateBusticket(km, adults, children) - Berechnet Ticketpreis
+
+**NEUE UI-ELEMENTE:**
+- Admin: oepnv-content (Section)
+- Admin: oepnv-enabled (Checkbox)
+- Admin: oepnv-surcharge (Taxi-Zuschlag)
+- Admin: tarif-* (Tarifstufen)
+- Admin: oepnv-community-* (Gemeinde-Daten)
+- Admin: oepnv-beleg-* (Beleg-Optionen)
+
+**NEUE DATEN:**
+```javascript
+localStorage.oepnvSettings = {
+    enabled: false,
+    surcharge: 2.00,
+    tariffs: {
+        kurz: { km: 3, erw: 2.00, kind: 1.50 },
+        normal: { km: 7, erw: 3.00, kind: 2.00 },
+        lang: { km: 15, erw: 4.50, kind: 3.00 },
+        insel: { erw: 6.00, kind: 4.00 }
+    },
+    community: {
+        name: 'Gemeinde Heringsdorf',
+        email: ''
+    },
+    belegOptions: {
+        qr: true,
+        app: true,
+        pdf: true
+    }
+}
+```
+
+**LIBRARY:**
+- QRCode.js (CDN)
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ ALLE FEATURES GESAMT (v5.26.14-BETA)
+═══════════════════════════════════════════════════════════════════════════════
+
+VON DIESEM TEIL:
+✅ ÖPNV-Admin-Bereich (NEU!)
+✅ Tarifstufen-System (NEU!)
+✅ Berechnung (NEU!)
+✅ QR-Library (NEU!)
+
+VON VORHERIGEN VERSIONEN:
+✅ POI/Favoriten-Orte (v5.26.13)
+✅ Zahlungsmethoden (v5.26.13)
+✅ Stornierung 15% (v5.26.13)
+✅ Profil-Button (v5.26.12)
+✅ Cache-Leeren (v5.26.10)
+✅ SMS-Login (v5.26.8)
+
+═══════════════════════════════════════════════════════════════════════════════

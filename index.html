@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.6 - Build 20251130-0715');
-        console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
+        console.log('🚕 Funk Taxi App v5.26.7 - Build 20251130-0845');
+        console.log('🔧 SMS-Login Fix: Robustes reCAPTCHA + Code-Eingabe + Auto-Fill');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14301,7 +14301,10 @@ Stack: ${err.stack}
         }
         
         function initRecaptcha() {
-            if (recaptchaVerifier) return;
+            if (recaptchaVerifier) {
+                console.log('✅ reCAPTCHA bereits initialisiert');
+                return;
+            }
             
             if (!auth) {
                 console.error('❌ Firebase Auth nicht verfügbar');
@@ -14310,23 +14313,52 @@ Stack: ${err.stack}
             
             // Container prüfen - nutze den im Login-Modal
             const containerId = document.getElementById('login-recaptcha-container') ? 'login-recaptcha-container' : 'recaptcha-container';
+            const container = document.getElementById(containerId);
+            
+            if (!container) {
+                console.error('❌ reCAPTCHA Container nicht gefunden:', containerId);
+                return;
+            }
             
             try {
+                console.log('🔄 Initialisiere invisible reCAPTCHA...');
+                
+                // Container leeren (falls vorher was drin war)
+                container.innerHTML = '';
+                
                 recaptchaVerifier = new firebase.auth.RecaptchaVerifier(containerId, {
                     'size': 'invisible',  // UNSICHTBAR - läuft im Hintergrund!
                     'callback': (response) => {
-                        console.log('✅ reCAPTCHA automatisch gelöst');
+                        console.log('✅ reCAPTCHA automatisch gelöst:', response);
                     },
                     'expired-callback': () => {
                         console.log('⚠️ reCAPTCHA abgelaufen - neu initialisieren');
                         recaptchaVerifier = null;
-                        initRecaptcha();
+                        setTimeout(() => initRecaptcha(), 500);
+                    },
+                    'error-callback': (error) => {
+                        console.error('❌ reCAPTCHA Error Callback:', error);
+                        recaptchaVerifier = null;
                     }
                 });
-                recaptchaVerifier.render();
-                console.log('✅ Invisible reCAPTCHA initialisiert');
+                
+                // Render mit Error Handling
+                recaptchaVerifier.render().then(widgetId => {
+                    console.log('✅ Invisible reCAPTCHA erfolgreich gerendert! Widget ID:', widgetId);
+                }).catch(error => {
+                    console.error('❌ reCAPTCHA Render Fehler:', error);
+                    recaptchaVerifier = null;
+                    
+                    // Retry nach 1 Sekunde
+                    setTimeout(() => {
+                        console.log('🔄 Versuche reCAPTCHA erneut...');
+                        initRecaptcha();
+                    }, 1000);
+                });
+                
             } catch (error) {
-                console.error('❌ reCAPTCHA Fehler:', error);
+                console.error('❌ reCAPTCHA Init Fehler:', error);
+                recaptchaVerifier = null;
             }
         }
         
@@ -14347,9 +14379,18 @@ Stack: ${err.stack}
                 return;
             }
             
+            // reCAPTCHA Check und Auto-Init
             if (!recaptchaVerifier) {
-                alert('❌ Bitte erst das reCAPTCHA lösen!');
-                return;
+                console.log('⚠️ reCAPTCHA noch nicht bereit - initialisiere jetzt...');
+                initRecaptcha();
+                
+                // Warte kurz bis reCAPTCHA bereit ist
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                if (!recaptchaVerifier) {
+                    alert('❌ reCAPTCHA konnte nicht geladen werden!\n\nBitte lade die Seite neu (F5) und versuche es erneut.');
+                    return;
+                }
             }
             
             const btn = document.getElementById('send-code-btn');
@@ -14357,14 +14398,38 @@ Stack: ${err.stack}
             btn.textContent = '⏳ Sende SMS...';
             
             try {
+                console.log('📤 Sende SMS an:', fullPhoneNumber);
                 confirmationResult = await auth.signInWithPhoneNumber(fullPhoneNumber, recaptchaVerifier);
-                console.log('✅ SMS gesendet an:', fullPhoneNumber);
+                console.log('✅ SMS erfolgreich gesendet an:', fullPhoneNumber);
                 
-                // Zeige Schritt 2
+                // Zeige Schritt 2 - CODE EINGABE
                 document.getElementById('phone-step-1').style.display = 'none';
                 document.getElementById('phone-step-2').style.display = 'block';
                 document.getElementById('phone-display').textContent = fullPhoneNumber;
-                document.getElementById('phone-code').focus();
+                
+                // Fokus auf Code-Eingabe + Auto-Fill vorbereiten
+                const codeInput = document.getElementById('phone-code');
+                codeInput.focus();
+                
+                // 🎯 WEB OTP API - Automatisches SMS Ausfüllen!
+                if ('OTPCredential' in window) {
+                    console.log('✅ Web OTP API verfügbar - aktiviere Auto-Fill');
+                    navigator.credentials.get({
+                        otp: { transport: ['sms'] },
+                        signal: AbortSignal.timeout(60000) // 60 Sekunden timeout
+                    }).then(otp => {
+                        if (otp && otp.code) {
+                            console.log('🎉 SMS-Code automatisch empfangen:', otp.code);
+                            codeInput.value = otp.code;
+                            // Optional: Automatisch verifizieren
+                            // verifyPhoneCode();
+                        }
+                    }).catch(err => {
+                        console.log('⚠️ Web OTP nicht verfügbar:', err.message);
+                    });
+                } else {
+                    console.log('ℹ️ Web OTP API nicht unterstützt - manuelles Eingeben nötig');
+                }
                 
             } catch (error) {
                 console.error('❌ SMS Fehler:', error);
@@ -14379,12 +14444,14 @@ Stack: ${err.stack}
                     alert('❌ reCAPTCHA fehlgeschlagen!\n\nBitte lade die Seite neu.');
                     resetPhoneLogin();
                 } else {
-                    alert('❌ Fehler: ' + error.message);
+                    alert('❌ Fehler beim SMS-Versand:\n\n' + error.message + '\n\nBitte versuche es erneut oder lade die Seite neu.');
                 }
                 
                 // reCAPTCHA zurücksetzen
                 if (recaptchaVerifier) {
-                    recaptchaVerifier.clear();
+                    try {
+                        recaptchaVerifier.clear();
+                    } catch (e) {}
                     recaptchaVerifier = null;
                 }
                 initRecaptcha();

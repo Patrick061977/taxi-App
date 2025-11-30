@@ -17,7 +17,7 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.0 - Build 20251129-1510');
+        console.log('🚕 Funk Taxi App v5.26.4 - Build 20251129-1220');
         console.log('✅ Integration Complete: Mobile CSS + Settings Button + Scripts');
     </script>
     
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.26.0 - Telefon-Registrierung 🚫 (Build 20251129-1510)</p>
+            <p style="font-size: 10px; opacity: 0.8; margin: 4px 0 0 0;">Version 5.26.4 - Rechnungsadresse Autocomplete 🧾 (Build 20251129-1220)</p>
             <div class="status-row" id="header-status-row">
                 <div class="status-item">
                     <div class="sync-dot" id="sync-dot"></div>
@@ -372,22 +372,24 @@
                 <!-- reCAPTCHA Container -->
                 <div id="recaptcha-container" style="margin-bottom: 15px;"></div>
                 
-                <button onclick="sendVerificationCode()" id="send-code-btn" style="
+                <!-- Primärer Button: Prüft ob Kunde bekannt ist -->
+                <button onclick="checkAndLogin()" id="check-login-btn" style="
                     width: 100%;
                     padding: 16px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
                     color: white;
                     border: none;
                     border-radius: 10px;
                     font-size: 16px;
                     font-weight: 700;
                     cursor: pointer;
+                    margin-bottom: 10px;
                 ">
-                    📤 SMS-Code anfordern
+                    🔓 Anmelden
                 </button>
                 
-                <p style="text-align: center; font-size: 12px; color: #999; margin-top: 15px;">
-                    Du erhältst einen 6-stelligen Code per SMS
+                <p style="text-align: center; font-size: 12px; color: #999; margin-top: 10px;">
+                    Noch nicht registriert? Beim ersten Mal erhältst du einen SMS-Code.
                 </p>
             </div>
             
@@ -437,6 +439,19 @@
         <h3 style="margin-bottom: 15px;">Taxi buchen</h3>
         
         <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
+        <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
+        <div id="quick-login-box" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-size: 12px; opacity: 0.9;">✅ Angemeldet als</div>
+                    <div id="quick-login-phone" style="font-size: 16px; font-weight: 600;"></div>
+                </div>
+                <button onclick="logoutQuickLogin()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
+                    🚪 Abmelden
+                </button>
+            </div>
+        </div>
+        
         <div id="my-profile-box" style="display:none; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h4 style="margin: 0; font-size: 16px;">👤 Mein Konto</h4>
@@ -11480,10 +11495,19 @@
                 const box = document.getElementById('my-profile-box');
                 const info = document.getElementById('my-profile-info');
                 
+                // Rechnungsadresse formatieren
+                let billingInfo = '';
+                if (myProfileData.billingName || myProfileData.billingStreet) {
+                    billingInfo = `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.2);font-size:11px;">
+                        🧾 ${myProfileData.billingName || ''}${myProfileData.billingStreet ? ', ' + myProfileData.billingStreet : ''}${myProfileData.billingZip ? ', ' + myProfileData.billingZip : ''} ${myProfileData.billingCity || ''}
+                    </div>`;
+                }
+                
                 info.innerHTML = `
                     <div><strong>${myProfileData.name || 'Name nicht gesetzt'}</strong></div>
                     ${myProfileData.phone ? `<div>📞 ${myProfileData.phone}</div>` : '<div style="opacity:0.7">📞 Telefon nicht gesetzt</div>'}
                     ${myProfileData.address ? `<div>🏠 ${myProfileData.address}</div>` : '<div style="opacity:0.7">🏠 Adresse nicht gesetzt</div>'}
+                    ${billingInfo}
                 `;
                 box.style.display = 'block';
                 
@@ -11504,11 +11528,34 @@
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="my-profile-name" value="${myProfileData.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <input type="tel" id="my-profile-phone" value="${myProfileData.phone || ''}" placeholder="Telefonnummer *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        
+                        <div style="margin-top:5px;font-size:12px;color:#666;font-weight:600;">📍 Abholadresse (Standard)</div>
                         <div class="input-group" style="position:relative;margin:0;">
                             <input type="text" id="my-profile-address" value="${myProfileData.address || ''}" placeholder="Meine Adresse (Abholort)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;box-sizing:border-box;">
                             <div class="autocomplete-dropdown" id="my-profile-address-dropdown" style="z-index:10001;"></div>
                         </div>
-                        <div style="font-size:12px;color:#666;padding:8px;background:#f3f4f6;border-radius:6px;">
+                        
+                        <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
+                            <div style="font-size:12px;color:#666;font-weight:600;">🧾 Rechnungsadresse</div>
+                            <button onclick="copyAddressToBilling()" type="button" style="font-size:11px;padding:4px 8px;background:#e0e7ff;color:#4338ca;border:none;border-radius:4px;cursor:pointer;">
+                                📍 Abholadresse übernehmen
+                            </button>
+                        </div>
+                        <input type="text" id="my-profile-billing-name" value="${myProfileData.billingName || ''}" placeholder="Name / Firma für Rechnung" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        
+                        <!-- Autocomplete für Rechnungsadresse -->
+                        <div class="input-group" style="position:relative;margin:0;">
+                            <input type="text" id="my-profile-billing-search" placeholder="🔍 Adresse suchen..." style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;box-sizing:border-box;">
+                            <div class="autocomplete-dropdown" id="my-profile-billing-dropdown" style="z-index:10002;"></div>
+                        </div>
+                        
+                        <input type="text" id="my-profile-billing-street" value="${myProfileData.billingStreet || ''}" placeholder="Straße und Hausnummer" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <div style="display:flex;gap:10px;">
+                            <input type="text" id="my-profile-billing-zip" value="${myProfileData.billingZip || ''}" placeholder="PLZ" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100px;">
+                            <input type="text" id="my-profile-billing-city" value="${myProfileData.billingCity || ''}" placeholder="Ort" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;flex:1;">
+                        </div>
+                        
+                        <div style="font-size:12px;color:#666;padding:8px;background:#f3f4f6;border-radius:6px;margin-top:5px;">
                             📧 ${myProfileData.email}<br>
                             ⭐ ${myProfileData.totalRides || 0} Fahrten | 💰 ${(myProfileData.totalRevenue || 0).toFixed(2)}€
                         </div>
@@ -11554,6 +11601,34 @@
                 if (e.target !== input && !dropdown.contains(e.target)) {
                     dropdown.style.display = 'none';
                 }
+                // Auch Billing-Dropdown schließen
+                const billingDropdown = document.getElementById('my-profile-billing-dropdown');
+                const billingInput = document.getElementById('my-profile-billing-search');
+                if (billingDropdown && e.target !== billingInput && !billingDropdown.contains(e.target)) {
+                    billingDropdown.style.display = 'none';
+                }
+            });
+            
+            // 🧾 Autocomplete für RECHNUNGSADRESSE
+            const billingInput = document.getElementById('my-profile-billing-search');
+            const billingDropdown = document.getElementById('my-profile-billing-dropdown');
+            let billingTimeout = null;
+            
+            billingInput.addEventListener('input', (e) => {
+                clearTimeout(billingTimeout);
+                const value = e.target.value.trim();
+                
+                if (value.length < 3) {
+                    billingDropdown.style.display = 'none';
+                    return;
+                }
+                
+                billingDropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Suche...</div>';
+                billingDropdown.style.display = 'block';
+                
+                billingTimeout = setTimeout(() => {
+                    searchBillingAddress(value, billingDropdown);
+                }, 300);
             });
         }
         
@@ -11661,12 +11736,85 @@
             document.getElementById('my-profile-address-dropdown').style.display = 'none';
         }
         
+        // 🧾 Rechnungsadresse suchen (deutschlandweit, ohne Usedom-Filter)
+        async function searchBillingAddress(query, dropdown) {
+            try {
+                const response = await fetch(
+                    'https://nominatim.openstreetmap.org/search?' +
+                    'format=json&' +
+                    'q=' + encodeURIComponent(query) + '&' +
+                    'countrycodes=de&' +
+                    'limit=8&' +
+                    'addressdetails=1'
+                );
+                
+                const results = await response.json();
+                
+                if (results.length === 0) {
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Keine Ergebnisse</div>';
+                    return;
+                }
+                
+                dropdown.innerHTML = results.map(r => {
+                    const address = r.address;
+                    const street = address.road || '';
+                    const houseNumber = address.house_number || '';
+                    const zip = address.postcode || '';
+                    const city = address.city || address.town || address.village || address.municipality || '';
+                    
+                    const fullStreet = street + (houseNumber ? ' ' + houseNumber : '');
+                    
+                    // Anzeige formatieren
+                    let displayText = '';
+                    if (fullStreet) displayText += fullStreet;
+                    if (zip) displayText += ', ' + zip;
+                    if (city) displayText += ' ' + city;
+                    if (!displayText) displayText = r.display_name;
+                    
+                    // Daten für Auswahl
+                    const data = JSON.stringify({
+                        street: fullStreet,
+                        zip: zip,
+                        city: city
+                    }).replace(/"/g, '&quot;');
+                    
+                    return '<div class="autocomplete-item" onclick="selectBillingAddress(' + "'" + data + "'" + ')">' + displayText + '</div>';
+                }).join('');
+                
+            } catch (e) {
+                console.error('Billing Autocomplete Fehler:', e);
+                dropdown.innerHTML = '<div class="autocomplete-item" style="color:#ef4444;">Fehler bei der Suche</div>';
+            }
+        }
+        
+        function selectBillingAddress(dataStr) {
+            try {
+                const data = JSON.parse(dataStr.replace(/&quot;/g, '"'));
+                
+                document.getElementById('my-profile-billing-street').value = data.street || '';
+                document.getElementById('my-profile-billing-zip').value = data.zip || '';
+                document.getElementById('my-profile-billing-city').value = data.city || '';
+                document.getElementById('my-profile-billing-search').value = '';
+                document.getElementById('my-profile-billing-dropdown').style.display = 'none';
+                
+                console.log('🧾 Rechnungsadresse ausgewählt:', data);
+            } catch (e) {
+                console.error('Fehler beim Parsen:', e);
+            }
+        }
+        
         async function saveMyProfile() {
             if (!myProfileData || !myProfileData.id) return;
             
             const name = document.getElementById('my-profile-name').value.trim();
             const phone = document.getElementById('my-profile-phone').value.trim();
             const address = document.getElementById('my-profile-address').value.trim();
+            
+            // Rechnungsadresse
+            const billingName = document.getElementById('my-profile-billing-name').value.trim();
+            const billingStreet = document.getElementById('my-profile-billing-street').value.trim();
+            const billingZip = document.getElementById('my-profile-billing-zip').value.trim();
+            const billingCity = document.getElementById('my-profile-billing-city').value.trim();
             
             if (!name) {
                 alert('❌ Bitte Name eingeben!');
@@ -11677,12 +11825,20 @@
                 await db.ref('customers/' + myProfileData.id).update({
                     name: name,
                     phone: phone,
-                    address: address
+                    address: address,
+                    billingName: billingName,
+                    billingStreet: billingStreet,
+                    billingZip: billingZip,
+                    billingCity: billingCity
                 });
                 
                 myProfileData.name = name;
                 myProfileData.phone = phone;
                 myProfileData.address = address;
+                myProfileData.billingName = billingName;
+                myProfileData.billingStreet = billingStreet;
+                myProfileData.billingZip = billingZip;
+                myProfileData.billingCity = billingCity;
                 
                 document.getElementById('my-profile-modal').remove();
                 loadMyProfile(); // Box aktualisieren
@@ -11692,6 +11848,46 @@
                 console.error('Speichern Fehler:', error);
                 alert('❌ Fehler beim Speichern: ' + error.message);
             }
+        }
+        
+        // Abholadresse als Rechnungsadresse übernehmen
+        function copyAddressToBilling() {
+            const address = document.getElementById('my-profile-address').value.trim();
+            const name = document.getElementById('my-profile-name').value.trim();
+            
+            if (!address) {
+                alert('❌ Bitte zuerst Abholadresse eingeben!');
+                return;
+            }
+            
+            // Name übernehmen
+            document.getElementById('my-profile-billing-name').value = name;
+            
+            // Adresse parsen (versuche Straße, PLZ, Ort zu extrahieren)
+            // Format oft: "Straße Nr, PLZ Ort" oder "Straße Nr, Ort"
+            const parts = address.split(',').map(p => p.trim());
+            
+            if (parts.length >= 2) {
+                // Straße ist der erste Teil
+                document.getElementById('my-profile-billing-street').value = parts[0];
+                
+                // PLZ und Ort aus dem zweiten Teil
+                const lastPart = parts[parts.length - 1];
+                const plzMatch = lastPart.match(/(\d{5})\s*(.*)/);
+                
+                if (plzMatch) {
+                    document.getElementById('my-profile-billing-zip').value = plzMatch[1];
+                    document.getElementById('my-profile-billing-city').value = plzMatch[2] || '';
+                } else {
+                    // Kein PLZ gefunden - alles als Ort
+                    document.getElementById('my-profile-billing-city').value = lastPart;
+                }
+            } else {
+                // Nur ein Teil - als Straße übernehmen
+                document.getElementById('my-profile-billing-street').value = address;
+            }
+            
+            console.log('📍 Abholadresse übernommen');
         }
         
         function useMyProfileData() {
@@ -14526,10 +14722,34 @@ Stack: ${err.stack}
             const user = firebase.auth().currentUser;
             const authScreen = document.getElementById('phone-auth-screen');
             
-            // Wenn User eingeloggt ist (egal ob Phone oder Email) → verstecke Login-Screen
+            // Wenn User über Firebase Auth eingeloggt ist → verstecke Login-Screen
             if (user) {
-                console.log('✅ User eingeloggt:', user.phoneNumber || user.email);
+                console.log('✅ Firebase User eingeloggt:', user.phoneNumber || user.email);
                 if (authScreen) authScreen.style.display = 'none';
+                return true;
+            }
+            
+        // 🆕 Prüfe ob "Quick Login" (bekannter Kunde ohne Firebase Auth)
+            const quickLoginPhone = localStorage.getItem('loggedInPhone');
+            if (quickLoginPhone) {
+                console.log('✅ Quick-Login aktiv:', quickLoginPhone);
+                if (authScreen) authScreen.style.display = 'none';
+                
+                // Quick-Login Box anzeigen
+                const quickBox = document.getElementById('quick-login-box');
+                if (quickBox) {
+                    quickBox.style.display = 'block';
+                    document.getElementById('quick-login-phone').textContent = quickLoginPhone;
+                }
+                
+                // Telefon ins Formular übernehmen falls leer
+                const phoneField = document.getElementById('customer-phone');
+                if (phoneField && !phoneField.value) phoneField.value = quickLoginPhone;
+                
+                const savedName = localStorage.getItem('loggedInUserName');
+                const nameField = document.getElementById('customer-name');
+                if (nameField && !nameField.value && savedName) nameField.value = savedName;
+                
                 return true;
             }
             
@@ -14562,6 +14782,88 @@ Stack: ${err.stack}
             } catch (error) {
                 console.error('❌ reCAPTCHA Fehler:', error);
             }
+        }
+        
+        // Prüfe ob Kunde schon registriert ist und logge ein oder starte SMS-Verifizierung
+        async function checkAndLogin() {
+            const countryCode = document.getElementById('phone-country-code').value;
+            const phoneNumber = document.getElementById('phone-number-input').value.trim();
+            const errorDiv = document.getElementById('phone-auth-error');
+            const loginBtn = document.getElementById('check-login-btn');
+            
+            // Validierung
+            if (!phoneNumber || phoneNumber.length < 6) {
+                errorDiv.textContent = '❌ Bitte gültige Telefonnummer eingeben';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Führende 0 entfernen
+            const cleanNumber = phoneNumber.replace(/^0+/, '');
+            const fullPhoneNumber = countryCode + cleanNumber;
+            
+            console.log('🔍 Prüfe Telefonnummer:', fullPhoneNumber);
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = '⏳ Prüfe...';
+            errorDiv.style.display = 'none';
+            
+            try {
+                // Prüfe in Firebase ob diese Telefonnummer schon registriert ist
+                const usersSnapshot = await db.ref('users').orderByChild('phone').equalTo(fullPhoneNumber).once('value');
+                const existingUser = usersSnapshot.val();
+                
+                if (existingUser) {
+                    // ✅ BEKANNTER KUNDE - Direkt einloggen ohne SMS!
+                    console.log('✅ Bekannter Kunde gefunden!', existingUser);
+                    
+                    // Hole User-Daten
+                    const userId = Object.keys(existingUser)[0];
+                    const userData = existingUser[userId];
+                    
+                    // Speichere als "eingeloggt" (ohne echten Firebase Auth)
+                    localStorage.setItem('loggedInPhone', fullPhoneNumber);
+                    localStorage.setItem('loggedInUserId', userId);
+                    localStorage.setItem('loggedInUserName', userData.displayName || '');
+                    
+                    // Login-Screen verstecken
+                    document.getElementById('phone-auth-screen').style.display = 'none';
+                    
+                    // Telefon + Name ins Formular übernehmen
+                    const phoneField = document.getElementById('customer-phone');
+                    if (phoneField) phoneField.value = fullPhoneNumber;
+                    
+                    const nameField = document.getElementById('customer-name');
+                    if (nameField && userData.displayName) nameField.value = userData.displayName;
+                    
+                    // Log
+                    logActivity('system', 'quick_login', `Schnell-Login: ${fullPhoneNumber}`, {
+                        phone: fullPhoneNumber,
+                        userId: userId,
+                        name: userData.displayName || ''
+                    });
+                    
+                    console.log('🎉 Schnell-Login erfolgreich!');
+                    
+                } else {
+                    // 🆕 NEUER KUNDE - SMS-Verifizierung nötig
+                    console.log('🆕 Neuer Kunde - starte SMS-Verifizierung');
+                    
+                    // Wechsel zur SMS-Verifizierung
+                    loginBtn.textContent = '📤 SMS wird gesendet...';
+                    await sendVerificationCode();
+                }
+                
+            } catch (error) {
+                console.error('❌ Login-Fehler:', error);
+                
+                // Bei Fehler: Fallback auf SMS-Verifizierung
+                console.log('⚠️ Fallback auf SMS-Verifizierung');
+                await sendVerificationCode();
+            }
+            
+            loginBtn.disabled = false;
+            loginBtn.textContent = '🔓 Anmelden';
         }
         
         // SMS-Code anfordern
@@ -14750,6 +15052,31 @@ Stack: ${err.stack}
                     timerDiv.innerHTML = '<button onclick="goBackToPhone()" style="background:none;border:none;color:#667eea;cursor:pointer;text-decoration:underline;">📤 Neuen Code anfordern</button>';
                 }
             }, 1000);
+        }
+        
+        // 🆕 Quick-Login Logout
+        function logoutQuickLogin() {
+            if (!confirm('Wirklich abmelden?')) return;
+            
+            // Quick-Login Daten löschen
+            localStorage.removeItem('loggedInPhone');
+            localStorage.removeItem('loggedInUserId');
+            localStorage.removeItem('loggedInUserName');
+            
+            // Quick-Login Box verstecken
+            const quickBox = document.getElementById('quick-login-box');
+            if (quickBox) quickBox.style.display = 'none';
+            
+            // Formular leeren
+            const phoneField = document.getElementById('customer-phone');
+            if (phoneField) phoneField.value = '';
+            const nameField = document.getElementById('customer-name');
+            if (nameField) nameField.value = '';
+            
+            // Login-Screen zeigen
+            checkPassengerAuth();
+            
+            console.log('🚪 Quick-Login abgemeldet');
         }
         
         // ═══════════════════════════════════════════════════════════════════════════

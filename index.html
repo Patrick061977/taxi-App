@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.14g - Build 20251130-1510');
-        console.log('✅ FIREBASE SYNC FIX + RECHNUNG REGELN (60 Min)!');
+        console.log('🚕 Funk Taxi App v5.27.0 - Build 20251130-1700');
+        console.log('✨ KALENDER-FEATURE MIT 3 ANSICHTEN!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14g - Firebase Sync + Rechnung (Build 20251130-1510)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.27.0 - Kalender-Feature (Build 20251130-1700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -342,6 +342,7 @@
     <div class="view-selector">
         <button class="view-btn active" onclick="switchView('passenger')" id="passenger-tab-btn">Fahrgast</button>
         <button class="view-btn" onclick="switchView('history')" id="history-tab-btn">Verlauf</button>
+        <button class="view-btn" onclick="switchView('calendar')" id="calendar-tab-btn">📅 Kalender</button>
         <button class="view-btn" onclick="switchView('driver')" id="driver-tab-btn" style="display:none;">Fahrer</button>
         <button class="view-btn" onclick="switchView('admin')" id="admin-tab-btn" style="display:none;">Admin</button>
     </div>
@@ -670,6 +671,67 @@
             <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🧹 Cache leeren & App neu laden
             </button>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.27.0: KALENDER VIEW -->
+    <div id="calendar-view" class="view">
+        <h3 style="margin: 20px 0;">📅 Fahrten-Kalender</h3>
+        
+        <!-- Ansichts-Toggle -->
+        <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+            <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                📅 Monat
+            </button>
+            <button id="cal-week-btn" onclick="switchCalendarView('week')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                📊 Woche
+            </button>
+            <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                📋 Tag
+            </button>
+        </div>
+        
+        <!-- Monats-Navigation -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #f9fafb; border-radius: 8px;">
+            <button onclick="previousPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                ◀️ Zurück
+            </button>
+            <div style="font-weight: 700; font-size: 16px; color: #1f2937;" id="calendar-period-title">
+                November 2025
+            </div>
+            <button onclick="nextPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                Vor ▶️
+            </button>
+        </div>
+        
+        <!-- Legende -->
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding: 12px; background: #f9fafb; border-radius: 8px; font-size: 13px;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: #10b981; border-radius: 50%;"></div>
+                <span>Abgeschlossen</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%;"></div>
+                <span>Storniert</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: #f59e0b; border-radius: 50%;"></div>
+                <span>Vorbestellt</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="width: 12px; height: 12px; background: #3b82f6; border-radius: 50%;"></div>
+                <span>In Bearbeitung</span>
+            </div>
+        </div>
+        
+        <!-- Kalender-Container -->
+        <div id="calendar-container" style="margin-bottom: 20px;">
+            <!-- Wird dynamisch gefüllt -->
+        </div>
+        
+        <!-- Statistik -->
+        <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
+            <!-- Wird dynamisch gefüllt -->
         </div>
     </div>
 
@@ -4117,8 +4179,8 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             
-            // 🆕 v5.26.14e: EXPLIZIT alle Views verstecken
-            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
+            // 🆕 v5.27.0: Kalender-View hinzugefügt
+            const allViews = ['passenger-view', 'history-view', 'calendar-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -4137,6 +4199,7 @@
             const viewBtnMap = {
                 'passenger': '.view-btn[onclick*="passenger"]',
                 'history': '.view-btn[onclick*="history"]',
+                'calendar': '.view-btn[onclick*="calendar"]',
                 'driver': '.view-btn[onclick*="driver"]',
                 'admin': '.view-btn[onclick*="admin"]'
             };
@@ -4149,6 +4212,11 @@
             currentView = view;
             
             console.log('🔄 View gewechselt zu:', view);
+            
+            // 🆕 v5.27.0: Kalender rendern
+            if (view === 'calendar') {
+                setTimeout(() => renderCalendar(), 100);
+            }
             
             // 🆕 v5.26.0: Telefon-Auth prüfen bei Fahrgast-Tab
             if (view === 'passenger') {
@@ -5440,19 +5508,34 @@
         // ═══════════════════════════════════════════════════════════════════════════
         
         function downloadReceipt(rideIdOrTimestamp) {
-            // Finde Fahrt
-            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
-            const ride = localHistory.find(r => r.createdAt === rideIdOrTimestamp || r.id === rideIdOrTimestamp);
-            
-            if (!ride) {
-                alert('❌ Fahrt nicht gefunden!');
-                return;
-            }
-            
-            // Erstelle PDF mit jsPDF
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
+            try {
+                console.log('📄 downloadReceipt aufgerufen für:', rideIdOrTimestamp);
+                
+                // 🆕 v5.26.14j: Check ob jsPDF geladen ist!
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    alert('❌ PDF-Bibliothek nicht geladen!\n\nBitte Seite neu laden (F5).');
+                    console.error('❌ jsPDF nicht verfügbar!');
+                    return;
+                }
+                
+                // Finde Fahrt
+                const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                const ride = localHistory.find(r => r.createdAt === rideIdOrTimestamp || r.id === rideIdOrTimestamp);
+                
+                console.log('🔍 Gefundene Fahrt:', ride);
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    console.error('❌ Fahrt nicht in localStorage gefunden:', rideIdOrTimestamp);
+                    return;
+                }
+                
+                console.log('✅ Erstelle PDF...');
+                
+                // Erstelle PDF mit jsPDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
             // Schriftart und Größe
             doc.setFont('helvetica');
             
@@ -5546,20 +5629,39 @@
             const filename = 'Rechnung_Taxi_' + fahrtNr + '.pdf';
             doc.save(filename);
             
-            console.log('📄 Rechnung erstellt:', filename);
+            console.log('✅ Rechnung erstellt:', filename);
+            alert('✅ Rechnung wird heruntergeladen!\n\n' + filename);
+            
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der Rechnung:', error);
+                alert('❌ Fehler beim Erstellen der Rechnung!\n\n' + error.message + '\n\nBitte Screenshot machen und melden.');
+            }
         }
         
-        // 🆕 v5.26.14g: STORNOBELEG FÜR STORNIERTE FAHRTEN MIT GEBÜHR
+        // 🆕 v5.26.14j: STORNOBELEG MIT ERROR-HANDLING
         function downloadCancellationReceipt(rideIdOrTimestamp) {
-            // Finde Fahrt
-            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
-            const ride = localHistory.find(r => r.createdAt === rideIdOrTimestamp || r.id === rideIdOrTimestamp);
-            
-            if (!ride) {
-                alert('❌ Fahrt nicht gefunden!');
-                return;
-            }
-            
+            try {
+                console.log('📄 downloadCancellationReceipt aufgerufen für:', rideIdOrTimestamp);
+                
+                // 🆕 v5.26.14j: Check ob jsPDF geladen ist!
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    alert('❌ PDF-Bibliothek nicht geladen!\n\nBitte Seite neu laden (F5).');
+                    console.error('❌ jsPDF nicht verfügbar!');
+                    return;
+                }
+                
+                // Finde Fahrt
+                const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                const ride = localHistory.find(r => r.createdAt === rideIdOrTimestamp || r.id === rideIdOrTimestamp);
+                
+                console.log('🔍 Gefundene Fahrt:', ride);
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    console.error('❌ Fahrt nicht in localStorage gefunden:', rideIdOrTimestamp);
+                    return;
+                }
+                
             // 🆕 v5.26.14g: Berechne Stornogebühr (15% vom Preis)
             const createdAt = ride.createdAt || 0;
             const cancelledAt = ride.cancelledAt || ride.completedAt || Date.now();
@@ -5679,7 +5781,13 @@
             const filename = 'Stornobeleg_Taxi_' + fahrtNr + '.pdf';
             doc.save(filename);
             
-            console.log('📄 Stornobeleg erstellt:', filename);
+            console.log('✅ Stornobeleg erstellt:', filename);
+            alert('✅ Stornobeleg wird heruntergeladen!\n\n' + filename);
+            
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen des Stornobelegs:', error);
+                alert('❌ Fehler beim Erstellen des Stornobelegs!\n\n' + error.message + '\n\nBitte Screenshot machen und melden.');
+            }
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -7118,7 +7226,21 @@
             if (inputId === 'pickup') {
                 pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 console.log('✅ Abholort gespeichert:', address, pickupCoords);
-                showAvailableTaxis();
+                
+                // 🆕 v5.26.14i: LOADING-FEEDBACK auch bei Autocomplete!
+                const display = document.getElementById('available-taxis-display');
+                display.innerHTML = `
+                    <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                        <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                        <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                        <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                    </div>
+                `;
+                
+                // Nach 1 Sekunde: Zeige Taxis
+                setTimeout(() => {
+                    showAvailableTaxis();
+                }, 1000);
             } else {
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 console.log('✅ Zielort gespeichert:', address, destCoords);
@@ -7148,7 +7270,20 @@
                         const addressString = `${street} ${houseNumber}, ${city}`.trim();
                         document.getElementById('pickup').value = addressString;
                         console.log('✅ Adresse aufgelöst:', addressString);
-                        showAvailableTaxis();
+                        
+                        // 🆕 v5.26.14i: LOADING-FEEDBACK auch bei GPS!
+                        const display = document.getElementById('available-taxis-display');
+                        display.innerHTML = `
+                            <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                                <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                                <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                                <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                            </div>
+                        `;
+                        
+                        setTimeout(() => {
+                            showAvailableTaxis();
+                        }, 1000);
                     } catch (e) {
                         console.error('❌ Reverse Geocoding Fehler:', e);
                         document.getElementById('pickup').value = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
@@ -7186,8 +7321,30 @@
             
             const onlineDrivers = Object.values(drivers).filter(d => d.online && d.timestamp && (Date.now() - d.timestamp) < 120000);
             
+            // 🆕 v5.26.14i: BESSERE "KEINE TAXIS"-MELDUNG
             if (onlineDrivers.length === 0) {
-                document.getElementById('available-taxis-display').innerHTML = '<div class="alert-info">⏳ Momentan keine Taxis verfügbar</div>';
+                document.getElementById('available-taxis-display').innerHTML = `
+                    <div style="padding:20px;background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;margin-top:10px;">
+                        <div style="text-align:center;margin-bottom:15px;">
+                            <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+                            <div style="font-weight:700;font-size:16px;color:#92400e;margin-bottom:5px;">
+                                Aktuell keine Taxis verfügbar
+                            </div>
+                            <div style="font-size:13px;color:#78350f;">
+                                Alle Fahrer sind gerade unterwegs
+                            </div>
+                        </div>
+                        <div style="background:white;padding:15px;border-radius:8px;text-align:center;">
+                            <div style="font-weight:600;color:#1e40af;margin-bottom:8px;">📞 Bitte direkt anrufen:</div>
+                            <a href="tel:038378" style="display:inline-block;padding:12px 20px;background:#3b82f6;color:white;text-decoration:none;border-radius:8px;font-weight:700;font-size:18px;">
+                                038378 / 1234
+                            </a>
+                            <div style="font-size:12px;color:#666;margin-top:8px;">
+                                Wir helfen Ihnen gerne weiter!
+                            </div>
+                        </div>
+                    </div>
+                `;
                 return;
             }
             
@@ -7198,12 +7355,34 @@
             
             taxisWithETA.sort((a, b) => a.distance - b.distance);
             
-            const html = `<div class="available-taxis"><h3>🚕 ${taxisWithETA.length} Taxis verfügbar</h3>` +
-                taxisWithETA.slice(0, 3).map(t => {
-                    const plate = VEHICLES[t.vehicleId] ? VEHICLES[t.vehicleId].plate : '';
-                    return `<div class="taxi-item"><strong>${t.vehicle}</strong>${plate ? `<br>🚗 ${plate}` : ''}<br>📍 ${t.distance} km entfernt (ca. ${t.duration} Min)</div>`;
-                }).join('') +
-                `<div style="margin-top:10px;padding:10px;background:#e0f2fe;border-radius:8px;text-align:center;"><strong>Nächstes Taxi in ca. ${taxisWithETA[0].duration} Minuten!</strong></div></div>`;
+            // 🆕 v5.26.14i: SCHÖNERE TAXI-ANZEIGE
+            const html = `
+                <div class="available-taxis" style="margin-top:10px;">
+                    <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;text-align:center;margin-bottom:10px;">
+                        <div style="font-size:20px;margin-bottom:5px;">🚕</div>
+                        <div style="font-weight:700;font-size:18px;margin-bottom:3px;">
+                            ${taxisWithETA.length} ${taxisWithETA.length === 1 ? 'Taxi' : 'Taxis'} verfügbar!
+                        </div>
+                        <div style="font-size:14px;opacity:0.9;">
+                            Nächstes Taxi in ca. ${taxisWithETA[0].duration} Minuten
+                        </div>
+                    </div>
+                    ${taxisWithETA.slice(0, 3).map(t => {
+                        const plate = VEHICLES[t.vehicleId] ? VEHICLES[t.vehicleId].plate : '';
+                        return `
+                            <div class="taxi-item" style="background:#f0fdfa;border:2px solid #14b8a6;padding:12px;border-radius:8px;margin-bottom:8px;">
+                                <div style="font-weight:600;font-size:15px;color:#0f766e;margin-bottom:4px;">
+                                    ${t.vehicle}
+                                </div>
+                                ${plate ? `<div style="font-size:13px;color:#14b8a6;margin-bottom:6px;">🚗 ${plate}</div>` : ''}
+                                <div style="font-size:13px;color:#0f766e;">
+                                    📍 ${t.distance} km entfernt • ⏱️ ca. ${t.duration} Min
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
             document.getElementById('available-taxis-display').innerHTML = html;
         }
 
@@ -14000,13 +14179,20 @@ Stack: ${err.stack}
                 const isAssignedToMe = r.assignedTo === currentVehicle;
                 const isMyRide = r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle);
                 
-                return (isNew && (isUnassigned || isMyRide || isAssignedToMe));
+                // 🆕 v5.26.14h: Nur zeigen wenn noch NICHT gezeigt!
+                const notShownYet = !shownRidePopups.has(r.firebaseId || r.id);
+                
+                return (isNew && (isUnassigned || isMyRide || isAssignedToMe) && notShownYet);
             });
             
             if (myRides.length === 0) return;
             
             // Zeige ersten neuen Auftrag
             const ride = myRides[0];
+            
+            // 🆕 v5.26.14h: Merke dass wir diese Fahrt gezeigt haben!
+            shownRidePopups.add(ride.firebaseId || ride.id);
+            console.log('✅ Zeige Popup für Fahrt:', ride.firebaseId || ride.id);
             
             const content = `
                 <div style="background: #f3f4f6; padding: 12px; border-radius: 10px; margin-bottom: 12px;">
@@ -14073,6 +14259,9 @@ Stack: ${err.stack}
             // 📳 WIEDERKEHRENDE VIBRATION BIS REAKTION!
             startRepeatingVibration();
         }
+        
+        // 🆕 v5.26.14h: POPUP-DEDUPLIZIERUNG
+        const shownRidePopups = new Set(); // Merke bereits gezeigte Fahrten
         
         // 📳 VIBRATIONS-SYSTEM
         let vibrationInterval = null;
@@ -16466,7 +16655,7 @@ Stack: ${err.stack}
                 pickupContainer.style.flexWrap = 'wrap';
                 pickupContainer.style.gap = '6px';
                 pickupContainer.innerHTML = locations.map(loc => `
-                    <button onclick="useSavedLocation('pickup', '${loc.address.replace(/'/g, "\\'")}')" 
+                    <button onclick="useSavedLocation('pickup', '${loc.address.replace(/'/g, "\\'")}', ${loc.lat || 'null'}, ${loc.lon || 'null'})" 
                         style="padding:8px 12px;background:#dbeafe;border:2px solid #3b82f6;color:#1e40af;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
                         ${loc.icon} ${loc.name}
                     </button>
@@ -16487,7 +16676,7 @@ Stack: ${err.stack}
                 destContainer.style.flexWrap = 'wrap';
                 destContainer.style.gap = '6px';
                 destContainer.innerHTML = locations.map(loc => `
-                    <button onclick="useSavedLocation('destination', '${loc.address.replace(/'/g, "\\'")}')" 
+                    <button onclick="useSavedLocation('destination', '${loc.address.replace(/'/g, "\\'")}', ${loc.lat || 'null'}, ${loc.lon || 'null'})" 
                         style="padding:8px 12px;background:#fef3c7;border:2px solid #f59e0b;color:#92400e;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
                         ${loc.icon} ${loc.name}
                     </button>
@@ -16612,17 +16801,27 @@ Stack: ${err.stack}
                 return;
             }
             
-            // Speichere neuen Ort
+            // 🆕 v5.26.14h: Hole Koordinaten aus dem entsprechenden Feld!
+            let coords = null;
+            if (field === 'pickup' && pickupCoords) {
+                coords = { lat: pickupCoords.lat, lon: pickupCoords.lon };
+            } else if (field === 'destination' && destCoords) {
+                coords = { lat: destCoords.lat, lon: destCoords.lon };
+            }
+            
+            // Speichere neuen Ort MIT KOORDINATEN!
             locations.push({
                 name,
                 address,
                 icon: window.selectedLocationIcon || '📍',
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                lat: coords ? coords.lat : null,
+                lon: coords ? coords.lon : null
             });
             
             localStorage.setItem('savedLocations', JSON.stringify(locations));
             
-            console.log('✅ Ort gespeichert:', { name, address, icon: window.selectedLocationIcon });
+            console.log('✅ Ort gespeichert:', { name, address, icon: window.selectedLocationIcon, coords });
             
             closeLocationModal();
             loadSavedLocations();
@@ -16630,12 +16829,39 @@ Stack: ${err.stack}
             alert('✅ Ort gespeichert!\n\n' + window.selectedLocationIcon + ' ' + name + '\n' + address);
         }
         
-        function useSavedLocation(field, address) {
+        function useSavedLocation(field, address, lat, lon) {
             document.getElementById(field).value = address;
             
-            // Trigger Autocomplete falls nötig
-            if (field === 'pickup') {
-                showAvailableTaxis();
+            // 🆕 v5.26.14i: Setze Koordinaten wenn vorhanden!
+            if (lat !== null && lon !== null) {
+                if (field === 'pickup') {
+                    pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                    console.log('✅ Pickup-Koordinaten gesetzt:', pickupCoords);
+                    
+                    // 🆕 v5.26.14i: LOADING-FEEDBACK!
+                    const display = document.getElementById('available-taxis-display');
+                    display.innerHTML = `
+                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                            <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                        </div>
+                    `;
+                    
+                    // Nach 1 Sekunde: Zeige Taxis
+                    setTimeout(() => {
+                        showAvailableTaxis(); // Trigger GPS-Suche für nächsten Fahrer!
+                    }, 1000);
+                } else {
+                    destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                    console.log('✅ Ziel-Koordinaten gesetzt:', destCoords);
+                }
+            } else {
+                // Fallback: Trigger showAvailableTaxis auch ohne Koordinaten
+                if (field === 'pickup') {
+                    showAvailableTaxis();
+                }
+                console.log('⚠️ Keine Koordinaten für gespeicherten Ort - bitte neu speichern!');
             }
             
             console.log('✅ Gespeicherter Ort verwendet:', address);
@@ -16694,13 +16920,410 @@ Stack: ${err.stack}
             alert('✅ Ort gelöscht!');
         }
         
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.27.0: KALENDER-SYSTEM
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let currentCalendarView = 'month'; // 'month', 'week', 'day'
+        let currentCalendarDate = new Date(); // Aktuelles Datum im Kalender
+        
+        function switchCalendarView(view) {
+            currentCalendarView = view;
+            
+            // Update Button-Styling
+            ['month', 'week', 'day'].forEach(v => {
+                const btn = document.getElementById('cal-' + v + '-btn');
+                if (btn) {
+                    if (v === view) {
+                        btn.style.background = '#667eea';
+                        btn.style.color = 'white';
+                    } else {
+                        btn.style.background = 'white';
+                        btn.style.color = '#667eea';
+                    }
+                }
+            });
+            
+            renderCalendar();
+        }
+        
+        function previousPeriod() {
+            if (currentCalendarView === 'month') {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            } else if (currentCalendarView === 'week') {
+                currentCalendarDate.setDate(currentCalendarDate.getDate() - 7);
+            } else {
+                currentCalendarDate.setDate(currentCalendarDate.getDate() - 1);
+            }
+            renderCalendar();
+        }
+        
+        function nextPeriod() {
+            if (currentCalendarView === 'month') {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            } else if (currentCalendarView === 'week') {
+                currentCalendarDate.setDate(currentCalendarDate.getDate() + 7);
+            } else {
+                currentCalendarDate.setDate(currentCalendarDate.getDate() + 1);
+            }
+            renderCalendar();
+        }
+        
+        function getRideColor(status) {
+            const statusMap = {
+                'completed': '#10b981',      // Grün
+                'abgeschlossen': '#10b981',
+                'cancelled': '#ef4444',      // Rot
+                'storniert': '#ef4444',
+                'vorbestellt': '#f59e0b',    // Gelb/Orange
+                'new': '#f59e0b',
+                'accepted': '#3b82f6',       // Blau
+                'picked_up': '#3b82f6',
+                'akzeptiert': '#3b82f6',
+                'unterwegs': '#3b82f6'
+            };
+            return statusMap[status] || '#9ca3af';
+        }
+        
+        async function renderCalendar() {
+            console.log('📅 Rendere Kalender:', currentCalendarView, currentCalendarDate);
+            
+            // Lade alle Fahrten
+            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            let allRides = [...localHistory];
+            
+            // 🔥 Hole auch Firebase-Fahrten wenn eingeloggt
+            if (isFirebaseReady && currentUser) {
+                try {
+                    const snapshot = await db.ref('rides').orderByChild('userId').equalTo(currentUser.uid).once('value');
+                    if (snapshot.exists()) {
+                        const firebaseRides = [];
+                        snapshot.forEach(childSnapshot => {
+                            const ride = childSnapshot.val();
+                            ride.firebaseId = childSnapshot.key;
+                            firebaseRides.push(ride);
+                        });
+                        
+                        // Merge: Firebase hat Vorrang
+                        const rideMap = new Map();
+                        localHistory.forEach(r => rideMap.set(r.id, r));
+                        firebaseRides.forEach(r => rideMap.set(r.id, r));
+                        allRides = Array.from(rideMap.values());
+                    }
+                } catch (e) {
+                    console.error('❌ Fehler beim Laden der Firebase-Fahrten:', e);
+                }
+            }
+            
+            if (currentCalendarView === 'month') {
+                renderMonthView(allRides);
+            } else if (currentCalendarView === 'week') {
+                renderWeekView(allRides);
+            } else {
+                renderDayView(allRides);
+            }
+        }
+        
+        function renderMonthView(allRides) {
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            
+            // Update Titel
+            const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            document.getElementById('calendar-period-title').textContent = `${monthNames[month]} ${year}`;
+            
+            // Erster und letzter Tag des Monats
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            
+            // Starte am Montag (0=So, 1=Mo, ...)
+            const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Montag = 0
+            
+            // Gruppiere Fahrten nach Datum
+            const ridesByDate = {};
+            allRides.forEach(ride => {
+                const rideDate = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                if (rideDate.getMonth() === month && rideDate.getFullYear() === year) {
+                    const day = rideDate.getDate();
+                    if (!ridesByDate[day]) ridesByDate[day] = [];
+                    ridesByDate[day].push(ride);
+                }
+            });
+            
+            // Erstelle Kalender-Grid
+            let html = `
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 10px;">
+                    <div style="text-align: center; font-weight: 600; padding: 8px; color: #6b7280; font-size: 13px;">Mo</div>
+                    <div style="text-align: center; font-weight: 600; padding: 8px; color: #6b7280; font-size: 13px;">Di</div>
+                    <div style="text-align: center; font-weight: 600; padding: 8px; color: #6b7280; font-size: 13px;">Mi</div>
+                    <div style="text-align: center; font-weight: 600; padding: 8px; color: #6b7280; font-size: 13px;">Do</div>
+                    <div style="text-align: center; font-weight: 600; padding: 8px; color: #6b7280; font-size: 13px;">Fr</div>
+                    <div style="text-align: center; font-weight: 600; padding: 8px; color: #6b7280; font-size: 13px;">Sa</div>
+                    <div style="text-align: center; font-weight: 600; padding: 8px; color: #6b7280; font-size: 13px;">So</div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
+            `;
+            
+            // Leere Zellen vor dem 1. des Monats
+            for (let i = 0; i < startDayOfWeek; i++) {
+                html += `<div style="background: #f9fafb; padding: 12px; border-radius: 6px; min-height: 60px;"></div>`;
+            }
+            
+            // Tage des Monats
+            for (let day = 1; day <= daysInMonth; day++) {
+                const rides = ridesByDate[day] || [];
+                const today = new Date();
+                const isToday = (day === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+                
+                // Farbige Punkte für Status
+                let statusDots = '';
+                const statusCounts = {};
+                rides.forEach(r => {
+                    const color = getRideColor(r.status);
+                    statusCounts[color] = (statusCounts[color] || 0) + 1;
+                });
+                
+                Object.entries(statusCounts).forEach(([color, count]) => {
+                    statusDots += `<div style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block; margin: 0 1px;" title="${count} Fahrten"></div>`;
+                });
+                
+                html += `
+                    <div onclick="showDayDetails(${day}, ${month}, ${year})" style="
+                        background: ${isToday ? '#dbeafe' : 'white'};
+                        border: ${isToday ? '2px solid #3b82f6' : '1px solid #e5e7eb'};
+                        padding: 8px;
+                        border-radius: 6px;
+                        min-height: 60px;
+                        cursor: ${rides.length > 0 ? 'pointer' : 'default'};
+                        transition: all 0.2s;
+                    " ${rides.length > 0 ? 'onmouseenter="this.style.background=\'#f0f9ff\'" onmouseleave="this.style.background=\'' + (isToday ? '#dbeafe' : 'white') + '\'"' : ''}>
+                        <div style="font-weight: ${isToday ? '700' : '600'}; color: ${isToday ? '#1e40af' : '#374151'}; margin-bottom: 4px; font-size: 14px;">
+                            ${day}
+                        </div>
+                        ${rides.length > 0 ? `
+                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">${rides.length} Fahrt${rides.length > 1 ? 'en' : ''}</div>
+                            <div style="text-align: center;">${statusDots}</div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            
+            document.getElementById('calendar-container').innerHTML = html;
+            
+            // Statistik
+            updateCalendarStats(allRides, 'Monat');
+        }
+        
+        function renderWeekView(allRides) {
+            // Aktueller Montag
+            const current = new Date(currentCalendarDate);
+            const day = current.getDay();
+            const diff = current.getDate() - day + (day === 0 ? -6 : 1); // Montag
+            const monday = new Date(current.setDate(diff));
+            
+            // Update Titel
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+            document.getElementById('calendar-period-title').textContent = 
+                `${monday.getDate()}. ${monthNames[monday.getMonth()]} - ${sunday.getDate()}. ${monthNames[sunday.getMonth()]} ${sunday.getFullYear()}`;
+            
+            // Gruppiere Fahrten nach Tag
+            const ridesByDay = {};
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(monday);
+                date.setDate(monday.getDate() + i);
+                const key = date.toISOString().split('T')[0];
+                ridesByDay[key] = {
+                    date: new Date(date),
+                    rides: []
+                };
+            }
+            
+            allRides.forEach(ride => {
+                const rideDate = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                const key = rideDate.toISOString().split('T')[0];
+                if (ridesByDay[key]) {
+                    ridesByDay[key].rides.push(ride);
+                }
+            });
+            
+            // Erstelle Wochenansicht
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            
+            const dayNames = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+            Object.entries(ridesByDay).forEach(([key, data], index) => {
+                const rides = data.rides;
+                const date = data.date;
+                const today = new Date();
+                const isToday = date.toDateString() === today.toDateString();
+                
+                html += `
+                    <div onclick="showDayDetails(${date.getDate()}, ${date.getMonth()}, ${date.getFullYear()})" style="
+                        background: ${isToday ? '#dbeafe' : 'white'};
+                        border: ${isToday ? '2px solid #3b82f6' : '1px solid #e5e7eb'};
+                        padding: 15px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    " onmouseenter="this.style.background='#f0f9ff'" onmouseleave="this.style.background='${isToday ? '#dbeafe' : 'white'}'">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-weight: 700; font-size: 16px; color: #1f2937;">${dayNames[index]}</div>
+                                <div style="font-size: 13px; color: #6b7280;">${date.getDate()}. ${monthNames[date.getMonth()]}</div>
+                            </div>
+                            <div style="font-size: 20px; font-weight: 700; color: #667eea;">
+                                ${rides.length}
+                            </div>
+                        </div>
+                        ${rides.length > 0 ? `
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                ${rides.map(r => `
+                                    <div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: ${getRideColor(r.status)}20; border-radius: 4px;">
+                                        <div style="width: 8px; height: 8px; background: ${getRideColor(r.status)}; border-radius: 50%;"></div>
+                                        <span style="font-size: 12px; color: #374151;">${r.price || 0}€</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<div style="font-size: 13px; color: #9ca3af;">Keine Fahrten</div>'}
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            document.getElementById('calendar-container').innerHTML = html;
+            updateCalendarStats(Object.values(ridesByDay).flatMap(d => d.rides), 'Woche');
+        }
+        
+        function renderDayView(allRides) {
+            const date = new Date(currentCalendarDate);
+            
+            // Update Titel
+            const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            document.getElementById('calendar-period-title').textContent = 
+                `${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+            
+            // Filtere Fahrten für diesen Tag
+            const dayRides = allRides.filter(ride => {
+                const rideDate = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                return rideDate.toDateString() === date.toDateString();
+            }).sort((a, b) => (a.createdAt || a.pickupTimestamp || 0) - (b.createdAt || b.pickupTimestamp || 0));
+            
+            // Erstelle Tagesansicht (Liste)
+            let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+            
+            if (dayRides.length === 0) {
+                html += `
+                    <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📅</div>
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">Keine Fahrten</div>
+                        <div style="font-size: 14px;">An diesem Tag gab es keine Fahrten</div>
+                    </div>
+                `;
+            } else {
+                dayRides.forEach(ride => {
+                    const time = new Date(ride.createdAt || ride.pickupTimestamp || 0);
+                    const timeStr = time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const color = getRideColor(ride.status);
+                    
+                    const statusText = {
+                        'completed': 'Abgeschlossen',
+                        'abgeschlossen': 'Abgeschlossen',
+                        'cancelled': 'Storniert',
+                        'storniert': 'Storniert',
+                        'vorbestellt': 'Vorbestellt',
+                        'new': 'Neu',
+                        'accepted': 'Akzeptiert',
+                        'picked_up': 'Unterwegs'
+                    }[ride.status] || ride.status;
+                    
+                    html += `
+                        <div onclick="viewRideDetails('${ride.firebaseId || ride.id}')" style="
+                            background: white;
+                            border-left: 4px solid ${color};
+                            padding: 15px;
+                            border-radius: 8px;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        " onmouseenter="this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                <div style="font-weight: 700; font-size: 18px; color: ${color};">${timeStr}</div>
+                                <div style="padding: 4px 10px; background: ${color}20; color: ${color}; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                                    ${statusText}
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 8px;">
+                                <div style="font-size: 13px; color: #6b7280; margin-bottom: 2px;">📍 Von:</div>
+                                <div style="font-weight: 600; color: #1f2937;">${ride.pickup || 'Unbekannt'}</div>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <div style="font-size: 13px; color: #6b7280; margin-bottom: 2px;">🎯 Nach:</div>
+                                <div style="font-weight: 600; color: #1f2937;">${ride.destination || 'Unbekannt'}</div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                                ${ride.customerName ? `<div style="font-size: 13px; color: #6b7280;">👤 ${ride.customerName}</div>` : '<div></div>'}
+                                <div style="font-weight: 700; font-size: 16px; color: #667eea;">💰 ${ride.price || 0}€</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div>';
+            
+            document.getElementById('calendar-container').innerHTML = html;
+            updateCalendarStats(dayRides, 'Tag');
+        }
+        
+        function updateCalendarStats(rides, period) {
+            const completed = rides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
+            const cancelled = rides.filter(r => r.status === 'cancelled' || r.status === 'storniert');
+            const totalRevenue = completed.reduce((sum, r) => sum + (r.price || 0), 0);
+            
+            document.getElementById('calendar-stats').innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">${period} - Gesamt</div>
+                        <div style="font-size: 24px; font-weight: 700;">${rides.length}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">Fahrten</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Umsatz</div>
+                        <div style="font-size: 24px; font-weight: 700;">${totalRevenue.toFixed(2)}€</div>
+                        <div style="font-size: 12px; opacity: 0.8;">${completed.length} abgeschlossen</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">✅ Erfolgreich</div>
+                        <div style="font-size: 20px; font-weight: 700;">${completed.length}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">❌ Storniert</div>
+                        <div style="font-size: 20px; font-weight: 700;">${cancelled.length}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showDayDetails(day, month, year) {
+            currentCalendarDate = new Date(year, month, day);
+            currentCalendarView = 'day';
+            switchCalendarView('day');
+        }
+        
         // ═══════════════════════════════════════════════════════════════════════════
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
-            // 🆕 v5.26.14e: Initialisiere Views - NUR passenger sichtbar!
+            // 🆕 v5.27.0: Kalender-View hinzugefügt
             console.log('🎬 Initialisiere Views...');
-            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
+            const allViews = ['passenger-view', 'history-view', 'calendar-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {

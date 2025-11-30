@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.14e - Build 20251130-1430');
-        console.log('✅ VIEW SEPARATION FIX - Jeder Tab zeigt nur seine Inhalte!');
+        console.log('🚕 Funk Taxi App v5.26.14g - Build 20251130-1510');
+        console.log('✅ FIREBASE SYNC FIX + RECHNUNG REGELN (60 Min)!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14e - View Separation (Build 20251130-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.26.14g - Firebase Sync + Rechnung (Build 20251130-1510)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2554,6 +2554,7 @@
         }
         
         async function updateHistoryView() {
+            console.log('📖 updateHistoryView aufgerufen - Tab:', currentHistoryTab);
             const historyList = document.getElementById('history-list');
             let allRides = [];
             
@@ -2564,6 +2565,7 @@
             console.log('🔍 DEBUG - currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
             
             // 🔥 Hole MEINE Fahrten aus Firebase (wenn verfügbar)
+            let firebaseRides = [];
             let firebaseRideIds = [];
             if (isFirebaseReady && currentUser) {
                 try {
@@ -2572,7 +2574,7 @@
                         snapshot.forEach(childSnapshot => {
                             const ride = childSnapshot.val();
                             ride.firebaseId = childSnapshot.key;
-                            allRides.push(ride);
+                            firebaseRides.push(ride);
                             firebaseRideIds.push(ride.id);
                         });
                     }
@@ -2581,31 +2583,39 @@
                 }
             }
             
-            // ✅ Merge mit localStorage (dedupliziere)
-            // ✅ Aber: Entferne Fahrten aus localStorage die nicht mehr in Firebase sind
-            let cleanedLocalHistory = [];
+            // 🆕 v5.26.14g: FIREBASE HAT VORRANG!
+            // Merge-Logik: Firebase-Status überschreibt localStorage
+            const rideMap = new Map();
+            
+            // 1. Füge localStorage-Fahrten hinzu (als Basis)
             localHistory.forEach(localRide => {
-                const existsInFirebase = allRides.some(fbRide => fbRide.id === localRide.id);
-                if (!existsInFirebase) {
-                    // Prüfe: Wenn User eingeloggt und Fahrt NICHT in Firebase
-                    // → Könnte gelöscht worden sein, NICHT hinzufügen
-                    if (!currentUser || !isFirebaseReady) {
-                        // Offline oder nicht eingeloggt: behalte lokale Fahrt
-                        allRides.push(localRide);
-                        cleanedLocalHistory.push(localRide);
-                    } else {
-                        // Online & eingeloggt: Fahrt nicht in Firebase = wurde gelöscht
-                        console.log('🗑️ Entferne gelöschte Fahrt aus localStorage:', localRide.id);
-                    }
-                } else {
-                    cleanedLocalHistory.push(localRide);
-                }
+                rideMap.set(localRide.id, localRide);
             });
             
-            // ✅ Speichere bereinigte localStorage History
-            if (currentUser && isFirebaseReady && cleanedLocalHistory.length !== localHistory.length) {
-                localStorage.setItem('rideHistory', JSON.stringify(cleanedLocalHistory));
-                console.log('✅ localStorage bereinigt:', cleanedLocalHistory.length, 'Fahrten');
+            // 2. Überschreibe mit Firebase-Fahrten (haben Vorrang!)
+            firebaseRides.forEach(fbRide => {
+                rideMap.set(fbRide.id, fbRide);
+                console.log('✅ Firebase-Fahrt hat Vorrang:', fbRide.id, 'Status:', fbRide.status);
+            });
+            
+            // 3. Entferne Fahrten die in Firebase gelöscht wurden
+            if (currentUser && isFirebaseReady) {
+                localHistory.forEach(localRide => {
+                    const existsInFirebase = firebaseRideIds.includes(localRide.id);
+                    if (!existsInFirebase) {
+                        console.log('🗑️ Entferne gelöschte Fahrt:', localRide.id);
+                        rideMap.delete(localRide.id);
+                    }
+                });
+            }
+            
+            // 4. Konvertiere Map zurück zu Array
+            allRides = Array.from(rideMap.values());
+            
+            // 5. Aktualisiere localStorage mit aktuellen Status
+            if (currentUser && isFirebaseReady && allRides.length > 0) {
+                localStorage.setItem('rideHistory', JSON.stringify(allRides));
+                console.log('✅ localStorage aktualisiert mit Firebase-Status:', allRides.length, 'Fahrten');
             }
             
             console.log('🔍 DEBUG - Alle Fahrten nach Merge:', allRides.length);
@@ -2743,7 +2753,15 @@
                 // 🔘 Aktions-Buttons
                 let actionButtons = '';
                 if (isActive && r.status !== 'storniert') {
-                    if (r.status === 'vorbestellt' || r.status === 'new') {
+                    // 🆕 v5.26.14f: Keine Stornierung bei picked_up!
+                    if (r.status === 'picked_up') {
+                        actionButtons = `
+                            <div style="padding:12px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;font-size:13px;color:#92400e;margin-top:10px;">
+                                ⚠️ <strong>Fahrt läuft bereits</strong><br>
+                                Stornierung nicht mehr möglich
+                            </div>
+                        `;
+                    } else if (r.status === 'vorbestellt' || r.status === 'new') {
                         // Vorbestellungen + Neue Fahrten: Bearbeiten & Stornieren
                         actionButtons = `
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
@@ -2764,14 +2782,39 @@
                         </button>`;
                     }
                 } else {
-                    // Vergangene Fahrten: Buttons inkl. Rechnung
+                    // Vergangene Fahrten: Buttons inkl. Rechnung + Stornobeleg
+                    
                     // 📄 RECHNUNG-Button für abgeschlossene Fahrten
-                    const rechnungButton = (r.status === 'abgeschlossen' || r.status === 'completed') ? `
-                        <button onclick="downloadReceipt(${r.createdAt || r.id})" 
-                            style="width:100%;margin-top:8px;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
-                            📄 Rechnung laden
-                        </button>
-                    ` : '';
+                    // 🆕 v5.26.14g: RECHNUNG REGELN
+                    let documentButton = '';
+                    
+                    if (r.status === 'abgeschlossen' || r.status === 'completed') {
+                        // ✅ Normale Rechnung für abgeschlossene Fahrten
+                        documentButton = `
+                            <button onclick="downloadReceipt(${r.createdAt || r.id})" 
+                                style="width:100%;margin-top:8px;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                📄 Rechnung laden
+                            </button>
+                        `;
+                    } else if (r.status === 'storniert' || r.status === 'cancelled') {
+                        // 🚨 Stornobeleg NUR wenn innerhalb 60 Minuten storniert!
+                        const createdAt = r.createdAt || 0;
+                        const cancelledAt = r.cancelledAt || r.completedAt || 0;
+                        const timeDiff = cancelledAt - createdAt;
+                        const minutesDiff = Math.floor(timeDiff / (60 * 1000));
+                        
+                        if (minutesDiff <= 60 && minutesDiff >= 0) {
+                            // Innerhalb 60 Min → 15% Stornogebühr
+                            const cancellationFee = Math.round((r.price || 0) * 0.15 * 100) / 100;
+                            documentButton = `
+                                <button onclick="downloadCancellationReceipt(${r.createdAt || r.id})" 
+                                    style="width:100%;margin-top:8px;padding:10px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                    📄 Stornobeleg laden (${cancellationFee.toFixed(2)}€)
+                                </button>
+                            `;
+                        }
+                        // Sonst: Kein Button (kostenlose Stornierung)
+                    }
                     
                     actionButtons = `
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
@@ -2788,7 +2831,7 @@
                             style="width:100%;margin-top:8px;padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
                             ⭐ Als Favorit
                         </button>
-                        ${rechnungButton}
+                        ${documentButton}
                     `;
                 }
                 
@@ -3961,6 +4004,26 @@
                             cancellations.push(cancel);
                         });
                         if (currentView === 'admin') updateAdminView();
+                    });
+                    
+                    // 🆕 v5.26.14f: REAL-TIME UPDATE FÜR VERLAUF!
+                    // Wenn eine Fahrt sich ändert → Verlauf automatisch neu laden
+                    db.ref('rides').on('child_changed', (snapshot) => {
+                        const changedRide = snapshot.val();
+                        changedRide.firebaseId = snapshot.key;
+                        
+                        console.log('🔄 Fahrt geändert:', changedRide.firebaseId, 'Status:', changedRide.status);
+                        
+                        // Wenn Verlauf aktuell offen ist → neu laden!
+                        if (currentView === 'history') {
+                            console.log('♻️ Verlauf wird automatisch aktualisiert...');
+                            updateHistoryView();
+                        }
+                        
+                        // Wenn Fahrgast-View offen und es ist MEINE Fahrt → auch updaten!
+                        if (currentView === 'passenger' && myCurrentRide && changedRide.id === myCurrentRide.id) {
+                            console.log('♻️ Meine aktuelle Fahrt hat sich geändert');
+                        }
                     });
                 } catch (e) { 
                     console.error('❌ Firebase Fehler:', e); 
@@ -5484,6 +5547,139 @@
             doc.save(filename);
             
             console.log('📄 Rechnung erstellt:', filename);
+        }
+        
+        // 🆕 v5.26.14g: STORNOBELEG FÜR STORNIERTE FAHRTEN MIT GEBÜHR
+        function downloadCancellationReceipt(rideIdOrTimestamp) {
+            // Finde Fahrt
+            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = localHistory.find(r => r.createdAt === rideIdOrTimestamp || r.id === rideIdOrTimestamp);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // 🆕 v5.26.14g: Berechne Stornogebühr (15% vom Preis)
+            const createdAt = ride.createdAt || 0;
+            const cancelledAt = ride.cancelledAt || ride.completedAt || Date.now();
+            const timeDiff = cancelledAt - createdAt;
+            const minutesDiff = Math.floor(timeDiff / (60 * 1000));
+            
+            if (minutesDiff > 60) {
+                alert('ℹ️ Diese Stornierung war kostenfrei (mehr als 60 Min nach Buchung).');
+                return;
+            }
+            
+            const cancellationFee = Math.round((ride.price || 0) * 0.15 * 100) / 100;
+            
+            if (cancellationFee <= 0) {
+                alert('❌ Keine Stornogebühr berechenbar (kein Preis vorhanden)!');
+                return;
+            }
+            
+            // Erstelle PDF mit jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Schriftart und Größe
+            doc.setFont('helvetica');
+            
+            // HEADER
+            doc.setFontSize(20);
+            doc.setTextColor(239, 68, 68); // #ef4444 (rot)
+            doc.text('Funk Taxi Heringsdorf', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(16);
+            doc.setTextColor(0, 0, 0);
+            doc.text('STORNOBELEG', 105, 30, { align: 'center' });
+            
+            // Linie
+            doc.setDrawColor(200, 200, 200);
+            doc.line(20, 35, 190, 35);
+            
+            // FAHRT-NUMMER & DATUM
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            const fahrtNr = ride.id || String(ride.createdAt).substring(0, 10);
+            doc.text('Fahrt-Nr: #' + fahrtNr, 20, 45);
+            
+            if (ride.createdAt) {
+                const datum = new Date(ride.createdAt);
+                const datumStr = datum.toLocaleString('de-DE', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                doc.text('Buchungsdatum: ' + datumStr, 20, 52);
+            }
+            
+            if (ride.cancelledAt) {
+                const cancelDatum = new Date(ride.cancelledAt);
+                const cancelStr = cancelDatum.toLocaleString('de-DE', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                doc.text('Storniert am: ' + cancelStr, 20, 59);
+            }
+            
+            // STORNIERUNG HINWEIS
+            doc.setFontSize(12);
+            doc.setTextColor(239, 68, 68);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Diese Fahrt wurde storniert', 20, 75);
+            
+            // FAHRT-DETAILS
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            
+            doc.text('Von:', 20, 90);
+            doc.setFont('helvetica', 'normal');
+            doc.text(ride.pickup || 'Unbekannt', 20, 97);
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('Nach:', 20, 110);
+            doc.setFont('helvetica', 'normal');
+            doc.text(ride.destination || 'Unbekannt', 20, 117);
+            
+            // STORNIERUNGSGRUND
+            if (ride.cancellationReason) {
+                doc.setFont('helvetica', 'bold');
+                doc.text('Stornierungsgrund:', 20, 130);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                const lines = doc.splitTextToSize(ride.cancellationReason, 170);
+                doc.text(lines, 20, 137);
+            }
+            
+            // STORNOGEBÜHR
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('Stornogebuehr (15%):', 20, 160);
+            doc.setFontSize(18);
+            doc.setTextColor(239, 68, 68);
+            doc.text(cancellationFee.toFixed(2) + ' EUR', 20, 170);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Stornierung innerhalb 60 Min - 15% Stornogebuehr', 20, 180);
+            doc.text('(Urspruenglicher Preis: ' + (ride.price || 0).toFixed(2) + ' EUR)', 20, 187);
+            
+            // FOOTER
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Funk Taxi Heringsdorf', 105, 280, { align: 'center' });
+            
+            // DOWNLOAD
+            const filename = 'Stornobeleg_Taxi_' + fahrtNr + '.pdf';
+            doc.save(filename);
+            
+            console.log('📄 Stornobeleg erstellt:', filename);
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -7679,6 +7875,30 @@
                     const endedStatuses = ['storniert', 'completed', 'cancelled', 'cancelled_pending_driver'];
                     if (endedStatuses.includes(ride.status)) {
                         console.log('✅ Fahrt ist beendet:', ride.status);
+                        
+                        // 🆕 v5.26.14f: REALTIME FIX - Speichere beendete Fahrt in Verlauf!
+                        console.log('💾 Speichere Fahrt in Verlauf...');
+                        const rideHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                        
+                        // Prüfe ob schon vorhanden (dedupliziere)
+                        const existingIndex = rideHistory.findIndex(r => r.id === ride.id || r.firebaseId === rideId);
+                        if (existingIndex >= 0) {
+                            // Aktualisiere bestehende Fahrt
+                            rideHistory[existingIndex] = ride;
+                            console.log('✅ Fahrt aktualisiert in Verlauf');
+                        } else {
+                            // Füge neue Fahrt hinzu
+                            rideHistory.push(ride);
+                            console.log('✅ Fahrt hinzugefügt zu Verlauf');
+                        }
+                        
+                        localStorage.setItem('rideHistory', JSON.stringify(rideHistory));
+                        
+                        // 🔄 Update History-View sofort!
+                        if (currentView === 'history') {
+                            updateHistoryView();
+                        }
+                        
                         localStorage.removeItem('myCurrentRideId');
                         myCurrentRide = null;
                         document.getElementById('booking-form').style.display = 'block';
@@ -9646,6 +9866,41 @@
                 driverLocation: null,
                 completedAt: Date.now()
             });
+            
+            // 🆕 v5.26.14f: REALTIME FIX - Speichere abgeschlossene Fahrt in localStorage!
+            if (rideData) {
+                console.log('💾 Speichere Fahrt in Verlauf...');
+                const rideHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                
+                // Prüfe ob schon vorhanden (dedupliziere)
+                const existingIndex = rideHistory.findIndex(r => r.id === rideData.id || r.firebaseId === rideId);
+                if (existingIndex >= 0) {
+                    // Aktualisiere bestehende Fahrt
+                    rideHistory[existingIndex] = {
+                        ...rideData,
+                        firebaseId: rideId,
+                        status: 'completed',
+                        completedAt: Date.now()
+                    };
+                    console.log('✅ Fahrt aktualisiert in Verlauf');
+                } else {
+                    // Füge neue Fahrt hinzu
+                    rideHistory.push({
+                        ...rideData,
+                        firebaseId: rideId,
+                        status: 'completed',
+                        completedAt: Date.now()
+                    });
+                    console.log('✅ Fahrt hinzugefügt zu Verlauf');
+                }
+                
+                localStorage.setItem('rideHistory', JSON.stringify(rideHistory));
+                
+                // 🔄 Update History-View sofort!
+                if (currentView === 'history') {
+                    updateHistoryView();
+                }
+            }
             
             // 📜 PROTOKOLL: Fahrt abgeschlossen
             logActivity('status', 'completed', `Fahrt abgeschlossen`, {

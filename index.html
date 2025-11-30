@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.29.1 - Build 20251130-1948');
-        console.log('🔧 KALENDER VORBESTELL-FIX - Zeigt jetzt korrekt Vorbestellungen!');
+        console.log('🚕 Funk Taxi App v5.29.2 - Build 20251130-1955');
+        console.log('🔧 KALENDER CRASH-FIX - totalRevenue.toFixed Error behoben!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.29.1 - Kalender Vorbestell-Fix (Build 20251130-1948)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.29.2 - Kalender Crash-Fix (Build 20251130-1955)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -17852,7 +17852,12 @@ Stack: ${err.stack}
         function updateCalendarStats(rides, period) {
             const completed = rides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
             const cancelled = rides.filter(r => r.status === 'cancelled' || r.status === 'storniert');
-            const totalRevenue = completed.reduce((sum, r) => sum + (r.price || 0), 0);
+            
+            // 🔧 v5.29.2: FIX - Stelle sicher dass totalRevenue eine Zahl ist!
+            const totalRevenue = completed.reduce((sum, r) => {
+                const price = parseFloat(r.price) || 0;
+                return sum + price;
+            }, 0);
             
             document.getElementById('calendar-stats').innerHTML = `
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">

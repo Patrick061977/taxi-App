@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.26.7 - Build 20251130-0845');
-        console.log('🔧 SMS-Login Fix: Robustes reCAPTCHA + Code-Eingabe + Auto-Fill');
+        console.log('🚕 Funk Taxi App v5.26.8 - Build 20251130-1000');
+        console.log('🔧 SMS-Login Fix v2: Code-Eingabe erscheint SOFORT + Debug-Logging');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14363,8 +14363,14 @@ Stack: ${err.stack}
         }
         
         async function sendPhoneCode() {
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('📱 SENDPHONECODE GESTARTET');
+            console.log('═══════════════════════════════════════════════════════');
+            
             const countryCode = document.getElementById('phone-country').value;
             const phoneNumber = document.getElementById('phone-number').value.trim().replace(/\s/g, '');
+            
+            console.log('📞 Telefonnummer:', countryCode, phoneNumber);
             
             if (!phoneNumber) {
                 alert('❌ Bitte Telefonnummer eingeben!');
@@ -14373,6 +14379,7 @@ Stack: ${err.stack}
             
             // Formatiere Telefonnummer
             const fullPhoneNumber = countryCode + (phoneNumber.startsWith('0') ? phoneNumber.slice(1) : phoneNumber);
+            console.log('📞 Vollständige Nummer:', fullPhoneNumber);
             
             if (!auth) {
                 alert('❌ Firebase Auth nicht verfügbar');
@@ -14397,19 +14404,37 @@ Stack: ${err.stack}
             btn.disabled = true;
             btn.textContent = '⏳ Sende SMS...';
             
+            // ✅ ZEIGE CODE-EINGABE SOFORT! (nicht erst nach SMS-Erfolg)
+            console.log('✅ Zeige Code-Eingabefeld SOFORT...');
+            const step1 = document.getElementById('phone-step-1');
+            const step2 = document.getElementById('phone-step-2');
+            
+            if (!step1 || !step2) {
+                console.error('❌ FEHLER: phone-step-1 oder phone-step-2 nicht gefunden!');
+                console.log('step1:', step1);
+                console.log('step2:', step2);
+                alert('❌ Fehler: UI-Elemente nicht gefunden. Bitte Seite neu laden.');
+                btn.disabled = false;
+                btn.textContent = '📲 SMS-Code senden';
+                return;
+            }
+            
+            step1.style.display = 'none';
+            step2.style.display = 'block';
+            document.getElementById('phone-display').textContent = fullPhoneNumber;
+            console.log('✅ Code-Eingabefeld ist jetzt SICHTBAR!');
+            
             try {
-                console.log('📤 Sende SMS an:', fullPhoneNumber);
+                console.log('📤 Starte SMS-Versand via Firebase...');
                 confirmationResult = await auth.signInWithPhoneNumber(fullPhoneNumber, recaptchaVerifier);
-                console.log('✅ SMS erfolgreich gesendet an:', fullPhoneNumber);
-                
-                // Zeige Schritt 2 - CODE EINGABE
-                document.getElementById('phone-step-1').style.display = 'none';
-                document.getElementById('phone-step-2').style.display = 'block';
-                document.getElementById('phone-display').textContent = fullPhoneNumber;
+                console.log('✅ SMS ERFOLGREICH GESENDET an:', fullPhoneNumber);
+                console.log('✅ confirmationResult:', confirmationResult);
                 
                 // Fokus auf Code-Eingabe + Auto-Fill vorbereiten
                 const codeInput = document.getElementById('phone-code');
+                codeInput.value = ''; // Leere Feld
                 codeInput.focus();
+                console.log('✅ Fokus auf Code-Eingabefeld gesetzt');
                 
                 // 🎯 WEB OTP API - Automatisches SMS Ausfüllen!
                 if ('OTPCredential' in window) {
@@ -14421,18 +14446,31 @@ Stack: ${err.stack}
                         if (otp && otp.code) {
                             console.log('🎉 SMS-Code automatisch empfangen:', otp.code);
                             codeInput.value = otp.code;
-                            // Optional: Automatisch verifizieren
-                            // verifyPhoneCode();
+                            alert('✅ Code automatisch empfangen: ' + otp.code + '\n\nBitte auf "Code bestätigen" klicken.');
                         }
                     }).catch(err => {
-                        console.log('⚠️ Web OTP nicht verfügbar:', err.message);
+                        console.log('⚠️ Web OTP Fehler:', err.message);
                     });
                 } else {
                     console.log('ℹ️ Web OTP API nicht unterstützt - manuelles Eingeben nötig');
                 }
                 
+                console.log('═══════════════════════════════════════════════════════');
+                console.log('✅ SENDPHONECODE ERFOLGREICH ABGESCHLOSSEN');
+                console.log('═══════════════════════════════════════════════════════');
+                
             } catch (error) {
-                console.error('❌ SMS Fehler:', error);
+                console.error('═══════════════════════════════════════════════════════');
+                console.error('❌ SMS FEHLER!');
+                console.error('═══════════════════════════════════════════════════════');
+                console.error('Error:', error);
+                console.error('Error Code:', error.code);
+                console.error('Error Message:', error.message);
+                
+                // Verstecke Code-Eingabe wieder bei Fehler
+                step1.style.display = 'block';
+                step2.style.display = 'none';
+                
                 btn.disabled = false;
                 btn.textContent = '📲 SMS-Code senden';
                 
@@ -14444,7 +14482,7 @@ Stack: ${err.stack}
                     alert('❌ reCAPTCHA fehlgeschlagen!\n\nBitte lade die Seite neu.');
                     resetPhoneLogin();
                 } else {
-                    alert('❌ Fehler beim SMS-Versand:\n\n' + error.message + '\n\nBitte versuche es erneut oder lade die Seite neu.');
+                    alert('❌ Fehler beim SMS-Versand:\n\n' + error.message + '\n\nCode: ' + error.code + '\n\nBitte versuche es erneut oder lade die Seite neu.');
                 }
                 
                 // reCAPTCHA zurücksetzen

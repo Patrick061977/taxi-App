@@ -1,0 +1,157 @@
+═══════════════════════════════════════════════════════════════════════════════
+🚕 FUNK TAXI HERINGSDORF - CHANGELOG v5.26.8
+═══════════════════════════════════════════════════════════════════════════════
+
+📅 Datum: 30. November 2025 - 10:00 Uhr
+🔧 Version: v5.26.8 - SMS-LOGIN FIX v2 (Code-Eingabe SOFORT sichtbar)
+
+═══════════════════════════════════════════════════════════════════════════════
+❌ PROBLEM (in v5.26.7)
+═══════════════════════════════════════════════════════════════════════════════
+
+User Patrick berichtete ERNEUT:
+- SMS-Code wurde gesendet ✅
+- Web OTP Dialog erschien ✅
+- ABER: Code-Eingabefeld blieb VERSTECKT ❌
+- "Er öffnet das Feld nicht wo das eingegeben werden kann"
+
+URSACHE:
+- Code-Eingabefeld (phone-step-2) wurde erst NACH erfolgreichem SMS-Versand gezeigt
+- Wenn signInWithPhoneNumber() fehlschlug oder zu lange dauerte, blieb Feld versteckt
+- User sah Web OTP Dialog aber kein Eingabefeld
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ LÖSUNG (v5.26.8)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. CODE-EINGABE ERSCHEINT SOFORT!
+   ✅ phone-step-2 wird DIREKT beim Button-Klick gezeigt
+   ✅ NICHT erst nach SMS-Erfolg warten
+   ✅ User sieht Eingabefeld sofort nach Klick
+   ✅ Bei SMS-Fehler: Feld wird wieder versteckt
+
+2. MASSIVES DEBUG-LOGGING
+   ✅ Jeder Schritt wird in Console geloggt
+   ✅ "SENDPHONECODE GESTARTET" Banner
+   ✅ Telefonnummer, reCAPTCHA Status, DOM-Elemente
+   ✅ "SMS ERFOLGREICH GESENDET" Banner
+   ✅ Ausführliche Error-Logs mit Code und Message
+
+3. DOM-ELEMENT CHECKS
+   ✅ Prüft ob phone-step-1 und phone-step-2 existieren
+   ✅ Klare Fehlermeldung wenn Elemente fehlen
+   ✅ Verhindert "Cannot read property 'style' of null" Fehler
+
+4. BESSERE USER-EXPERIENCE
+   ✅ Code-Feld wird geleert vor Fokus
+   ✅ Alert wenn Web OTP Code automatisch empfangen wird
+   ✅ Error Messages zeigen Error Code mit an
+
+═══════════════════════════════════════════════════════════════════════════════
+🔧 TECHNISCHE ÄNDERUNGEN
+═══════════════════════════════════════════════════════════════════════════════
+
+DATEI: index.html
+
+FUNKTION: sendPhoneCode() (Zeile ~14333)
+
+VORHER (v5.26.7):
+```javascript
+try {
+    confirmationResult = await auth.signInWithPhoneNumber(...);
+    // Zeige Schritt 2 ERST HIER
+    document.getElementById('phone-step-2').style.display = 'block';
+}
+```
+
+NACHHER (v5.26.8):
+```javascript
+// ✅ ZEIGE CODE-EINGABE SOFORT! (nicht erst nach SMS-Erfolg)
+const step1 = document.getElementById('phone-step-1');
+const step2 = document.getElementById('phone-step-2');
+
+// DOM-Check
+if (!step1 || !step2) {
+    console.error('❌ Elemente nicht gefunden!');
+    alert('❌ Fehler: UI-Elemente nicht gefunden');
+    return;
+}
+
+step1.style.display = 'none';
+step2.style.display = 'block';  // ← SOFORT SICHTBAR!
+
+try {
+    confirmationResult = await auth.signInWithPhoneNumber(...);
+    console.log('✅ SMS ERFOLGREICH GESENDET');
+} catch (error) {
+    // Bei Fehler: Verstecke Code-Eingabe wieder
+    step1.style.display = 'block';
+    step2.style.display = 'none';
+}
+```
+
+CONSOLE-LOGGING:
+```
+═══════════════════════════════════════════════════════════
+📱 SENDPHONECODE GESTARTET
+═══════════════════════════════════════════════════════════
+📞 Telefonnummer: +49 1512758579
+📞 Vollständige Nummer: +491512758579
+✅ Zeige Code-Eingabefeld SOFORT...
+✅ Code-Eingabefeld ist jetzt SICHTBAR!
+📤 Starte SMS-Versand via Firebase...
+✅ SMS ERFOLGREICH GESENDET an: +491512758579
+✅ confirmationResult: [object Object]
+✅ Fokus auf Code-Eingabefeld gesetzt
+✅ Web OTP API verfügbar - aktiviere Auto-Fill
+═══════════════════════════════════════════════════════════
+✅ SENDPHONECODE ERFOLGREICH ABGESCHLOSSEN
+═══════════════════════════════════════════════════════════
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+🧪 TESTING
+═══════════════════════════════════════════════════════════════════════════════
+
+SO TESTEST DU v5.26.8:
+
+1. Lade Dateien auf GitHub hoch
+2. Öffne App im Browser
+3. Öffne F12 Console (wichtig für Debugging!)
+4. Klicke "Anmelden" → Tab "📱 Telefon"
+5. Gebe Telefonnummer ein
+6. Klicke "📲 SMS-Code senden"
+
+ERWARTETES VERHALTEN:
+✅ Button zeigt "⏳ Sende SMS..."
+✅ Code-Eingabefeld erscheint SOFORT! (nicht erst nach SMS)
+✅ Console zeigt "SENDPHONECODE GESTARTET" Banner
+✅ Console zeigt "Code-Eingabefeld ist jetzt SICHTBAR!"
+✅ SMS wird versendet
+✅ Console zeigt "SMS ERFOLGREICH GESENDET"
+✅ Web OTP Dialog erscheint (auf Android Chrome)
+✅ (Optional) Code füllt sich automatisch + Alert
+✅ Code eingeben → Bestätigen → Login erfolgreich
+
+FEHLERFALL:
+✅ Wenn SMS-Versand fehlschlägt:
+   - Code-Eingabe wird wieder versteckt
+   - Schritt 1 wird wieder angezeigt
+   - Klare Fehlermeldung mit Error Code
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 STATISTIK
+═══════════════════════════════════════════════════════════════════════════════
+
+Geänderte Zeilen: ~60 Zeilen
+Neue Zeilen: ~30 Zeilen (Debug-Logging)
+Behobene Bugs: 1 (Code-Eingabe erscheint jetzt!)
+Code-Qualität: Deutlich verbessert (Logging + Error Handling)
+
+UNTERSCHIED v5.26.7 → v5.26.8:
+- Code-Eingabe: NACH SMS → SOFORT BEIM KLICK
+- Logging: Minimal → Massiv (jeder Schritt)
+- DOM-Checks: Keine → Vollständig
+- Error Messages: Basic → Mit Error Code
+
+═══════════════════════════════════════════════════════════════════════════════

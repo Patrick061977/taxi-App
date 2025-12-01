@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.30.4 - Build 20251201-0930');
-        console.log('🔗 Tracking-Link jetzt optional!');
+        console.log('🚕 Funk Taxi App v5.30.5 - Build 20251201-1000');
+        console.log('📅 Admin-Kalender lädt jetzt ALLE Fahrten!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.4 - Tracking-Link optional 🔗 (Build 20251201-0930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.5 - Kalender Fix 📅 (Build 20251201-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -17661,7 +17661,9 @@ Stack: ${err.stack}
             // 🔥 Hole auch Firebase-Fahrten wenn eingeloggt
             if (isFirebaseReady && currentUser) {
                 try {
-                    const snapshot = await db.ref('rides').orderByChild('userId').equalTo(currentUser.uid).once('value');
+                    // 🆕 v5.30.5: Admin-Kalender zeigt ALLE Fahrten!
+                    // Für Admin: Lade ALLE Fahrten (nicht nur eigene)
+                    const snapshot = await db.ref('rides').once('value');
                     if (snapshot.exists()) {
                         const firebaseRides = [];
                         snapshot.forEach(childSnapshot => {
@@ -17669,6 +17671,8 @@ Stack: ${err.stack}
                             ride.firebaseId = childSnapshot.key;
                             firebaseRides.push(ride);
                         });
+                        
+                        console.log(`📅 Kalender: ${firebaseRides.length} Fahrten aus Firebase geladen`);
                         
                         // Merge: Firebase hat Vorrang
                         const rideMap = new Map();

@@ -17,8 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.30.5 - Build 20251201-1000');
-        console.log('📅 Admin-Kalender lädt jetzt ALLE Fahrten!');
+        console.log('🚕 Funk Taxi App v5.31.0 - Build 20251201-1100');
+        console.log('🆔 EINDEUTIGE RIDE-IDs + Firebase Listener Fix!');
+        console.log('✅ Keine Race Conditions mehr!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +302,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.5 - Kalender Fix 📅 (Build 20251201-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.31.0 - GROSSER FIX 🎯 (Build 20251201-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4190,12 +4191,15 @@
                         }
                     });
                     db.ref('rides').on('value', (s) => {
+                        console.log('🔄 Firebase: rides value event triggered');
                         const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
                         rides = [];
+                        let loadedCount = 0;
                         s.forEach(c => {
                             const r = c.val();
                             r.firebaseId = c.key;
                             rides.push(r);
+                            loadedCount++;
                             
                             // 🆕 v5.20.7: Ignoriere kürzlich stornierte Fahrten KOMPLETT!
                             if (recentlyCancelledRideIds && recentlyCancelledRideIds.has(r.firebaseId)) {
@@ -4302,6 +4306,7 @@
                         });
                         
                         const currentCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
+                        console.log(`📊 Fahrten geladen: ${loadedCount} total, ${currentCount} new/vorbestellt`);
                         
                         // 🚨 ALARM für Admin bei neuen Fahrten!
                         if (currentCount > previousCount) {
@@ -4337,25 +4342,9 @@
                         if (currentView === 'admin') updateAdminView();
                     });
                     
-                    // 🆕 v5.26.14f: REAL-TIME UPDATE FÜR VERLAUF!
-                    // Wenn eine Fahrt sich ändert → Verlauf automatisch neu laden
-                    db.ref('rides').on('child_changed', (snapshot) => {
-                        const changedRide = snapshot.val();
-                        changedRide.firebaseId = snapshot.key;
-                        
-                        console.log('🔄 Fahrt geändert:', changedRide.firebaseId, 'Status:', changedRide.status);
-                        
-                        // Wenn Verlauf aktuell offen ist → neu laden!
-                        if (currentView === 'history') {
-                            console.log('♻️ Verlauf wird automatisch aktualisiert...');
-                            updateHistoryView();
-                        }
-                        
-                        // Wenn Fahrgast-View offen und es ist MEINE Fahrt → auch updaten!
-                        if (currentView === 'passenger' && myCurrentRide && changedRide.id === myCurrentRide.id) {
-                            console.log('♻️ Meine aktuelle Fahrt hat sich geändert');
-                        }
-                    });
+                    // 🆕 v5.31.0: child_changed ENTFERNT - verursachte Race Conditions!
+                    // Der 'value' Listener oben updated schon alles automatisch!
+                    
                 } catch (e) { 
                     console.error('❌ Firebase Fehler:', e); 
                 }
@@ -4381,8 +4370,6 @@
                 status.textContent = '💾 Lokal';
             }
         }
-
-        // 🔔 SERVICE WORKER & PUSH BENACHRICHTIGUNGEN
         async function initServiceWorker() {
             if ('serviceWorker' in navigator) {
                 try {
@@ -5405,8 +5392,25 @@
             if (modal) modal.remove();
         }
 
+        // 🆕 v5.31.0: EINDEUTIGE RIDE-ID GENERATOR
+        function generateRideId() {
+            // Format: ride_TIMESTAMP_RANDOM
+            // Beispiel: ride_1733047234567_k3n9x2m4p
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substr(2, 9);
+            const rideId = `ride_${timestamp}_${random}`;
+            console.log('🆔 Neue Ride-ID generiert:', rideId);
+            return rideId;
+        }
+
         // DATABASE FUNCTIONS
         async function saveRide(ride) {
+            // 🆕 v5.31.0: Nutze EINDEUTIGE ID statt push()
+            // Wenn noch keine ID → generiere eine
+            if (!ride.id) {
+                ride.id = generateRideId();
+            }
+            
             // 🔐 Füge userId hinzu (für Firebase Query)
             if (currentUser) {
                 ride.userId = currentUser.uid;
@@ -5415,9 +5419,12 @@
             // 🔥 Speichere in Firebase
             if (isFirebaseReady) {
                 try {
-                    const ref = db.ref('rides').push();
-                    ride.firebaseId = ref.key;
-                    await ref.set(ride);
+                    // 🆕 v5.31.0: Nutze set() mit fester ID statt push()!
+                    // ride.id und ride.firebaseId sind jetzt IDENTISCH!
+                    ride.firebaseId = ride.id;
+                    await db.ref('rides/' + ride.id).set(ride);
+                    
+                    console.log('✅ Fahrt gespeichert mit ID:', ride.id);
                     
                     // 📱 TELEGRAM wird in book() gesendet, NICHT hier!
                     // (Sonst Duplikate weil book() auch sendet)
@@ -8520,8 +8527,11 @@
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
             
+            // 🆕 v5.31.0: Generiere EINDEUTIGE RIDE-ID
+            const rideId = generateRideId();
+            
             const ride = {
-                id: Date.now(),
+                id: rideId,  // ← EINDEUTIGE UUID!
                 customerName,
                 customerPhone,
                 pickupTime,
@@ -17884,7 +17894,8 @@ Stack: ${err.stack}
             for (let i = 0; i < 7; i++) {
                 const date = new Date(monday);
                 date.setDate(monday.getDate() + i);
-                const key = date.toISOString().split('T')[0];
+                // 🔧 v5.30.6: LOKALE ZEIT statt UTC (konsistent mit MonthView/DayView)
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 ridesByDay[key] = {
                     date: new Date(date),
                     rides: []
@@ -17894,7 +17905,8 @@ Stack: ${err.stack}
             allRides.forEach(ride => {
                 // 🔧 v5.29.1: FÜR KALENDER: Nutze pickupTimestamp (Abholzeit) statt createdAt!
                 const rideDate = new Date(ride.pickupTimestamp || ride.createdAt || 0);
-                const key = rideDate.toISOString().split('T')[0];
+                // 🔧 v5.30.6: LOKALE ZEIT statt UTC (konsistent mit MonthView/DayView)
+                const key = `${rideDate.getFullYear()}-${String(rideDate.getMonth() + 1).padStart(2, '0')}-${String(rideDate.getDate()).padStart(2, '0')}`;
                 if (ridesByDay[key]) {
                     ridesByDay[key].rides.push(ride);
                 }

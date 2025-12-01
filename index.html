@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.31.5 - Build 20251201-1250');
-        console.log('🆔 EINDEUTIGE RIDE-IDs + Firebase Listener Fix!');
-        console.log('✅ Keine Race Conditions mehr!');
+        console.log('🚕 Funk Taxi App v5.31.6 - Build 20251201-2250');
+        console.log('🔕 STORNIERUNG-ALARM FIX: Nur noch 2 Min statt 10 Min!');
+        console.log('✅ Keine alte Stornierung-Spam beim Login mehr!');
         console.log('🎯 SMART UI-UPDATES - Kein Flackern mehr!');
         console.log('📱 Ride-IDs in ALLEN Telegram-Nachrichten!');
         console.log('🔍 RIDE-ID SUCHE im Admin-View!');
@@ -4853,12 +4853,12 @@
             }
             
             // Alte Benachrichtigungs-Logik (für Kompatibilität)
-            // 🆕 v5.21.8: Nur NEUE Stornierungen anzeigen (letzte 10 Min)
-            const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+            // 🆕 v5.31.6: Nur NEUE Stornierungen anzeigen (letzte 2 Min statt 10!)
+            const twoMinutesAgo = Date.now() - (2 * 60 * 1000); // ✅ Geändert von 10 auf 2 Min!
             const cancelledRides = myRides.filter(r => 
                 r.status === 'cancelled' && 
                 r.driverNotified === false &&
-                r.cancelledAt && r.cancelledAt > tenMinutesAgo // Nur letzte 10 Min!
+                r.cancelledAt && r.cancelledAt > twoMinutesAgo // Nur letzte 2 Min!
             );
             if (cancelledRides.length > 0) {
                 cancelledRides.forEach(ride => {

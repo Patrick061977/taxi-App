@@ -17,9 +17,14 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.31.0 - Build 20251201-1100');
+        console.log('🚕 Funk Taxi App v5.31.5 - Build 20251201-1250');
         console.log('🆔 EINDEUTIGE RIDE-IDs + Firebase Listener Fix!');
         console.log('✅ Keine Race Conditions mehr!');
+        console.log('🎯 SMART UI-UPDATES - Kein Flackern mehr!');
+        console.log('📱 Ride-IDs in ALLEN Telegram-Nachrichten!');
+        console.log('🔍 RIDE-ID SUCHE im Admin-View!');
+        console.log('🌙 SCHÖNER DARK MODE - kein schwarzer Screen mehr!');
+        console.log('🚗 FAHRER ZUWEISEN im Admin + Alarm abschaltbar!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -302,7 +307,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.31.0 - GROSSER FIX 🎯 (Build 20251201-1100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.31.5 - Fahrer zuweisen + Alarm AUS 🚗 (Build 20251201-1250)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1664,6 +1669,32 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
+        <!-- 🆕 v5.31.3: RIDE-ID SUCHE -->
+        <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #667eea;box-shadow:0 4px 12px rgba(102,126,234,0.15);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="font-size:24px;">🔍</div>
+                <div style="flex:1;">
+                    <label style="display:block;font-weight:600;font-size:14px;color:#1f2937;margin-bottom:8px;">
+                        Suche nach Fahrt-ID
+                    </label>
+                    <input 
+                        type="text" 
+                        id="ride-id-search" 
+                        placeholder="ride_1733047234567_k3n9x2m4p" 
+                        style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;font-family:monospace;box-sizing:border-box;"
+                        onkeypress="if(event.key==='Enter') searchRideById()">
+                </div>
+                <button 
+                    onclick="searchRideById()" 
+                    style="padding:12px 20px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;white-space:nowrap;font-size:14px;">
+                    🔍 Suchen
+                </button>
+            </div>
+            <div style="font-size:12px;color:#6b7280;">
+                💡 Tipp: ID aus Telegram kopieren und hier einfügen
+            </div>
+        </div>
+        
         <!-- 🆕 v5.27.1: KALENDER (NUR FÜR ADMIN!) -->
         <div onclick="toggleAdminSection('calendar')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">📅 Fahrten-Kalender</span>
@@ -2080,6 +2111,39 @@
             <div class="stat-card"><div style="font-size: 28px;" id="a-revenue">0€</div><div>Umsatz</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-pending">0</div><div>Offen</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
+        </div>
+        
+        <!-- 🆕 v5.31.5: DEZENTE BENACHRICHTIGUNG für neue Fahrten -->
+        <div id="admin-notification-bar" style="display:none;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;padding:15px;border-radius:12px;margin:15px 0;box-shadow:0 4px 12px rgba(220,38,38,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="flex:1;">
+                    <div style="font-size:18px;font-weight:700;margin-bottom:5px;">
+                        🚕 <span id="notification-ride-count">0</span> neue Fahrt(en)!
+                    </div>
+                    <div style="font-size:14px;opacity:0.9;">
+                        Bitte Fahrer zuweisen
+                    </div>
+                </div>
+                <button onclick="scrollToOpenRides()" 
+                    style="padding:10px 20px;background:white;color:#dc2626;border:none;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                    👉 Zuweisen
+                </button>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.31.5: ALARM EINSTELLUNGEN -->
+        <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin:15px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div style="font-weight:600;font-size:15px;">🔔 Alarm-Einstellungen</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:white;border-radius:8px;border:2px solid #e5e7eb;">
+                <input type="checkbox" id="disable-admin-alarm" onchange="toggleAdminAlarm()" 
+                    style="width:20px;height:20px;cursor:pointer;">
+                <div>
+                    <div style="font-weight:600;font-size:14px;color:#1f2937;">Alarm-Modal deaktivieren</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">Keine Pop-ups & Sound (nur dezente Benachrichtigung oben)</div>
+                </div>
+            </label>
         </div>
         
         <!-- COLLAPSIBLE: Online-Fahrer -->
@@ -3699,6 +3763,156 @@
             updateAdminView();
         }
         
+        // 🚗 v5.31.5: FAHRER MANUELL ZUWEISEN (Admin)
+        async function assignVehicleToRide(rideId) {
+            try {
+                // Lade Fahrt
+                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Lade alle Fahrzeuge
+                let vehiclesList = [];
+                if (isFirebaseReady) {
+                    const snapshot = await db.ref('drivers').once('value');
+                    const driversData = snapshot.val() || {};
+                    vehiclesList = Object.entries(driversData).map(([id, data]) => ({
+                        id: id,
+                        vehicle: data.vehicle || id,
+                        plate: data.plate || '',
+                        userId: data.userId
+                    }));
+                }
+                
+                if (vehiclesList.length === 0) {
+                    alert('❌ Keine Fahrzeuge verfügbar!');
+                    return;
+                }
+                
+                // Modal erstellen
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+                
+                let vehicleOptions = '';
+                vehiclesList.forEach(v => {
+                    vehicleOptions += `
+                        <div onclick="selectVehicleForAssignment('${rideId}', '${v.id}')" 
+                             style="padding:15px;background:white;border:2px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:10px;transition:all 0.2s;"
+                             onmouseover="this.style.borderColor='#667eea';this.style.background='#f3f4f6'"
+                             onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white'">
+                            <div style="font-size:18px;font-weight:700;color:#1f2937;margin-bottom:5px;">
+                                🚗 ${v.vehicle}
+                            </div>
+                            ${v.plate ? `<div style="font-size:14px;color:#6b7280;">📋 ${v.plate}</div>` : ''}
+                        </div>
+                    `;
+                });
+                
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:16px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;">
+                        <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <h3 style="margin:0;font-size:20px;">🚗 Fahrer zuweisen</h3>
+                                <button onclick="this.closest('div').parentElement.parentElement.remove()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+                            </div>
+                        </div>
+                        <div style="padding:20px;">
+                            <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:8px;">📍 ${ride.pickup}</div>
+                                <div style="font-weight:700;color:#667eea;">🎯 ${ride.destination}</div>
+                                <div style="margin-top:8px;color:#6b7280;">👤 ${ride.customerName} | 💰 ${ride.price}€</div>
+                            </div>
+                            <div style="font-weight:600;margin-bottom:15px;color:#1f2937;">Wähle ein Fahrzeug:</div>
+                            ${vehicleOptions}
+                            <button onclick="this.closest('div').parentElement.parentElement.remove()" 
+                                style="width:100%;padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;margin-top:10px;">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Zuweisen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🚗 v5.31.5: FAHRZEUG AUSWAHL BESTÄTIGEN
+        async function selectVehicleForAssignment(rideId, vehicleId) {
+            try {
+                // Lade Fahrzeug-Daten
+                let vehicleData = null;
+                if (isFirebaseReady) {
+                    const snapshot = await db.ref('drivers/' + vehicleId).once('value');
+                    vehicleData = snapshot.val();
+                }
+                
+                if (!vehicleData) {
+                    alert('❌ Fahrzeug nicht gefunden!');
+                    return;
+                }
+                
+                const vehicleName = vehicleData.vehicle || vehicleId;
+                
+                if (!confirm(`🚗 Fahrt zuweisen an:\n\n${vehicleName}\n\nFortfahren?`)) {
+                    return;
+                }
+                
+                // Update Fahrt in Firebase
+                if (isFirebaseReady) {
+                    await db.ref('rides/' + rideId).update({
+                        vehicleId: vehicleId,
+                        vehicle: vehicleName,
+                        vehiclePlate: vehicleData.plate || '',
+                        status: 'accepted',
+                        acceptedAt: Date.now(),
+                        assignedBy: 'admin'
+                    });
+                }
+                
+                // Update lokal
+                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                if (ride) {
+                    ride.vehicleId = vehicleId;
+                    ride.vehicle = vehicleName;
+                    ride.vehiclePlate = vehicleData.plate || '';
+                    ride.status = 'accepted';
+                    ride.acceptedAt = Date.now();
+                    ride.assignedBy = 'admin';
+                }
+                
+                // Telegram an Fahrer senden
+                await sendTelegramToDriver(vehicleId, ride, 0);
+                
+                // Log Activity
+                logActivity('admin', 'assign', `Admin hat Fahrt zugewiesen: ${vehicleName}`, {
+                    vehicle: vehicleName,
+                    customer: ride.customerName,
+                    pickup: ride.pickup,
+                    destination: ride.destination
+                });
+                
+                // Schließe Modal
+                const modal = document.querySelector('div[style*="position:fixed"]');
+                if (modal) modal.remove();
+                
+                // Update Views
+                updateViews();
+                
+                alert(`✅ Fahrt zugewiesen!\n\n🚗 ${vehicleName}\n📱 Telegram gesendet!`);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         // 🔄 ROUTE UMDREHEN (Admin - direkt in Firebase)
         async function reverseRouteAdmin(rideId) {
             const confirmReverse = confirm('🔄 Route umdrehen?\n\nVon ⇄ Nach werden getauscht.');
@@ -4874,6 +5088,9 @@
             document.getElementById('a-pending').textContent = pending.length;
             document.getElementById('a-active').textContent = active.length;
             
+            // 🆕 v5.31.5: Update Benachrichtigungs-Bar
+            updateNotificationBar();
+            
             // 📋 OFFENE FAHRTEN = vorbestellt, new, akzeptiert, unterwegs, angekommen
             const now = Date.now();
             const openRides = allRides.filter(r => {
@@ -4967,7 +5184,11 @@
                         let actionButtons = '';
                         if (r.status === 'vorbestellt' || r.status === 'new') {
                             actionButtons = `
-                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px;">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">
+                                    <button onclick="assignVehicleToRide('${r.firebaseId || r.id}')" 
+                                        style="padding:10px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">
+                                        🚗 Fahrer zuweisen
+                                    </button>
                                     <button onclick="editRide('${r.firebaseId || r.id}')" 
                                         style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
                                         ✏️ Bearbeiten
@@ -5404,6 +5625,212 @@
         }
 
         // DATABASE FUNCTIONS
+        
+        // 🔍 v5.31.3: RIDE-ID SUCHE
+        async function searchRideById() {
+            const input = document.getElementById('ride-id-search');
+            const searchId = input.value.trim();
+            
+            if (!searchId) {
+                alert('❌ Bitte eine Ride-ID eingeben!');
+                return;
+            }
+            
+            console.log('🔍 Suche nach Ride-ID:', searchId);
+            
+            // Suche in allen Quellen
+            let foundRide = null;
+            
+            // 1. Suche in Firebase (aktuelle rides)
+            foundRide = rides.find(r => 
+                r.id === searchId || 
+                r.firebaseId === searchId ||
+                (r.id && r.id.toString() === searchId) ||
+                (r.firebaseId && r.firebaseId.toString() === searchId)
+            );
+            
+            // 2. Falls nicht gefunden, suche in Firebase direkt
+            if (!foundRide && isFirebaseReady) {
+                try {
+                    const snapshot = await db.ref('rides/' + searchId).once('value');
+                    if (snapshot.exists()) {
+                        foundRide = snapshot.val();
+                        foundRide.firebaseId = searchId;
+                        console.log('✅ Fahrt in Firebase gefunden:', searchId);
+                    }
+                } catch (error) {
+                    console.error('❌ Firebase Suche Fehler:', error);
+                }
+            }
+            
+            // 3. Falls immer noch nicht gefunden, suche in localStorage
+            if (!foundRide) {
+                const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                foundRide = localHistory.find(r => 
+                    r.id === searchId || 
+                    r.firebaseId === searchId ||
+                    (r.id && r.id.toString() === searchId) ||
+                    (r.firebaseId && r.firebaseId.toString() === searchId)
+                );
+                if (foundRide) {
+                    console.log('✅ Fahrt in localStorage gefunden:', searchId);
+                }
+            }
+            
+            // Ergebnis anzeigen
+            if (foundRide) {
+                console.log('✅ Fahrt gefunden:', foundRide);
+                showRideDetailsModal(foundRide);
+                input.value = ''; // Input leeren
+            } else {
+                alert(`❌ Keine Fahrt gefunden mit ID:\n\n${searchId}\n\n💡 Prüfe ob die ID korrekt ist.`);
+            }
+        }
+        
+        // 🆕 v5.31.3: FAHRT-DETAILS MODAL
+        function showRideDetailsModal(ride) {
+            // Entferne altes Modal falls vorhanden
+            const oldModal = document.getElementById('ride-details-modal');
+            if (oldModal) oldModal.remove();
+            
+            // Formatiere Zeitstempel
+            const createdTime = ride.createdAt ? new Date(ride.createdAt).toLocaleString('de-DE') : 'Unbekannt';
+            const pickupTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleString('de-DE') : ride.pickupTime || 'Sofort';
+            
+            // Status formatieren
+            const statusColors = {
+                'new': '#3b82f6',
+                'vorbestellt': '#f59e0b',
+                'accepted': '#10b981',
+                'picked_up': '#8b5cf6',
+                'completed': '#10b981',
+                'storniert': '#ef4444',
+                'cancelled': '#ef4444'
+            };
+            const statusColor = statusColors[ride.status] || '#6b7280';
+            
+            const statusNames = {
+                'new': '🆕 Neu',
+                'vorbestellt': '📅 Vorbestellt',
+                'accepted': '✅ Angenommen',
+                'picked_up': '🚗 Unterwegs',
+                'completed': '✅ Abgeschlossen',
+                'storniert': '🗑️ Storniert',
+                'cancelled': '🗑️ Storniert'
+            };
+            const statusName = statusNames[ride.status] || ride.status;
+            
+            // Modal erstellen
+            const modal = document.createElement('div');
+            modal.id = 'ride-details-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;">
+                            <div>
+                                <div style="font-size:24px;margin-bottom:5px;">📋</div>
+                                <h3 style="margin:0;font-size:18px;">Fahrt-Details</h3>
+                            </div>
+                            <button onclick="this.closest('#ride-details-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="padding:20px;">
+                        <!-- Ride-ID -->
+                        <div style="background:#f9fafb;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #e5e7eb;">
+                            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">RIDE-ID</div>
+                            <div style="font-family:monospace;font-size:14px;font-weight:600;color:#1f2937;word-break:break-all;">
+                                ${ride.firebaseId || ride.id || 'unbekannt'}
+                            </div>
+                        </div>
+                        
+                        <!-- Status Badge -->
+                        <div style="display:inline-block;background:${statusColor};color:white;padding:8px 16px;border-radius:20px;font-weight:600;font-size:14px;margin-bottom:20px;">
+                            ${statusName}
+                        </div>
+                        
+                        <!-- Kunde -->
+                        <div style="margin-bottom:15px;">
+                            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">KUNDE</div>
+                            <div style="font-size:16px;font-weight:600;color:#1f2937;">👤 ${ride.customerName || 'Unbekannt'}</div>
+                            <div style="font-size:14px;color:#6b7280;margin-top:3px;">📞 ${ride.customerPhone || 'Keine Nummer'}</div>
+                        </div>
+                        
+                        <!-- Route -->
+                        <div style="margin-bottom:15px;">
+                            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">ROUTE</div>
+                            <div style="font-size:14px;color:#1f2937;line-height:1.6;">
+                                <div>📍 <strong>Von:</strong> ${ride.pickup || 'Unbekannt'}</div>
+                                <div>🎯 <strong>Nach:</strong> ${ride.destination || 'Unbekannt'}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Fahrzeug (falls zugewiesen) -->
+                        ${ride.vehicle ? `
+                        <div style="margin-bottom:15px;">
+                            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">FAHRZEUG</div>
+                            <div style="font-size:14px;color:#1f2937;">
+                                🚗 ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- Preis & Details -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
+                            <div>
+                                <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">PREIS</div>
+                                <div style="font-size:18px;font-weight:700;color:#10b981;">
+                                    ${ride.price ? ride.price + '€' : 'N/A'}
+                                </div>
+                            </div>
+                            <div>
+                                <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">DISTANZ</div>
+                                <div style="font-size:14px;font-weight:600;color:#1f2937;">
+                                    ${ride.distance ? ride.distance + ' km' : 'N/A'}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Zeiten -->
+                        <div style="margin-bottom:15px;">
+                            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">ZEITEN</div>
+                            <div style="font-size:13px;color:#6b7280;line-height:1.8;">
+                                <div>📅 <strong>Erstellt:</strong> ${createdTime}</div>
+                                <div>🕐 <strong>Abholung:</strong> ${pickupTime}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Zahlungsmethode -->
+                        ${ride.paymentMethod ? `
+                        <div style="margin-bottom:15px;">
+                            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">ZAHLUNG</div>
+                            <div style="font-size:14px;color:#1f2937;">
+                                💳 ${ride.paymentMethod === 'bar' ? 'Bar' : ride.paymentMethod === 'karte' ? 'Karte' : ride.paymentMethod}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- Buttons -->
+                        <div style="margin-top:25px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <button onclick="this.closest('#ride-details-modal').remove()" style="padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                Schließen
+                            </button>
+                            ${ride.firebaseId ? `
+                            <button onclick="navigator.clipboard.writeText('${ride.firebaseId || ride.id}');alert('✅ ID kopiert!');" style="padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                📋 ID kopieren
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
         async function saveRide(ride) {
             // 🆕 v5.31.0: Nutze EINDEUTIGE ID statt push()
             // Wenn noch keine ID → generiere eine
@@ -6404,6 +6831,47 @@
         
         let acknowledgedRides = loadAcknowledgedRides();
         
+        // 🆕 v5.31.5: ALARM EINSTELLUNGEN
+        function toggleAdminAlarm() {
+            const checkbox = document.getElementById('disable-admin-alarm');
+            localStorage.setItem('disableAdminAlarm', checkbox.checked ? 'true' : 'false');
+            
+            if (checkbox.checked) {
+                alert('✅ Alarm-Modal deaktiviert!\n\nDu siehst jetzt nur noch die dezente Benachrichtigung oben.');
+            } else {
+                alert('🔔 Alarm-Modal aktiviert!\n\nDu bekommst wieder Pop-ups & Sound bei neuen Fahrten.');
+            }
+        }
+        
+        // 🆕 v5.31.5: Zu offenen Fahrten scrollen
+        function scrollToOpenRides() {
+            const openSection = document.getElementById('open-content');
+            if (openSection) {
+                openSection.style.display = 'block';
+                document.getElementById('open-toggle').textContent = '▲';
+                openSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        
+        // 🆕 v5.31.5: Update Benachrichtigungs-Bar
+        function updateNotificationBar() {
+            const newRides = rides.filter(r => 
+                (r.status === 'new' || r.status === 'vorbestellt') && 
+                !acknowledgedRides.has(r.id) &&
+                !r.vehicleId  // Noch kein Fahrer zugewiesen
+            );
+            
+            const bar = document.getElementById('admin-notification-bar');
+            const count = document.getElementById('notification-ride-count');
+            
+            if (newRides.length > 0) {
+                bar.style.display = 'block';
+                count.textContent = newRides.length;
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+        
         // Alarm-Sound (Lauter Beep)
         function playAdminAlarmSound() {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -6433,7 +6901,18 @@
         function triggerAdminAlarm(newRideCount) {
             console.log('🚨 ADMIN ALARM: Neue Fahrt(en)!', newRideCount);
             
-            // 1. Sound abspielen
+            // 🆕 v5.31.5: Dezente Benachrichtigung IMMER updaten
+            updateNotificationBar();
+            
+            // 🆕 v5.31.5: Prüfe ob Alarm deaktiviert ist
+            const alarmDisabled = localStorage.getItem('disableAdminAlarm') === 'true';
+            
+            if (alarmDisabled) {
+                console.log('🔕 Alarm-Modal ist deaktiviert - nur dezente Benachrichtigung');
+                return; // STOP! Nur dezente Benachrichtigung anzeigen
+            }
+            
+            // 1. Sound abspielen (nur wenn nicht deaktiviert)
             playAdminAlarmSound();
             
             // 2. Browser-Notification (wenn erlaubt)
@@ -6456,12 +6935,15 @@
                     !acknowledgedRides.has(r.id)
                 ).length;
                 if (stillNewRides > 0) {
-                    playAdminAlarmSound();
-                    if (Notification.permission === 'granted') {
-                        new Notification('⚠️ UNBEARBEITETE FAHRT!', {
-                            body: `${stillNewRides} Fahrt${stillNewRides > 1 ? 'en' : ''} noch nicht zugewiesen!`,
-                            requireInteraction: true
-                        });
+                    // Nur wenn nicht deaktiviert
+                    if (localStorage.getItem('disableAdminAlarm') !== 'true') {
+                        playAdminAlarmSound();
+                        if (Notification.permission === 'granted') {
+                            new Notification('⚠️ UNBEARBEITETE FAHRT!', {
+                                body: `${stillNewRides} Fahrt${stillNewRides > 1 ? 'en' : ''} noch nicht zugewiesen!`,
+                                requireInteraction: true
+                            });
+                        }
                     }
                 } else {
                     clearInterval(adminAlarmInterval);
@@ -6674,8 +7156,10 @@
                                  `👉 App öffnen damit GPS wieder läuft!\n`;
                 }
                 
-                // Formatiere Nachricht für Fahrer
-                const message = `🚨 <b>NEUER AUFTRAG FÜR DICH!</b> 🚨\n\n` +
+                // Formatiere Nachricht für Fahrer MIT RIDE-ID
+                const rideId = ride.firebaseId || ride.id || 'unbekannt';
+                const message = `🚨 <b>NEUER AUFTRAG FÜR DICH!</b> 🚨\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `⏱️ <b>Du hast 60 SEKUNDEN Zeit!</b>\n` +
                     gpsWarning +
                     `\n📍 <b>Abholung:</b> ${ride.pickup}\n` +
@@ -6867,8 +7351,10 @@
                     statusText = 'VORBESTELLUNG';
                 }
                 
-                // Formatiere Nachricht MIT ZEITSTEMPEL
-                const message = `${statusEmoji} <b>${statusText}</b>\n\n` +
+                // Formatiere Nachricht MIT ZEITSTEMPEL UND RIDE-ID
+                const rideId = ride.firebaseId || ride.id || 'unbekannt';
+                const message = `${statusEmoji} <b>${statusText}</b>\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `📍 <b>Von:</b> ${ride.pickup}\n` +
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
                     `👤 <b>Name:</b> ${ride.customerName}\n` +
@@ -6922,10 +7408,13 @@
                 let statusEmoji = '';
                 
                 // Formatiere Nachricht je nach Status
+                const rideId = ride.firebaseId || ride.id || 'unbekannt';
+                
                 if (newStatus === 'accepted') {
                     // ✅ Fahrer zugewiesen
                     statusEmoji = '✅';
-                    message = `${statusEmoji} <b>FAHRER ZUGEWIESEN!</b>\n\n` +
+                    message = `${statusEmoji} <b>FAHRER ZUGEWIESEN!</b>\n` +
+                        `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                         `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` +
                         `👤 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
@@ -6937,7 +7426,8 @@
                 } else if (newStatus === 'storniert' || newStatus === 'cancelled') {
                     // 🗑️ Fahrt storniert
                     statusEmoji = '🗑️';
-                    message = `${statusEmoji} <b>FAHRT STORNIERT</b>\n\n` +
+                    message = `${statusEmoji} <b>FAHRT STORNIERT</b>\n` +
+                        `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                         `👤 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                         `📍 <b>Von:</b> ${ride.pickup}\n` +
@@ -6948,7 +7438,8 @@
                 } else if (newStatus === 'picked_up') {
                     // 🚗 Kunde abgeholt
                     statusEmoji = '🚗';
-                    message = `${statusEmoji} <b>KUNDE ABGEHOLT!</b>\n\n` +
+                    message = `${statusEmoji} <b>KUNDE ABGEHOLT!</b>\n` +
+                        `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                         `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}\n` +
                         `👤 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📍 <b>Von:</b> ${ride.pickup}\n` +
@@ -6959,7 +7450,8 @@
                 } else if (newStatus === 'completed') {
                     // ✅ Fahrt abgeschlossen
                     statusEmoji = '✅';
-                    message = `${statusEmoji} <b>FAHRT ABGESCHLOSSEN!</b>\n\n` +
+                    message = `${statusEmoji} <b>FAHRT ABGESCHLOSSEN!</b>\n` +
+                        `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                         `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}\n` +
                         `👤 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📍 <b>Von:</b> ${ride.pickup}\n` +
@@ -7087,8 +7579,10 @@
                 if (ride.status === 'picked_up') statusText = '🚗 Unterwegs';
                 if (ride.status === 'vorbestellt') statusText = '📅 Vorbestellt';
                 
-                // Erstelle Nachricht MIT ZEITSTEMPEL
-                const message = `🗑️ <b>FAHRT GELÖSCHT (Admin)</b>\n\n` +
+                // Erstelle Nachricht MIT ZEITSTEMPEL UND RIDE-ID
+                const rideId = ride.firebaseId || ride.id || 'unbekannt';
+                const message = `🗑️ <b>FAHRT GELÖSCHT (Admin)</b>\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `⚠️ <b>Status war:</b> ${statusText}\n` +
                     (ride.vehicle ? `🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` : '') +
                     `👤 <b>Kunde:</b> ${ride.customerName}\n` +
@@ -7140,8 +7634,10 @@
                 });
                 
                 const pickupTime = ride.pickupTime || 'Unbekannt';
+                const rideId = ride.firebaseId || ride.id || 'unbekannt';
                 
-                const message = `🚨🚨🚨 <b>ACHTUNG: OFFENE FAHRT!</b> 🚨🚨🚨\n\n` +
+                const message = `🚨🚨🚨 <b>ACHTUNG: OFFENE FAHRT!</b> 🚨🚨🚨\n` +
+                    `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `⏰ <b>Abholzeit:</b> ${pickupTime}\n` +
                     `⚠️ <b>Noch KEIN Fahrer zugewiesen!</b>\n\n` +
                     `👤 <b>Kunde:</b> ${ride.customerName}\n` +
@@ -8633,6 +9129,10 @@
             if (isFirebaseReady) listenToMyRide(savedRide.firebaseId);
         }
 
+        // 🆕 v5.31.1: Track letzten Status um unnötige UI-Updates zu vermeiden
+        let lastRideStatus = null;
+        let lastRideDriverLocation = null;
+        
         function listenToMyRide(rideId) {
             if (!isFirebaseReady) return;
             
@@ -8687,6 +9187,8 @@
                         
                         localStorage.removeItem('myCurrentRideId');
                         myCurrentRide = null;
+                        lastRideStatus = null;  // Reset!
+                        lastRideDriverLocation = null;
                         document.getElementById('booking-form').style.display = 'block';
                         document.getElementById('ride-status-container').innerHTML = '';
                         // 🆕 Formular zurücksetzen
@@ -8698,14 +9200,46 @@
                     
                     myCurrentRide = ride;
                     
-                    // 🎯 Formular ausblenden und Status zeigen für aktive Fahrten
-                    document.getElementById('booking-form').style.display = 'none';
-                    showRideStatus(ride);
+                    // 🆕 v5.31.1: SMART UPDATE - nur bei RELEVANTEN Änderungen!
+                    const statusChanged = lastRideStatus !== ride.status;
+                    const driverLocationChanged = JSON.stringify(lastRideDriverLocation) !== JSON.stringify(ride.driverLocation);
+                    
+                    if (statusChanged) {
+                        console.log('🔄 Status geändert:', lastRideStatus, '→', ride.status);
+                        lastRideStatus = ride.status;
+                        
+                        // 🎯 Status-Änderung → VOLLSTÄNDIGES UI-Update
+                        document.getElementById('booking-form').style.display = 'none';
+                        showRideStatus(ride);
+                    } else if (driverLocationChanged && ride.status === 'accepted') {
+                        console.log('📍 GPS-Update (kein Status-Change)');
+                        lastRideDriverLocation = ride.driverLocation;
+                        
+                        // 🗺️ NUR Karte updaten, NICHT ganzes UI!
+                        if (map && taxiMarker && ride.driverLocation) {
+                            taxiMarker.setLatLng([ride.driverLocation.lat, ride.driverLocation.lon]);
+                            
+                            // Update ETA
+                            if (ride.estimatedArrival) {
+                                const etaEl = document.getElementById('eta-display');
+                                if (etaEl) {
+                                    const now = Date.now();
+                                    const eta = ride.estimatedArrival;
+                                    const minutesLeft = Math.max(0, Math.round((eta - now) / 60000));
+                                    etaEl.innerHTML = `<strong>⏱️ Ankunft in ca. ${minutesLeft} Min</strong>`;
+                                }
+                            }
+                        }
+                    } else {
+                        console.log('⏭️ Keine relevante Änderung - kein UI-Update');
+                    }
                 } else {
                     // Fahrt existiert nicht mehr (wurde gelöscht)
                     console.log('⚠️ Fahrt existiert nicht mehr:', rideId);
                     localStorage.removeItem('myCurrentRideId');
                     myCurrentRide = null;
+                    lastRideStatus = null;
+                    lastRideDriverLocation = null;
                     document.getElementById('booking-form').style.display = 'block';
                     document.getElementById('ride-status-container').innerHTML = '';
                 }
@@ -9016,24 +9550,63 @@
                 const darkStyle = document.createElement('style');
                 darkStyle.id = 'dark-mode-style';
                 darkStyle.textContent = `
+                    /* 🌙 v5.31.4: SCHÖNER DARK MODE (nicht mehr komplett schwarz!) */
+                    
                     #driver-view {
-                        background: #000 !important;
-                        color: #fff !important;
+                        background: linear-gradient(135deg, #1a1d29 0%, #0f1419 100%) !important;
+                        color: #e5e7eb !important;
+                        transition: background 0.5s ease, color 0.3s ease;
                     }
+                    
                     #driver-view .view {
-                        background: #000 !important;
+                        background: transparent !important;
                     }
+                    
                     #driver-top-bar {
-                        background: rgba(0,0,0,0.95) !important;
-                        color: #fff !important;
+                        background: rgba(15, 20, 25, 0.95) !important;
+                        color: #e5e7eb !important;
+                        backdrop-filter: blur(10px);
+                        border-bottom: 1px solid rgba(102, 126, 234, 0.3);
                     }
-                    #driver-view button:not(#power-save-btn) {
-                        background: #1f2937 !important;
-                        color: #fff !important;
+                    
+                    /* Buttons schöner */
+                    #driver-view button:not(#power-save-btn):not([style*="background:#10b981"]) {
+                        background: linear-gradient(135deg, #374151 0%, #1f2937 100%) !important;
+                        color: #e5e7eb !important;
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                    }
+                    
+                    /* Grüne Buttons bleiben grün! */
+                    #driver-view button[style*="background:#10b981"],
+                    #driver-view button[style*="background: #10b981"] {
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+                        color: white !important;
+                        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                    }
+                    
+                    /* Texte besser lesbar */
+                    #driver-view h3,
+                    #driver-view h4 {
+                        color: #f3f4f6 !important;
+                    }
+                    
+                    #driver-view .status-text {
+                        color: #d1d5db !important;
+                    }
+                    
+                    /* Karten-Overlays dunkler */
+                    #driver-view .leaflet-container {
+                        filter: brightness(0.8) saturate(0.9);
+                    }
+                    
+                    /* Smooth Transitions für alles */
+                    #driver-view * {
+                        transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
                     }
                 `;
                 document.head.appendChild(darkStyle);
-                console.log('🌑 Dark Mode aktiviert (Mobile)');
+                console.log('🌙 Dark Mode aktiviert (SCHÖN!)');
             },
             
             disableDarkMode: function() {
@@ -18182,6 +18755,13 @@ Stack: ${err.stack}
             
             // 🆕 v5.28.0: Update Anti-Betrugs Badge
             updateAntiFraudBadge();
+            
+            // 🆕 v5.31.5: Lade Admin-Alarm Einstellung
+            const disableAlarm = localStorage.getItem('disableAdminAlarm') === 'true';
+            const alarmCheckbox = document.getElementById('disable-admin-alarm');
+            if (alarmCheckbox) {
+                alarmCheckbox.checked = disableAlarm;
+            }
             
             // 🆕 TRACKING-LINK: Prüfe ob ?ride=XXX in URL
             const urlParams = new URLSearchParams(window.location.search);

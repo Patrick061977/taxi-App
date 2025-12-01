@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.30.2 - Build 20251201-0830');
-        console.log('🔧 TypeError Fix - Alle pickup-time Referenzen gesichert!');
+        console.log('🚕 Funk Taxi App v5.30.4 - Build 20251201-0930');
+        console.log('🔗 Tracking-Link jetzt optional!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.2 - TypeError Fix 🔧 (Build 20251201-0830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.4 - Tracking-Link optional 🔗 (Build 20251201-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -15110,6 +15110,24 @@ Stack: ${err.stack}
         }
 
         // 🔗 TRACKING-LINK KOPIEREN
+        // 🆕 v5.30.4: Tracking-Link teilen (optional)
+        function shareTrackingLink(link) {
+            // Kopiere Link
+            navigator.clipboard.writeText(link).then(() => {
+                showNotification('✅ Link kopiert! Du kannst ihn jetzt teilen.', 'success');
+            }).catch(() => {
+                // Fallback für ältere Browser
+                const input = document.createElement('input');
+                input.value = link;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showNotification('✅ Link kopiert!', 'success');
+            });
+        }
+        
+        // ALTE FUNKTION (bleibt für Rückwärts-Kompatibilität)
         function copyTrackingLink(link) {
             navigator.clipboard.writeText(link).then(() => {
                 alert('✅ Link kopiert!\n\nDu kannst diesen Link speichern oder per WhatsApp teilen.');
@@ -15255,30 +15273,12 @@ Stack: ${err.stack}
                             <strong>💰 Preis:</strong> ${ride.price}€
                         </div>
                         
-                        <!-- 🔗 TRACKING-LINK -->
-                        <div style="margin-top: 15px; padding: 12px; background: #dbeafe; border-radius: 8px;">
-                            <div style="font-size: 13px; color: #1e40af; margin-bottom: 8px;">
-                                <strong>🔗 Dein Tracking-Link:</strong>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="text" value="${trackingLink}" readonly 
-                                    style="flex:1; padding: 8px; border: 1px solid #93c5fd; border-radius: 6px; font-size: 11px; background: white;"
-                                    onclick="this.select()">
-                                <button onclick="copyTrackingLink('${trackingLink}')" 
-                                    style="padding: 8px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
-                                    📋 Kopieren
-                                </button>
-                            </div>
-                            <div style="font-size: 11px; color: #1e40af; margin-top: 6px; opacity: 0.8;">
-                                💡 Speichere diesen Link um den Status später abzurufen!
-                            </div>
-                        </div>
-                        
                         <div style="margin-top: 15px; padding: 12px; background: #dcfce7; border-radius: 8px; font-size: 13px; color: #14532d;">
                             ✅ 15 Minuten vor der Abholung wird ein Fahrer zugewiesen.
                         </div>
                         <div style="display:flex;gap:10px;margin-top:15px;">
                             <button onclick="closeFutureRide('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#10b981;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">✓ OK</button>
+                            <button onclick="shareTrackingLink('${trackingLink}')" style="flex:1;padding:12px 24px;border:none;background:#3b82f6;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🔗 Teilen</button>
                             <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Stornieren</button>
                         </div>
                     </div>
@@ -15430,29 +15430,13 @@ Stack: ${err.stack}
                             </div>
                         </div>
                         
-                        <!-- 🔗 TRACKING-LINK -->
-                        <div style="padding: 12px; background: #fef9c3; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="font-size: 13px; color: #854d0e; margin-bottom: 8px;">
-                                <strong>🔗 Dein Tracking-Link:</strong>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="text" value="${trackingLink}" readonly 
-                                    style="flex:1; padding: 8px; border: 1px solid #fbbf24; border-radius: 6px; font-size: 11px; background: white;"
-                                    onclick="this.select()">
-                                <button onclick="copyTrackingLink('${trackingLink}')" 
-                                    style="padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">
-                                    📋
-                                </button>
-                            </div>
-                            <div style="font-size: 11px; color: #854d0e; margin-top: 6px; opacity: 0.8;">
-                                💡 Speichere diesen Link um den Status später abzurufen!
-                            </div>
-                        </div>
-                        
                         <div style="font-size:32px;margin:15px 0;">${statusIcon}</div>
                         <p style="font-size:16px;color:#92400e;margin:10px 0;">${statusText}</p>
                         
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="width:100%;margin-top:15px;padding:12px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Fahrt stornieren</button>
+                        <div style="display:flex;gap:8px;margin-top:15px;">
+                            <button onclick="shareTrackingLink('${trackingLink}')" style="flex:1;padding:12px;border:none;background:#3b82f6;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">🔗 Link teilen</button>
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:12px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">🗑️ Stornieren</button>
+                        </div>
                     </div>
                 `;
             } else if (ride.status === 'accepted' && ride.driverLocation) {
@@ -18210,6 +18194,49 @@ Stack: ${err.stack}
                                 window.history.replaceState({}, '', window.location.pathname);
                             }
                         });
+                    }
+                }, 1500);
+            } else {
+                // 🆕 v5.30.3: KEINE Tracking-Link, aber vielleicht gespeicherte Fahrt?
+                // Prüfe localStorage('myCurrentRideId') beim App-Start!
+                console.log('🔍 Prüfe auf gespeicherte aktive Fahrt...');
+                setTimeout(() => {
+                    const savedRideId = localStorage.getItem('myCurrentRideId');
+                    if (savedRideId && isFirebaseReady) {
+                        console.log('📲 Gespeicherte Fahrt gefunden:', savedRideId);
+                        // Prüfe ob Fahrt noch aktiv ist
+                        db.ref('rides/' + savedRideId).once('value').then(snapshot => {
+                            const ride = snapshot.val();
+                            if (ride) {
+                                ride.firebaseId = savedRideId;
+                                
+                                // Prüfe Status
+                                const endedStatuses = ['storniert', 'completed', 'cancelled', 'cancelled_pending_driver'];
+                                if (endedStatuses.includes(ride.status)) {
+                                    console.log('✅ Gespeicherte Fahrt ist beendet:', ride.status);
+                                    localStorage.removeItem('myCurrentRideId');
+                                    document.getElementById('booking-form').style.display = 'block';
+                                    document.getElementById('ride-status-container').innerHTML = '';
+                                } else {
+                                    console.log('🚕 Gespeicherte Fahrt ist aktiv! Starte Listener...');
+                                    myCurrentRide = ride;
+                                    document.getElementById('booking-form').style.display = 'none';
+                                    showRideStatus(ride);
+                                    listenToMyRide(savedRideId); // ✅ LISTENER NEU STARTEN!
+                                }
+                            } else {
+                                // Fahrt existiert nicht mehr
+                                console.log('⚠️ Gespeicherte Fahrt existiert nicht mehr');
+                                localStorage.removeItem('myCurrentRideId');
+                                document.getElementById('booking-form').style.display = 'block';
+                                document.getElementById('ride-status-container').innerHTML = '';
+                            }
+                        }).catch(error => {
+                            console.error('❌ Fehler beim Laden der gespeicherten Fahrt:', error);
+                            localStorage.removeItem('myCurrentRideId');
+                        });
+                    } else if (!savedRideId) {
+                        console.log('ℹ️ Keine gespeicherte Fahrt gefunden');
                     }
                 }, 1500);
             }

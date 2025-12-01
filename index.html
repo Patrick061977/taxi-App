@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.29.3 - Build 20251130-2005');
-        console.log('⭐ FAVORITEN GPS-FIX - Holt jetzt automatisch Koordinaten!');
+        console.log('🚕 Funk Taxi App v5.30.1 - Build 20251201-0630');
+        console.log('⚡ SOFORT/VORBESTELLEN BUTTONS - Firebase-Fix bestätigt!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.29.3 - Favoriten GPS-Fix (Build 20251130-2005)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.1 - Fix bestätigt ✅ (Build 20251201-0630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -525,61 +525,7 @@
                 <button onclick="useMyLocation()" style="margin-top:8px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">📍 Meinen Standort verwenden</button>
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
-            <div id="available-taxis-display"></div>
-            <div class="input-group">
-                <label>👤 Ihr Name</label>
-                <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
-            </div>
-            <div class="input-group">
-                <label>📞 Telefonnummer *</label>
-                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567" required oninput="checkPhoneInCRM()">
-                <div id="crm-greeting" style="display:none;margin-top:8px;padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:8px;font-size:14px;">
-                </div>
-                <div style="font-size:12px;color:#666;margin-top:5px;">
-                    Pflichtfeld – für Rückfragen durch den Fahrer
-                </div>
-            </div>
-            <div class="input-group">
-                <label>🕐 Abholzeit</label>
-                <select id="pickup-time" onchange="handlePickupTimeChange()" style="padding:14px;border:2px solid #667eea;border-radius:8px;font-size:15px;font-weight:600;background:linear-gradient(135deg,#667eea,#764ba2);color:white;cursor:pointer;">
-                    <option value="jetzt" style="background:white;color:#333;">⚡ Sofort</option>
-                    <option value="15min" style="background:white;color:#333;">🕐 In 15 Minuten</option>
-                    <option value="30min" style="background:white;color:#333;">🕐 In 30 Minuten</option>
-                    <option value="1h" style="background:white;color:#333;">🕑 In 1 Stunde</option>
-                    <option value="datetime" style="background:white;color:#333;">📅 Datum & Zeit wählen...</option>
-                </select>
-                <div style="font-size:12px;color:#667eea;margin-top:5px;font-weight:500;">
-                    ⬆️ Klick hier für Vorbestellung oder Termin
-                </div>
-                <input type="datetime-local" id="custom-datetime" step="300" style="display:none;margin-top:8px;padding:14px;border:2px solid #e0e0e0;border-radius:8px;width:100%;font-size:15px;">
-                <!-- 🆕 ALTERNATIVE: Datum + Zeit getrennt mit 5-Min-Schritten -->
-                <div id="custom-datetime-container" style="display:none;margin-top:8px;">
-                    <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
-                    <div style="display:flex;gap:8px;align-items:center;">
-                        <select id="custom-hour" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
-                            <option value="00">00</option><option value="01">01</option><option value="02">02</option>
-                            <option value="03">03</option><option value="04">04</option><option value="05">05</option>
-                            <option value="06">06</option><option value="07">07</option><option value="08">08</option>
-                            <option value="09">09</option><option value="10">10</option><option value="11">11</option>
-                            <option value="12">12</option><option value="13">13</option><option value="14">14</option>
-                            <option value="15">15</option><option value="16">16</option><option value="17">17</option>
-                            <option value="18">18</option><option value="19">19</option><option value="20">20</option>
-                            <option value="21">21</option><option value="22">22</option><option value="23">23</option>
-                        </select>
-                        <span style="font-size:20px;font-weight:bold;">:</span>
-                        <select id="custom-minute" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
-                            <option value="00">00</option><option value="05">05</option><option value="10">10</option>
-                            <option value="15">15</option><option value="20">20</option><option value="25">25</option>
-                            <option value="30">30</option><option value="35">35</option><option value="40">40</option>
-                            <option value="45">45</option><option value="50">50</option><option value="55">55</option>
-                        </select>
-                        <span style="font-size:14px;color:#666;">Uhr</span>
-                    </div>
-                </div>
-                <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
-                    💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
-                </div>
-            </div>
+            
             <div class="input-group">
                 <label>🎯 Zielort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -593,6 +539,88 @@
                 <div id="destination-saved-locations" style="display:none;margin-top:8px;"></div>
                 
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
+            </div>
+            
+            <!-- 🆕 v5.30.0: WANN MÖCHTEN SIE FAHREN? -->
+            <div class="input-group" style="margin-top:25px;">
+                <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <!-- SOFORT Button -->
+                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                        <div style="font-size:32px;margin-bottom:8px;">⚡</div>
+                        <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:4px;">SOFORT</div>
+                        <div style="font-size:12px;color:#666;">Nächstes verfügbares Taxi</div>
+                    </button>
+                    
+                    <!-- VORBESTELLEN Button -->
+                    <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:20px 15px;border:3px solid #e5e7eb;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                        <div style="font-size:32px;margin-bottom:8px;">📅</div>
+                        <div style="font-weight:700;font-size:16px;color:#6b7280;margin-bottom:4px;">VORBESTELLEN</div>
+                        <div style="font-size:12px;color:#666;">Datum & Zeit wählen</div>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
+            <div id="sofort-bereich" style="display:none;">
+                <div id="available-taxis-display"></div>
+            </div>
+            
+            <!-- 📅 VORBESTELLEN-BEREICH: Zeit-Auswahl -->
+            <div id="vorbestellen-bereich" style="display:none;">
+                <div class="input-group">
+                    <label>🕐 Abholzeit wählen</label>
+                    <select id="pickup-time-preset" onchange="handlePickupTimePresetChange()" style="padding:14px;border:2px solid #667eea;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;">
+                        <option value="15min">🕐 In 15 Minuten</option>
+                        <option value="30min">🕐 In 30 Minuten</option>
+                        <option value="1h">🕑 In 1 Stunde</option>
+                        <option value="2h">🕑 In 2 Stunden</option>
+                        <option value="datetime">📅 Datum & Zeit wählen...</option>
+                    </select>
+                    
+                    <!-- Datum + Zeit getrennt mit 5-Min-Schritten -->
+                    <div id="custom-datetime-container" style="display:none;margin-top:12px;">
+                        <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <select id="custom-hour" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
+                                <option value="00">00</option><option value="01">01</option><option value="02">02</option>
+                                <option value="03">03</option><option value="04">04</option><option value="05">05</option>
+                                <option value="06">06</option><option value="07">07</option><option value="08">08</option>
+                                <option value="09">09</option><option value="10">10</option><option value="11">11</option>
+                                <option value="12">12</option><option value="13">13</option><option value="14">14</option>
+                                <option value="15">15</option><option value="16">16</option><option value="17">17</option>
+                                <option value="18">18</option><option value="19">19</option><option value="20">20</option>
+                                <option value="21">21</option><option value="22">22</option><option value="23">23</option>
+                            </select>
+                            <span style="font-size:20px;font-weight:bold;">:</span>
+                            <select id="custom-minute" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
+                                <option value="00">00</option><option value="05">05</option><option value="10">10</option>
+                                <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+                                <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+                                <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+                            </select>
+                            <span style="font-size:14px;color:#666;">Uhr</span>
+                        </div>
+                    </div>
+                    <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
+                        💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label>👤 Ihr Name</label>
+                <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
+            </div>
+            <div class="input-group">
+                <label>📞 Telefonnummer *</label>
+                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567" required oninput="checkPhoneInCRM()">
+                <div id="crm-greeting" style="display:none;margin-top:8px;padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:8px;font-size:14px;">
+                </div>
+                <div style="font-size:12px;color:#666;margin-top:5px;">
+                    Pflichtfeld – für Rückfragen durch den Fahrer
+                </div>
             </div>
             <div class="input-group">
                 <label>👥 Personen</label>
@@ -3089,6 +3117,121 @@
                 
             } else {
                 datetimePicker.style.display = 'none';
+                datetimeContainer.style.display = 'none';
+                if (helpText) helpText.style.display = 'none';
+            }
+        }
+        
+        // 🆕 v5.30.0: Fahrt-Typ wählen (Sofort / Vorbestellen)
+        let currentRideType = null; // 'sofort' oder 'vorbestellen'
+        
+        function selectRideType(type) {
+            currentRideType = type;
+            
+            const btnSofort = document.getElementById('btn-sofort');
+            const btnVorbestellen = document.getElementById('btn-vorbestellen');
+            const sofortBereich = document.getElementById('sofort-bereich');
+            const vorbestellenBereich = document.getElementById('vorbestellen-bereich');
+            
+            if (type === 'sofort') {
+                // ⚡ SOFORT Button aktiv
+                btnSofort.style.border = '3px solid #10b981';
+                btnSofort.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                btnSofort.querySelector('div:nth-child(2)').style.color = 'white';
+                btnSofort.querySelector('div:nth-child(3)').style.color = 'rgba(255,255,255,0.9)';
+                
+                // 📅 VORBESTELLEN Button inaktiv
+                btnVorbestellen.style.border = '3px solid #e5e7eb';
+                btnVorbestellen.style.background = 'white';
+                btnVorbestellen.querySelector('div:nth-child(2)').style.color = '#6b7280';
+                btnVorbestellen.querySelector('div:nth-child(3)').style.color = '#666';
+                
+                // Bereiche zeigen/verstecken
+                sofortBereich.style.display = 'block';
+                vorbestellenBereich.style.display = 'none';
+                
+                // ✅ WENN Abholadresse bereits eingegeben → Lade Taxis!
+                const pickupInput = document.getElementById('pickup');
+                if (pickupInput && pickupInput.value.trim()) {
+                    console.log('📍 Abholadresse vorhanden, lade Taxis...');
+                    
+                    // Zeige Loading
+                    const display = document.getElementById('available-taxis-display');
+                    display.innerHTML = `
+                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Suche verfügbare Taxis...</div>
+                            <div style="font-size:13px;opacity:0.9;">Bitte warten...</div>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        showAvailableTaxis();
+                    }, 500);
+                }
+                
+            } else if (type === 'vorbestellen') {
+                // 📅 VORBESTELLEN Button aktiv
+                btnVorbestellen.style.border = '3px solid #667eea';
+                btnVorbestellen.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
+                btnVorbestellen.querySelector('div:nth-child(2)').style.color = 'white';
+                btnVorbestellen.querySelector('div:nth-child(3)').style.color = 'rgba(255,255,255,0.9)';
+                
+                // ⚡ SOFORT Button inaktiv
+                btnSofort.style.border = '3px solid #e5e7eb';
+                btnSofort.style.background = 'white';
+                btnSofort.querySelector('div:nth-child(2)').style.color = '#6b7280';
+                btnSofort.querySelector('div:nth-child(3)').style.color = '#666';
+                
+                // Bereiche zeigen/verstecken
+                sofortBereich.style.display = 'none';
+                vorbestellenBereich.style.display = 'block';
+                
+                // Setze Standard auf "In 1 Stunde"
+                document.getElementById('pickup-time-preset').value = '1h';
+            }
+        }
+        
+        // 🆕 v5.30.0: Preset-Zeit im Vorbestellen-Bereich
+        function handlePickupTimePresetChange() {
+            const select = document.getElementById('pickup-time-preset');
+            const datetimeContainer = document.getElementById('custom-datetime-container');
+            const helpText = document.getElementById('datetime-help');
+            
+            if (select.value === 'datetime') {
+                datetimeContainer.style.display = 'block';
+                if (helpText) helpText.style.display = 'block';
+                
+                // Setze Standard auf jetzt + 1 Stunde (gerundet auf 5 Min)
+                const defaultTime = new Date();
+                defaultTime.setHours(defaultTime.getHours() + 1);
+                
+                // 🔧 Runde auf nächste 5 Minuten
+                const roundedMinutes = Math.ceil(defaultTime.getMinutes() / 5) * 5;
+                defaultTime.setMinutes(roundedMinutes % 60);
+                if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
+                
+                // Setze Werte
+                const dateInput = document.getElementById('custom-date');
+                const hourSelect = document.getElementById('custom-hour');
+                const minuteSelect = document.getElementById('custom-minute');
+                
+                // Datum im Format YYYY-MM-DD
+                const year = defaultTime.getFullYear();
+                const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
+                const day = String(defaultTime.getDate()).padStart(2, '0');
+                dateInput.value = `${year}-${month}-${day}`;
+                
+                // Minimum-Datum auf heute setzen
+                const today = new Date();
+                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                dateInput.min = todayStr;
+                
+                // Stunde und Minute
+                hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
+                minuteSelect.value = String(defaultTime.getMinutes()).padStart(2, '0');
+                
+            } else {
                 datetimeContainer.style.display = 'none';
                 if (helpText) helpText.style.display = 'none';
             }
@@ -7614,20 +7757,21 @@
                 pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 console.log('✅ Abholort gespeichert:', address, pickupCoords);
                 
-                // 🆕 v5.26.14i: LOADING-FEEDBACK auch bei Autocomplete!
-                const display = document.getElementById('available-taxis-display');
-                display.innerHTML = `
-                    <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                        <div style="font-size:20px;margin-bottom:10px;">📍</div>
-                        <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
-                        <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
-                    </div>
-                `;
-                
-                // Nach 1 Sekunde: Zeige Taxis
-                setTimeout(() => {
-                    showAvailableTaxis();
-                }, 1000);
+                // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
+                if (currentRideType === 'sofort') {
+                    const display = document.getElementById('available-taxis-display');
+                    display.innerHTML = `
+                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                            <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        showAvailableTaxis();
+                    }, 1000);
+                }
             } else {
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 console.log('✅ Zielort gespeichert:', address, destCoords);
@@ -7658,19 +7802,21 @@
                         document.getElementById('pickup').value = addressString;
                         console.log('✅ Adresse aufgelöst:', addressString);
                         
-                        // 🆕 v5.26.14i: LOADING-FEEDBACK auch bei GPS!
-                        const display = document.getElementById('available-taxis-display');
-                        display.innerHTML = `
-                            <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                                <div style="font-size:20px;margin-bottom:10px;">📍</div>
-                                <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
-                                <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
-                            </div>
-                        `;
-                        
-                        setTimeout(() => {
-                            showAvailableTaxis();
-                        }, 1000);
+                        // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
+                        if (currentRideType === 'sofort') {
+                            const display = document.getElementById('available-taxis-display');
+                            display.innerHTML = `
+                                <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                                    <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                                    <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                                    <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                                </div>
+                            `;
+                            
+                            setTimeout(() => {
+                                showAvailableTaxis();
+                            }, 1000);
+                        }
                     } catch (e) {
                         console.error('❌ Reverse Geocoding Fehler:', e);
                         document.getElementById('pickup').value = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
@@ -8259,7 +8405,6 @@
             
             const customerName = document.getElementById('customer-name').value.trim();
             const customerPhone = document.getElementById('customer-phone').value.trim();
-            const pickupTimeSelect = document.getElementById('pickup-time').value;
             
             if (!customerName) {
                 alert('❌ Bitte Name eingeben!');
@@ -8272,66 +8417,96 @@
                 return;
             }
             
+            // 🆕 v5.30.0: Nutze currentRideType statt pickup-time Select
             let pickupTime = 'Sofort';
-            // 🆕 SOFORT = +5 Min Vorlauf für Logik-Stabilität (verhindert "Vergangenheit"-Probleme)
-            let pickupTimestamp = Date.now() + 5 * 60000;
+            let pickupTimestamp = Date.now() + 5 * 60000; // +5 Min Vorlauf
+            let rideStatus = 'new';
             const now = new Date();
             
-            if (pickupTimeSelect === '15min') {
-                pickupTime = new Date(now.getTime() + 15 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                pickupTimestamp = now.getTime() + 15 * 60000;
-            } else if (pickupTimeSelect === '30min') {
-                pickupTime = new Date(now.getTime() + 30 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                pickupTimestamp = now.getTime() + 30 * 60000;
-            } else if (pickupTimeSelect === '1h') {
-                pickupTime = new Date(now.getTime() + 60 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                pickupTimestamp = now.getTime() + 60 * 60000;
-            } else if (pickupTimeSelect === 'datetime') {
-                // 🆕 Datum & Zeit aus neuen Feldern
-                const dateVal = document.getElementById('custom-date').value;
-                const hourVal = document.getElementById('custom-hour').value;
-                const minuteVal = document.getElementById('custom-minute').value;
+            if (currentRideType === 'sofort') {
+                // ⚡ SOFORT-Buchung
+                pickupTime = 'Sofort';
+                pickupTimestamp = Date.now() + 5 * 60000;
+                rideStatus = 'new';
                 
-                if (!dateVal) {
-                    alert('❌ Bitte Datum auswählen!');
+            } else if (currentRideType === 'vorbestellen') {
+                // 📅 VORBESTELL-Buchung
+                const presetSelect = document.getElementById('pickup-time-preset');
+                
+                if (!presetSelect) {
+                    alert('❌ Bitte wähle "SOFORT" oder "VORBESTELLEN"!');
                     return;
                 }
                 
-                const selectedDate = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`);
-                pickupTimestamp = selectedDate.getTime();
+                const pickupTimeSelect = presetSelect.value;
                 
-                // Formatiere als "22.11.2024, 08:00"
-                pickupTime = selectedDate.toLocaleString('de-DE', { 
-                    day: '2-digit', 
-                    month: '2-digit', 
-                    year: 'numeric',
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
-                
-                // Prüfe ob in der Vergangenheit
-                if (pickupTimestamp < Date.now()) {
-                    alert('❌ Die Abholzeit liegt in der Vergangenheit!\n\nBitte wähle eine Zeit in der Zukunft.');
-                    return;
+                if (pickupTimeSelect === '15min') {
+                    pickupTime = new Date(now.getTime() + 15 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    pickupTimestamp = now.getTime() + 15 * 60000;
+                } else if (pickupTimeSelect === '30min') {
+                    pickupTime = new Date(now.getTime() + 30 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    pickupTimestamp = now.getTime() + 30 * 60000;
+                } else if (pickupTimeSelect === '1h') {
+                    pickupTime = new Date(now.getTime() + 60 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    pickupTimestamp = now.getTime() + 60 * 60000;
+                } else if (pickupTimeSelect === '2h') {
+                    pickupTime = new Date(now.getTime() + 120 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    pickupTimestamp = now.getTime() + 120 * 60000;
+                } else if (pickupTimeSelect === 'datetime') {
+                    // Datum & Zeit aus neuen Feldern
+                    const dateVal = document.getElementById('custom-date').value;
+                    const hourVal = document.getElementById('custom-hour').value;
+                    const minuteVal = document.getElementById('custom-minute').value;
+                    
+                    if (!dateVal) {
+                        alert('❌ Bitte Datum auswählen!');
+                        return;
+                    }
+                    
+                    const selectedDate = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`);
+                    pickupTimestamp = selectedDate.getTime();
+                    
+                    // Formatiere als "22.11.2024, 08:00"
+                    pickupTime = selectedDate.toLocaleString('de-DE', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    
+                    // Prüfe ob in der Vergangenheit
+                    if (pickupTimestamp < Date.now()) {
+                        alert('❌ Die Abholzeit liegt in der Vergangenheit!\n\nBitte wähle eine Zeit in der Zukunft.');
+                        return;
+                    }
+                    
+                    // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)
+                    const daysDiff = (pickupTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
+                    if (daysDiff > 7) {
+                        const confirm = window.confirm(
+                            `📅 Buchung für ${Math.floor(daysDiff)} Tage im Voraus\n\n` +
+                            `Abholung: ${pickupTime}\n\n` +
+                            `Möchtest du diese Vorausbuchung bestätigen?`
+                        );
+                        if (!confirm) return;
+                    }
                 }
                 
-                // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)
-                const daysDiff = (pickupTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
-                if (daysDiff > 7) {
-                    const confirm = window.confirm(
-                        `📅 Buchung für ${Math.floor(daysDiff)} Tage im Voraus\n\n` +
-                        `Abholung: ${pickupTime}\n\n` +
-                        `Möchtest du diese Vorausbuchung bestätigen?`
-                    );
-                    if (!confirm) return;
-                }
+                // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
+                const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
+                
+                // ⚡ Sofort (≤15 Min) vs 📅 Vorbestellung (>15 Min)
+                rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
+                
+            } else {
+                // Kein Ride-Type gewählt
+                alert('❌ Bitte wähle:\n\n⚡ SOFORT oder\n📅 VORBESTELLEN');
+                return;
             }
             
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
-            
-            // ⚡ Sofort (≤15 Min) vs 📅 Vorbestellung (>15 Min)
-            const rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
             
             const ride = {
                 id: Date.now(),
@@ -17248,82 +17423,98 @@ Stack: ${err.stack}
         function useSavedLocation(field, address, lat, lon) {
             document.getElementById(field).value = address;
             
-            // 🔧 v5.29.3: FIX - Wenn KEINE Koordinaten gespeichert, hole sie via Geocoding!
+            // 🔧 v5.30.0: FIX - Wenn KEINE Koordinaten gespeichert, hole sie via Geocoding!
             if (lat !== null && lon !== null) {
                 // Koordinaten vorhanden - nutze sie direkt!
                 if (field === 'pickup') {
                     pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                     console.log('✅ Pickup-Koordinaten gesetzt:', pickupCoords);
                     
-                    // LOADING-FEEDBACK!
-                    const display = document.getElementById('available-taxis-display');
-                    display.innerHTML = `
-                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
-                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
-                            <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
-                        </div>
-                    `;
-                    
-                    // Nach 1 Sekunde: Zeige Taxis
-                    setTimeout(() => {
-                        showAvailableTaxis(); // Trigger GPS-Suche für nächsten Fahrer!
-                    }, 1000);
+                    // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
+                    if (currentRideType === 'sofort') {
+                        const display = document.getElementById('available-taxis-display');
+                        display.innerHTML = `
+                            <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                                <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                                <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                                <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                            </div>
+                        `;
+                        
+                        setTimeout(() => {
+                            showAvailableTaxis();
+                        }, 1000);
+                    }
                 } else {
                     destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                     console.log('✅ Ziel-Koordinaten gesetzt:', destCoords);
                 }
             } else {
-                // 🆕 v5.29.3: KEINE Koordinaten gespeichert - hole sie via Forward Geocoding!
+                // 🆕 v5.30.0: KEINE Koordinaten gespeichert - hole sie via Forward Geocoding!
                 console.log('⚠️ Keine Koordinaten gespeichert - hole via Geocoding:', address);
                 
                 if (field === 'pickup') {
-                    // Zeige Loading-Feedback
-                    const display = document.getElementById('available-taxis-display');
-                    display.innerHTML = `
-                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                            <div style="font-size:20px;margin-bottom:10px;">🔍</div>
-                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Suche Koordinaten...</div>
-                            <div style="font-size:13px;opacity:0.9;">Bitte warten...</div>
-                        </div>
-                    `;
-                    
-                    // Forward Geocoding: Adresse → Koordinaten
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data && data.length > 0) {
-                                pickupCoords = { 
-                                    lat: parseFloat(data[0].lat), 
-                                    lon: parseFloat(data[0].lon) 
-                                };
-                                console.log('✅ Koordinaten via Geocoding gefunden:', pickupCoords);
-                                
-                                // Zeige Taxis
-                                setTimeout(() => {
-                                    showAvailableTaxis();
-                                }, 500);
-                            } else {
-                                console.error('❌ Keine Koordinaten gefunden für:', address);
+                    // 🆕 v5.30.0: NUR bei "Sofort" Loading zeigen und Taxis laden!
+                    if (currentRideType === 'sofort') {
+                        const display = document.getElementById('available-taxis-display');
+                        display.innerHTML = `
+                            <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                                <div style="font-size:20px;margin-bottom:10px;">🔍</div>
+                                <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Suche Koordinaten...</div>
+                                <div style="font-size:13px;opacity:0.9;">Bitte warten...</div>
+                            </div>
+                        `;
+                        
+                        // Forward Geocoding: Adresse → Koordinaten
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data && data.length > 0) {
+                                    pickupCoords = { 
+                                        lat: parseFloat(data[0].lat), 
+                                        lon: parseFloat(data[0].lon) 
+                                    };
+                                    console.log('✅ Koordinaten via Geocoding gefunden:', pickupCoords);
+                                    
+                                    setTimeout(() => {
+                                        showAvailableTaxis();
+                                    }, 500);
+                                } else {
+                                    console.error('❌ Keine Koordinaten gefunden für:', address);
+                                    display.innerHTML = `
+                                        <div style="padding:15px;background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;margin-top:10px;text-align:center;">
+                                            <div style="font-size:18px;margin-bottom:8px;">⚠️</div>
+                                            <div style="font-weight:600;color:#92400e;margin-bottom:5px;">Adresse nicht gefunden</div>
+                                            <div style="font-size:13px;color:#78350f;">Bitte Favorit neu speichern</div>
+                                        </div>
+                                    `;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('❌ Geocoding-Fehler:', error);
                                 display.innerHTML = `
-                                    <div style="padding:15px;background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;margin-top:10px;text-align:center;">
-                                        <div style="font-size:18px;margin-bottom:8px;">⚠️</div>
-                                        <div style="font-weight:600;color:#92400e;margin-bottom:5px;">Adresse nicht gefunden</div>
-                                        <div style="font-size:13px;color:#78350f;">Bitte Favorit neu speichern</div>
+                                    <div style="padding:15px;background:#fef2f2;border:2px solid #ef4444;border-radius:12px;margin-top:10px;text-align:center;">
+                                        <div style="font-size:18px;margin-bottom:8px;">❌</div>
+                                        <div style="font-weight:600;color:#991b1b;margin-bottom:5px;">Fehler beim Laden</div>
+                                        <div style="font-size:13px;color:#7f1d1d;">Bitte Favorit neu speichern</div>
                                     </div>
                                 `;
-                            }
-                        })
-                        .catch(error => {
-                            console.error('❌ Geocoding-Fehler:', error);
-                            display.innerHTML = `
-                                <div style="padding:15px;background:#fef2f2;border:2px solid #ef4444;border-radius:12px;margin-top:10px;text-align:center;">
-                                    <div style="font-size:18px;margin-bottom:8px;">❌</div>
-                                    <div style="font-weight:600;color:#991b1b;margin-bottom:5px;">Fehler beim Laden</div>
-                                    <div style="font-size:13px;color:#7f1d1d;">Bitte Favorit neu speichern</div>
-                                </div>
-                            `;
-                        });
+                            });
+                    } else {
+                        // Bei "Vorbestellen": Hole Koordinaten trotzdem (für Distanz-Berechnung), aber zeige keine Taxis
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data && data.length > 0) {
+                                    pickupCoords = { 
+                                        lat: parseFloat(data[0].lat), 
+                                        lon: parseFloat(data[0].lon) 
+                                    };
+                                    console.log('✅ Koordinaten via Geocoding gefunden:', pickupCoords);
+                                }
+                            })
+                            .catch(error => console.error('❌ Geocoding-Fehler:', error));
+                    }
                 } else {
                     // Destination: Auch Koordinaten holen
                     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
@@ -17339,7 +17530,6 @@ Stack: ${err.stack}
                         })
                         .catch(error => console.error('❌ Geocoding-Fehler (Ziel):', error));
                 }
-            }
             }
             
             console.log('✅ Gespeicherter Ort verwendet:', address);

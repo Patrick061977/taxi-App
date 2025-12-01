@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.30.1 - Build 20251201-0630');
-        console.log('⚡ SOFORT/VORBESTELLEN BUTTONS - Firebase-Fix bestätigt!');
+        console.log('🚕 Funk Taxi App v5.30.2 - Build 20251201-0830');
+        console.log('🔧 TypeError Fix - Alle pickup-time Referenzen gesichert!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -301,7 +301,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.1 - Fix bestätigt ✅ (Build 20251201-0630)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.30.2 - TypeError Fix 🔧 (Build 20251201-0830)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3074,8 +3074,11 @@
         }
 
         // 📅 DATUM & ZEIT PICKER
+        // NOTE: Diese Funktion wird in v5.30.0 nicht mehr verwendet (Sofort/Vorbestellen UX)
         function handlePickupTimeChange() {
             const select = document.getElementById('pickup-time');
+            if (!select) return; // Element existiert nicht mehr in v5.30.0
+            
             const datetimePicker = document.getElementById('custom-datetime');
             const datetimeContainer = document.getElementById('custom-datetime-container');
             const helpText = document.getElementById('datetime-help');
@@ -7631,13 +7634,18 @@
                 });
             });
             
-            document.getElementById('pickup-time').addEventListener('change', (e) => {
-                const customTime = document.getElementById('custom-time');
-                if (customTime) {  // NULL-CHECK!
-                    if (e.target.value === 'custom') customTime.style.display = 'block';
-                    else customTime.style.display = 'none';
-                }
-            });
+            // NOTE: pickup-time Element entfernt in v5.30.0 (Sofort/Vorbestellen UX)
+            // Alter Event-Listener nicht mehr benötigt
+            const oldPickupTime = document.getElementById('pickup-time');
+            if (oldPickupTime) {
+                oldPickupTime.addEventListener('change', (e) => {
+                    const customTime = document.getElementById('custom-time');
+                    if (customTime) {
+                        if (e.target.value === 'custom') customTime.style.display = 'block';
+                        else customTime.style.display = 'none';
+                    }
+                });
+            }
         }
 
         async function searchAddresses(query, inputId) {
@@ -7964,7 +7972,9 @@
             // Felder leeren
             document.getElementById('pickup').value = '';
             document.getElementById('destination').value = '';
-            document.getElementById('pickup-time').value = 'jetzt';
+            // NOTE: pickup-time Element entfernt in v5.30.0
+            const oldPickupTime = document.getElementById('pickup-time');
+            if (oldPickupTime) oldPickupTime.value = 'jetzt';
             document.getElementById('passengers').value = '1';
             
             // Karte verstecken
@@ -8027,7 +8037,9 @@
             const route = await calculateRoute(pickupCoords, destCoords);
             
             // Hole Abholzeit für korrekte Tarifberechnung
-            const pickupTimeSelect = document.getElementById('pickup-time').value;
+            // 🆕 v5.30.0: Alte pickup-time gibt es nicht mehr, nutze Fallback
+            const oldPickupTimeElem = document.getElementById('pickup-time');
+            const pickupTimeSelect = oldPickupTimeElem ? oldPickupTimeElem.value : 'sofort';
             // 🆕 SOFORT = +5 Min Vorlauf für Logik-Stabilität
             let pickupTimestamp = Date.now() + 5 * 60000;
             
@@ -9332,7 +9344,8 @@
             document.getElementById('destination').value = '';
             
             // Zurücksetzen auf Default-Werte
-            document.getElementById('pickup-time').value = 'jetzt';
+            const oldPickupTime = document.getElementById('pickup-time');
+            if (oldPickupTime) oldPickupTime.value = 'jetzt';
             document.getElementById('passengers').value = '1';
             
             // datetime Felder ausblenden falls sichtbar

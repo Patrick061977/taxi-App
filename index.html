@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5k - Build 20251202-2020');
-        console.log('📅 Altes Vorbestell-Modal zurück: "Vorbestellung bestätigt"');
+        console.log('🚕 Funk Taxi App v5.32.5L - Build 20251202-2050');
+        console.log('📋 Vorbestell-Card statt Modal + OK löscht Formular');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5k - Vorbestell-Modal Fix 📅 (Build 20251202-2020)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5L - Card statt Modal 📋 (Build 20251202-2050)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9404,8 +9404,9 @@
                     await sendCustomerNotifications(savedRide);
                 }
                 
-                // 🆕 v5.32.5f: Zeige schönes Übersichts-Modal statt Alert!
-                showPreorderSummary(savedRide);
+                // 🆕 v5.32.5L: Zeige CARD statt Modal!
+                document.getElementById('booking-form').style.display = 'none';
+                showRideStatus(savedRide);
             } else {
                 // 📱 TELEGRAM für Sofort-Fahrt senden!
                 if (isFirebaseReady) {
@@ -10082,7 +10083,9 @@
             
             // Bestätigung zeigen
             if (bookingData.status === 'vorbestellt') {
-                showPreorderSummary(bookingData);
+                // 🆕 v5.32.5L: Zeige CARD statt Modal!
+                document.getElementById('booking-form').style.display = 'none';
+                showRideStatus(bookingData);
             } else {
                 alert(
                     '✅ Buchung erfolgreich!\n\n' +
@@ -16737,18 +16740,17 @@ Stack: ${err.stack}
         }
         
         function closeFutureRide(rideId) {
-            // Fahrt bleibt in Firebase und im Verlauf gespeichert
-            // Display wird nur frei gemacht
+            // 🆕 v5.32.5L: Einfach zurück zum leeren Formular
             localStorage.removeItem('myCurrentRideId');
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
             
-            // 🆕 FORMULAR KOMPLETT ZURÜCKSETZEN
+            // Formular komplett zurücksetzen
             resetBookingForm();
             
-            document.getElementById('confirm').innerHTML = '<div class="alert-success">✓ Fahrt gespeichert! Du findest sie unter "Verlauf" → "Kommende Fahrten"</div>';
-            setTimeout(() => document.getElementById('confirm').innerHTML = '', 5000);
+            // Verlauf aktualisieren
+            updateHistoryView();
         }
 
         function loadHistory() {

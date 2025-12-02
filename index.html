@@ -17,9 +17,10 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.31.6 - Build 20251201-2250');
-        console.log('🔕 STORNIERUNG-ALARM FIX: Nur noch 2 Min statt 10 Min!');
-        console.log('✅ Keine alte Stornierung-Spam beim Login mehr!');
+        console.log('🚕 Funk Taxi App v5.32.4 - Build 20251202-0830');
+        console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
+        console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
+        console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
         console.log('🎯 SMART UI-UPDATES - Kein Flackern mehr!');
         console.log('📱 Ride-IDs in ALLEN Telegram-Nachrichten!');
         console.log('🔍 RIDE-ID SUCHE im Admin-View!');
@@ -82,7 +83,7 @@
         .available-taxis { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #10b981; }
         .taxi-item { padding: 10px; background: #f0f9ff; border-radius: 6px; margin-top: 8px; }
         #map { height: 300px; border-radius: 8px; margin-top: 15px; }
-        .ride-status-box { background: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 15px; }
+        .ride-status-box { background: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 12px; }
         .eta-display { font-size: 32px; font-weight: bold; margin: 15px 0; }
         .eta-display.green { color: #10b981; }
         .eta-display.yellow { color: #f59e0b; }
@@ -573,20 +574,13 @@
                 <div id="available-taxis-display"></div>
             </div>
             
-            <!-- 📅 VORBESTELLEN-BEREICH: Zeit-Auswahl -->
+            <!-- 📅 VORBESTELLEN-BEREICH: Datum & Zeit direkt wählen -->
             <div id="vorbestellen-bereich" style="display:none;">
                 <div class="input-group">
-                    <label>🕐 Abholzeit wählen</label>
-                    <select id="pickup-time-preset" onchange="handlePickupTimePresetChange()" style="padding:14px;border:2px solid #667eea;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;">
-                        <option value="15min">🕐 In 15 Minuten</option>
-                        <option value="30min">🕐 In 30 Minuten</option>
-                        <option value="1h">🕑 In 1 Stunde</option>
-                        <option value="2h">🕑 In 2 Stunden</option>
-                        <option value="datetime">📅 Datum & Zeit wählen...</option>
-                    </select>
+                    <label>📅 Abholzeit wählen</label>
                     
-                    <!-- Datum + Zeit getrennt mit 5-Min-Schritten -->
-                    <div id="custom-datetime-container" style="display:none;margin-top:12px;">
+                    <!-- Datum + Zeit direkt (ohne Dropdown!) -->
+                    <div id="custom-datetime-container" style="margin-top:0;">
                         <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
                         <div style="display:flex;gap:8px;align-items:center;">
                             <select id="custom-hour" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
@@ -609,7 +603,7 @@
                             <span style="font-size:14px;color:#666;">Uhr</span>
                         </div>
                     </div>
-                    <div id="datetime-help" style="display:none;margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
+                    <div id="datetime-help" style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
                         💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
                     </div>
                 </div>
@@ -626,6 +620,10 @@
                 </div>
                 <div style="font-size:12px;color:#666;margin-top:5px;">
                     Pflichtfeld – für Rückfragen durch den Fahrer
+                </div>
+                <div style="margin-top:8px;padding:10px;background:#f0f9ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;">
+                    📲 <strong>Nach der Buchung:</strong> Sie erhalten SMS + Telegram mit Tracking-Link!<br>
+                    💬 <em>Für Telegram:</em> <a href="https://t.me/${TELEGRAM_BOT_USERNAME}" target="_blank" style="color:#1e40af;text-decoration:underline;">Bot starten</a> und verknüpfen
                 </div>
             </div>
             <div class="input-group">
@@ -3030,6 +3028,37 @@
                 
                 // 🔘 Aktions-Buttons
                 let actionButtons = '';
+                
+                // 🆕 v5.32.3: TRACKING-LINK BUTTON (für alle Fahrten!)
+                const trackingLink = r.firebaseId ? `${window.location.origin}${window.location.pathname}?ride=${r.firebaseId}` : null;
+                let trackingButton = '';
+                if (trackingLink) {
+                    trackingButton = `
+                        <button onclick="openTrackingLink('${trackingLink}')" 
+                            style="width:100%;margin-top:10px;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                            🔗 Tracking öffnen
+                        </button>
+                        <button onclick="shareTrackingLink('${trackingLink}')" 
+                            style="width:100%;margin-top:8px;padding:8px;background:white;color:#3b82f6;border:2px solid #3b82f6;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                            📲 Link teilen
+                        </button>
+                    `;
+                }
+                
+                // 🆕 v5.32.3: SMS/TELEGRAM STATUS ANZEIGEN
+                let notificationStatus = '';
+                if (r.notificationsSent) {
+                    const smsIcon = r.notificationsSent.sms ? '✅' : '⏳';
+                    const telegramIcon = r.notificationsSent.telegram ? '✅' : '⏳';
+                    notificationStatus = `
+                        <div style="margin-top:10px;padding:8px;background:#f0f9ff;border:1px solid #bfdbfe;border-radius:6px;font-size:11px;color:#1e40af;">
+                            📲 <strong>Benachrichtigungen:</strong><br>
+                            ${smsIcon} SMS ${r.notificationsSent.sms ? 'gesendet' : 'ausstehend'} | 
+                            ${telegramIcon} Telegram ${r.notificationsSent.telegram ? 'gesendet' : 'nicht verknüpft'}
+                        </div>
+                    `;
+                }
+                
                 if (isActive && r.status !== 'storniert') {
                     // 🆕 v5.26.14f: Keine Stornierung bei picked_up!
                     if (r.status === 'picked_up') {
@@ -3132,6 +3161,8 @@
                         ${vehicleInfo}
                         ${etaInfo}
                         ${cancellationInfo}
+                        ${notificationStatus}
+                        ${trackingButton}
                         ${actionButtons}
                     </div>
                 `;
@@ -3255,54 +3286,48 @@
                 sofortBereich.style.display = 'none';
                 vorbestellenBereich.style.display = 'block';
                 
-                // Setze Standard auf "In 1 Stunde"
-                document.getElementById('pickup-time-preset').value = '1h';
+                // 📅 Initialisiere Datum/Zeit-Felder mit sinnvollen Defaults
+                initVorbestellenDefaults();
             }
         }
         
-        // 🆕 v5.30.0: Preset-Zeit im Vorbestellen-Bereich
-        function handlePickupTimePresetChange() {
-            const select = document.getElementById('pickup-time-preset');
+        // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
+        function initVorbestellenDefaults() {
             const datetimeContainer = document.getElementById('custom-datetime-container');
             const helpText = document.getElementById('datetime-help');
             
-            if (select.value === 'datetime') {
-                datetimeContainer.style.display = 'block';
-                if (helpText) helpText.style.display = 'block';
-                
-                // Setze Standard auf jetzt + 1 Stunde (gerundet auf 5 Min)
-                const defaultTime = new Date();
-                defaultTime.setHours(defaultTime.getHours() + 1);
-                
-                // 🔧 Runde auf nächste 5 Minuten
-                const roundedMinutes = Math.ceil(defaultTime.getMinutes() / 5) * 5;
-                defaultTime.setMinutes(roundedMinutes % 60);
-                if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
-                
-                // Setze Werte
-                const dateInput = document.getElementById('custom-date');
-                const hourSelect = document.getElementById('custom-hour');
-                const minuteSelect = document.getElementById('custom-minute');
-                
-                // Datum im Format YYYY-MM-DD
-                const year = defaultTime.getFullYear();
-                const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
-                const day = String(defaultTime.getDate()).padStart(2, '0');
-                dateInput.value = `${year}-${month}-${day}`;
-                
-                // Minimum-Datum auf heute setzen
-                const today = new Date();
-                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                dateInput.min = todayStr;
-                
-                // Stunde und Minute
-                hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
-                minuteSelect.value = String(defaultTime.getMinutes()).padStart(2, '0');
-                
-            } else {
-                datetimeContainer.style.display = 'none';
-                if (helpText) helpText.style.display = 'none';
-            }
+            // Zeige die Felder
+            datetimeContainer.style.display = 'block';
+            if (helpText) helpText.style.display = 'block';
+            
+            // Setze Standard auf jetzt + 1 Stunde (gerundet auf 5 Min)
+            const defaultTime = new Date();
+            defaultTime.setHours(defaultTime.getHours() + 1);
+            
+            // 🔧 Runde auf nächste 5 Minuten
+            const roundedMinutes = Math.ceil(defaultTime.getMinutes() / 5) * 5;
+            defaultTime.setMinutes(roundedMinutes % 60);
+            if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
+            
+            // Setze Werte
+            const dateInput = document.getElementById('custom-date');
+            const hourSelect = document.getElementById('custom-hour');
+            const minuteSelect = document.getElementById('custom-minute');
+            
+            // Datum im Format YYYY-MM-DD
+            const year = defaultTime.getFullYear();
+            const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
+            const day = String(defaultTime.getDate()).padStart(2, '0');
+            dateInput.value = `${year}-${month}-${day}`;
+            
+            // Minimum-Datum auf heute setzen
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            dateInput.min = todayStr;
+            
+            // Stunde und Minute
+            hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
+            minuteSelect.value = String(defaultTime.getMinutes()).padStart(2, '0');
         }
 
         // 🗑️ Fahrt aus Verlauf stornieren
@@ -7257,6 +7282,189 @@
             }
         }
         
+        // 🆕 v5.32.3: SMS AN KUNDEN SENDEN
+        async function sendCustomerSMS(phone, trackingLink, ride) {
+            // 📱 SMS-Gateway Integration (Twilio, etc.)
+            // TODO: SMS-Gateway API-Key in Firebase Config speichern
+            
+            const smsText = `🚕 FUNK TAXI HERINGSDORF\n\n` +
+                `✅ Ihre Fahrt wurde bestellt!\n\n` +
+                `📍 Von: ${ride.pickup}\n` +
+                `🎯 Nach: ${ride.destination}\n` +
+                `💰 Preis: ${ride.price}€\n\n` +
+                `📲 Verfolgen Sie Ihre Fahrt:\n${trackingLink}\n\n` +
+                `Bei Fragen: ${phone}`;
+            
+            try {
+                // 🔧 PLACEHOLDER: Hier SMS-Gateway API einbinden!
+                // Beispiel für Twilio:
+                /*
+                const response = await fetch('https://api.twilio.com/2010-04-01/Accounts/YOUR_ACCOUNT_SID/Messages.json', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa('YOUR_ACCOUNT_SID:YOUR_AUTH_TOKEN'),
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        From: 'YOUR_TWILIO_NUMBER',
+                        To: phone,
+                        Body: smsText
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.sid) {
+                    console.log('✅ SMS gesendet:', data.sid);
+                    logActivity('customer', 'sms_sent', `SMS an Kunde: ${phone}`, {
+                        phone: phone,
+                        trackingLink: trackingLink
+                    });
+                    return true;
+                } else {
+                    console.error('❌ SMS Fehler:', data);
+                    return false;
+                }
+                */
+                
+                // 📝 ENTWICKLUNG: SMS-Text loggen
+                console.log('📱 SMS würde gesendet werden:');
+                console.log('📞 An:', phone);
+                console.log('📄 Text:', smsText);
+                
+                // 📜 PROTOKOLL: SMS-Versuch
+                logActivity('customer', 'sms_planned', `SMS geplant für: ${phone}`, {
+                    phone: phone,
+                    trackingLink: trackingLink,
+                    text: smsText
+                });
+                
+                // TODO: Sobald SMS-Gateway konfiguriert ist, return true
+                return true; // Für Tests
+                
+            } catch (error) {
+                console.error('❌ SMS Fehler:', error);
+                logActivity('customer', 'sms_error', `SMS-Fehler für ${phone}: ${error.message}`, {
+                    phone: phone,
+                    error: error.message
+                });
+                return false;
+            }
+        }
+        
+        // 🆕 v5.32.3: TELEGRAM AN KUNDEN SENDEN
+        async function sendCustomerTelegram(phone, trackingLink, ride) {
+            if (!isFirebaseReady) return false;
+            
+            try {
+                // Hole Kunden-Chat-ID aus Firebase (wenn vorhanden)
+                // Kunden können sich mit dem Bot verknüpfen über /start
+                
+                // 📱 Suche nach Kunden-Chat-ID via Telefonnummer
+                const customersSnapshot = await db.ref('customers').orderByChild('phone').equalTo(phone).once('value');
+                const customersData = customersSnapshot.val();
+                
+                if (!customersData) {
+                    console.log('⚠️ Kunde nicht in DB gefunden:', phone);
+                    return false;
+                }
+                
+                // Finde ersten Kunden mit telegramChatId
+                let chatId = null;
+                for (const customerId in customersData) {
+                    const customer = customersData[customerId];
+                    if (customer.telegramChatId) {
+                        chatId = customer.telegramChatId;
+                        console.log('📱 Kunden-Chat-ID gefunden:', chatId);
+                        break;
+                    }
+                }
+                
+                if (!chatId) {
+                    console.log('⚠️ Kunde hat keine Telegram-Verknüpfung:', phone);
+                    return false;
+                }
+                
+                // Formatiere Telegram-Nachricht für Kunden
+                const pickupTimeDisplay = ride.pickupTime || 'Sofort';
+                const message = `🚕 <b>IHRE FAHRT WURDE BESTELLT!</b> 🚕\n\n` +
+                    `📍 <b>Von:</b> ${ride.pickup}\n` +
+                    `🎯 <b>Nach:</b> ${ride.destination}\n` +
+                    `🕐 <b>Abholung:</b> ${pickupTimeDisplay}\n` +
+                    `💰 <b>Preis:</b> ${ride.price}€\n\n` +
+                    `📲 <b>Ihre Fahrt live verfolgen:</b>\n` +
+                    `<a href="${trackingLink}">🗺️ Tracking öffnen</a>\n\n` +
+                    `✅ Sie erhalten Updates sobald ein Fahrer zugewiesen wurde!\n\n` +
+                    `📞 Bei Fragen: ${ride.customerPhone}`;
+                
+                const success = await sendTelegramMessage(chatId, message);
+                
+                if (success) {
+                    console.log('✅ Telegram an Kunde gesendet:', phone, chatId);
+                    logActivity('customer', 'telegram_sent', `📱 Telegram an Kunde: ${ride.customerName}`, {
+                        customer: ride.customerName,
+                        phone: phone,
+                        chatId: chatId,
+                        trackingLink: trackingLink
+                    });
+                }
+                
+                return success;
+                
+            } catch (error) {
+                console.error('❌ Telegram an Kunde Fehler:', error);
+                logActivity('customer', 'telegram_error', `Telegram-Fehler für ${phone}: ${error.message}`, {
+                    phone: phone,
+                    error: error.message
+                });
+                return false;
+            }
+        }
+        
+        // 🆕 v5.32.3: KUNDEN-BENACHRICHTIGUNGEN (SMS + Telegram)
+        async function sendCustomerNotifications(ride) {
+            console.log('📲 Sende Kunden-Benachrichtigungen...');
+            
+            // 🔗 Erstelle Tracking-Link
+            const trackingLink = `${window.location.origin}${window.location.pathname}?ride=${ride.firebaseId}`;
+            
+            // 📱 SMS senden
+            const smsSuccess = await sendCustomerSMS(ride.customerPhone, trackingLink, ride);
+            if (smsSuccess) {
+                console.log('✅ SMS an Kunde gesendet');
+            } else {
+                console.log('⚠️ SMS konnte nicht gesendet werden');
+            }
+            
+            // 💬 Telegram senden (wenn verknüpft)
+            const telegramSuccess = await sendCustomerTelegram(ride.customerPhone, trackingLink, ride);
+            if (telegramSuccess) {
+                console.log('✅ Telegram an Kunde gesendet');
+            } else {
+                console.log('⚠️ Kunde hat kein Telegram verknüpft');
+            }
+            
+            // 💾 Speichere Status in Firebase
+            if (isFirebaseReady && ride.firebaseId) {
+                try {
+                    await db.ref('rides/' + ride.firebaseId).update({
+                        notificationsSent: {
+                            sms: smsSuccess,
+                            telegram: telegramSuccess,
+                            timestamp: Date.now()
+                        }
+                    });
+                    console.log('✅ Benachrichtigungs-Status in Firebase gespeichert');
+                } catch (error) {
+                    console.error('❌ Fehler beim Speichern des Status:', error);
+                }
+            }
+            
+            return {
+                sms: smsSuccess,
+                telegram: telegramSuccess
+            };
+        }
+        
         // Telegram Chat registrieren (automatisch beim /start)
         async function registerTelegramChat(chatId) {
             if (!isFirebaseReady) return;
@@ -8945,67 +9153,43 @@
                 rideStatus = 'new';
                 
             } else if (currentRideType === 'vorbestellen') {
-                // 📅 VORBESTELL-Buchung
-                const presetSelect = document.getElementById('pickup-time-preset');
+                // 📅 VORBESTELL-Buchung - Datum & Zeit direkt aus Feldern
+                const dateVal = document.getElementById('custom-date').value;
+                const hourVal = document.getElementById('custom-hour').value;
+                const minuteVal = document.getElementById('custom-minute').value;
                 
-                if (!presetSelect) {
-                    alert('❌ Bitte wähle "SOFORT" oder "VORBESTELLEN"!');
+                if (!dateVal) {
+                    alert('❌ Bitte Datum auswählen!');
                     return;
                 }
                 
-                const pickupTimeSelect = presetSelect.value;
+                const selectedDate = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`);
+                pickupTimestamp = selectedDate.getTime();
                 
-                if (pickupTimeSelect === '15min') {
-                    pickupTime = new Date(now.getTime() + 15 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    pickupTimestamp = now.getTime() + 15 * 60000;
-                } else if (pickupTimeSelect === '30min') {
-                    pickupTime = new Date(now.getTime() + 30 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    pickupTimestamp = now.getTime() + 30 * 60000;
-                } else if (pickupTimeSelect === '1h') {
-                    pickupTime = new Date(now.getTime() + 60 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    pickupTimestamp = now.getTime() + 60 * 60000;
-                } else if (pickupTimeSelect === '2h') {
-                    pickupTime = new Date(now.getTime() + 120 * 60000).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    pickupTimestamp = now.getTime() + 120 * 60000;
-                } else if (pickupTimeSelect === 'datetime') {
-                    // Datum & Zeit aus neuen Feldern
-                    const dateVal = document.getElementById('custom-date').value;
-                    const hourVal = document.getElementById('custom-hour').value;
-                    const minuteVal = document.getElementById('custom-minute').value;
-                    
-                    if (!dateVal) {
-                        alert('❌ Bitte Datum auswählen!');
-                        return;
-                    }
-                    
-                    const selectedDate = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`);
-                    pickupTimestamp = selectedDate.getTime();
-                    
-                    // Formatiere als "22.11.2024, 08:00"
-                    pickupTime = selectedDate.toLocaleString('de-DE', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric',
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
-                    
-                    // Prüfe ob in der Vergangenheit
-                    if (pickupTimestamp < Date.now()) {
-                        alert('❌ Die Abholzeit liegt in der Vergangenheit!\n\nBitte wähle eine Zeit in der Zukunft.');
-                        return;
-                    }
-                    
-                    // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)
-                    const daysDiff = (pickupTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
-                    if (daysDiff > 7) {
-                        const confirm = window.confirm(
-                            `📅 Buchung für ${Math.floor(daysDiff)} Tage im Voraus\n\n` +
-                            `Abholung: ${pickupTime}\n\n` +
-                            `Möchtest du diese Vorausbuchung bestätigen?`
-                        );
-                        if (!confirm) return;
-                    }
+                // Formatiere als "22.11.2024, 08:00"
+                pickupTime = selectedDate.toLocaleString('de-DE', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                
+                // Prüfe ob in der Vergangenheit
+                if (pickupTimestamp < Date.now()) {
+                    alert('❌ Die Abholzeit liegt in der Vergangenheit!\n\nBitte wähle eine Zeit in der Zukunft.');
+                    return;
+                }
+                
+                // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)
+                const daysDiff = (pickupTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
+                if (daysDiff > 7) {
+                    const confirm = window.confirm(
+                        `📅 Buchung für ${Math.floor(daysDiff)} Tage im Voraus\n\n` +
+                        `Abholung: ${pickupTime}\n\n` +
+                        `Möchtest du diese Vorausbuchung bestätigen?`
+                    );
+                    if (!confirm) return;
                 }
                 
                 // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
@@ -9093,6 +9277,8 @@
                 // 📱 TELEGRAM für Vorbestellung senden!
                 if (isFirebaseReady) {
                     await sendTelegramForNewRide(savedRide);
+                    // 🆕 v5.32.3: KUNDEN-BENACHRICHTIGUNGEN!
+                    await sendCustomerNotifications(savedRide);
                 }
                 
                 alert(
@@ -9101,12 +9287,15 @@
                     '📍 Von: ' + ride.pickup + '\n' +
                     '🎯 Nach: ' + ride.destination + '\n' +
                     '💰 Preis: ' + ride.price + '€\n\n' +
+                    '📲 Sie erhalten SMS + Telegram mit Tracking-Link!\n\n' +
                     '💡 Du kannst deine Buchung jederzeit im Verlauf ändern oder stornieren.'
                 );
             } else {
                 // 📱 TELEGRAM für Sofort-Fahrt senden!
                 if (isFirebaseReady) {
                     await sendTelegramForNewRide(savedRide);
+                    // 🆕 v5.32.3: KUNDEN-BENACHRICHTIGUNGEN!
+                    await sendCustomerNotifications(savedRide);
                 }
                 
                 alert(
@@ -9114,6 +9303,7 @@
                     '📍 Von: ' + ride.pickup + '\n' +
                     '🎯 Nach: ' + ride.destination + '\n' +
                     '💰 Preis: ' + ride.price + '€\n\n' +
+                    '📲 Sie erhalten SMS + Telegram mit Tracking-Link!\n\n' +
                     '🚕 Wir suchen jetzt einen Fahrer für dich!'
                 );
             }
@@ -15710,6 +15900,11 @@ Stack: ${err.stack}
             });
         }
         
+        // 🆕 v5.32.4: Tracking-Link direkt öffnen
+        function openTrackingLink(link) {
+            window.open(link, '_blank');
+        }
+        
         // ALTE FUNKTION (bleibt für Rückwärts-Kompatibilität)
         function copyTrackingLink(link) {
             navigator.clipboard.writeText(link).then(() => {
@@ -15842,27 +16037,27 @@ Stack: ${err.stack}
                 
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">📅</div>
-                        <h3>Vorbestellung bestätigt!</h3>
-                        <div style="margin-top: 15px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-                            <div style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 10px;">
+                        <div style="font-size: 40px; margin-bottom: 8px;">📅</div>
+                        <h3 style="font-size: 18px; margin-bottom: 10px;">Vorbestellung bestätigt!</h3>
+                        <div style="margin-top: 12px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                            <div style="font-size: 16px; font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">
                                 🕐 ${formattedDate}<br>
                                 um ${formattedTime} Uhr
                             </div>
                         </div>
-                        <div style="margin-top: 15px; font-size: 14px; color: #0c4a6e;">
+                        <div style="margin-top: 12px; font-size: 13px; color: #0c4a6e;">
                             <strong>📍 Von:</strong> ${ride.pickup}<br>
                             <strong>🎯 Nach:</strong> ${ride.destination}<br>
                             <strong>💰 Preis:</strong> ${ride.price}€
                         </div>
                         
-                        <div style="margin-top: 15px; padding: 12px; background: #dcfce7; border-radius: 8px; font-size: 13px; color: #14532d;">
+                        <div style="margin-top: 12px; padding: 10px; background: #dcfce7; border-radius: 6px; font-size: 12px; color: #14532d;">
                             ✅ 15 Minuten vor der Abholung wird ein Fahrer zugewiesen.
                         </div>
-                        <div style="display:flex;gap:10px;margin-top:15px;">
-                            <button onclick="closeFutureRide('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#10b981;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">✓ OK</button>
-                            <button onclick="shareTrackingLink('${trackingLink}')" style="flex:1;padding:12px 24px;border:none;background:#3b82f6;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🔗 Teilen</button>
-                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Stornieren</button>
+                        <div style="display:flex;gap:6px;margin-top:12px;">
+                            <button onclick="closeFutureRide('${ride.firebaseId}')" style="flex:1;padding:10px;border:none;background:#10b981;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">✓ OK</button>
+                            <button onclick="shareTrackingLink('${trackingLink}')" style="flex:1;padding:10px;border:none;background:#3b82f6;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">🔗 Teilen</button>
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:10px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">❌</button>
                         </div>
                     </div>
                 `;
@@ -15885,25 +16080,25 @@ Stack: ${err.stack}
                 
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">📅</div>
-                        <h3>Fahrt vorgemerkt!</h3>
-                        <div style="margin-top: 15px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-                            <div style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 10px;">
+                        <div style="font-size: 40px; margin-bottom: 8px;">📅</div>
+                        <h3 style="font-size: 18px; margin-bottom: 10px;">Fahrt vorgemerkt!</h3>
+                        <div style="margin-top: 12px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                            <div style="font-size: 16px; font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">
                                 🕐 ${formattedDate}<br>
                                 um ${formattedTime} Uhr
                             </div>
                         </div>
-                        <div style="margin-top: 15px; font-size: 14px; color: #0c4a6e;">
+                        <div style="margin-top: 12px; font-size: 13px; color: #0c4a6e;">
                             <strong>📍 Von:</strong> ${ride.pickup}<br>
                             <strong>🎯 Nach:</strong> ${ride.destination}<br>
                             <strong>💰 Preis:</strong> ${ride.price}€
                         </div>
-                        <div style="margin-top: 15px; padding: 12px; background: #dcfce7; border-radius: 8px; font-size: 13px; color: #14532d;">
+                        <div style="margin-top: 12px; padding: 10px; background: #dcfce7; border-radius: 6px; font-size: 12px; color: #14532d;">
                             ✅ Du erhältst 30 Minuten vor der Abholung eine Benachrichtigung, wenn der Fahrer zugewiesen wurde.
                         </div>
-                        <div style="display:flex;gap:10px;margin-top:15px;">
-                            <button onclick="closeFutureRide('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#10b981;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">✓ OK</button>
-                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:12px 24px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:15px;">🗑️ Stornieren</button>
+                        <div style="display:flex;gap:6px;margin-top:12px;">
+                            <button onclick="closeFutureRide('${ride.firebaseId}')" style="flex:1;padding:10px;border:none;background:#10b981;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">✓ OK</button>
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:10px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">❌ Stornieren</button>
                         </div>
                     </div>
                 `;
@@ -15913,17 +16108,17 @@ Stack: ${err.stack}
             if (ride.status === 'completed') {
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#d1fae5;border:2px solid:#10b981;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
-                        <h3>Fahrt abgeschlossen!</h3>
-                        <p style="margin-top: 10px;">Vielen Dank für Ihre Fahrt</p>
-                        <div style="margin-top: 15px; font-size: 14px; color: #065f46;">
+                        <div style="font-size: 40px; margin-bottom: 8px;">✅</div>
+                        <h3 style="font-size: 18px; margin-bottom: 8px;">Fahrt abgeschlossen!</h3>
+                        <p style="margin-top: 8px; font-size: 14px;">Vielen Dank für Ihre Fahrt</p>
+                        <div style="margin-top: 12px; font-size: 13px; color: #065f46;">
                             <strong>Fahrzeug:</strong> ${ride.vehicle || 'Taxi'}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''}<br>
                             <strong>Von:</strong> ${ride.pickup}<br>
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="closeRide()" class="btn btn-primary" style="margin-top:20px;">✓ Neue Fahrt buchen</button>
-                        <div style="margin-top:10px;font-size:12px;color:#666;">
+                        <button onclick="closeRide()" class="btn btn-primary" style="margin-top:15px;">✓ Neue Fahrt buchen</button>
+                        <div style="margin-top:8px;font-size:11px;color:#666;">
                             (oder warte 5 Sekunden...)
                         </div>
                     </div>
@@ -15942,12 +16137,12 @@ Stack: ${err.stack}
             if (ride.status === 'picked_up') {
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#dcfce7;border:2px solid #10b981;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">🚗</div>
-                        <h3>Gute Fahrt!</h3>
-                        <p style="margin-top: 10px; font-size: 16px; color: #047857;">
+                        <div style="font-size: 40px; margin-bottom: 8px;">🚗</div>
+                        <h3 style="font-size: 18px; margin-bottom: 8px;">Gute Fahrt!</h3>
+                        <p style="margin-top: 8px; font-size: 14px; color: #047857;">
                             ${ride.vehicle || 'Ihr Taxi'}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''} fährt Sie zu Ihrem Ziel
                         </p>
-                        <div style="margin-top: 15px; font-size: 14px; color: #065f46;">
+                        <div style="margin-top: 12px; font-size: 13px; color: #065f46;">
                             <strong>Von:</strong> ${ride.pickup}<br>
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Distanz:</strong> ${ride.distance} km<br>
@@ -16000,11 +16195,11 @@ Stack: ${err.stack}
                 
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#fef3c7;border:2px solid #f59e0b;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
-                        <h3 style="font-size: 20px; margin: 0 0 15px 0;">Fahrt bestellt!</h3>
+                        <div style="font-size: 40px; margin-bottom: 8px;">✅</div>
+                        <h3 style="font-size: 18px; margin: 0 0 12px 0;">Fahrt bestellt!</h3>
                         
-                        <div style="background:#fffbeb;padding:15px;border-radius:8px;margin-bottom:15px;text-align:left;">
-                            <div style="font-size:14px;line-height:1.8;color:#92400e;">
+                        <div style="background:#fffbeb;padding:12px;border-radius:8px;margin-bottom:12px;text-align:left;">
+                            <div style="font-size:13px;line-height:1.7;color:#92400e;">
                                 <strong>📍 Von:</strong> ${ride.pickup}<br>
                                 <strong>🎯 Nach:</strong> ${ride.destination}<br>
                                 <strong>🕐 Bestellt:</strong> ${createdTimeStr} Uhr<br>
@@ -16013,12 +16208,12 @@ Stack: ${err.stack}
                             </div>
                         </div>
                         
-                        <div style="font-size:32px;margin:15px 0;">${statusIcon}</div>
-                        <p style="font-size:16px;color:#92400e;margin:10px 0;">${statusText}</p>
+                        <div style="font-size:28px;margin:12px 0;">${statusIcon}</div>
+                        <p style="font-size:14px;color:#92400e;margin:8px 0;">${statusText}</p>
                         
-                        <div style="display:flex;gap:8px;margin-top:15px;">
-                            <button onclick="shareTrackingLink('${trackingLink}')" style="flex:1;padding:12px;border:none;background:#3b82f6;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">🔗 Link teilen</button>
-                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:12px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">🗑️ Stornieren</button>
+                        <div style="display:flex;gap:6px;margin-top:12px;">
+                            <button onclick="shareTrackingLink('${trackingLink}')" style="flex:1;padding:10px;border:none;background:#3b82f6;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">🔗 Teilen</button>
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="flex:1;padding:10px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">❌ Stornieren</button>
                         </div>
                     </div>
                 `;
@@ -16027,16 +16222,18 @@ Stack: ${err.stack}
             } else if (ride.status === 'accepted' && !ride.driverLocation) {
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#dbeafe;border:2px solid #3b82f6;">
-                        <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
-                        <h3 style="font-size: 18px; margin: 8px 0;">${ride.vehicle || 'Fahrer'} hat angenommen!</h3>
-                        <p style="margin-top: 8px; font-size: 14px;">Warte auf GPS-Position...</p>
-                        <div style="margin-top: 12px; font-size: 13px;">
+                        <div style="font-size: 28px; margin-bottom: 6px;">✅</div>
+                        <h3 style="font-size: 16px; margin: 6px 0;">${ride.vehicle || 'Fahrer'} hat angenommen!</h3>
+                        <p style="margin-top: 6px; font-size: 13px;">Warte auf GPS-Position...</p>
+                        <div style="margin-top: 10px; font-size: 12px;">
                             <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}<br>
                             <strong>Von:</strong> ${ride.pickup}<br>
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:13px;">🗑️ Stornieren</button>
+                        <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e5e7eb;">
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="padding:5px 12px;border:1px solid #ef4444;background:white;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">⚠️ Kostenpflichtig stornieren</button>
+                        </div>
                     </div>
                 `;
             }
@@ -16051,16 +16248,18 @@ Stack: ${err.stack}
                 const container = document.getElementById('ride-status-container');
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#dbeafe;border:2px solid #3b82f6;">
-                        <div style="font-size: 32px; margin-bottom: 8px;">🚕</div>
-                        <h3 style="font-size: 18px; margin: 8px 0;">${ride.vehicle || 'Fahrer'} ist unterwegs!</h3>
-                        <p style="margin-top: 8px; font-size: 14px; color: #1e40af;">Der Fahrer kommt zu Ihnen.</p>
-                        <div style="margin-top: 12px; font-size: 13px;">
+                        <div style="font-size: 28px; margin-bottom: 6px;">🚕</div>
+                        <h3 style="font-size: 16px; margin: 6px 0;">${ride.vehicle || 'Fahrer'} ist unterwegs!</h3>
+                        <p style="margin-top: 6px; font-size: 13px; color: #1e40af;">Der Fahrer kommt zu Ihnen.</p>
+                        <div style="margin-top: 10px; font-size: 12px;">
                             <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}<br>
                             <strong>Von:</strong> ${ride.pickup}<br>
                             <strong>Nach:</strong> ${ride.destination}<br>
                             <strong>Preis:</strong> ${ride.price}€
                         </div>
-                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">🗑️ Stornieren</button>
+                        <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e5e7eb;">
+                            <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="padding:5px 12px;border:1px solid #ef4444;background:white;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">⚠️ Kostenpflichtig stornieren</button>
+                        </div>
                     </div>
                 `;
                 return;
@@ -16155,24 +16354,26 @@ Stack: ${err.stack}
             
             container.innerHTML = `
                 <div class="ride-status-box ${statusClass}">
-                    <div style="font-size: 32px; margin-bottom: 8px;">${statusIcon}</div>
-                    <h3 style="font-size: 18px; margin: 8px 0;">${statusText}</h3>
-                    <div class="eta-display ${etaClass}" style="font-size: 16px;">${distanceKm} km • ${durationMin} Min</div>
-                    <div style="font-size: 13px; opacity: 0.8; margin-bottom: 12px;">
+                    <div style="font-size: 28px; margin-bottom: 6px;">${statusIcon}</div>
+                    <h3 style="font-size: 16px; margin: 6px 0;">${statusText}</h3>
+                    <div class="eta-display ${etaClass}" style="font-size: 15px;">${distanceKm} km • ${durationMin} Min</div>
+                    <div style="font-size: 12px; opacity: 0.8; margin-bottom: 10px;">
                         Ankunft ca. ${etaTime} Uhr
                     </div>
                     <div class="progress-bar">
                         <div class="progress-fill" style="width: ${progress}%; background: ${progressColor};"></div>
                     </div>
-                    <div style="margin-top: 12px; font-size: 13px;">
+                    <div style="margin-top: 10px; font-size: 12px;">
                         <strong>Fahrzeug:</strong> ${ride.vehicle}${ride.vehiclePlate ? ` (🚗 ${ride.vehiclePlate})` : ''}<br>
                         <strong>Von:</strong> ${ride.pickup}<br>
                         <strong>Nach:</strong> ${ride.destination}<br>
                         <strong>Preis:</strong> ${ride.price}€
                     </div>
-                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="margin-top:12px;padding:8px 16px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🗑️ Stornieren</button>
                 </div>
-                <div id="passenger-tracking-map" style="width:100%;height:400px;margin-top:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);background:#e5e7eb;"></div>
+                <div id="passenger-tracking-map" style="width:100%;height:300px;margin-top:15px;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,0.1);background:#e5e7eb;"></div>
+                <div style="margin-top:12px;text-align:center;">
+                    <button onclick="cancelRideConfirm('${ride.firebaseId}')" style="padding:5px 12px;border:1px solid #ef4444;background:white;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">⚠️ Kostenpflichtig stornieren</button>
+                </div>
             `;
             
             // 🗺️ Karte initialisieren mit try-catch

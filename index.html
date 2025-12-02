@@ -17,7 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.4 - Build 20251202-0830');
+        console.log('🚕 Funk Taxi App v5.32.5 - Build 20251202-1200');
+        console.log('🆕 Fahrzeug-Zuweisung + Timeline mit Überlappungs-Erkennung!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -308,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.31.5 - Fahrer zuweisen + Alarm AUS 🚗 (Build 20251201-1250)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5 - Fahrzeug-Zuweisung + Timeline 🚗⏱️ (Build 20251202-1200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1700,15 +1701,18 @@
         </div>
         <div id="calendar-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
             <!-- Ansichts-Toggle -->
-            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-                <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+            <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                     📅 Monat
                 </button>
-                <button id="cal-week-btn" onclick="switchCalendarView('week')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                <button id="cal-week-btn" onclick="switchCalendarView('week')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                     📊 Woche
                 </button>
-                <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                     📋 Tag
+                </button>
+                <button id="cal-timeline-btn" onclick="switchCalendarView('timeline')" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #10b981; background: white; color: #10b981; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                    🚗⏱️ Fahrzeug-Timeline
                 </button>
             </div>
             
@@ -18381,15 +18385,28 @@ Stack: ${err.stack}
             currentCalendarView = view;
             
             // Update Button-Styling
-            ['month', 'week', 'day'].forEach(v => {
+            ['month', 'week', 'day', 'timeline'].forEach(v => {
                 const btn = document.getElementById('cal-' + v + '-btn');
                 if (btn) {
                     if (v === view) {
-                        btn.style.background = '#667eea';
-                        btn.style.color = 'white';
+                        if (v === 'timeline') {
+                            btn.style.background = '#10b981';
+                            btn.style.color = 'white';
+                            btn.style.borderColor = '#10b981';
+                        } else {
+                            btn.style.background = '#667eea';
+                            btn.style.color = 'white';
+                            btn.style.borderColor = '#667eea';
+                        }
                     } else {
                         btn.style.background = 'white';
-                        btn.style.color = '#667eea';
+                        if (v === 'timeline') {
+                            btn.style.color = '#10b981';
+                            btn.style.borderColor = '#10b981';
+                        } else {
+                            btn.style.color = '#667eea';
+                            btn.style.borderColor = '#667eea';
+                        }
                     }
                 }
             });
@@ -18473,6 +18490,8 @@ Stack: ${err.stack}
                 renderMonthView(allRides);
             } else if (currentCalendarView === 'week') {
                 renderWeekView(allRides);
+            } else if (currentCalendarView === 'timeline') {
+                renderVehicleTimeline(allRides);
             } else {
                 renderDayView(allRides);
             }
@@ -18877,6 +18896,43 @@ Stack: ${err.stack}
                                 ${ride.customerName ? `<div style="font-size: 13px; color: #6b7280;">👤 ${ride.customerName}</div>` : '<div></div>'}
                                 <div style="font-weight: 700; font-size: 16px; color: #667eea;">💰 ${ride.price || 0}€</div>
                             </div>
+                            
+                            ${(() => {
+                                // 🆕 v5.32.5: FAHRZEUG-ZUWEISUNG
+                                let vehicleHtml = '';
+                                
+                                if (ride.vehicleId || ride.assignedVehicle) {
+                                    // Fahrzeug ist zugewiesen
+                                    const vehicleId = ride.vehicleId || ride.assignedVehicle;
+                                    vehicleHtml = `
+                                        <div style="margin-top: 10px; padding: 8px 12px; background: #d1fae5; border: 2px solid #10b981; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <div style="font-size: 18px;">🚗</div>
+                                                <div>
+                                                    <div style="font-weight: 600; font-size: 13px; color: #047857;">Fahrzeug: ${vehicleId}</div>
+                                                    ${ride.driverName ? `<div style="font-size: 11px; color: #059669;">👤 ${ride.driverName}</div>` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                } else if (ride.status === 'vorbestellt' || ride.status === 'new' || ride.status === 'pending') {
+                                    // Keine Zuweisung - Button anzeigen
+                                    vehicleHtml = `
+                                        <div style="margin-top: 10px; padding: 8px 12px; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <div style="font-size: 16px;">⚠️</div>
+                                                <div style="font-weight: 600; font-size: 12px; color: #92400e;">Nicht zugewiesen</div>
+                                            </div>
+                                            <button onclick="event.stopPropagation(); openVehicleAssignmentModal('${ride.firebaseId || ride.id}')" 
+                                                    style="padding: 6px 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                                                🚕 Zuweisen
+                                            </button>
+                                        </div>
+                                    `;
+                                }
+                                
+                                return vehicleHtml;
+                            })()}
                         </div>
                     `;
                 });
@@ -18926,6 +18982,491 @@ Stack: ${err.stack}
             currentCalendarDate = new Date(year, month, day);
             currentCalendarView = 'day';
             switchCalendarView('day');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🚗⏱️ v5.32.5: FAHRZEUG-TIMELINE MIT ÜBERLAPPUNGS-ERKENNUNG
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        function renderVehicleTimeline(allRides) {
+            const date = new Date(currentCalendarDate);
+            
+            // Update Titel
+            const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            document.getElementById('calendar-period-title').textContent = 
+                `Timeline: ${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+            
+            // Filtere Fahrten für diesen Tag
+            const dayRides = allRides.filter(ride => {
+                const rideDate = new Date(ride.pickupTimestamp || ride.createdAt || 0);
+                return rideDate.toDateString() === date.toDateString();
+            }).sort((a, b) => {
+                const timeA = a.pickupTimestamp || a.createdAt || 0;
+                const timeB = b.pickupTimestamp || b.createdAt || 0;
+                return timeA - timeB;
+            });
+            
+            // Gruppiere Fahrten nach Fahrzeug
+            const vehicleRides = {};
+            dayRides.forEach(ride => {
+                const vehicleId = ride.vehicleId || ride.assignedVehicle || 'Nicht zugewiesen';
+                if (!vehicleRides[vehicleId]) {
+                    vehicleRides[vehicleId] = [];
+                }
+                vehicleRides[vehicleId].push(ride);
+            });
+            
+            let html = '<div style="display: flex; flex-direction: column; gap: 20px;">';
+            
+            // Header mit Infos
+            html += `
+                <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                        <div>
+                            <div style="font-size: 28px; margin-bottom: 8px;">🚗⏱️</div>
+                            <div style="font-weight: 700; font-size: 22px; margin-bottom: 6px;">Fahrzeug-Timeline</div>
+                            <div style="font-size: 14px; opacity: 0.95;">
+                                Übersicht: Fahrzeuge, Zeitfenster & Überlappungen
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">
+                                ${Object.keys(vehicleRides).length}
+                            </div>
+                            <div style="font-size: 13px; opacity: 0.9;">
+                                Fahrzeug${Object.keys(vehicleRides).length !== 1 ? 'e' : ''} im Einsatz
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (dayRides.length === 0) {
+                html += `
+                    <div style="text-align: center; padding: 80px 20px; color: #9ca3af;">
+                        <div style="font-size: 64px; margin-bottom: 15px;">📅</div>
+                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #6b7280;">
+                            Keine Fahrten an diesem Tag
+                        </div>
+                        <div style="font-size: 14px;">
+                            Wähle einen anderen Tag aus um Fahrten zu sehen
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Legende
+                html += `
+                    <div style="background: white; padding: 15px; border-radius: 10px; border: 2px solid #e5e7eb;">
+                        <div style="font-weight: 700; font-size: 14px; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 18px;">📊</span>
+                            <span>Legende</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 30px; height: 12px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 3px;"></div>
+                                <span>Fahrt aktiv</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 30px; height: 12px; background: #d1d5db; border-radius: 3px;"></div>
+                                <span>Freie Zeit</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 30px; height: 12px; background: repeating-linear-gradient(45deg, #ef4444, #ef4444 10px, #fca5a5 10px, #fca5a5 20px); border-radius: 3px;"></div>
+                                <span>⚠️ Überlappung!</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Timeline für jedes Fahrzeug
+                Object.keys(vehicleRides).sort().forEach(vehicleId => {
+                    const rides = vehicleRides[vehicleId];
+                    
+                    // Erkenne Überlappungen für dieses Fahrzeug
+                    const conflicts = detectTimeConflicts(rides);
+                    
+                    html += `
+                        <div style="background: white; border: 2px solid ${vehicleId === 'Nicht zugewiesen' ? '#f59e0b' : '#10b981'}; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #f3f4f6;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="font-size: 32px;">${vehicleId === 'Nicht zugewiesen' ? '⚠️' : '🚗'}</div>
+                                    <div>
+                                        <div style="font-weight: 700; font-size: 18px; color: #1f2937;">
+                                            ${vehicleId}
+                                        </div>
+                                        <div style="font-size: 13px; color: #6b7280;">
+                                            ${rides.length} Fahrt${rides.length !== 1 ? 'en' : ''} heute
+                                        </div>
+                                    </div>
+                                </div>
+                                ${conflicts.length > 0 ? `
+                                    <div style="background: #fef2f2; border: 2px solid #ef4444; padding: 8px 12px; border-radius: 8px;">
+                                        <div style="font-weight: 700; font-size: 14px; color: #991b1b;">
+                                            ⚠️ ${conflicts.length} Konflikt${conflicts.length !== 1 ? 'e' : ''}!
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div style="background: #f0fdf4; border: 2px solid #10b981; padding: 8px 12px; border-radius: 8px;">
+                                        <div style="font-weight: 600; font-size: 13px; color: #047857;">
+                                            ✅ Keine Konflikte
+                                        </div>
+                                    </div>
+                                `}
+                            </div>
+                            
+                            <!-- Timeline-Balken -->
+                            <div style="margin-bottom: 16px;">
+                                ${generateTimelineBar(rides, conflicts)}
+                            </div>
+                            
+                            <!-- Fahrten-Liste -->
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                ${rides.map((ride, idx) => {
+                                    const time = new Date(ride.pickupTimestamp || ride.createdAt || 0);
+                                    const timeStr = time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                    const isConflict = conflicts.some(c => c.includes(idx));
+                                    
+                                    // Geschätzte Fahrtdauer (aus Preis oder Standard 30 Min)
+                                    const price = parseFloat(ride.price) || 0;
+                                    const estimatedMinutes = price > 0 ? Math.max(15, Math.round(price * 2)) : 30;
+                                    const endTime = new Date(time.getTime() + estimatedMinutes * 60000);
+                                    const endTimeStr = endTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                    
+                                    return `
+                                        <div onclick="viewRideDetails('${ride.firebaseId || ride.id}')" style="
+                                            background: ${isConflict ? 'linear-gradient(135deg, #fef2f2, #fee2e2)' : '#f9fafb'};
+                                            border-left: 4px solid ${isConflict ? '#ef4444' : '#10b981'};
+                                            padding: 12px 14px;
+                                            border-radius: 8px;
+                                            cursor: pointer;
+                                            transition: all 0.2s;
+                                            ${isConflict ? 'border: 2px solid #ef4444;' : ''}
+                                        " onmouseenter="this.style.boxShadow='0 4px 8px rgba(0,0,0,0.1)'" 
+                                           onmouseleave="this.style.boxShadow='none'">
+                                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                                <div style="font-weight: 700; font-size: 15px; color: ${isConflict ? '#991b1b' : '#1f2937'};">
+                                                    ${isConflict ? '⚠️ ' : ''}${timeStr} - ${endTimeStr}
+                                                    <span style="font-size: 11px; color: #6b7280; font-weight: 500; margin-left: 6px;">
+                                                        (~${estimatedMinutes} Min)
+                                                    </span>
+                                                </div>
+                                                <div style="font-weight: 700; font-size: 14px; color: #667eea;">
+                                                    💰 ${ride.price || 0}€
+                                                </div>
+                                            </div>
+                                            <div style="font-size: 12px; color: #4b5563; margin-bottom: 4px;">
+                                                📍 ${ride.pickup || 'Unbekannt'}
+                                            </div>
+                                            <div style="font-size: 12px; color: #4b5563;">
+                                                🎯 ${ride.destination || 'Unbekannt'}
+                                            </div>
+                                            ${isConflict ? `
+                                                <div style="margin-top: 8px; padding: 6px 10px; background: #fef2f2; border: 1px solid #ef4444; border-radius: 6px; font-size: 11px; color: #991b1b; font-weight: 600;">
+                                                    ⚠️ WARNUNG: Überschneidet sich mit anderer Fahrt!
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div>';
+            
+            document.getElementById('calendar-container').innerHTML = html;
+            updateCalendarStats(dayRides, 'Tag');
+        }
+        
+        // Hilfsfunktion: Erkenne Zeitkonflikte
+        function detectTimeConflicts(rides) {
+            const conflicts = [];
+            
+            for (let i = 0; i < rides.length; i++) {
+                const ride1 = rides[i];
+                const time1 = ride1.pickupTimestamp || ride1.createdAt || 0;
+                const price1 = parseFloat(ride1.price) || 0;
+                const duration1 = price1 > 0 ? Math.max(15, Math.round(price1 * 2)) : 30;
+                const end1 = time1 + (duration1 * 60000);
+                
+                for (let j = i + 1; j < rides.length; j++) {
+                    const ride2 = rides[j];
+                    const time2 = ride2.pickupTimestamp || ride2.createdAt || 0;
+                    
+                    // Prüfe Überlappung
+                    if (time2 < end1) {
+                        conflicts.push([i, j]);
+                    }
+                }
+            }
+            
+            return conflicts;
+        }
+        
+        // Hilfsfunktion: Generiere Timeline-Balken
+        function generateTimelineBar(rides, conflicts) {
+            if (rides.length === 0) return '';
+            
+            // Finde Zeitspanne (06:00 - 24:00 Uhr)
+            const startHour = 6;
+            const endHour = 24;
+            const totalMinutes = (endHour - startHour) * 60;
+            
+            let html = '<div style="position: relative; height: 40px; background: #f3f4f6; border-radius: 8px; overflow: hidden;">';
+            
+            // Zeitmarkierungen
+            html += '<div style="position: absolute; top: 0; left: 0; right: 0; height: 100%; display: flex; justify-content: space-between; padding: 0 4px;">';
+            for (let h = startHour; h <= endHour; h += 3) {
+                html += `
+                    <div style="font-size: 9px; color: #9ca3af; padding-top: 2px;">
+                        ${h}:00
+                    </div>
+                `;
+            }
+            html += '</div>';
+            
+            // Fahrten-Balken
+            rides.forEach((ride, idx) => {
+                const time = new Date(ride.pickupTimestamp || ride.createdAt || 0);
+                const hour = time.getHours();
+                const minute = time.getMinutes();
+                const startMinute = (hour - startHour) * 60 + minute;
+                
+                const price = parseFloat(ride.price) || 0;
+                const duration = price > 0 ? Math.max(15, Math.round(price * 2)) : 30;
+                
+                const leftPercent = (startMinute / totalMinutes) * 100;
+                const widthPercent = (duration / totalMinutes) * 100;
+                
+                const isConflict = conflicts.some(c => c.includes(idx));
+                
+                html += `
+                    <div style="
+                        position: absolute;
+                        left: ${leftPercent}%;
+                        width: ${widthPercent}%;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        height: 24px;
+                        background: ${isConflict ? 'repeating-linear-gradient(45deg, #ef4444, #ef4444 10px, #fca5a5 10px, #fca5a5 20px)' : 'linear-gradient(135deg, #667eea, #764ba2)'};
+                        border-radius: 6px;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        ${isConflict ? 'border: 2px solid #991b1b; z-index: 10;' : ''}
+                    "></div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            return html;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🚕 v5.32.5: FAHRZEUG-ZUWEISUNG
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let currentRideForAssignment = null;
+        
+        async function openVehicleAssignmentModal(rideId) {
+            currentRideForAssignment = rideId;
+            console.log('🚕 Öffne Fahrzeug-Zuweisung für Ride:', rideId);
+            
+            document.getElementById('vehicle-assignment-modal').style.display = 'flex';
+            await loadOnlineVehiclesForAssignment(rideId);
+        }
+        
+        function closeVehicleAssignmentModal() {
+            document.getElementById('vehicle-assignment-modal').style.display = 'none';
+            currentRideForAssignment = null;
+        }
+        
+        async function loadOnlineVehiclesForAssignment(rideId) {
+            const content = document.getElementById('vehicle-assignment-content');
+            content.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 40px 20px;">🔄 Lade Fahrzeuge...</p>';
+            
+            try {
+                const driversSnapshot = await db.ref('drivers').once('value');
+                const drivers = driversSnapshot.val() || {};
+                
+                const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                const ride = rideSnapshot.val();
+                
+                if (!ride) {
+                    content.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 40px 20px;">❌ Fahrt nicht gefunden!</p>';
+                    return;
+                }
+                
+                let html = `
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 25px; color: white;">
+                        <div style="font-size: 16px; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">📋</span>
+                            <span>Fahrt-Details</span>
+                        </div>
+                        
+                        <div style="display: grid; gap: 12px;">
+                            <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px;">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">📍 Von:</div>
+                                <div style="font-weight: 600; font-size: 15px;">${ride.pickup || 'Unbekannt'}</div>
+                            </div>
+                            
+                            <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px;">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">🎯 Nach:</div>
+                                <div style="font-weight: 600; font-size: 15px;">${ride.destination || 'Unbekannt'}</div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px;">
+                                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">🕐 Abholung:</div>
+                                    <div style="font-weight: 600; font-size: 14px;">${ride.pickupTime || 'Sofort'}</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px;">
+                                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">💰 Preis:</div>
+                                    <div style="font-weight: 700; font-size: 16px;">${ride.price || 0}€</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin: 0 0 15px 0; color: #1f2937; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 20px;">🚗</span>
+                        <span>Verfügbare Fahrzeuge</span>
+                    </h4>
+                `;
+                
+                const onlineVehicles = [];
+                const offlineVehicles = [];
+                
+                for (const [vehicleId, driver] of Object.entries(drivers)) {
+                    if (driver.online) {
+                        onlineVehicles.push({ vehicleId, driver });
+                    } else {
+                        offlineVehicles.push({ vehicleId, driver });
+                    }
+                }
+                
+                if (onlineVehicles.length > 0) {
+                    onlineVehicles.forEach(({ vehicleId, driver }) => {
+                        const lastUpdate = driver.lastUpdate ? new Date(driver.lastUpdate).toLocaleTimeString('de-DE') : 'k.A.';
+                        const hasGPS = driver.location && driver.location.latitude && driver.location.longitude;
+                        
+                        html += `
+                            <div style="border: 3px solid #10b981; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: linear-gradient(to right, #d1fae5, #f0fdf4); transition: all 0.3s; cursor: pointer;"
+                                 onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.3)';"
+                                 onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <div style="font-weight: 700; font-size: 18px; color: #1f2937; display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 24px;">🚗</span>
+                                        <span>${vehicleId}</span>
+                                    </div>
+                                    <div style="background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">
+                                        ✅ ONLINE
+                                    </div>
+                                </div>
+                                
+                                ${hasGPS ? `
+                                    <div style="font-size: 12px; color: #059669; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                        <span>📍</span>
+                                        <span>${driver.location.latitude.toFixed(4)}, ${driver.location.longitude.toFixed(4)}</span>
+                                    </div>
+                                ` : ''}
+                                
+                                <div style="font-size: 12px; color: #047857; margin-bottom: 14px; display: flex; align-items: center; gap: 6px;">
+                                    <span>🕐</span>
+                                    <span>Letztes Update: ${lastUpdate}</span>
+                                </div>
+                                
+                                <button onclick="assignVehicleToRide('${rideId}', '${vehicleId}')" 
+                                        style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102,126,234,0.3);"
+                                        onmouseenter="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 12px rgba(102,126,234,0.5)';"
+                                        onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(102,126,234,0.3)';">
+                                    ✅ Dieses Fahrzeug zuweisen
+                                </button>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `
+                        <div style="background: linear-gradient(135deg, #fef3c7, #fef9c3); border: 3px solid #f59e0b; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">⚠️</div>
+                            <div style="color: #92400e; font-weight: 700; font-size: 16px; margin-bottom: 6px;">
+                                Keine Fahrzeuge online!
+                            </div>
+                            <div style="color: #78350f; font-size: 13px;">
+                                Bitte warte bis ein Fahrer online geht oder weise die Fahrt später zu.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (offlineVehicles.length > 0) {
+                    html += `
+                        <h4 style="margin: 20px 0 12px 0; color: #6b7280; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 18px;">⚪</span>
+                            <span>Offline Fahrzeuge</span>
+                        </h4>
+                    `;
+                    
+                    offlineVehicles.forEach(({ vehicleId }) => {
+                        html += `
+                            <div style="border: 2px solid #d1d5db; border-radius: 8px; padding: 14px; margin-bottom: 8px; background: #f9fafb; opacity: 0.6;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="font-weight: 600; font-size: 15px; color: #6b7280; display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 20px;">🚗</span>
+                                        <span>${vehicleId}</span>
+                                    </div>
+                                    <div style="background: #9ca3af; color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;">
+                                        ⚪ OFFLINE
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                content.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
+                content.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 40px 20px;">❌ Fehler beim Laden der Fahrzeuge!</p>';
+            }
+        }
+        
+        async function assignVehicleToRide(rideId, vehicleId) {
+            console.log('🚕 Weise Fahrzeug zu:', vehicleId, '→ Ride:', rideId);
+            
+            try {
+                await db.ref('rides/' + rideId).update({
+                    vehicleId: vehicleId,
+                    assignedVehicle: vehicleId,
+                    assignedAt: Date.now(),
+                    status: 'assigned'
+                });
+                
+                await db.ref('rides/' + rideId + '/activityLog').push({
+                    type: 'vehicle_assigned',
+                    vehicleId: vehicleId,
+                    timestamp: Date.now(),
+                    message: `Fahrzeug ${vehicleId} zugewiesen (Admin)`
+                });
+                
+                console.log('✅ Fahrzeug erfolgreich zugewiesen!');
+                
+                closeVehicleAssignmentModal();
+                
+                alert(`✅ Fahrzeug ${vehicleId} erfolgreich zugewiesen!`);
+                
+                if (typeof loadCalendarData === 'function') {
+                    await loadCalendarData();
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Zuweisen:', error);
+                alert('❌ Fehler beim Zuweisen des Fahrzeugs!');
+            }
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -19563,6 +20104,28 @@ Stack: ${err.stack}
             
             <div class="modal-link" onclick="showLoginModal()">Bereits ein Konto? Anmelden</div>
             <div class="modal-link" onclick="closeRegisterModal()">Abbrechen</div>
+        </div>
+    </div>
+
+    <!-- 🚕 v5.32.5: FAHRZEUG-ZUWEISUNG MODAL -->
+    <div id="vehicle-assignment-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 550px; max-height: 85vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e5e7eb;">
+                <h3 style="margin: 0; color: #1f2937; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 28px;">🚕</span>
+                    <span>Fahrzeug zuweisen</span>
+                </h3>
+                <button onclick="closeVehicleAssignmentModal()" 
+                        style="background: none; border: none; font-size: 32px; cursor: pointer; color: #9ca3af; line-height: 1; padding: 0; transition: color 0.2s;"
+                        onmouseenter="this.style.color='#ef4444'" 
+                        onmouseleave="this.style.color='#9ca3af'">
+                    ×
+                </button>
+            </div>
+            
+            <div id="vehicle-assignment-content">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
         </div>
     </div>
 

@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5i - Build 20251202-1510');
-        console.log('📞 Auto-Booking Modal mit Telefonnummer!');
+        console.log('🚕 Funk Taxi App v5.32.5j - Build 20251202-1620');
+        console.log('🔧 Auto-Booking Fix: Berücksichtigt Fahrtende + Fahrzeit!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5i - Auto-Booking + Telefon 📞 (Build 20251202-1510)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5j - Auto-Booking FIX 🔧 (Build 20251202-1620)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9817,18 +9817,64 @@
                     r.pickupTimestamp
                 );
                 
-                // Prüfe ob Zeit überschneidet
+                // 🆕 v5.32.5j: VERBESSERTE PRÜFUNG - Berücksichtigt Fahrtende + Fahrzeit
                 for (const ride of activeRides) {
-                    const rideTime = ride.pickupTimestamp;
-                    const timeDiff = Math.abs(requestedTimestamp - rideTime);
+                    console.log('🔍 Prüfe gegen Fahrt:', new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE'));
                     
-                    // Wenn innerhalb 30 Min: Prüfe ob Konflikt
-                    if (timeDiff < 30 * 60 * 1000) {
-                        console.log('⚠️ Zeitslot BELEGT! Konflikt mit Fahrt:', ride.firebaseId);
-                        return {
-                            available: false,
-                            conflictingRide: ride
-                        };
+                    // 1. Berechne ENDE der vorherigen Fahrt
+                    let rideDuration = ride.duration || 15; // Fallback 15 Min wenn nicht bekannt
+                    
+                    // Wenn Koordinaten vorhanden, berechne echte Dauer
+                    if (ride.pickupCoords && ride.destCoords) {
+                        rideDuration = await calculateRouteDuration(
+                            ride.pickupCoords,
+                            ride.destCoords
+                        );
+                    }
+                    
+                    const rideEndTime = ride.pickupTimestamp + (rideDuration * 60 * 1000);
+                    console.log('   Fahrt endet:', new Date(rideEndTime).toLocaleTimeString('de-DE'), `(Dauer: ${rideDuration} Min)`);
+                    
+                    // 2. Wenn gewünschte Zeit NACH Ende der Fahrt liegt
+                    if (requestedTimestamp > rideEndTime) {
+                        // Berechne Fahrzeit vom Ziel der alten Fahrt zum Start der neuen
+                        let travelTime = 10; // Fallback 10 Min
+                        
+                        if (ride.destCoords && pickupCoords) {
+                            travelTime = await calculateRouteDuration(
+                                ride.destCoords,
+                                pickupCoords
+                            );
+                        }
+                        
+                        console.log('   Fahrzeit zum neuen Start:', travelTime, 'Min');
+                        
+                        // 3. Frühestmögliche Zeit = Ende + Fahrzeit + 5 Min Puffer
+                        const earliestPossible = rideEndTime + (travelTime * 60 * 1000) + (5 * 60 * 1000);
+                        console.log('   Frühestmöglich:', new Date(earliestPossible).toLocaleTimeString('de-DE'));
+                        
+                        // 4. Wenn gewünschte Zeit VOR frühestmöglich → KONFLIKT!
+                        if (requestedTimestamp < earliestPossible) {
+                            console.log('⚠️ KONFLIKT! Gewünschte Zeit zu früh!');
+                            return {
+                                available: false,
+                                conflictingRide: ride
+                            };
+                        }
+                    }
+                    
+                    // 5. Wenn gewünschte Zeit VOR oder WÄHREND der Fahrt liegt
+                    if (requestedTimestamp <= rideEndTime) {
+                        const timeDiff = Math.abs(requestedTimestamp - ride.pickupTimestamp);
+                        
+                        // Wenn innerhalb 30 Min: Definitiv Konflikt
+                        if (timeDiff < 30 * 60 * 1000) {
+                            console.log('⚠️ KONFLIKT! Fahrt läuft noch oder Start zu nah!');
+                            return {
+                                available: false,
+                                conflictingRide: ride
+                            };
+                        }
                     }
                 }
                 

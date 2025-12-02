@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5f - Build 20251202-1430');
-        console.log('🆕 Vorbestell-Übersichts-Modal mit OK + Bearbeiten!');
+        console.log('🚕 Funk Taxi App v5.32.5i - Build 20251202-1510');
+        console.log('📞 Auto-Booking Modal mit Telefonnummer!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5f - Vorbestell-Übersicht-Modal 📋 (Build 20251202-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5i - Auto-Booking + Telefon 📞 (Build 20251202-1510)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -553,9 +553,9 @@
             <div class="input-group" style="margin-top:25px;">
                 <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
                 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <!-- SOFORT Button -->
-                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr;gap:12px;">
+                    <!-- SOFORT Button - 🆕 v5.32.5g: Initial versteckt, nur wenn Fahrer verfügbar -->
+                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">⚡</div>
                         <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:4px;">SOFORT</div>
                         <div style="font-size:12px;color:#666;">Nächstes verfügbares Taxi</div>
@@ -2146,6 +2146,24 @@
                     <div style="font-size:12px;color:#6b7280;margin-top:2px;">Keine Pop-ups & Sound (nur dezente Benachrichtigung oben)</div>
                 </div>
             </label>
+        </div>
+        
+        <!-- 🆕 v5.32.5h: AUTO-BOOKING EINSTELLUNGEN -->
+        <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin:15px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div style="font-weight:600;font-size:15px;">🤖 Auto-Booking</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:white;border-radius:8px;border:2px solid #e5e7eb;">
+                <input type="checkbox" id="enable-auto-booking" onchange="toggleAutoBooking()" 
+                    style="width:20px;height:20px;cursor:pointer;">
+                <div>
+                    <div style="font-weight:600;font-size:14px;color:#1f2937;">Auto-Booking aktivieren</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">
+                        System schlägt bei belegten Zeiten automatisch Alternativen vor
+                    </div>
+                </div>
+            </label>
+            <div id="auto-booking-status" style="margin-top:10px;padding:8px;border-radius:6px;font-size:13px;text-align:center;"></div>
         </div>
         
         <!-- COLLAPSIBLE: Online-Fahrer -->
@@ -4589,6 +4607,7 @@
                         drivers = {}; 
                         s.forEach(c => { drivers[c.key] = c.val(); }); 
                         showAvailableTaxis();
+                        checkDriverAvailability(); // 🆕 v5.32.5g: SOFORT-Button nur wenn Fahrer verfügbar
                         if (currentView === 'admin') updateAdminView(); // ← Update Admin für Online-Fahrer
                     });
                     db.ref('cancellations').on('value', (s) => {
@@ -8681,6 +8700,64 @@
             document.getElementById('available-taxis-display').innerHTML = html;
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.32.5g: PRÜFE FAHRER-VERFÜGBARKEIT → SOFORT-BUTTON ZEIGEN/VERSTECKEN
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        function checkDriverAvailability() {
+            console.log('🔍 Prüfe Fahrer-Verfügbarkeit...');
+            
+            const sofortBtn = document.getElementById('btn-sofort');
+            if (!sofortBtn) {
+                console.log('⚠️ SOFORT-Button nicht gefunden');
+                return;
+            }
+            
+            // Prüfe ob mindestens 1 Fahrer ONLINE oder BESETZT (busy)
+            let hasAvailableDriver = false;
+            
+            for (const driverId in drivers) {
+                const driver = drivers[driverId];
+                
+                // ONLINE = Verfügbar
+                if (driver.online && driver.timestamp && (Date.now() - driver.timestamp) < 120000) {
+                    hasAvailableDriver = true;
+                    console.log('✅ Fahrer verfügbar (online):', driver.vehicle || driverId);
+                    break;
+                }
+                
+                // BESETZT = Hat Fahrt, aber angemeldet
+                // Status kann sein: 'busy', 'assigned', 'picked_up', 'ongoing'
+                if (driver.status && ['busy', 'assigned', 'picked_up', 'ongoing'].includes(driver.status)) {
+                    // Prüfe ob Timestamp aktuell (innerhalb 2 Min)
+                    if (driver.timestamp && (Date.now() - driver.timestamp) < 120000) {
+                        hasAvailableDriver = true;
+                        console.log('✅ Fahrer verfügbar (besetzt aber angemeldet):', driver.vehicle || driverId);
+                        break;
+                    }
+                }
+            }
+            
+            // SOFORT-Button zeigen/verstecken
+            const buttonsContainer = document.getElementById('ride-type-buttons-container');
+            
+            if (hasAvailableDriver) {
+                sofortBtn.style.display = 'block';
+                if (buttonsContainer) {
+                    buttonsContainer.style.gridTemplateColumns = '1fr 1fr'; // 2 Spalten
+                }
+                console.log('✅ SOFORT-Button ANGEZEIGT - Fahrer verfügbar!');
+            } else {
+                sofortBtn.style.display = 'none';
+                if (buttonsContainer) {
+                    buttonsContainer.style.gridTemplateColumns = '1fr'; // 1 Spalte (VORBESTELLEN volle Breite)
+                }
+                console.log('❌ SOFORT-Button VERSTECKT - Keine Fahrer verfügbar!');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+
         // 🆕 PREIS-BUTTON HANDLER - wechselt zwischen "Preis berechnen" und "Abbrechen"
         let priceCalculated = false;
         
@@ -9249,6 +9326,32 @@
                 paymentMethod: document.getElementById('payment-method').value // 💳 Zahlungsmethode
             };
             
+            // 🤖 v5.32.5h: AUTO-BOOKING - Prüfe Zeitslot bei Vorbestellungen
+            if (autoBookingEnabled && ride.status === 'vorbestellt') {
+                console.log('🤖 Auto-Booking: Prüfe Zeitslot-Verfügbarkeit...');
+                
+                const availability = await checkTimeSlotAvailability(ride.pickupTimestamp, pickupCoords);
+                
+                if (!availability.available) {
+                    console.log('⚠️ Zeitslot belegt! Berechne Alternativen...');
+                    
+                    // Berechne alternative Zeiten
+                    const alternatives = await calculateAlternativeTimes(
+                        availability.conflictingRide,
+                        pickupCoords,
+                        ride.pickupTimestamp
+                    );
+                    
+                    // Zeige Modal mit Vorschlägen
+                    showAlternativeTimesModal(ride.pickupTimestamp, alternatives, ride);
+                    
+                    // Abbruch! User muss Alternative wählen
+                    return;
+                }
+                
+                console.log('✅ Zeitslot verfügbar, fahre mit Buchung fort');
+            }
+            
             const savedRide = await saveRide(ride);
             myCurrentRide = savedRide;
             localStorage.setItem('myCurrentRideId', savedRide.firebaseId);
@@ -9641,6 +9744,341 @@
             
             // Hinweis für User
             alert('✏️ Fahrt wurde ins Formular geladen!\n\nBitte passe die Daten an und klicke dann auf "Preis berechnen" und "Taxi buchen".');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🤖 v5.32.5h: AUTO-BOOKING SYSTEM
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let autoBookingEnabled = false; // Wird aus Firebase/localStorage geladen
+        let currentBookingData = null; // Speichert aktuelle Buchungsdaten für Retry
+        
+        // Admin-Schalter
+        function toggleAutoBooking() {
+            const checkbox = document.getElementById('enable-auto-booking');
+            autoBookingEnabled = checkbox.checked;
+            
+            // In localStorage speichern
+            localStorage.setItem('autoBookingEnabled', autoBookingEnabled);
+            
+            // Status anzeigen
+            updateAutoBookingStatus();
+            
+            console.log('🤖 Auto-Booking:', autoBookingEnabled ? 'AKTIVIERT' : 'DEAKTIVIERT');
+        }
+        
+        function updateAutoBookingStatus() {
+            const statusDiv = document.getElementById('auto-booking-status');
+            if (autoBookingEnabled) {
+                statusDiv.innerHTML = '✅ <span style="color:#059669;font-weight:600;">Aktiviert</span> - System schlägt automatisch Alternativen vor';
+                statusDiv.style.background = '#d1fae5';
+                statusDiv.style.border = '1px solid #10b981';
+            } else {
+                statusDiv.innerHTML = '⚪ <span style="color:#6b7280;font-weight:600;">Deaktiviert</span> - Keine automatischen Vorschläge';
+                statusDiv.style.background = '#f3f4f6';
+                statusDiv.style.border = '1px solid #d1d5db';
+            }
+        }
+        
+        // Beim Laden Auto-Booking Status wiederherstellen
+        function loadAutoBookingSettings() {
+            const saved = localStorage.getItem('autoBookingEnabled');
+            autoBookingEnabled = saved === 'true';
+            
+            const checkbox = document.getElementById('enable-auto-booking');
+            if (checkbox) {
+                checkbox.checked = autoBookingEnabled;
+                updateAutoBookingStatus();
+            }
+            
+            console.log('🤖 Auto-Booking Status geladen:', autoBookingEnabled);
+        }
+        
+        // Prüft ob Zeitslot bereits belegt ist
+        async function checkTimeSlotAvailability(requestedTimestamp, pickupCoords) {
+            if (!isFirebaseReady) return { available: true };
+            
+            console.log('🔍 Prüfe Zeitslot für:', new Date(requestedTimestamp).toLocaleString('de-DE'));
+            
+            try {
+                const snapshot = await db.ref('rides').once('value');
+                const rides = [];
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    ride.firebaseId = child.key;
+                    rides.push(ride);
+                });
+                
+                // Filtere nur aktive und vorbestellte Fahrten
+                const activeRides = rides.filter(r => 
+                    r.status && 
+                    ['new', 'assigned', 'vorbestellt', 'picked_up', 'ongoing'].includes(r.status) &&
+                    r.pickupTimestamp
+                );
+                
+                // Prüfe ob Zeit überschneidet
+                for (const ride of activeRides) {
+                    const rideTime = ride.pickupTimestamp;
+                    const timeDiff = Math.abs(requestedTimestamp - rideTime);
+                    
+                    // Wenn innerhalb 30 Min: Prüfe ob Konflikt
+                    if (timeDiff < 30 * 60 * 1000) {
+                        console.log('⚠️ Zeitslot BELEGT! Konflikt mit Fahrt:', ride.firebaseId);
+                        return {
+                            available: false,
+                            conflictingRide: ride
+                        };
+                    }
+                }
+                
+                console.log('✅ Zeitslot verfügbar!');
+                return { available: true };
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Zeitslot-Prüfung:', error);
+                return { available: true }; // Im Fehlerfall erlauben
+            }
+        }
+        
+        // Berechnet alternative Zeiten
+        async function calculateAlternativeTimes(conflictingRide, pickupCoords, requestedTimestamp) {
+            console.log('💡 Berechne alternative Zeiten...');
+            
+            try {
+                // 1. Berechne Dauer der konfliktierenden Fahrt
+                const rideDuration = await calculateRouteDuration(
+                    conflictingRide.pickupCoords,
+                    conflictingRide.destCoords
+                );
+                
+                console.log('🚗 Konflikt-Fahrt Dauer:', rideDuration, 'Min');
+                
+                // 2. Ende der konfliktierenden Fahrt
+                const rideEndTime = conflictingRide.pickupTimestamp + (rideDuration * 60 * 1000);
+                
+                // 3. Berechne Fahrzeit vom Ziel zum neuen Start
+                const travelTime = await calculateRouteDuration(
+                    conflictingRide.destCoords,
+                    pickupCoords
+                );
+                
+                console.log('🚕 Fahrzeit zum neuen Start:', travelTime, 'Min');
+                
+                // 4. Frühestmögliche Zeit = Ende + Fahrzeit + 5 Min Puffer
+                let earliestTime = rideEndTime + (travelTime * 60 * 1000) + (5 * 60 * 1000);
+                
+                // 5. Auf 5 Min runden (IMMER AUFRUNDEN!)
+                earliestTime = roundToNext5Minutes(earliestTime);
+                
+                console.log('⏰ Frühestmöglich (gerundet):', new Date(earliestTime).toLocaleTimeString('de-DE'));
+                
+                // 6. Erstelle 3 Vorschläge: +15, +30, +45 Min
+                const alternatives = [
+                    earliestTime + (15 * 60 * 1000),
+                    earliestTime + (30 * 60 * 1000),
+                    earliestTime + (45 * 60 * 1000)
+                ];
+                
+                return alternatives.map(ts => ({
+                    timestamp: ts,
+                    formatted: formatTimeForDisplay(ts)
+                }));
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Alternativ-Berechnung:', error);
+                // Fallback: Einfach +15, +30, +45 Min zur gewünschten Zeit
+                return [15, 30, 45].map(offset => {
+                    const ts = requestedTimestamp + (offset * 60 * 1000);
+                    return {
+                        timestamp: ts,
+                        formatted: formatTimeForDisplay(ts)
+                    };
+                });
+            }
+        }
+        
+        // Berechnet Route-Dauer via Google Maps
+        async function calculateRouteDuration(fromCoords, toCoords) {
+            if (!fromCoords || !toCoords) return 15; // Fallback
+            
+            try {
+                const response = await fetch(
+                    `https://maps.googleapis.com/maps/api/directions/json?` +
+                    `origin=${fromCoords.lat},${fromCoords.lng}&` +
+                    `destination=${toCoords.lat},${toCoords.lng}&` +
+                    `key=${GOOGLE_MAPS_API_KEY}`
+                );
+                
+                const data = await response.json();
+                
+                if (data.routes && data.routes[0]) {
+                    const duration = data.routes[0].legs[0].duration.value; // Sekunden
+                    return Math.ceil(duration / 60); // Minuten, aufgerundet
+                }
+            } catch (error) {
+                console.error('❌ Fehler bei Route-Berechnung:', error);
+            }
+            
+            return 15; // Fallback
+        }
+        
+        // Rundet auf nächste 5 Minuten AUF
+        function roundToNext5Minutes(timestamp) {
+            const date = new Date(timestamp);
+            const minutes = date.getMinutes();
+            const remainder = minutes % 5;
+            
+            if (remainder === 0) {
+                return timestamp; // Schon auf 5 Min
+            }
+            
+            // Aufrunden auf nächste 5
+            const minutesToAdd = 5 - remainder;
+            return timestamp + (minutesToAdd * 60 * 1000);
+        }
+        
+        // Formatiert Zeit für Anzeige
+        function formatTimeForDisplay(timestamp) {
+            const date = new Date(timestamp);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}.${date.getFullYear()}, ${hours}:${minutes} Uhr`;
+        }
+        
+        // Zeigt Modal mit Alternativen
+        function showAlternativeTimesModal(requestedTime, alternatives, bookingData) {
+            console.log('📋 Zeige Alternative-Zeiten-Modal');
+            
+            // Speichere Buchungsdaten für später
+            currentBookingData = bookingData;
+            
+            // Zeige gewünschte Zeit
+            document.getElementById('requested-time-display').textContent = 
+                formatTimeForDisplay(requestedTime);
+            
+            // Erstelle Buttons für Alternativen
+            const container = document.getElementById('alternative-times-container');
+            container.innerHTML = alternatives.map((alt, idx) => `
+                <button onclick="selectAlternativeTime(${alt.timestamp})" 
+                    style="padding: 15px; background: white; border: 2px solid #10b981; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                    onmouseover="this.style.background='#d1fae5'" 
+                    onmouseout="this.style.background='white'">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px; color: #1f2937;">
+                                ⏰ ${alt.formatted}
+                            </div>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 3px;">
+                                ${idx === 0 ? 'Frühestmöglich' : idx === 1 ? 'Komfortabel' : 'Sicherer Puffer'}
+                            </div>
+                        </div>
+                        <div style="font-size: 20px; color: #10b981;">
+                            ✅
+                        </div>
+                    </div>
+                </button>
+            `).join('');
+            
+            // Zeige Modal
+            document.getElementById('auto-booking-modal').style.display = 'block';
+        }
+        
+        // User wählt alternative Zeit
+        async function selectAlternativeTime(timestamp) {
+            console.log('✅ Alternative Zeit gewählt:', new Date(timestamp).toLocaleString('de-DE'));
+            
+            // Modal schließen
+            closeAutoBookingModal();
+            
+            if (!currentBookingData) {
+                alert('❌ Fehler: Buchungsdaten verloren!');
+                return;
+            }
+            
+            // Aktualisiere Zeitstempel
+            currentBookingData.pickupTimestamp = timestamp;
+            currentBookingData.pickupTime = formatTimeForDisplay(timestamp);
+            
+            // Buche mit neuer Zeit
+            await executeBooking(currentBookingData);
+        }
+        
+        // Schließt Modal
+        function closeAutoBookingModal() {
+            document.getElementById('auto-booking-modal').style.display = 'none';
+            currentBookingData = null;
+        }
+        
+        // Zeigt Zeitauswahl-Formular
+        function showCustomTimeSelection() {
+            closeAutoBookingModal();
+            
+            // Zurück zum Vorbestellen-Bereich
+            currentRideType = 'vorbestellen';
+            document.getElementById('btn-vorbestellen').style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+            document.getElementById('btn-vorbestellen').style.color = 'white';
+            document.getElementById('btn-sofort').style.background = 'white';
+            document.getElementById('btn-sofort').style.color = '#059669';
+            
+            // Zeige Vorbestellen-Container
+            document.getElementById('vorbestellen-bereich').style.display = 'block';
+            document.getElementById('sofort-bereich').style.display = 'none';
+            
+            alert('💡 Bitte wähle eine andere Zeit und klicke dann auf "Taxi buchen".');
+        }
+        
+        // Führt Buchung aus (ohne erneute Prüfung)
+        async function executeBooking(bookingData) {
+            console.log('📝 Führe Buchung aus:', bookingData);
+            
+            // Firebase speichern
+            if (isFirebaseReady) {
+                const firebaseRide = { ...bookingData };
+                delete firebaseRide.firebaseId;
+                
+                const newRideRef = await db.ref('rides').push(firebaseRide);
+                bookingData.firebaseId = newRideRef.key;
+                
+                console.log('✅ In Firebase gespeichert:', bookingData.firebaseId);
+            }
+            
+            // localStorage speichern
+            rides.push(bookingData);
+            localStorage.setItem('rides', JSON.stringify(rides));
+            
+            // Telegram senden
+            if (isFirebaseReady) {
+                await sendTelegramForNewRide(bookingData);
+                await sendCustomerNotifications(bookingData);
+            }
+            
+            // Bestätigung zeigen
+            if (bookingData.status === 'vorbestellt') {
+                showPreorderSummary(bookingData);
+            } else {
+                alert(
+                    '✅ Buchung erfolgreich!\n\n' +
+                    '📍 Von: ' + bookingData.pickup + '\n' +
+                    '🎯 Nach: ' + bookingData.destination + '\n' +
+                    '💰 Preis: ' + bookingData.price + '€\n\n' +
+                    '📲 Sie erhalten SMS + Telegram mit Tracking-Link!\n\n' +
+                    '🚕 Wir suchen jetzt einen Fahrer für dich!'
+                );
+                
+                document.getElementById('booking-form').style.display = 'none';
+                showRideStatus(bookingData);
+                resetBookingForm();
+                
+                if (isFirebaseReady) listenToMyRide(bookingData.firebaseId);
+            }
+            
+            // Auto-Assignment für Sofort-Fahrten
+            if (isFirebaseReady && bookingData.firebaseId && bookingData.status === 'new') {
+                startAutoAssignment(bookingData.firebaseId, bookingData);
+            }
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -19845,6 +20283,9 @@ Stack: ${err.stack}
                 alarmCheckbox.checked = disableAlarm;
             }
             
+            // 🤖 v5.32.5h: Lade Auto-Booking Einstellung
+            loadAutoBookingSettings();
+            
             // 🆕 TRACKING-LINK: Prüfe ob ?ride=XXX in URL
             const urlParams = new URLSearchParams(window.location.search);
             const trackingRideId = urlParams.get('ride');
@@ -20490,6 +20931,62 @@ Stack: ${err.stack}
                 </button>
                 <button onclick="editPreorder()" class="modal-btn" style="flex: 1; background: #3b82f6; color: white;">
                     ✏️ Bearbeiten
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🤖 AUTO-BOOKING MODAL: ALTERNATIV-VORSCHLÄGE -->
+    <div id="auto-booking-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="color: #f59e0b;">
+                ⚠️ Zeitslot belegt
+            </div>
+            
+            <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+                <div style="font-weight: 600; color: #92400e; margin-bottom: 5px;">
+                    🕐 <span id="requested-time-display"></span> ist bereits belegt
+                </div>
+                <div style="font-size: 13px; color: #78350f;">
+                    Ein anderes Taxi ist zu dieser Zeit unterwegs
+                </div>
+            </div>
+            
+            <div style="font-weight: 600; font-size: 16px; margin-bottom: 15px; color: #1f2937;">
+                💡 Alternative Zeiten:
+            </div>
+            
+            <div id="alternative-times-container" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <!-- 📞 v5.32.5i: TELEFON-OPTION -->
+            <div style="margin: 20px 0; padding: 15px 0; border-top: 2px solid #e5e7eb; border-bottom: 2px solid #e5e7eb;">
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <div style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">
+                        ❓ Keine Zeit passend?
+                    </div>
+                    <div style="font-weight: 600; font-size: 15px; color: #1f2937; margin-bottom: 12px;">
+                        Rufen Sie uns an:
+                    </div>
+                    <a href="tel:038378" 
+                       style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #10b981, #059669); color: white; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 20px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: all 0.2s;"
+                       onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 16px rgba(16, 185, 129, 0.4)'"
+                       onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.3)'">
+                        📞 038378 / 1234
+                    </a>
+                    <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">
+                        Wir helfen Ihnen gerne weiter!
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button onclick="closeAutoBookingModal()" class="modal-btn" style="flex: 1; background: #6b7280; color: white;">
+                    ❌ Abbrechen
+                </button>
+                <button onclick="showCustomTimeSelection()" class="modal-btn" style="flex: 1; background: #3b82f6; color: white;">
+                    ✏️ Andere Zeit
                 </button>
             </div>
         </div>

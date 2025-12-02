@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5c - Build 20251202-1215');
-        console.log('🆕 Timeline-Filter: Nur aktive Fahrten!');
+        console.log('🚕 Funk Taxi App v5.32.5f - Build 20251202-1430');
+        console.log('🆕 Vorbestell-Übersichts-Modal mit OK + Bearbeiten!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5c - Timeline-Filter 🔍 (Build 20251202-1215)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5f - Vorbestell-Übersicht-Modal 📋 (Build 20251202-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2915,13 +2915,29 @@
                 // 📅 KOMMENDE FAHRTEN: vorbestellt, new, accepted, picked_up, etc.
                 filteredRides = allRides.filter(r => {
                     const activeStatuses = ['vorbestellt', 'new', 'accepted', 'picked_up', 'akzeptiert', 'unterwegs', 'angekommen', 'assigned_to_driver', 'assigned'];
-                    return activeStatuses.includes(r.status);
+                    const isActiveStatus = activeStatuses.includes(r.status);
+                    
+                    // 🆕 v5.32.5d: Für vorbestellte Fahrten → Prüfe ob Zeit noch nicht vorbei!
+                    if (r.status === 'vorbestellt' && r.pickupTimestamp) {
+                        const isFuture = r.pickupTimestamp > now;
+                        if (!isFuture) {
+                            console.log('⏰ Überspringe alte Vorbestellung:', r.firebaseId, new Date(r.pickupTimestamp));
+                        }
+                        return isFuture;
+                    }
+                    
+                    return isActiveStatus;
                 }).sort((a, b) => (a.pickupTimestamp || a.createdAt) - (b.pickupTimestamp || b.createdAt));
             } else {
-                // 📖 VERGANGENE FAHRTEN: completed, cancelled, storniert
+                // 📖 VERGANGENE FAHRTEN: completed, cancelled, storniert + alte Vorbestellungen
                 filteredRides = allRides.filter(r => {
                     const completedStatuses = ['completed', 'abgeschlossen', 'cancelled', 'storniert'];
-                    return completedStatuses.includes(r.status);
+                    const isCompletedStatus = completedStatuses.includes(r.status);
+                    
+                    // 🆕 v5.32.5d: Alte Vorbestellungen auch hier anzeigen!
+                    const isOldPreorder = r.status === 'vorbestellt' && r.pickupTimestamp && r.pickupTimestamp < now;
+                    
+                    return isCompletedStatus || isOldPreorder;
                 }).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             }
             
@@ -9285,15 +9301,8 @@
                     await sendCustomerNotifications(savedRide);
                 }
                 
-                alert(
-                    '✅ Vorbestellung erfolgreich!\n\n' +
-                    '📅 Abholung: ' + pickupTime + '\n' +
-                    '📍 Von: ' + ride.pickup + '\n' +
-                    '🎯 Nach: ' + ride.destination + '\n' +
-                    '💰 Preis: ' + ride.price + '€\n\n' +
-                    '📲 Sie erhalten SMS + Telegram mit Tracking-Link!\n\n' +
-                    '💡 Du kannst deine Buchung jederzeit im Verlauf ändern oder stornieren.'
-                );
+                // 🆕 v5.32.5f: Zeige schönes Übersichts-Modal statt Alert!
+                showPreorderSummary(savedRide);
             } else {
                 // 📱 TELEGRAM für Sofort-Fahrt senden!
                 if (isFirebaseReady) {
@@ -9317,13 +9326,31 @@
                 startAutoAssignment(savedRide.firebaseId, savedRide);
             }
             
-            document.getElementById('booking-form').style.display = 'none';
-            showRideStatus(savedRide);
-            
-            // 🆕 v5.32.5: FORMULAR KOMPLETT ZURÜCKSETZEN!
-            resetBookingForm();
-            
-            if (isFirebaseReady) listenToMyRide(savedRide.firebaseId);
+            // 🆕 v5.32.5e: VORBESTELLUNGEN → Zurück zu leerem Formular!
+            if (savedRide.status === 'vorbestellt') {
+                // ✅ Formular zurücksetzen
+                resetBookingForm();
+                
+                // ✅ Formular ANZEIGEN (nicht verstecken!)
+                document.getElementById('booking-form').style.display = 'block';
+                
+                // ✅ Sicherstellen dass wir im Fahrgast-Tab sind
+                if (typeof showTab === 'function') {
+                    showTab('passenger');
+                }
+                
+                console.log('✅ v5.32.5e: Vorbestellung gespeichert, Formular zurückgesetzt, bereit für nächste Buchung!');
+                
+            } else {
+                // ⚡ SOFORT-FAHRTEN: Zeige Status-Ansicht
+                document.getElementById('booking-form').style.display = 'none';
+                showRideStatus(savedRide);
+                
+                // Formular trotzdem zurücksetzen (für später)
+                resetBookingForm();
+                
+                if (isFirebaseReady) listenToMyRide(savedRide.firebaseId);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -9358,12 +9385,39 @@
             window.currentDuration = 0;
             const priceDisplay = document.getElementById('price-display');
             if (priceDisplay) {
-                priceDisplay.textContent = '€ 0,00';
+                priceDisplay.innerHTML = '';
+                priceDisplay.style.display = 'none'; // ✅ Verstecken!
             }
             const priceContainer = document.getElementById('price-container');
             if (priceContainer) {
                 priceContainer.style.display = 'none';
             }
+            
+            // 🗺️ ROUTE-KARTE VERSTECKEN
+            const routeMap = document.getElementById('route-map');
+            if (routeMap) {
+                routeMap.style.display = 'none';
+                // Karte entfernen
+                if (routeMapInstance) {
+                    routeMapInstance.remove();
+                    routeMapInstance = null;
+                }
+            }
+            
+            // 🔘 "BUCHEN"-BUTTON VERSTECKEN
+            const bookBtn = document.getElementById('book-btn');
+            if (bookBtn) {
+                bookBtn.style.display = 'none';
+            }
+            
+            // 🔘 "PREIS BERECHNEN"-BUTTON ZURÜCKSETZEN
+            const priceBtn = document.getElementById('price-btn');
+            if (priceBtn) {
+                priceBtn.innerHTML = '💰 Preis berechnen';
+                priceBtn.classList.remove('btn-danger');
+                priceBtn.classList.add('btn-primary');
+            }
+            priceCalculated = false;
             
             // 🗺️ KARTE ZURÜCKSETZEN
             if (window.currentRoutePolyline) {
@@ -9408,6 +9462,185 @@
             localStorage.removeItem('lastDestination');
             
             console.log('✅ Formular zurückgesetzt - bereit für nächste Buchung!');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 📅 v5.32.5f: VORBESTELL-ÜBERSICHTS-MODAL
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let lastPreorderRide = null; // Speichert letzte Vorbestellung für Bearbeiten
+        
+        function showPreorderSummary(ride) {
+            console.log('📅 Zeige Vorbestell-Übersicht:', ride);
+            
+            lastPreorderRide = ride; // Speichern für Bearbeiten-Funktion
+            
+            // Formatiere Abholzeit
+            const pickupTimeFormatted = ride.pickupTime || 'Sofort';
+            
+            // Erstelle Übersichts-HTML
+            const summaryHtml = `
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">📅</span>
+                        <div>
+                            <div style="font-weight: 600; color: #1f2937;">Abholung</div>
+                            <div style="color: #6b7280;">${pickupTimeFormatted}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">👤</span>
+                        <div>
+                            <div style="font-weight: 600; color: #1f2937;">Name</div>
+                            <div style="color: #6b7280;">${ride.customerName}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">📞</span>
+                        <div>
+                            <div style="font-weight: 600; color: #1f2937;">Telefon</div>
+                            <div style="color: #6b7280;">${ride.customerPhone}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">📍</span>
+                        <div>
+                            <div style="font-weight: 600; color: #1f2937;">Von</div>
+                            <div style="color: #6b7280;">${ride.pickup}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">🎯</span>
+                        <div>
+                            <div style="font-weight: 600; color: #1f2937;">Nach</div>
+                            <div style="color: #6b7280;">${ride.destination}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">💰</span>
+                        <div>
+                            <div style="font-weight: 600; color: #1f2937;">Preis</div>
+                            <div style="color: #6b7280;">${ride.price}€</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">👥</span>
+                        <div>
+                            <div style="font-weight: 600; color: #1f2937;">Personen</div>
+                            <div style="color: #6b7280;">${ride.passengers || 1}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 8px; font-size: 14px; color: #1e40af;">
+                    📲 Sie erhalten SMS + Telegram mit Tracking-Link!
+                </div>
+            `;
+            
+            // Füge HTML ein
+            document.getElementById('preorder-summary-content').innerHTML = summaryHtml;
+            
+            // Zeige Modal
+            document.getElementById('preorder-summary-modal').style.display = 'block';
+        }
+        
+        function closePreorderSummary() {
+            console.log('✅ OK - Schließe Übersicht, zeige leeres Formular');
+            
+            // Modal schließen
+            document.getElementById('preorder-summary-modal').style.display = 'none';
+            
+            // ✅ Formular zurücksetzen
+            resetBookingForm();
+            
+            // ✅ Formular ANZEIGEN
+            document.getElementById('booking-form').style.display = 'block';
+            
+            // ✅ Zurück zu Fahrgast-Tab
+            if (typeof showTab === 'function') {
+                showTab('passenger');
+            }
+            
+            // 🔄 Verlauf aktualisieren (damit neue Vorbestellung sichtbar)
+            updateHistoryView();
+        }
+        
+        function editPreorder() {
+            console.log('✏️ Bearbeiten - Lade Daten zurück ins Formular');
+            
+            if (!lastPreorderRide) {
+                console.error('❌ Keine Vorbestellung zum Bearbeiten!');
+                return;
+            }
+            
+            // Modal schließen
+            document.getElementById('preorder-summary-modal').style.display = 'none';
+            
+            // Daten zurück ins Formular laden
+            document.getElementById('customer-name').value = lastPreorderRide.customerName || '';
+            document.getElementById('customer-phone').value = lastPreorderRide.customerPhone || '';
+            document.getElementById('pickup').value = lastPreorderRide.pickup || '';
+            document.getElementById('destination').value = lastPreorderRide.destination || '';
+            document.getElementById('passengers').value = lastPreorderRide.passengers || 1;
+            
+            // Koordinaten wiederherstellen
+            window.pickupCoords = lastPreorderRide.pickupCoords || null;
+            window.destCoords = lastPreorderRide.destCoords || null;
+            
+            // Zahlungsmethode
+            const paymentMethod = document.getElementById('payment-method');
+            if (paymentMethod && lastPreorderRide.paymentMethod) {
+                paymentMethod.value = lastPreorderRide.paymentMethod;
+            }
+            
+            // Vorbestell-Modus aktivieren
+            currentRideType = 'vorbestellen';
+            
+            // Datum/Zeit zurücksetzen wenn vorhanden
+            if (lastPreorderRide.pickupTimestamp) {
+                const date = new Date(lastPreorderRide.pickupTimestamp);
+                
+                const dateStr = date.toISOString().split('T')[0];
+                const hourStr = String(date.getHours()).padStart(2, '0');
+                const minuteStr = String(date.getMinutes()).padStart(2, '0');
+                
+                const customDate = document.getElementById('custom-date');
+                const customHour = document.getElementById('custom-hour');
+                const customMinute = document.getElementById('custom-minute');
+                
+                if (customDate) customDate.value = dateStr;
+                if (customHour) customHour.value = hourStr;
+                if (customMinute) customMinute.value = minuteStr;
+                
+                // Vorbestell-Container zeigen
+                const preorderContainer = document.getElementById('preorder-container');
+                if (preorderContainer) {
+                    preorderContainer.style.display = 'block';
+                }
+            }
+            
+            // Formular ANZEIGEN
+            document.getElementById('booking-form').style.display = 'block';
+            
+            // Zurück zu Fahrgast-Tab
+            if (typeof showTab === 'function') {
+                showTab('passenger');
+            }
+            
+            // Alte Fahrt in Firebase löschen (wird neu gespeichert beim Buchen)
+            if (isFirebaseReady && lastPreorderRide.firebaseId) {
+                db.ref('rides/' + lastPreorderRide.firebaseId).remove();
+                console.log('🗑️ Alte Vorbestellung gelöscht, wird neu gespeichert');
+            }
+            
+            // Hinweis für User
+            alert('✏️ Fahrt wurde ins Formular geladen!\n\nBitte passe die Daten an und klicke dann auf "Preis berechnen" und "Taxi buchen".');
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -20239,6 +20472,28 @@ Stack: ${err.stack}
     <!-- 📱 v5.24.0: External JavaScript -->
     <script src="improved-gps-tracking.js"></script>
     <script src="driver-settings-manager.js"></script>
+
+    <!-- 📅 VORBESTELL-ÜBERSICHTS-MODAL -->
+    <div id="preorder-summary-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="color: #10b981;">
+                ✅ Vorbestellung erfolgreich!
+            </div>
+            
+            <div id="preorder-summary-content" style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button onclick="closePreorderSummary()" class="modal-btn" style="flex: 1; background: #10b981; color: white;">
+                    ✅ OK
+                </button>
+                <button onclick="editPreorder()" class="modal-btn" style="flex: 1; background: #3b82f6; color: white;">
+                    ✏️ Bearbeiten
+                </button>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

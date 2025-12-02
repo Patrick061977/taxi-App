@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5 - Build 20251202-1200');
-        console.log('🆕 Fahrzeug-Zuweisung + Timeline mit Überlappungs-Erkennung!');
+        console.log('🚕 Funk Taxi App v5.32.5c - Build 20251202-1215');
+        console.log('🆕 Timeline-Filter: Nur aktive Fahrten!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5 - Fahrzeug-Zuweisung + Timeline 🚗⏱️ (Build 20251202-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5c - Timeline-Filter 🔍 (Build 20251202-1215)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9320,8 +9320,97 @@
             document.getElementById('booking-form').style.display = 'none';
             showRideStatus(savedRide);
             
+            // 🆕 v5.32.5: FORMULAR KOMPLETT ZURÜCKSETZEN!
+            resetBookingForm();
+            
             if (isFirebaseReady) listenToMyRide(savedRide.firebaseId);
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🧹 v5.32.5: FORMULAR KOMPLETT ZURÜCKSETZEN
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        function resetBookingForm() {
+            console.log('🧹 Setze Buchungsformular zurück...');
+            
+            // 📝 ALLE EINGABEFELDER LEEREN
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-phone').value = '';
+            document.getElementById('pickup').value = '';
+            document.getElementById('destination').value = '';
+            document.getElementById('passengers').value = '1';
+            
+            // 📅 Vorbestell-Felder zurücksetzen
+            const preorderDateTime = document.getElementById('preorder-datetime');
+            if (preorderDateTime) {
+                preorderDateTime.value = '';
+            }
+            
+            // 💳 Zahlungsmethode zurücksetzen
+            const paymentMethod = document.getElementById('payment-method');
+            if (paymentMethod) {
+                paymentMethod.value = 'bar';
+            }
+            
+            // 💰 PREIS ZURÜCKSETZEN
+            window.currentPrice = 0;
+            window.currentDistance = 0;
+            window.currentDuration = 0;
+            const priceDisplay = document.getElementById('price-display');
+            if (priceDisplay) {
+                priceDisplay.textContent = '€ 0,00';
+            }
+            const priceContainer = document.getElementById('price-container');
+            if (priceContainer) {
+                priceContainer.style.display = 'none';
+            }
+            
+            // 🗺️ KARTE ZURÜCKSETZEN
+            if (window.currentRoutePolyline) {
+                window.currentRoutePolyline.remove();
+                window.currentRoutePolyline = null;
+            }
+            if (window.pickupMarker) {
+                window.pickupMarker.remove();
+                window.pickupMarker = null;
+            }
+            if (window.destinationMarker) {
+                window.destinationMarker.remove();
+                window.destinationMarker = null;
+            }
+            
+            // 📍 KOORDINATEN ZURÜCKSETZEN
+            window.pickupCoords = null;
+            window.destCoords = null;
+            
+            // 🔘 BUTTONS ZURÜCKSETZEN
+            const rideTypeContainer = document.getElementById('ride-type-container');
+            if (rideTypeContainer) {
+                rideTypeContainer.style.display = 'none';
+            }
+            
+            // ⏰ VORBESTELL-CONTAINER VERSTECKEN
+            const preorderContainer = document.getElementById('preorder-container');
+            if (preorderContainer) {
+                preorderContainer.style.display = 'none';
+            }
+            
+            // 📋 STAMMKUNDEN-CHECKBOX VERSTECKEN
+            const crmOption = document.getElementById('crm-save-option');
+            if (crmOption) {
+                crmOption.style.display = 'none';
+            }
+            currentBookingCustomerId = null;
+            
+            // 🧹 LOKALSTORAGE FORMULAR-CACHE LEEREN
+            localStorage.removeItem('bookingFormData');
+            localStorage.removeItem('lastPickup');
+            localStorage.removeItem('lastDestination');
+            
+            console.log('✅ Formular zurückgesetzt - bereit für nächste Buchung!');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
 
         // 🆕 v5.31.1: Track letzten Status um unnötige UI-Updates zu vermeiden
         let lastRideStatus = null;
@@ -19000,7 +19089,13 @@ Stack: ${err.stack}
             // Filtere Fahrten für diesen Tag
             const dayRides = allRides.filter(ride => {
                 const rideDate = new Date(ride.pickupTimestamp || ride.createdAt || 0);
-                return rideDate.toDateString() === date.toDateString();
+                const isSameDay = rideDate.toDateString() === date.toDateString();
+                
+                // 🆕 v5.32.5c: NUR AKTIVE FAHRTEN in Timeline!
+                const activeStatuses = ['new', 'accepted', 'picked_up', 'assigned', 'vorbestellt'];
+                const isActive = activeStatuses.includes(ride.status);
+                
+                return isSameDay && isActive;
             }).sort((a, b) => {
                 const timeA = a.pickupTimestamp || a.createdAt || 0;
                 const timeB = b.pickupTimestamp || b.createdAt || 0;
@@ -19042,15 +19137,27 @@ Stack: ${err.stack}
                 </div>
             `;
             
+            // 🆕 v5.32.5c: Info - Nur aktive Fahrten
+            html += `
+                <div style="background: #dbeafe; border: 2px solid #3b82f6; padding: 12px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 20px;">ℹ️</div>
+                    <div style="font-size: 13px; color: #1e40af;">
+                        <strong>Timeline zeigt nur aktive Fahrten:</strong> Neu, Akzeptiert, Unterwegs, Zugewiesen, Vorbestellt
+                        <br>
+                        <span style="font-size: 12px; opacity: 0.8;">Abgeschlossene und stornierte Fahrten werden nicht angezeigt.</span>
+                    </div>
+                </div>
+            `;
+            
             if (dayRides.length === 0) {
                 html += `
                     <div style="text-align: center; padding: 80px 20px; color: #9ca3af;">
                         <div style="font-size: 64px; margin-bottom: 15px;">📅</div>
                         <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #6b7280;">
-                            Keine Fahrten an diesem Tag
+                            Keine aktiven Fahrten an diesem Tag
                         </div>
                         <div style="font-size: 14px;">
-                            Wähle einen anderen Tag aus um Fahrten zu sehen
+                            Wähle einen anderen Tag oder prüfe abgeschlossene Fahrten in der Tagesansicht
                         </div>
                     </div>
                 `;

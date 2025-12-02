@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5L - Build 20251202-2050');
-        console.log('📋 Vorbestell-Card statt Modal + OK löscht Formular');
+        console.log('🚕 Funk Taxi App v5.32.5n - Build 20251202-2115');
+        console.log('🧹 OK löscht ALLES - Name, Telefon, Datum, Uhrzeit!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5L - Card statt Modal 📋 (Build 20251202-2050)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5n - OK löscht ALLES 🧹 (Build 20251202-2115)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -16740,17 +16740,61 @@ Stack: ${err.stack}
         }
         
         function closeFutureRide(rideId) {
-            // 🆕 v5.32.5L: Einfach zurück zum leeren Formular
+            // 🆕 v5.32.5n: ALLES löschen - KOMPLETT wie Abbrechen!
+            console.log('✅ OK - Lösche ALLE Felder im Fahrgast-Bereich');
+            
+            // 1. Card schließen
             localStorage.removeItem('myCurrentRideId');
             myCurrentRide = null;
             document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
             
-            // Formular komplett zurücksetzen
-            resetBookingForm();
+            // 2. ALLE Eingabefelder leeren
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-phone').value = '';
+            document.getElementById('pickup').value = '';
+            document.getElementById('destination').value = '';
+            document.getElementById('passengers').value = '1';
             
-            // Verlauf aktualisieren
+            // 3. VORBESTELL-FELDER leeren
+            document.getElementById('custom-date').value = '';
+            document.getElementById('custom-hour').value = '00';
+            document.getElementById('custom-minute').value = '00';
+            
+            // 4. Karte verstecken
+            const routeMap = document.getElementById('route-map');
+            if (routeMap) routeMap.style.display = 'none';
+            
+            // 5. Preis verstecken
+            document.getElementById('price-display').innerHTML = '';
+            
+            // 6. Taxi buchen Button verstecken
+            document.getElementById('book-btn').style.display = 'none';
+            
+            // 7. Verfügbare Taxis verstecken
+            document.getElementById('available-taxis-display').innerHTML = '';
+            
+            // 8. Button zurück zu "Preis berechnen"
+            const priceBtn = document.getElementById('price-btn');
+            priceBtn.innerHTML = '💰 Preis berechnen';
+            priceBtn.classList.remove('btn-danger');
+            priceBtn.classList.add('btn-primary');
+            
+            // 9. Status zurücksetzen
+            priceCalculated = false;
+            window.currentPrice = null;
+            window.currentDistance = null;
+            window.currentDuration = null;
+            pickupCoords = null;
+            destCoords = null;
+            
+            // 10. Zurück zu SOFORT-Modus
+            selectRideType('sofort');
+            
+            // 11. Verlauf aktualisieren
             updateHistoryView();
+            
+            console.log('✅ ALLES gelöscht - Fahrgast-Bereich komplett zurückgesetzt!');
         }
 
         function loadHistory() {

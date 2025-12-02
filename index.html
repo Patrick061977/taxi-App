@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5j - Build 20251202-1620');
-        console.log('🔧 Auto-Booking Fix: Berücksichtigt Fahrtende + Fahrzeit!');
+        console.log('🚕 Funk Taxi App v5.32.5k - Build 20251202-2020');
+        console.log('📅 Altes Vorbestell-Modal zurück: "Vorbestellung bestätigt"');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5j - Auto-Booking FIX 🔧 (Build 20251202-1620)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5k - Vorbestell-Modal Fix 📅 (Build 20251202-2020)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9581,68 +9581,47 @@
             // Formatiere Abholzeit
             const pickupTimeFormatted = ride.pickupTime || 'Sofort';
             
-            // Erstelle Übersichts-HTML
+            // 🆕 v5.32.5k: ALTES schlichtes Design zurück!
             const summaryHtml = `
-                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 15px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">📅</span>
-                        <div>
-                            <div style="font-weight: 600; color: #1f2937;">Abholung</div>
-                            <div style="color: #6b7280;">${pickupTimeFormatted}</div>
-                        </div>
+                <div style="padding: 20px; font-size: 15px; line-height: 1.8;">
+                    <div style="margin-bottom: 15px;">
+                        <strong>🕐 Abholung:</strong><br>
+                        ${pickupTimeFormatted}
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">👤</span>
-                        <div>
-                            <div style="font-weight: 600; color: #1f2937;">Name</div>
-                            <div style="color: #6b7280;">${ride.customerName}</div>
-                        </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>👤 Name:</strong><br>
+                        ${ride.customerName}
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">📞</span>
-                        <div>
-                            <div style="font-weight: 600; color: #1f2937;">Telefon</div>
-                            <div style="color: #6b7280;">${ride.customerPhone}</div>
-                        </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>📞 Telefon:</strong><br>
+                        ${ride.customerPhone}
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">📍</span>
-                        <div>
-                            <div style="font-weight: 600; color: #1f2937;">Von</div>
-                            <div style="color: #6b7280;">${ride.pickup}</div>
-                        </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>📍 Von:</strong><br>
+                        ${ride.pickup}
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">🎯</span>
-                        <div>
-                            <div style="font-weight: 600; color: #1f2937;">Nach</div>
-                            <div style="color: #6b7280;">${ride.destination}</div>
-                        </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>🎯 Nach:</strong><br>
+                        ${ride.destination}
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">💰</span>
-                        <div>
-                            <div style="font-weight: 600; color: #1f2937;">Preis</div>
-                            <div style="color: #6b7280;">${ride.price}€</div>
-                        </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>💰 Preis:</strong><br>
+                        ${ride.price}€
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">👥</span>
-                        <div>
-                            <div style="font-weight: 600; color: #1f2937;">Personen</div>
-                            <div style="color: #6b7280;">${ride.passengers || 1}</div>
-                        </div>
+                    <div style="margin-bottom: 20px;">
+                        <strong>👥 Personen:</strong><br>
+                        ${ride.passengers || 1}
                     </div>
-                </div>
-                
-                <div style="margin-top: 20px; padding: 15px; background: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 8px; font-size: 14px; color: #1e40af;">
-                    📲 Sie erhalten SMS + Telegram mit Tracking-Link!
+                    
+                    <div style="padding: 15px; background: #dbeafe; border-radius: 8px; margin-bottom: 20px;">
+                        <strong>📲 Sie erhalten SMS + Telegram mit Tracking-Link!</strong>
+                    </div>
                 </div>
             `;
             
@@ -20964,7 +20943,7 @@ Stack: ${err.stack}
     <div id="preorder-summary-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header" style="color: #10b981;">
-                ✅ Vorbestellung erfolgreich!
+                📅 Vorbestellung bestätigt
             </div>
             
             <div id="preorder-summary-content" style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">

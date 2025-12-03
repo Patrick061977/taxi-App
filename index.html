@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.33.2 - Build 20251203-1830');
-        console.log('⏰ ZEITSLOT-EINSTELLUNGEN IM ADMIN!');
-        console.log('🎯 Anpassbare Puffer + Admin-Override!');
+        console.log('🚕 Funk Taxi App v5.33.3 - Build 20251203-1840');
+        console.log('🔧 TABS FIX: Bessere Login-Erkennung!');
+        console.log('🎯 VIEWS FIX: Züge/Busse nur in Schedule-View!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -392,7 +392,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.2 - ZEITSLOT-EINSTELLUNGEN! ⏰ (Build 20251203-1830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.3 - TABS & VIEWS FIX! 🔧 (Build 20251203-1840)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5757,24 +5757,40 @@
             const adminTabs = document.getElementById('admin-tabs');
             if (!adminTabs) return;
             
-            // Prüfe ob Admin-Menü-Einträge vorhanden sind (= User ist Admin)
-            const adminMenuItem = document.getElementById('admin-menu-section');
-            const isAdmin = adminMenuItem && adminMenuItem.style.display !== 'none';
+            // 🔧 v5.33.3: Prüfe ob User eingeloggt ist
+            // 1. Prüfe ob Phone-Auth-Screen NICHT sichtbar ist
+            const phoneAuthScreen = document.getElementById('phone-auth-screen');
+            const phoneAuthVisible = phoneAuthScreen && phoneAuthScreen.style.display !== 'none';
             
-            // Zeige/Verstecke Tabs
-            if (isAdmin) {
+            // 2. Prüfe ob "Mein Konto" Bereich einen Namen hat
+            const accountName = document.getElementById('customer-name-display');
+            const hasName = accountName && accountName.textContent && accountName.textContent.trim() !== '';
+            
+            // 3. Prüfe ob Booking-Form sichtbar ist (eingeloggt)
+            const bookingForm = document.getElementById('booking-form');
+            const bookingVisible = bookingForm && window.getComputedStyle(bookingForm).display !== 'none';
+            
+            // User ist eingeloggt wenn:
+            // - Phone-Auth nicht sichtbar UND
+            // - (Hat einen Namen ODER Booking-Form sichtbar)
+            const isLoggedIn = !phoneAuthVisible && (hasName || bookingVisible);
+            
+            // Zeige Tabs wenn eingeloggt
+            if (isLoggedIn) {
                 adminTabs.style.display = 'block';
-                console.log('✅ Admin-Tabs angezeigt');
+                console.log('✅ Admin-Tabs angezeigt (User eingeloggt)');
             } else {
                 adminTabs.style.display = 'none';
-                console.log('❌ Admin-Tabs versteckt (Fahrgast)');
+                console.log('❌ Admin-Tabs versteckt (User nicht eingeloggt)');
             }
         }
         
-        // Admin-Tabs beim Laden prüfen
+        // Admin-Tabs beim Laden prüfen (mehrfach für Sicherheit)
         setTimeout(() => updateAdminTabsVisibility(), 500);
-        // Und nach Firebase-Init nochmal
-        setInterval(() => updateAdminTabsVisibility(), 3000);
+        setTimeout(() => updateAdminTabsVisibility(), 1500);
+        setTimeout(() => updateAdminTabsVisibility(), 3000);
+        // Und danach regelmäßig
+        setInterval(() => updateAdminTabsVisibility(), 5000);
 
         // 🎯 GPS MONITORING - Prüft alle 5 Sekunden ob GPS läuft
         let gpsMonitoringInterval = null;
@@ -21944,6 +21960,35 @@ Stack: ${err.stack}
                     }
                 }, { once: false, passive: true });
             });
+        });
+        
+        // 🆕 v5.33.3: INIT - Stelle sicher dass beim Laden nur passenger-view sichtbar ist!
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 v5.33.3: Initialisiere Views...');
+            
+            // Verstecke ALLE Views beim Start
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
+            allViews.forEach(viewId => {
+                const viewEl = document.getElementById(viewId);
+                if (viewEl) {
+                    viewEl.style.display = 'none';
+                    viewEl.classList.remove('active');
+                }
+            });
+            
+            // Zeige NUR passenger-view
+            const passengerView = document.getElementById('passenger-view');
+            if (passengerView) {
+                passengerView.style.display = 'block';
+                passengerView.classList.add('active');
+                console.log('✅ Passenger-View initial angezeigt');
+            }
+            
+            // Setze passenger tab als aktiv
+            const passengerTab = document.querySelector('.admin-tab-btn[data-view="passenger"]');
+            if (passengerTab) {
+                passengerTab.classList.add('active');
+            }
         });
     </script>
     <!-- 🔐 LOGIN MODAL -->

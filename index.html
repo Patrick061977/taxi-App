@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.6 - Build 20251203-0900');
-        console.log('🚌🚂 NEUER FAHRPLAN-TAB - Bus & Zug Live-Fahrplan!');
+        console.log('🚕 Funk Taxi App v5.32.6a - Build 20251203-0915');
+        console.log('🔧 GPS-Fix für Fahrplan-Tab!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.6 - Live-Fahrplan 🚌🚂 (Build 20251203-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.6a - GPS-Fix 🔧 (Build 20251203-0915)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4715,15 +4715,36 @@
             
             console.log('🚌 Lade Fahrplan-Daten...');
             
+            // GPS-Check
+            if (!navigator.geolocation) {
+                showScheduleError('GPS nicht verfügbar in deinem Browser.');
+                return;
+            }
+            
             try {
                 // 1. GPS-Standort holen
-                const location = await getUserLocation('approximate');
+                console.log('📍 Hole GPS-Standort...');
                 
-                if (!location) {
-                    document.getElementById('schedule-location').textContent = 'Standort nicht verfügbar';
-                    showScheduleError('GPS-Standort konnte nicht ermittelt werden.');
-                    return;
-                }
+                const location = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                            console.log('✅ GPS-Standort erhalten:', pos.coords.latitude, pos.coords.longitude);
+                            resolve({
+                                latitude: pos.coords.latitude,
+                                longitude: pos.coords.longitude
+                            });
+                        },
+                        (err) => {
+                            console.error('❌ GPS-Fehler:', err);
+                            reject(err);
+                        },
+                        {
+                            enableHighAccuracy: false,
+                            timeout: 10000,
+                            maximumAge: 300000
+                        }
+                    );
+                });
                 
                 const { latitude, longitude } = location;
                 document.getElementById('schedule-location').textContent = 
@@ -4751,7 +4772,16 @@
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden des Fahrplans:', error);
-                showScheduleError('Fehler beim Laden der Fahrplandaten: ' + error.message);
+                
+                if (error.code === 1) {
+                    showScheduleError('GPS-Berechtigung verweigert. Bitte erlaube den Standort-Zugriff in den Browser-Einstellungen.');
+                } else if (error.code === 2) {
+                    showScheduleError('Standort nicht verfügbar. Bitte aktiviere GPS.');
+                } else if (error.code === 3) {
+                    showScheduleError('GPS-Timeout. Bitte versuche es erneut.');
+                } else {
+                    showScheduleError('Fehler beim Laden der Fahrplandaten: ' + error.message);
+                }
             }
         }
         

@@ -17,8 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.5n - Build 20251202-2115');
-        console.log('🧹 OK löscht ALLES - Name, Telefon, Datum, Uhrzeit!');
+        console.log('🚕 Funk Taxi App v5.32.6 - Build 20251203-0900');
+        console.log('🚌🚂 NEUER FAHRPLAN-TAB - Bus & Zug Live-Fahrplan!');
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
         console.log('🔗 "Tracking öffnen" + "Link teilen" Buttons!');
@@ -309,7 +309,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.5n - OK löscht ALLES 🧹 (Build 20251202-2115)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.6 - Live-Fahrplan 🚌🚂 (Build 20251203-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -463,10 +463,13 @@
     </div>
 
     <div id="passenger-view" class="view active">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-            <h3 style="margin:0;">Taxi buchen</h3>
-            <button onclick="showView('history')" style="padding:10px 15px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-                📖 Meine Fahrten
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:8px;">
+            <h3 style="margin:0;flex:1;">Taxi buchen</h3>
+            <button onclick="switchView('schedule')" class="view-btn" style="padding:10px 15px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                🚌 Fahrplan
+            </button>
+            <button onclick="switchView('history')" class="view-btn" style="padding:10px 15px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                📖 Verlauf
             </button>
         </div>
         
@@ -677,6 +680,69 @@
             <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🧹 Cache leeren & App neu laden
             </button>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.32.6: FAHRPLAN-VIEW - Bus & Zug Live-Fahrplan -->
+    <div id="schedule-view" class="view">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:8px;">
+            <h3 style="margin:0;flex:1;">🚌🚂 Fahrplan</h3>
+            <button onclick="switchView('passenger')" class="view-btn" style="padding:10px 15px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                🚕 Taxi buchen
+            </button>
+        </div>
+        
+        <!-- Standort & Aktualisieren -->
+        <div style="background:#dbeafe;padding:15px;border-radius:12px;margin-bottom:15px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="flex:1;">
+                    <div style="font-size:12px;color:#1e40af;margin-bottom:4px;">📍 Dein Standort:</div>
+                    <div id="schedule-location" style="font-weight:600;color:#1e3a8a;">Wird geladen...</div>
+                </div>
+                <button onclick="refreshSchedule()" style="padding:10px 15px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">
+                    🔄 Aktualisieren
+                </button>
+            </div>
+        </div>
+        
+        <!-- Nächste Haltestelle -->
+        <div id="schedule-nearest-stop" style="margin-bottom:15px;"></div>
+        
+        <!-- ÖPNV-Taxi Angebot -->
+        <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);">
+            <div style="font-size:20px;margin-bottom:8px;">🚕 ÖPNV-Taxi</div>
+            <div style="font-size:14px;opacity:0.95;margin-bottom:12px;">
+                Verpasst oder zu lange gewartet? Nutze unser ÖPNV-Taxi!<br>
+                <strong>Nur 2€ Aufpreis</strong> zum Busticket-Preis.
+            </div>
+            <button onclick="switchView('passenger')" style="padding:12px 24px;background:white;color:#059669;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;width:100%;">
+                🚕 Jetzt ÖPNV-Taxi buchen
+            </button>
+        </div>
+        
+        <!-- Züge -->
+        <div style="background:#f3f4f6;padding:15px;border-radius:12px;margin-bottom:15px;">
+            <h4 style="margin:0 0 15px 0;color:#1f2937;">🚂 Züge</h4>
+            <div id="schedule-trains">
+                <div style="text-align:center;padding:20px;color:#6b7280;">
+                    Lade Zugverbindungen...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Busse -->
+        <div style="background:#f3f4f6;padding:15px;border-radius:12px;margin-bottom:15px;">
+            <h4 style="margin:0 0 15px 0;color:#1f2937;">🚌 Busse</h4>
+            <div id="schedule-buses">
+                <div style="text-align:center;padding:20px;color:#6b7280;">
+                    Lade Busverbindungen...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Info -->
+        <div style="background:#fef3c7;padding:12px;border-radius:8px;font-size:13px;color:#78350f;">
+            <strong>💡 Hinweis:</strong> Fahrplandaten werden live von der Deutschen Bahn abgerufen und können Verspätungen enthalten.
         </div>
     </div>
 
@@ -4637,6 +4703,270 @@
             // initServiceWorker();
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🚌🚂 FAHRPLAN-FUNKTIONEN (v5.32.6)
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let scheduleLoaded = false;
+        
+        // Lädt Fahrplan beim ersten Öffnen
+        async function loadSchedule() {
+            if (scheduleLoaded) return;
+            
+            console.log('🚌 Lade Fahrplan-Daten...');
+            
+            try {
+                // 1. GPS-Standort holen
+                const location = await getUserLocation('approximate');
+                
+                if (!location) {
+                    document.getElementById('schedule-location').textContent = 'Standort nicht verfügbar';
+                    showScheduleError('GPS-Standort konnte nicht ermittelt werden.');
+                    return;
+                }
+                
+                const { latitude, longitude } = location;
+                document.getElementById('schedule-location').textContent = 
+                    `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
+                
+                // 2. Nächste Haltestelle finden
+                console.log('🔍 Suche nächste Haltestelle...');
+                const nearbyStops = await fetchNearbyStops(latitude, longitude);
+                
+                if (!nearbyStops || nearbyStops.length === 0) {
+                    showScheduleError('Keine Haltestelle in der Nähe gefunden.');
+                    return;
+                }
+                
+                const nearestStop = nearbyStops[0];
+                console.log('✅ Nächste Haltestelle:', nearestStop.name);
+                
+                // Zeige nächste Haltestelle
+                displayNearestStop(nearestStop);
+                
+                // 3. Abfahrten laden
+                await loadDepartures(nearestStop.id, nearestStop.name);
+                
+                scheduleLoaded = true;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden des Fahrplans:', error);
+                showScheduleError('Fehler beim Laden der Fahrplandaten: ' + error.message);
+            }
+        }
+        
+        // Aktualisiert Fahrplan
+        async function refreshSchedule() {
+            scheduleLoaded = false;
+            
+            // Loading states
+            document.getElementById('schedule-trains').innerHTML = 
+                '<div style="text-align:center;padding:20px;color:#6b7280;">Lade Zugverbindungen...</div>';
+            document.getElementById('schedule-buses').innerHTML = 
+                '<div style="text-align:center;padding:20px;color:#6b7280;">Lade Busverbindungen...</div>';
+            
+            await loadSchedule();
+        }
+        
+        // Holt nahegelegene Haltestellen
+        async function fetchNearbyStops(lat, lng) {
+            try {
+                const response = await fetch(
+                    `https://v6.vbb.transport.rest/stops/nearby?latitude=${lat}&longitude=${lng}&results=5&distance=2000`
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data;
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Haltestellen-Suche:', error);
+                throw error;
+            }
+        }
+        
+        // Zeigt nächste Haltestelle an
+        function displayNearestStop(stop) {
+            const distance = stop.distance ? Math.round(stop.distance) : 'unbekannt';
+            
+            document.getElementById('schedule-nearest-stop').innerHTML = `
+                <div style="background:white;padding:15px;border-radius:12px;border:2px solid #e5e7eb;">
+                    <div style="font-size:14px;color:#6b7280;margin-bottom:4px;">🚏 Nächste Haltestelle:</div>
+                    <div style="font-size:16px;font-weight:700;color:#1f2937;">${stop.name}</div>
+                    <div style="font-size:13px;color:#6b7280;margin-top:4px;">
+                        📏 ${distance}m entfernt
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Lädt Abfahrten von Haltestelle
+        async function loadDepartures(stopId, stopName) {
+            try {
+                console.log('🚂🚌 Lade Abfahrten von:', stopName);
+                
+                const response = await fetch(
+                    `https://v6.vbb.transport.rest/stops/${stopId}/departures?duration=120&results=20`
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+                
+                const departures = await response.json();
+                console.log('✅ Gefunden:', departures.departures.length, 'Abfahrten');
+                
+                // Trennen in Züge und Busse
+                const trains = [];
+                const buses = [];
+                
+                for (const dep of departures.departures) {
+                    const product = dep.line.product;
+                    
+                    if (product === 'suburban' || product === 'regional' || product === 'regionalExp') {
+                        trains.push(dep);
+                    } else if (product === 'bus') {
+                        buses.push(dep);
+                    }
+                }
+                
+                // Anzeigen
+                displayTrains(trains);
+                displayBuses(buses);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Abfahrten:', error);
+                showScheduleError('Fehler beim Laden der Abfahrten: ' + error.message);
+            }
+        }
+        
+        // Zeigt Züge an
+        function displayTrains(trains) {
+            const container = document.getElementById('schedule-trains');
+            
+            if (trains.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:20px;color:#6b7280;">
+                        Keine Züge in den nächsten 2 Stunden
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = trains.slice(0, 10).map(train => {
+                const when = new Date(train.when);
+                const plannedWhen = new Date(train.plannedWhen);
+                const delay = train.delay ? Math.round(train.delay / 60) : 0;
+                const isDelayed = delay > 0;
+                
+                // Countdown berechnen
+                const now = new Date();
+                const minutesUntil = Math.round((when - now) / 60000);
+                const countdownText = minutesUntil < 1 ? 'Jetzt' : 
+                                      minutesUntil === 1 ? 'in 1 Min' : 
+                                      `in ${minutesUntil} Min`;
+                
+                return `
+                    <div style="background:white;padding:12px;border-radius:8px;margin-bottom:8px;border-left:4px solid #3b82f6;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:700;color:#1f2937;font-size:15px;">
+                                    ${train.direction}
+                                </div>
+                                <div style="font-size:13px;color:#6b7280;">
+                                    🚂 ${train.line.name}${train.platform ? ' | Gleis ' + train.platform : ''}
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:18px;font-weight:700;color:#1f2937;">
+                                    ${when.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <div style="font-size:12px;color:${isDelayed ? '#dc2626' : '#10b981'};">
+                                    ${isDelayed ? '🕐 +' + delay + ' Min' : '⚡ Pünktlich'}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size:13px;font-weight:600;color:#3b82f6;">
+                            ⏰ ${countdownText}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        // Zeigt Busse an
+        function displayBuses(buses) {
+            const container = document.getElementById('schedule-buses');
+            
+            if (buses.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:20px;color:#6b7280;">
+                        Keine Busse in den nächsten 2 Stunden
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = buses.slice(0, 10).map(bus => {
+                const when = new Date(bus.when);
+                const plannedWhen = new Date(bus.plannedWhen);
+                const delay = bus.delay ? Math.round(bus.delay / 60) : 0;
+                const isDelayed = delay > 0;
+                
+                // Countdown berechnen
+                const now = new Date();
+                const minutesUntil = Math.round((when - now) / 60000);
+                const countdownText = minutesUntil < 1 ? 'Jetzt' : 
+                                      minutesUntil === 1 ? 'in 1 Min' : 
+                                      `in ${minutesUntil} Min`;
+                
+                return `
+                    <div style="background:white;padding:12px;border-radius:8px;margin-bottom:8px;border-left:4px solid #f59e0b;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:700;color:#1f2937;font-size:15px;">
+                                    ${bus.direction}
+                                </div>
+                                <div style="font-size:13px;color:#6b7280;">
+                                    🚌 ${bus.line.name}
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:18px;font-weight:700;color:#1f2937;">
+                                    ${when.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <div style="font-size:12px;color:${isDelayed ? '#dc2626' : '#10b981'};">
+                                    ${isDelayed ? '🕐 +' + delay + ' Min' : '⚡ Pünktlich'}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size:13px;font-weight:600;color:#f59e0b;">
+                            ⏰ ${countdownText}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        // Zeigt Fehler an
+        function showScheduleError(message) {
+            document.getElementById('schedule-trains').innerHTML = `
+                <div style="background:#fef2f2;color:#dc2626;padding:15px;border-radius:8px;text-align:center;">
+                    ⚠️ ${message}
+                </div>
+            `;
+            document.getElementById('schedule-buses').innerHTML = '';
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+
         function updateStatus() {
             const dot = document.getElementById('sync-dot');
             const status = document.getElementById('sync-status');
@@ -4713,8 +5043,8 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             
-            // 🆕 v5.27.1: calendar-view entfernt (jetzt im Admin)
-            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
+            // 🆕 v5.32.6: schedule-view hinzugefügt
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -4732,6 +5062,7 @@
             // ✅ Setze aktiven Button basierend auf View-Name
             const viewBtnMap = {
                 'passenger': '.view-btn[onclick*="passenger"]',
+                'schedule': '.view-btn[onclick*="schedule"]',
                 'history': '.view-btn[onclick*="history"]',
                 'driver': '.view-btn[onclick*="driver"]',
                 'admin': '.view-btn[onclick*="admin"]'
@@ -4753,6 +5084,11 @@
                 // Login-Screen verstecken bei anderen Tabs
                 const authScreen = document.getElementById('phone-auth-screen');
                 if (authScreen) authScreen.style.display = 'none';
+            }
+            
+            // 🆕 v5.32.6: Fahrplan laden bei Schedule-Tab
+            if (view === 'schedule') {
+                setTimeout(() => loadSchedule(), 100);
             }
             
             const gpsIndicator = document.getElementById('gps-indicator');

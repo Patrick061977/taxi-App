@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.22 - Build 20251203-1745');
-        console.log('🐛 BUG FIX: Display-Bug beim View-Wechsel!');
-        console.log('✅ Extra Logging & doppelte Sicherheit!');
+        console.log('🚕 Funk Taxi App v5.33.0 - Build 20251203-1810');
+        console.log('✅ ZEITSLOT-CHECK FÜR ALLE! Admin & Fahrgäste!');
+        console.log('🎯 Keine Doppelbuchungen mehr!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -382,7 +382,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.22 - DISPLAY BUG FIX! 🐛 (Build 20251203-1745)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.0 - ZEITSLOT FÜR ALLE! 🎯 (Build 20251203-1810)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10485,7 +10485,7 @@
         // 🤖 v5.32.5h: AUTO-BOOKING SYSTEM
         // ═══════════════════════════════════════════════════════════════════════════
         
-        let autoBookingEnabled = false; // Wird aus Firebase/localStorage geladen
+        let autoBookingEnabled = true; // 🔧 v5.33.0: IMMER aktiv für ALLE (Admin & Fahrgäste!)
         let currentBookingData = null; // Speichert aktuelle Buchungsdaten für Retry
         
         // Admin-Schalter
@@ -10517,8 +10517,11 @@
         
         // Beim Laden Auto-Booking Status wiederherstellen
         function loadAutoBookingSettings() {
+            // 🔧 v5.33.0: Standardmäßig AKTIVIERT für alle!
             const saved = localStorage.getItem('autoBookingEnabled');
-            autoBookingEnabled = saved === 'true';
+            // Nur wenn explizit 'false' gespeichert, dann deaktivieren
+            // Sonst: IMMER aktiv!
+            autoBookingEnabled = saved === 'false' ? false : true;
             
             const checkbox = document.getElementById('enable-auto-booking');
             if (checkbox) {
@@ -10526,7 +10529,7 @@
                 updateAutoBookingStatus();
             }
             
-            console.log('🤖 Auto-Booking Status geladen:', autoBookingEnabled);
+            console.log('🤖 Auto-Booking Status geladen:', autoBookingEnabled, '(Standard: AKTIVIERT für alle!)');
         }
         
         // Prüft ob Zeitslot bereits belegt ist
@@ -10557,7 +10560,7 @@
                     console.log('🔍 Prüfe gegen Fahrt:', new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE'));
                     
                     // 1. Berechne ENDE der vorherigen Fahrt
-                    let rideDuration = ride.duration || 15; // Fallback 15 Min wenn nicht bekannt
+                    let rideDuration = ride.duration || 10; // 🔧 v5.32.23: Fallback 10 Min (war 15)
                     
                     // Wenn Koordinaten vorhanden, berechne echte Dauer
                     if (ride.pickupCoords && ride.destCoords) {
@@ -10573,7 +10576,7 @@
                     // 2. Wenn gewünschte Zeit NACH Ende der Fahrt liegt
                     if (requestedTimestamp > rideEndTime) {
                         // Berechne Fahrzeit vom Ziel der alten Fahrt zum Start der neuen
-                        let travelTime = 10; // Fallback 10 Min
+                        let travelTime = 5; // 🔧 v5.32.23: Fallback 5 Min (war 10)
                         
                         if (ride.destCoords && pickupCoords) {
                             travelTime = await calculateRouteDuration(
@@ -10584,8 +10587,8 @@
                         
                         console.log('   Fahrzeit zum neuen Start:', travelTime, 'Min');
                         
-                        // 3. Frühestmögliche Zeit = Ende + Fahrzeit + 5 Min Puffer
-                        const earliestPossible = rideEndTime + (travelTime * 60 * 1000) + (5 * 60 * 1000);
+                        // 3. Frühestmögliche Zeit = Ende + Fahrzeit + 3 Min Puffer
+                        const earliestPossible = rideEndTime + (travelTime * 60 * 1000) + (3 * 60 * 1000); // 🔧 v5.32.23: 3 Min Puffer (war 5)
                         console.log('   Frühestmöglich:', new Date(earliestPossible).toLocaleTimeString('de-DE'));
                         
                         // 4. Wenn gewünschte Zeit VOR frühestmöglich → KONFLIKT!
@@ -10598,18 +10601,14 @@
                         }
                     }
                     
-                    // 5. Wenn gewünschte Zeit VOR oder WÄHREND der Fahrt liegt
+                    // 5. Wenn gewünschte Zeit VOR oder WÄHREND der Fahrt liegt → KONFLIKT!
+                    // 🔧 v5.32.23: 30-Min-Rule entfernt - wird schon oben geprüft!
                     if (requestedTimestamp <= rideEndTime) {
-                        const timeDiff = Math.abs(requestedTimestamp - ride.pickupTimestamp);
-                        
-                        // Wenn innerhalb 30 Min: Definitiv Konflikt
-                        if (timeDiff < 30 * 60 * 1000) {
-                            console.log('⚠️ KONFLIKT! Fahrt läuft noch oder Start zu nah!');
-                            return {
-                                available: false,
-                                conflictingRide: ride
-                            };
-                        }
+                        console.log('⚠️ KONFLIKT! Gewünschte Zeit liegt während laufender Fahrt!');
+                        return {
+                            available: false,
+                            conflictingRide: ride
+                        };
                     }
                 }
                 
@@ -10646,8 +10645,8 @@
                 
                 console.log('🚕 Fahrzeit zum neuen Start:', travelTime, 'Min');
                 
-                // 4. Frühestmögliche Zeit = Ende + Fahrzeit + 5 Min Puffer
-                let earliestTime = rideEndTime + (travelTime * 60 * 1000) + (5 * 60 * 1000);
+                // 4. Frühestmögliche Zeit = Ende + Fahrzeit + 3 Min Puffer
+                let earliestTime = rideEndTime + (travelTime * 60 * 1000) + (3 * 60 * 1000); // 🔧 v5.32.23: 3 Min (war 5)
                 
                 // 5. Auf 5 Min runden (IMMER AUFRUNDEN!)
                 earliestTime = roundToNext5Minutes(earliestTime);

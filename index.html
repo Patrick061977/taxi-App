@@ -207,6 +207,18 @@
             font-size: 60px;
             margin-bottom: 15px;
         }
+        
+        .debug-info {
+            background: #f0f0f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -230,6 +242,7 @@
 
     <script>
         let userLocation = null;
+        let debugMode = true; // Debug-Modus für Patrick!
         
         async function showSchedule() {
             const content = document.getElementById('content');
@@ -278,8 +291,11 @@
                     throw new Error(`Stations API error: ${stationsResponse.status}`);
                 }
                 
-                const stations = await stationsResponse.json();
-                console.log('Stations found:', stations);
+                const stationsData = await stationsResponse.json();
+                console.log('Stations Response:', stationsData);
+                
+                // WICHTIG: Die API kann direkt ein Array zurückgeben!
+                const stations = Array.isArray(stationsData) ? stationsData : (stationsData.stations || []);
                 
                 if (!stations || stations.length === 0) {
                     content.innerHTML = `
@@ -289,6 +305,7 @@
                                 <h3>Keine Haltestellen gefunden</h3>
                                 <p>In Ihrer Nähe wurden keine ÖPNV-Haltestellen gefunden.</p>
                             </div>
+                            ${debugMode ? `<div class="debug-info">DEBUG: ${JSON.stringify(stationsData, null, 2)}</div>` : ''}
                         </div>
                     `;
                     return;
@@ -316,10 +333,15 @@
                     throw new Error(`Departures API error: ${departuresResponse.status}`);
                 }
                 
-                const departures = await departuresResponse.json();
-                console.log('Departures:', departures);
+                const departuresData = await departuresResponse.json();
+                console.log('Departures Response:', departuresData);
+                console.log('Type:', typeof departuresData);
+                console.log('Is Array:', Array.isArray(departuresData));
                 
-                displaySchedule(station, departures, userLocation);
+                // WICHTIG: Die API gibt direkt ein Array zurück!
+                const departures = Array.isArray(departuresData) ? departuresData : (departuresData.departures || []);
+                
+                displaySchedule(station, departures, userLocation, departuresData);
                 
             } catch (error) {
                 console.error('Error:', error);
@@ -349,7 +371,7 @@
             }
         }
         
-        function displaySchedule(station, departures, location) {
+        function displaySchedule(station, departures, location, rawData) {
             const content = document.getElementById('content');
             
             // Distanz berechnen (ungefähr)
@@ -383,9 +405,13 @@
                         <p>In den nächsten 2 Stunden fahren hier keine Busse oder Bahnen.</p>
                     </div>
                 `;
+                
+                if (debugMode) {
+                    html += `<div class="debug-info">DEBUG RAW DATA:<br>${JSON.stringify(rawData, null, 2)}</div>`;
+                }
             } else {
                 // Abfahrten gruppieren nach Verkehrsmittel
-                const trains = departures.filter(d => d.line && (d.line.product === 'regional' || d.line.product === 'nationalExpress'));
+                const trains = departures.filter(d => d.line && (d.line.product === 'regional' || d.line.product === 'nationalExpress' || d.line.product === 'national'));
                 const buses = departures.filter(d => d.line && d.line.product === 'bus');
                 
                 if (trains.length > 0) {
@@ -398,6 +424,14 @@
                 if (buses.length > 0) {
                     html += `<h3 style="margin: 20px 0 15px 0; color: #333;">🚌 Busse</h3>`;
                     buses.slice(0, 5).forEach(dep => {
+                        html += formatDeparture(dep);
+                    });
+                }
+                
+                // Falls weder Züge noch Busse, zeige alle
+                if (trains.length === 0 && buses.length === 0) {
+                    html += `<h3 style="margin: 20px 0 15px 0; color: #333;">🚦 Alle Abfahrten</h3>`;
+                    departures.slice(0, 10).forEach(dep => {
                         html += formatDeparture(dep);
                     });
                 }

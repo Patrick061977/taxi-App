@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.33.0 - Build 20251203-1810');
-        console.log('✅ ZEITSLOT-CHECK FÜR ALLE! Admin & Fahrgäste!');
-        console.log('🎯 Keine Doppelbuchungen mehr!');
+        console.log('🚕 Funk Taxi App v5.33.2 - Build 20251203-1830');
+        console.log('⏰ ZEITSLOT-EINSTELLUNGEN IM ADMIN!');
+        console.log('🎯 Anpassbare Puffer + Admin-Override!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -62,6 +62,16 @@
         .view-selector { display: flex; background: white; border-bottom: 2px solid #e0e0e0; position: sticky; top: 90px; z-index: 99; }
         .view-btn { flex: 1; padding: 15px; border: none; background: white; font-size: 14px; cursor: pointer; }
         .view-btn.active { color: #667eea; border-bottom: 3px solid #667eea; }
+        
+        /* 🆕 v5.33.1: Admin-Tab Buttons */
+        .admin-tab-btn:hover {
+            background: #667eea !important;
+            color: white !important;
+        }
+        .admin-tab-btn.active {
+            background: #667eea !important;
+            color: white !important;
+        }
         .view { display: none; padding: 15px; }
         .view.active { display: block; }
         .input-group { margin-bottom: 15px; }
@@ -382,7 +392,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.0 - ZEITSLOT FÜR ALLE! 🎯 (Build 20251203-1810)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.2 - ZEITSLOT-EINSTELLUNGEN! ⏰ (Build 20251203-1830)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -418,6 +428,91 @@
             </div>
         </div>
         <div id="header-toggle" style="text-align: center; margin-top: 5px; font-size: 12px; opacity: 0.7;">▼</div>
+    </div>
+
+    <!-- 🆕 v5.33.1: TAB-LEISTE - NUR FÜR ADMIN! -->
+    <div id="admin-tabs" style="
+        display: none;
+        background: white;
+        padding: 10px 15px;
+        border-bottom: 2px solid #e5e7eb;
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    ">
+        <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <button onclick="switchView('passenger')" class="admin-tab-btn" data-view="passenger" style="
+                padding: 10px 16px;
+                border: 2px solid #667eea;
+                background: white;
+                color: #667eea;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🚕 Taxi buchen
+            </button>
+            <button onclick="switchView('schedule')" class="admin-tab-btn" data-view="schedule" style="
+                padding: 10px 16px;
+                border: 2px solid #667eea;
+                background: white;
+                color: #667eea;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🚌🚂 Fahrplan
+            </button>
+            <button onclick="switchView('history')" class="admin-tab-btn" data-view="history" style="
+                padding: 10px 16px;
+                border: 2px solid #667eea;
+                background: white;
+                color: #667eea;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                📖 Verlauf
+            </button>
+            <button onclick="switchView('driver')" class="admin-tab-btn" data-view="driver" style="
+                padding: 10px 16px;
+                border: 2px solid #667eea;
+                background: white;
+                color: #667eea;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🚗 Fahrer
+            </button>
+            <button onclick="switchView('admin')" class="admin-tab-btn" data-view="admin" style="
+                padding: 10px 16px;
+                border: 2px solid #667eea;
+                background: white;
+                color: #667eea;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                ⚙️ Admin
+            </button>
+        </div>
     </div>
 
     <!-- 🔔 PUSH DEAKTIVIERT - Telegram übernimmt! -->
@@ -2419,6 +2514,108 @@
                 </div>
             </label>
             <div id="auto-booking-status" style="margin-top:10px;padding:8px;border-radius:6px;font-size:13px;text-align:center;"></div>
+        </div>
+        
+        <!-- 🆕 v5.33.2: ZEITSLOT-EINSTELLUNGEN -->
+        <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin:15px 0;">
+            <div style="font-weight:600;font-size:15px;margin-bottom:15px;display:flex;align-items:center;gap:8px;">
+                ⏰ Zeitslot-Einstellungen
+                <span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-weight:600;">NEU!</span>
+            </div>
+            
+            <div style="background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
+                <p style="font-size:13px;color:#6b7280;margin:0 0 15px 0;">
+                    Passe die Zeitpuffer an, um zu steuern wie eng Fahrten hintereinander gebucht werden können.
+                </p>
+                
+                <!-- Fahrtdauer Fallback -->
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#1f2937;margin-bottom:8px;">
+                        📍 Fahrtdauer (Fallback wenn unbekannt)
+                    </label>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="range" id="ride-duration-slider" min="5" max="30" value="10" 
+                            oninput="updateTimeslotSettings()" 
+                            style="flex:1;height:6px;border-radius:3px;cursor:pointer;">
+                        <span id="ride-duration-value" style="font-weight:600;color:#667eea;min-width:50px;text-align:right;">10 Min</span>
+                    </div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
+                        Durchschnittliche Fahrtdauer wenn keine Route berechnet werden kann
+                    </div>
+                </div>
+                
+                <!-- Anfahrtszeit Fallback -->
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#1f2937;margin-bottom:8px;">
+                        🚗 Anfahrtszeit (Fallback wenn unbekannt)
+                    </label>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="range" id="travel-time-slider" min="2" max="20" value="5" 
+                            oninput="updateTimeslotSettings()" 
+                            style="flex:1;height:6px;border-radius:3px;cursor:pointer;">
+                        <span id="travel-time-value" style="font-weight:600;color:#667eea;min-width:50px;text-align:right;">5 Min</span>
+                    </div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
+                        Zeit die das Taxi vom Ende einer Fahrt zum Start der nächsten braucht
+                    </div>
+                </div>
+                
+                <!-- Zeitpuffer -->
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#1f2937;margin-bottom:8px;">
+                        ⏱️ Sicherheits-Puffer
+                    </label>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <input type="range" id="buffer-time-slider" min="0" max="15" value="3" 
+                            oninput="updateTimeslotSettings()" 
+                            style="flex:1;height:6px;border-radius:3px;cursor:pointer;">
+                        <span id="buffer-time-value" style="font-weight:600;color:#667eea;min-width:50px;text-align:right;">3 Min</span>
+                    </div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
+                        Extra Zeit für Verzögerungen, Tankstopps, etc.
+                    </div>
+                </div>
+                
+                <!-- Total Buffer Anzeige -->
+                <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:12px;border-radius:8px;text-align:center;margin-bottom:15px;">
+                    <div style="font-size:12px;opacity:0.9;margin-bottom:2px;">📊 Total Buffer zwischen Fahrten:</div>
+                    <div id="total-buffer-display" style="font-size:24px;font-weight:700;">18 Min</div>
+                    <div style="font-size:11px;opacity:0.8;margin-top:4px;">
+                        = Fahrtdauer + Anfahrtszeit + Puffer
+                    </div>
+                </div>
+                
+                <!-- Admin Override Toggle -->
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:#fef3c7;border-radius:8px;border:2px solid #fbbf24;margin-bottom:15px;">
+                    <input type="checkbox" id="admin-override-enabled" onchange="updateTimeslotSettings()" 
+                        style="width:20px;height:20px;cursor:pointer;">
+                    <div>
+                        <div style="font-weight:600;font-size:13px;color:#92400e;">
+                            🎯 Admin-Override aktivieren
+                        </div>
+                        <div style="font-size:11px;color:#78350f;margin-top:2px;">
+                            Als Admin kannst du Zeitslot-Checks ignorieren und trotzdem buchen
+                        </div>
+                    </div>
+                </label>
+                
+                <!-- Speichern Button -->
+                <button onclick="saveTimeslotSettings()" style="
+                    width:100%;
+                    padding:12px;
+                    background:#10b981;
+                    color:white;
+                    border:none;
+                    border-radius:8px;
+                    font-weight:600;
+                    cursor:pointer;
+                    font-size:14px;
+                ">
+                    💾 Einstellungen speichern
+                </button>
+                
+                <div id="timeslot-save-status" style="margin-top:8px;text-align:center;font-size:12px;"></div>
+            </div>
         </div>
         
         <!-- COLLAPSIBLE: Online-Fahrer -->
@@ -5423,6 +5620,8 @@
                 v.style.display = 'none'; // Extra sicher!
             });
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            // 🆕 v5.33.1: Entferne active von Admin-Tab-Buttons
+            document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.32.22: EXTRA SICHER - Verstecke alle Views einzeln!
             const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
@@ -5457,6 +5656,12 @@
             if (btnSelector) {
                 const btn = document.querySelector(btnSelector);
                 if (btn) btn.classList.add('active');
+            }
+            
+            // 🆕 v5.33.1: Setze aktiven Admin-Tab-Button
+            const adminTabBtn = document.querySelector(`.admin-tab-btn[data-view="${view}"]`);
+            if (adminTabBtn) {
+                adminTabBtn.classList.add('active');
             }
             
             currentView = view;
@@ -5546,6 +5751,30 @@
             closeMenu();
             switchView('passenger');
         }
+
+        // 🆕 v5.33.1: Admin-Tabs anzeigen/verstecken
+        function updateAdminTabsVisibility() {
+            const adminTabs = document.getElementById('admin-tabs');
+            if (!adminTabs) return;
+            
+            // Prüfe ob Admin-Menü-Einträge vorhanden sind (= User ist Admin)
+            const adminMenuItem = document.getElementById('admin-menu-section');
+            const isAdmin = adminMenuItem && adminMenuItem.style.display !== 'none';
+            
+            // Zeige/Verstecke Tabs
+            if (isAdmin) {
+                adminTabs.style.display = 'block';
+                console.log('✅ Admin-Tabs angezeigt');
+            } else {
+                adminTabs.style.display = 'none';
+                console.log('❌ Admin-Tabs versteckt (Fahrgast)');
+            }
+        }
+        
+        // Admin-Tabs beim Laden prüfen
+        setTimeout(() => updateAdminTabsVisibility(), 500);
+        // Und nach Firebase-Init nochmal
+        setInterval(() => updateAdminTabsVisibility(), 3000);
 
         // 🎯 GPS MONITORING - Prüft alle 5 Sekunden ob GPS läuft
         let gpsMonitoringInterval = null;
@@ -10488,6 +10717,14 @@
         let autoBookingEnabled = true; // 🔧 v5.33.0: IMMER aktiv für ALLE (Admin & Fahrgäste!)
         let currentBookingData = null; // Speichert aktuelle Buchungsdaten für Retry
         
+        // 🆕 v5.33.2: Zeitslot-Einstellungen (aus localStorage geladen)
+        let timeslotSettings = {
+            rideDuration: 10,  // Minuten
+            travelTime: 5,     // Minuten
+            bufferTime: 3,     // Minuten
+            adminOverride: false
+        };
+        
         // Admin-Schalter
         function toggleAutoBooking() {
             const checkbox = document.getElementById('enable-auto-booking');
@@ -10532,9 +10769,100 @@
             console.log('🤖 Auto-Booking Status geladen:', autoBookingEnabled, '(Standard: AKTIVIERT für alle!)');
         }
         
+        // 🆕 v5.33.2: Zeitslot-Einstellungen Management
+        function updateTimeslotSettings() {
+            // Werte aus Sliders lesen
+            const rideDuration = parseInt(document.getElementById('ride-duration-slider').value);
+            const travelTime = parseInt(document.getElementById('travel-time-slider').value);
+            const bufferTime = parseInt(document.getElementById('buffer-time-slider').value);
+            const adminOverride = document.getElementById('admin-override-enabled').checked;
+            
+            // Anzeige aktualisieren
+            document.getElementById('ride-duration-value').textContent = rideDuration + ' Min';
+            document.getElementById('travel-time-value').textContent = travelTime + ' Min';
+            document.getElementById('buffer-time-value').textContent = bufferTime + ' Min';
+            
+            // Total Buffer berechnen
+            const totalBuffer = rideDuration + travelTime + bufferTime;
+            document.getElementById('total-buffer-display').textContent = totalBuffer + ' Min';
+            
+            console.log('⏰ Zeitslot-Einstellungen aktualisiert:', {rideDuration, travelTime, bufferTime, totalBuffer, adminOverride});
+        }
+        
+        function saveTimeslotSettings() {
+            // Werte aus Sliders lesen
+            timeslotSettings.rideDuration = parseInt(document.getElementById('ride-duration-slider').value);
+            timeslotSettings.travelTime = parseInt(document.getElementById('travel-time-slider').value);
+            timeslotSettings.bufferTime = parseInt(document.getElementById('buffer-time-slider').value);
+            timeslotSettings.adminOverride = document.getElementById('admin-override-enabled').checked;
+            
+            // In localStorage speichern
+            localStorage.setItem('timeslotSettings', JSON.stringify(timeslotSettings));
+            
+            // Status anzeigen
+            const statusDiv = document.getElementById('timeslot-save-status');
+            statusDiv.innerHTML = '<span style="color:#10b981;font-weight:600;">✅ Einstellungen gespeichert!</span>';
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+            
+            console.log('💾 Zeitslot-Einstellungen gespeichert:', timeslotSettings);
+        }
+        
+        function loadTimeslotSettings() {
+            // Aus localStorage laden
+            const saved = localStorage.getItem('timeslotSettings');
+            if (saved) {
+                timeslotSettings = JSON.parse(saved);
+            }
+            
+            // UI aktualisieren
+            const rideDurationSlider = document.getElementById('ride-duration-slider');
+            const travelTimeSlider = document.getElementById('travel-time-slider');
+            const bufferTimeSlider = document.getElementById('buffer-time-slider');
+            const adminOverrideCheckbox = document.getElementById('admin-override-enabled');
+            
+            if (rideDurationSlider) {
+                rideDurationSlider.value = timeslotSettings.rideDuration;
+                document.getElementById('ride-duration-value').textContent = timeslotSettings.rideDuration + ' Min';
+            }
+            
+            if (travelTimeSlider) {
+                travelTimeSlider.value = timeslotSettings.travelTime;
+                document.getElementById('travel-time-value').textContent = timeslotSettings.travelTime + ' Min';
+            }
+            
+            if (bufferTimeSlider) {
+                bufferTimeSlider.value = timeslotSettings.bufferTime;
+                document.getElementById('buffer-time-value').textContent = timeslotSettings.bufferTime + ' Min';
+            }
+            
+            if (adminOverrideCheckbox) {
+                adminOverrideCheckbox.checked = timeslotSettings.adminOverride;
+            }
+            
+            // Total Buffer aktualisieren
+            const totalBuffer = timeslotSettings.rideDuration + timeslotSettings.travelTime + timeslotSettings.bufferTime;
+            const totalBufferDisplay = document.getElementById('total-buffer-display');
+            if (totalBufferDisplay) {
+                totalBufferDisplay.textContent = totalBuffer + ' Min';
+            }
+            
+            console.log('⏰ Zeitslot-Einstellungen geladen:', timeslotSettings);
+        }
+        
+        // Beim Laden Einstellungen laden
+        setTimeout(() => loadTimeslotSettings(), 1000);
+        
         // Prüft ob Zeitslot bereits belegt ist
         async function checkTimeSlotAvailability(requestedTimestamp, pickupCoords) {
             if (!isFirebaseReady) return { available: true };
+            
+            // 🎯 v5.33.2: Admin-Override prüfen!
+            if (timeslotSettings.adminOverride) {
+                console.log('🎯 Admin-Override aktiv - Zeitslot-Check übersprungen!');
+                return { available: true };
+            }
             
             console.log('🔍 Prüfe Zeitslot für:', new Date(requestedTimestamp).toLocaleString('de-DE'));
             
@@ -10560,7 +10888,7 @@
                     console.log('🔍 Prüfe gegen Fahrt:', new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE'));
                     
                     // 1. Berechne ENDE der vorherigen Fahrt
-                    let rideDuration = ride.duration || 10; // 🔧 v5.32.23: Fallback 10 Min (war 15)
+                    let rideDuration = ride.duration || timeslotSettings.rideDuration; // 🔧 v5.33.2: Aus Einstellungen!
                     
                     // Wenn Koordinaten vorhanden, berechne echte Dauer
                     if (ride.pickupCoords && ride.destCoords) {
@@ -10576,7 +10904,7 @@
                     // 2. Wenn gewünschte Zeit NACH Ende der Fahrt liegt
                     if (requestedTimestamp > rideEndTime) {
                         // Berechne Fahrzeit vom Ziel der alten Fahrt zum Start der neuen
-                        let travelTime = 5; // 🔧 v5.32.23: Fallback 5 Min (war 10)
+                        let travelTime = timeslotSettings.travelTime; // 🔧 v5.33.2: Aus Einstellungen!
                         
                         if (ride.destCoords && pickupCoords) {
                             travelTime = await calculateRouteDuration(
@@ -10588,7 +10916,7 @@
                         console.log('   Fahrzeit zum neuen Start:', travelTime, 'Min');
                         
                         // 3. Frühestmögliche Zeit = Ende + Fahrzeit + 3 Min Puffer
-                        const earliestPossible = rideEndTime + (travelTime * 60 * 1000) + (3 * 60 * 1000); // 🔧 v5.32.23: 3 Min Puffer (war 5)
+                        const earliestPossible = rideEndTime + (travelTime * 60 * 1000) + (timeslotSettings.bufferTime * 60 * 1000); // 🔧 v5.33.2: Aus Einstellungen!
                         console.log('   Frühestmöglich:', new Date(earliestPossible).toLocaleTimeString('de-DE'));
                         
                         // 4. Wenn gewünschte Zeit VOR frühestmöglich → KONFLIKT!
@@ -10646,7 +10974,7 @@
                 console.log('🚕 Fahrzeit zum neuen Start:', travelTime, 'Min');
                 
                 // 4. Frühestmögliche Zeit = Ende + Fahrzeit + 3 Min Puffer
-                let earliestTime = rideEndTime + (travelTime * 60 * 1000) + (3 * 60 * 1000); // 🔧 v5.32.23: 3 Min (war 5)
+                let earliestTime = rideEndTime + (travelTime * 60 * 1000) + (timeslotSettings.bufferTime * 60 * 1000); // 🔧 v5.33.2: Aus Einstellungen!
                 
                 // 5. Auf 5 Min runden (IMMER AUFRUNDEN!)
                 earliestTime = roundToNext5Minutes(earliestTime);

@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.21 - Build 20251203-1730');
-        console.log('✅ TABS WIRKLICH WEG JETZT!');
-        console.log('🎯 100% Clean & Fokussiert!');
+        console.log('🚕 Funk Taxi App v5.32.22 - Build 20251203-1745');
+        console.log('🐛 BUG FIX: Display-Bug beim View-Wechsel!');
+        console.log('✅ Extra Logging & doppelte Sicherheit!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -382,7 +382,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.21 - TABS WIRKLICH WEG! ✅ (Build 20251203-1730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.22 - DISPLAY BUG FIX! 🐛 (Build 20251203-1745)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5415,16 +5415,23 @@
         }
 
         function switchView(view) {
+            console.log('🔄 switchView aufgerufen mit:', view);
+            
             // Entferne active von allen Views
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.view').forEach(v => {
+                v.classList.remove('active');
+                v.style.display = 'none'; // Extra sicher!
+            });
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             
-            // 🆕 v5.32.6: schedule-view hinzugefügt
+            // 🆕 v5.32.22: EXTRA SICHER - Verstecke alle Views einzeln!
             const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
                     viewEl.style.display = 'none';
+                    viewEl.classList.remove('active');
+                    console.log('  ❌ Versteckt:', viewId);
                 }
             });
             
@@ -5433,6 +5440,9 @@
             if (viewElement) {
                 viewElement.style.display = 'block';
                 viewElement.classList.add('active');
+                console.log('  ✅ Zeige:', view + '-view');
+            } else {
+                console.error('  ⚠️ View nicht gefunden:', view + '-view');
             }
             
             // ✅ Setze aktiven Button basierend auf View-Name

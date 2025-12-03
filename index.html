@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.11 - Build 20251203-1420');
-        console.log('📍 GPS-OPTIMIERT: 30 Sek Timeout!');
-        console.log('✅ High Accuracy GPS aktiviert!');
+        console.log('🚕 Funk Taxi App v5.32.13 - Build 20251203-1445');
+        console.log('✅ RICHTIGER API-ENDPOINT: /locations/nearby!');
+        console.log('🎉 Sollte jetzt endlich funktionieren!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -311,7 +311,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.11 - GPS OPTIMIERT 📍 (Build 20251203-1420)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.13 - ENDLICH GEFIXT! 🎉 (Build 20251203-1445)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4810,7 +4810,7 @@
         // Holt nahegelegene Haltestellen
         async function fetchNearbyStops(lat, lng) {
             try {
-                const url = `https://v6.db.transport.rest/stops/nearby?latitude=${lat}&longitude=${lng}&results=5&distance=2000`;
+                const url = `https://v6.db.transport.rest/locations/nearby?latitude=${lat}&longitude=${lng}&results=5&distance=2000`;
                 
                 console.log('🔍 DEBUG: Suche Haltestellen...');
                 console.log('📍 GPS:', lat, lng);
@@ -4834,6 +4834,10 @@
                 
                 if (stops.length > 0) {
                     console.log('🚏 Nächste Haltestelle:', stops[0].name, '|', stops[0].distance, 'm');
+                    console.log('🔍 KOMPLETTES Stop-Objekt:', JSON.stringify(stops[0], null, 2));
+                    console.log('🆔 Stop.id:', stops[0].id);
+                    console.log('🆔 Stop.ibnr:', stops[0].ibnr);
+                    console.log('🆔 Stop.ids:', stops[0].ids);
                 }
                 
                 return stops;
@@ -4862,7 +4866,7 @@
         // Lädt Abfahrten von Haltestelle
         async function loadDepartures(stopId, stopName) {
             try {
-                const url = `https://v6.db.transport.rest/stops/${stopId}/departures?duration=120&results=20`;
+                const url = `https://v6.db.transport.rest/stops/${encodeURIComponent(stopId)}/departures?duration=120&results=20`;
                 
                 console.log('🚂🚌 DEBUG: Lade Abfahrten...');
                 console.log('🚏 Haltestelle:', stopName);

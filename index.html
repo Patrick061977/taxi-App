@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.8 - Build 20251203-1330');
-        console.log('🔧 FAHRPLAN GEFIXT - Garantiert!');
-        console.log('✅ Array-Handling korrigiert!');
+        console.log('🚕 Funk Taxi App v5.32.9 - Build 20251203-1340');
+        console.log('🐛 DEBUG-VERSION: Zeigt API-Details!');
+        console.log('🔍 Finde heraus warum Error 500!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -311,7 +311,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.8 - FAHRPLAN GEFIXT! ✅ (Build 20251203-1330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.9 - DEBUG 🐛 (Build 20251203-1340)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4803,25 +4803,36 @@
         // Holt nahegelegene Haltestellen
         async function fetchNearbyStops(lat, lng) {
             try {
-                // 🆕 v5.32.8: DB API mit Array-Check!
-                const response = await fetch(
-                    `https://v6.db.transport.rest/stops/nearby?latitude=${lat}&longitude=${lng}&results=5&distance=2000`
-                );
+                const url = `https://v6.db.transport.rest/stops/nearby?latitude=${lat}&longitude=${lng}&results=5&distance=2000`;
+                
+                console.log('🔍 DEBUG: Suche Haltestellen...');
+                console.log('📍 GPS:', lat, lng);
+                console.log('🌐 API-URL:', url);
+                
+                const response = await fetch(url);
+                
+                console.log('📡 Response Status:', response.status, response.statusText);
                 
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('❌ API Error Response:', errorText);
+                    throw new Error(`API Error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
+                console.log('📦 Raw API Data:', data);
                 
-                // 🔧 FIX: API gibt Array zurück!
                 const stops = Array.isArray(data) ? data : (data.stops || []);
-                console.log('📍 Haltestellen gefunden:', stops.length);
+                console.log('✅ Haltestellen gefunden:', stops.length);
+                
+                if (stops.length > 0) {
+                    console.log('🚏 Nächste Haltestelle:', stops[0].name, '|', stops[0].distance, 'm');
+                }
                 
                 return stops;
                 
             } catch (error) {
-                console.error('❌ Fehler bei Haltestellen-Suche:', error);
+                console.error('❌ FEHLER bei Haltestellen-Suche:', error);
                 throw error;
             }
         }
@@ -4844,24 +4855,30 @@
         // Lädt Abfahrten von Haltestelle
         async function loadDepartures(stopId, stopName) {
             try {
-                console.log('🚂🚌 Lade Abfahrten von:', stopName);
+                const url = `https://v6.db.transport.rest/stops/${stopId}/departures?duration=120&results=20`;
                 
-                // 🆕 v5.32.8: DB API mit Array-Check!
-                const response = await fetch(
-                    `https://v6.db.transport.rest/stops/${stopId}/departures?duration=120&results=20`
-                );
+                console.log('🚂🚌 DEBUG: Lade Abfahrten...');
+                console.log('🚏 Haltestelle:', stopName);
+                console.log('🆔 Stop-ID:', stopId);
+                console.log('🌐 API-URL:', url);
+                
+                const response = await fetch(url);
+                
+                console.log('📡 Response Status:', response.status, response.statusText);
                 
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('❌ API Error Response:', errorText);
+                    throw new Error(`API Error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
+                console.log('📦 Raw API Data Type:', typeof data, '| Array?', Array.isArray(data));
+                console.log('📦 Raw API Data:', data);
                 
-                // 🔧 FIX: API gibt Array zurück!
                 const departures = Array.isArray(data) ? data : (data.departures || []);
                 
-                console.log('✅ Gefunden:', departures.length, 'Abfahrten');
-                console.log('📊 Array?', Array.isArray(data));
+                console.log('✅ Abfahrten gefunden:', departures.length);
                 
                 // Trennen in Züge und Busse
                 const trains = [];
@@ -4877,12 +4894,15 @@
                     }
                 }
                 
+                console.log('🚂 Züge:', trains.length);
+                console.log('🚌 Busse:', buses.length);
+                
                 // Anzeigen
                 displayTrains(trains);
                 displayBuses(buses);
                 
             } catch (error) {
-                console.error('❌ Fehler beim Laden der Abfahrten:', error);
+                console.error('❌ FEHLER beim Laden der Abfahrten:', error);
                 showScheduleError('Fehler beim Laden der Abfahrten: ' + error.message);
             }
         }

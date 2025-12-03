@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.10 - Build 20251203-1410');
-        console.log('🔧 FIX: IBNR-Problem gelöst!');
-        console.log('✅ Verwendet jetzt korrekte Stop-ID!');
+        console.log('🚕 Funk Taxi App v5.32.11 - Build 20251203-1420');
+        console.log('📍 GPS-OPTIMIERT: 30 Sek Timeout!');
+        console.log('✅ High Accuracy GPS aktiviert!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -311,7 +311,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.10 - IBNR FIX ✅ (Build 20251203-1410)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.11 - GPS OPTIMIERT 📍 (Build 20251203-1420)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4741,8 +4741,8 @@
                             reject(err);
                         },
                         {
-                            enableHighAccuracy: false,
-                            timeout: 10000,
+                            enableHighAccuracy: true,  // 🔧 v5.32.11: Bessere Genauigkeit
+                            timeout: 30000,            // 🔧 v5.32.11: 30 Sekunden statt 10
                             maximumAge: 300000
                         }
                     );
@@ -4787,7 +4787,7 @@
                 } else if (error.code === 2) {
                     showScheduleError('Standort nicht verfügbar. Bitte aktiviere GPS.');
                 } else if (error.code === 3) {
-                    showScheduleError('GPS-Timeout. Bitte versuche es erneut.');
+                    showScheduleError('GPS-Timeout (30 Sek überschritten). Bitte gehe nach draußen oder ans Fenster und versuche es erneut. Bei schlechtem GPS-Empfang kann es bis zu 30 Sekunden dauern.');
                 } else {
                     showScheduleError('Fehler beim Laden der Fahrplandaten: ' + error.message);
                 }

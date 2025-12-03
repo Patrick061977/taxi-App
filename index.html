@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.9 - Build 20251203-1340');
-        console.log('🐛 DEBUG-VERSION: Zeigt API-Details!');
-        console.log('🔍 Finde heraus warum Error 500!');
+        console.log('🚕 Funk Taxi App v5.32.10 - Build 20251203-1410');
+        console.log('🔧 FIX: IBNR-Problem gelöst!');
+        console.log('✅ Verwendet jetzt korrekte Stop-ID!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -311,7 +311,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.9 - DEBUG 🐛 (Build 20251203-1340)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.10 - IBNR FIX ✅ (Build 20251203-1410)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4763,12 +4763,19 @@
                 
                 const nearestStop = nearbyStops[0];
                 console.log('✅ Nächste Haltestelle:', nearestStop.name);
+                console.log('🔍 DEBUG: Stop-Objekt:', nearestStop);
+                console.log('🆔 Stop-ID:', nearestStop.id);
+                console.log('🆔 Stop-IBNR:', nearestStop.ibnr || 'nicht vorhanden');
+                
+                // Verwende IBNR falls vorhanden, sonst ID
+                const stopId = nearestStop.ibnr || nearestStop.id;
+                console.log('🎯 Verwende ID für Abfahrten:', stopId);
                 
                 // Zeige nächste Haltestelle
                 displayNearestStop(nearestStop);
                 
                 // 3. Abfahrten laden
-                await loadDepartures(nearestStop.id, nearestStop.name);
+                await loadDepartures(stopId, nearestStop.name);
                 
                 scheduleLoaded = true;
                 

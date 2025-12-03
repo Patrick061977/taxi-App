@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.16 - Build 20251203-1530');
-        console.log('🚏 HALTESTELLEN-AUSWAHL: Zeigt mehrere zur Auswahl!');
-        console.log('✅ Löst Patrick\'s Problem mit gegenüberliegenden Haltestellen!');
+        console.log('🚕 Funk Taxi App v5.32.19 - Build 20251203-1645');
+        console.log('✅ 2 HAUPT-TABS: Fahrgast & Verlauf!');
+        console.log('📱 Bus & Bahn im Menü!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -305,13 +305,84 @@
                 padding: 15px 5px !important;
             }
         }
+
+        /* 📱 MENÜ ANIMATIONEN */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        /* Hamburger Button Hover */
+        #menu-toggle-btn:hover {
+            background: rgba(255,255,255,0.3) !important;
+            transform: translateY(-50%) scale(1.05) !important;
+        }
+
+        #menu-toggle-btn:active {
+            transform: translateY(-50%) scale(0.95) !important;
+        }
+
+        /* 2 HAUPT-TABS: Fahrgast & Verlauf */
+        .view-btn {
+            transition: all 0.2s !important;
+        }
+
+        .view-btn:hover {
+            opacity: 0.9 !important;
+            transform: translateY(-2px) !important;
+        }
+
+        .view-btn:active {
+            transform: translateY(0) !important;
+        }
+
+        .view-btn.active {
+            background: #667eea !important;
+            color: white !important;
+        }
+
+        .view-btn:not(.active) {
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+        }
+
+        .view-btn:not(.active):hover {
+            background: #d1d5db !important;
+            color: #4b5563 !important;
+        }
     </style>
 </head>
 <body>
-    <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
+    <div class="header" id="main-header" style="cursor: pointer; position: relative;" onclick="toggleHeader()">
+        <!-- Hamburger Menu Button -->
+        <button id="menu-toggle-btn" onclick="toggleMenu(event)" style="
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            color: white;
+            z-index: 1001;
+            transition: all 0.2s;
+        ">☰</button>
+        
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.16 - HALTESTELLEN-AUSWAHL 🚏 (Build 20251203-1530)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.19 - 2 TABS + MENÜ 🚕 (Build 20251203-1645)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -464,16 +535,148 @@
         </div>
     </div>
 
+    <!-- 📱 MENÜ OVERLAY -->
+    <div id="menu-overlay" style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        animation: fadeIn 0.2s;
+    " onclick="closeMenu()">
+        <div id="menu-panel" style="
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 280px;
+            max-width: 85%;
+            background: white;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            animation: slideInRight 0.3s;
+        " onclick="event.stopPropagation()">
+            <!-- Menü Header -->
+            <div style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                position: sticky;
+                top: 0;
+                z-index: 1;
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0; font-size: 20px;">📱 Menü</h2>
+                    <button onclick="closeMenu()" style="
+                        background: rgba(255,255,255,0.2);
+                        border: none;
+                        color: white;
+                        font-size: 24px;
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">×</button>
+                </div>
+            </div>
+
+            <!-- Menü Items -->
+            <div style="padding: 15px;">
+                <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 10px; text-transform: uppercase;">
+                    ℹ️ Informationen
+                </div>
+
+                <!-- Bus & Zug Fahrplan -->
+                <div onclick="openScheduleFromMenu()" style="
+                    background: white;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 12px;
+                    padding: 15px;
+                    margin-bottom: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                " onmouseover="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 2px 8px rgba(59,130,246,0.2)'"
+                   onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                    <div style="font-size: 28px;">🚌🚂</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 700; color: #1f2937; font-size: 15px; margin-bottom: 2px;">
+                            Bus & Zug Fahrplan
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280;">
+                            Live-Abfahrten in Ihrer Nähe
+                        </div>
+                    </div>
+                    <div style="color: #3b82f6; font-size: 20px;">→</div>
+                </div>
+
+                <!-- Mein Verlauf -->
+                <div onclick="openHistoryFromMenu()" style="
+                    background: white;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 12px;
+                    padding: 15px;
+                    margin-bottom: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                " onmouseover="this.style.borderColor='#667eea'; this.style.boxShadow='0 2px 8px rgba(102,126,234,0.2)'"
+                   onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                    <div style="font-size: 28px;">📋</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 700; color: #1f2937; font-size: 15px; margin-bottom: 2px;">
+                            Mein Verlauf
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280;">
+                            Ihre bisherigen Fahrten
+                        </div>
+                    </div>
+                    <div style="color: #667eea; font-size: 20px;">→</div>
+                </div>
+
+                <div style="border-top: 1px solid #e5e7eb; margin: 20px 0;"></div>
+
+                <!-- Zurück zur Buchung -->
+                <div onclick="backToBookingFromMenu()" style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border-radius: 12px;
+                    padding: 15px;
+                    cursor: pointer;
+                    text-align: center;
+                    font-weight: 700;
+                    font-size: 15px;
+                    transition: all 0.2s;
+                " onmouseover="this.style.opacity='0.9'"
+                   onmouseout="this.style.opacity='1'">
+                    🚕 Zurück zur Buchung
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="passenger-view" class="view active">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:8px;">
-            <h3 style="margin:0;flex:1;">Taxi buchen</h3>
-            <button onclick="switchView('schedule')" class="view-btn" style="padding:10px 15px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-                🚌 Fahrplan
+        <!-- 2 HAUPT-TABS: Fahrgast & Verlauf -->
+        <div style="display:flex;gap:8px;margin-bottom:15px;border-bottom:2px solid #e5e7eb;padding-bottom:10px;">
+            <button onclick="switchView('passenger')" class="view-btn active" style="flex:1;padding:12px;background:#667eea;color:white;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
+                🚕 Fahrgast
             </button>
-            <button onclick="switchView('history')" class="view-btn" style="padding:10px 15px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-                📖 Verlauf
+            <button onclick="switchView('history')" class="view-btn" style="flex:1;padding:12px;background:#e5e7eb;color:#6b7280;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
+                📋 Verlauf
             </button>
         </div>
+        
+        <h3 style="margin:0 0 15px 0;">🚕 Taxi buchen</h3>
         
         <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
         <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
@@ -750,6 +953,16 @@
     </div>
 
     <div id="history-view" class="view">
+        <!-- 2 HAUPT-TABS: Fahrgast & Verlauf -->
+        <div style="display:flex;gap:8px;margin-bottom:15px;border-bottom:2px solid #e5e7eb;padding-bottom:10px;">
+            <button onclick="switchView('passenger')" class="view-btn" style="flex:1;padding:12px;background:#e5e7eb;color:#6b7280;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
+                🚕 Fahrgast
+            </button>
+            <button onclick="switchView('history')" class="view-btn active" style="flex:1;padding:12px;background:#667eea;color:white;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
+                📋 Verlauf
+            </button>
+        </div>
+        
         <h3 style="margin: 20px 0;">Meine Fahrten</h3>
         
         <!-- 📅 TABS für Kommende / Vergangene Fahrten -->
@@ -4841,40 +5054,52 @@
         // Zeigt nächste Haltestelle an
         // Zeigt mehrere Haltestellen zur Auswahl
         function displayStopSelection(stops, userLat, userLon) {
-            const stopsList = stops.slice(0, 5).map(stop => {
-                const distance = stop.distance ? Math.round(stop.distance) : '?';
-                const stopId = stop.ibnr || stop.id;
+            // Sortiere: Bahnhöfe zuerst, dann Bushaltestellen
+            const sortedStops = stops.slice(0, 10).sort((a, b) => {
+                const aIsStation = isTrainStation(a);
+                const bIsStation = isTrainStation(b);
                 
-                return `
-                    <div style="background:white;padding:12px;border-radius:10px;margin-bottom:10px;border:2px solid #e5e7eb;cursor:pointer;transition:all 0.2s;" 
-                         onclick="selectStop('${stopId}', '${stop.name.replace(/'/g, "\\'")}', ${userLat}, ${userLon})"
-                         onmouseover="this.style.borderColor='#3b82f6';this.style.boxShadow='0 2px 8px rgba(59,130,246,0.2)'"
-                         onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <div style="flex:1;">
-                                <div style="font-size:15px;font-weight:700;color:#1f2937;margin-bottom:2px;">
-                                    🚏 ${stop.name}
-                                </div>
-                                <div style="font-size:12px;color:#6b7280;">
-                                    📏 ${distance}m entfernt
-                                </div>
-                            </div>
-                            <div style="padding:8px 16px;background:#3b82f6;color:white;border-radius:6px;font-size:13px;font-weight:600;">
-                                Abfahrten →
-                            </div>
-                        </div>
+                // Bahnhöfe haben Priorität
+                if (aIsStation && !bIsStation) return -1;
+                if (!aIsStation && bIsStation) return 1;
+                
+                // Sonst nach Entfernung sortieren
+                return (a.distance || 9999) - (b.distance || 9999);
+            });
+            
+            // Gruppiere nach Typ
+            const stations = sortedStops.filter(s => isTrainStation(s));
+            const busStops = sortedStops.filter(s => !isTrainStation(s));
+            
+            let stationsHTML = '';
+            if (stations.length > 0) {
+                stationsHTML = `
+                    <div style="font-size:13px;font-weight:700;color:#1f2937;margin:15px 0 8px 0;">
+                        🚂 BAHNHÖFE (mit Zugverbindungen):
                     </div>
                 `;
-            }).join('');
+                stationsHTML += stations.map(stop => createStopHTML(stop, userLat, userLon, '🚂', '#3b82f6')).join('');
+            }
+            
+            let busStopsHTML = '';
+            if (busStops.length > 0) {
+                busStopsHTML = `
+                    <div style="font-size:13px;font-weight:700;color:#1f2937;margin:15px 0 8px 0;">
+                        🚌 BUSHALTESTELLEN:
+                    </div>
+                `;
+                busStopsHTML += busStops.map(stop => createStopHTML(stop, userLat, userLon, '🚌', '#f59e0b')).join('');
+            }
             
             document.getElementById('schedule-nearest-stop').innerHTML = `
                 <div style="margin-bottom:15px;">
                     <div style="font-size:14px;color:#6b7280;margin-bottom:10px;font-weight:600;">
                         🚏 Haltestellen in Ihrer Nähe:
                     </div>
-                    ${stopsList}
+                    ${stationsHTML}
+                    ${busStopsHTML}
                     <div style="font-size:12px;color:#6b7280;text-align:center;margin-top:10px;">
-                        💡 Tipp: Wählen Sie die richtige Straßenseite!
+                        💡 Tipp: Bahnhöfe haben Zug + Bus, Bushaltestellen nur Bus
                     </div>
                 </div>
             `;
@@ -4883,6 +5108,54 @@
             document.getElementById('schedule-trains').innerHTML = '';
             document.getElementById('schedule-buses').innerHTML = '';
         }
+        
+        // Prüft ob Haltestelle ein Bahnhof ist
+        function isTrainStation(stop) {
+            // Bahnhof wenn name "Bahnhof" oder "Bf" enthält
+            if (stop.name && (stop.name.includes('Bahnhof') || stop.name.includes(' Bf') || stop.name.includes('Bhf'))) {
+                return true;
+            }
+            
+            // Oder wenn Zug-Produkte verfügbar sind
+            if (stop.products) {
+                return stop.products.nationalExpress || 
+                       stop.products.national || 
+                       stop.products.regional || 
+                       stop.products.regionalExp || 
+                       stop.products.suburban;
+            }
+            
+            return false;
+        }
+        
+        // Erstellt HTML für eine Haltestelle
+        function createStopHTML(stop, userLat, userLon, icon, color) {
+            const distance = stop.distance ? Math.round(stop.distance) : '?';
+            const stopId = stop.ibnr || stop.id;
+            
+            return `
+                <div style="background:white;padding:12px;border-radius:10px;margin-bottom:8px;border-left:4px solid ${color};border-right:2px solid #e5e7eb;border-top:2px solid #e5e7eb;border-bottom:2px solid #e5e7eb;cursor:pointer;transition:all 0.2s;" 
+                     onclick="selectStop('${stopId}', '${stop.name.replace(/'/g, "\\'")}', ${userLat}, ${userLon})"
+                     onmouseover="this.style.borderColor='${color}';this.style.boxShadow='0 2px 8px rgba(59,130,246,0.2)'"
+                     onmouseout="this.style.borderLeftColor='${color}';this.style.borderRightColor='#e5e7eb';this.style.borderTopColor='#e5e7eb';this.style.borderBottomColor='#e5e7eb';this.style.boxShadow='none'">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="flex:1;">
+                            <div style="font-size:15px;font-weight:700;color:#1f2937;margin-bottom:2px;">
+                                ${icon} ${stop.name}
+                            </div>
+                            <div style="font-size:12px;color:#6b7280;">
+                                📏 ${distance}m entfernt
+                            </div>
+                        </div>
+                        <div style="padding:8px 16px;background:${color};color:white;border-radius:6px;font-size:13px;font-weight:600;">
+                            Abfahrten →
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ALTE Funktion bleibt für Kompatibilität
         
         // Wird aufgerufen wenn User eine Haltestelle wählt
         async function selectStop(stopId, stopName, userLat, userLon) {
@@ -5256,6 +5529,39 @@
             if (view === 'history') loadHistory();
             
             updateViews();
+        }
+
+        // 📱 MENÜ FUNKTIONEN
+        function toggleMenu(event) {
+            event.stopPropagation();
+            const menu = document.getElementById('menu-overlay');
+            if (menu.style.display === 'none' || !menu.style.display) {
+                menu.style.display = 'block';
+                document.body.style.overflow = 'hidden'; // Verhindere Scrollen im Hintergrund
+            } else {
+                closeMenu();
+            }
+        }
+
+        function closeMenu() {
+            const menu = document.getElementById('menu-overlay');
+            menu.style.display = 'none';
+            document.body.style.overflow = ''; // Erlaube Scrollen wieder
+        }
+
+        function openScheduleFromMenu() {
+            closeMenu();
+            switchView('schedule');
+        }
+
+        function openHistoryFromMenu() {
+            closeMenu();
+            switchView('history');
+        }
+
+        function backToBookingFromMenu() {
+            closeMenu();
+            switchView('passenger');
         }
 
         // 🎯 GPS MONITORING - Prüft alle 5 Sekunden ob GPS läuft

@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.14 - Build 20251203-1500');
-        console.log('📋 ÜBERSICHTLICHER: Zeigt Richtung + Abfahrtsort!');
-        console.log('✅ Bessere Struktur für Patrick!');
+        console.log('🚕 Funk Taxi App v5.32.15 - Build 20251203-1510');
+        console.log('📏 KOMPAKTER BANNER: Viel kleiner!');
+        console.log('✅ Bereit für Jimdo Upload!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -311,7 +311,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.14 - ÜBERSICHTLICH 📋 (Build 20251203-1500)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.15 - KOMPAKT 📏 (Build 20251203-1510)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -711,15 +711,16 @@
         <div id="schedule-nearest-stop" style="margin-bottom:15px;"></div>
         
         <!-- ÖPNV-Taxi Angebot -->
-        <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);">
-            <div style="font-size:20px;margin-bottom:8px;">🚕 ÖPNV-Taxi</div>
-            <div style="font-size:14px;opacity:0.95;margin-bottom:12px;">
-                Verpasst oder zu lange gewartet? Nutze unser ÖPNV-Taxi!<br>
-                <strong>Nur 2€ Aufpreis</strong> zum Busticket-Preis.
+        <!-- ÖPNV-Taxi Angebot - Kompakt -->
+        <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:12px 16px;border-radius:10px;margin-bottom:15px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);display:flex;align-items:center;justify-content:space-between;">
+            <div style="flex:1;">
+                <div style="font-size:15px;font-weight:700;margin-bottom:2px;">🚕 ÖPNV-Taxi verfügbar</div>
+                <div style="font-size:12px;opacity:0.9;">Bus-Preis + nur 2€ Aufpreis</div>
             </div>
-            <button onclick="switchView('passenger')" style="padding:12px 24px;background:white;color:#059669;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;width:100%;">
-                🚕 Jetzt ÖPNV-Taxi buchen
+            <button onclick="switchView('passenger')" style="padding:10px 20px;background:white;color:#059669;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap;">
+                Jetzt buchen
             </button>
+        </div>
         </div>
         
         <!-- Züge -->

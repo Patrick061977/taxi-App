@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.15 - Build 20251203-1510');
-        console.log('📏 KOMPAKTER BANNER: Viel kleiner!');
-        console.log('✅ Bereit für Jimdo Upload!');
+        console.log('🚕 Funk Taxi App v5.32.16 - Build 20251203-1530');
+        console.log('🚏 HALTESTELLEN-AUSWAHL: Zeigt mehrere zur Auswahl!');
+        console.log('✅ Löst Patrick\'s Problem mit gegenüberliegenden Haltestellen!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -311,7 +311,7 @@
     <div class="header" id="main-header" style="cursor: pointer;" onclick="toggleHeader()">
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.15 - KOMPAKT 📏 (Build 20251203-1510)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.16 - HALTESTELLEN-AUSWAHL 🚏 (Build 20251203-1530)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4753,8 +4753,8 @@
                 document.getElementById('schedule-location').textContent = 
                     `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
                 
-                // 2. Nächste Haltestelle finden
-                console.log('🔍 Suche nächste Haltestelle...');
+                // 2. Nächste Haltestellen finden (mehrere zur Auswahl!)
+                console.log('🔍 Suche Haltestellen in der Nähe...');
                 const nearbyStops = await fetchNearbyStops(latitude, longitude);
                 
                 if (!nearbyStops || nearbyStops.length === 0) {
@@ -4762,21 +4762,10 @@
                     return;
                 }
                 
-                const nearestStop = nearbyStops[0];
-                console.log('✅ Nächste Haltestelle:', nearestStop.name);
-                console.log('🔍 DEBUG: Stop-Objekt:', nearestStop);
-                console.log('🆔 Stop-ID:', nearestStop.id);
-                console.log('🆔 Stop-IBNR:', nearestStop.ibnr || 'nicht vorhanden');
+                console.log('✅ Haltestellen gefunden:', nearbyStops.length);
                 
-                // Verwende IBNR falls vorhanden, sonst ID
-                const stopId = nearestStop.ibnr || nearestStop.id;
-                console.log('🎯 Verwende ID für Abfahrten:', stopId);
-                
-                // Zeige nächste Haltestelle
-                displayNearestStop(nearestStop);
-                
-                // 3. Abfahrten laden
-                await loadDepartures(stopId, nearestStop.name);
+                // Zeige alle Haltestellen zur Auswahl
+                displayStopSelection(nearbyStops, latitude, longitude);
                 
                 scheduleLoaded = true;
                 
@@ -4850,6 +4839,71 @@
         }
         
         // Zeigt nächste Haltestelle an
+        // Zeigt mehrere Haltestellen zur Auswahl
+        function displayStopSelection(stops, userLat, userLon) {
+            const stopsList = stops.slice(0, 5).map(stop => {
+                const distance = stop.distance ? Math.round(stop.distance) : '?';
+                const stopId = stop.ibnr || stop.id;
+                
+                return `
+                    <div style="background:white;padding:12px;border-radius:10px;margin-bottom:10px;border:2px solid #e5e7eb;cursor:pointer;transition:all 0.2s;" 
+                         onclick="selectStop('${stopId}', '${stop.name.replace(/'/g, "\\'")}', ${userLat}, ${userLon})"
+                         onmouseover="this.style.borderColor='#3b82f6';this.style.boxShadow='0 2px 8px rgba(59,130,246,0.2)'"
+                         onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="flex:1;">
+                                <div style="font-size:15px;font-weight:700;color:#1f2937;margin-bottom:2px;">
+                                    🚏 ${stop.name}
+                                </div>
+                                <div style="font-size:12px;color:#6b7280;">
+                                    📏 ${distance}m entfernt
+                                </div>
+                            </div>
+                            <div style="padding:8px 16px;background:#3b82f6;color:white;border-radius:6px;font-size:13px;font-weight:600;">
+                                Abfahrten →
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('schedule-nearest-stop').innerHTML = `
+                <div style="margin-bottom:15px;">
+                    <div style="font-size:14px;color:#6b7280;margin-bottom:10px;font-weight:600;">
+                        🚏 Haltestellen in Ihrer Nähe:
+                    </div>
+                    ${stopsList}
+                    <div style="font-size:12px;color:#6b7280;text-align:center;margin-top:10px;">
+                        💡 Tipp: Wählen Sie die richtige Straßenseite!
+                    </div>
+                </div>
+            `;
+            
+            // Verstecke Züge/Busse Container bis Haltestelle gewählt
+            document.getElementById('schedule-trains').innerHTML = '';
+            document.getElementById('schedule-buses').innerHTML = '';
+        }
+        
+        // Wird aufgerufen wenn User eine Haltestelle wählt
+        async function selectStop(stopId, stopName, userLat, userLon) {
+            console.log('🚏 Haltestelle gewählt:', stopName);
+            console.log('🆔 Stop-ID:', stopId);
+            
+            // Zeige gewählte Haltestelle
+            document.getElementById('schedule-nearest-stop').innerHTML = `
+                <div style="background:white;padding:15px;border-radius:12px;border:2px solid #3b82f6;margin-bottom:15px;">
+                    <div style="font-size:14px;color:#3b82f6;margin-bottom:4px;font-weight:600;">✅ Gewählte Haltestelle:</div>
+                    <div style="font-size:16px;font-weight:700;color:#1f2937;">${stopName}</div>
+                    <button onclick="loadSchedule()" style="margin-top:8px;padding:6px 12px;background:#f3f4f6;border:none;border-radius:6px;font-size:12px;color:#6b7280;cursor:pointer;">
+                        🔄 Andere Haltestelle wählen
+                    </button>
+                </div>
+            `;
+            
+            // Lade Abfahrten
+            await loadDepartures(stopId, stopName);
+        }
+        
         function displayNearestStop(stop) {
             const distance = stop.distance ? Math.round(stop.distance) : 'unbekannt';
             

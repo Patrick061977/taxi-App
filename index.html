@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.32.19 - Build 20251203-1645');
-        console.log('✅ 2 HAUPT-TABS: Fahrgast & Verlauf!');
-        console.log('📱 Bus & Bahn im Menü!');
+        console.log('🚕 Funk Taxi App v5.32.20 - Build 20251203-1710');
+        console.log('✅ HAUPTSEITE: Nur Taxi buchen!');
+        console.log('📱 MENÜ: Bus & Bahn + Verlauf!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -382,7 +382,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.19 - 2 TABS + MENÜ 🚕 (Build 20251203-1645)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.32.20 - CLEAN & FOKUSSIERT 🎯 (Build 20251203-1710)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -638,7 +638,7 @@
                             Mein Verlauf
                         </div>
                         <div style="font-size: 12px; color: #6b7280;">
-                            Ihre bisherigen Fahrten
+                            Ihre Taxifahrten
                         </div>
                     </div>
                     <div style="color: #667eea; font-size: 20px;">→</div>
@@ -666,16 +666,6 @@
     </div>
 
     <div id="passenger-view" class="view active">
-        <!-- 2 HAUPT-TABS: Fahrgast & Verlauf -->
-        <div style="display:flex;gap:8px;margin-bottom:15px;border-bottom:2px solid #e5e7eb;padding-bottom:10px;">
-            <button onclick="switchView('passenger')" class="view-btn active" style="flex:1;padding:12px;background:#667eea;color:white;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
-                🚕 Fahrgast
-            </button>
-            <button onclick="switchView('history')" class="view-btn" style="flex:1;padding:12px;background:#e5e7eb;color:#6b7280;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
-                📋 Verlauf
-            </button>
-        </div>
-        
         <h3 style="margin:0 0 15px 0;">🚕 Taxi buchen</h3>
         
         <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
@@ -953,16 +943,6 @@
     </div>
 
     <div id="history-view" class="view">
-        <!-- 2 HAUPT-TABS: Fahrgast & Verlauf -->
-        <div style="display:flex;gap:8px;margin-bottom:15px;border-bottom:2px solid #e5e7eb;padding-bottom:10px;">
-            <button onclick="switchView('passenger')" class="view-btn" style="flex:1;padding:12px;background:#e5e7eb;color:#6b7280;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
-                🚕 Fahrgast
-            </button>
-            <button onclick="switchView('history')" class="view-btn active" style="flex:1;padding:12px;background:#667eea;color:white;border:none;border-radius:8px 8px 0 0;font-weight:700;cursor:pointer;font-size:15px;transition:all 0.2s;">
-                📋 Verlauf
-            </button>
-        </div>
-        
         <h3 style="margin: 20px 0;">Meine Fahrten</h3>
         
         <!-- 📅 TABS für Kommende / Vergangene Fahrten -->

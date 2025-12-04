@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.33.3 - Build 20251203-1840');
-        console.log('🔧 TABS FIX: Bessere Login-Erkennung!');
-        console.log('🎯 VIEWS FIX: Züge/Busse nur in Schedule-View!');
+        console.log('🚕 Funk Taxi App v5.33.4 - Build 20251203-1850');
+        console.log('🔒 VIEW-GUARD: Aggressive View-Bereinigung!');
+        console.log('⚡ Fixes: Views richtig getrennt!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -392,7 +392,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.3 - TABS & VIEWS FIX! 🔧 (Build 20251203-1840)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.4 - VIEW-GUARD! 🔒 (Build 20251203-1850)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5618,17 +5618,19 @@
             document.querySelectorAll('.view').forEach(v => {
                 v.classList.remove('active');
                 v.style.display = 'none'; // Extra sicher!
+                v.style.visibility = 'hidden'; // 🆕 v5.33.4: Auch visibility!
             });
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             // 🆕 v5.33.1: Entferne active von Admin-Tab-Buttons
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
-            // 🆕 v5.32.22: EXTRA SICHER - Verstecke alle Views einzeln!
+            // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
             const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
                     viewEl.style.display = 'none';
+                    viewEl.style.visibility = 'hidden';
                     viewEl.classList.remove('active');
                     console.log('  ❌ Versteckt:', viewId);
                 }
@@ -5638,6 +5640,7 @@
             const viewElement = document.getElementById(view + '-view');
             if (viewElement) {
                 viewElement.style.display = 'block';
+                viewElement.style.visibility = 'visible';
                 viewElement.classList.add('active');
                 console.log('  ✅ Zeige:', view + '-view');
             } else {
@@ -21962,33 +21965,68 @@ Stack: ${err.stack}
             });
         });
         
-        // 🆕 v5.33.3: INIT - Stelle sicher dass beim Laden nur passenger-view sichtbar ist!
+        // 🆕 v5.33.4: AGGRESSIVE VIEW-BEREINIGUNG - Mehrfach ausführen!
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 v5.33.3: Initialisiere Views...');
+            console.log('🚀 v5.33.4: Aggressive View-Bereinigung...');
             
-            // Verstecke ALLE Views beim Start
+            function forcePassengerViewOnly() {
+                // Verstecke ALLE Views brutal!
+                const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
+                allViews.forEach(viewId => {
+                    const viewEl = document.getElementById(viewId);
+                    if (viewEl) {
+                        viewEl.style.display = 'none';
+                        viewEl.style.visibility = 'hidden';
+                        viewEl.classList.remove('active');
+                    }
+                });
+                
+                // Zeige NUR passenger-view
+                const passengerView = document.getElementById('passenger-view');
+                if (passengerView) {
+                    passengerView.style.display = 'block';
+                    passengerView.style.visibility = 'visible';
+                    passengerView.classList.add('active');
+                    console.log('✅ Passenger-View erzwungen');
+                }
+                
+                // Setze passenger tab als aktiv
+                const passengerTab = document.querySelector('.admin-tab-btn[data-view="passenger"]');
+                if (passengerTab) {
+                    passengerTab.classList.add('active');
+                }
+            }
+            
+            // MEHRFACH ausführen um SICHER zu sein!
+            forcePassengerViewOnly(); // Sofort
+            setTimeout(forcePassengerViewOnly, 100); // Nach 100ms
+            setTimeout(forcePassengerViewOnly, 500); // Nach 500ms
+            setTimeout(forcePassengerViewOnly, 1000); // Nach 1s
+            setTimeout(forcePassengerViewOnly, 2000); // Nach 2s
+            
+            console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
+        });
+        
+        // 🆕 v5.33.4: VIEW-GUARD - Überwacht dass nur aktive View sichtbar ist!
+        setInterval(() => {
             const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
+            
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
-                if (viewEl) {
+                if (!viewEl) return;
+                
+                // Prüfe ob View sichtbar ist obwohl sie nicht aktiv ist
+                const isVisible = window.getComputedStyle(viewEl).display !== 'none';
+                const isActive = viewEl.classList.contains('active');
+                
+                if (isVisible && !isActive) {
+                    // View ist sichtbar aber nicht aktiv - VERSTECKEN!
+                    console.warn('⚠️ View-Guard: Verstecke inaktive View:', viewId);
                     viewEl.style.display = 'none';
-                    viewEl.classList.remove('active');
+                    viewEl.style.visibility = 'hidden';
                 }
             });
-            
-            // Zeige NUR passenger-view
-            const passengerView = document.getElementById('passenger-view');
-            if (passengerView) {
-                passengerView.style.display = 'block';
-                passengerView.classList.add('active');
-                console.log('✅ Passenger-View initial angezeigt');
-            }
-            
-            // Setze passenger tab als aktiv
-            const passengerTab = document.querySelector('.admin-tab-btn[data-view="passenger"]');
-            if (passengerTab) {
-                passengerTab.classList.add('active');
-            }
+        }, 2000); // Alle 2 Sekunden prüfen
         });
     </script>
     <!-- 🔐 LOGIN MODAL -->

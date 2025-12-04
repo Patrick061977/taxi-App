@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.34.0 - Build 20251204-0840');
-        console.log('⚡ SCHNELLBUCHUNG + CRM DATENÜBERNAHME!');
-        console.log('✅ Buchen direkt aus CRM oder per Modal!');
+        console.log('🚕 Funk Taxi App v5.36.0 - Build 20251204-1100');
+        console.log('⇄ SWAP-BUTTON FÜR SCHNELLBUCHUNG!');
+        console.log('✅ Abholort/Zielort vertauschen!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -392,7 +392,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.34.0 - SCHNELLBUCHUNG! ⚡ (Build 20251204-0840)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.36.0 - SWAP-BUTTON! ⇄ (Build 20251204-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -16904,10 +16904,28 @@
                             <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
                         </div>
                         
-                        <!-- Abholort -->
+                        <!-- Abholort -->;
                         <div>
                             <label style="display:block;font-weight:600;margin-bottom:8px;">📍 Abholort</label>
                             <input type="text" id="quick-booking-pickup" placeholder="Wird aus Kundendaten geladen..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <!-- 🆕 v5.36.0: SWAP-BUTTON -->
+                        <div style="text-align:center;margin:15px 0;">
+                            <button onclick="swapQuickBookingLocations()" style="
+                                padding:10px 20px;
+                                background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+                                color:white;
+                                border:none;
+                                border-radius:8px;
+                                font-weight:600;
+                                cursor:pointer;
+                                font-size:14px;
+                                box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);
+                                transition:transform 0.2s;
+                            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                ⇄ Vertauschen
+                            </button>
                         </div>
                         
                         <!-- Zielort -->
@@ -16980,6 +16998,23 @@
             if (customer.favoriteDestination) {
                 document.getElementById('quick-booking-destination').value = customer.favoriteDestination;
             }
+        }
+        
+        // 🆕 v5.36.0: Vertausche Abholort und Zielort
+        function swapQuickBookingLocations() {
+            const pickupField = document.getElementById('quick-booking-pickup');
+            const destinationField = document.getElementById('quick-booking-destination');
+            
+            if (!pickupField || !destinationField) return;
+            
+            // Werte tauschen
+            const temp = pickupField.value;
+            pickupField.value = destinationField.value;
+            destinationField.value = temp;
+            
+            console.log('⇄ Orte vertauscht!');
+            console.log('  Abholort:', pickupField.value);
+            console.log('  Zielort:', destinationField.value);
         }
         
         async function submitQuickBooking() {
@@ -21669,9 +21704,9 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
-            // 🆕 v5.27.1: calendar-view entfernt (jetzt im Admin)
+            // 🆕 v5.34.1: schedule-view zur Liste hinzugefügt!
             console.log('🎬 Initialisiere Views...');
-            const allViews = ['passenger-view', 'history-view', 'driver-view', 'admin-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {

@@ -17,9 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.33.5 - Build 20251204-0820');
-        console.log('🔧 SYNTAX-ERROR FIX!');
-        console.log('✅ Extra-Klammer entfernt!');
+        console.log('🚕 Funk Taxi App v5.34.0 - Build 20251204-0840');
+        console.log('⚡ SCHNELLBUCHUNG + CRM DATENÜBERNAHME!');
+        console.log('✅ Buchen direkt aus CRM oder per Modal!');
 
         console.log('📖 TRACKING IM VERLAUF: Kunden können Link nochmal öffnen!');
         console.log('📲 SMS/Telegram Status sichtbar im Verlauf!');
@@ -392,7 +392,7 @@
         
         <div id="header-content">
             <h1 style="margin: 0; font-size: 20px;">🚕 Funk Taxi Heringsdorf</h1>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.33.5 - SYNTAX-FIX! ✅ (Build 20251204-0820)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.34.0 - SCHNELLBUCHUNG! ⚡ (Build 20251204-0840)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2617,6 +2617,27 @@
                 <div id="timeslot-save-status" style="margin-top:8px;text-align:center;font-size:12px;"></div>
             </div>
         </div>
+        
+        <!-- 🆕 v5.34.0: SCHNELLBUCHUNG BUTTON -->
+        <button onclick="openQuickBookingModal()" style="
+            width:100%;
+            padding:15px;
+            background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color:white;
+            border:none;
+            border-radius:12px;
+            font-weight:700;
+            font-size:16px;
+            cursor:pointer;
+            margin-bottom:15px;
+            box-shadow:0 4px 6px rgba(16, 185, 129, 0.3);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:10px;
+        ">
+            ⚡ Schnellbuchung für Kunde
+        </button>
         
         <!-- COLLAPSIBLE: Online-Fahrer -->
         <div onclick="toggleAdminSection('drivers')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
@@ -5760,31 +5781,35 @@
             const adminTabs = document.getElementById('admin-tabs');
             if (!adminTabs) return;
             
-            // 🔧 v5.33.3: Prüfe ob User eingeloggt ist
-            // 1. Prüfe ob Phone-Auth-Screen NICHT sichtbar ist
+            // 🆕 v5.33.6: Prüfe User-Rolle!
+            // Tabs nur für Fahrer & Admin, NICHT für Fahrgäste!
+            
+            // 1. Prüfe ob User eingeloggt ist
             const phoneAuthScreen = document.getElementById('phone-auth-screen');
             const phoneAuthVisible = phoneAuthScreen && phoneAuthScreen.style.display !== 'none';
             
-            // 2. Prüfe ob "Mein Konto" Bereich einen Namen hat
             const accountName = document.getElementById('customer-name-display');
             const hasName = accountName && accountName.textContent && accountName.textContent.trim() !== '';
             
-            // 3. Prüfe ob Booking-Form sichtbar ist (eingeloggt)
             const bookingForm = document.getElementById('booking-form');
             const bookingVisible = bookingForm && window.getComputedStyle(bookingForm).display !== 'none';
             
-            // User ist eingeloggt wenn:
-            // - Phone-Auth nicht sichtbar UND
-            // - (Hat einen Namen ODER Booking-Form sichtbar)
             const isLoggedIn = !phoneAuthVisible && (hasName || bookingVisible);
             
-            // Zeige Tabs wenn eingeloggt
-            if (isLoggedIn) {
+            // 2. Prüfe User-Rolle (global gesetzt durch applyRoleRestrictions)
+            // Tabs ONLY für Fahrer & Admin!
+            const showTabs = isLoggedIn && (userRole === 'admin' || userRole === 'fahrer');
+            
+            if (showTabs) {
                 adminTabs.style.display = 'block';
-                console.log('✅ Admin-Tabs angezeigt (User eingeloggt)');
+                console.log('✅ Admin-Tabs angezeigt (User:', userRole, ')');
             } else {
                 adminTabs.style.display = 'none';
-                console.log('❌ Admin-Tabs versteckt (User nicht eingeloggt)');
+                if (isLoggedIn) {
+                    console.log('❌ Admin-Tabs versteckt (Fahrgast - nutzt Menü)');
+                } else {
+                    console.log('❌ Admin-Tabs versteckt (nicht eingeloggt)');
+                }
             }
         }
         
@@ -16810,9 +16835,11 @@
             // Wechsel zum Fahrgast-Tab und fülle Daten aus
             switchView('passenger');
             
+            // 🆕 v5.34.0: Umfassende Datenübernahme!
             if (customer.name) document.getElementById('customer-name').value = customer.name;
             if (customer.phone) document.getElementById('customer-phone').value = customer.phone;
             if (customer.address) document.getElementById('pickup').value = customer.address;
+            if (customer.favoriteDestination) document.getElementById('destination').value = customer.favoriteDestination;
             
             // Zeige CRM-Speicher-Option
             const crmOption = document.getElementById('crm-save-option');
@@ -16821,7 +16848,223 @@
                 document.getElementById('save-to-crm').checked = true;
             }
             
-            alert('✅ Daten von "' + customer.name + '" wurden eingefüllt!\n\nBitte Ziel eingeben und Preis berechnen.');
+            // Zeige Bestätigung
+            const filledFields = [];
+            if (customer.name) filledFields.push('Name');
+            if (customer.phone) filledFields.push('Telefon');
+            if (customer.address) filledFields.push('Abholort');
+            if (customer.favoriteDestination) filledFields.push('Zielort');
+            
+            alert('✅ Daten von "' + customer.name + '" eingefüllt!\n\n' + 
+                  '📋 Übernommen: ' + filledFields.join(', ') + '\n\n' +
+                  (customer.favoriteDestination ? 'Preis kann jetzt berechnet werden!' : 'Bitte Zielort eingeben!'));
+        }
+        
+        // 🆕 v5.34.0: SCHNELLBUCHUNG MODAL
+        function openQuickBookingModal() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            // Lade Kunden wenn noch nicht geladen
+            if (allCustomers.length === 0) {
+                loadAllCustomers();
+            }
+            
+            const modal = document.createElement('div');
+            modal.id = 'quick-booking-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:15px;';
+            
+            // Aktuelle Zeit + 15 Minuten als Default
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 15);
+            const defaultDate = now.toISOString().slice(0, 16);
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;font-size:20px;">⚡ Schnellbuchung</h3>
+                        <button onclick="document.getElementById('quick-booking-modal').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
+                    </div>
+                    
+                    <div style="display:flex;flex-direction:column;gap:15px;">
+                        <!-- Kunde auswählen -->
+                        <div>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">👤 Kunde</label>
+                            <select id="quick-booking-customer" onchange="loadQuickBookingCustomerData()" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                                <option value="">Kunde auswählen...</option>
+                                ${allCustomers.map(c => `<option value="${c.id}">${c.name || 'Unbekannt'} ${c.phone ? '(' + c.phone + ')' : ''}</option>`).join('')}
+                            </select>
+                        </div>
+                        
+                        <!-- Datum & Zeit -->
+                        <div>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">📅 Datum & Zeit</label>
+                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <!-- Abholort -->
+                        <div>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">📍 Abholort</label>
+                            <input type="text" id="quick-booking-pickup" placeholder="Wird aus Kundendaten geladen..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <!-- Zielort -->
+                        <div>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">🎯 Zielort</label>
+                            <input type="text" id="quick-booking-destination" placeholder="Wird aus Kundendaten geladen..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <!-- Personen -->
+                        <div>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">👥 Anzahl Personen</label>
+                            <select id="quick-booking-passengers" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                                <option value="1">1 Person</option>
+                                <option value="2">2 Personen</option>
+                                <option value="3">3 Personen</option>
+                                <option value="4">4 Personen</option>
+                                <option value="5">5 Personen</option>
+                                <option value="6">6 Personen</option>
+                                <option value="7">7 Personen</option>
+                                <option value="8">8 Personen</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Fahrzeug (optional) -->
+                        <div>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">🚗 Fahrzeug (optional)</label>
+                            <select id="quick-booking-vehicle" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                                <option value="">Automatisch zuweisen</option>
+                                <option value="t3">Tesla Model 3 (T3)</option>
+                                <option value="tx">Tesla Model X (TX)</option>
+                                <option value="ty">Tesla Model Y (TY)</option>
+                                <option value="bus1">Bus 1 (9-Sitzer)</option>
+                                <option value="bus2">Bus 2 (9-Sitzer)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Notizen -->
+                        <div>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">📝 Notizen (optional)</label>
+                            <textarea id="quick-booking-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;min-height:60px;"></textarea>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                            <button onclick="document.getElementById('quick-booking-modal').remove()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                Abbrechen
+                            </button>
+                            <button onclick="submitQuickBooking()" style="padding:14px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);">
+                                ⚡ Jetzt buchen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        function loadQuickBookingCustomerData() {
+            const customerId = document.getElementById('quick-booking-customer').value;
+            if (!customerId) return;
+            
+            const customer = allCustomers.find(c => c.id === customerId);
+            if (!customer) return;
+            
+            // Lade Kundendaten ins Formular
+            if (customer.address) {
+                document.getElementById('quick-booking-pickup').value = customer.address;
+            }
+            if (customer.favoriteDestination) {
+                document.getElementById('quick-booking-destination').value = customer.favoriteDestination;
+            }
+        }
+        
+        async function submitQuickBooking() {
+            const customerId = document.getElementById('quick-booking-customer').value;
+            const datetime = document.getElementById('quick-booking-datetime').value;
+            const pickup = document.getElementById('quick-booking-pickup').value;
+            const destination = document.getElementById('quick-booking-destination').value;
+            const passengers = parseInt(document.getElementById('quick-booking-passengers').value);
+            const vehicle = document.getElementById('quick-booking-vehicle').value;
+            const notes = document.getElementById('quick-booking-notes').value;
+            
+            // Validierung
+            if (!customerId) {
+                alert('❌ Bitte Kunde auswählen!');
+                return;
+            }
+            if (!datetime) {
+                alert('❌ Bitte Datum & Zeit eingeben!');
+                return;
+            }
+            if (!pickup) {
+                alert('❌ Bitte Abholort eingeben!');
+                return;
+            }
+            if (!destination) {
+                alert('❌ Bitte Zielort eingeben!');
+                return;
+            }
+            
+            const customer = allCustomers.find(c => c.id === customerId);
+            if (!customer) {
+                alert('❌ Kunde nicht gefunden!');
+                return;
+            }
+            
+            // Erstelle Fahrt
+            const pickupTimestamp = new Date(datetime).getTime();
+            
+            const ride = {
+                customerName: customer.name || 'Unbekannt',
+                customerPhone: customer.phone || '',
+                pickup: pickup,
+                destination: destination,
+                pickupTimestamp: pickupTimestamp,
+                passengers: passengers,
+                createdAt: Date.now(),
+                status: 'vorbestellt',
+                bookedBy: 'admin',
+                notes: notes || '',
+                customerId: customerId
+            };
+            
+            // Fahrzeug zuweisen wenn ausgewählt
+            if (vehicle) {
+                ride.assignedTo = vehicle;
+            }
+            
+            try {
+                // Speichere in Firebase
+                const rideRef = await db.ref('rides').push(ride);
+                console.log('✅ Schnellbuchung erstellt:', rideRef.key);
+                
+                // CRM aktualisieren
+                await db.ref('customers/' + customerId).update({
+                    lastRide: Date.now(),
+                    totalRides: (customer.totalRides || 0) + 1
+                });
+                
+                // Schließe Modal
+                document.getElementById('quick-booking-modal').remove();
+                
+                // Zeige Erfolg
+                alert('✅ Fahrt erfolgreich gebucht!\n\n' +
+                      '👤 ' + customer.name + '\n' +
+                      '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
+                      '📍 ' + pickup + '\n' +
+                      '🎯 ' + destination);
+                
+                // Aktualisiere Views
+                updateViews();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Buchen:', error);
+                alert('❌ Fehler beim Buchen: ' + error.message);
+            }
         }
         
         function editCustomer(customerId) {
@@ -19787,6 +20030,9 @@ Stack: ${err.stack}
             // 🔐 Rolle laden und anwenden
             const role = await getUserRole(user);
             applyRoleRestrictions(role);
+            
+            // 🆕 v5.33.6: Update Tab-Visibility nach Rolle
+            updateAdminTabsVisibility();
             
             // 📜 PROTOKOLL: Login (mit App-Version)
             logActivity('system', 'login', `Login: ${user.email || user.phoneNumber} (${role || 'Fahrgast'})`, {

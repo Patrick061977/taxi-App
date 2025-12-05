@@ -17,10 +17,13 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.38.2-ORIGINAL - Build 20251204-1730');
+        console.log('🚕 Funk Taxi App v5.38.3-ORIGINAL - Build 20251204-1740');
         console.log('🔴 OFFLINE-SCHALTER für Buchungssystem!');
         console.log('🎯 Admin kann Buchungen an/aus schalten');
         console.log('📞 Bei Offline: Nur Anrufen möglich!');
+        console.log('');
+        console.log('🆕 v5.38.3: Schnellbuchung Kunden-Bug FIX!');
+        console.log('✅ Kunden werden jetzt geladen!');
         console.log('');
         console.log('✅ ORIGINAL TAXI-APP (ohne ÖPNV)');
         console.log('✅ Mit Login & Buchungssystem');
@@ -17034,7 +17037,7 @@
         }
         
         // 🆕 v5.34.0: SCHNELLBUCHUNG MODAL
-        function openQuickBookingModal() {
+        async function openQuickBookingModal() {
             if (!isFirebaseReady) {
                 alert('❌ Firebase nicht verbunden!');
                 return;
@@ -17042,7 +17045,9 @@
             
             // Lade Kunden wenn noch nicht geladen
             if (allCustomers.length === 0) {
-                loadAllCustomers();
+                console.log('⏳ Lade Kunden für Schnellbuchung...');
+                await loadAllCustomers();
+                console.log('✅ Kunden geladen:', allCustomers.length);
             }
             
             const modal = document.createElement('div');

@@ -17839,6 +17839,9 @@
         
         function closeQuickBookingPanel() {
             document.getElementById('quick-booking-panel').style.display = 'none';
+            // 🔧 v5.39.8: editingRideId zurücksetzen beim Schließen!
+            window.editingRideId = null;
+            console.log('🔄 Panel geschlossen, editingRideId zurückgesetzt');
         }
         
         // Kunden-Autocomplete
@@ -18448,6 +18451,10 @@
         // 🆕 FAHRT KOPIEREN
         async function copyRideFromCalendar(rideId) {
             try {
+                // 🔧 v5.39.8: editingRideId SOFORT zurücksetzen!
+                window.editingRideId = null;
+                console.log('🔄 editingRideId zurückgesetzt für Kopieren');
+                
                 const snapshot = await db.ref(`rides/${rideId}`).once('value');
                 const ride = snapshot.val();
                 
@@ -18456,10 +18463,14 @@
                     return;
                 }
                 
-                // Panel öffnen
+                // Panel öffnen (oder offen lassen wenn schon offen)
                 const panel = document.getElementById('quick-booking-panel');
                 if (panel.style.display === 'none' || panel.style.display === '') {
-                    toggleQuickBookingPanel();
+                    panel.style.display = 'block';
+                    setupQuickBookingPanelAutocomplete();
+                    loadQuickBookingPanelVehicles();
+                    loadQuickBookingPanelCustomers();
+                    watchPickupChanges();
                 }
                 
                 // Alles kopieren AUSSER die Zeiten - die sollen leer bleiben
@@ -18490,10 +18501,7 @@
                 // Adress-Optionen anzeigen
                 showAddressOptions();
                 
-                // KEINE editingRideId setzen - es ist eine neue Fahrt!
-                window.editingRideId = null;
-                
-                console.log('📋 Fahrt kopiert:', rideId);
+                console.log('📋 Fahrt kopiert:', rideId, '| editingRideId:', window.editingRideId);
                 
             } catch (error) {
                 console.error('❌ Fehler beim Kopieren:', error);

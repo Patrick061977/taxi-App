@@ -17,23 +17,19 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.38.6 - Build 20251205-1200');
+        console.log('🚕 Funk Taxi App v5.38.7 - Build 20251205-2000');
+        console.log('🔧 SCHNELLBUCHUNG FIXED!');
+        console.log('✅ Panel jetzt außerhalb calendar-container!');
+        console.log('');
+        console.log('🆕 v5.38.7: Schnellbuchung-Panel FIX!');
+        console.log('✅ Panel bleibt bestehen beim Kalender-Reload!');
+        console.log('✅ Position: fixed statt absolute!');
+        console.log('✅ Button funktioniert jetzt!');
+        console.log('');
         console.log('⚡ SCHNELLBUCHUNG IM KALENDER!');
         console.log('📅 Mit Wochentag-Anzeige!');
-        console.log('');
-        console.log('🆕 v5.38.6: Kalender-Schnellbuchung!');
-        console.log('✅ Schnellbuchung-Panel rechts im Kalender (Overlay)!');
-        console.log('✅ Kunden-Autocomplete (2-3 Buchstaben)!');
-        console.log('✅ Kalender-Zeit anklicken → Zeit ins Panel!');
-        console.log('✅ Wochentag überall: "Donnerstag, 05.12.2024 14:30"!');
-        console.log('✅ Adressen-Autocomplete im Panel!');
-        console.log('✅ Fahrzeug-Auswahl im Panel!');
-        console.log('');
         console.log('🐛 DEBUG-TOGGLE SYSTEM');
-        console.log('✅ ORIGINAL TAXI-APP (ohne ÖPNV)');
-        console.log('✅ Mit Login & Buchungssystem');
-        console.log('✅ Schnellbuchung mit allen Features!');
-        console.log('✅ Alle Original-Features!');
+        console.log('✅ Alle Features funktionieren!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -396,7 +392,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.38.6 - Kalender-Schnellbuchung + Wochentag (Build 20251205-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.38.7 - Schnellbuchung FIX (Build 20251205-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2149,114 +2145,114 @@
             <!-- Kalender-Container -->
             <div id="calendar-container" style="margin-bottom: 20px; position: relative;">
                 <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <!-- 🆕 v5.38.6: SCHNELLBUCHUNG-OVERLAY-PANEL (AUSSERHALB calendar-container!) -->
+            <div id="quick-booking-panel" style="
+                display: none;
+                position: fixed;
+                top: 120px;
+                right: 20px;
+                width: 320px;
+                background: white;
+                border: 2px solid #667eea;
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                z-index: 1000;
+                max-height: calc(100vh - 140px);
+                overflow-y: auto;
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h4 style="margin: 0; font-size: 18px; color: #667eea;">⚡ Schnellbuchung</h4>
+                    <button onclick="closeQuickBookingPanel()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999; line-height: 1; padding: 0;">×</button>
+                </div>
                 
-                <!-- 🆕 v5.38.6: SCHNELLBUCHUNG-OVERLAY-PANEL -->
-                <div id="quick-booking-panel" style="
-                    display: none;
-                    position: absolute;
-                    top: 0;
-                    right: 0;
-                    width: 320px;
-                    background: white;
-                    border: 2px solid #667eea;
-                    border-radius: 12px;
-                    padding: 20px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                    z-index: 100;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h4 style="margin: 0; font-size: 18px; color: #667eea;">⚡ Schnellbuchung</h4>
-                        <button onclick="closeQuickBookingPanel()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999; line-height: 1; padding: 0;">×</button>
-                    </div>
-                    
-                    <!-- Kunde mit Autocomplete -->
-                    <div style="margin-bottom: 15px; position: relative;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👤 Kunde</label>
-                        <input 
-                            type="text" 
-                            id="qb-panel-customer" 
-                            placeholder="Name eingeben..."
-                            autocomplete="off"
-                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
-                        >
-                        <div id="qb-panel-customer-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
-                    </div>
-                    
-                    <!-- Datum & Zeit -->
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📅 Datum & Zeit</label>
-                        <input 
-                            type="datetime-local" 
-                            id="qb-panel-datetime" 
-                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
-                        >
-                        <div id="qb-panel-datetime-display" style="margin-top: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; font-size: 13px; color: #6b7280; text-align: center;"></div>
-                    </div>
-                    
-                    <!-- Abholort -->
-                    <div style="margin-bottom: 15px; position: relative;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📍 Abholort</label>
-                        <input 
-                            type="text" 
-                            id="qb-panel-pickup" 
-                            placeholder="Adresse eingeben..."
-                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
-                        >
-                        <div id="qb-panel-pickup-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
-                    </div>
-                    
-                    <!-- Zielort -->
-                    <div style="margin-bottom: 15px; position: relative;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🎯 Zielort</label>
-                        <input 
-                            type="text" 
-                            id="qb-panel-destination" 
-                            placeholder="Adresse eingeben..."
-                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
-                        >
-                        <div id="qb-panel-destination-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
-                    </div>
-                    
-                    <!-- Personen -->
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👥 Personen</label>
-                        <select id="qb-panel-passengers" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
-                            <option value="1">1 Person</option>
-                            <option value="2">2 Personen</option>
-                            <option value="3">3 Personen</option>
-                            <option value="4">4 Personen</option>
-                            <option value="5">5 Personen</option>
-                            <option value="6">6 Personen</option>
-                            <option value="7">7 Personen</option>
-                            <option value="8">8 Personen</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Fahrzeug -->
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🚗 Fahrzeug (optional)</label>
-                        <select id="qb-panel-vehicle" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
-                            <option value="">Automatisch zuweisen</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Notizen -->
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📝 Notizen (optional)</label>
-                        <textarea id="qb-panel-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; min-height: 60px; box-sizing: border-box; resize: vertical;"></textarea>
-                    </div>
-                    
-                    <!-- Buttons -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <button onclick="closeQuickBookingPanel()" style="padding: 14px; background: #f3f4f6; color: #6b7280; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                            Abbrechen
-                        </button>
-                        <button onclick="submitQuickBookingPanel()" style="padding: 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
-                            ⚡ Buchen
-                        </button>
-                    </div>
+                <!-- Kunde mit Autocomplete -->
+                <div style="margin-bottom: 15px; position: relative;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👤 Kunde</label>
+                    <input 
+                        type="text" 
+                        id="qb-panel-customer" 
+                        placeholder="Name eingeben..."
+                        autocomplete="off"
+                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                    >
+                    <div id="qb-panel-customer-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                
+                <!-- Datum & Zeit -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📅 Datum & Zeit</label>
+                    <input 
+                        type="datetime-local" 
+                        id="qb-panel-datetime" 
+                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                    >
+                    <div id="qb-panel-datetime-display" style="margin-top: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; font-size: 13px; color: #6b7280; text-align: center;"></div>
+                </div>
+                
+                <!-- Abholort -->
+                <div style="margin-bottom: 15px; position: relative;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📍 Abholort</label>
+                    <input 
+                        type="text" 
+                        id="qb-panel-pickup" 
+                        placeholder="Adresse eingeben..."
+                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                    >
+                    <div id="qb-panel-pickup-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                
+                <!-- Zielort -->
+                <div style="margin-bottom: 15px; position: relative;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🎯 Zielort</label>
+                    <input 
+                        type="text" 
+                        id="qb-panel-destination" 
+                        placeholder="Adresse eingeben..."
+                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                    >
+                    <div id="qb-panel-destination-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                
+                <!-- Personen -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👥 Personen</label>
+                    <select id="qb-panel-passengers" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        <option value="1">1 Person</option>
+                        <option value="2">2 Personen</option>
+                        <option value="3">3 Personen</option>
+                        <option value="4">4 Personen</option>
+                        <option value="5">5 Personen</option>
+                        <option value="6">6 Personen</option>
+                        <option value="7">7 Personen</option>
+                        <option value="8">8 Personen</option>
+                    </select>
+                </div>
+                
+                <!-- Fahrzeug -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🚗 Fahrzeug (optional)</label>
+                    <select id="qb-panel-vehicle" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        <option value="">Automatisch zuweisen</option>
+                    </select>
+                </div>
+                
+                <!-- Notizen -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📝 Notizen (optional)</label>
+                    <textarea id="qb-panel-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; min-height: 60px; box-sizing: border-box; resize: vertical;"></textarea>
+                </div>
+                
+                <!-- Buttons -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button onclick="closeQuickBookingPanel()" style="padding: 14px; background: #f3f4f6; color: #6b7280; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                        Abbrechen
+                    </button>
+                    <button onclick="submitQuickBookingPanel()" style="padding: 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+                        ⚡ Buchen
+                    </button>
                 </div>
             </div>
             

@@ -17,26 +17,18 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.39.0 - Build 20251206-0800');
-        console.log('🎉 KALENDER MEGA-UPDATE!');
+        console.log('🚕 Funk Taxi App v5.39.1 - Build 20251206-0830');
+        console.log('🔧 ZEITZONE-FIX!');
         console.log('');
-        console.log('🆕 v5.39.0: Alle Kalender-Features!');
-        console.log('✅ Adresse übernehmen (Stamm/Rechnung)!');
-        console.log('✅ Fahrten bearbeiten ✏️');
-        console.log('✅ Fahrten kopieren 📋');
-        console.log('✅ Fahrten löschen 🗑️');
-        console.log('✅ Stunden-Timeline anklickbar!');
-        console.log('✅ 6:00-23:00 Uhr Slots!');
-        console.log('✅ Kunden-Autocomplete!');
-        console.log('✅ Start/Endzeit + Dauer!');
+        console.log('🐛 v5.39.1: KRITISCHER BUGFIX!');
+        console.log('✅ Vorbestell-Zeit wird korrekt gespeichert!');
+        console.log('✅ Kein +10h Fehler mehr!');
+        console.log('✅ 11:50 Uhr -> 11:50 Uhr (nicht 21:50!)');
         console.log('');
-        console.log('🎯 WORKFLOW:');
-        console.log('→ Kalender: Stunde klicken → Buchen!');
-        console.log('→ Fahrt: ✏️ Bearbeiten!');
-        console.log('→ Fahrt: 📋 Kopieren!');
-        console.log('→ Fahrt: 🗑️ Löschen!');
-        console.log('→ Adresse: ☐ Als Stammadresse!');
-        console.log('→ Adresse: ☐ Als Rechnungsadresse!');
+        console.log('🔧 TECHNISCH:');
+        console.log('→ new Date(y,m,d,h,min) statt String-Parsing');
+        console.log('→ Garantiert lokale Zeitzone!');
+        console.log('→ Debug-Logging aktiviert!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -399,7 +391,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.0 - Kalender MEGA-UPDATE (Build 20251206-0800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.1 - Zeitzone-BUGFIX (Build 20251206-0830)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10622,8 +10614,33 @@
                     return;
                 }
                 
-                const selectedDate = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`);
+                // 🔧 BUGFIX v5.39.1: Korrekte lokale Zeit ohne UTC-Parsing!
+                // VORHER: new Date(`${dateVal}T${hourVal}:${minuteVal}:00`) -> UTC Problem!
+                // NACHHER: Date-Konstruktor mit Einzelwerten -> garantiert lokal!
+                const dateParts = dateVal.split('-');
+                const selectedDate = new Date(
+                    parseInt(dateParts[0]),           // Jahr
+                    parseInt(dateParts[1]) - 1,       // Monat (0-11!)
+                    parseInt(dateParts[2]),           // Tag
+                    parseInt(hourVal),                 // Stunde
+                    parseInt(minuteVal),               // Minute
+                    0,                                 // Sekunde
+                    0                                  // Millisekunde
+                );
+                
                 pickupTimestamp = selectedDate.getTime();
+                
+                // 🐛 DEBUG: Zeige was gespeichert wird
+                console.log('📅 VORBESTELLUNG - Eingabe:', {
+                    datum: dateVal,
+                    stunde: hourVal,
+                    minute: minuteVal
+                });
+                console.log('📅 VORBESTELLUNG - Gespeichert:', {
+                    selectedDate: selectedDate.toLocaleString('de-DE'),
+                    pickupTimestamp: pickupTimestamp,
+                    ISO: selectedDate.toISOString()
+                });
                 
                 // Formatiere als "22.11.2024, 08:00"
                 pickupTime = selectedDate.toLocaleString('de-DE', { 

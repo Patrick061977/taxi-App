@@ -17,10 +17,10 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.39.8 - Build 20251206-1530');
+        console.log('🚕 Funk Taxi App v5.40.1 - Build 20251206-2225');
         console.log('🔧 ZEITSLOT-FIX + Logging pausiert!');
         console.log('');
-        console.log('🐛 v5.39.8: VORBESTELLUNG FUNKTIONIERT!');
+        console.log('🐛 v5.40.1: ZEITSLOT-BUG GEFIXT! Falsche Konflikte behoben!');
         console.log('✅ Koordinaten-Bug gefixt (.lon statt .lng)');
         console.log('✅ Route-Berechnung funktioniert!');
         console.log('✅ Zeitvergleich prüft nur relevante Fahrten (48h)');
@@ -390,7 +390,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.8 - Zeitslot-Fix (Build 20251206-1530)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.40.1 - Zeitslot-Logik Fix (Build 20251206-2225)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11430,9 +11430,9 @@
                         }
                     }
                     
-                    // 5. Wenn gewünschte Zeit VOR oder WÄHREND der Fahrt liegt → KONFLIKT!
-                    // 🔧 v5.32.23: 30-Min-Rule entfernt - wird schon oben geprüft!
-                    if (requestedTimestamp <= rideEndTime) {
+                    // 5. Wenn gewünschte Zeit WÄHREND der Fahrt liegt → KONFLIKT!
+                    // 🔧 v5.40.0: FIX - Prüfe ob neue Fahrt WIRKLICH zwischen Start und Ende liegt!
+                    if (requestedTimestamp >= ride.pickupTimestamp && requestedTimestamp <= rideEndTime) {
                         console.log('⚠️ KONFLIKT! Gewünschte Zeit liegt während laufender Fahrt!');
                         return {
                             available: false,
@@ -11627,6 +11627,32 @@
             await executeBooking(currentBookingData);
             
             // 🔧 v5.39.8: Daten NACH Buchung löschen!
+            currentBookingData = null;
+        }
+        
+        // 🆕 v5.39.9: Buche mit ORIGINAL-Zeit trotz Konflikt!
+        async function bookOriginalTimeAnyway() {
+            console.log('⚡ Trotzdem buchen - Original-Zeit wird verwendet!');
+            
+            if (!currentBookingData) {
+                alert('❌ Fehler: Buchungsdaten verloren!');
+                closeAutoBookingModal();
+                return;
+            }
+            
+            // Warnung anzeigen
+            if (!confirm('⚠️ ACHTUNG: Die gewünschte Zeit überschneidet sich mit einer anderen Fahrt!\n\nWirklich trotzdem buchen?')) {
+                return;
+            }
+            
+            // Modal schließen
+            document.getElementById('auto-booking-modal').style.display = 'none';
+            
+            // Buche mit ORIGINAL-Zeit (keine Änderung!)
+            console.log('📅 Buche Original-Zeit:', currentBookingData.pickupTime);
+            await executeBooking(currentBookingData);
+            
+            // Daten löschen
             currentBookingData = null;
         }
         
@@ -17849,9 +17875,24 @@
         
         function closeQuickBookingPanel() {
             document.getElementById('quick-booking-panel').style.display = 'none';
-            // 🔧 v5.39.8: editingRideId zurücksetzen beim Schließen!
+            
+            // 🔧 v5.39.9: LEERE alle Felder beim Schließen!
+            document.getElementById('qb-panel-customer').value = '';
+            document.getElementById('qb-panel-pickup').value = '';
+            document.getElementById('qb-panel-destination').value = '';
+            document.getElementById('qb-panel-start-time').value = '';
+            document.getElementById('qb-panel-end-time').value = '';
+            document.getElementById('qb-panel-passengers').value = '1';
+            document.getElementById('qb-panel-vehicle').value = '';
+            document.getElementById('qb-panel-notes').value = '';
+            
+            // Reset globale Variablen
             window.editingRideId = null;
-            console.log('🔄 Panel geschlossen, editingRideId zurückgesetzt');
+            qbPanelCustomer = null;
+            qbPanelPickupCoords = null;
+            qbPanelDestCoords = null;
+            
+            console.log('🔄 Panel geschlossen & alle Felder geleert');
         }
         
         // Kunden-Autocomplete
@@ -18461,7 +18502,7 @@
         // 🆕 FAHRT KOPIEREN
         async function copyRideFromCalendar(rideId) {
             try {
-                // 🔧 v5.39.8: editingRideId SOFORT zurücksetzen!
+                // 🔧 v5.39.9: editingRideId SOFORT zurücksetzen!
                 window.editingRideId = null;
                 console.log('🔄 editingRideId zurückgesetzt für Kopieren');
                 
@@ -18473,6 +18514,20 @@
                     return;
                 }
                 
+                // 🔧 v5.39.9: ZUERST alle Felder LEEREN!
+                document.getElementById('qb-panel-customer').value = '';
+                document.getElementById('qb-panel-pickup').value = '';
+                document.getElementById('qb-panel-destination').value = '';
+                document.getElementById('qb-panel-start-time').value = '';
+                document.getElementById('qb-panel-end-time').value = '';
+                document.getElementById('qb-panel-passengers').value = '1';
+                document.getElementById('qb-panel-vehicle').value = '';
+                document.getElementById('qb-panel-notes').value = '';
+                qbPanelCustomer = null;
+                qbPanelPickupCoords = null;
+                qbPanelDestCoords = null;
+                console.log('🧹 Alle Felder geleert');
+                
                 // Panel öffnen (oder offen lassen wenn schon offen)
                 const panel = document.getElementById('quick-booking-panel');
                 if (panel.style.display === 'none' || panel.style.display === '') {
@@ -18483,7 +18538,7 @@
                     watchPickupChanges();
                 }
                 
-                // Alles kopieren AUSSER die Zeiten - die sollen leer bleiben
+                // JETZT Daten aus kopierter Fahrt einfügen
                 if (ride.customerId) {
                     const customer = allCustomers.find(c => c.id === ride.customerId);
                     if (customer) {
@@ -18508,10 +18563,13 @@
                 document.getElementById('qb-panel-vehicle').value = ride.vehicleId || '';
                 document.getElementById('qb-panel-notes').value = ride.notes || '';
                 
+                // Zeiten NICHT kopieren - Benutzer muss neue Zeit eingeben!
+                // (So wird sichergestellt dass es eine NEUE Fahrt ist)
+                
                 // Adress-Optionen anzeigen
                 showAddressOptions();
                 
-                console.log('📋 Fahrt kopiert:', rideId, '| editingRideId:', window.editingRideId);
+                console.log('📋 Fahrt kopiert:', rideId, '| editingRideId:', window.editingRideId, '| Zeiten: LEER (neu eingeben)');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Kopieren:', error);
@@ -24200,6 +24258,21 @@ Stack: ${err.stack}
             </div>
             
             <div style="display: flex; gap: 10px; justify-content: center;">
+                <!-- 🆕 v5.39.9: TROTZDEM BUCHEN Option! -->
+                <button onclick="bookOriginalTimeAnyway()" class="modal-btn" style="
+                    padding: 12px 24px;
+                    background: linear-gradient(135deg, #f59e0b, #d97706);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                " 
+                onmouseover="this.style.transform='scale(1.05)'"
+                onmouseout="this.style.transform='scale(1)'">
+                    ⚡ Trotzdem buchen
+                </button>
                 <button onclick="closeAutoBookingModal()" class="modal-btn" style="
                     padding: 12px 24px;
                     background: #6b7280;

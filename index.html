@@ -11376,7 +11376,7 @@
                         year: 'numeric',
                         hour: '2-digit', 
                         minute: '2-digit' 
-                    }));
+                    }), '| ID:', ride.firebaseId || ride.id, '| Status:', ride.status);
                     
                     // 1. Berechne ENDE der vorherigen Fahrt
                     let rideDuration = ride.duration || timeslotSettings.rideDuration; // 🔧 v5.33.2: Aus Einstellungen!
@@ -11600,11 +11600,9 @@
         async function selectAlternativeTime(timestamp) {
             console.log('✅ Alternative Zeit gewählt:', new Date(timestamp).toLocaleString('de-DE'));
             
-            // Modal schließen
-            closeAutoBookingModal();
-            
             if (!currentBookingData) {
                 alert('❌ Fehler: Buchungsdaten verloren!');
+                closeAutoBookingModal();
                 return;
             }
             
@@ -11612,13 +11610,20 @@
             currentBookingData.pickupTimestamp = timestamp;
             currentBookingData.pickupTime = formatTimeForDisplay(timestamp);
             
+            // Modal schließen (ohne Daten zu löschen!)
+            document.getElementById('auto-booking-modal').style.display = 'none';
+            
             // Buche mit neuer Zeit
             await executeBooking(currentBookingData);
+            
+            // 🔧 v5.39.8: Daten NACH Buchung löschen!
+            currentBookingData = null;
         }
         
-        // Schließt Modal
+        // Schließt Modal (ohne Daten zu löschen wenn Alternative gewählt!)
         function closeAutoBookingModal() {
             document.getElementById('auto-booking-modal').style.display = 'none';
+            // 🔧 v5.39.8: Daten nur löschen wenn abgebrochen!
             currentBookingData = null;
         }
         
@@ -18276,7 +18281,9 @@
                     pickup,
                     destination,
                     pickupTime: startDate.toISOString(),
+                    pickupTimestamp: startDate.getTime(), // 🔧 v5.39.8: FIX - Als Zahl für Zeitslot-Check!
                     endTime: endDate.toISOString(),
+                    endTimestamp: endDate.getTime(), // 🔧 v5.39.8: FIX - Als Zahl!
                     durationMinutes: durationMinutes,
                     passengers,
                     status: 'vorbestellt',
@@ -18577,6 +18584,7 @@
             
             // Erstelle Fahrt
             const pickupTimestamp = new Date(datetime).getTime();
+            const pickupDate = new Date(datetime);
             
             const ride = {
                 customerName: customer.name || 'Unbekannt',
@@ -18584,17 +18592,21 @@
                 pickup: pickup,
                 destination: destination,
                 pickupTimestamp: pickupTimestamp,
+                pickupTime: pickupDate.toISOString(), // 🔧 v5.39.8: FIX - Auch als ISO String!
                 passengers: passengers,
                 createdAt: Date.now(),
                 status: 'vorbestellt',
                 bookedBy: 'admin',
                 notes: notes || '',
-                customerId: customerId
+                customerId: customerId,
+                pickupCoords: quickBookingPickupCoords || null, // 🔧 v5.39.8: FIX - Koordinaten!
+                destCoords: quickBookingDestCoords || null // 🔧 v5.39.8: FIX - Koordinaten!
             };
             
             // Fahrzeug zuweisen wenn ausgewählt
             if (vehicle) {
-                ride.assignedTo = vehicle;
+                ride.vehicleId = vehicle; // 🔧 v5.39.8: FIX - Konsistent mit Panel!
+                ride.assignedVehicle = vehicle; // 🔧 v5.39.8: Auch assignedVehicle setzen!
             }
             
             try {
@@ -24110,8 +24122,23 @@ Stack: ${err.stack}
     </div>
 
     <!-- 🤖 AUTO-BOOKING MODAL: ALTERNATIV-VORSCHLÄGE -->
-    <div id="auto-booking-modal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
+    <div id="auto-booking-modal" class="modal" onclick="if(event.target === this) closeAutoBookingModal()">
+        <div class="modal-content" style="max-width: 450px; position: relative;" onclick="event.stopPropagation()">
+            <!-- 🔧 v5.39.8: X-BUTTON OBEN RECHTS! -->
+            <button onclick="closeAutoBookingModal()" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: transparent;
+                border: none;
+                font-size: 24px;
+                color: #6b7280;
+                cursor: pointer;
+                padding: 5px 10px;
+                line-height: 1;
+                z-index: 10;
+            " title="Schließen">×</button>
+            
             <div class="modal-header" style="color: #f59e0b;">
                 ⚠️ Zeitslot belegt
             </div>
@@ -24154,11 +24181,27 @@ Stack: ${err.stack}
                 </div>
             </div>
             
-            <div style="display: flex; gap: 10px;">
-                <button onclick="closeAutoBookingModal()" class="modal-btn" style="flex: 1; background: #6b7280; color: white;">
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="closeAutoBookingModal()" class="modal-btn" style="
+                    padding: 12px 24px;
+                    background: #6b7280;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 15px;
+                    cursor: pointer;
+                ">
                     ❌ Abbrechen
                 </button>
-                <button onclick="showCustomTimeSelection()" class="modal-btn" style="flex: 1; background: #3b82f6; color: white;">
+                <button onclick="showCustomTimeSelection()" class="modal-btn" style="
+                    padding: 12px 24px;
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 15px;
+                    cursor: pointer;
+                ">
                     ✏️ Andere Zeit
                 </button>
             </div>

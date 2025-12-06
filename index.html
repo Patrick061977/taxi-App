@@ -17,26 +17,15 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.39.2 - Build 20251206-0900');
-        console.log('🔧 MEGA-BUGFIX!');
+        console.log('🚕 Funk Taxi App v5.39.3 - Build 20251206-0930');
+        console.log('🐛 SHOWRIDESTATUS DEBUG!');
         console.log('');
-        console.log('🐛 v5.39.2: ALLE ZEITPROBLEME GEFIXT!');
-        console.log('✅ Schnellbuchung-Panel: Datum/Zeit korrekt!');
-        console.log('✅ Kein "Invalid Date" mehr!');
-        console.log('✅ Kein "暖::--" Zeichen mehr!');
-        console.log('✅ Auto-Booking: Ignoriert fehlerhafte alte Fahrten!');
-        console.log('✅ Stunden-Timeline funktioniert perfekt!');
+        console.log('🔍 v5.39.3: DEBUG & FALLBACK!');
+        console.log('✅ Debug-Logging in showRideStatus()!');
+        console.log('✅ Fallback wenn pickupTimestamp invalid!');
+        console.log('✅ Nutzt pickupTime String als Backup!');
         console.log('');
-        console.log('🔧 TECHNISCHE FIXES:');
-        console.log('→ updatePanelEndTime: Kein String-Parsing!');
-        console.log('→ updatePanelEndDisplay: Kein String-Parsing!');
-        console.log('→ Auto-Booking: Validiert pickupTimestamp!');
-        console.log('→ Alle datetime-local Inputs korrekt!');
-        console.log('');
-        console.log('🎯 JETZT FUNKTIONIERT ALLES:');
-        console.log('→ Stunden-Timeline klicken → Zeit wird gesetzt! ✅');
-        console.log('→ Schnellbuchung → Korrekte Anzeige! ✅');
-        console.log('→ Auto-Booking → Keine falschen Zeiten! ✅');
+        console.log('📊 ÖFFNE CONSOLE (F12) UM LOGS ZU SEHEN!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -399,7 +388,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.2 - MEGA-BUGFIX (Build 20251206-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.3 - DEBUG & FALLBACK (Build 20251206-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -19665,6 +19654,15 @@ Stack: ${err.stack}
         function showRideStatus(ride) {
             const container = document.getElementById('ride-status-container');
             
+            // 🐛 DEBUG v5.39.3: Zeige was wir haben!
+            console.log('🔍 showRideStatus aufgerufen mit:', {
+                status: ride.status,
+                pickupTimestamp: ride.pickupTimestamp,
+                pickupTimestamp_type: typeof ride.pickupTimestamp,
+                pickupTime: ride.pickupTime,
+                firebaseId: ride.firebaseId
+            });
+            
             // 📅 CHECK: Ist die Fahrt in der Zukunft?
             const now = Date.now();
             // Fahrer-Zuweisung beginnt 30 Min vor Abholung
@@ -19673,6 +19671,15 @@ Stack: ${err.stack}
             // 🆕 VORBESTELLT: Zeige Status für Vorbestellungen
             if (ride.status === 'vorbestellt') {
                 const pickupDate = new Date(ride.pickupTimestamp);
+                
+                // 🐛 DEBUG v5.39.3: Prüfe Date-Objekt
+                console.log('🔍 pickupDate erstellt:', {
+                    pickupDate: pickupDate,
+                    toString: pickupDate.toString(),
+                    isValidDate: pickupDate.toString() !== 'Invalid Date',
+                    getTime: pickupDate.getTime()
+                });
+                
                 const formattedDate = pickupDate.toLocaleDateString('de-DE', { 
                     weekday: 'long', 
                     year: 'numeric', 
@@ -19684,6 +19691,22 @@ Stack: ${err.stack}
                     minute: '2-digit' 
                 });
                 
+                console.log('🔍 Formatiert:', {formattedDate, formattedTime});
+                
+                // 🔧 v5.39.3: FALLBACK wenn pickupTimestamp invalid ist!
+                let displayDate = formattedDate;
+                let displayTime = formattedTime;
+                
+                if (pickupDate.toString() === 'Invalid Date') {
+                    console.warn('⚠️ pickupTimestamp ist Invalid! Nutze pickupTime String als Fallback.');
+                    // Fallback: Nutze den pickupTime String direkt
+                    displayDate = ride.pickupTime || 'Datum unbekannt';
+                    displayTime = '';
+                } else {
+                    displayDate = formattedDate;
+                    displayTime = formattedTime;
+                }
+                
                 // 🔗 Tracking-Link erstellen
                 const trackingLink = `${window.location.origin}${window.location.pathname}?ride=${ride.firebaseId}`;
                 
@@ -19693,8 +19716,7 @@ Stack: ${err.stack}
                         <h3 style="font-size: 18px; margin-bottom: 10px;">Vorbestellung bestätigt!</h3>
                         <div style="margin-top: 12px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
                             <div style="font-size: 16px; font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">
-                                🕐 ${formattedDate}<br>
-                                um ${formattedTime} Uhr
+                                🕐 ${displayDate}${displayTime ? `<br>um ${displayTime} Uhr` : ''}
                             </div>
                         </div>
                         <div style="margin-top: 12px; font-size: 13px; color: #0c4a6e;">
@@ -19730,14 +19752,26 @@ Stack: ${err.stack}
                     minute: '2-digit' 
                 });
                 
+                // 🔧 v5.39.3: FALLBACK wenn pickupTimestamp invalid ist!
+                let displayDate2 = formattedDate;
+                let displayTime2 = formattedTime;
+                
+                if (pickupDate.toString() === 'Invalid Date') {
+                    console.warn('⚠️ pickupTimestamp ist Invalid (new)! Nutze pickupTime String als Fallback.');
+                    displayDate2 = ride.pickupTime || 'Datum unbekannt';
+                    displayTime2 = '';
+                } else {
+                    displayDate2 = formattedDate;
+                    displayTime2 = formattedTime;
+                }
+                
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;">
                         <div style="font-size: 40px; margin-bottom: 8px;">📅</div>
                         <h3 style="font-size: 18px; margin-bottom: 10px;">Fahrt vorgemerkt!</h3>
                         <div style="margin-top: 12px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
                             <div style="font-size: 16px; font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">
-                                🕐 ${formattedDate}<br>
-                                um ${formattedTime} Uhr
+                                🕐 ${displayDate2}${displayTime2 ? `<br>um ${displayTime2} Uhr` : ''}
                             </div>
                         </div>
                         <div style="margin-top: 12px; font-size: 13px; color: #0c4a6e;">

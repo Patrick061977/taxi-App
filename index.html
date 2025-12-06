@@ -17,25 +17,26 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.38.8 - Build 20251206-0700');
-        console.log('⚡ SCHNELLBUCHUNG KOMPLETT!');
+        console.log('🚕 Funk Taxi App v5.39.0 - Build 20251206-0800');
+        console.log('🎉 KALENDER MEGA-UPDATE!');
         console.log('');
-        console.log('🆕 v5.38.8: Alle Features implementiert!');
-        console.log('✅ Kunden-Autocomplete FIXED - lädt sofort!');
-        console.log('✅ Startzeit & Endzeit (+15 Min automatisch)!');
-        console.log('✅ Swap-Button 🔄 (Adressen tauschen)!');
-        console.log('✅ Kunden-Adresse → Auto-Fill in Abholort!');
-        console.log('✅ Kalender-Klick funktioniert!');
-        console.log('✅ Wochentag-Anzeige überall!');
-        console.log('✅ Dauer wird gespeichert für Timeline!');
+        console.log('🆕 v5.39.0: Alle Kalender-Features!');
+        console.log('✅ Adresse übernehmen (Stamm/Rechnung)!');
+        console.log('✅ Fahrten bearbeiten ✏️');
+        console.log('✅ Fahrten kopieren 📋');
+        console.log('✅ Fahrten löschen 🗑️');
+        console.log('✅ Stunden-Timeline anklickbar!');
+        console.log('✅ 6:00-23:00 Uhr Slots!');
+        console.log('✅ Kunden-Autocomplete!');
+        console.log('✅ Start/Endzeit + Dauer!');
         console.log('');
         console.log('🎯 WORKFLOW:');
-        console.log('→ Kalender öffnen');
-        console.log('→ Zeit klicken (Start+End automatisch!)');
-        console.log('→ Kunde tippen (Adresse auto-fill!)');
-        console.log('→ Zielort eingeben');
-        console.log('→ Optional: 🔄 Tauschen');
-        console.log('→ Buchen! FERTIG! 🚀');
+        console.log('→ Kalender: Stunde klicken → Buchen!');
+        console.log('→ Fahrt: ✏️ Bearbeiten!');
+        console.log('→ Fahrt: 📋 Kopieren!');
+        console.log('→ Fahrt: 🗑️ Löschen!');
+        console.log('→ Adresse: ☐ Als Stammadresse!');
+        console.log('→ Adresse: ☐ Als Rechnungsadresse!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -398,7 +399,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.38.8 - Schnellbuchung KOMPLETT (Build 20251206-0700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.0 - Kalender MEGA-UPDATE (Build 20251206-0800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2221,6 +2222,19 @@
                         style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
                     >
                     <div id="qb-panel-pickup-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    
+                    <!-- Adresse übernehmen Optionen -->
+                    <div id="qb-panel-address-options" style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; display: none;">
+                        <div style="font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 8px;">💾 Adresse übernehmen:</div>
+                        <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer; font-size: 13px;">
+                            <input type="checkbox" id="qb-panel-save-as-main" style="margin-right: 8px; cursor: pointer;">
+                            <span>Als Stammadresse speichern</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px;">
+                            <input type="checkbox" id="qb-panel-save-as-billing" style="margin-right: 8px; cursor: pointer;">
+                            <span>Als Rechnungsadresse speichern</span>
+                        </label>
+                    </div>
                 </div>
                 
                 <!-- Swap Button -->
@@ -17675,6 +17689,7 @@
                 setupQuickBookingPanelAutocomplete();
                 loadQuickBookingPanelVehicles();
                 loadQuickBookingPanelCustomers();
+                watchPickupChanges();
             } else {
                 panel.style.display = 'none';
             }
@@ -17774,7 +17789,33 @@
                 console.log('✅ Kundenadresse in Abholort eingetragen:', customer.address);
             }
             
+            // 🆕 Zeige Adress-Optionen wenn Kunde gewählt
+            showAddressOptions();
+            
             console.log('👤 Kunde gewählt:', customer);
+        }
+        
+        // 🆕 Zeige/Verstecke Adress-Optionen
+        function showAddressOptions() {
+            const options = document.getElementById('qb-panel-address-options');
+            const pickupInput = document.getElementById('qb-panel-pickup');
+            
+            // Zeige nur wenn Kunde gewählt UND Adresse eingegeben
+            if (qbPanelCustomer && pickupInput.value.trim()) {
+                options.style.display = 'block';
+            } else {
+                options.style.display = 'none';
+            }
+        }
+        
+        // 🆕 Überwache Abholort-Änderungen
+        function watchPickupChanges() {
+            const pickupInput = document.getElementById('qb-panel-pickup');
+            if (!pickupInput) return;
+            
+            pickupInput.addEventListener('input', () => {
+                showAddressOptions();
+            });
         }
         
         // 🆕 SWAP-BUTTON: Adressen tauschen
@@ -18095,9 +18136,48 @@
                     isAdvanceBooking: true
                 };
                 
-                const rideRef = await db.ref('rides').push(rideData);
+                // 🔧 EDIT vs CREATE: Prüfe ob wir bearbeiten oder neu erstellen
+                let rideRef;
+                if (window.editingRideId) {
+                    // BEARBEITEN: Update existierende Fahrt
+                    await db.ref(`rides/${window.editingRideId}`).update(rideData);
+                    rideRef = { key: window.editingRideId };
+                    console.log('✏️ Fahrt aktualisiert:', window.editingRideId);
+                } else {
+                    // NEU ERSTELLEN: Push neue Fahrt
+                    rideRef = await db.ref('rides').push(rideData);
+                    console.log('✅ Neue Fahrt erstellt:', rideRef.key);
+                }
                 
-                alert('✅ Fahrt erfolgreich gebucht!');
+                // 🆕 Speichere Adressen in CRM wenn Checkboxen aktiviert
+                const saveAsMain = document.getElementById('qb-panel-save-as-main').checked;
+                const saveAsBilling = document.getElementById('qb-panel-save-as-billing').checked;
+                
+                if (saveAsMain || saveAsBilling) {
+                    const updates = {};
+                    
+                    if (saveAsMain) {
+                        updates['address'] = pickup;
+                        console.log('💾 Stammadresse gespeichert:', pickup);
+                    }
+                    
+                    if (saveAsBilling) {
+                        updates['billingAddress'] = pickup;
+                        console.log('💾 Rechnungsadresse gespeichert:', pickup);
+                    }
+                    
+                    await db.ref(`customers/${qbPanelCustomer.id}`).update(updates);
+                    
+                    // Update lokales Objekt
+                    if (saveAsMain) qbPanelCustomer.address = pickup;
+                    if (saveAsBilling) qbPanelCustomer.billingAddress = pickup;
+                }
+                
+                const successMsg = window.editingRideId ? '✅ Fahrt aktualisiert!' : '✅ Fahrt erfolgreich gebucht!';
+                alert(successMsg + (saveAsMain || saveAsBilling ? '\n💾 Adresse im CRM gespeichert!' : ''));
+                
+                // 🔧 Reset editingRideId
+                window.editingRideId = null;
                 
                 // Panel schließen
                 closeQuickBookingPanel();
@@ -18116,6 +18196,9 @@
                 document.getElementById('qb-panel-passengers').value = '1';
                 document.getElementById('qb-panel-vehicle').value = '';
                 document.getElementById('qb-panel-notes').value = '';
+                document.getElementById('qb-panel-save-as-main').checked = false;
+                document.getElementById('qb-panel-save-as-billing').checked = false;
+                document.getElementById('qb-panel-address-options').style.display = 'none';
                 qbPanelCustomer = null;
                 qbPanelPickupCoords = null;
                 qbPanelDestCoords = null;
@@ -18126,6 +18209,184 @@
                 console.error('❌ Fehler beim Buchen:', error);
                 alert('❌ Fehler beim Buchen: ' + error.message);
             }
+        }
+        
+        // 🆕 FAHRT BEARBEITEN
+        async function editRideFromCalendar(rideId) {
+            try {
+                const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Panel öffnen
+                const panel = document.getElementById('quick-booking-panel');
+                if (panel.style.display === 'none' || panel.style.display === '') {
+                    toggleQuickBookingPanel();
+                }
+                
+                // Felder füllen
+                if (ride.customerId) {
+                    const customer = allCustomers.find(c => c.id === ride.customerId);
+                    if (customer) {
+                        qbPanelCustomer = customer;
+                        document.getElementById('qb-panel-customer').value = customer.name || 'Unbekannt';
+                    } else {
+                        qbPanelCustomer = {id: ride.customerId, name: ride.customerName || 'Unbekannt', phone: ride.customerPhone || ''};
+                        document.getElementById('qb-panel-customer').value = ride.customerName || 'Unbekannt';
+                    }
+                }
+                
+                // Zeiten setzen
+                if (ride.pickupTime) {
+                    const startDate = new Date(ride.pickupTime);
+                    document.getElementById('qb-panel-start-time').value = formatForDatetimeLocal(startDate);
+                }
+                
+                if (ride.endTime) {
+                    const endDate = new Date(ride.endTime);
+                    document.getElementById('qb-panel-end-time').value = formatForDatetimeLocal(endDate);
+                } else if (ride.pickupTime && ride.durationMinutes) {
+                    const startDate = new Date(ride.pickupTime);
+                    const endDate = new Date(startDate.getTime() + (ride.durationMinutes * 60 * 1000));
+                    document.getElementById('qb-panel-end-time').value = formatForDatetimeLocal(endDate);
+                }
+                
+                // Anzeigen updaten
+                updatePanelEndTime();
+                
+                // Adressen
+                document.getElementById('qb-panel-pickup').value = ride.pickup || '';
+                document.getElementById('qb-panel-destination').value = ride.destination || '';
+                
+                // Koordinaten
+                qbPanelPickupCoords = ride.pickupCoords || null;
+                qbPanelDestCoords = ride.destCoords || null;
+                
+                // Weitere Felder
+                document.getElementById('qb-panel-passengers').value = ride.passengers || 1;
+                document.getElementById('qb-panel-vehicle').value = ride.vehicleId || '';
+                document.getElementById('qb-panel-notes').value = ride.notes || '';
+                
+                // Adress-Optionen anzeigen
+                showAddressOptions();
+                
+                // 🔧 WICHTIG: Speichere Original-ID für Update statt Create
+                window.editingRideId = rideId;
+                
+                console.log('✏️ Fahrt wird bearbeitet:', rideId);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden:', error);
+                alert('❌ Fehler beim Laden der Fahrt: ' + error.message);
+            }
+        }
+        
+        // 🆕 FAHRT KOPIEREN
+        async function copyRideFromCalendar(rideId) {
+            try {
+                const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Panel öffnen
+                const panel = document.getElementById('quick-booking-panel');
+                if (panel.style.display === 'none' || panel.style.display === '') {
+                    toggleQuickBookingPanel();
+                }
+                
+                // Alles kopieren AUSSER die Zeiten - die sollen leer bleiben
+                if (ride.customerId) {
+                    const customer = allCustomers.find(c => c.id === ride.customerId);
+                    if (customer) {
+                        qbPanelCustomer = customer;
+                        document.getElementById('qb-panel-customer').value = customer.name || 'Unbekannt';
+                    } else {
+                        qbPanelCustomer = {id: ride.customerId, name: ride.customerName || 'Unbekannt', phone: ride.customerPhone || ''};
+                        document.getElementById('qb-panel-customer').value = ride.customerName || 'Unbekannt';
+                    }
+                }
+                
+                // Adressen kopieren
+                document.getElementById('qb-panel-pickup').value = ride.pickup || '';
+                document.getElementById('qb-panel-destination').value = ride.destination || '';
+                
+                // Koordinaten kopieren
+                qbPanelPickupCoords = ride.pickupCoords || null;
+                qbPanelDestCoords = ride.destCoords || null;
+                
+                // Weitere Felder kopieren
+                document.getElementById('qb-panel-passengers').value = ride.passengers || 1;
+                document.getElementById('qb-panel-vehicle').value = ride.vehicleId || '';
+                document.getElementById('qb-panel-notes').value = ride.notes || '';
+                
+                // Adress-Optionen anzeigen
+                showAddressOptions();
+                
+                // KEINE editingRideId setzen - es ist eine neue Fahrt!
+                window.editingRideId = null;
+                
+                console.log('📋 Fahrt kopiert:', rideId);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Kopieren:', error);
+                alert('❌ Fehler beim Kopieren der Fahrt: ' + error.message);
+            }
+        }
+        
+        // 🆕 FAHRT LÖSCHEN
+        async function deleteRideFromCalendar(rideId) {
+            const snapshot = await db.ref(`rides/${rideId}`).once('value');
+            const ride = snapshot.val();
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            const confirmMsg = `Fahrt wirklich löschen?\n\n` +
+                `📍 Von: ${ride.pickup || '?'}\n` +
+                `🎯 Nach: ${ride.destination || '?'}\n` +
+                `👤 Kunde: ${ride.customerName || '?'}`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            try {
+                await db.ref(`rides/${rideId}`).remove();
+                alert('✅ Fahrt gelöscht!');
+                
+                // Kalender neu laden
+                if (typeof loadCalendar === 'function') {
+                    loadCalendar();
+                } else if (typeof renderCalendar === 'function') {
+                    renderCalendar();
+                }
+                
+                console.log('🗑️ Fahrt gelöscht:', rideId);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler beim Löschen: ' + error.message);
+            }
+        }
+        
+        // 🆕 Helper: Format für datetime-local Input
+        function formatForDatetimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
         
         async function submitQuickBooking() {
@@ -22172,6 +22433,49 @@ Stack: ${err.stack}
                     </div>
                 `;
                 
+                // 🆕 ANKLICKBARE STUNDEN-TIMELINE
+                html += `
+                    <div style="margin: 20px 0;">
+                        <div style="font-weight:600;font-size:15px;color:#1f2937;padding:0 5px 10px 5px;">⏰ Neue Fahrt buchen:</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px;">
+                            ${Array.from({length: 18}, (_, i) => i + 6).map(hour => {
+                                const hourStr = String(hour).padStart(2, '0') + ':00';
+                                const date = new Date(currentCalendarDate);
+                                date.setHours(hour, 0, 0, 0);
+                                
+                                // Prüfe ob in dieser Stunde schon Fahrten sind
+                                const hasRides = dayRides.some(r => {
+                                    const rideTime = new Date(r.pickupTimestamp || r.createdAt || 0);
+                                    return rideTime.getHours() === hour;
+                                });
+                                
+                                const bgColor = hasRides ? '#fef3c7' : '#f0f9ff';
+                                const borderColor = hasRides ? '#f59e0b' : '#3b82f6';
+                                const icon = hasRides ? '📅' : '➕';
+                                
+                                return `
+                                    <div onclick="setQuickBookingPanelTime('${date.toISOString()}')" style="
+                                        padding: 12px 8px;
+                                        background: ${bgColor};
+                                        border: 2px solid ${borderColor};
+                                        border-radius: 8px;
+                                        text-align: center;
+                                        cursor: pointer;
+                                        transition: all 0.2s;
+                                        font-weight: 600;
+                                        font-size: 13px;
+                                        color: ${borderColor};
+                                    " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" 
+                                       onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+                                        <div style="font-size: 16px; margin-bottom: 4px;">${icon}</div>
+                                        <div>${hourStr}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+                
                 // FAHRT-LISTE
                 html += '<div style="font-weight:600;font-size:15px;color:#1f2937;padding:0 5px;">📋 Alle Fahrten:</div>';
                 
@@ -22257,6 +22561,25 @@ Stack: ${err.stack}
                                 
                                 return vehicleHtml;
                             })()}
+                            
+                            <!-- 🆕 BEARBEITEN/KOPIEREN/LÖSCHEN Buttons -->
+                            <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                                <button onclick="event.stopPropagation(); editRideFromCalendar('${ride.firebaseId || ride.id}')" 
+                                        style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                        onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                                    ✏️ Bearbeiten
+                                </button>
+                                <button onclick="event.stopPropagation(); copyRideFromCalendar('${ride.firebaseId || ride.id}')" 
+                                        style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                        onmouseover="this.style.background='#7c3aed'" onmouseout="this.style.background='#8b5cf6'">
+                                    📋 Kopieren
+                                </button>
+                                <button onclick="event.stopPropagation(); deleteRideFromCalendar('${ride.firebaseId || ride.id}')" 
+                                        style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                        onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                                    🗑️ Löschen
+                                </button>
+                            </div>
                         </div>
                     `;
                 });

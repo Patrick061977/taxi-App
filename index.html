@@ -17,15 +17,16 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.39.3 - Build 20251206-0930');
-        console.log('🐛 SHOWRIDESTATUS DEBUG!');
+        console.log('🚕 Funk Taxi App v5.39.4 - Build 20251206-1000');
+        console.log('🔍 ADMIN DEBUG PANEL!');
         console.log('');
-        console.log('🔍 v5.39.3: DEBUG & FALLBACK!');
-        console.log('✅ Debug-Logging in showRideStatus()!');
-        console.log('✅ Fallback wenn pickupTimestamp invalid!');
-        console.log('✅ Nutzt pickupTime String als Backup!');
+        console.log('🆕 v5.39.4: LIVE DEBUG MONITOR!');
+        console.log('✅ Alle Console-Logs im Admin sichtbar!');
+        console.log('✅ Kein Handy-Gefummel mehr!');
+        console.log('✅ Copy, Export, Filter Funktionen!');
+        console.log('✅ Live-Updates mit Timestamps!');
         console.log('');
-        console.log('📊 ÖFFNE CONSOLE (F12) UM LOGS ZU SEHEN!');
+        console.log('📊 ADMIN → 🔍 DEBUG TAB ÖFFNEN!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -388,7 +389,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.3 - DEBUG & FALLBACK (Build 20251206-0930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.4 - ADMIN DEBUG PANEL (Build 20251206-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -507,6 +508,20 @@
                 transition: all 0.2s;
             ">
                 ⚙️ Admin
+            </button>
+            <button onclick="switchView('debug')" class="admin-tab-btn" data-view="debug" style="
+                padding: 10px 16px;
+                border: 2px solid #ef4444;
+                background: white;
+                color: #ef4444;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🔍 DEBUG
             </button>
         </div>
     </div>
@@ -3225,6 +3240,104 @@
         </div>
     </div>
 
+    <!-- 🔍 DEBUG-VIEW - v5.39.4 -->
+    <div id="debug-view" class="view" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
+        <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">🔍</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">LIVE DEBUG MONITOR</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">Alle Console-Logs in Echtzeit</p>
+            </div>
+
+            <!-- Controls -->
+            <div style="padding: 15px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <button id="debug-pause-btn" onclick="toggleDebugPause()" style="
+                    padding: 10px 20px;
+                    background: #10b981;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">
+                    ● Recording
+                </button>
+                <button onclick="clearDebugLogs()" style="
+                    padding: 10px 20px;
+                    background: #6b7280;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">
+                    🗑️ Clear
+                </button>
+                <button onclick="copyDebugLogs()" style="
+                    padding: 10px 20px;
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">
+                    📋 Copy All
+                </button>
+                <button onclick="exportDebugLogs()" style="
+                    padding: 10px 20px;
+                    background: #8b5cf6;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">
+                    💾 Export
+                </button>
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text" id="debug-filter" placeholder="🔍 Filter logs..." onkeyup="filterDebugLogs()" style="
+                        width: 100%;
+                        padding: 10px 15px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 8px;
+                        font-size: 14px;
+                    ">
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div style="padding: 15px; background: #f0f9ff; border-bottom: 1px solid #e5e7eb; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; font-size: 13px;">
+                <div><strong>Total:</strong> <span id="debug-count-total">0</span></div>
+                <div style="color: #10b981;"><strong>✅ Info:</strong> <span id="debug-count-info">0</span></div>
+                <div style="color: #f59e0b;"><strong>⚠️ Warn:</strong> <span id="debug-count-warn">0</span></div>
+                <div style="color: #ef4444;"><strong>❌ Error:</strong> <span id="debug-count-error">0</span></div>
+            </div>
+
+            <!-- Log Container -->
+            <div id="debug-log-container" style="
+                padding: 15px;
+                max-height: 70vh;
+                overflow-y: auto;
+                background: #1f2937;
+                color: #f3f4f6;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                line-height: 1.6;
+            ">
+                <div style="color: #9ca3af; text-align: center; padding: 40px 20px;">
+                    🔍 Warte auf Logs...<br>
+                    <span style="font-size: 11px;">Alle console.log(), console.warn(), console.error() werden hier angezeigt</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -3237,6 +3350,223 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="if(typeof initApp === 'function') initApp(false);"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script>
+        // 🔍 DEBUG LOGGER - v5.39.4
+        // Interceptor für console.log, console.warn, console.error
+        
+        let debugLogs = [];
+        let debugPaused = false;
+        let debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        // Interceptor-Funktion
+        function addDebugLog(type, args) {
+            const timestamp = new Date().toLocaleTimeString('de-DE', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                fractionalSecondDigits: 3
+            });
+            
+            const message = Array.from(args).map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg, null, 2);
+                    } catch(e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            
+            const logEntry = {
+                timestamp,
+                type,
+                message,
+                time: Date.now()
+            };
+            
+            debugLogs.push(logEntry);
+            debugCounts.total++;
+            debugCounts[type]++;
+            
+            // Update UI wenn im Debug-View
+            if (!debugPaused && document.getElementById('debug-view').style.display !== 'none') {
+                updateDebugUI(logEntry);
+            }
+        }
+        
+        // Override console methods
+        console.log = function(...args) {
+            addDebugLog('info', args);
+            originalLog.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            addDebugLog('warn', args);
+            originalWarn.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            addDebugLog('error', args);
+            originalError.apply(console, args);
+        };
+        
+        // Update UI
+        function updateDebugUI(logEntry) {
+            const container = document.getElementById('debug-log-container');
+            if (!container) return;
+            
+            // Clear "Warte auf Logs" message
+            if (debugLogs.length === 1) {
+                container.innerHTML = '';
+            }
+            
+            const colors = {
+                info: '#10b981',
+                warn: '#f59e0b',
+                error: '#ef4444'
+            };
+            
+            const icons = {
+                info: '✅',
+                warn: '⚠️',
+                error: '❌'
+            };
+            
+            const logDiv = document.createElement('div');
+            logDiv.style.cssText = `
+                padding: 10px;
+                border-bottom: 1px solid #374151;
+                margin-bottom: 5px;
+            `;
+            logDiv.className = 'debug-log-entry';
+            logDiv.setAttribute('data-type', logEntry.type);
+            
+            logDiv.innerHTML = `
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="color: #9ca3af; font-size: 11px; white-space: nowrap;">${logEntry.timestamp}</span>
+                    <span style="color: ${colors[logEntry.type]}; font-weight: bold;">${icons[logEntry.type]}</span>
+                    <div style="flex: 1; word-break: break-all;">
+                        <pre style="margin: 0; white-space: pre-wrap; font-family: inherit;">${escapeHtml(logEntry.message)}</pre>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(logDiv);
+            
+            // Auto-scroll
+            container.scrollTop = container.scrollHeight;
+            
+            // Update counts
+            document.getElementById('debug-count-total').textContent = debugCounts.total;
+            document.getElementById('debug-count-info').textContent = debugCounts.info;
+            document.getElementById('debug-count-warn').textContent = debugCounts.warn;
+            document.getElementById('debug-count-error').textContent = debugCounts.error;
+        }
+        
+        // Helper: Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Toggle Pause
+        function toggleDebugPause() {
+            debugPaused = !debugPaused;
+            const btn = document.getElementById('debug-pause-btn');
+            if (debugPaused) {
+                btn.textContent = '⏸ Paused';
+                btn.style.background = '#f59e0b';
+            } else {
+                btn.textContent = '● Recording';
+                btn.style.background = '#10b981';
+                // Refresh all logs
+                refreshDebugUI();
+            }
+        }
+        
+        // Clear Logs
+        function clearDebugLogs() {
+            if (!confirm('Alle Logs löschen?')) return;
+            debugLogs = [];
+            debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
+            const container = document.getElementById('debug-log-container');
+            container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px 20px;">📝 Logs gelöscht - warte auf neue Logs...</div>';
+            updateCounts();
+        }
+        
+        // Copy All Logs
+        function copyDebugLogs() {
+            const text = debugLogs.map(log => {
+                return `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`;
+            }).join('\n');
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ ' + debugLogs.length + ' Logs in Zwischenablage kopiert!');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('✅ ' + debugLogs.length + ' Logs kopiert!');
+            });
+        }
+        
+        // Export Logs
+        function exportDebugLogs() {
+            const text = debugLogs.map(log => {
+                return `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`;
+            }).join('\n');
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `debug-logs-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('✅ Logs exportiert: ' + debugLogs.length + ' Einträge');
+        }
+        
+        // Filter Logs
+        function filterDebugLogs() {
+            const filter = document.getElementById('debug-filter').value.toLowerCase();
+            const entries = document.querySelectorAll('.debug-log-entry');
+            
+            entries.forEach(entry => {
+                const text = entry.textContent.toLowerCase();
+                entry.style.display = text.includes(filter) ? 'block' : 'none';
+            });
+        }
+        
+        // Refresh UI
+        function refreshDebugUI() {
+            const container = document.getElementById('debug-log-container');
+            container.innerHTML = '';
+            debugLogs.forEach(log => updateDebugUI(log));
+        }
+        
+        // Update Counts
+        function updateCounts() {
+            document.getElementById('debug-count-total').textContent = debugCounts.total;
+            document.getElementById('debug-count-info').textContent = debugCounts.info;
+            document.getElementById('debug-count-warn').textContent = debugCounts.warn;
+            document.getElementById('debug-count-error').textContent = debugCounts.error;
+        }
+        
+        console.log('🔍 DEBUG MONITOR AKTIV - Alle Logs werden aufgezeichnet!');
+    </script>
+    
     <script>
         // CONFIGURATION
         // 🚗 FAHRZEUGE - werden aus Firebase geladen, Fallback auf Hardcoded
@@ -5861,7 +6191,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'debug-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {

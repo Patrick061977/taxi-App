@@ -17,19 +17,25 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.38.7 - Build 20251205-2000');
-        console.log('🔧 SCHNELLBUCHUNG FIXED!');
-        console.log('✅ Panel jetzt außerhalb calendar-container!');
+        console.log('🚕 Funk Taxi App v5.38.8 - Build 20251206-0700');
+        console.log('⚡ SCHNELLBUCHUNG KOMPLETT!');
         console.log('');
-        console.log('🆕 v5.38.7: Schnellbuchung-Panel FIX!');
-        console.log('✅ Panel bleibt bestehen beim Kalender-Reload!');
-        console.log('✅ Position: fixed statt absolute!');
-        console.log('✅ Button funktioniert jetzt!');
+        console.log('🆕 v5.38.8: Alle Features implementiert!');
+        console.log('✅ Kunden-Autocomplete FIXED - lädt sofort!');
+        console.log('✅ Startzeit & Endzeit (+15 Min automatisch)!');
+        console.log('✅ Swap-Button 🔄 (Adressen tauschen)!');
+        console.log('✅ Kunden-Adresse → Auto-Fill in Abholort!');
+        console.log('✅ Kalender-Klick funktioniert!');
+        console.log('✅ Wochentag-Anzeige überall!');
+        console.log('✅ Dauer wird gespeichert für Timeline!');
         console.log('');
-        console.log('⚡ SCHNELLBUCHUNG IM KALENDER!');
-        console.log('📅 Mit Wochentag-Anzeige!');
-        console.log('🐛 DEBUG-TOGGLE SYSTEM');
-        console.log('✅ Alle Features funktionieren!');
+        console.log('🎯 WORKFLOW:');
+        console.log('→ Kalender öffnen');
+        console.log('→ Zeit klicken (Start+End automatisch!)');
+        console.log('→ Kunde tippen (Adresse auto-fill!)');
+        console.log('→ Zielort eingeben');
+        console.log('→ Optional: 🔄 Tauschen');
+        console.log('→ Buchen! FERTIG! 🚀');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -392,7 +398,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.38.7 - Schnellbuchung FIX (Build 20251205-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.38.8 - Schnellbuchung KOMPLETT (Build 20251206-0700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2181,15 +2187,28 @@
                     <div id="qb-panel-customer-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
                 
-                <!-- Datum & Zeit -->
+                <!-- Startzeit (Abholung) -->
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📅 Datum & Zeit</label>
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📅 Startzeit (Abholung)</label>
                     <input 
                         type="datetime-local" 
-                        id="qb-panel-datetime" 
+                        id="qb-panel-start-time" 
                         style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        onchange="updatePanelEndTime()"
                     >
-                    <div id="qb-panel-datetime-display" style="margin-top: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; font-size: 13px; color: #6b7280; text-align: center;"></div>
+                    <div id="qb-panel-start-display" style="margin-top: 8px; padding: 8px; background: #f0f9ff; border-radius: 6px; font-size: 13px; color: #0c4a6e; text-align: center;"></div>
+                </div>
+                
+                <!-- Endzeit (Voraussichtlich) -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">⏱️ Endzeit (Voraussichtlich)</label>
+                    <input 
+                        type="datetime-local" 
+                        id="qb-panel-end-time" 
+                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        onchange="updatePanelEndDisplay()"
+                    >
+                    <div id="qb-panel-end-display" style="margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 6px; font-size: 13px; color: #92400e; text-align: center;"></div>
                 </div>
                 
                 <!-- Abholort -->
@@ -2202,6 +2221,13 @@
                         style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
                     >
                     <div id="qb-panel-pickup-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                
+                <!-- Swap Button -->
+                <div style="text-align: center; margin: -8px 0 8px 0;">
+                    <button onclick="swapPanelAddresses()" style="padding: 8px 16px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#667eea'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='#667eea';">
+                        🔄 Tauschen
+                    </button>
                 </div>
                 
                 <!-- Zielort -->
@@ -17640,12 +17666,31 @@
             const panel = document.getElementById('quick-booking-panel');
             if (panel.style.display === 'none' || panel.style.display === '') {
                 panel.style.display = 'block';
+                
+                // SOFORT Kunden laden wenn Panel öffnet!
+                if (allCustomers.length === 0 && isFirebaseReady) {
+                    loadAllCustomersNow();
+                }
+                
                 setupQuickBookingPanelAutocomplete();
                 loadQuickBookingPanelVehicles();
                 loadQuickBookingPanelCustomers();
             } else {
                 panel.style.display = 'none';
             }
+        }
+        
+        // Kunden SOFORT laden
+        function loadAllCustomersNow() {
+            db.ref('customers').once('value').then(snapshot => {
+                allCustomers = [];
+                snapshot.forEach(child => {
+                    const customer = child.val();
+                    customer.id = child.key;
+                    allCustomers.push(customer);
+                });
+                console.log('✅ Kunden geladen:', allCustomers.length);
+            });
         }
         
         function closeQuickBookingPanel() {
@@ -17659,14 +17704,23 @@
             
             if (!input || !dropdown) return;
             
-            input.addEventListener('input', (e) => {
+            // Entferne alte Event Listener falls vorhanden
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+            
+            const finalInput = document.getElementById('qb-panel-customer');
+            const finalDropdown = document.getElementById('qb-panel-customer-dropdown');
+            
+            finalInput.addEventListener('input', (e) => {
                 const value = e.target.value.trim().toLowerCase();
                 
                 if (value.length < 2) {
-                    dropdown.style.display = 'none';
+                    finalDropdown.style.display = 'none';
                     qbPanelCustomer = null;
                     return;
                 }
+                
+                console.log('🔍 Suche Kunde:', value, 'Anzahl Kunden:', allCustomers.length);
                 
                 // Filter Kunden
                 const filtered = allCustomers.filter(c => {
@@ -17675,13 +17729,15 @@
                     return name.includes(value) || phone.includes(value);
                 });
                 
+                console.log('📋 Gefiltert:', filtered.length);
+                
                 if (filtered.length === 0) {
-                    dropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Kunden gefunden</div>';
-                    dropdown.style.display = 'block';
+                    finalDropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Kunden gefunden</div>';
+                    finalDropdown.style.display = 'block';
                     return;
                 }
                 
-                dropdown.innerHTML = filtered.slice(0, 10).map(c => `
+                finalDropdown.innerHTML = filtered.slice(0, 10).map(c => `
                     <div onclick="selectQuickBookingPanelCustomer('${c.id}')" style="
                         padding:12px;
                         cursor:pointer;
@@ -17693,13 +17749,13 @@
                     </div>
                 `).join('');
                 
-                dropdown.style.display = 'block';
+                finalDropdown.style.display = 'block';
             });
             
             // Schließe Dropdown bei Klick außerhalb
             document.addEventListener('click', (e) => {
-                if (e.target !== input && !dropdown.contains(e.target)) {
-                    dropdown.style.display = 'none';
+                if (e.target !== finalInput && !finalDropdown.contains(e.target)) {
+                    finalDropdown.style.display = 'none';
                 }
             });
         }
@@ -17712,12 +17768,82 @@
             document.getElementById('qb-panel-customer').value = customer.name || 'Unbekannt';
             document.getElementById('qb-panel-customer-dropdown').style.display = 'none';
             
-            // Lade Kundendaten wenn vorhanden
+            // ✅ AUTO-FILL: Lade Kundendaten wenn vorhanden
             if (customer.address) {
                 document.getElementById('qb-panel-pickup').value = customer.address;
+                console.log('✅ Kundenadresse in Abholort eingetragen:', customer.address);
             }
             
             console.log('👤 Kunde gewählt:', customer);
+        }
+        
+        // 🆕 SWAP-BUTTON: Adressen tauschen
+        function swapPanelAddresses() {
+            const pickupInput = document.getElementById('qb-panel-pickup');
+            const destInput = document.getElementById('qb-panel-destination');
+            
+            const temp = pickupInput.value;
+            pickupInput.value = destInput.value;
+            destInput.value = temp;
+            
+            // Koordinaten auch tauschen
+            const tempCoords = qbPanelPickupCoords;
+            qbPanelPickupCoords = qbPanelDestCoords;
+            qbPanelDestCoords = tempCoords;
+            
+            console.log('🔄 Adressen getauscht!');
+        }
+        
+        // 🆕 ENDZEIT AUTOMATISCH: +15 Minuten nach Startzeit
+        function updatePanelEndTime() {
+            const startInput = document.getElementById('qb-panel-start-time');
+            const endInput = document.getElementById('qb-panel-end-time');
+            const startDisplay = document.getElementById('qb-panel-start-display');
+            
+            if (!startInput.value) {
+                if (startDisplay) startDisplay.textContent = '';
+                return;
+            }
+            
+            const startDate = new Date(startInput.value);
+            
+            // Anzeige für Startzeit
+            if (startDisplay) {
+                const formatted = formatDateWithWeekday(startDate);
+                startDisplay.textContent = formatted;
+            }
+            
+            // Endzeit automatisch +15 Minuten
+            const endDate = new Date(startDate.getTime() + (15 * 60 * 1000));
+            
+            // Format für datetime-local Input
+            const year = endDate.getFullYear();
+            const month = String(endDate.getMonth() + 1).padStart(2, '0');
+            const day = String(endDate.getDate()).padStart(2, '0');
+            const hours = String(endDate.getHours()).padStart(2, '0');
+            const minutes = String(endDate.getMinutes()).padStart(2, '0');
+            
+            endInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            
+            // Endzeit-Anzeige auch updaten
+            updatePanelEndDisplay();
+            
+            console.log('⏱️ Endzeit automatisch gesetzt: +15 Min');
+        }
+        
+        // 🆕 ENDZEIT-ANZEIGE aktualisieren
+        function updatePanelEndDisplay() {
+            const endInput = document.getElementById('qb-panel-end-time');
+            const endDisplay = document.getElementById('qb-panel-end-display');
+            
+            if (!endInput || !endDisplay || !endInput.value) {
+                if (endDisplay) endDisplay.textContent = '';
+                return;
+            }
+            
+            const endDate = new Date(endInput.value);
+            const formatted = formatDateWithWeekday(endDate);
+            endDisplay.textContent = formatted;
         }
         
         // Adressen-Autocomplete
@@ -17755,13 +17881,16 @@
                 });
             });
             
-            // Datetime Anzeige
-            const datetimeInput = document.getElementById('qb-panel-datetime');
-            const datetimeDisplay = document.getElementById('qb-panel-datetime-display');
+            // ✅ Startzeit & Endzeit Anzeige
+            const startInput = document.getElementById('qb-panel-start-time');
+            const endInput = document.getElementById('qb-panel-end-time');
             
-            if (datetimeInput && datetimeDisplay) {
-                datetimeInput.addEventListener('change', updateDatetimeDisplay);
-                updateDatetimeDisplay();
+            if (startInput) {
+                startInput.addEventListener('change', updatePanelEndTime);
+            }
+            
+            if (endInput) {
+                endInput.addEventListener('change', updatePanelEndDisplay);
             }
         }
         
@@ -17875,24 +18004,11 @@
         }
         
         // Datetime-Anzeige aktualisieren (mit Wochentag!)
-        function updateDatetimeDisplay() {
-            const input = document.getElementById('qb-panel-datetime');
-            const display = document.getElementById('qb-panel-datetime-display');
-            
-            if (!input || !display || !input.value) {
-                if (display) display.textContent = '';
-                return;
-            }
-            
-            const date = new Date(input.value);
-            const formatted = formatDateWithWeekday(date);
-            display.textContent = formatted;
-        }
-        
         // Kalender-Zeit-Klick (wird von Kalender aufgerufen)
+        // 🆕 Kalender-Zeit-Klick: Startzeit setzen & Endzeit automatisch +15 Min
         function setQuickBookingPanelTime(datetime) {
-            const input = document.getElementById('qb-panel-datetime');
-            if (!input) return;
+            const startInput = document.getElementById('qb-panel-start-time');
+            if (!startInput) return;
             
             // Format für datetime-local Input
             const d = new Date(datetime);
@@ -17902,8 +18018,10 @@
             const hours = String(d.getHours()).padStart(2, '0');
             const minutes = String(d.getMinutes()).padStart(2, '0');
             
-            input.value = `${year}-${month}-${day}T${hours}:${minutes}`;
-            updateDatetimeDisplay();
+            startInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            
+            // Endzeit automatisch setzen & Anzeigen updaten
+            updatePanelEndTime();
             
             // Panel öffnen falls geschlossen
             const panel = document.getElementById('quick-booking-panel');
@@ -17929,15 +18047,21 @@
                 return;
             }
             
-            const datetime = document.getElementById('qb-panel-datetime').value;
+            const startTime = document.getElementById('qb-panel-start-time').value;
+            const endTime = document.getElementById('qb-panel-end-time').value;
             const pickup = document.getElementById('qb-panel-pickup').value;
             const destination = document.getElementById('qb-panel-destination').value;
             const passengers = parseInt(document.getElementById('qb-panel-passengers').value);
             const vehicle = document.getElementById('qb-panel-vehicle').value;
             const notes = document.getElementById('qb-panel-notes').value;
             
-            if (!datetime) {
-                alert('❌ Bitte Datum & Zeit auswählen!');
+            if (!startTime) {
+                alert('❌ Bitte Startzeit auswählen!');
+                return;
+            }
+            
+            if (!endTime) {
+                alert('❌ Bitte Endzeit auswählen!');
                 return;
             }
             
@@ -17947,13 +18071,19 @@
             }
             
             try {
+                const startDate = new Date(startTime);
+                const endDate = new Date(endTime);
+                const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
+                
                 const rideData = {
                     customerId: qbPanelCustomer.id,
                     customerName: qbPanelCustomer.name || 'Unbekannt',
                     customerPhone: qbPanelCustomer.phone || '',
                     pickup,
                     destination,
-                    pickupTime: new Date(datetime).toISOString(),
+                    pickupTime: startDate.toISOString(),
+                    endTime: endDate.toISOString(),
+                    durationMinutes: durationMinutes,
                     passengers,
                     status: 'vorbestellt',
                     createdAt: new Date().toISOString(),
@@ -17979,7 +18109,8 @@
                 
                 // Felder zurücksetzen
                 document.getElementById('qb-panel-customer').value = '';
-                document.getElementById('qb-panel-datetime').value = '';
+                document.getElementById('qb-panel-start-time').value = '';
+                document.getElementById('qb-panel-end-time').value = '';
                 document.getElementById('qb-panel-pickup').value = '';
                 document.getElementById('qb-panel-destination').value = '';
                 document.getElementById('qb-panel-passengers').value = '1';
@@ -17989,7 +18120,7 @@
                 qbPanelPickupCoords = null;
                 qbPanelDestCoords = null;
                 
-                console.log('✅ Schnellbuchung erstellt:', rideRef.key);
+                console.log('✅ Schnellbuchung erstellt:', rideRef.key, 'Dauer:', durationMinutes, 'Min');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);

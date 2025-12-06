@@ -17,15 +17,8 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.40.1 - Build 20251206-2225');
-        console.log('🔧 ZEITSLOT-FIX + Logging pausiert!');
-        console.log('');
-        console.log('🐛 v5.40.1: ZEITSLOT-BUG GEFIXT! Falsche Konflikte behoben!');
-        console.log('✅ Koordinaten-Bug gefixt (.lon statt .lng)');
-        console.log('✅ Route-Berechnung funktioniert!');
-        console.log('✅ Zeitvergleich prüft nur relevante Fahrten (48h)');
-        console.log('✅ Datum+Zeit wird korrekt verglichen!');
-        console.log('✅ Logging standardmäßig pausiert!');
+        console.log('🚕 Funk Taxi App v5.40.2 - Build 20251206-2235');
+        console.log('🔍 v5.40.2: EXTRA DEBUG für Kopieren-Bug! Teste genau!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -390,7 +383,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.40.1 - Zeitslot-Logik Fix (Build 20251206-2225)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.40.2 - Debug Kopieren (Build 20251206-2235)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -18352,13 +18345,26 @@
                 
                 // 🔧 EDIT vs CREATE: Prüfe ob wir bearbeiten oder neu erstellen
                 let rideRef;
+                
+                // 🆕 v5.40.2: EXTRA DEBUG für Kopieren-Bug!
+                console.log('═══════════════════════════════════════');
+                console.log('🔍 SPEICHERN - WICHTIGE INFO:');
+                console.log('   window.editingRideId:', window.editingRideId);
+                console.log('   Typ:', typeof window.editingRideId);
+                console.log('   Ist null?', window.editingRideId === null);
+                console.log('   Ist undefined?', window.editingRideId === undefined);
+                console.log('   Ist falsy?', !window.editingRideId);
+                console.log('═══════════════════════════════════════');
+                
                 if (window.editingRideId) {
                     // BEARBEITEN: Update existierende Fahrt
+                    console.log('⚠️ MODUS: BEARBEITEN (Update)');
                     await db.ref(`rides/${window.editingRideId}`).update(rideData);
                     rideRef = { key: window.editingRideId };
                     console.log('✏️ Fahrt aktualisiert:', window.editingRideId);
                 } else {
                     // NEU ERSTELLEN: Push neue Fahrt
+                    console.log('✅ MODUS: NEU ERSTELLEN (Push)');
                     rideRef = await db.ref('rides').push(rideData);
                     console.log('✅ Neue Fahrt erstellt:', rideRef.key);
                 }
@@ -18489,6 +18495,11 @@
                 showAddressOptions();
                 
                 // 🔧 WICHTIG: Speichere Original-ID für Update statt Create
+                console.log('═══════════════════════════════════════');
+                console.log('✏️ BEARBEITEN MODUS AKTIVIERT!');
+                console.log('   Fahrt-ID:', rideId);
+                console.log('   editingRideId wird gesetzt auf:', rideId);
+                console.log('═══════════════════════════════════════');
                 window.editingRideId = rideId;
                 
                 console.log('✏️ Fahrt wird bearbeitet:', rideId);
@@ -18503,8 +18514,18 @@
         async function copyRideFromCalendar(rideId) {
             try {
                 // 🔧 v5.39.9: editingRideId SOFORT zurücksetzen!
+                console.log('═══════════════════════════════════════');
+                console.log('📋 KOPIEREN GESTARTET!');
+                console.log('   Von Fahrt:', rideId);
+                console.log('   editingRideId VORHER:', window.editingRideId);
+                console.log('═══════════════════════════════════════');
+                
                 window.editingRideId = null;
+                
                 console.log('🔄 editingRideId zurückgesetzt für Kopieren');
+                console.log('   editingRideId NACHHER:', window.editingRideId);
+                console.log('   Ist null?', window.editingRideId === null);
+                console.log('═══════════════════════════════════════');
                 
                 const snapshot = await db.ref(`rides/${rideId}`).once('value');
                 const ride = snapshot.val();

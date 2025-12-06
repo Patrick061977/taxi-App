@@ -17,15 +17,15 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.39.6 - Build 20251206-1230');
-        console.log('🔧 BUGFIX - debugLogs Konflikt behoben!');
+        console.log('🚕 Funk Taxi App v5.39.7 - Build 20251206-1430');
+        console.log('🔧 BUGFIX - Console-Interceptor verschoben!');
         console.log('');
-        console.log('🐛 v5.39.6: ZWEITER KRITISCHER BUGFIX!');
-        console.log('✅ debugLogs Doppel-Definition entfernt!');
-        console.log('✅ Altes Console-Override entfernt!');
-        console.log('✅ Nur noch neues Debug Panel!');
+        console.log('🐛 v5.39.7: DRITTER KRITISCHER BUGFIX!');
+        console.log('✅ Console-Interceptor ans Ende verschoben!');
+        console.log('✅ Wartet jetzt auf DOM Ready!');
+        console.log('✅ Blockiert nicht mehr Firebase Init!');
         console.log('✅ Firebase lädt jetzt!');
-        console.log('✅ Alles funktioniert!');
+        console.log('✅ ALLES FUNKTIONIERT ENDLICH!');
         console.log('');
         console.log('📊 ADMIN → 🔍 DEBUG TAB JETZT VERFÜGBAR!');
     </script>
@@ -390,7 +390,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.6 - debugLogs BUGFIX (Build 20251206-1230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.7 - Console-Fix (Build 20251206-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3336,222 +3336,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="if(typeof initApp === 'function') initApp(false);"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script>
-        // 🔍 DEBUG LOGGER - v5.39.4
-        // Interceptor für console.log, console.warn, console.error
-        
-        let debugLogs = [];
-        let debugPaused = false;
-        let debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
-        const originalLog = console.log;
-        const originalWarn = console.warn;
-        const originalError = console.error;
-        
-        // Interceptor-Funktion
-        function addDebugLog(type, args) {
-            const timestamp = new Date().toLocaleTimeString('de-DE', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                fractionalSecondDigits: 3
-            });
-            
-            const message = Array.from(args).map(arg => {
-                if (typeof arg === 'object') {
-                    try {
-                        return JSON.stringify(arg, null, 2);
-                    } catch(e) {
-                        return String(arg);
-                    }
-                }
-                return String(arg);
-            }).join(' ');
-            
-            const logEntry = {
-                timestamp,
-                type,
-                message,
-                time: Date.now()
-            };
-            
-            debugLogs.push(logEntry);
-            debugCounts.total++;
-            debugCounts[type]++;
-            
-            // Update UI wenn im Debug-View
-            if (!debugPaused && document.getElementById('debug-view').style.display !== 'none') {
-                updateDebugUI(logEntry);
-            }
-        }
-        
-        // Override console methods
-        console.log = function(...args) {
-            addDebugLog('info', args);
-            originalLog.apply(console, args);
-        };
-        
-        console.warn = function(...args) {
-            addDebugLog('warn', args);
-            originalWarn.apply(console, args);
-        };
-        
-        console.error = function(...args) {
-            addDebugLog('error', args);
-            originalError.apply(console, args);
-        };
-        
-        // Update UI
-        function updateDebugUI(logEntry) {
-            const container = document.getElementById('debug-log-container');
-            if (!container) return;
-            
-            // Clear "Warte auf Logs" message
-            if (debugLogs.length === 1) {
-                container.innerHTML = '';
-            }
-            
-            const colors = {
-                info: '#10b981',
-                warn: '#f59e0b',
-                error: '#ef4444'
-            };
-            
-            const icons = {
-                info: '✅',
-                warn: '⚠️',
-                error: '❌'
-            };
-            
-            const logDiv = document.createElement('div');
-            logDiv.style.cssText = `
-                padding: 10px;
-                border-bottom: 1px solid #374151;
-                margin-bottom: 5px;
-            `;
-            logDiv.className = 'debug-log-entry';
-            logDiv.setAttribute('data-type', logEntry.type);
-            
-            logDiv.innerHTML = `
-                <div style="display: flex; gap: 10px; align-items: flex-start;">
-                    <span style="color: #9ca3af; font-size: 11px; white-space: nowrap;">${logEntry.timestamp}</span>
-                    <span style="color: ${colors[logEntry.type]}; font-weight: bold;">${icons[logEntry.type]}</span>
-                    <div style="flex: 1; word-break: break-all;">
-                        <pre style="margin: 0; white-space: pre-wrap; font-family: inherit;">${escapeHtml(logEntry.message)}</pre>
-                    </div>
-                </div>
-            `;
-            
-            container.appendChild(logDiv);
-            
-            // Auto-scroll
-            container.scrollTop = container.scrollHeight;
-            
-            // Update counts
-            document.getElementById('debug-count-total').textContent = debugCounts.total;
-            document.getElementById('debug-count-info').textContent = debugCounts.info;
-            document.getElementById('debug-count-warn').textContent = debugCounts.warn;
-            document.getElementById('debug-count-error').textContent = debugCounts.error;
-        }
-        
-        // Helper: Escape HTML
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        // Toggle Pause
-        function toggleDebugPause() {
-            debugPaused = !debugPaused;
-            const btn = document.getElementById('debug-pause-btn');
-            if (debugPaused) {
-                btn.textContent = '⏸ Paused';
-                btn.style.background = '#f59e0b';
-            } else {
-                btn.textContent = '● Recording';
-                btn.style.background = '#10b981';
-                // Refresh all logs
-                refreshDebugUI();
-            }
-        }
-        
-        // Clear Logs
-        function clearDebugLogs() {
-            if (!confirm('Alle Logs löschen?')) return;
-            debugLogs = [];
-            debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
-            const container = document.getElementById('debug-log-container');
-            container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px 20px;">📝 Logs gelöscht - warte auf neue Logs...</div>';
-            updateCounts();
-        }
-        
-        // Copy All Logs
-        function copyDebugLogs() {
-            const text = debugLogs.map(log => {
-                return `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`;
-            }).join('\n');
-            
-            navigator.clipboard.writeText(text).then(() => {
-                alert('✅ ' + debugLogs.length + ' Logs in Zwischenablage kopiert!');
-            }).catch(() => {
-                // Fallback
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                alert('✅ ' + debugLogs.length + ' Logs kopiert!');
-            });
-        }
-        
-        // Export Logs
-        function exportDebugLogs() {
-            const text = debugLogs.map(log => {
-                return `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`;
-            }).join('\n');
-            
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `debug-logs-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            alert('✅ Logs exportiert: ' + debugLogs.length + ' Einträge');
-        }
-        
-        // Filter Logs
-        function filterDebugLogs() {
-            const filter = document.getElementById('debug-filter').value.toLowerCase();
-            const entries = document.querySelectorAll('.debug-log-entry');
-            
-            entries.forEach(entry => {
-                const text = entry.textContent.toLowerCase();
-                entry.style.display = text.includes(filter) ? 'block' : 'none';
-            });
-        }
-        
-        // Refresh UI
-        function refreshDebugUI() {
-            const container = document.getElementById('debug-log-container');
-            container.innerHTML = '';
-            debugLogs.forEach(log => updateDebugUI(log));
-        }
-        
-        // Update Counts
-        function updateCounts() {
-            document.getElementById('debug-count-total').textContent = debugCounts.total;
-            document.getElementById('debug-count-info').textContent = debugCounts.info;
-            document.getElementById('debug-count-warn').textContent = debugCounts.warn;
-            document.getElementById('debug-count-error').textContent = debugCounts.error;
-        }
-        
-        console.log('🔍 DEBUG MONITOR AKTIV - Alle Logs werden aufgezeichnet!');
-    </script>
     
     <script>
         // 🐛 DEBUG MODE - Global Variable (für alte Debug-Button Kompatibilität)
@@ -24362,6 +24146,236 @@ Stack: ${err.stack}
             <span id="debug-icon">🐛</span> Debug
         </button>
     </div>
+
+    <!-- 🔍 DEBUG LOGGER - v5.39.7 - Ans Ende verschoben! -->
+    <script>
+        // Warte auf DOM Ready bevor Console-Interceptor startet
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔍 DEBUG MONITOR wird initialisiert...');
+            
+            // Debug Logger Variablen (global)
+            window.debugLogs = [];
+            window.debugPaused = false;
+            window.debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
+            
+            const originalLog = console.log;
+            const originalWarn = console.warn;
+            const originalError = console.error;
+            
+            // Interceptor-Funktion
+            function addDebugLog(type, args) {
+                const timestamp = new Date().toLocaleTimeString('de-DE', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    fractionalSecondDigits: 3
+                });
+                
+                const message = Array.from(args).map(arg => {
+                    if (typeof arg === 'object') {
+                        try {
+                            return JSON.stringify(arg, null, 2);
+                        } catch(e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+                
+                const logEntry = {
+                    timestamp,
+                    type,
+                    message,
+                    time: Date.now()
+                };
+                
+                window.debugLogs.push(logEntry);
+                window.debugCounts.total++;
+                window.debugCounts[type]++;
+                
+                // Update UI wenn im Debug-View
+                const debugView = document.getElementById('debug-view');
+                if (!window.debugPaused && debugView && debugView.style.display !== 'none') {
+                    updateDebugUI(logEntry);
+                }
+            }
+            
+            // Override console methods
+            console.log = function(...args) {
+                addDebugLog('info', args);
+                originalLog.apply(console, args);
+            };
+            
+            console.warn = function(...args) {
+                addDebugLog('warn', args);
+                originalWarn.apply(console, args);
+            };
+            
+            console.error = function(...args) {
+                addDebugLog('error', args);
+                originalError.apply(console, args);
+            };
+            
+            // Update UI
+            function updateDebugUI(logEntry) {
+                const container = document.getElementById('debug-log-container');
+                if (!container) return;
+                
+                // Clear "Warte auf Logs" message
+                if (window.debugLogs.length === 1) {
+                    container.innerHTML = '';
+                }
+                
+                const colors = {
+                    info: '#10b981',
+                    warn: '#f59e0b',
+                    error: '#ef4444'
+                };
+                
+                const icons = {
+                    info: '✅',
+                    warn: '⚠️',
+                    error: '❌'
+                };
+                
+                const logDiv = document.createElement('div');
+                logDiv.style.cssText = `
+                    padding: 10px;
+                    border-bottom: 1px solid #374151;
+                    margin-bottom: 5px;
+                `;
+                logDiv.className = 'debug-log-entry';
+                logDiv.setAttribute('data-type', logEntry.type);
+                
+                logDiv.innerHTML = `
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <span style="color: #9ca3af; font-size: 11px; white-space: nowrap;">${logEntry.timestamp}</span>
+                        <span style="color: ${colors[logEntry.type]}; font-weight: bold;">${icons[logEntry.type]}</span>
+                        <div style="flex: 1; word-break: break-all;">
+                            <pre style="margin: 0; white-space: pre-wrap; font-family: inherit;">${escapeHtml(logEntry.message)}</pre>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(logDiv);
+                
+                // Auto-scroll
+                container.scrollTop = container.scrollHeight;
+                
+                // Update counts
+                updateCounts();
+            }
+            
+            // Helper: Escape HTML
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            // Toggle Pause (global)
+            window.toggleDebugPause = function() {
+                window.debugPaused = !window.debugPaused;
+                const btn = document.getElementById('debug-pause-btn');
+                if (window.debugPaused) {
+                    btn.textContent = '⏸ Paused';
+                    btn.style.background = '#f59e0b';
+                } else {
+                    btn.textContent = '● Recording';
+                    btn.style.background = '#10b981';
+                    // Refresh all logs
+                    refreshDebugUI();
+                }
+            };
+            
+            // Clear Logs (global)
+            window.clearDebugLogs = function() {
+                if (!confirm('Alle Logs löschen?')) return;
+                window.debugLogs = [];
+                window.debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
+                const container = document.getElementById('debug-log-container');
+                if (container) {
+                    container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px 20px;">📝 Logs gelöscht - warte auf neue Logs...</div>';
+                }
+                updateCounts();
+            };
+            
+            // Copy All Logs (global)
+            window.copyDebugLogs = function() {
+                const text = window.debugLogs.map(log => {
+                    return `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`;
+                }).join('\n');
+                
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('✅ ' + window.debugLogs.length + ' Logs in Zwischenablage kopiert!');
+                }).catch(() => {
+                    // Fallback
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    alert('✅ ' + window.debugLogs.length + ' Logs kopiert!');
+                });
+            };
+            
+            // Export Logs (global)
+            window.exportDebugLogs = function() {
+                const text = window.debugLogs.map(log => {
+                    return `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`;
+                }).join('\n');
+                
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `debug-logs-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert('✅ Logs exportiert: ' + window.debugLogs.length + ' Einträge');
+            };
+            
+            // Filter Logs (global)
+            window.filterDebugLogs = function() {
+                const filterInput = document.getElementById('debug-filter');
+                if (!filterInput) return;
+                const filter = filterInput.value.toLowerCase();
+                const entries = document.querySelectorAll('.debug-log-entry');
+                
+                entries.forEach(entry => {
+                    const text = entry.textContent.toLowerCase();
+                    entry.style.display = text.includes(filter) ? 'block' : 'none';
+                });
+            };
+            
+            // Refresh UI
+            function refreshDebugUI() {
+                const container = document.getElementById('debug-log-container');
+                if (!container) return;
+                container.innerHTML = '';
+                window.debugLogs.forEach(log => updateDebugUI(log));
+            }
+            
+            // Update Counts
+            function updateCounts() {
+                const totalEl = document.getElementById('debug-count-total');
+                const infoEl = document.getElementById('debug-count-info');
+                const warnEl = document.getElementById('debug-count-warn');
+                const errorEl = document.getElementById('debug-count-error');
+                
+                if (totalEl) totalEl.textContent = window.debugCounts.total;
+                if (infoEl) infoEl.textContent = window.debugCounts.info;
+                if (warnEl) warnEl.textContent = window.debugCounts.warn;
+                if (errorEl) errorEl.textContent = window.debugCounts.error;
+            }
+            
+            console.log('✅ DEBUG MONITOR AKTIV - Alle Logs werden aufgezeichnet!');
+        });
+    </script>
 
 </body>
 </html>

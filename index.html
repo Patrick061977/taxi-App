@@ -1826,7 +1826,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.38.5');
+                    console.log('🚕 Funk Taxi App v5.39.8 - ZEITSLOT-FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -4825,7 +4825,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚀 Taxi App v5.23.1 gestartet');
+        console.log('🚀 Taxi App v5.39.8 - ZEITSLOT-FIX gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -23320,7 +23320,21 @@ Stack: ${err.stack}
                 
                 closeVehicleAssignmentModal();
                 
+                // 🔧 v5.39.8: TABS AKTUALISIEREN nach Zuweisen!
+                if (typeof updateAdminTabsVisibility === 'function') {
+                    updateAdminTabsVisibility();
+                    console.log('✅ Admin-Tabs nach Zuweisen aktualisiert!');
+                }
+                
                 alert(`✅ Fahrzeug ${vehicleId} erfolgreich zugewiesen!`);
+                
+                // 🔧 v5.39.8: TABS NOCHMAL AKTUALISIEREN nach Alert!
+                if (typeof updateAdminTabsVisibility === 'function') {
+                    setTimeout(() => {
+                        updateAdminTabsVisibility();
+                        console.log('✅ Admin-Tabs nach Alert aktualisiert!');
+                    }, 100);
+                }
                 
                 if (typeof loadCalendarData === 'function') {
                     await loadCalendarData();
@@ -23889,9 +23903,9 @@ Stack: ${err.stack}
             });
         });
         
-        // 🆕 v5.33.4: AGGRESSIVE VIEW-BEREINIGUNG - Mehrfach ausführen!
+        // 🆕 v5.39.8: AGGRESSIVE VIEW-BEREINIGUNG - Mehrfach ausführen!
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 v5.33.4: Aggressive View-Bereinigung...');
+            console.log('🚀 v5.39.8: View-Bereinigung aktiv...');
             
             function forcePassengerViewOnly() {
                 // Verstecke ALLE Views brutal!

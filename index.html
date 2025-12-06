@@ -17,8 +17,9 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.40.2 - Build 20251206-2235');
-        console.log('🔍 v5.40.2: EXTRA DEBUG für Kopieren-Bug! Teste genau!');
+        console.log('🚕 Funk Taxi App v5.40.3 - Build 20251206-2248');
+        console.log('🔒 v5.40.3: TRIPLE-SCHUTZ für Kopieren! editingRideId wird 3x auf null gesetzt!');
+        console.log('✅ v5.40.3: Extra-Verifikation nach Fahrt-Erstellung in Firebase!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -18346,7 +18347,7 @@
                 // 🔧 EDIT vs CREATE: Prüfe ob wir bearbeiten oder neu erstellen
                 let rideRef;
                 
-                // 🆕 v5.40.2: EXTRA DEBUG für Kopieren-Bug!
+                // 🔒 v5.40.3: TRIPLE-SCHUTZ für Kopieren-Bug!
                 console.log('═══════════════════════════════════════');
                 console.log('🔍 SPEICHERN - WICHTIGE INFO:');
                 console.log('   window.editingRideId:', window.editingRideId);
@@ -18367,6 +18368,22 @@
                     console.log('✅ MODUS: NEU ERSTELLEN (Push)');
                     rideRef = await db.ref('rides').push(rideData);
                     console.log('✅ Neue Fahrt erstellt:', rideRef.key);
+                    
+                    // 🔒 v5.40.3: EXTRA-PRÜFUNG! Fahrt wirklich in Firebase?
+                    console.log('═══════════════════════════════════════');
+                    console.log('🔍 VERIFIKATION: Prüfe ob Fahrt existiert...');
+                    const verifySnapshot = await db.ref(`rides/${rideRef.key}`).once('value');
+                    if (verifySnapshot.exists()) {
+                        const verifyData = verifySnapshot.val();
+                        console.log('✅ BESTÄTIGT! Fahrt existiert in Firebase!');
+                        console.log('   ID:', rideRef.key);
+                        console.log('   Abholzeit:', verifyData.pickupTime);
+                        console.log('   Von:', verifyData.pickup);
+                        console.log('   Nach:', verifyData.destination);
+                    } else {
+                        console.error('❌ FEHLER! Fahrt NICHT in Firebase gefunden!');
+                    }
+                    console.log('═══════════════════════════════════════');
                 }
                 
                 // 🆕 Speichere Adressen in CRM wenn Checkboxen aktiviert
@@ -18559,6 +18576,11 @@
                     watchPickupChanges();
                 }
                 
+                // 🔒 v5.40.3: EXTRA-SCHUTZ! editingRideId NOCHMAL auf null setzen!
+                // Falls irgendein Event-Handler sie wieder gesetzt hat!
+                window.editingRideId = null;
+                console.log('🔒 EXTRA-SCHUTZ: editingRideId nochmal auf null gesetzt!');
+                
                 // JETZT Daten aus kopierter Fahrt einfügen
                 if (ride.customerId) {
                     const customer = allCustomers.find(c => c.id === ride.customerId);
@@ -18589,6 +18611,12 @@
                 
                 // Adress-Optionen anzeigen
                 showAddressOptions();
+                
+                // 🔒 v5.40.3: NOCHMALS! editingRideId auf null setzen am Ende!
+                // Doppelt hält besser - absolut sicherstellen dass es null ist!
+                window.editingRideId = null;
+                console.log('🔒 FINALER SCHUTZ: editingRideId am Ende nochmal auf null!');
+                console.log('🔒 Endgültiger Status:', window.editingRideId, '| Ist null?', window.editingRideId === null);
                 
                 console.log('📋 Fahrt kopiert:', rideId, '| editingRideId:', window.editingRideId, '| Zeiten: LEER (neu eingeben)');
                 

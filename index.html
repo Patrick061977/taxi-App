@@ -17,16 +17,16 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.39.4 - Build 20251206-1000');
-        console.log('🔍 ADMIN DEBUG PANEL!');
+        console.log('🚕 Funk Taxi App v5.39.5 - Build 20251206-1130');
+        console.log('🔧 BUGFIX - Firebase Crash gefixt!');
         console.log('');
-        console.log('🆕 v5.39.4: LIVE DEBUG MONITOR!');
-        console.log('✅ Alle Console-Logs im Admin sichtbar!');
-        console.log('✅ Kein Handy-Gefummel mehr!');
-        console.log('✅ Copy, Export, Filter Funktionen!');
-        console.log('✅ Live-Updates mit Timestamps!');
+        console.log('🐛 v5.39.5: KRITISCHER BUGFIX!');
+        console.log('✅ debugMode Fehler behoben!');
+        console.log('✅ Firebase lädt jetzt!');
+        console.log('✅ Admin Debug Panel funktioniert!');
+        console.log('✅ Alles läuft wieder!');
         console.log('');
-        console.log('📊 ADMIN → 🔍 DEBUG TAB ÖFFNEN!');
+        console.log('📊 ADMIN → 🔍 DEBUG TAB JETZT VERFÜGBAR!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -389,7 +389,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.4 - ADMIN DEBUG PANEL (Build 20251206-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.5 - FIREBASE BUGFIX (Build 20251206-1130)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1841,21 +1841,6 @@
                 }
             }
             
-            // 🆕 v5.38.5: Console Override (nur wenn Debug AUS)
-            if (!debugMode) {
-                const originalLog = console.log;
-                const originalError = console.error;
-                const originalWarn = console.warn;
-                
-                console.log = function() {};
-                console.error = function() {};
-                console.warn = function() {};
-                
-                // Speichere Originale für Debug-Modus
-                console._originalLog = originalLog;
-                console._originalError = originalError;
-                console._originalWarn = originalWarn;
-            }
             
             function toggleNewRidesPanel() {
                 const panel = document.getElementById('new-rides-panel');
@@ -3568,6 +3553,9 @@
     </script>
     
     <script>
+        // 🐛 DEBUG MODE - Global Variable (für alte Debug-Button Kompatibilität)
+        let debugMode = false; // Wird vom Console-Interceptor verwaltet
+        
         // CONFIGURATION
         // 🚗 FAHRZEUGE - werden aus Firebase geladen, Fallback auf Hardcoded
         const DEFAULT_VEHICLES = {
@@ -3639,8 +3627,8 @@
         let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
         let bookingSystemOnline = true; // 🆕 v5.38.2: Buchungssystem AN/AUS (Standard: AN)
         
-        // 🆕 v5.38.5: DEBUG-MODUS
-        let debugMode = localStorage.getItem('debugMode') === 'true' || false;
+        // 🆕 v5.38.5: DEBUG-MODUS (wird jetzt vom Console-Interceptor verwaltet)
+        // debugMode ist bereits global definiert!
         
         // Debug-Console Wrapper
         const debugLog = (...args) => {

@@ -5992,6 +5992,16 @@
                 setTimeout(() => loadSchedule(), 100);
             }
             
+            // 🆕 v5.39.8: Debug-Logs neu laden bei Debug-View!
+            if (view === 'debug') {
+                setTimeout(() => {
+                    if (typeof window.reloadDebugUI === 'function') {
+                        console.log('🔄 Lade Debug-Logs in UI...');
+                        window.reloadDebugUI();
+                    }
+                }, 100);
+            }
+            
             const gpsIndicator = document.getElementById('gps-indicator');
             if (view === 'driver') {
                 if (gpsIndicator) gpsIndicator.style.display = 'flex';
@@ -24245,10 +24255,23 @@ Stack: ${err.stack}
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🔍 DEBUG MONITOR wird initialisiert...');
             
+            // 🆕 v5.39.9: Lade gespeicherte Debug-Logs aus localStorage!
+            const savedLogs = localStorage.getItem('debugLogs');
+            const savedPaused = localStorage.getItem('debugPaused');
+            
             // Debug Logger Variablen (global)
-            window.debugLogs = [];
-            window.debugPaused = true; // 🔧 v5.39.8: Standardmäßig PAUSIERT!
+            window.debugLogs = savedLogs ? JSON.parse(savedLogs) : [];
+            window.debugPaused = savedPaused === 'true'; // Lade Status
             window.debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
+            
+            // Zähle wiederhergestellte Logs
+            if (window.debugLogs.length > 0) {
+                window.debugLogs.forEach(log => {
+                    window.debugCounts.total++;
+                    window.debugCounts[log.type] = (window.debugCounts[log.type] || 0) + 1;
+                });
+                console.log(`📦 ${window.debugLogs.length} Debug-Logs wiederhergestellt aus localStorage`);
+            }
             
             const originalLog = console.log;
             const originalWarn = console.warn;
@@ -24284,6 +24307,20 @@ Stack: ${err.stack}
                 window.debugLogs.push(logEntry);
                 window.debugCounts.total++;
                 window.debugCounts[type]++;
+                
+                // 🆕 v5.39.9: Speichere in localStorage (max 500 Logs)
+                if (window.debugLogs.length > 500) {
+                    window.debugLogs = window.debugLogs.slice(-500); // Behalte nur letzte 500
+                }
+                try {
+                    localStorage.setItem('debugLogs', JSON.stringify(window.debugLogs));
+                } catch (e) {
+                    // localStorage voll? Lösche älteste Logs
+                    if (e.name === 'QuotaExceededError') {
+                        window.debugLogs = window.debugLogs.slice(-250);
+                        localStorage.setItem('debugLogs', JSON.stringify(window.debugLogs));
+                    }
+                }
                 
                 // Update UI wenn im Debug-View
                 const debugView = document.getElementById('debug-view');
@@ -24368,6 +24405,9 @@ Stack: ${err.stack}
             // Toggle Pause (global)
             window.toggleDebugPause = function() {
                 window.debugPaused = !window.debugPaused;
+                // 🆕 v5.39.9: Speichere Status in localStorage
+                localStorage.setItem('debugPaused', window.debugPaused);
+                
                 const btn = document.getElementById('debug-pause-btn');
                 if (window.debugPaused) {
                     btn.textContent = '⏸ Paused';
@@ -24385,6 +24425,9 @@ Stack: ${err.stack}
                 if (!confirm('Alle Logs löschen?')) return;
                 window.debugLogs = [];
                 window.debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
+                // 🆕 v5.39.9: Lösche auch aus localStorage
+                localStorage.removeItem('debugLogs');
+                
                 const container = document.getElementById('debug-log-container');
                 if (container) {
                     container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px 20px;">📝 Logs gelöscht - warte auf neue Logs...</div>';
@@ -24465,7 +24508,59 @@ Stack: ${err.stack}
                 if (errorEl) errorEl.textContent = window.debugCounts.error;
             }
             
-            console.log('✅ DEBUG MONITOR bereit (pausiert - im Debug Tab aktivieren)');
+            // 🆕 v5.39.8: Lade ALLE Logs in UI (für View-Wechsel!)
+            window.reloadDebugUI = function() {
+                console.log('🔄 Lade Debug-UI neu mit', window.debugLogs.length, 'Logs');
+                
+                const container = document.getElementById('debug-log-container');
+                if (!container) {
+                    console.warn('⚠️ Debug-Container nicht gefunden!');
+                    return;
+                }
+                
+                // Leere Container
+                container.innerHTML = '';
+                
+                // Zähler zurücksetzen
+                window.debugCounts = { total: 0, info: 0, warn: 0, error: 0 };
+                
+                // Alle Logs neu rendern
+                if (window.debugLogs.length === 0) {
+                    container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px 20px;">📝 Keine Logs vorhanden - warte auf neue Logs...</div>';
+                } else {
+                    window.debugLogs.forEach(log => {
+                        updateDebugUI(log);
+                        // Zähler neu zählen
+                        window.debugCounts.total++;
+                        window.debugCounts[log.type]++;
+                    });
+                }
+                
+                // Update Zähler
+                updateCounts();
+                
+                console.log('✅ Debug-UI geladen:', window.debugCounts);
+            };
+            
+            // 🆕 v5.39.9: Setze Button-Status beim Laden
+            const pauseBtn = document.getElementById('debug-pause-btn');
+            if (pauseBtn) {
+                if (window.debugPaused) {
+                    pauseBtn.textContent = '⏸ Paused';
+                    pauseBtn.style.background = '#f59e0b';
+                } else {
+                    pauseBtn.textContent = '● Recording';
+                    pauseBtn.style.background = '#10b981';
+                }
+            }
+            
+            // 🆕 v5.39.9: Zeige wiederhergestellte Logs an
+            if (window.debugLogs.length > 0) {
+                refreshDebugUI();
+                updateCounts();
+            }
+            
+            console.log(`✅ DEBUG MONITOR bereit (${window.debugPaused ? 'pausiert' : 'recording'} - ${window.debugLogs.length} Logs geladen)`);
         });
     </script>
 

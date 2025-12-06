@@ -17,22 +17,22 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.38.5 - Build 20251205-1100');
-        console.log('🐛 DEBUG-TOGGLE SYSTEM!');
-        console.log('✅ Console an/aus für Fahrgäste!');
+        console.log('🚕 Funk Taxi App v5.38.6 - Build 20251205-1200');
+        console.log('⚡ SCHNELLBUCHUNG IM KALENDER!');
+        console.log('📅 Mit Wochentag-Anzeige!');
         console.log('');
-        console.log('🆕 v5.38.5: Debug-Modus Toggle!');
-        console.log('✅ Console standardmäßig AUS für Fahrgäste!');
-        console.log('✅ Debug-Button im Footer (diskret)!');
-        console.log('✅ Test-Buttons entfernt!');
-        console.log('✅ Züge & Busse entfernt!');
-        console.log('✅ Login-Box dezent & klein!');
-        console.log('✅ Header ohne Titel!');
+        console.log('🆕 v5.38.6: Kalender-Schnellbuchung!');
+        console.log('✅ Schnellbuchung-Panel rechts im Kalender (Overlay)!');
+        console.log('✅ Kunden-Autocomplete (2-3 Buchstaben)!');
+        console.log('✅ Kalender-Zeit anklicken → Zeit ins Panel!');
+        console.log('✅ Wochentag überall: "Donnerstag, 05.12.2024 14:30"!');
+        console.log('✅ Adressen-Autocomplete im Panel!');
+        console.log('✅ Fahrzeug-Auswahl im Panel!');
         console.log('');
-        console.log('🔴 OFFLINE-SCHALTER für Buchungssystem!');
+        console.log('🐛 DEBUG-TOGGLE SYSTEM');
         console.log('✅ ORIGINAL TAXI-APP (ohne ÖPNV)');
         console.log('✅ Mit Login & Buchungssystem');
-        console.log('✅ Schnellbuchung mit Autocomplete, Fahrzeuge & Favoriten!');
+        console.log('✅ Schnellbuchung mit allen Features!');
         console.log('✅ Alle Original-Features!');
     </script>
     
@@ -396,7 +396,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.38.5 - Login dezent & Header clean (Build 20251205-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.38.6 - Kalender-Schnellbuchung + Wochentag (Build 20251205-1200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2084,6 +2084,9 @@
                 <button id="cal-timeline-btn" onclick="switchCalendarView('timeline')" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #10b981; background: white; color: #10b981; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                     🚗⏱️ Fahrzeug-Timeline
                 </button>
+                <button id="quick-booking-toggle-btn" onclick="toggleQuickBookingPanel()" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #f59e0b; background: #f59e0b; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);">
+                    ⚡ Schnellbuchung
+                </button>
             </div>
             
             <!-- Monats-Navigation -->
@@ -2144,8 +2147,117 @@
             </div>
             
             <!-- Kalender-Container -->
-            <div id="calendar-container" style="margin-bottom: 20px;">
+            <div id="calendar-container" style="margin-bottom: 20px; position: relative;">
                 <!-- Wird dynamisch gefüllt -->
+                
+                <!-- 🆕 v5.38.6: SCHNELLBUCHUNG-OVERLAY-PANEL -->
+                <div id="quick-booking-panel" style="
+                    display: none;
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    width: 320px;
+                    background: white;
+                    border: 2px solid #667eea;
+                    border-radius: 12px;
+                    padding: 20px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    z-index: 100;
+                    max-height: 90vh;
+                    overflow-y: auto;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h4 style="margin: 0; font-size: 18px; color: #667eea;">⚡ Schnellbuchung</h4>
+                        <button onclick="closeQuickBookingPanel()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999; line-height: 1; padding: 0;">×</button>
+                    </div>
+                    
+                    <!-- Kunde mit Autocomplete -->
+                    <div style="margin-bottom: 15px; position: relative;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👤 Kunde</label>
+                        <input 
+                            type="text" 
+                            id="qb-panel-customer" 
+                            placeholder="Name eingeben..."
+                            autocomplete="off"
+                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        >
+                        <div id="qb-panel-customer-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    </div>
+                    
+                    <!-- Datum & Zeit -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📅 Datum & Zeit</label>
+                        <input 
+                            type="datetime-local" 
+                            id="qb-panel-datetime" 
+                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        >
+                        <div id="qb-panel-datetime-display" style="margin-top: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; font-size: 13px; color: #6b7280; text-align: center;"></div>
+                    </div>
+                    
+                    <!-- Abholort -->
+                    <div style="margin-bottom: 15px; position: relative;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📍 Abholort</label>
+                        <input 
+                            type="text" 
+                            id="qb-panel-pickup" 
+                            placeholder="Adresse eingeben..."
+                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        >
+                        <div id="qb-panel-pickup-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    </div>
+                    
+                    <!-- Zielort -->
+                    <div style="margin-bottom: 15px; position: relative;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🎯 Zielort</label>
+                        <input 
+                            type="text" 
+                            id="qb-panel-destination" 
+                            placeholder="Adresse eingeben..."
+                            style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        >
+                        <div id="qb-panel-destination-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    </div>
+                    
+                    <!-- Personen -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👥 Personen</label>
+                        <select id="qb-panel-passengers" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                            <option value="1">1 Person</option>
+                            <option value="2">2 Personen</option>
+                            <option value="3">3 Personen</option>
+                            <option value="4">4 Personen</option>
+                            <option value="5">5 Personen</option>
+                            <option value="6">6 Personen</option>
+                            <option value="7">7 Personen</option>
+                            <option value="8">8 Personen</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Fahrzeug -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🚗 Fahrzeug (optional)</label>
+                        <select id="qb-panel-vehicle" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                            <option value="">Automatisch zuweisen</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Notizen -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📝 Notizen (optional)</label>
+                        <textarea id="qb-panel-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; min-height: 60px; box-sizing: border-box; resize: vertical;"></textarea>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button onclick="closeQuickBookingPanel()" style="padding: 14px; background: #f3f4f6; color: #6b7280; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                            Abbrechen
+                        </button>
+                        <button onclick="submitQuickBookingPanel()" style="padding: 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+                            ⚡ Buchen
+                        </button>
+                    </div>
+                </div>
             </div>
             
             <!-- Statistik -->
@@ -13849,6 +13961,23 @@
             return `${day}.${month}. ${hours}:${minutes}`;
         }
         
+        // 🆕 v5.38.6: Format mit Wochentag
+        function formatDateWithWeekday(timestamp) {
+            if (!timestamp) return 'Unbekannt';
+            const date = new Date(timestamp);
+            
+            const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const weekday = weekdays[date.getDay()];
+            
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            
+            return `${weekday}, ${day}.${month}.${year} ${hours}:${minutes}`;
+        }
+        
         async function forceCompleteRide(rideId) {
             if (!confirm('Fahrt wirklich löschen/stornieren?')) return;
             
@@ -17501,6 +17630,375 @@
             
             localStorage.setItem('quickBookingFavorites', JSON.stringify(favorites));
             alert('✅ Als Favorit gespeichert!');
+        }
+        
+        // 🆕 v5.38.6: SCHNELLBUCHUNG-PANEL IM KALENDER
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let qbPanelCustomer = null;
+        let qbPanelPickupCoords = null;
+        let qbPanelDestCoords = null;
+        let qbPanelAutocompleteTimeout = null;
+        
+        function toggleQuickBookingPanel() {
+            const panel = document.getElementById('quick-booking-panel');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                panel.style.display = 'block';
+                setupQuickBookingPanelAutocomplete();
+                loadQuickBookingPanelVehicles();
+                loadQuickBookingPanelCustomers();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        function closeQuickBookingPanel() {
+            document.getElementById('quick-booking-panel').style.display = 'none';
+        }
+        
+        // Kunden-Autocomplete
+        function loadQuickBookingPanelCustomers() {
+            const input = document.getElementById('qb-panel-customer');
+            const dropdown = document.getElementById('qb-panel-customer-dropdown');
+            
+            if (!input || !dropdown) return;
+            
+            input.addEventListener('input', (e) => {
+                const value = e.target.value.trim().toLowerCase();
+                
+                if (value.length < 2) {
+                    dropdown.style.display = 'none';
+                    qbPanelCustomer = null;
+                    return;
+                }
+                
+                // Filter Kunden
+                const filtered = allCustomers.filter(c => {
+                    const name = (c.name || '').toLowerCase();
+                    const phone = (c.phone || '').toLowerCase();
+                    return name.includes(value) || phone.includes(value);
+                });
+                
+                if (filtered.length === 0) {
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Kunden gefunden</div>';
+                    dropdown.style.display = 'block';
+                    return;
+                }
+                
+                dropdown.innerHTML = filtered.slice(0, 10).map(c => `
+                    <div onclick="selectQuickBookingPanelCustomer('${c.id}')" style="
+                        padding:12px;
+                        cursor:pointer;
+                        border-bottom:1px solid #f0f0f0;
+                        transition:background 0.2s;
+                    " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                        <div style="font-weight:600;font-size:14px;">${c.name || 'Unbekannt'}</div>
+                        <div style="font-size:12px;color:#999;">${c.phone || ''}</div>
+                    </div>
+                `).join('');
+                
+                dropdown.style.display = 'block';
+            });
+            
+            // Schließe Dropdown bei Klick außerhalb
+            document.addEventListener('click', (e) => {
+                if (e.target !== input && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+        
+        function selectQuickBookingPanelCustomer(customerId) {
+            const customer = allCustomers.find(c => c.id === customerId);
+            if (!customer) return;
+            
+            qbPanelCustomer = customer;
+            document.getElementById('qb-panel-customer').value = customer.name || 'Unbekannt';
+            document.getElementById('qb-panel-customer-dropdown').style.display = 'none';
+            
+            // Lade Kundendaten wenn vorhanden
+            if (customer.address) {
+                document.getElementById('qb-panel-pickup').value = customer.address;
+            }
+            
+            console.log('👤 Kunde gewählt:', customer);
+        }
+        
+        // Adressen-Autocomplete
+        function setupQuickBookingPanelAutocomplete() {
+            ['qb-panel-pickup', 'qb-panel-destination'].forEach(fieldId => {
+                const input = document.getElementById(fieldId);
+                const dropdown = document.getElementById(fieldId + '-dropdown');
+                
+                if (!input || !dropdown) return;
+                
+                input.addEventListener('input', (e) => {
+                    if (fieldId === 'qb-panel-pickup') qbPanelPickupCoords = null;
+                    else qbPanelDestCoords = null;
+                    
+                    clearTimeout(qbPanelAutocompleteTimeout);
+                    const value = e.target.value.trim();
+                    
+                    if (value.length < 3) {
+                        dropdown.style.display = 'none';
+                        return;
+                    }
+                    
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;">Suche...</div>';
+                    dropdown.style.display = 'block';
+                    
+                    qbPanelAutocompleteTimeout = setTimeout(() => {
+                        searchQuickBookingPanelAddresses(value, fieldId);
+                    }, 300);
+                });
+                
+                document.addEventListener('click', (e) => {
+                    if (e.target !== input && !dropdown.contains(e.target)) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Datetime Anzeige
+            const datetimeInput = document.getElementById('qb-panel-datetime');
+            const datetimeDisplay = document.getElementById('qb-panel-datetime-display');
+            
+            if (datetimeInput && datetimeDisplay) {
+                datetimeInput.addEventListener('change', updateDatetimeDisplay);
+                updateDatetimeDisplay();
+            }
+        }
+        
+        async function searchQuickBookingPanelAddresses(query, fieldId) {
+            const dropdown = document.getElementById(fieldId + '-dropdown');
+            
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?` +
+                    `format=json&` +
+                    `q=${encodeURIComponent(query)}&` +
+                    `countrycodes=de&` +
+                    `limit=8&` +
+                    `addressdetails=1`
+                );
+                
+                const results = await response.json();
+                
+                if (results.length === 0) {
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Ergebnisse</div>';
+                    return;
+                }
+                
+                const usedomResults = results.filter(r => {
+                    const display = r.display_name.toLowerCase();
+                    return display.includes('usedom') || 
+                           display.includes('heringsdorf') || 
+                           display.includes('ahlbeck') ||
+                           display.includes('bansin') ||
+                           display.includes('zinnowitz') ||
+                           display.includes('karlshagen') ||
+                           display.includes('peenemünde') ||
+                           display.includes('koserow') ||
+                           display.includes('ückeritz') ||
+                           display.includes('loddin') ||
+                           display.includes('zempin') ||
+                           display.includes('trassenheide');
+                });
+                
+                const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
+                
+                dropdown.innerHTML = resultsToShow.map(r => {
+                    const address = r.address;
+                    const poiName = address.amenity || address.tourism || address.building || r.name;
+                    
+                    let displayText = '';
+                    if (poiName) displayText += poiName + ', ';
+                    if (address.road) displayText += address.road + ' ';
+                    if (address.house_number) displayText += address.house_number + ', ';
+                    if (address.village || address.town || address.city) {
+                        displayText += (address.village || address.town || address.city);
+                    }
+                    
+                    return `
+                        <div onclick="selectQuickBookingPanelAddress('${fieldId}', '${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" style="
+                            padding:12px;
+                            cursor:pointer;
+                            border-bottom:1px solid #f0f0f0;
+                            transition:background 0.2s;
+                        " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                            <div style="font-weight:600;font-size:14px;">${displayText}</div>
+                            <div style="font-size:11px;color:#999;">${r.display_name}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Autocomplete Fehler:', error);
+                dropdown.innerHTML = '<div style="padding:10px;color:#ef4444;">Fehler bei der Suche</div>';
+            }
+        }
+        
+        function selectQuickBookingPanelAddress(fieldId, address, lat, lon) {
+            document.getElementById(fieldId).value = address;
+            document.getElementById(fieldId + '-dropdown').style.display = 'none';
+            
+            if (fieldId === 'qb-panel-pickup') {
+                qbPanelPickupCoords = { lat, lon };
+            } else {
+                qbPanelDestCoords = { lat, lon };
+            }
+            
+            console.log('📍 Adresse gewählt:', address, {lat, lon});
+        }
+        
+        // Fahrzeuge laden
+        function loadQuickBookingPanelVehicles() {
+            const select = document.getElementById('qb-panel-vehicle');
+            if (!select || !isFirebaseReady) return;
+            
+            db.ref('vehicles').once('value').then(snapshot => {
+                const vehicles = [];
+                snapshot.forEach(child => {
+                    const v = child.val();
+                    v.id = child.key;
+                    vehicles.push(v);
+                });
+                
+                vehicles.sort((a, b) => {
+                    if (a.isOnline && !b.isOnline) return -1;
+                    if (!a.isOnline && b.isOnline) return 1;
+                    return (a.name || '').localeCompare(b.name || '');
+                });
+                
+                select.innerHTML = '<option value="">Automatisch zuweisen</option>' +
+                    vehicles.map(v => {
+                        const onlineText = v.isOnline ? '🟢' : '🔴';
+                        return `<option value="${v.id}">${onlineText} ${v.name || v.id}</option>`;
+                    }).join('');
+            });
+        }
+        
+        // Datetime-Anzeige aktualisieren (mit Wochentag!)
+        function updateDatetimeDisplay() {
+            const input = document.getElementById('qb-panel-datetime');
+            const display = document.getElementById('qb-panel-datetime-display');
+            
+            if (!input || !display || !input.value) {
+                if (display) display.textContent = '';
+                return;
+            }
+            
+            const date = new Date(input.value);
+            const formatted = formatDateWithWeekday(date);
+            display.textContent = formatted;
+        }
+        
+        // Kalender-Zeit-Klick (wird von Kalender aufgerufen)
+        function setQuickBookingPanelTime(datetime) {
+            const input = document.getElementById('qb-panel-datetime');
+            if (!input) return;
+            
+            // Format für datetime-local Input
+            const d = new Date(datetime);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const minutes = String(d.getMinutes()).padStart(2, '0');
+            
+            input.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            updateDatetimeDisplay();
+            
+            // Panel öffnen falls geschlossen
+            const panel = document.getElementById('quick-booking-panel');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                toggleQuickBookingPanel();
+            }
+            
+            // Panel kurz highlighten
+            panel.style.borderColor = '#f59e0b';
+            panel.style.boxShadow = '0 10px 40px rgba(245, 158, 11, 0.4)';
+            setTimeout(() => {
+                panel.style.borderColor = '#667eea';
+                panel.style.boxShadow = '0 10px 40px rgba(0,0,0,0.2)';
+            }, 500);
+            
+            console.log('⏰ Zeit vom Kalender übernommen:', datetime);
+        }
+        
+        // Buchung absenden
+        async function submitQuickBookingPanel() {
+            if (!qbPanelCustomer) {
+                alert('❌ Bitte Kunde auswählen!');
+                return;
+            }
+            
+            const datetime = document.getElementById('qb-panel-datetime').value;
+            const pickup = document.getElementById('qb-panel-pickup').value;
+            const destination = document.getElementById('qb-panel-destination').value;
+            const passengers = parseInt(document.getElementById('qb-panel-passengers').value);
+            const vehicle = document.getElementById('qb-panel-vehicle').value;
+            const notes = document.getElementById('qb-panel-notes').value;
+            
+            if (!datetime) {
+                alert('❌ Bitte Datum & Zeit auswählen!');
+                return;
+            }
+            
+            if (!pickup || !destination) {
+                alert('❌ Bitte Abholort und Zielort eingeben!');
+                return;
+            }
+            
+            try {
+                const rideData = {
+                    customerId: qbPanelCustomer.id,
+                    customerName: qbPanelCustomer.name || 'Unbekannt',
+                    customerPhone: qbPanelCustomer.phone || '',
+                    pickup,
+                    destination,
+                    pickupTime: new Date(datetime).toISOString(),
+                    passengers,
+                    status: 'vorbestellt',
+                    createdAt: new Date().toISOString(),
+                    notes: notes || '',
+                    vehicleId: vehicle || null,
+                    pickupCoords: qbPanelPickupCoords,
+                    destCoords: qbPanelDestCoords,
+                    createdBy: 'admin',
+                    isAdvanceBooking: true
+                };
+                
+                const rideRef = await db.ref('rides').push(rideData);
+                
+                alert('✅ Fahrt erfolgreich gebucht!');
+                
+                // Panel schließen
+                closeQuickBookingPanel();
+                
+                // Kalender neu laden
+                if (typeof loadCalendar === 'function') {
+                    loadCalendar();
+                }
+                
+                // Felder zurücksetzen
+                document.getElementById('qb-panel-customer').value = '';
+                document.getElementById('qb-panel-datetime').value = '';
+                document.getElementById('qb-panel-pickup').value = '';
+                document.getElementById('qb-panel-destination').value = '';
+                document.getElementById('qb-panel-passengers').value = '1';
+                document.getElementById('qb-panel-vehicle').value = '';
+                document.getElementById('qb-panel-notes').value = '';
+                qbPanelCustomer = null;
+                qbPanelPickupCoords = null;
+                qbPanelDestCoords = null;
+                
+                console.log('✅ Schnellbuchung erstellt:', rideRef.key);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Buchen:', error);
+                alert('❌ Fehler beim Buchen: ' + error.message);
+            }
         }
         
         async function submitQuickBooking() {

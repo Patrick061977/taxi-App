@@ -17,14 +17,15 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.39.5 - Build 20251206-1130');
-        console.log('🔧 BUGFIX - Firebase Crash gefixt!');
+        console.log('🚕 Funk Taxi App v5.39.6 - Build 20251206-1230');
+        console.log('🔧 BUGFIX - debugLogs Konflikt behoben!');
         console.log('');
-        console.log('🐛 v5.39.5: KRITISCHER BUGFIX!');
-        console.log('✅ debugMode Fehler behoben!');
+        console.log('🐛 v5.39.6: ZWEITER KRITISCHER BUGFIX!');
+        console.log('✅ debugLogs Doppel-Definition entfernt!');
+        console.log('✅ Altes Console-Override entfernt!');
+        console.log('✅ Nur noch neues Debug Panel!');
         console.log('✅ Firebase lädt jetzt!');
-        console.log('✅ Admin Debug Panel funktioniert!');
-        console.log('✅ Alles läuft wieder!');
+        console.log('✅ Alles funktioniert!');
         console.log('');
         console.log('📊 ADMIN → 🔍 DEBUG TAB JETZT VERFÜGBAR!');
     </script>
@@ -389,7 +390,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.5 - FIREBASE BUGFIX (Build 20251206-1130)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.39.6 - debugLogs BUGFIX (Build 20251206-1230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3649,9 +3650,9 @@
         const sentTelegramRides = new Set(); // Speichert Ride-IDs die schon gesendet wurden
         const warnedOpenRides = new Set(); // 🆕 Speichert Ride-IDs für die schon Warnungen gesendet wurden
         
-        // 🐛 SUPER DEBUG SYSTEM
+        // 🐛 SUPER DEBUG SYSTEM (ALT - für Legacy Debug-Button)
         let debugErrors = [];
-        let debugLogs = [];
+        // oldDebugLogs entfernt - wird vom neuen Debug Panel ersetzt!
         let debugFirebaseQueries = [];
         let debugStateChanges = [];
         const MAX_DEBUG_LOGS = 200;
@@ -3681,40 +3682,8 @@
             console.error('🔴 PROMISE REJECTION:', errorInfo);
         });
         
-        // Überschreibe console.log für Debug-Logging
-        const originalLog = console.log;
-        const originalError = console.error;
-        const originalWarn = console.warn;
-        
-        console.log = function(...args) {
-            debugLogs.push({
-                time: new Date().toISOString(),
-                type: 'log',
-                message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
-            });
-            if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
-            originalLog.apply(console, args);
-        };
-        
-        console.error = function(...args) {
-            debugLogs.push({
-                time: new Date().toISOString(),
-                type: 'error',
-                message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
-            });
-            if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
-            originalError.apply(console, args);
-        };
-        
-        console.warn = function(...args) {
-            debugLogs.push({
-                time: new Date().toISOString(),
-                type: 'warn',
-                message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
-            });
-            if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
-            originalWarn.apply(console, args);
-        };
+        // 🔍 Console-Override wird jetzt vom neuen Debug Panel (Zeile 3342) gehandhabt!
+        // Altes Console-Override hier entfernt um Kollisionen zu vermeiden.
         
         // Helper: Log State Change
         function logStateChange(description, oldValue, newValue) {

@@ -17,11 +17,12 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.42.1 - Build 20251207-1310');
-        console.log('👤 v5.42.1: AVATAR-ICON + CLEANER DESIGN! (Patrick\'s Wunsch!)');
-        console.log('✅ v5.42.1: "Mein Konto" funktioniert für ALLE Login-Typen!');
-        console.log('🎨 v5.42.1: Grüne Box weg, Avatar-Icon stattdessen!');
-        console.log('☰ v5.42.0: Konto im Menü!');
+        console.log('🚕 Funk Taxi App v5.42.2 - Build 20251207-1330');
+        console.log('🐛 v5.42.2: KRITISCHE BUGFIXES!');
+        console.log('✅ v5.42.2: "Anmelden" Button verschwindet nach Phone-Login!');
+        console.log('✅ v5.42.2: Avatar erscheint für Phone-Login!');
+        console.log('✅ v5.42.2: "Mein Konto" erscheint im Menü!');
+        console.log('🎨 v5.42.1: Grüne Box weg, Avatar-Icon!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -411,7 +412,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.1 - Avatar & Cleaner Design (Build 20251207-1310)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.2 - Phone-Login Bugfixes (Build 20251207-1330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5488,6 +5489,9 @@
             
             updateStatus();
             updateViews(); // WICHTIG: Views auch ohne Firebase laden!
+            
+            // 🆕 v5.42.2: Quick-Login Daten beim Start laden + Avatar zeigen!
+            loadQuickLoginData();
             
             // 🔔 SERVICE WORKER DEAKTIVIERT - Telegram übernimmt Benachrichtigungen!
             // initServiceWorker();
@@ -21671,6 +21675,15 @@ Stack: ${err.stack}
                 }
                 
                 closeLoginModal();
+                
+                // 🆕 v5.42.2: WICHTIG! Auth-Check + Menü-Update + User-Profile nach Login!
+                setTimeout(() => {
+                    checkPassengerAuth();
+                    loadQuickLoginData();
+                    updateMenuProfile();
+                    updateUserProfile(); // 🆕 Versteckt "Anmelden" Button!
+                }, 500);
+                
                 alert('✅ Erfolgreich angemeldet!\n\n📱 ' + result.user.phoneNumber);
                 
             } catch (error) {
@@ -21980,12 +21993,10 @@ Stack: ${err.stack}
                 console.log('✅ Quick-Login aktiv:', quickLoginPhone);
                 if (authScreen) authScreen.style.display = 'none';
                 
-                // Quick-Login Box anzeigen
-                const quickBox = document.getElementById('quick-login-box');
-                if (quickBox) {
-                    quickBox.style.display = 'block';
-                    document.getElementById('quick-login-phone').textContent = quickLoginPhone;
-                }
+                // 🆕 v5.42.2: Quick-Login-Box ist DEAKTIVIERT - Avatar stattdessen!
+                // Quick-Login Daten laden + Menü aktualisieren
+                loadQuickLoginData();
+                updateMenuProfile();
                 
                 // ✅ FIX: Anmelden-Button verstecken wenn eingeloggt!
                 const loginButton = document.querySelector('button[onclick="showLoginModal()"]');
@@ -22688,20 +22699,40 @@ Stack: ${err.stack}
                     <button class="btn-logout" onclick="logoutUser()">Aus</button>
                 `;
             } else {
-                // User ist nicht eingeloggt - zeige nur Anmelden Button
-                if (!profileBox) {
-                    profileBox = document.createElement('div');
-                    profileBox.id = 'user-profile-box';
-                    header.appendChild(profileBox);
-                }
+                // 🆕 v5.42.2: Prüfe auch Quick-Login!
+                const quickLoginPhone = localStorage.getItem('loggedInPhone');
                 
-                profileBox.className = '';
-                profileBox.style.marginTop = '15px';
-                profileBox.innerHTML = `
-                    <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
-                        🔐 Anmelden / Registrieren
-                    </button>
-                `;
+                if (quickLoginPhone) {
+                    // Quick-Login User ist eingeloggt → KEIN Anmelden-Button!
+                    if (!profileBox) {
+                        profileBox = document.createElement('div');
+                        profileBox.id = 'user-profile-box';
+                        header.appendChild(profileBox);
+                    }
+                    
+                    profileBox.className = '';
+                    profileBox.style.marginTop = '15px';
+                    profileBox.innerHTML = `
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.8);">
+                            📱 Eingeloggt via Telefon
+                        </div>
+                    `;
+                } else {
+                    // User ist nicht eingeloggt - zeige nur Anmelden Button
+                    if (!profileBox) {
+                        profileBox = document.createElement('div');
+                        profileBox.id = 'user-profile-box';
+                        header.appendChild(profileBox);
+                    }
+                    
+                    profileBox.className = '';
+                    profileBox.style.marginTop = '15px';
+                    profileBox.innerHTML = `
+                        <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
+                            🔐 Anmelden / Registrieren
+                        </button>
+                    `;
+                }
             }
         }
 

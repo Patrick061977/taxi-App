@@ -17,9 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.40.3 - Build 20251206-2248');
-        console.log('🔒 v5.40.3: TRIPLE-SCHUTZ für Kopieren! editingRideId wird 3x auf null gesetzt!');
-        console.log('✅ v5.40.3: Extra-Verifikation nach Fahrt-Erstellung in Firebase!');
+        console.log('🚕 Funk Taxi App v5.40.7 - Build 20251206-2333');
+        console.log('🐛 v5.40.7: KOPIEREN-BUG GEFIXED! Map nutzt jetzt firebaseId statt id!');
+        console.log('🔍 v5.40.7: SUPER-DEBUG für Kopieren-Problem!');
+        console.log('📱 v5.40.7: TELEGRAM für Schnellbuchungen!');
+        console.log('📱 v5.40.7: TELEGRAM für gelöschte Fahrten!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -17882,6 +17884,7 @@
             
             // Reset globale Variablen
             window.editingRideId = null;
+            window.copiedFromRideId = null; // 🔒 v5.40.4: Auch kopierte Fahrt-ID zurücksetzen
             qbPanelCustomer = null;
             qbPanelPickupCoords = null;
             qbPanelDestCoords = null;
@@ -18386,6 +18389,57 @@
                     console.log('═══════════════════════════════════════');
                 }
                 
+                // 🔒 v5.40.4: SUPER-DEBUG! Prüfe ob Original-Fahrt noch existiert!
+                if (window.copiedFromRideId) {
+                    console.log('═══════════════════════════════════════');
+                    console.log('🔍 SUPER-DEBUG: Prüfe Original-Fahrt...');
+                    console.log('   Original-Fahrt-ID:', window.copiedFromRideId);
+                    console.log('   Neue-Fahrt-ID:', rideRef.key);
+                    
+                    try {
+                        const originalSnapshot = await db.ref(`rides/${window.copiedFromRideId}`).once('value');
+                        if (originalSnapshot.exists()) {
+                            const originalData = originalSnapshot.val();
+                            console.log('✅ ORIGINAL-FAHRT NOCH DA!');
+                            console.log('   Zeit:', originalData.pickupTime);
+                            console.log('   Von:', originalData.pickup);
+                            console.log('   Nach:', originalData.destination);
+                        } else {
+                            console.error('❌❌❌ KRITISCH: ORIGINAL-FAHRT WURDE GELÖSCHT! ❌❌❌');
+                            console.error('   Gelöschte ID:', window.copiedFromRideId);
+                            console.error('   Das sollte NICHT passieren beim Kopieren!');
+                        }
+                    } catch (error) {
+                        console.error('❌ Fehler beim Prüfen der Original-Fahrt:', error);
+                    }
+                    
+                    // Reset
+                    window.copiedFromRideId = null;
+                    console.log('═══════════════════════════════════════');
+                }
+                
+                // 📱 v5.40.5: TELEGRAM für NEUE Schnellbuchungen!
+                if (!window.editingRideId) {
+                    // Nur bei NEUEN Fahrten (nicht beim Bearbeiten)
+                    console.log('═══════════════════════════════════════');
+                    console.log('📱 TELEGRAM: Sende Benachrichtigung für Schnellbuchung...');
+                    
+                    try {
+                        // Baue ride-Objekt für Telegram
+                        const rideForTelegram = {
+                            firebaseId: rideRef.key,
+                            id: rideRef.key,
+                            ...rideData
+                        };
+                        
+                        await sendTelegramForNewRide(rideForTelegram);
+                        console.log('✅ TELEGRAM: Benachrichtigung gesendet!');
+                    } catch (error) {
+                        console.error('❌ TELEGRAM: Fehler beim Senden:', error);
+                    }
+                    console.log('═══════════════════════════════════════');
+                }
+                
                 // 🆕 Speichere Adressen in CRM wenn Checkboxen aktiviert
                 const saveAsMain = document.getElementById('qb-panel-save-as-main').checked;
                 const saveAsBilling = document.getElementById('qb-panel-save-as-billing').checked;
@@ -18530,6 +18584,10 @@
         // 🆕 FAHRT KOPIEREN
         async function copyRideFromCalendar(rideId) {
             try {
+                // 🔒 v5.40.4: SUPER-DEBUG! Speichere Original-Fahrt-ID
+                window.copiedFromRideId = rideId;
+                console.log('🔍 SUPER-DEBUG: Original-Fahrt-ID gespeichert:', rideId);
+                
                 // 🔧 v5.39.9: editingRideId SOFORT zurücksetzen!
                 console.log('═══════════════════════════════════════');
                 console.log('📋 KOPIEREN GESTARTET!');
@@ -18647,6 +18705,16 @@
             
             try {
                 await db.ref(`rides/${rideId}`).remove();
+                
+                // 📱 v5.40.6: TELEGRAM für gelöschte Fahrten!
+                console.log('📱 TELEGRAM: Sende Lösch-Benachrichtigung...');
+                try {
+                    await sendTelegramForDeletedRide(ride);
+                    console.log('✅ TELEGRAM: Lösch-Benachrichtigung gesendet!');
+                } catch (telegramError) {
+                    console.error('❌ TELEGRAM: Fehler beim Senden:', telegramError);
+                }
+                
                 alert('✅ Fahrt gelöscht!');
                 
                 // Kalender neu laden
@@ -22395,11 +22463,20 @@ Stack: ${err.stack}
                         
                         console.log(`📅 Kalender: ${firebaseRides.length} Fahrten aus Firebase geladen`);
                         
-                        // Merge: Firebase hat Vorrang
+                        // 🔧 v5.40.7: FIX - Nutze firebaseId als Key, NICHT id!
+                        // Problem: Kopierte Fahrten hatten gleiche id → nur eine wurde angezeigt!
                         const rideMap = new Map();
-                        localHistory.forEach(r => rideMap.set(r.id, r));
-                        firebaseRides.forEach(r => rideMap.set(r.id, r));
+                        localHistory.forEach(r => {
+                            const key = r.firebaseId || r.id || Math.random();
+                            rideMap.set(key, r);
+                        });
+                        firebaseRides.forEach(r => {
+                            const key = r.firebaseId || r.id || Math.random();
+                            rideMap.set(key, r);
+                        });
                         allRides = Array.from(rideMap.values());
+                        
+                        console.log('📊 Kalender nach Merge:', allRides.length, 'Fahrten');
                     }
                 } catch (e) {
                     console.error('❌ Fehler beim Laden der Firebase-Fahrten:', e);

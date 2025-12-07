@@ -17,11 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.41.7 - Build 20251207-1220');
-        console.log('✨ v5.41.7: LIVE-CHECK zeigt VERFÜGBARE SLOTS! (Patrick\'s Idee!)');
-        console.log('✅ v5.41.7: Buttons zum direkten Übernehmen der Zeit!');
-        console.log('🔧 v5.41.6: Syntax-Fehler gefixed!');
-        console.log('🚗 v5.41.5: Live Slot-Check + Extra Bestätigung!');
+        console.log('🚕 Funk Taxi App v5.41.8 - Build 20251207-1230');
+        console.log('🔧 v5.41.8: KRITISCHER FIX! Alternativen werden auf Verfügbarkeit geprüft!');
+        console.log('✅ v5.41.8: Endlos-Schleife gefixed! Nur FREIE Slots werden angezeigt!');
+        console.log('🚀 v5.41.8: Prüft bis zu 20 Slots bis 3 freie gefunden!');
+        console.log('✨ v5.41.7: Live-Check zeigt verfügbare Slots!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -386,7 +386,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.7 - Verfügbare Slots (Build 20251207-1220)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.8 - Slot-Check Fix (Build 20251207-1230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11757,17 +11757,37 @@
                 
                 console.log('⏰ Frühestmöglich (gerundet):', new Date(earliestTime).toLocaleTimeString('de-DE'));
                 
-                // 6. Erstelle 3 Vorschläge: +15, +30, +45 Min
-                const alternatives = [
-                    earliestTime + (15 * 60 * 1000),
-                    earliestTime + (30 * 60 * 1000),
-                    earliestTime + (45 * 60 * 1000)
-                ];
+                // 🆕 v5.41.8: PRÜFE ALTERNATIVEN ob sie WIRKLICH FREI sind!
+                const alternatives = [];
+                let candidateTime = earliestTime;
+                const maxAttempts = 20; // Max 20 Slots prüfen
+                let attempts = 0;
                 
-                return alternatives.map(ts => ({
-                    timestamp: ts,
-                    formatted: formatTimeForDisplay(ts)
-                }));
+                console.log('🔍 Suche verfügbare Slots ab:', new Date(candidateTime).toLocaleString('de-DE'));
+                
+                while (alternatives.length < 3 && attempts < maxAttempts) {
+                    attempts++;
+                    
+                    // Prüfe ob dieser Slot frei ist
+                    const availability = await checkTimeSlotAvailability(candidateTime, pickupCoords);
+                    
+                    if (availability.available) {
+                        console.log('✅ Slot verfügbar:', new Date(candidateTime).toLocaleString('de-DE'));
+                        alternatives.push({
+                            timestamp: candidateTime,
+                            formatted: formatTimeForDisplay(candidateTime)
+                        });
+                    } else {
+                        console.log('⚠️ Slot belegt:', new Date(candidateTime).toLocaleString('de-DE'));
+                    }
+                    
+                    // Nächster Kandidat: +15 Min
+                    candidateTime += (15 * 60 * 1000);
+                }
+                
+                console.log(`💡 ${alternatives.length} verfügbare Slots gefunden (${attempts} geprüft)`);
+                
+                return alternatives;
                 
             } catch (error) {
                 console.error('❌ Fehler bei Alternativ-Berechnung:', error);

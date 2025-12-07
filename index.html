@@ -17,11 +17,15 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        // 🆕 v5.42.5: Console-Log mit Zeitstempel!
+        // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
             const originalLog = console.log;
             const originalError = console.error;
             const originalWarn = console.warn;
+            
+            // 🆕 Speichere alle Logs
+            window.consoleLogHistory = [];
+            window.consolePaused = false;
             
             function formatTimestamp() {
                 const now = new Date();
@@ -33,23 +37,52 @@
             }
             
             console.log = function(...args) {
-                originalLog.apply(console, [formatTimestamp(), ...args]);
+                const timestamp = formatTimestamp();
+                const message = [timestamp, ...args].map(a => 
+                    typeof a === 'object' ? JSON.stringify(a) : String(a)
+                ).join(' ');
+                
+                // Speichere in History
+                window.consoleLogHistory.push(message);
+                
+                // Zeige nur wenn nicht pausiert
+                if (!window.consolePaused) {
+                    originalLog.apply(console, [timestamp, ...args]);
+                }
             };
             
             console.error = function(...args) {
-                originalError.apply(console, [formatTimestamp(), '❌', ...args]);
+                const timestamp = formatTimestamp();
+                const message = [timestamp, '❌', ...args].map(a => 
+                    typeof a === 'object' ? JSON.stringify(a) : String(a)
+                ).join(' ');
+                
+                window.consoleLogHistory.push(message);
+                
+                if (!window.consolePaused) {
+                    originalError.apply(console, [timestamp, '❌', ...args]);
+                }
             };
             
             console.warn = function(...args) {
-                originalWarn.apply(console, [formatTimestamp(), '⚠️', ...args]);
+                const timestamp = formatTimestamp();
+                const message = [timestamp, '⚠️', ...args].map(a => 
+                    typeof a === 'object' ? JSON.stringify(a) : String(a)
+                ).join(' ');
+                
+                window.consoleLogHistory.push(message);
+                
+                if (!window.consolePaused) {
+                    originalWarn.apply(console, [timestamp, '⚠️', ...args]);
+                }
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.42.5 - Build 20251207-1430');
+        console.log('🚕 Funk Taxi App v5.42.6 - Build 20251207-1445');
+        console.log('🎛️ v5.42.6: Console PAUSE/EXPORT Controls!');
         console.log('⏰ v5.42.5: Console-Logs mit ZEITSTEMPEL!');
-        console.log('🐛 v5.42.4: FIX - Bestätigungskarte wird nicht überschrieben!');
-        console.log('🛡️ v5.42.4: showingBookingSuccessCard Flag schützt Karte!');
-        console.log('🎉 v5.42.3: SCHÖNE BESTÄTIGUNGSKARTE nach Buchung!');
+        console.log('🐛 v5.42.4: Bestätigungskarte FIX!');
+        console.log('🎉 v5.42.3: SCHÖNE Bestätigungskarte!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -439,7 +472,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.5 - Console mit Zeitstempel (Build 20251207-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.6 - Console Controls (Build 20251207-1445)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1304,6 +1337,76 @@
                     Hol dir deine Chat-ID: Schreibe /getid an <a href="https://t.me/myidbot" target="_blank" style="color: #0088cc;">@myidbot</a>
                 </div>
             </div>
+            
+            <!-- 🆕 v5.42.6: CONSOLE CONTROLS -->
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #ddd;">
+                <b>🐛 Console Controls:</b>
+                <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button onclick="pauseConsole()" id="console-pause-btn" style="
+                        padding: 12px;
+                        background: #f59e0b;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    ">⏸️ PAUSE</button>
+                    
+                    <button onclick="playConsole()" id="console-play-btn" style="
+                        padding: 12px;
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        display: none;
+                    ">▶️ PLAY</button>
+                    
+                    <button onclick="copyConsole()" style="
+                        padding: 12px;
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    ">📋 COPY</button>
+                    
+                    <button onclick="exportConsole()" style="
+                        padding: 12px;
+                        background: #3b82f6;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    ">💾 EXPORT</button>
+                    
+                    <button onclick="clearConsoleLog()" style="
+                        padding: 12px;
+                        background: #ef4444;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    ">🗑️ CLEAR</button>
+                </div>
+                <div id="console-status" style="margin-top: 8px; font-size: 11px; color: #10b981; font-weight: 600;">
+                    ▶️ Console läuft
+                </div>
+            </div>
         </div>
         
         <!-- Neue Aufträge Slide-In Panel mit TABS! -->
@@ -1908,7 +2011,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.42.5 - Zeitstempel aktiv!');
+                    console.log('🚕 Funk Taxi App v5.42.6 - Console Controls!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -4950,10 +5053,10 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.42.5 - Zeitstempel aktiv!');
-        console.log('⏰ v5.42.5: Alle Logs mit Zeitstempel!');
-        console.log('🐛 v5.42.4: Bestätigungskarte FIX!');
-        console.log('🎉 v5.42.3: SCHÖNE Bestätigungskarte!');
+        console.log('🚕 Funk Taxi App v5.42.6 - Console Controls!');
+        console.log('🎛️ v5.42.6: PAUSE/EXPORT/COPY Console!');
+        console.log('⏰ v5.42.5: Zeitstempel!');
+        console.log('🎉 v5.42.3: Bestätigungskarte!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -13594,6 +13697,78 @@
                     actionButton.onclick = () => completeRide(rideId);
                     actionButton.style.background = '#10b981';
                 }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.42.6: CONSOLE CONTROL FUNKTIONEN
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        function pauseConsole() {
+            window.consolePaused = true;
+            document.getElementById('console-pause-btn').style.display = 'none';
+            document.getElementById('console-play-btn').style.display = 'block';
+            document.getElementById('console-status').innerHTML = '⏸️ Console PAUSIERT';
+            document.getElementById('console-status').style.color = '#f59e0b';
+            console.log('⏸️ Console PAUSIERT!');
+        }
+        
+        function playConsole() {
+            window.consolePaused = false;
+            document.getElementById('console-pause-btn').style.display = 'block';
+            document.getElementById('console-play-btn').style.display = 'none';
+            document.getElementById('console-status').innerHTML = '▶️ Console läuft';
+            document.getElementById('console-status').style.color = '#10b981';
+            console.log('▶️ Console läuft wieder!');
+        }
+        
+        function copyConsole() {
+            const logs = window.consoleLogHistory.join('\n');
+            
+            // Versuche in Zwischenablage zu kopieren
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(logs).then(() => {
+                    alert('✅ Console in Zwischenablage kopiert!\n\n' + 
+                          logs.split('\n').length + ' Zeilen kopiert.');
+                }).catch(err => {
+                    // Fallback: Zeige in Alert
+                    prompt('📋 Kopiere diese Logs:\n\n' + 
+                           '(Strg+C / Cmd+C zum kopieren)', logs);
+                });
+            } else {
+                // Fallback für ältere Browser
+                prompt('📋 Kopiere diese Logs:\n\n' + 
+                       '(Strg+C / Cmd+C zum kopieren)', logs);
+            }
+        }
+        
+        function exportConsole() {
+            const logs = window.consoleLogHistory.join('\n');
+            const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+            const filename = `console-log-${timestamp}.txt`;
+            
+            // Erstelle Download-Link
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('💾 Console exportiert!\n\n' + 
+                  'Datei: ' + filename + '\n' +
+                  'Zeilen: ' + logs.split('\n').length);
+        }
+        
+        function clearConsoleLog() {
+            if (confirm('🗑️ Console wirklich leeren?\n\nAlle Logs gehen verloren!')) {
+                window.consoleLogHistory = [];
+                console.clear();
+                console.log('🗑️ Console geleert!');
+                alert('✅ Console geleert!');
             }
         }
 
@@ -25147,7 +25322,7 @@ Stack: ${err.stack}
         
         // 🆕 v5.39.8: AGGRESSIVE VIEW-BEREINIGUNG - Mehrfach ausführen!
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 v5.39.8: View-Bereinigung aktiv...');
+            console.log('🚀 v5.42.5: View-Bereinigung aktiv...');
             
             function forcePassengerViewOnly() {
                 // Verstecke ALLE Views brutal!

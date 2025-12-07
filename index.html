@@ -17,11 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.40.7 - Build 20251206-2333');
-        console.log('🐛 v5.40.7: KOPIEREN-BUG GEFIXED! Map nutzt jetzt firebaseId statt id!');
-        console.log('🔍 v5.40.7: SUPER-DEBUG für Kopieren-Problem!');
-        console.log('📱 v5.40.7: TELEGRAM für Schnellbuchungen!');
-        console.log('📱 v5.40.7: TELEGRAM für gelöschte Fahrten!');
+        console.log('🚕 Funk Taxi App v5.41.0 - Build 20251207-0950');
+        console.log('🔥 v5.41.0: KRITISCHER FIX! Admin-Kalender zeigt NUR Firebase!');
+        console.log('🔥 v5.41.0: KEIN localStorage-Merge mehr für Admin!');
+        console.log('🔥 v5.41.0: Firebase = einzige Quelle der Wahrheit für Admin!');
+        console.log('🐛 v5.40.9: Telegram ID & Preis gefixed!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -386,7 +386,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.40.2 - Debug Kopieren (Build 20251206-2235)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.0 - Admin NUR Firebase (Build 20251207-0950)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -783,7 +783,7 @@
             </div>
         </div>
         
-        <div id="my-profile-box" style="display:none; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+        <div id="my-profile-box" style="display:none; position: fixed; top: 160px; right: 20px; width: 280px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); z-index: 999;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h4 style="margin: 0; font-size: 16px;">👤 Mein Konto</h4>
                 <button onclick="showMyProfileModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
@@ -9035,7 +9035,7 @@
                     `👤 <b>Name:</b> ${ride.customerName}\n` +
                     `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                     `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
-                    `💰 <b>Preis:</b> ${ride.price}€\n` +
+                    `💰 <b>Preis:</b> ${ride.price || 0}€\n` +
                     `⏰ <b>Gesendet:</b> ${timestamp}\n` +
                     `\n👉 <a href="https://patrick061977.github.io/taxi-App/">App öffnen</a>`;
                 
@@ -9265,7 +9265,7 @@
                     `📍 <b>Von:</b> ${ride.pickup}\n` +
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
                     (ride.pickupTime && ride.pickupTime !== 'Sofort' ? `⏰ <b>Abholung:</b> ${ride.pickupTime}\n` : '') +
-                    `💰 <b>Preis:</b> ${ride.price}€\n` +
+                    `💰 <b>Preis:</b> ${ride.price || 0}€\n` +
                     `⏰ <b>Gesendet:</b> ${timestamp}\n` +
                     `\n🚨 <b>Diese Fahrt wurde vom Admin gelöscht!</b>`;
                 
@@ -18694,6 +18694,10 @@
                 return;
             }
             
+            // 🔧 v5.40.9: FIX - firebaseId hinzufügen für Telegram!
+            ride.firebaseId = rideId;
+            ride.id = ride.id || rideId;
+            
             const confirmMsg = `Fahrt wirklich löschen?\n\n` +
                 `📍 Von: ${ride.pickup || '?'}\n` +
                 `🎯 Nach: ${ride.destination || '?'}\n` +
@@ -22443,40 +22447,29 @@ Stack: ${err.stack}
         async function renderCalendar() {
             console.log('📅 Rendere Kalender:', currentCalendarView, currentCalendarDate);
             
-            // Lade alle Fahrten
-            const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
-            let allRides = [...localHistory];
+            let allRides = [];
             
-            // 🔥 Hole auch Firebase-Fahrten wenn eingeloggt
+            // 🔥 v5.41.0: Admin-Kalender zeigt NUR Firebase!
+            // KEIN localStorage-Merge für Admin!
             if (isFirebaseReady && currentUser) {
                 try {
-                    // 🆕 v5.30.5: Admin-Kalender zeigt ALLE Fahrten!
-                    // Für Admin: Lade ALLE Fahrten (nicht nur eigene)
+                    // Für Admin: Lade ALLE Fahrten aus Firebase (einzige Quelle der Wahrheit!)
                     const snapshot = await db.ref('rides').once('value');
                     if (snapshot.exists()) {
                         const firebaseRides = [];
                         snapshot.forEach(childSnapshot => {
                             const ride = childSnapshot.val();
                             ride.firebaseId = childSnapshot.key;
+                            ride.id = ride.id || childSnapshot.key; // Fallback
                             firebaseRides.push(ride);
                         });
                         
                         console.log(`📅 Kalender: ${firebaseRides.length} Fahrten aus Firebase geladen`);
                         
-                        // 🔧 v5.40.7: FIX - Nutze firebaseId als Key, NICHT id!
-                        // Problem: Kopierte Fahrten hatten gleiche id → nur eine wurde angezeigt!
-                        const rideMap = new Map();
-                        localHistory.forEach(r => {
-                            const key = r.firebaseId || r.id || Math.random();
-                            rideMap.set(key, r);
-                        });
-                        firebaseRides.forEach(r => {
-                            const key = r.firebaseId || r.id || Math.random();
-                            rideMap.set(key, r);
-                        });
-                        allRides = Array.from(rideMap.values());
+                        // Admin: NUR Firebase! KEIN Merge mit localStorage!
+                        allRides = firebaseRides;
                         
-                        console.log('📊 Kalender nach Merge:', allRides.length, 'Fahrten');
+                        console.log('📊 Admin-Kalender: NUR Firebase-Fahrten:', allRides.length);
                     }
                 } catch (e) {
                     console.error('❌ Fehler beim Laden der Firebase-Fahrten:', e);

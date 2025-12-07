@@ -472,7 +472,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.2 - AUTOCOMPLETE FIX (Build 20251207-1945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.4 - ALERT DEBUG (Build 20251207-2010)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10695,11 +10695,22 @@
         let autocompleteTimeout = null;
         
         function setupAutocomplete() {
+            console.log('🔧 setupAutocomplete wird initialisiert...');
+            
             ['pickup', 'destination'].forEach(id => {
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
                 
+                if (!input) {
+                    console.error('❌ Input-Element nicht gefunden:', id);
+                    return;
+                }
+                
+                console.log('✅ Input Event Listener wird registriert für:', id);
+                
                 input.addEventListener('input', (e) => {
+                    console.log('⌨️ INPUT EVENT!', id, 'Wert:', e.target.value);
+                    
                     // Reset coords wenn User manuell tippt
                     if (id === 'pickup') {
                         pickupCoords = null;
@@ -10715,48 +10726,47 @@
                     const value = e.target.value.trim();
                     
                     if (value.length < 3) {
+                        console.log('⚠️ Zu kurz (<3 Zeichen):', value.length);
                         // 🆕 v5.45.2: Schließe Overlay bei zu wenig Text
                         closeAutocompleteOverlay();
                         return;
                     }
                     
+                    console.log('✅ Starte Autocomplete-Suche in 300ms für:', value);
+                    
                     // 🆕 v5.45.2: NUR NOCH OVERLAY - Altes Dropdown entfernt!
                     // Verzögerte Suche (Debounce)
                     autocompleteTimeout = setTimeout(() => {
+                        console.log('🔍 Rufe searchAddresses() auf für:', value, 'Feld:', id);
                         searchAddresses(value, id);
                     }, 300);
                 });
                 
-                // Schließe Dropdown wenn außerhalb geklickt
-                document.addEventListener('click', (e) => {
-                    if (e.target !== input && !dropdown.contains(e.target)) {
-                        dropdown.style.display = 'none';
-                    }
-                });
+                console.log('✅ Event Listener registriert für:', id);
             });
             
-            // NOTE: pickup-time Element entfernt in v5.30.0 (Sofort/Vorbestellen UX)
-            // Alter Event-Listener nicht mehr benötigt
-            const oldPickupTime = document.getElementById('pickup-time');
-            if (oldPickupTime) {
-                oldPickupTime.addEventListener('change', (e) => {
-                    const customTime = document.getElementById('custom-time');
-                    if (customTime) {
-                        if (e.target.value === 'custom') customTime.style.display = 'block';
-                        else customTime.style.display = 'none';
-                    }
-                });
-            }
+            console.log('✅ setupAutocomplete abgeschlossen!');
         }
 
         async function searchAddresses(query, inputId) {
+            console.log('🔍 searchAddresses GESTARTET!');
+            console.log('   Query:', query);
+            console.log('   Input ID:', inputId);
+            
             const overlayList = document.getElementById('overlay-autocomplete-list');
             currentAutocompleteField = inputId; // 🆕 Merke welches Feld!
             
+            if (!overlayList) {
+                console.error('❌ overlay-autocomplete-list nicht gefunden!');
+                return;
+            }
+            
             try {
+                console.log('✅ Öffne Overlay...');
                 // 🆕 v5.42.8: Zeige OVERLAY!
                 document.getElementById('autocomplete-overlay').style.display = 'block';
                 overlayList.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">🔍 Suche...</div>';
+                console.log('✅ Overlay geöffnet und "Suche..." angezeigt');
                 
                 // 🆕 v5.44.0: ÖPNV-Modus → Nur Bushaltestellen suchen!
                 let searchUrl = `https://nominatim.openstreetmap.org/search?` +
@@ -10769,12 +10779,17 @@
                 // Im ÖPNV-Modus: Suche speziell nach Bushaltestellen
                 if (isOPNVMode) {
                     searchUrl += `&amenity=bus_station`; // Busbahnhöfe
+                    console.log('🚏 ÖPNV-Modus aktiv - suche Bushaltestellen');
                 }
+                
+                console.log('📡 Starte API-Request:', searchUrl);
                 
                 // Suche mit Nominatim API
                 const response = await fetch(searchUrl);
+                console.log('✅ API Response erhalten, Status:', response.status);
                 
                 const results = await response.json();
+                console.log('✅ JSON geparst, Anzahl Ergebnisse:', results.length);
                 
                 // 🆕 v5.44.0: Im ÖPNV-Modus - Filtere NUR Bushaltestellen
                 let filteredResults = results;
@@ -10900,8 +10915,11 @@
                 }).join('');
                 
             } catch (e) {
-                console.error('Autocomplete Fehler:', e);
-                overlayList.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">Fehler bei der Suche</div>';
+                console.error('❌❌❌ AUTOCOMPLETE FEHLER ❌❌❌');
+                console.error('Fehler-Objekt:', e);
+                console.error('Fehler-Message:', e.message);
+                console.error('Fehler-Stack:', e.stack);
+                overlayList.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">❌ Fehler bei der Suche<br><br>' + e.message + '</div>';
             }
         }
 
@@ -10982,13 +11000,30 @@
         
         // 🆕 v5.45.1: POI BESTÄTIGUNG - Zeige einzelne Adresse im Overlay
         function showSingleAddressInOverlay(inputId, address, lat, lon, displayName) {
+            alert('📍 ZEIGE BESTÄTIGUNGS-OVERLAY!\n\nAdresse: ' + address + '\nDisplayName: ' + displayName);
+            
             const overlayList = document.getElementById('overlay-autocomplete-list');
             currentAutocompleteField = inputId;
             
             console.log('🎯 Zeige Bestätigungs-Overlay:', displayName || address);
+            console.log('   Koordinaten:', { lat, lon });
+            
+            if (!overlayList) {
+                alert('❌ FEHLER!\n\noverlay-autocomplete-list Element nicht gefunden!');
+                console.error('❌ overlay-autocomplete-list nicht gefunden!');
+                return;
+            }
             
             // Öffne Overlay
-            document.getElementById('autocomplete-overlay').style.display = 'block';
+            const overlayElement = document.getElementById('autocomplete-overlay');
+            if (!overlayElement) {
+                alert('❌ FEHLER!\n\nautocomplete-overlay Element nicht gefunden!');
+                console.error('❌ autocomplete-overlay nicht gefunden!');
+                return;
+            }
+            
+            overlayElement.style.display = 'block';
+            console.log('✅ Overlay display auf block gesetzt');
             
             // Zeige nur DIESEN EINEN Eintrag
             overlayList.innerHTML = `
@@ -11005,6 +11040,9 @@
                     ${displayName && displayName !== address ? `<div style="font-size:14px;color:#666;margin-top:4px;">${address}</div>` : ''}
                 </div>
             `;
+            
+            console.log('✅ Overlay-Inhalt gesetzt');
+            alert('✅ OVERLAY GEÖFFNET!\n\nKlicke auf die Adresse zum Bestätigen!');
         }
 
         function selectAddress(inputId, address, lat, lon) {
@@ -11043,6 +11081,8 @@
 
         // LOCATION
         function useMyLocation() {
+            alert('📍 "MEINEN STANDORT" GEKLICKT!\n\nStarte GPS-Abfrage...');
+            
             if (!navigator.geolocation) {
                 alert('❌ GPS nicht verfügbar!');
                 return;
@@ -11054,6 +11094,8 @@
                 async (pos) => {
                     pickupCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
                     console.log('✅ GPS-Position erhalten:', pickupCoords);
+                    
+                    alert('✅ GPS ERHALTEN!\n\nLat: ' + pickupCoords.lat + '\nLon: ' + pickupCoords.lon + '\n\nHole Adresse...');
                     
                     try {
                         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pickupCoords.lat}&lon=${pickupCoords.lon}`);
@@ -11067,14 +11109,17 @@
                         // 🆕 v5.45.1: Schreibe Adresse ins Feld und öffne Bestätigungs-Overlay!
                         document.getElementById('pickup').value = addressString;
                         
+                        console.log('✅ Adresse aufgelöst:', addressString);
+                        alert('✅ ADRESSE GEFUNDEN!\n\n' + addressString + '\n\nÖffne Bestätigungs-Overlay...');
+                        
                         // Zeige Overlay zur Bestätigung
                         showSingleAddressInOverlay('pickup', addressString, pickupCoords.lat, pickupCoords.lon, '📍 Mein Standort');
-                        
-                        console.log('✅ Adresse aufgelöst:', addressString);
                     } catch (e) {
                         console.error('❌ Reverse Geocoding Fehler:', e);
                         const addressString = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
                         document.getElementById('pickup').value = addressString;
+                        
+                        alert('⚠️ ADRESSE NICHT GEFUNDEN!\n\nZeige Koordinaten: ' + addressString);
                         
                         // Zeige Overlay auch bei Koordinaten
                         showSingleAddressInOverlay('pickup', addressString, pickupCoords.lat, pickupCoords.lon, '📍 Mein Standort');
@@ -11082,6 +11127,8 @@
                 },
                 (err) => {
                     console.error('❌ GPS-Fehler:', err);
+                    alert('❌ GPS-FEHLER!\n\n' + err.message + '\n\nBitte manuell eingeben.');
+                    
                     // 🆕 NICHT BLOCKIEREND! Nutzer kann manuell eingeben
                     const pickupField = document.getElementById('pickup');
                     if (pickupField) {
@@ -24242,20 +24289,30 @@ Stack: ${err.stack}
         }
         
         function useSavedLocation(field, address, lat, lon) {
+            alert('🎯 POI GEKLICKT!\n\nAdresse: ' + address + '\nFeld: ' + field + '\nLat: ' + lat + '\nLon: ' + lon);
+            
+            console.log('🎯 useSavedLocation aufgerufen:', { field, address, lat, lon });
+            
             // 🆕 v5.45.1: Schreibe Adresse ins Feld und öffne Bestätigungs-Overlay!
             document.getElementById(field).value = address;
+            console.log('✅ Adresse ins Feld geschrieben');
             
             // 🆕 v5.45.2: Bessere Prüfung - auch String "null" abfangen!
             const hasCoords = (lat !== null && lat !== 'null' && lat !== undefined) && 
                             (lon !== null && lon !== 'null' && lon !== undefined);
             
+            console.log('🔍 Koordinaten-Prüfung:', { hasCoords, lat, lon });
+            
             if (hasCoords) {
                 // Koordinaten vorhanden - zeige im Overlay!
-                console.log('✅ POI mit Koordinaten:', address, { lat, lon });
+                console.log('✅ POI mit Koordinaten - öffne Overlay');
+                alert('✅ POI HAT KOORDINATEN!\n\nÖffne Bestätigungs-Overlay...');
+                
                 showSingleAddressInOverlay(field, address, parseFloat(lat), parseFloat(lon), address);
             } else {
                 // 🆕 v5.30.0: KEINE Koordinaten gespeichert - hole sie via Forward Geocoding!
                 console.log('⚠️ Keine Koordinaten gespeichert - hole via Geocoding:', address);
+                alert('⚠️ KEINE KOORDINATEN!\n\nHole Koordinaten via Geocoding...');
                 
                 // Forward Geocoding: Adresse → Koordinaten
                 fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
@@ -24267,6 +24324,7 @@ Stack: ${err.stack}
                                 lon: parseFloat(data[0].lon) 
                             };
                             console.log('✅ Koordinaten via Geocoding gefunden:', coords);
+                            alert('✅ KOORDINATEN GEFUNDEN!\n\nÖffne Overlay...');
                             
                             // Zeige im Overlay
                             showSingleAddressInOverlay(field, address, coords.lat, coords.lon, address);

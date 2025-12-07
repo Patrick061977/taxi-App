@@ -17,72 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        // 🆕 v5.42.6: Console mit Pause/Export Controls!
-        (function() {
-            const originalLog = console.log;
-            const originalError = console.error;
-            const originalWarn = console.warn;
-            
-            // 🆕 Speichere alle Logs
-            window.consoleLogHistory = [];
-            window.consolePaused = false;
-            
-            function formatTimestamp() {
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const seconds = String(now.getSeconds()).padStart(2, '0');
-                const ms = String(now.getMilliseconds()).padStart(3, '0');
-                return `[${hours}:${minutes}:${seconds}.${ms}]`;
-            }
-            
-            console.log = function(...args) {
-                const timestamp = formatTimestamp();
-                const message = [timestamp, ...args].map(a => 
-                    typeof a === 'object' ? JSON.stringify(a) : String(a)
-                ).join(' ');
-                
-                // Speichere in History
-                window.consoleLogHistory.push(message);
-                
-                // Zeige nur wenn nicht pausiert
-                if (!window.consolePaused) {
-                    originalLog.apply(console, [timestamp, ...args]);
-                }
-            };
-            
-            console.error = function(...args) {
-                const timestamp = formatTimestamp();
-                const message = [timestamp, '❌', ...args].map(a => 
-                    typeof a === 'object' ? JSON.stringify(a) : String(a)
-                ).join(' ');
-                
-                window.consoleLogHistory.push(message);
-                
-                if (!window.consolePaused) {
-                    originalError.apply(console, [timestamp, '❌', ...args]);
-                }
-            };
-            
-            console.warn = function(...args) {
-                const timestamp = formatTimestamp();
-                const message = [timestamp, '⚠️', ...args].map(a => 
-                    typeof a === 'object' ? JSON.stringify(a) : String(a)
-                ).join(' ');
-                
-                window.consoleLogHistory.push(message);
-                
-                if (!window.consolePaused) {
-                    originalWarn.apply(console, [timestamp, '⚠️', ...args]);
-                }
-            };
-        })();
-        
-        console.log('🚕 Funk Taxi App v5.45.0 - Build 20251207-1800');
-        console.log('🚌 v5.45.0: ABFAHRTSTAFEL - Live Busfahrplan!');
-        console.log('🚏 v5.44.0: ÖPNV-TAXI MODUS!');
-        console.log('📊 v5.43.0: SCHICHTPLAN!');
-        console.log('🎉 v5.42.3: SCHÖNE Bestätigungskarte!');
+        console.log('🚕 Funk Taxi App v5.42.1 - Build 20251207-1310');
+        console.log('👤 v5.42.1: AVATAR-ICON + CLEANER DESIGN! (Patrick\'s Wunsch!)');
+        console.log('✅ v5.42.1: "Mein Konto" funktioniert für ALLE Login-Typen!');
+        console.log('🎨 v5.42.1: Grüne Box weg, Avatar-Icon stattdessen!');
+        console.log('☰ v5.42.0: Konto im Menü!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -472,7 +411,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.1 - KEIN FILTER (Build 20251207-2235)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.1 - Avatar & Cleaner Design (Build 20251207-1310)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -591,20 +530,6 @@
                 transition: all 0.2s;
             ">
                 ⚙️ Admin
-            </button>
-            <button onclick="switchView('shift-plan')" class="admin-tab-btn" data-view="shift-plan" style="
-                padding: 10px 16px;
-                border: 2px solid #10b981;
-                background: white;
-                color: #10b981;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 13px;
-                cursor: pointer;
-                white-space: nowrap;
-                transition: all 0.2s;
-            ">
-                📊 Schichtplan
             </button>
             <button onclick="switchView('debug')" class="admin-tab-btn" data-view="debug" style="
                 padding: 10px 16px;
@@ -948,22 +873,10 @@
                     </button>
                 </div>
                 
-                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
-                <div id="pickup-confirmation" style="
-                    display: none;
-                    margin-top: 8px;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    <!-- Wird dynamisch befüllt -->
-                </div>
-                
                 <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
                 <div id="pickup-saved-locations" style="display:none;margin-top:8px;"></div>
                 
-                <button onclick="useMyLocation()" style="margin-top:8px;padding:8px 12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;font-size:14px;">📍 Meinen Standort</button>
+                <button onclick="useMyLocation()" style="margin-top:8px;padding:12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;">📍 Meinen Standort verwenden</button>
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
             
@@ -974,18 +887,6 @@
                     <button onclick="saveLocationPOI('destination')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
                         ⭐
                     </button>
-                </div>
-                
-                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
-                <div id="destination-confirmation" style="
-                    display: none;
-                    margin-top: 8px;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    <!-- Wird dynamisch befüllt -->
                 </div>
                 
                 <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
@@ -1150,61 +1051,46 @@
         </div>
     </div>
 
-    <!-- 🆕 v5.45.0: FAHRPLAN-VIEW - Abfahrtstafel + ÖPNV-Taxi -->
+    <!-- 🆕 v5.32.6: FAHRPLAN-VIEW - Bus & Zug Live-Fahrplan -->
     <div id="schedule-view" class="view">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:8px;">
-            <h3 style="margin:0;flex:1;">🚏 Abfahrtstafel</h3>
+            <h3 style="margin:0;flex:1;">🚌🚂 Fahrplan</h3>
             <button onclick="switchView('passenger')" class="view-btn" style="padding:10px 15px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
                 🚕 Taxi buchen
             </button>
         </div>
         
-        <!-- Bushaltestellen-Auswahl -->
-        <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-            <label style="display:block;font-weight:700;font-size:16px;margin-bottom:12px;color:#1f2937;">
-                🚏 Wähle deine Bushaltestelle:
-            </label>
-            <select id="bus-stop-select" onchange="loadBusDepartures()" style="
-                width:100%;
-                padding:14px;
-                border:2px solid #e5e7eb;
-                border-radius:10px;
-                font-size:15px;
-                font-weight:600;
-                background:white;
-                cursor:pointer;
-                color:#1f2937;
-            ">
-                <option value="">-- Bitte wählen --</option>
-                <option value="8011155">Heringsdorf Bahnhof</option>
-                <option value="732429">Ahlbeck Ostseetherme</option>
-                <option value="732428">Bansin Seebad</option>
-                <option value="8089072">Zinnowitz Bahnhof</option>
-                <option value="732551">Karlshagen Hafen</option>
-                <option value="732523">Koserow Hauptstraße</option>
-                <option value="732541">Ückeritz Strandstraße</option>
-                <option value="732530">Loddin Stubbenfelde</option>
-                <option value="732545">Zempin Dünenstraße</option>
-                <option value="732548">Trassenheide Strandstraße</option>
-                <option value="732538">Peenemünde Hafen</option>
-            </select>
-            <div style="font-size:13px;color:#6b7280;margin-top:8px;">
-                💡 Wähle die Haltestelle, von der du abfahren möchtest
+        <!-- Standort & Aktualisieren -->
+        <div style="background:#dbeafe;padding:15px;border-radius:12px;margin-bottom:15px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="flex:1;">
+                    <div style="font-size:12px;color:#1e40af;margin-bottom:4px;">📍 Dein Standort:</div>
+                    <div id="schedule-location" style="font-weight:600;color:#1e3a8a;">Wird geladen...</div>
+                </div>
+                <button onclick="refreshSchedule()" style="padding:10px 15px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">
+                    🔄 Aktualisieren
+                </button>
             </div>
         </div>
         
-        <!-- Abfahrtstafel -->
-        <div id="departures-board" style="display:none;">
-            <!-- Wird dynamisch befüllt -->
-        </div>
+        <!-- Nächste Haltestelle -->
+        <div id="schedule-nearest-stop" style="margin-bottom:15px;"></div>
         
-        <!-- ÖPNV-Taxi Angebot (wenn keine Busse) -->
-        <div id="opnv-offer" style="display:none;">
-            <!-- Wird dynamisch befüllt -->
+        <!-- ÖPNV-Taxi Angebot -->
+        <!-- ÖPNV-Taxi Angebot - Kompakt -->
+        <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:12px 16px;border-radius:10px;margin-bottom:15px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);display:flex;align-items:center;justify-content:space-between;">
+            <div style="flex:1;">
+                <div style="font-size:15px;font-weight:700;margin-bottom:2px;">🚕 ÖPNV-Taxi verfügbar</div>
+                <div style="font-size:12px;opacity:0.9;">Bus-Preis + nur 2€ Aufpreis</div>
+            </div>
+            <button onclick="switchView('passenger')" style="padding:10px 20px;background:white;color:#059669;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap;">
+                Jetzt buchen
+            </button>
+        </div>
         </div>
         
         <!-- Info -->
-        <div style="background:#f0f9ff;padding:15px;border-radius:10px;font-size:13px;color:#1e40af;margin-top:20px;">
+        <div style="background:#fef3c7;padding:12px;border-radius:8px;font-size:13px;color:#78350f;">
             <strong>💡 Hinweis:</strong> Fahrplandaten werden live von der Deutschen Bahn API abgerufen und enthalten Echtzeit-Verspätungen.
         </div>
     </div>
@@ -1348,95 +1234,6 @@
             font-size: 11px;
             color: #666;
         ">
-            <!-- 🆕 v5.42.7: CONSOLE CONTROLS GANZ OBEN! -->
-            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <div style="font-size: 16px; font-weight: 700; color: #667eea; margin-bottom: 12px;">
-                    🎛️ Console Controls
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <button onclick="pauseConsole()" id="console-pause-btn" style="
-                        padding: 18px;
-                        background: #f59e0b;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        ⏸️ PAUSE
-                    </button>
-                    
-                    <button onclick="playConsole()" id="console-play-btn" style="
-                        padding: 18px;
-                        background: #10b981;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
-                        display: none;
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        ▶️ PLAY
-                    </button>
-                    
-                    <button onclick="copyConsole()" style="
-                        padding: 18px;
-                        background: #667eea;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        📋 COPY
-                    </button>
-                    
-                    <button onclick="exportConsole()" style="
-                        padding: 18px;
-                        background: #3b82f6;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        💾 EXPORT
-                    </button>
-                </div>
-                <button onclick="clearConsoleLog()" style="
-                    width: 100%;
-                    padding: 18px;
-                    background: #ef4444;
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    font-size: 16px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
-                    margin-bottom: 10px;
-                    transition: transform 0.2s;
-                " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                    🗑️ CLEAR
-                </button>
-                <div id="console-status" style="text-align: center; font-size: 13px; color: #10b981; font-weight: 700; padding: 8px; background: #d1fae5; border-radius: 8px;">
-                    ▶️ Console läuft
-                </div>
-            </div>
-            
-            <div style="border-top: 2px solid #ddd; padding-top: 15px;">
             FB: <span id="debug-firebase">❓</span> | 
             Fahrten: <span id="debug-rides">❓</span> | 
             Neu: <span id="debug-new">❓</span> | 
@@ -1478,65 +1275,6 @@
                 <div style="margin-top: 6px; font-size: 10px; color: #666;">
                     Hol dir deine Chat-ID: Schreibe /getid an <a href="https://t.me/myidbot" target="_blank" style="color: #0088cc;">@myidbot</a>
                 </div>
-            </div>
-        </div>
-        
-        <!-- 🆕 v5.42.8: AUTOCOMPLETE OVERLAY (wie Google Maps!) -->
-        <div id="autocomplete-overlay" style="
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 999999999;
-            padding: 20px;
-        ">
-            <div style="
-                background: white;
-                border-radius: 16px;
-                border: 10px solid #ef4444;
-                max-width: 600px;
-                min-height: 200px;
-                margin: 60px auto 0 auto;
-                padding: 20px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            ">
-                <div style="
-                    font-size: 24px;
-                    font-weight: 900;
-                    color: #ef4444;
-                    margin-bottom: 15px;
-                    text-align: center;
-                    background: #fef2f2;
-                    padding: 15px;
-                    border-radius: 8px;
-                ">
-                    📍 Adresse auswählen
-                </div>
-                
-                <div id="overlay-autocomplete-list" style="
-                    max-height: 60vh;
-                    overflow-y: auto;
-                ">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-                
-                <button onclick="closeAutocompleteOverlay()" style="
-                    width: 100%;
-                    padding: 14px;
-                    background: #e5e7eb;
-                    border: none;
-                    border-radius: 10px;
-                    font-weight: 600;
-                    color: #374151;
-                    margin-top: 15px;
-                    cursor: pointer;
-                    font-size: 15px;
-                ">
-                    ✖️ Abbrechen
-                </button>
             </div>
         </div>
         
@@ -2142,7 +1880,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.45.0 - ABFAHRTSTAFEL!');
+                    console.log('🚕 Funk Taxi App v5.39.8 - ZEITSLOT-FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -3585,47 +3323,6 @@
         </div>
     </div>
 
-    <!-- 🆕 v5.43.0: SCHICHTPLAN-VIEW -->
-    <div id="shift-plan-view" class="view">
-        <div style="max-width: 1200px; margin: 20px auto; padding: 0 15px;">
-            <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
-                    <div style="font-size: 48px; margin-bottom: 8px;">📊</div>
-                    <h2 style="font-size: 24px; margin: 0 0 5px 0;">SCHICHTPLAN</h2>
-                    <p style="font-size: 14px; margin: 0; opacity: 0.9;">Auto-Bedarf basierend auf Vorbestellungen</p>
-                </div>
-                
-                <!-- Datum-Wahl -->
-                <div style="padding: 20px; border-bottom: 2px solid #e5e7eb;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #1f2937;">
-                        📅 Datum wählen:
-                    </label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input 
-                            type="date" 
-                            id="shift-plan-date" 
-                            style="flex: 1; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px;"
-                            onchange="analyzeShiftPlan()">
-                        <button 
-                            onclick="setShiftPlanToday()" 
-                            style="padding: 12px 20px; background: #10b981; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap;">
-                            📅 Heute
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Analyse-Ergebnis -->
-                <div id="shift-plan-result" style="padding: 20px;">
-                    <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
-                        <div style="font-size: 48px; margin-bottom: 15px;">📅</div>
-                        <div style="font-size: 16px; font-weight: 600;">Bitte Datum wählen</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 🔍 DEBUG-VIEW - v5.39.4 -->
     <div id="debug-view" class="view" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
@@ -3805,16 +3502,6 @@
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
-        
-        // 🆕 v5.42.7: Adressen-Bestätigungs-Status
-        let pickupConfirmed = false;
-        let destinationConfirmed = false;
-        
-        // 🆕 v5.42.8: Aktuelles Autocomplete-Feld
-        let currentAutocompleteField = null;
-        
-        // 🆕 v5.44.0: ÖPNV-Taxi Modus
-        let isOPNVMode = false;
         let currentTrackingRideId = null; // 🆕 Aktuelle Fahrt für GPS-Tracking
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
@@ -5235,11 +4922,7 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.45.0 - Build 20251207-1800');
-        console.log('🚌 v5.45.0: ABFAHRTSTAFEL - Live Busfahrplan!');
-        console.log('🚏 v5.44.0: ÖPNV-TAXI!');
-        console.log('📊 v5.43.0: SCHICHTPLAN!');
-        console.log('🎉 v5.42.3: Bestätigungskarte!');
+        console.log('🚀 Taxi App v5.39.8 - ZEITSLOT-FIX gestartet');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -5740,6 +5423,7 @@
                                     
                                     // WICHTIG: Nicht weitermachen!
                                     return;
+                                    return;
                                 }
                                 
                                 // 🆕 v5.20.4: Wenn Fahrt storniert ist, NICHT anzeigen!
@@ -5804,9 +5488,6 @@
             
             updateStatus();
             updateViews(); // WICHTIG: Views auch ohne Firebase laden!
-            
-            // 🆕 v5.42.2: Quick-Login Daten beim Start laden + Avatar zeigen!
-            loadQuickLoginData();
             
             // 🔔 SERVICE WORKER DEAKTIVIERT - Telegram übernimmt Benachrichtigungen!
             // initServiceWorker();
@@ -6348,7 +6029,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'debug-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -6486,304 +6167,6 @@
         function backToBookingFromMenu() {
             closeMenu();
             switchView('passenger');
-        }
-
-        // 🆕 v5.44.0: ÖPNV-TAXI BUCHUNG STARTEN
-        function startOPNVBooking() {
-            console.log('🚏 ÖPNV-Taxi Modus aktiviert!');
-            
-            // Aktiviere ÖPNV-Modus
-            isOPNVMode = true;
-            
-            // Wechsle zur Passenger-View
-            switchView('passenger');
-            
-            // Zeige ÖPNV-Hinweis
-            showOPNVHint();
-            
-            // Aktiviere ÖPNV-Tarif (falls vorhanden)
-            const opnvCheckbox = document.getElementById('opnv-checkbox');
-            if (opnvCheckbox) {
-                opnvCheckbox.checked = true;
-            }
-            
-            console.log('✅ ÖPNV-Modus aktiv - Autocomplete zeigt nur Bushaltestellen!');
-        }
-        
-        // Zeige ÖPNV-Hinweis
-        function showOPNVHint() {
-            // Entferne alten Hinweis falls vorhanden
-            const oldHint = document.getElementById('opnv-mode-hint');
-            if (oldHint) oldHint.remove();
-            
-            // Erstelle Hinweis
-            const hint = document.createElement('div');
-            hint.id = 'opnv-mode-hint';
-            hint.style.cssText = `
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                color: white;
-                padding: 15px;
-                border-radius: 12px;
-                margin-bottom: 20px;
-                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-            `;
-            hint.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="flex: 1;">
-                        <div style="font-size: 18px; font-weight: 700; margin-bottom: 5px;">🚏 ÖPNV-TAXI MODUS</div>
-                        <div style="font-size: 13px; opacity: 0.95;">Nur Bushaltestellen werden angezeigt</div>
-                        <div style="font-size: 13px; opacity: 0.95;">Busticket-Preis + 2€ Aufpreis</div>
-                    </div>
-                    <button onclick="exitOPNVMode()" style="
-                        padding: 8px 16px;
-                        background: white;
-                        color: #059669;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        font-size: 13px;
-                    ">
-                        ✖️ Normal
-                    </button>
-                </div>
-            `;
-            
-            // Füge Hinweis ein (vor booking-form)
-            const bookingForm = document.getElementById('booking-form');
-            if (bookingForm) {
-                bookingForm.parentNode.insertBefore(hint, bookingForm);
-            }
-        }
-        
-        // ÖPNV-Modus beenden
-        function exitOPNVMode() {
-            isOPNVMode = false;
-            const hint = document.getElementById('opnv-mode-hint');
-            if (hint) hint.remove();
-            
-            // Deaktiviere ÖPNV-Tarif
-            const opnvCheckbox = document.getElementById('opnv-checkbox');
-            if (opnvCheckbox) {
-                opnvCheckbox.checked = false;
-            }
-            
-            console.log('🔄 Normaler Modus - Alle Adressen verfügbar');
-        }
-        
-        // 🆕 v5.45.0: ABFAHRTSTAFEL-FUNKTIONEN
-        
-        // Lade Abfahrten für gewählte Bushaltestelle
-        async function loadBusDepartures() {
-            const select = document.getElementById('bus-stop-select');
-            const stopId = select.value;
-            
-            if (!stopId) {
-                document.getElementById('departures-board').style.display = 'none';
-                document.getElementById('opnv-offer').style.display = 'none';
-                return;
-            }
-            
-            const stopName = select.options[select.selectedIndex].text;
-            console.log('🚏 Lade Abfahrten für:', stopName, '(ID:', stopId + ')');
-            
-            // Zeige Loading
-            const board = document.getElementById('departures-board');
-            board.style.display = 'block';
-            board.innerHTML = `
-                <div style="background:white;padding:30px;border-radius:12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                    <div style="font-size:32px;margin-bottom:15px;">🔄</div>
-                    <div style="font-size:16px;font-weight:600;color:#6b7280;">Lade Abfahrten...</div>
-                </div>
-            `;
-            
-            try {
-                // DB API Abfrage für Abfahrten
-                const response = await fetch(
-                    `https://v5.db.transport.rest/stops/${stopId}/departures?` +
-                    `duration=120&` + // Nächste 2 Stunden
-                    `results=10&` +
-                    `bus=true&` +
-                    `subway=false&` +
-                    `tram=false&` +
-                    `ferry=false`
-                );
-                
-                if (!response.ok) {
-                    throw new Error('API Fehler: ' + response.status);
-                }
-                
-                const data = await response.json();
-                console.log('✅ Abfahrten erhalten:', data.length);
-                
-                // Filtere nur Busse
-                const busDepartures = data.filter(d => 
-                    d.line && d.line.product === 'bus'
-                );
-                
-                if (busDepartures.length === 0) {
-                    // Keine Busse → Zeige ÖPNV-Taxi
-                    showNoBusesOffer(stopName);
-                } else {
-                    // Zeige Abfahrten
-                    showDeparturesBoard(busDepartures, stopName);
-                    // Zeige kleine ÖPNV-Box
-                    showSmallOPNVOffer();
-                }
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Laden der Abfahrten:', error);
-                board.innerHTML = `
-                    <div style="background:#fee2e2;padding:20px;border-radius:12px;text-align:center;border:2px solid #dc2626;">
-                        <div style="font-size:32px;margin-bottom:10px;">❌</div>
-                        <div style="font-size:16px;font-weight:600;color:#991b1b;">Fehler beim Laden</div>
-                        <div style="font-size:13px;color:#991b1b;margin-top:5px;">${error.message}</div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Zeige Abfahrtstafel
-        function showDeparturesBoard(departures, stopName) {
-            const board = document.getElementById('departures-board');
-            
-            let html = `
-                <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-                        <div style="font-size:18px;font-weight:700;color:#1f2937;">
-                            🚌 ${stopName}
-                        </div>
-                        <button onclick="loadBusDepartures()" style="padding:8px 16px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">
-                            🔄 Aktualisieren
-                        </button>
-                    </div>
-                    
-                    <div style="display:grid;gap:12px;">
-            `;
-            
-            departures.forEach(dep => {
-                const time = new Date(dep.when || dep.plannedWhen);
-                const now = new Date();
-                const minutesUntil = Math.round((time - now) / 60000);
-                
-                const delay = dep.delay || 0;
-                const delayMinutes = Math.round(delay / 60);
-                
-                const lineNumber = dep.line.name || 'Bus';
-                const direction = dep.direction || 'Unbekannt';
-                const platform = dep.platform || '';
-                
-                const isDelayed = delayMinutes > 0;
-                const isCancelled = dep.cancelled;
-                
-                html += `
-                    <div style="
-                        padding:15px;
-                        border:2px solid ${isCancelled ? '#dc2626' : isDelayed ? '#f59e0b' : '#e5e7eb'};
-                        border-radius:10px;
-                        background:${isCancelled ? '#fee2e2' : 'white'};
-                    ">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                            <div style="font-size:18px;font-weight:700;color:#667eea;">
-                                🚌 ${lineNumber}
-                            </div>
-                            <div style="font-size:20px;font-weight:700;color:${isCancelled ? '#dc2626' : isDelayed ? '#f59e0b' : '#10b981'};">
-                                ${minutesUntil >= 0 ? minutesUntil + ' Min' : 'Fährt ab'}
-                            </div>
-                        </div>
-                        <div style="font-size:15px;color:#374151;margin-bottom:5px;">
-                            → ${direction}
-                        </div>
-                        ${platform ? `<div style="font-size:13px;color:#6b7280;">Gleis ${platform}</div>` : ''}
-                        ${isCancelled ? 
-                            '<div style="font-size:13px;font-weight:700;color:#dc2626;margin-top:8px;">❌ FÄLLT AUS</div>' :
-                            isDelayed ? 
-                            `<div style="font-size:13px;font-weight:600;color:#d97706;margin-top:8px;">⚠️ +${delayMinutes} Min Verspätung</div>` :
-                            '<div style="font-size:13px;font-weight:600;color:#10b981;margin-top:8px;">✅ Pünktlich</div>'
-                        }
-                    </div>
-                `;
-            });
-            
-            html += `
-                    </div>
-                </div>
-            `;
-            
-            board.innerHTML = html;
-        }
-        
-        // Zeige "Keine Busse" Angebot
-        function showNoBusesOffer(stopName) {
-            const board = document.getElementById('departures-board');
-            board.style.display = 'none';
-            
-            const offer = document.getElementById('opnv-offer');
-            offer.style.display = 'block';
-            offer.innerHTML = `
-                <div style="background:linear-gradient(135deg, #dc2626 0%, #991b1b 100%);color:white;padding:25px;border-radius:12px;box-shadow:0 4px 16px rgba(220, 38, 38, 0.3);margin-bottom:20px;">
-                    <div style="font-size:32px;margin-bottom:15px;text-align:center;">⚠️</div>
-                    <div style="font-size:22px;font-weight:700;margin-bottom:10px;text-align:center;">
-                        KEINE BUSSE MEHR!
-                    </div>
-                    <div style="font-size:15px;opacity:0.95;text-align:center;">
-                        Von ${stopName} fahren aktuell keine Busse
-                    </div>
-                </div>
-                
-                <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:25px;border-radius:12px;box-shadow:0 4px 16px rgba(16, 185, 129, 0.3);">
-                    <div style="font-size:32px;margin-bottom:15px;text-align:center;">🚕</div>
-                    <div style="font-size:22px;font-weight:700;margin-bottom:15px;text-align:center;">
-                        ÖPNV-TAXI BUCHEN
-                    </div>
-                    <div style="font-size:15px;opacity:0.95;text-align:center;margin-bottom:20px;">
-                        Busticket-Preis + nur 2€ Aufpreis
-                    </div>
-                    <button onclick="startOPNVBookingFromSchedule('${stopName}')" style="
-                        width:100%;
-                        padding:18px;
-                        background:white;
-                        color:#059669;
-                        border:none;
-                        border-radius:10px;
-                        font-weight:700;
-                        cursor:pointer;
-                        font-size:16px;
-                        box-shadow:0 2px 8px rgba(0,0,0,0.2);
-                    ">
-                        🚏 Jetzt ÖPNV-Taxi buchen
-                    </button>
-                </div>
-            `;
-        }
-        
-        // Zeige kleine ÖPNV-Anzeige (wenn Busse fahren)
-        function showSmallOPNVOffer() {
-            const offer = document.getElementById('opnv-offer');
-            offer.style.display = 'block';
-            offer.innerHTML = `
-                <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:15px;border-radius:10px;margin-top:20px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);display:flex;align-items:center;justify-content:space-between;">
-                    <div style="flex:1;">
-                        <div style="font-size:15px;font-weight:700;margin-bottom:2px;">🚕 Alternativ: ÖPNV-Taxi</div>
-                        <div style="font-size:12px;opacity:0.9;">Busticket-Preis + 2€</div>
-                    </div>
-                    <button onclick="startOPNVBooking()" style="padding:10px 20px;background:white;color:#059669;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap;">
-                        🚏 Buchen
-                    </button>
-                </div>
-            `;
-        }
-        
-        // Starte ÖPNV-Buchung vom Schedule aus
-        function startOPNVBookingFromSchedule(stopName) {
-            console.log('🚏 Starte ÖPNV-Buchung von:', stopName);
-            startOPNVBooking();
-            
-            // Setze Abholort auf Haltestelle
-            const pickupInput = document.getElementById('pickup');
-            if (pickupInput) {
-                pickupInput.value = stopName;
-            }
         }
 
         // 🆕 v5.33.1: Admin-Tabs anzeigen/verstecken
@@ -9255,210 +8638,6 @@
             }
         }
 
-        // 🆕 v5.43.0: SCHICHTPLAN-FUNKTIONEN
-        
-        // Setze heutiges Datum
-        function setShiftPlanToday() {
-            const today = new Date();
-            const dateStr = today.toISOString().split('T')[0];
-            document.getElementById('shift-plan-date').value = dateStr;
-            analyzeShiftPlan();
-        }
-        
-        // Analysiere Schichtplan
-        function analyzeShiftPlan() {
-            const dateInput = document.getElementById('shift-plan-date');
-            const resultDiv = document.getElementById('shift-plan-result');
-            
-            if (!dateInput.value) {
-                resultDiv.innerHTML = `
-                    <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
-                        <div style="font-size: 48px; margin-bottom: 15px;">📅</div>
-                        <div style="font-size: 16px; font-weight: 600;">Bitte Datum wählen</div>
-                    </div>
-                `;
-                return;
-            }
-            
-            const selectedDate = new Date(dateInput.value + 'T00:00:00');
-            const dateStr = selectedDate.toLocaleDateString('de-DE', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            });
-            
-            // Filtere Fahrten für das gewählte Datum
-            const ridesForDate = rides.filter(ride => {
-                if (!ride.pickupTime) return false;
-                const rideDate = new Date(ride.pickupTime);
-                return rideDate.toDateString() === selectedDate.toDateString();
-            });
-            
-            if (ridesForDate.length === 0) {
-                resultDiv.innerHTML = `
-                    <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
-                        <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
-                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${dateStr}</div>
-                        <div style="font-size: 16px;">Keine Vorbestellungen</div>
-                    </div>
-                `;
-                return;
-            }
-            
-            // Sortiere nach Zeit
-            ridesForDate.sort((a, b) => new Date(a.pickupTime) - new Date(b.pickupTime));
-            
-            // Berechne Auto-Bedarf pro Stunde
-            const hourlyDemand = {};
-            
-            ridesForDate.forEach(ride => {
-                const startTime = new Date(ride.pickupTime);
-                // Schätze Fahrtdauer: 30 Minuten Standard
-                const estimatedDuration = 30;
-                const endTime = new Date(startTime.getTime() + estimatedDuration * 60000);
-                
-                // Für jede Stunde der Fahrt
-                let currentHour = new Date(startTime);
-                currentHour.setMinutes(0, 0, 0);
-                
-                while (currentHour <= endTime) {
-                    const hourKey = currentHour.getHours();
-                    if (!hourlyDemand[hourKey]) {
-                        hourlyDemand[hourKey] = {
-                            count: 0,
-                            rides: []
-                        };
-                    }
-                    hourlyDemand[hourKey].count++;
-                    if (!hourlyDemand[hourKey].rides.find(r => r.id === ride.id)) {
-                        hourlyDemand[hourKey].rides.push(ride);
-                    }
-                    currentHour = new Date(currentHour.getTime() + 3600000); // +1 Stunde
-                }
-            });
-            
-            // Finde Maximum
-            let maxCars = 0;
-            let maxHour = null;
-            Object.keys(hourlyDemand).forEach(hour => {
-                if (hourlyDemand[hour].count > maxCars) {
-                    maxCars = hourlyDemand[hour].count;
-                    maxHour = hour;
-                }
-            });
-            
-            // Verfügbare Autos
-            const availableCars = vehicles ? Object.keys(vehicles).length : 0;
-            const isEnough = availableCars >= maxCars;
-            
-            // Erstelle HTML
-            let html = `
-                <div style="margin-bottom: 25px;">
-                    <h3 style="margin: 0 0 15px 0; font-size: 20px; color: #1f2937;">
-                        📅 ${dateStr}
-                    </h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                        <div style="background: #f3f4f6; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; font-weight: 700; color: #667eea;">${ridesForDate.length}</div>
-                            <div style="font-size: 14px; color: #6b7280; margin-top: 5px;">Vorbestellungen</div>
-                        </div>
-                        <div style="background: ${isEnough ? '#d1fae5' : '#fee2e2'}; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; font-weight: 700; color: ${isEnough ? '#059669' : '#dc2626'};">${maxCars}</div>
-                            <div style="font-size: 14px; color: ${isEnough ? '#065f46' : '#991b1b'}; margin-top: 5px;">Max. benötigt</div>
-                        </div>
-                        <div style="background: #dbeafe; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; font-weight: 700; color: #3b82f6;">${availableCars}</div>
-                            <div style="font-size: 14px; color: #1e40af; margin-top: 5px;">Verfügbar</div>
-                        </div>
-                    </div>
-                    ${isEnough ? 
-                        '<div style="background: #d1fae5; border: 2px solid #10b981; color: #065f46; padding: 15px; border-radius: 10px; text-align: center; font-weight: 600;">✅ Genug Autos verfügbar!</div>' : 
-                        '<div style="background: #fee2e2; border: 2px solid #dc2626; color: #991b1b; padding: 15px; border-radius: 10px; text-align: center; font-weight: 600;">⚠️ WARNUNG: Zu wenig Autos! Fehlende: ' + (maxCars - availableCars) + '</div>'
-                    }
-                </div>
-                
-                <h4 style="margin: 25px 0 15px 0; font-size: 18px; color: #1f2937;">📊 Stunden-Übersicht:</h4>
-                <div style="display: grid; gap: 10px;">
-            `;
-            
-            // Sortiere Stunden
-            const hours = Object.keys(hourlyDemand).map(h => parseInt(h)).sort((a, b) => a - b);
-            
-            hours.forEach(hour => {
-                const data = hourlyDemand[hour];
-                const carIcons = '🚗'.repeat(data.count);
-                const isPeak = data.count === maxCars;
-                
-                html += `
-                    <div style="
-                        padding: 15px;
-                        background: ${isPeak ? '#fef3c7' : '#f9fafb'};
-                        border: 2px solid ${isPeak ? '#f59e0b' : '#e5e7eb'};
-                        border-radius: 10px;
-                        display: flex;
-                        align-items: center;
-                        gap: 15px;
-                    ">
-                        <div style="font-size: 24px; font-weight: 700; color: #667eea; min-width: 100px;">
-                            ${hour.toString().padStart(2, '0')}:00-${(hour + 1).toString().padStart(2, '0')}:00
-                        </div>
-                        <div style="flex: 1; font-size: 24px;">
-                            ${carIcons}
-                        </div>
-                        <div style="font-size: 16px; font-weight: 600; color: ${isPeak ? '#d97706' : '#6b7280'};">
-                            ${data.count} Auto${data.count > 1 ? 's' : ''}
-                            ${isPeak ? ' 🔥' : ''}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            
-            // Fahrten-Liste
-            html += `
-                <h4 style="margin: 25px 0 15px 0; font-size: 18px; color: #1f2937;">🚕 Alle Fahrten:</h4>
-                <div style="display: grid; gap: 10px;">
-            `;
-            
-            ridesForDate.forEach(ride => {
-                const time = new Date(ride.pickupTime);
-                const timeStr = time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                
-                html += `
-                    <div style="
-                        padding: 12px;
-                        background: white;
-                        border: 1px solid #e5e7eb;
-                        border-radius: 8px;
-                        font-size: 14px;
-                    ">
-                        <div style="font-weight: 700; color: #667eea; margin-bottom: 5px;">
-                            ⏰ ${timeStr}
-                        </div>
-                        <div style="color: #6b7280;">
-                            📍 ${ride.pickup || 'Abholort'} → 🎯 ${ride.destination || 'Zielort'}
-                        </div>
-                        ${ride.assignedTo ? 
-                            `<div style="color: #10b981; margin-top: 5px;">✅ Zugewiesen: ${vehicles[ride.assignedTo]?.name || ride.assignedTo}</div>` : 
-                            `<div style="color: #f59e0b; margin-top: 5px;">⚠️ Noch nicht zugewiesen</div>`
-                        }
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            
-            resultDiv.innerHTML = html;
-            console.log('📊 Schichtplan analysiert:', {
-                datum: dateStr,
-                fahrten: ridesForDate.length,
-                maxAutos: maxCars,
-                verfügbar: availableCars
-            });
-        }
-
         // 📱 TELEGRAM BOT INTEGRATION
         const TELEGRAM_BOT_TOKEN = '8456598996:AAGEIdlDDbQwZ4-1OQFoW3fkT9tZlfTc_FM';
         const TELEGRAM_BOT_USERNAME = 'FunkTaxiHeringsdorfBot';
@@ -10699,139 +9878,96 @@
         let autocompleteTimeout = null;
         
         function setupAutocomplete() {
-            console.log('🔧 setupAutocomplete wird initialisiert...');
-            
             ['pickup', 'destination'].forEach(id => {
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
                 
-                if (!input) {
-                    console.error('❌ Input-Element nicht gefunden:', id);
-                    return;
-                }
-                
-                console.log('✅ Input Event Listener wird registriert für:', id);
-                
                 input.addEventListener('input', (e) => {
-                    console.log('⌨️ INPUT EVENT!', id, 'Wert:', e.target.value);
-                    
                     // Reset coords wenn User manuell tippt
-                    if (id === 'pickup') {
-                        pickupCoords = null;
-                        pickupConfirmed = false; // 🆕 v5.42.7: Reset Bestätigung!
-                        updateConfirmationHint('pickup'); // 🆕 v5.42.7: Zeige Hinweis!
-                    } else {
-                        destCoords = null;
-                        destinationConfirmed = false; // 🆕 v5.42.7: Reset Bestätigung!
-                        updateConfirmationHint('destination'); // 🆕 v5.42.7: Zeige Hinweis!
-                    }
+                    if (id === 'pickup') pickupCoords = null;
+                    else destCoords = null;
                     
                     clearTimeout(autocompleteTimeout);
                     const value = e.target.value.trim();
                     
                     if (value.length < 3) {
-                        console.log('⚠️ Zu kurz (<3 Zeichen):', value.length);
-                        // 🆕 v5.45.2: Schließe Overlay bei zu wenig Text
-                        closeAutocompleteOverlay();
+                        dropdown.style.display = 'none';
                         return;
                     }
                     
-                    console.log('✅ Starte Autocomplete-Suche in 300ms für:', value);
+                    // Zeige "Lädt..." sofort
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Suche...</div>';
+                    dropdown.style.display = 'block';
                     
-                    // 🆕 v5.45.2: NUR NOCH OVERLAY - Altes Dropdown entfernt!
                     // Verzögerte Suche (Debounce)
                     autocompleteTimeout = setTimeout(() => {
-                        console.log('🔍 Rufe searchAddresses() auf für:', value, 'Feld:', id);
                         searchAddresses(value, id);
                     }, 300);
                 });
                 
-                console.log('✅ Event Listener registriert für:', id);
+                // Schließe Dropdown wenn außerhalb geklickt
+                document.addEventListener('click', (e) => {
+                    if (e.target !== input && !dropdown.contains(e.target)) {
+                        dropdown.style.display = 'none';
+                    }
+                });
             });
             
-            console.log('✅ setupAutocomplete abgeschlossen!');
+            // NOTE: pickup-time Element entfernt in v5.30.0 (Sofort/Vorbestellen UX)
+            // Alter Event-Listener nicht mehr benötigt
+            const oldPickupTime = document.getElementById('pickup-time');
+            if (oldPickupTime) {
+                oldPickupTime.addEventListener('change', (e) => {
+                    const customTime = document.getElementById('custom-time');
+                    if (customTime) {
+                        if (e.target.value === 'custom') customTime.style.display = 'block';
+                        else customTime.style.display = 'none';
+                    }
+                });
+            }
         }
 
         async function searchAddresses(query, inputId) {
-            console.log('🔍 searchAddresses GESTARTET!');
-            console.log('   Query:', query);
-            console.log('   Input ID:', inputId);
-            
-            const overlayList = document.getElementById('overlay-autocomplete-list');
-            currentAutocompleteField = inputId; // 🆕 Merke welches Feld!
-            
-            if (!overlayList) {
-                console.error('❌ overlay-autocomplete-list nicht gefunden!');
-                return;
-            }
+            const dropdown = document.getElementById(inputId + '-dropdown');
             
             try {
-                console.log('✅ Öffne Overlay...');
-                // 🆕 v5.42.8: Zeige OVERLAY!
-                document.getElementById('autocomplete-overlay').style.display = 'block';
-                overlayList.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">🔍 Suche...</div>';
-                console.log('✅ Overlay geöffnet und "Suche..." angezeigt');
-                
-                // 🆕 v5.44.0: ÖPNV-Modus → Nur Bushaltestellen suchen!
-                let searchUrl = `https://nominatim.openstreetmap.org/search?` +
+                // Suche mit Nominatim API
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
                     `countrycodes=de&` +
-                    `limit=20&` +
-                    `addressdetails=1`;
-                
-                // Im ÖPNV-Modus: Suche speziell nach Bushaltestellen
-                if (isOPNVMode) {
-                    searchUrl += `&amenity=bus_station`; // Busbahnhöfe
-                    console.log('🚏 ÖPNV-Modus aktiv - suche Bushaltestellen');
-                }
-                
-                console.log('📡 Starte API-Request:', searchUrl);
-                
-                // Suche mit Nominatim API
-                const response = await fetch(searchUrl);
-                console.log('✅ API Response erhalten, Status:', response.status);
+                    `limit=8&` +
+                    `addressdetails=1`
+                );
                 
                 const results = await response.json();
-                console.log('✅ JSON geparst, Anzahl Ergebnisse:', results.length);
                 
-                // 🆕 v5.44.0: Im ÖPNV-Modus - Filtere NUR Bushaltestellen
-                let filteredResults = results;
-                if (isOPNVMode) {
-                    filteredResults = results.filter(r => {
-                        // Prüfe ob es eine Bushaltestelle ist
-                        const isBusStop = r.type === 'bus_stop' || 
-                                         r.class === 'highway' || 
-                                         r.class === 'amenity' && (r.type === 'bus_station' || r.type === 'bus_stop') ||
-                                         (r.display_name && r.display_name.toLowerCase().includes('haltestelle')) ||
-                                         (r.display_name && r.display_name.toLowerCase().includes('busbahnhof'));
-                        return isBusStop;
-                    });
-                    console.log('🚏 ÖPNV-Modus: Gefilterte Bushaltestellen:', filteredResults.length);
-                }
-                
-                if (filteredResults.length === 0) {
-                    overlayList.innerHTML = `<div style="padding:20px;text-align:center;color:#999;">
-                        ${isOPNVMode ? '🚏 Keine Bushaltestellen gefunden' : 'Keine Ergebnisse'}
-                    </div>`;
+                if (results.length === 0) {
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Keine Ergebnisse</div>';
                     return;
                 }
                 
-                // 🆕 v5.46.1: KEIN USEDOM-FILTER MEHR! Zeige ALLE Ergebnisse!
-                const resultsToShow = filteredResults;
-                console.log('📊 Zeige ALLE Ergebnisse (kein Filter):', resultsToShow.length);
+                // Filtere nur Usedom-relevante Ergebnisse
+                const usedomResults = results.filter(r => {
+                    const display = r.display_name.toLowerCase();
+                    return display.includes('usedom') || 
+                           display.includes('heringsdorf') || 
+                           display.includes('ahlbeck') ||
+                           display.includes('bansin') ||
+                           display.includes('zinnowitz') ||
+                           display.includes('karlshagen') ||
+                           display.includes('peenemünde') ||
+                           display.includes('koserow') ||
+                           display.includes('ückeritz') ||
+                           display.includes('loddin') ||
+                           display.includes('zempin') ||
+                           display.includes('trassenheide');
+                });
                 
-                if (resultsToShow.length === 0) {
-                    console.log('⚠️ Keine Ergebnisse zum Anzeigen!');
-                    overlayList.innerHTML = `<div style="padding:20px;text-align:center;color:#999;">
-                        Keine Ergebnisse gefunden
-                    </div>`;
-                    return;
-                }
+                const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
                 
-                console.log('🎨 Baue HTML für', resultsToShow.length, 'Ergebnisse...');
-                
-                overlayList.innerHTML = resultsToShow.map(r => {
+                dropdown.innerHTML = resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
                     let fullAddress = '';
@@ -10855,18 +9991,12 @@
                     // PLZ
                     const zip = address.postcode || '';
                     
-                    // 🆕 v5.44.0: Prüfe ob Bushaltestelle
-                    const isBusStop = r.type === 'bus_stop' || 
-                                     r.class === 'amenity' && r.type === 'bus_station' ||
-                                     (r.display_name && r.display_name.toLowerCase().includes('haltestelle'));
-                    const busStopIcon = isBusStop ? '🚏' : '🏨';
-                    
                     // 🎨 Baue schöne Anzeige
                     if (poiName && poiName !== fullAddress && poiName !== city) {
-                        // Zeige: "🚏 Bushaltestelle" oder "🏨 Pommerscher Hof" in erster Zeile
-                        displayText = `<div style="font-weight:700;color:${isBusStop ? '#10b981' : '#667eea'};font-size:16px;">${busStopIcon} ${poiName}</div>`;
+                        // Zeige: "🏨 Pommerscher Hof" in erster Zeile
+                        displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
                         // Zeige: "   Seestraße 41, 17424 Heringsdorf" in zweiter Zeile
-                        displayText += `<div style="font-size:14px;color:#666;margin-top:4px;">`;
+                        displayText += `<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">`;
                         if (fullAddress) displayText += fullAddress;
                         if (zip) displayText += ', ' + zip;
                         if (city) displayText += ' ' + city;
@@ -10874,15 +10004,11 @@
                     } else {
                         // Normale Adresse ohne POI
                         if (fullAddress) {
-                            displayText = `<div style="font-weight:600;font-size:16px;">${fullAddress}</div>`;
-                            if (zip || city) {
-                                displayText += `<div style="font-size:14px;color:#666;margin-top:4px;">`;
-                                if (zip) displayText += zip;
-                                if (city) displayText += ' ' + city;
-                                displayText += '</div>';
-                            }
+                            displayText = fullAddress;
+                            if (zip) displayText += ', ' + zip;
+                            if (city) displayText += ' ' + city;
                         } else {
-                            displayText = `<div style="font-weight:600;font-size:16px;">${r.display_name}</div>`;
+                            displayText = r.display_name;
                         }
                     }
                     
@@ -10897,131 +10023,16 @@
                     
                     if (!addressString) addressString = r.display_name;
                     
-                    return `<div style="
-                        padding: 16px;
-                        border-bottom: 1px solid #e5e7eb;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    " 
-                    onmouseover="this.style.background='#f3f4f6'"
-                    onmouseout="this.style.background='white'"
-                    onclick="selectAddressFromOverlay('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})">
+                    return `<div class="autocomplete-item" 
+                        onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})">
                         ${displayText}
                     </div>`;
                 }).join('');
                 
-                console.log('✅ HTML erstellt und in Overlay eingefügt! Anzahl Einträge:', resultsToShow.length);
-                
             } catch (e) {
-                console.error('❌❌❌ AUTOCOMPLETE FEHLER ❌❌❌');
-                console.error('Fehler-Objekt:', e);
-                console.error('Fehler-Message:', e.message);
-                console.error('Fehler-Stack:', e.stack);
-                overlayList.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">❌ Fehler bei der Suche<br><br>' + e.message + '</div>';
+                console.error('Autocomplete Fehler:', e);
+                dropdown.innerHTML = '<div class="autocomplete-item" style="color:#ef4444;">Fehler bei der Suche</div>';
             }
-        }
-
-        // 🆕 v5.42.8: UPDATE BESTÄTIGUNGS-HINWEIS
-        function updateConfirmationHint(field) {
-            const hintDiv = document.getElementById(field + '-confirmation');
-            const input = document.getElementById(field);
-            const value = input.value.trim();
-            
-            // Kein Text → Kein Hinweis
-            if (!value) {
-                hintDiv.style.display = 'none';
-                return;
-            }
-            
-            const isConfirmed = field === 'pickup' ? pickupConfirmed : destinationConfirmed;
-            
-            if (isConfirmed) {
-                // ✅ BESTÄTIGT - Grüner Haken
-                hintDiv.style.display = 'block';
-                hintDiv.style.background = '#d1fae5';
-                hintDiv.style.border = '2px solid #10b981';
-                hintDiv.style.color = '#065f46';
-                hintDiv.innerHTML = '✅ Adresse bestätigt';
-            } else {
-                // ⚠️ NICHT BESTÄTIGT - Roter Hinweis
-                hintDiv.style.display = 'block';
-                hintDiv.style.background = '#fee2e2';
-                hintDiv.style.border = '2px solid #ef4444';
-                hintDiv.style.color = '#991b1b';
-                hintDiv.innerHTML = '⚠️ Bitte Adresse aus der Liste auswählen!';
-            }
-        }
-        
-        // 🆕 v5.42.8: ADRESSE AUS OVERLAY AUSWÄHLEN
-        function selectAddressFromOverlay(inputId, address, lat, lon) {
-            // Schließe Overlay
-            closeAutocompleteOverlay();
-            
-            // Setze Adresse
-            document.getElementById(inputId).value = address;
-            
-            // Speichere Koordinaten
-            if (inputId === 'pickup') {
-                pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                pickupConfirmed = true;
-                updateConfirmationHint('pickup');
-                console.log('✅ Abholort gespeichert:', address, pickupCoords);
-                
-                // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
-                if (currentRideType === 'sofort') {
-                    const display = document.getElementById('available-taxis-display');
-                    display.innerHTML = `
-                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
-                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
-                            <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
-                        </div>
-                    `;
-                    
-                    setTimeout(() => {
-                        showAvailableTaxis();
-                    }, 1000);
-                }
-            } else {
-                destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                destinationConfirmed = true;
-                updateConfirmationHint('destination');
-                console.log('✅ Zielort gespeichert:', address, destCoords);
-            }
-        }
-        
-        // 🆕 v5.42.8: OVERLAY SCHLIESSEN
-        function closeAutocompleteOverlay() {
-            document.getElementById('autocomplete-overlay').style.display = 'none';
-            currentAutocompleteField = null;
-        }
-        
-        // 🆕 v5.45.1: POI BESTÄTIGUNG - Zeige einzelne Adresse im Overlay
-        function showSingleAddressInOverlay(inputId, address, lat, lon, displayName) {
-            const overlayList = document.getElementById('overlay-autocomplete-list');
-            currentAutocompleteField = inputId;
-            
-            console.log('🎯 Zeige Bestätigungs-Overlay:', displayName || address);
-            console.log('   Koordinaten:', { lat, lon });
-            
-            // Öffne Overlay
-            document.getElementById('autocomplete-overlay').style.display = 'block';
-            
-            // Zeige nur DIESEN EINEN Eintrag
-            overlayList.innerHTML = `
-                <div style="
-                    padding: 16px;
-                    border-bottom: 1px solid #e5e7eb;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                " 
-                onmouseover="this.style.background='#f3f4f6'"
-                onmouseout="this.style.background='white'"
-                onclick="selectAddressFromOverlay('${inputId}', '${address.replace(/'/g, "\\'")}', ${lat}, ${lon})">
-                    <div style="font-weight:700;color:#667eea;font-size:16px;">📍 ${displayName || address}</div>
-                    ${displayName && displayName !== address ? `<div style="font-size:14px;color:#666;margin-top:4px;">${address}</div>` : ''}
-                </div>
-            `;
         }
 
         function selectAddress(inputId, address, lat, lon) {
@@ -11031,8 +10042,6 @@
             // Speichere Koordinaten
             if (inputId === 'pickup') {
                 pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                pickupConfirmed = true; // 🆕 v5.42.7: Markiere als bestätigt!
-                updateConfirmationHint('pickup'); // 🆕 v5.42.7: Zeige grünen Haken!
                 console.log('✅ Abholort gespeichert:', address, pickupCoords);
                 
                 // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
@@ -11052,8 +10061,6 @@
                 }
             } else {
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                destinationConfirmed = true; // 🆕 v5.42.7: Markiere als bestätigt!
-                updateConfirmationHint('destination'); // 🆕 v5.42.7: Zeige grünen Haken!
                 console.log('✅ Zielort gespeichert:', address, destCoords);
             }
         }
@@ -11070,9 +10077,7 @@
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
                     pickupCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-                    pickupConfirmed = true;  // 🎯 v5.45.5: DIREKT SETZEN!
-                    console.log('✅ GPS-Position erhalten + confirmed gesetzt:', pickupCoords);
-                    
+                    console.log('✅ Abholort gespeichert (GPS):', pickupCoords);
                     try {
                         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pickupCoords.lat}&lon=${pickupCoords.lon}`);
                         const data = await response.json();
@@ -11081,21 +10086,27 @@
                         const houseNumber = address.house_number || '';
                         const city = address.town || address.village || address.city || 'Heringsdorf';
                         const addressString = `${street} ${houseNumber}, ${city}`.trim();
-                        
-                        // 🆕 v5.45.1: Schreibe Adresse ins Feld und öffne Bestätigungs-Overlay!
                         document.getElementById('pickup').value = addressString;
-                        
-                        // Zeige Overlay zur Bestätigung
-                        showSingleAddressInOverlay('pickup', addressString, pickupCoords.lat, pickupCoords.lon, '📍 Mein Standort');
-                        
                         console.log('✅ Adresse aufgelöst:', addressString);
+                        
+                        // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
+                        if (currentRideType === 'sofort') {
+                            const display = document.getElementById('available-taxis-display');
+                            display.innerHTML = `
+                                <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                                    <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                                    <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                                    <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                                </div>
+                            `;
+                            
+                            setTimeout(() => {
+                                showAvailableTaxis();
+                            }, 1000);
+                        }
                     } catch (e) {
                         console.error('❌ Reverse Geocoding Fehler:', e);
-                        const addressString = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
-                        document.getElementById('pickup').value = addressString;
-                        
-                        // Zeige Overlay auch bei Koordinaten
-                        showSingleAddressInOverlay('pickup', addressString, pickupCoords.lat, pickupCoords.lon, '📍 Mein Standort');
+                        document.getElementById('pickup').value = `${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lon.toFixed(4)}`;
                     }
                 },
                 (err) => {
@@ -11112,7 +10123,7 @@
                     banner.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;background:#fef3c7;padding:15px;border-radius:8px;border:2px solid #f59e0b;z-index:9999;text-align:center;';
                     banner.innerHTML = `
                         <div style="font-weight:600;margin-bottom:5px;">⚠️ GPS nicht verfügbar</div>
-                        <div style="font-size:13px;">Bitte gib deinen Abholort manuell eingeben</div>
+                        <div style="font-size:13px;">Bitte gib deinen Abholort manuell ein</div>
                         <button onclick="this.parentElement.remove()" style="margin-top:10px;padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;">OK</button>
                     `;
                     document.body.appendChild(banner);
@@ -13071,292 +12082,6 @@
         }
         
         // Führt Buchung aus (ohne erneute Prüfung)
-        // 🆕 v5.42.3: Schöne Bestätigungskarte nach Buchung!
-        function showBookingSuccessCard(bookingData) {
-            console.log('═══════════════════════════════════════════════════════');
-            console.log('🎉 ZEIGE BESTÄTIGUNGSKARTE!');
-            console.log('bookingData:', bookingData);
-            console.log('═══════════════════════════════════════════════════════');
-            
-            // 🆕 v5.42.4: Flag setzen - Karte wird angezeigt!
-            showingBookingSuccessCard = true;
-            console.log('🚩 Flag gesetzt: showingBookingSuccessCard = true');
-            
-            // Prüfe ob schon eine Karte existiert
-            const existing = document.getElementById('booking-success-modal');
-            if (existing) {
-                console.log('⚠️ Alte Karte gefunden - entferne sie!');
-                existing.remove();
-            }
-            
-            // Modal erstellen
-            const modal = document.createElement('div');
-            modal.id = 'booking-success-modal';
-            console.log('📦 Modal erstellt:', modal);
-            
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 10000;
-                padding: 20px;
-                backdrop-filter: blur(4px);
-            `;
-            
-            // Pickup-Zeit formatieren
-            let pickupTimeDisplay = 'Sofort';
-            if (bookingData.pickupTime) {
-                try {
-                    const dt = new Date(bookingData.pickupTimestamp || bookingData.pickupTime);
-                    pickupTimeDisplay = dt.toLocaleString('de-DE', {
-                        weekday: 'short',
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                } catch (e) {
-                    pickupTimeDisplay = bookingData.pickupTime;
-                }
-            }
-            
-            // Status-Badge
-            const isPreorder = bookingData.status === 'vorbestellt';
-            const statusBadge = isPreorder ? 
-                '<div style="display:inline-block;background:#10b981;color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin-left:10px;">⏰ Vorbestellung</div>' :
-                '<div style="display:inline-block;background:#667eea;color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin-left:10px;">🚕 Sofort</div>';
-            
-            modal.innerHTML = `
-                <div style="
-                    background: white;
-                    border-radius: 16px;
-                    padding: 0;
-                    width: 100%;
-                    max-width: 500px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                    overflow: hidden;
-                    animation: slideUp 0.3s ease-out;
-                ">
-                    <!-- Header -->
-                    <div style="
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        padding: 30px 20px;
-                        text-align: center;
-                        color: white;
-                    ">
-                        <div style="font-size: 60px; margin-bottom: 10px;">✅</div>
-                        <h2 style="margin: 0 0 5px 0; font-size: 24px; font-weight: 700;">
-                            Fahrt erfolgreich gebucht!
-                        </h2>
-                        ${statusBadge}
-                    </div>
-                    
-                    <!-- Details -->
-                    <div style="padding: 25px 20px;">
-                        <!-- Abholzeit -->
-                        <div style="
-                            background: ${isPreorder ? '#f0fdf4' : '#eef2ff'};
-                            border-left: 4px solid ${isPreorder ? '#10b981' : '#667eea'};
-                            padding: 15px;
-                            border-radius: 8px;
-                            margin-bottom: 20px;
-                        ">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600;">
-                                ${isPreorder ? '⏰ ABHOLZEIT' : '🚀 ABHOLUNG'}
-                            </div>
-                            <div style="font-size: 18px; font-weight: 700; color: ${isPreorder ? '#059669' : '#4c51bf'};">
-                                ${pickupTimeDisplay}
-                            </div>
-                        </div>
-                        
-                        <!-- Route -->
-                        <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
-                            <!-- Von -->
-                            <div style="display: flex; align-items: start; gap: 12px;">
-                                <div style="
-                                    width: 40px;
-                                    height: 40px;
-                                    background: #10b981;
-                                    border-radius: 50%;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-size: 20px;
-                                    flex-shrink: 0;
-                                ">📍</div>
-                                <div style="flex: 1; padding-top: 8px;">
-                                    <div style="font-size: 11px; color: #999; font-weight: 600; margin-bottom: 2px;">VON</div>
-                                    <div style="font-size: 15px; font-weight: 600; color: #333; line-height: 1.4;">
-                                        ${bookingData.pickup}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Linie -->
-                            <div style="
-                                width: 3px;
-                                height: 20px;
-                                background: linear-gradient(to bottom, #10b981, #667eea);
-                                margin-left: 18px;
-                                border-radius: 2px;
-                            "></div>
-                            
-                            <!-- Nach -->
-                            <div style="display: flex; align-items: start; gap: 12px;">
-                                <div style="
-                                    width: 40px;
-                                    height: 40px;
-                                    background: #667eea;
-                                    border-radius: 50%;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-size: 20px;
-                                    flex-shrink: 0;
-                                ">🎯</div>
-                                <div style="flex: 1; padding-top: 8px;">
-                                    <div style="font-size: 11px; color: #999; font-weight: 600; margin-bottom: 2px;">NACH</div>
-                                    <div style="font-size: 15px; font-weight: 600; color: #333; line-height: 1.4;">
-                                        ${bookingData.destination}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Info-Boxen -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                            <!-- Preis -->
-                            ${bookingData.price ? `
-                            <div style="
-                                background: #fef3c7;
-                                padding: 12px;
-                                border-radius: 8px;
-                                text-align: center;
-                            ">
-                                <div style="font-size: 11px; color: #92400e; font-weight: 600; margin-bottom: 4px;">💰 PREIS</div>
-                                <div style="font-size: 20px; font-weight: 700; color: #b45309;">
-                                    ${bookingData.price}€
-                                </div>
-                            </div>
-                            ` : ''}
-                            
-                            <!-- Passagiere -->
-                            <div style="
-                                background: #dbeafe;
-                                padding: 12px;
-                                border-radius: 8px;
-                                text-align: center;
-                            ">
-                                <div style="font-size: 11px; color: #1e40af; font-weight: 600; margin-bottom: 4px;">👥 PERSONEN</div>
-                                <div style="font-size: 20px; font-weight: 700; color: #2563eb;">
-                                    ${bookingData.passengers || 1}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Hinweis -->
-                        <div style="
-                            background: #f0f9ff;
-                            border: 1px solid #bae6fd;
-                            padding: 12px;
-                            border-radius: 8px;
-                            font-size: 13px;
-                            color: #0369a1;
-                            line-height: 1.5;
-                            margin-bottom: 20px;
-                        ">
-                            ${isPreorder ? 
-                                '⏰ <strong>Vorbestellung:</strong> Du erhältst eine Benachrichtigung vor der Abholzeit!' :
-                                '📲 <strong>Tracking:</strong> Du erhältst SMS + Telegram mit Live-Tracking!'
-                            }
-                        </div>
-                        
-                        <!-- Buttons -->
-                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                            <button onclick="closeBookingSuccessCard()" style="
-                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                color: white;
-                                border: none;
-                                padding: 16px;
-                                border-radius: 12px;
-                                font-size: 16px;
-                                font-weight: 700;
-                                cursor: pointer;
-                                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-                                transition: transform 0.2s;
-                            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                                👍 OK, verstanden!
-                            </button>
-                            
-                            <div style="text-align: center; font-size: 12px; color: #999; margin-top: 5px;">
-                                📋 Deine Buchung findest du im <strong>Menü → Mein Verlauf</strong>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Animation CSS
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes slideUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-            
-            console.log('➕ Füge Modal zum body hinzu...');
-            document.body.appendChild(modal);
-            console.log('✅ Modal hinzugefügt!');
-            console.log('📍 Modal im DOM:', document.getElementById('booking-success-modal'));
-            console.log('═══════════════════════════════════════════════════════');
-        }
-        
-        // 🆕 v5.42.3: Schließt Bestätigungskarte und zeigt Formular
-        function closeBookingSuccessCard() {
-            console.log('🚪 Schließe Bestätigungskarte...');
-            
-            // 🆕 v5.42.4: Flag zurücksetzen!
-            showingBookingSuccessCard = false;
-            console.log('🚩 Flag zurückgesetzt: showingBookingSuccessCard = false');
-            
-            const modal = document.getElementById('booking-success-modal');
-            if (modal) {
-                modal.style.animation = 'fadeOut 0.3s ease-out';
-                setTimeout(() => {
-                    modal.remove();
-                }, 300);
-            }
-            
-            // Zurück zur Startseite (Buchungsformular)
-            document.getElementById('booking-form').style.display = 'block';
-            document.getElementById('ride-status-container').innerHTML = '';
-            
-            // Formular zurücksetzen für neue Buchung
-            resetBookingForm();
-            
-            // Scroll zum Formular
-            document.getElementById('booking-form').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
-            
-            console.log('✅ Zurück zur Startseite');
-        }
-        
         async function executeBooking(bookingData) {
             console.log('📝 Führe Buchung aus:', bookingData);
             
@@ -13389,22 +12114,40 @@
                 await sendCustomerNotifications(bookingData);
             }
             
-            console.log('═══════════════════════════════════════════════════════');
-            console.log('📞 RUFE showBookingSuccessCard() auf...');
-            console.log('═══════════════════════════════════════════════════════');
-            
-            // 🆕 v5.42.3: Bestätigung zeigen - SCHÖNE KARTE statt Alert!
-            showBookingSuccessCard(bookingData);
-            
-            console.log('═══════════════════════════════════════════════════════');
-            console.log('✅ showBookingSuccessCard() fertig!');
-            console.log('═══════════════════════════════════════════════════════');
-            
-            // Formular verstecken (wird von Card wieder angezeigt beim OK-Klick)
-            document.getElementById('booking-form').style.display = 'none';
-            
-            // Bei Sofort-Fahrten: Fahrt-Status vorbereiten
-            if (bookingData.status !== 'vorbestellt') {
+            // Bestätigung zeigen
+            if (bookingData.status === 'vorbestellt') {
+                // 🆕 v5.41.2: AUCH bei Vorbestellungen Alert zeigen!
+                const pickupTimeDisplay = bookingData.pickupTime || 'später';
+                
+                alert(
+                    '✅ Vorbestellung erfolgreich!\n\n' +
+                    '⏰ Abholung: ' + pickupTimeDisplay + '\n' +
+                    '📍 Von: ' + bookingData.pickup + '\n' +
+                    '🎯 Nach: ' + bookingData.destination + '\n' +
+                    (bookingData.price ? '💰 Preis: ' + bookingData.price + '€\n' : '') +
+                    '\n📲 Du erhältst eine Benachrichtigung vor der Abholzeit!\n\n' +
+                    '📋 Deine Vorbestellung findest du im Verlauf.'
+                );
+                
+                // Zeige CARD
+                document.getElementById('booking-form').style.display = 'none';
+                showRideStatus(bookingData);
+                
+                console.log('✅ Vorbestellung abgeschlossen:', bookingData.firebaseId);
+            } else {
+                alert(
+                    '✅ Buchung erfolgreich!\n\n' +
+                    '📍 Von: ' + bookingData.pickup + '\n' +
+                    '🎯 Nach: ' + bookingData.destination + '\n' +
+                    '💰 Preis: ' + bookingData.price + '€\n\n' +
+                    '📲 Sie erhalten SMS + Telegram mit Tracking-Link!\n\n' +
+                    '🚕 Wir suchen jetzt einen Fahrer für dich!'
+                );
+                
+                document.getElementById('booking-form').style.display = 'none';
+                showRideStatus(bookingData);
+                resetBookingForm();
+                
                 if (isFirebaseReady) listenToMyRide(bookingData.firebaseId);
             }
             
@@ -13415,9 +12158,6 @@
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
-
-        // 🆕 v5.42.4: Flag um Bestätigungskarte zu schützen
-        let showingBookingSuccessCard = false;
 
         // 🆕 v5.31.1: Track letzten Status um unnötige UI-Updates zu vermeiden
         let lastRideStatus = null;
@@ -13497,12 +12237,6 @@
                     if (statusChanged) {
                         console.log('🔄 Status geändert:', lastRideStatus, '→', ride.status);
                         lastRideStatus = ride.status;
-                        
-                        // 🆕 v5.42.4: NICHT überschreiben wenn Bestätigungskarte angezeigt wird!
-                        if (showingBookingSuccessCard) {
-                            console.log('🛡️ Bestätigungskarte wird angezeigt - KEIN showRideStatus()!');
-                            return;
-                        }
                         
                         // 🎯 Status-Änderung → VOLLSTÄNDIGES UI-Update
                         document.getElementById('booking-form').style.display = 'none';
@@ -14549,78 +13283,6 @@
                     actionButton.onclick = () => completeRide(rideId);
                     actionButton.style.background = '#10b981';
                 }
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // 🆕 v5.42.6: CONSOLE CONTROL FUNKTIONEN
-        // ═══════════════════════════════════════════════════════════════════════════
-        
-        function pauseConsole() {
-            window.consolePaused = true;
-            document.getElementById('console-pause-btn').style.display = 'none';
-            document.getElementById('console-play-btn').style.display = 'block';
-            document.getElementById('console-status').innerHTML = '⏸️ Console PAUSIERT';
-            document.getElementById('console-status').style.color = '#f59e0b';
-            console.log('⏸️ Console PAUSIERT!');
-        }
-        
-        function playConsole() {
-            window.consolePaused = false;
-            document.getElementById('console-pause-btn').style.display = 'block';
-            document.getElementById('console-play-btn').style.display = 'none';
-            document.getElementById('console-status').innerHTML = '▶️ Console läuft';
-            document.getElementById('console-status').style.color = '#10b981';
-            console.log('▶️ Console läuft wieder!');
-        }
-        
-        function copyConsole() {
-            const logs = window.consoleLogHistory.join('\n');
-            
-            // Versuche in Zwischenablage zu kopieren
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(logs).then(() => {
-                    alert('✅ Console in Zwischenablage kopiert!\n\n' + 
-                          logs.split('\n').length + ' Zeilen kopiert.');
-                }).catch(err => {
-                    // Fallback: Zeige in Alert
-                    prompt('📋 Kopiere diese Logs:\n\n' + 
-                           '(Strg+C / Cmd+C zum kopieren)', logs);
-                });
-            } else {
-                // Fallback für ältere Browser
-                prompt('📋 Kopiere diese Logs:\n\n' + 
-                       '(Strg+C / Cmd+C zum kopieren)', logs);
-            }
-        }
-        
-        function exportConsole() {
-            const logs = window.consoleLogHistory.join('\n');
-            const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
-            const filename = `console-log-${timestamp}.txt`;
-            
-            // Erstelle Download-Link
-            const blob = new Blob([logs], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            alert('💾 Console exportiert!\n\n' + 
-                  'Datei: ' + filename + '\n' +
-                  'Zeilen: ' + logs.split('\n').length);
-        }
-        
-        function clearConsoleLog() {
-            if (confirm('🗑️ Console wirklich leeren?\n\nAlle Logs gehen verloren!')) {
-                window.consoleLogHistory = [];
-                console.clear();
-                console.log('🗑️ Console geleert!');
-                alert('✅ Console geleert!');
             }
         }
 
@@ -23009,15 +21671,6 @@ Stack: ${err.stack}
                 }
                 
                 closeLoginModal();
-                
-                // 🆕 v5.42.2: WICHTIG! Auth-Check + Menü-Update + User-Profile nach Login!
-                setTimeout(() => {
-                    checkPassengerAuth();
-                    loadQuickLoginData();
-                    updateMenuProfile();
-                    updateUserProfile(); // 🆕 Versteckt "Anmelden" Button!
-                }, 500);
-                
                 alert('✅ Erfolgreich angemeldet!\n\n📱 ' + result.user.phoneNumber);
                 
             } catch (error) {
@@ -23327,10 +21980,12 @@ Stack: ${err.stack}
                 console.log('✅ Quick-Login aktiv:', quickLoginPhone);
                 if (authScreen) authScreen.style.display = 'none';
                 
-                // 🆕 v5.42.2: Quick-Login-Box ist DEAKTIVIERT - Avatar stattdessen!
-                // Quick-Login Daten laden + Menü aktualisieren
-                loadQuickLoginData();
-                updateMenuProfile();
+                // Quick-Login Box anzeigen
+                const quickBox = document.getElementById('quick-login-box');
+                if (quickBox) {
+                    quickBox.style.display = 'block';
+                    document.getElementById('quick-login-phone').textContent = quickLoginPhone;
+                }
                 
                 // ✅ FIX: Anmelden-Button verstecken wenn eingeloggt!
                 const loginButton = document.querySelector('button[onclick="showLoginModal()"]');
@@ -23804,18 +22459,36 @@ Stack: ${err.stack}
         function logoutQuickLogin() {
             if (!confirm('Wirklich abmelden?')) return;
             
-            console.log('🚪 Quick-Login Logout wird ausgeführt...');
-            
             // Quick-Login Daten löschen
             localStorage.removeItem('loggedInPhone');
             localStorage.removeItem('loggedInUserId');
             localStorage.removeItem('loggedInUserName');
             
-            console.log('✅ Quick-Login Daten gelöscht');
+            // Quick-Login Box verstecken
+            const quickBox = document.getElementById('quick-login-box');
+            if (quickBox) quickBox.style.display = 'none';
             
-            // 🆕 v5.45.6: SEITE NEU LADEN damit alles sauber ist!
-            console.log('🔄 Lade Seite neu...');
-            location.reload();
+            // ✅ FIX: Anmelden-Button wieder ANZEIGEN nach Logout!
+            const loginButton = document.querySelector('button[onclick="showLoginModal()"]');
+            if (loginButton) {
+                loginButton.style.display = 'inline-block';
+                console.log('✅ Anmelden-Button wieder angezeigt nach Logout');
+            }
+            
+            // 🆕 v5.42.1: Lösche quickLoginData + Update Menü!
+            quickLoginData = null;
+            updateMenuProfile();
+            
+            // Formular leeren
+            const phoneField = document.getElementById('customer-phone');
+            if (phoneField) phoneField.value = '';
+            const nameField = document.getElementById('customer-name');
+            if (nameField) nameField.value = '';
+            
+            // Login-Screen zeigen
+            checkPassengerAuth();
+            
+            console.log('🚪 Quick-Login abgemeldet');
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -24015,44 +22688,20 @@ Stack: ${err.stack}
                     <button class="btn-logout" onclick="logoutUser()">Aus</button>
                 `;
             } else {
-                // 🆕 v5.42.2: Prüfe auch Quick-Login!
-                const quickLoginPhone = localStorage.getItem('loggedInPhone');
-                
-                if (quickLoginPhone) {
-                    // Quick-Login User ist eingeloggt → Zeige Profil + LOGOUT!
-                    if (!profileBox) {
-                        profileBox = document.createElement('div');
-                        profileBox.id = 'user-profile-box';
-                        profileBox.className = 'user-profile';  // ✅ Nutze user-profile Style!
-                        header.appendChild(profileBox);
-                    }
-                    
-                    // 🎯 v5.45.6: MIT LOGOUT-BUTTON!
-                    const phoneDisplay = quickLoginPhone.substring(0, 6) + '***';
-                    profileBox.innerHTML = `
-                        <div class="user-avatar">📱</div>
-                        <div class="user-info">
-                            <div style="font-weight: 600; font-size: 11px;">📱 Telefon-Login</div>
-                            <div style="font-size: 9px; opacity: 0.75;">${phoneDisplay}</div>
-                        </div>
-                        <button class="btn-logout" onclick="logoutQuickLogin()">Aus</button>
-                    `;
-                } else {
-                    // User ist nicht eingeloggt - zeige nur Anmelden Button
-                    if (!profileBox) {
-                        profileBox = document.createElement('div');
-                        profileBox.id = 'user-profile-box';
-                        header.appendChild(profileBox);
-                    }
-                    
-                    profileBox.className = '';
-                    profileBox.style.marginTop = '15px';
-                    profileBox.innerHTML = `
-                        <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
-                            🔐 Anmelden / Registrieren
-                        </button>
-                    `;
+                // User ist nicht eingeloggt - zeige nur Anmelden Button
+                if (!profileBox) {
+                    profileBox = document.createElement('div');
+                    profileBox.id = 'user-profile-box';
+                    header.appendChild(profileBox);
                 }
+                
+                profileBox.className = '';
+                profileBox.style.marginTop = '15px';
+                profileBox.innerHTML = `
+                    <button class="btn btn-primary" onclick="showLoginModal()" style="padding: 10px 20px; font-size: 13px;">
+                        🔐 Anmelden / Registrieren
+                    </button>
+                `;
             }
         }
 
@@ -24246,88 +22895,115 @@ Stack: ${err.stack}
         }
         
         function useSavedLocation(field, address, lat, lon) {
-            console.log('🎯 useSavedLocation aufgerufen:', { field, address, lat, lon });
-            
-            // ✅ Schreibe Adresse ins Feld
             document.getElementById(field).value = address;
-            console.log('✅ Adresse ins Feld geschrieben');
             
-            // 🆕 v5.45.5: Bessere Prüfung - auch String "null" abfangen!
-            const hasCoords = (lat !== null && lat !== 'null' && lat !== undefined) && 
-                            (lon !== null && lon !== 'null' && lon !== undefined);
-            
-            console.log('🔍 Koordinaten-Prüfung:', { hasCoords, lat, lon });
-            
-            if (hasCoords) {
-                // ✅ KOORDINATEN VORHANDEN
-                const coords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                
-                // 🎯 v5.45.5: DIREKT SETZEN (wie v5.42.5) + Overlay zeigen!
+            // 🔧 v5.30.0: FIX - Wenn KEINE Koordinaten gespeichert, hole sie via Geocoding!
+            if (lat !== null && lon !== null) {
+                // Koordinaten vorhanden - nutze sie direkt!
                 if (field === 'pickup') {
-                    pickupCoords = coords;
-                    pickupConfirmed = true;  // ✅ SOFORT SETZEN!
-                    console.log('✅ Pickup: Koordinaten + confirmed DIREKT gesetzt:', pickupCoords);
+                    pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                    console.log('✅ Pickup-Koordinaten gesetzt:', pickupCoords);
                     
-                    // 🆕 v5.30.0: NUR bei "Sofort" → Taxis laden!
+                    // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
                     if (currentRideType === 'sofort') {
                         const display = document.getElementById('available-taxis-display');
-                        if (display) {
-                            display.innerHTML = `
-                                <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                                    <div style="font-size:20px;margin-bottom:10px;">📍</div>
-                                    <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
-                                    <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
-                                </div>
-                            `;
-                            setTimeout(() => { showAvailableTaxis(); }, 1000);
-                        }
+                        display.innerHTML = `
+                            <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                                <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                                <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
+                                <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
+                            </div>
+                        `;
+                        
+                        setTimeout(() => {
+                            showAvailableTaxis();
+                        }, 1000);
                     }
                 } else {
-                    destCoords = coords;
-                    destinationConfirmed = true;  // ✅ SOFORT SETZEN!
-                    console.log('✅ Destination: Koordinaten + confirmed DIREKT gesetzt:', destCoords);
+                    destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                    console.log('✅ Ziel-Koordinaten gesetzt:', destCoords);
                 }
-                
-                // 🎯 DANN Overlay zur Bestätigung zeigen
-                console.log('📍 Öffne Bestätigungs-Overlay...');
-                showSingleAddressInOverlay(field, address, coords.lat, coords.lon, address);
-                
             } else {
-                // ⚠️ KEINE Koordinaten gespeichert - hole sie via Forward Geocoding!
+                // 🆕 v5.30.0: KEINE Koordinaten gespeichert - hole sie via Forward Geocoding!
                 console.log('⚠️ Keine Koordinaten gespeichert - hole via Geocoding:', address);
                 
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data && data.length > 0) {
-                            const coords = { 
-                                lat: parseFloat(data[0].lat), 
-                                lon: parseFloat(data[0].lon) 
-                            };
-                            console.log('✅ Koordinaten via Geocoding gefunden:', coords);
-                            
-                            // 🎯 DIREKT SETZEN!
-                            if (field === 'pickup') {
-                                pickupCoords = coords;
-                                pickupConfirmed = true;
-                                console.log('✅ Pickup via Geocoding gesetzt');
-                            } else {
-                                destCoords = coords;
-                                destinationConfirmed = true;
-                                console.log('✅ Destination via Geocoding gesetzt');
+                if (field === 'pickup') {
+                    // 🆕 v5.30.0: NUR bei "Sofort" Loading zeigen und Taxis laden!
+                    if (currentRideType === 'sofort') {
+                        const display = document.getElementById('available-taxis-display');
+                        display.innerHTML = `
+                            <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                                <div style="font-size:20px;margin-bottom:10px;">🔍</div>
+                                <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Suche Koordinaten...</div>
+                                <div style="font-size:13px;opacity:0.9;">Bitte warten...</div>
+                            </div>
+                        `;
+                        
+                        // Forward Geocoding: Adresse → Koordinaten
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data && data.length > 0) {
+                                    pickupCoords = { 
+                                        lat: parseFloat(data[0].lat), 
+                                        lon: parseFloat(data[0].lon) 
+                                    };
+                                    console.log('✅ Koordinaten via Geocoding gefunden:', pickupCoords);
+                                    
+                                    setTimeout(() => {
+                                        showAvailableTaxis();
+                                    }, 500);
+                                } else {
+                                    console.error('❌ Keine Koordinaten gefunden für:', address);
+                                    display.innerHTML = `
+                                        <div style="padding:15px;background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;margin-top:10px;text-align:center;">
+                                            <div style="font-size:18px;margin-bottom:8px;">⚠️</div>
+                                            <div style="font-weight:600;color:#92400e;margin-bottom:5px;">Adresse nicht gefunden</div>
+                                            <div style="font-size:13px;color:#78350f;">Bitte Favorit neu speichern</div>
+                                        </div>
+                                    `;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('❌ Geocoding-Fehler:', error);
+                                display.innerHTML = `
+                                    <div style="padding:15px;background:#fef2f2;border:2px solid #ef4444;border-radius:12px;margin-top:10px;text-align:center;">
+                                        <div style="font-size:18px;margin-bottom:8px;">❌</div>
+                                        <div style="font-weight:600;color:#991b1b;margin-bottom:5px;">Fehler beim Laden</div>
+                                        <div style="font-size:13px;color:#7f1d1d;">Bitte Favorit neu speichern</div>
+                                    </div>
+                                `;
+                            });
+                    } else {
+                        // Bei "Vorbestellen": Hole Koordinaten trotzdem (für Distanz-Berechnung), aber zeige keine Taxis
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data && data.length > 0) {
+                                    pickupCoords = { 
+                                        lat: parseFloat(data[0].lat), 
+                                        lon: parseFloat(data[0].lon) 
+                                    };
+                                    console.log('✅ Koordinaten via Geocoding gefunden:', pickupCoords);
+                                }
+                            })
+                            .catch(error => console.error('❌ Geocoding-Fehler:', error));
+                    }
+                } else {
+                    // Destination: Auch Koordinaten holen
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data && data.length > 0) {
+                                destCoords = { 
+                                    lat: parseFloat(data[0].lat), 
+                                    lon: parseFloat(data[0].lon) 
+                                };
+                                console.log('✅ Ziel-Koordinaten via Geocoding gefunden:', destCoords);
                             }
-                            
-                            // Zeige im Overlay
-                            showSingleAddressInOverlay(field, address, coords.lat, coords.lon, address);
-                        } else {
-                            console.error('❌ Keine Koordinaten gefunden für:', address);
-                            alert('⚠️ Adresse nicht gefunden!\n\nBitte Favorit neu speichern.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('❌ Geocoding-Fehler:', error);
-                        alert('❌ Fehler beim Laden!\n\nBitte Favorit neu speichern.');
-                    });
+                        })
+                        .catch(error => console.error('❌ Geocoding-Fehler (Ziel):', error));
+                }
             }
             
             console.log('✅ Gespeicherter Ort verwendet:', address);
@@ -26133,7 +24809,7 @@ Stack: ${err.stack}
         
         // 🆕 v5.39.8: AGGRESSIVE VIEW-BEREINIGUNG - Mehrfach ausführen!
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 v5.42.5: View-Bereinigung aktiv...');
+            console.log('🚀 v5.39.8: View-Bereinigung aktiv...');
             
             function forcePassengerViewOnly() {
                 // Verstecke ALLE Views brutal!

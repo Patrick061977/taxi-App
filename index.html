@@ -472,7 +472,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.1 - POI BESTÄTIGUNG (Build 20251207-1930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.2 - AUTOCOMPLETE FIX (Build 20251207-1945)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10715,14 +10715,12 @@
                     const value = e.target.value.trim();
                     
                     if (value.length < 3) {
-                        dropdown.style.display = 'none';
+                        // 🆕 v5.45.2: Schließe Overlay bei zu wenig Text
+                        closeAutocompleteOverlay();
                         return;
                     }
                     
-                    // Zeige "Lädt..." sofort
-                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;">Suche...</div>';
-                    dropdown.style.display = 'block';
-                    
+                    // 🆕 v5.45.2: NUR NOCH OVERLAY - Altes Dropdown entfernt!
                     // Verzögerte Suche (Debounce)
                     autocompleteTimeout = setTimeout(() => {
                         searchAddresses(value, id);
@@ -24247,11 +24245,14 @@ Stack: ${err.stack}
             // 🆕 v5.45.1: Schreibe Adresse ins Feld und öffne Bestätigungs-Overlay!
             document.getElementById(field).value = address;
             
-            // 🔧 v5.30.0: FIX - Wenn KEINE Koordinaten gespeichert, hole sie via Geocoding!
-            if (lat !== null && lon !== null) {
+            // 🆕 v5.45.2: Bessere Prüfung - auch String "null" abfangen!
+            const hasCoords = (lat !== null && lat !== 'null' && lat !== undefined) && 
+                            (lon !== null && lon !== 'null' && lon !== undefined);
+            
+            if (hasCoords) {
                 // Koordinaten vorhanden - zeige im Overlay!
                 console.log('✅ POI mit Koordinaten:', address, { lat, lon });
-                showSingleAddressInOverlay(field, address, lat, lon, address);
+                showSingleAddressInOverlay(field, address, parseFloat(lat), parseFloat(lon), address);
             } else {
                 // 🆕 v5.30.0: KEINE Koordinaten gespeichert - hole sie via Forward Geocoding!
                 console.log('⚠️ Keine Koordinaten gespeichert - hole via Geocoding:', address);

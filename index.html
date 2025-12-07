@@ -17,10 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.41.4 - Build 20251207-1145');
-        console.log('🔧 v5.41.4: KRITISCHER FIX! Slot-Check zurück in book() mit VOLLEN Daten!');
-        console.log('✅ v5.41.4: Alternative Slots → ALLE Felder vorhanden → Telegram ✅ Verlauf ✅');
-        console.log('📊 v5.41.4: Preis-Berechnen zeigt Warnung, Buchen macht finalen Check!');
+        console.log('🚕 Funk Taxi App v5.41.5 - Build 20251207-1200');
+        console.log('✨ v5.41.5: LIVE SLOT-CHECK! Prüfung während Datum/Zeit-Eingabe!');
+        console.log('✅ v5.41.5: Slot-Warnung beim Preis-Berechnen funktioniert!');
+        console.log('✅ v5.41.5: Extra Bestätigung für Alternative Slots!');
+        console.log('🔧 v5.41.5: Koordinaten-Bug gefixed!');
         console.log('🚗 v5.41.1: Route-Berechnung + Extra-Zeit!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
@@ -386,7 +387,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.4 - Slot-Check Fix (Build 20251207-1145)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.5 - Live Slot-Check (Build 20251207-1200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -898,6 +899,12 @@
                             <span style="font-size:14px;color:#666;">Uhr</span>
                         </div>
                     </div>
+                    
+                    <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
+                    <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                    
                     <div id="datetime-help" style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
                         💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
                     </div>
@@ -10287,6 +10294,101 @@
         }
 
         // BOOKING
+        
+        // 🆕 v5.41.5: LIVE SLOT-CHECK (Patrick's Wunsch!)
+        // Prüft Slot-Verfügbarkeit während User Datum/Zeit eingibt
+        let liveCheckTimeout = null;
+        
+        async function performLiveSlotCheck() {
+            const liveDisplay = document.getElementById('live-slot-check');
+            
+            // Nur bei Vorbestellung relevant
+            if (currentRideType !== 'vorbestellen' || !autoBookingEnabled || !isFirebaseReady) {
+                if (liveDisplay) liveDisplay.style.display = 'none';
+                return;
+            }
+            
+            const dateVal = document.getElementById('custom-date').value;
+            const hourVal = document.getElementById('custom-hour').value;
+            const minuteVal = document.getElementById('custom-minute').value;
+            
+            if (!dateVal || !pickupCoords) {
+                if (liveDisplay) liveDisplay.style.display = 'none';
+                return;
+            }
+            
+            // Zeige "Prüfe..." Nachricht
+            if (liveDisplay) {
+                liveDisplay.innerHTML = '<span style="color:#666;">🔍 Prüfe Verfügbarkeit...</span>';
+                liveDisplay.style.display = 'block';
+                liveDisplay.style.background = '#f3f4f6';
+                liveDisplay.style.border = '2px solid #d1d5db';
+            }
+            
+            try {
+                // Timestamp berechnen
+                const dateParts = dateVal.split('-');
+                const selectedDate = new Date(
+                    parseInt(dateParts[0]),
+                    parseInt(dateParts[1]) - 1,
+                    parseInt(dateParts[2]),
+                    parseInt(hourVal),
+                    parseInt(minuteVal),
+                    0, 0
+                );
+                const timestamp = selectedDate.getTime();
+                
+                // Slot prüfen
+                const availability = await checkTimeSlotAvailability(timestamp, pickupCoords);
+                
+                if (liveDisplay) {
+                    if (availability.available) {
+                        // ✅ FREI
+                        liveDisplay.innerHTML = '<strong style="color:#10b981;">✅ Zeitslot verfügbar!</strong>';
+                        liveDisplay.style.background = '#d1fae5';
+                        liveDisplay.style.border = '2px solid #10b981';
+                    } else {
+                        // ❌ BESETZT
+                        liveDisplay.innerHTML = '<strong style="color:#f59e0b;">⚠️ Zeitslot bereits belegt!</strong><br><span style="font-size:12px;color:#92400e;">Alternative Zeiten werden beim Buchen vorgeschlagen.</span>';
+                        liveDisplay.style.background = '#fef3c7';
+                        liveDisplay.style.border = '2px solid #f59e0b';
+                    }
+                    liveDisplay.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('❌ Live-Check Fehler:', error);
+                if (liveDisplay) liveDisplay.style.display = 'none';
+            }
+        }
+        
+        // Event Listeners für Live-Check
+        function initializeLiveSlotCheck() {
+            const dateField = document.getElementById('custom-date');
+            const hourField = document.getElementById('custom-hour');
+            const minuteField = document.getElementById('custom-minute');
+            
+            const triggerLiveCheck = () => {
+                // Debounce: Warte 500ms nach letzter Änderung
+                clearTimeout(liveCheckTimeout);
+                liveCheckTimeout = setTimeout(() => {
+                    performLiveSlotCheck();
+                }, 500);
+            };
+            
+            if (dateField) dateField.addEventListener('change', triggerLiveCheck);
+            if (hourField) hourField.addEventListener('change', triggerLiveCheck);
+            if (minuteField) minuteField.addEventListener('change', triggerLiveCheck);
+            
+            console.log('✅ Live Slot-Check initialisiert');
+        }
+        
+        // Initialisiere nach DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeLiveSlotCheck);
+        } else {
+            initializeLiveSlotCheck();
+        }
+        
         async function calculatePriceAndShow() {
             const pickup = document.getElementById('pickup').value.trim();
             const destination = document.getElementById('destination').value.trim();
@@ -10361,27 +10463,46 @@
             
             priceHtml += '</div>';
             
-            // 🆕 v5.41.4: INFO-CHECK für Vorbestellungen (kein Abbruch, nur Warnung)
-            // Patrick's Idee: User soll vorher Bescheid wissen
-            const isAdvanceBooking = pickupTimeSelect !== 'sofort' && pickupTimeSelect !== 'jetzt' && pickupTimeSelect !== '5min';
+            // 🆕 v5.41.5: SLOT-CHECK beim Preis-Berechnen (Patrick's Idee!)
+            // Prüfe ob es eine Vorbestellung ist
+            const oldPickupTimeElem = document.getElementById('pickup-time');
+            const pickupTimeSelect = oldPickupTimeElem ? oldPickupTimeElem.value : 'sofort';
+            const isAdvanceBooking = currentRideType === 'vorbestellen' || 
+                                    (pickupTimeSelect !== 'sofort' && pickupTimeSelect !== 'jetzt' && pickupTimeSelect !== '5min');
             
-            if (autoBookingEnabled && isAdvanceBooking && isFirebaseReady) {
-                console.log('🔍 Quick-Check: Ist Slot vermutlich frei?');
+            console.log('🔍 Slot-Check beim Preis-Berechnen:', {
+                currentRideType: currentRideType,
+                pickupTimeSelect: pickupTimeSelect,
+                isAdvanceBooking: isAdvanceBooking,
+                autoBookingEnabled: autoBookingEnabled,
+                isFirebaseReady: isFirebaseReady
+            });
+            
+            if (autoBookingEnabled && isAdvanceBooking && isFirebaseReady && pickupCoords) {
+                console.log('🤖 Quick-Check: Prüfe Slot-Verfügbarkeit...');
                 
-                const availability = await checkTimeSlotAvailability(pickupTimestamp, pickupCoords);
-                
-                if (!availability.available) {
-                    // ⚠️ WARNUNG aber kein Abbruch!
-                    console.log('⚠️ Slot vermutlich belegt - Warnung anzeigen');
+                try {
+                    const availability = await checkTimeSlotAvailability(pickupTimestamp, pickupCoords);
                     
-                    // Zeige Warnung unter Preis
-                    priceHtml += `<div style="margin-top:15px;padding:12px;background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;">
-                        <div style="font-weight:bold;color:#d97706;margin-bottom:6px;">⚠️ Hinweis</div>
-                        <div style="font-size:13px;color:#92400e;">
-                            Diese Zeit ist vermutlich bereits belegt.<br>
-                            Beim Buchen erhältst du alternative Zeiten vorgeschlagen.
-                        </div>
-                    </div>`;
+                    if (!availability.available) {
+                        console.log('⚠️ Slot vermutlich belegt!');
+                        
+                        // Zeige DEUTLICHE Warnung unter Preis
+                        priceHtml += `<div style="margin-top:15px;padding:15px;background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                <span style="font-size:24px;">⚠️</span>
+                                <div style="font-weight:bold;color:#d97706;font-size:16px;">Zeitslot vermutlich belegt!</div>
+                            </div>
+                            <div style="font-size:14px;color:#92400e;line-height:1.5;">
+                                Diese Zeit ist bereits gebucht.<br>
+                                Beim Buchen erhältst du automatisch alternative Zeiten vorgeschlagen.
+                            </div>
+                        </div>`;
+                    } else {
+                        console.log('✅ Slot verfügbar!');
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Quick-Check:', error);
                 }
             }
             
@@ -10841,12 +10962,24 @@
                 price: window.currentPrice,
                 distance: window.currentDistance,
                 duration: window.currentDuration,
-                pickupCoords, destCoords,
+                // 🆕 v5.41.5: Koordinaten sicher speichern (nur wenn vorhanden)
+                pickupCoords: pickupCoords ? { lat: pickupCoords.lat, lon: pickupCoords.lon } : null,
+                destCoords: destCoords ? { lat: destCoords.lat, lon: destCoords.lon } : null,
                 status: rideStatus,
                 time: new Date().toLocaleString('de-DE'),
                 createdAt: Date.now(),
                 paymentMethod: document.getElementById('payment-method').value // 💳 Zahlungsmethode
             };
+            
+            console.log('📝 Ride-Objekt erstellt:', {
+                id: ride.id,
+                customerName: ride.customerName,
+                customerPhone: ride.customerPhone,
+                status: ride.status,
+                pickupTimestamp: ride.pickupTimestamp,
+                hasPickupCoords: !!ride.pickupCoords,
+                hasDestCoords: !!ride.destCoords
+            });
             
             // 🆕 v5.41.4: SLOT-CHECK mit VOLLEN Daten! (HIER hat ride ALLE Felder!)
             // Prüfe Zeitslot bei Vorbestellungen mit ALLEN Buchungsdaten
@@ -11677,12 +11810,28 @@
         
         // User wählt alternative Zeit
         async function selectAlternativeTime(timestamp) {
-            console.log('✅ Alternative Zeit gewählt:', new Date(timestamp).toLocaleString('de-DE'));
+            const selectedTime = new Date(timestamp).toLocaleString('de-DE');
+            console.log('✅ Alternative Zeit gewählt:', selectedTime);
             
             if (!currentBookingData) {
                 alert('❌ Fehler: Buchungsdaten verloren!');
                 closeAutoBookingModal();
                 return;
+            }
+            
+            // 🆕 v5.41.5: BESTÄTIGUNG vor Buchung (Patrick's Wunsch!)
+            const confirmBooking = confirm(
+                '📅 Alternative Zeit bestätigen?\n\n' +
+                '⏰ Neue Abholzeit:\n' + selectedTime + '\n\n' +
+                '📍 Von: ' + currentBookingData.pickup + '\n' +
+                '🎯 Nach: ' + currentBookingData.destination + '\n' +
+                (currentBookingData.price ? '💰 Preis: ' + currentBookingData.price + '€\n' : '') +
+                '\n✅ Jetzt buchen?'
+            );
+            
+            if (!confirmBooking) {
+                console.log('❌ Buchung abgebrochen');
+                return; // User hat abgebrochen
             }
             
             // Aktualisiere Zeitstempel
@@ -11693,7 +11842,9 @@
                 pickupTime: currentBookingData.pickupTime,
                 pickup: currentBookingData.pickup,
                 destination: currentBookingData.destination,
-                status: currentBookingData.status
+                status: currentBookingData.status,
+                customerName: currentBookingData.customerName || 'unbekannt',
+                customerPhone: currentBookingData.customerPhone || 'unbekannt'
             });
             
             // Modal schließen (ohne Daten zu löschen!)
@@ -11711,7 +11862,10 @@
                 
             } catch (error) {
                 console.error('❌ FEHLER bei Alternative-Buchung:', error);
-                alert('❌ Fehler beim Buchen:\n' + error.message + '\n\nBitte versuche es erneut!');
+                
+                // 🆕 v5.41.5: Bessere Fehler-Meldung
+                const errorMsg = error.message || error.toString();
+                alert('❌ Fehler beim Buchen:\n\n' + errorMsg + '\n\nBitte versuche es erneut oder wähle eine andere Zeit!');
                 
                 // Formular wieder anzeigen bei Fehler
                 document.getElementById('booking-form').style.display = 'block';

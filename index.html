@@ -17,11 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.42.3 - Build 20251207-1345');
+        console.log('🚕 Funk Taxi App v5.42.4 - Build 20251207-1415');
+        console.log('🐛 v5.42.4: FIX - Bestätigungskarte wird nicht überschrieben!');
+        console.log('🛡️ v5.42.4: showingBookingSuccessCard Flag schützt Karte!');
         console.log('🎉 v5.42.3: SCHÖNE BESTÄTIGUNGSKARTE nach Buchung!');
         console.log('✅ v5.42.3: Card mit allen Details + [OK] Button');
-        console.log('🏠 v5.42.3: Nach OK → zurück zur Startseite');
-        console.log('🐛 v5.42.2: Phone-Login Bugfixes!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -411,7 +411,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.3 - Schöne Bestätigungskarte (Build 20251207-1345)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.4 - Bestätigungskarte FIX (Build 20251207-1415)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -12087,11 +12087,27 @@
         // Führt Buchung aus (ohne erneute Prüfung)
         // 🆕 v5.42.3: Schöne Bestätigungskarte nach Buchung!
         function showBookingSuccessCard(bookingData) {
-            console.log('🎉 Zeige Bestätigungskarte:', bookingData);
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('🎉 ZEIGE BESTÄTIGUNGSKARTE!');
+            console.log('bookingData:', bookingData);
+            console.log('═══════════════════════════════════════════════════════');
+            
+            // 🆕 v5.42.4: Flag setzen - Karte wird angezeigt!
+            showingBookingSuccessCard = true;
+            console.log('🚩 Flag gesetzt: showingBookingSuccessCard = true');
+            
+            // Prüfe ob schon eine Karte existiert
+            const existing = document.getElementById('booking-success-modal');
+            if (existing) {
+                console.log('⚠️ Alte Karte gefunden - entferne sie!');
+                existing.remove();
+            }
             
             // Modal erstellen
             const modal = document.createElement('div');
             modal.id = 'booking-success-modal';
+            console.log('📦 Modal erstellt:', modal);
+            
             modal.style.cssText = `
                 position: fixed;
                 top: 0;
@@ -12316,11 +12332,21 @@
             `;
             document.head.appendChild(style);
             
+            console.log('➕ Füge Modal zum body hinzu...');
             document.body.appendChild(modal);
+            console.log('✅ Modal hinzugefügt!');
+            console.log('📍 Modal im DOM:', document.getElementById('booking-success-modal'));
+            console.log('═══════════════════════════════════════════════════════');
         }
         
         // 🆕 v5.42.3: Schließt Bestätigungskarte und zeigt Formular
         function closeBookingSuccessCard() {
+            console.log('🚪 Schließe Bestätigungskarte...');
+            
+            // 🆕 v5.42.4: Flag zurücksetzen!
+            showingBookingSuccessCard = false;
+            console.log('🚩 Flag zurückgesetzt: showingBookingSuccessCard = false');
+            
             const modal = document.getElementById('booking-success-modal');
             if (modal) {
                 modal.style.animation = 'fadeOut 0.3s ease-out';
@@ -12377,8 +12403,16 @@
                 await sendCustomerNotifications(bookingData);
             }
             
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('📞 RUFE showBookingSuccessCard() auf...');
+            console.log('═══════════════════════════════════════════════════════');
+            
             // 🆕 v5.42.3: Bestätigung zeigen - SCHÖNE KARTE statt Alert!
             showBookingSuccessCard(bookingData);
+            
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('✅ showBookingSuccessCard() fertig!');
+            console.log('═══════════════════════════════════════════════════════');
             
             // Formular verstecken (wird von Card wieder angezeigt beim OK-Klick)
             document.getElementById('booking-form').style.display = 'none';
@@ -12395,6 +12429,9 @@
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
+
+        // 🆕 v5.42.4: Flag um Bestätigungskarte zu schützen
+        let showingBookingSuccessCard = false;
 
         // 🆕 v5.31.1: Track letzten Status um unnötige UI-Updates zu vermeiden
         let lastRideStatus = null;
@@ -12474,6 +12511,12 @@
                     if (statusChanged) {
                         console.log('🔄 Status geändert:', lastRideStatus, '→', ride.status);
                         lastRideStatus = ride.status;
+                        
+                        // 🆕 v5.42.4: NICHT überschreiben wenn Bestätigungskarte angezeigt wird!
+                        if (showingBookingSuccessCard) {
+                            console.log('🛡️ Bestätigungskarte wird angezeigt - KEIN showRideStatus()!');
+                            return;
+                        }
                         
                         // 🎯 Status-Änderung → VOLLSTÄNDIGES UI-Update
                         document.getElementById('booking-form').style.display = 'none';

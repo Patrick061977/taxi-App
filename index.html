@@ -17,12 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.41.6 - Build 20251207-1210');
-        console.log('🔧 v5.41.6: SYNTAX-FEHLER gefixed! Doppelte Deklaration entfernt!');
-        console.log('✨ v5.41.5: LIVE SLOT-CHECK! Prüfung während Datum/Zeit-Eingabe!');
-        console.log('✅ v5.41.5: Slot-Warnung beim Preis-Berechnen funktioniert!');
-        console.log('✅ v5.41.5: Extra Bestätigung für Alternative Slots!');
-        console.log('🚗 v5.41.1: Route-Berechnung + Extra-Zeit!');
+        console.log('🚕 Funk Taxi App v5.41.7 - Build 20251207-1220');
+        console.log('✨ v5.41.7: LIVE-CHECK zeigt VERFÜGBARE SLOTS! (Patrick\'s Idee!)');
+        console.log('✅ v5.41.7: Buttons zum direkten Übernehmen der Zeit!');
+        console.log('🔧 v5.41.6: Syntax-Fehler gefixed!');
+        console.log('🚗 v5.41.5: Live Slot-Check + Extra Bestätigung!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -387,7 +386,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.6 - Syntax-Fix (Build 20251207-1210)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.7 - Verfügbare Slots (Build 20251207-1220)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10296,6 +10295,7 @@
         // BOOKING
         
         // 🆕 v5.41.5: LIVE SLOT-CHECK (Patrick's Wunsch!)
+        // 🆕 v5.41.7: Zeigt VERFÜGBARE SLOTS wenn belegt! (Patrick's Idee!)
         // Prüft Slot-Verfügbarkeit während User Datum/Zeit eingibt
         let liveCheckTimeout = null;
         
@@ -10348,8 +10348,58 @@
                         liveDisplay.style.background = '#d1fae5';
                         liveDisplay.style.border = '2px solid #10b981';
                     } else {
-                        // ❌ BESETZT
-                        liveDisplay.innerHTML = '<strong style="color:#f59e0b;">⚠️ Zeitslot bereits belegt!</strong><br><span style="font-size:12px;color:#92400e;">Alternative Zeiten werden beim Buchen vorgeschlagen.</span>';
+                        // ❌ BESETZT → Zeige ALTERNATIVEN! (Patrick's Idee!)
+                        console.log('⚠️ Live-Check: Slot belegt, berechne Alternativen...');
+                        
+                        // Berechne alternative Zeiten
+                        const alternatives = await calculateAlternativeTimes(
+                            availability.conflictingRide,
+                            pickupCoords,
+                            timestamp
+                        );
+                        
+                        // Formatiere gewählte Zeit
+                        const chosenTime = selectedDate.toLocaleString('de-DE', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        
+                        // Erstelle HTML mit Alternativen
+                        let html = `<div style="color:#f59e0b;font-weight:bold;margin-bottom:10px;">
+                            ⚠️ ${chosenTime} Uhr ist bereits belegt!
+                        </div>`;
+                        
+                        if (alternatives.length > 0) {
+                            html += `<div style="color:#10b981;font-weight:bold;margin-bottom:8px;font-size:13px;">
+                                ✅ Nächste freie Zeiten:
+                            </div>`;
+                            
+                            // Zeige erste 3 Alternativen mit Buttons
+                            alternatives.slice(0, 3).forEach(alt => {
+                                const altDate = new Date(alt.timestamp);
+                                const altTime = altDate.toLocaleString('de-DE', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                                
+                                html += `<button 
+                                    onclick="applyAlternativeTime(${alt.timestamp})"
+                                    style="display:block;width:100%;padding:10px;margin-bottom:6px;
+                                    background:white;border:2px solid #10b981;border-radius:6px;
+                                    color:#10b981;font-weight:bold;font-size:14px;cursor:pointer;
+                                    transition:all 0.2s;"
+                                    onmouseover="this.style.background='#10b981';this.style.color='white';"
+                                    onmouseout="this.style.background='white';this.style.color='#10b981';">
+                                    ${altTime} Uhr
+                                </button>`;
+                            });
+                        } else {
+                            html += `<div style="color:#ef4444;font-size:13px;">
+                                Keine freien Slots in der Nähe gefunden.
+                            </div>`;
+                        }
+                        
+                        liveDisplay.innerHTML = html;
                         liveDisplay.style.background = '#fef3c7';
                         liveDisplay.style.border = '2px solid #f59e0b';
                     }
@@ -10359,6 +10409,30 @@
                 console.error('❌ Live-Check Fehler:', error);
                 if (liveDisplay) liveDisplay.style.display = 'none';
             }
+        }
+        
+        // 🆕 v5.41.7: Übernimmt alternative Zeit in die Felder
+        function applyAlternativeTime(timestamp) {
+            const date = new Date(timestamp);
+            
+            // Setze Datum
+            const dateStr = date.getFullYear() + '-' + 
+                           String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                           String(date.getDate()).padStart(2, '0');
+            document.getElementById('custom-date').value = dateStr;
+            
+            // Setze Stunde
+            const hour = String(date.getHours()).padStart(2, '0');
+            document.getElementById('custom-hour').value = hour;
+            
+            // Setze Minute
+            const minute = String(date.getMinutes()).padStart(2, '0');
+            document.getElementById('custom-minute').value = minute;
+            
+            console.log('✅ Alternative Zeit übernommen:', date.toLocaleString('de-DE'));
+            
+            // Trigger neuen Check
+            performLiveSlotCheck();
         }
         
         // Event Listeners für Live-Check

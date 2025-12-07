@@ -472,7 +472,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.7 - AUTOCOMPLETE DEBUG (Build 20251207-2215)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.8 - FILTER FIX (Build 20251207-2220)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10814,8 +10814,9 @@
                 }
                 
                 // Filtere nur Usedom-relevante Ergebnisse (wenn nicht ÖPNV-Modus)
+                // 🆕 v5.45.8: Filter NUR bei längeren Suchen (>8 Zeichen)
                 let usedomResults = filteredResults;
-                if (!isOPNVMode) {
+                if (!isOPNVMode && query.length > 8) {
                     usedomResults = filteredResults.filter(r => {
                         const display = r.display_name.toLowerCase();
                         return display.includes('usedom') || 
@@ -10831,11 +10832,13 @@
                                display.includes('zempin') ||
                                display.includes('trassenheide');
                     });
-                    console.log('🏝️ Usedom-Filter:', {
+                    console.log('🏝️ Usedom-Filter (query.length=' + query.length + '):', {
                         vorher: filteredResults.length,
                         nachher: usedomResults.length,
                         beispiel: filteredResults[0] ? filteredResults[0].display_name : 'keine'
                     });
+                } else {
+                    console.log('🔍 Kein Usedom-Filter (query zu kurz: ' + query.length + ' Zeichen)');
                 }
                 
                 const resultsToShow = usedomResults.length > 0 ? usedomResults : filteredResults;

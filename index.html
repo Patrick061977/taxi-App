@@ -17,10 +17,10 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.41.2 - Build 20251207-1100');
-        console.log('🐛 v5.41.2: ALTERNATIVE SLOTS FIX! Vorbestellungen funktionieren jetzt!');
-        console.log('✅ v5.41.2: Bestätigung für Vorbestellungen!');
-        console.log('💾 v5.41.2: Vorbestellungen landen in rideHistory!');
+        console.log('🚕 Funk Taxi App v5.41.4 - Build 20251207-1145');
+        console.log('🔧 v5.41.4: KRITISCHER FIX! Slot-Check zurück in book() mit VOLLEN Daten!');
+        console.log('✅ v5.41.4: Alternative Slots → ALLE Felder vorhanden → Telegram ✅ Verlauf ✅');
+        console.log('📊 v5.41.4: Preis-Berechnen zeigt Warnung, Buchen macht finalen Check!');
         console.log('🚗 v5.41.1: Route-Berechnung + Extra-Zeit!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
@@ -386,7 +386,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.2 - Alternative Slots Fix (Build 20251207-1100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.4 - Slot-Check Fix (Build 20251207-1145)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10344,7 +10344,9 @@
             window.currentPrice = pricing.total;
             window.currentDistance = route.distance;
             window.currentDuration = route.duration;
+            window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
+            // 🎨 Preis HTML erstellen
             let priceHtml = `<div style="background:white;padding:15px;border-radius:8px;border:2px solid #10b981;">
                 <div style="font-size:32px;font-weight:bold;color:#10b981;text-align:center;">${pricing.total}€</div>
                 <div style="text-align:center;margin-top:8px;color:#666;">
@@ -10358,6 +10360,30 @@
             }
             
             priceHtml += '</div>';
+            
+            // 🆕 v5.41.4: INFO-CHECK für Vorbestellungen (kein Abbruch, nur Warnung)
+            // Patrick's Idee: User soll vorher Bescheid wissen
+            const isAdvanceBooking = pickupTimeSelect !== 'sofort' && pickupTimeSelect !== 'jetzt' && pickupTimeSelect !== '5min';
+            
+            if (autoBookingEnabled && isAdvanceBooking && isFirebaseReady) {
+                console.log('🔍 Quick-Check: Ist Slot vermutlich frei?');
+                
+                const availability = await checkTimeSlotAvailability(pickupTimestamp, pickupCoords);
+                
+                if (!availability.available) {
+                    // ⚠️ WARNUNG aber kein Abbruch!
+                    console.log('⚠️ Slot vermutlich belegt - Warnung anzeigen');
+                    
+                    // Zeige Warnung unter Preis
+                    priceHtml += `<div style="margin-top:15px;padding:12px;background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;">
+                        <div style="font-weight:bold;color:#d97706;margin-bottom:6px;">⚠️ Hinweis</div>
+                        <div style="font-size:13px;color:#92400e;">
+                            Diese Zeit ist vermutlich bereits belegt.<br>
+                            Beim Buchen erhältst du alternative Zeiten vorgeschlagen.
+                        </div>
+                    </div>`;
+                }
+            }
             
             const priceDisplay = document.getElementById('price-display');
             priceDisplay.innerHTML = priceHtml;
@@ -10822,9 +10848,10 @@
                 paymentMethod: document.getElementById('payment-method').value // 💳 Zahlungsmethode
             };
             
-            // 🤖 v5.32.5h: AUTO-BOOKING - Prüfe Zeitslot bei Vorbestellungen
-            if (autoBookingEnabled && ride.status === 'vorbestellt') {
-                console.log('🤖 Auto-Booking: Prüfe Zeitslot-Verfügbarkeit...');
+            // 🆕 v5.41.4: SLOT-CHECK mit VOLLEN Daten! (HIER hat ride ALLE Felder!)
+            // Prüfe Zeitslot bei Vorbestellungen mit ALLEN Buchungsdaten
+            if (autoBookingEnabled && ride.status === 'vorbestellt' && isFirebaseReady) {
+                console.log('🤖 Finale Buchung: Prüfe Zeitslot mit vollen Daten...');
                 
                 const availability = await checkTimeSlotAvailability(ride.pickupTimestamp, pickupCoords);
                 
@@ -10837,6 +10864,9 @@
                         pickupCoords,
                         ride.pickupTimestamp
                     );
+                    
+                    // Speichere VOLLSTÄNDIGE Buchungsdaten!
+                    currentBookingData = ride;
                     
                     // Zeige Modal mit Vorschlägen
                     showAlternativeTimesModal(ride.pickupTimestamp, alternatives, ride);
@@ -18222,8 +18252,8 @@
             console.log(`⏱️ Extra-Zeit gesetzt: +${minutes} Min`);
         }
         
-        // 🆕 v5.41.1: ROUTE berechnen (Fahrtdauer)
-        async function calculateRoute() {
+        // 🆕 v5.41.1: ROUTE berechnen für Admin Panel (Fahrtdauer)
+        async function calculateRouteForPanel() {
             const pickup = document.getElementById('qb-panel-pickup').value.trim();
             const destination = document.getElementById('qb-panel-destination').value.trim();
             const routeInfo = document.getElementById('qb-panel-route-info');
@@ -18412,7 +18442,7 @@
             
             // 🆕 v5.41.1: Route berechnen wenn beide Adressen da sind
             if (qbPanelPickupCoords && qbPanelDestCoords) {
-                calculateRoute();
+                calculateRouteForPanel();
             }
         }
         

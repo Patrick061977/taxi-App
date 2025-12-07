@@ -17,11 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.42.0 - Build 20251207-1250');
-        console.log('☰ v5.42.0: "MEIN KONTO" IM MENÜ! (Patrick\'s Wunsch!)');
-        console.log('✅ v5.42.0: Kontoinformationen im Hamburger-Menü!');
-        console.log('👤 v5.42.0: Funktioniert für alle eingeloggten User!');
-        console.log('💰 v5.41.9: Auto-Preis nach Alternative!');
+        console.log('🚕 Funk Taxi App v5.42.1 - Build 20251207-1310');
+        console.log('👤 v5.42.1: AVATAR-ICON + CLEANER DESIGN! (Patrick\'s Wunsch!)');
+        console.log('✅ v5.42.1: "Mein Konto" funktioniert für ALLE Login-Typen!');
+        console.log('🎨 v5.42.1: Grüne Box weg, Avatar-Icon stattdessen!');
+        console.log('☰ v5.42.0: Konto im Menü!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -364,6 +364,31 @@
 </head>
 <body>
     <div class="header" id="main-header" style="cursor: pointer; position: relative;" onclick="toggleHeader()">
+        <!-- 🆕 v5.42.1: Avatar-Icon für eingeloggte User -->
+        <button id="user-avatar-btn" onclick="openMenuAndScrollToProfile(event)" style="
+            display: none;
+            position: absolute;
+            right: 65px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.9);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+            z-index: 1001;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        ">
+            <span id="user-avatar-text">👤</span>
+        </button>
+        
         <!-- Hamburger Menu Button -->
         <button id="menu-toggle-btn" onclick="toggleMenu(event)" style="
             position: absolute;
@@ -386,7 +411,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.0 - Mein Konto im Menü (Build 20251207-1250)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.42.1 - Avatar & Cleaner Design (Build 20251207-1310)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -811,21 +836,10 @@
         
         <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
         <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
-        <div id="quick-login-box" style="display:none; background: rgba(16, 185, 129, 0.1); color: #059669; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
-                    <span style="opacity: 0.7;">✅</span>
-                    <span id="quick-login-phone" style="font-weight: 600;"></span>
-                </div>
-                <div style="display: flex; gap: 6px;">
-                    <button onclick="showQuickLoginProfile()" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #059669; padding: 4px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600;">
-                        ✏️ Profil
-                    </button>
-                    <button onclick="logoutQuickLogin()" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #059669; padding: 4px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600;">
-                        🚪 Abmelden
-                    </button>
-                </div>
-            </div>
+        <!-- 🆕 v5.42.1: Quick-Login Box DEAKTIVIERT - zu groß! -->
+        <!-- Stattdessen: Avatar-Icon im Header -->
+        <div id="quick-login-box" style="display:none !important;">
+            <!-- Nicht mehr verwendet -->
         </div>
         
         <!-- 👤 ALTE MEIN KONTO BOX - DEAKTIVIERT in v5.42.0! -->
@@ -16751,6 +16765,28 @@
         
         // 👤 MEIN PROFIL - Funktionen für eingeloggte Kunden
         let myProfileData = null;
+        let quickLoginData = null; // 🆕 v5.42.1: Für Phone-Login User
+        
+        // 🆕 v5.42.1: Lade Quick-Login Daten beim Start
+        function loadQuickLoginData() {
+            const phone = localStorage.getItem('loggedInPhone');
+            if (phone) {
+                quickLoginData = {
+                    phone: phone,
+                    name: localStorage.getItem('loggedInUserName') || '',
+                    address: localStorage.getItem('loggedInUserAddress') || '',
+                    billingName: localStorage.getItem('loggedInBillingName') || '',
+                    billingStreet: localStorage.getItem('loggedInBillingStreet') || '',
+                    billingZip: localStorage.getItem('loggedInBillingZip') || '',
+                    billingCity: localStorage.getItem('loggedInBillingCity') || ''
+                };
+                
+                console.log('📞 Quick-Login Daten geladen:', quickLoginData.phone);
+                
+                // Aktualisiere Menü
+                updateMenuProfile();
+            }
+        }
         
         async function loadMyProfile() {
             if (!currentUser || !isFirebaseReady) {
@@ -16801,42 +16837,78 @@
         }
         
         // 🆕 v5.42.0: Aktualisiert "Mein Konto" im Menü
+        // 🆕 v5.42.1: Unterstützt jetzt auch Quick-Login (Phone)!
         function updateMenuProfile() {
             const menuItem = document.getElementById('menu-profile-item');
             const menuName = document.getElementById('menu-profile-name');
             const menuDetails = document.getElementById('menu-profile-details');
+            const avatarBtn = document.getElementById('user-avatar-btn');
+            const avatarText = document.getElementById('user-avatar-text');
             
-            if (!myProfileData || !menuItem) {
+            // 🆕 v5.42.1: Prüfe BEIDE Login-Typen!
+            const hasGoogleLogin = myProfileData && currentUser;
+            const hasQuickLogin = quickLoginData && quickLoginData.phone;
+            
+            if (!hasGoogleLogin && !hasQuickLogin) {
                 if (menuItem) menuItem.style.display = 'none';
+                if (avatarBtn) avatarBtn.style.display = 'none';
                 return;
             }
             
             // Zeige Menü-Item
-            menuItem.style.display = 'block';
+            if (menuItem) menuItem.style.display = 'block';
+            
+            // 🆕 v5.42.1: Zeige Avatar-Icon!
+            if (avatarBtn) {
+                avatarBtn.style.display = 'flex';
+                
+                // Avatar-Text: Erster Buchstabe vom Namen oder 📞
+                if (hasGoogleLogin && myProfileData.name) {
+                    avatarText.textContent = myProfileData.name.charAt(0).toUpperCase();
+                } else if (hasQuickLogin && quickLoginData.name) {
+                    avatarText.textContent = quickLoginData.name.charAt(0).toUpperCase();
+                } else {
+                    avatarText.textContent = '📞';
+                }
+            }
             
             // Aktualisiere Name
             if (menuName) {
-                menuName.textContent = myProfileData.name || 'Profil vervollständigen';
+                if (hasGoogleLogin && myProfileData.name) {
+                    menuName.textContent = myProfileData.name;
+                } else if (hasQuickLogin && quickLoginData.name) {
+                    menuName.textContent = quickLoginData.name;
+                } else if (hasQuickLogin && quickLoginData.phone) {
+                    menuName.textContent = quickLoginData.phone;
+                } else {
+                    menuName.textContent = 'Profil vervollständigen';
+                }
             }
             
             // Aktualisiere Details
             if (menuDetails) {
                 let detailsHTML = '';
                 
-                if (myProfileData.phone) {
-                    detailsHTML += `<div>📞 ${myProfileData.phone}</div>`;
+                // Telefon
+                const phone = hasGoogleLogin ? myProfileData.phone : 
+                             hasQuickLogin ? quickLoginData.phone : null;
+                if (phone) {
+                    detailsHTML += `<div>📞 ${phone}</div>`;
                 } else {
                     detailsHTML += '<div style="opacity:0.7">📞 Telefon nicht gesetzt</div>';
                 }
                 
-                if (myProfileData.address) {
-                    detailsHTML += `<div style="margin-top:4px;">🏠 ${myProfileData.address}</div>`;
+                // Adresse
+                const address = hasGoogleLogin ? myProfileData.address :
+                               hasQuickLogin ? quickLoginData.address : null;
+                if (address) {
+                    detailsHTML += `<div style="margin-top:4px;">🏠 ${address}</div>`;
                 } else {
                     detailsHTML += '<div style="opacity:0.7;margin-top:4px;">🏠 Adresse nicht gesetzt</div>';
                 }
                 
-                // Rechnungsadresse (wenn vorhanden)
-                if (myProfileData.billingName || myProfileData.billingStreet) {
+                // Rechnungsadresse (nur für Google-Login)
+                if (hasGoogleLogin && (myProfileData.billingName || myProfileData.billingStreet)) {
                     detailsHTML += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
                         <div style="font-size:11px;opacity:0.7;margin-bottom:2px;">🧾 Rechnungsadresse:</div>
                         <div>${myProfileData.billingName || ''}</div>
@@ -16850,15 +16922,67 @@
             }
         }
         
+        // 🆕 v5.42.1: Öffnet Menü und scrollt zu "Mein Konto"
+        function openMenuAndScrollToProfile(event) {
+            event.stopPropagation();
+            
+            // Menü öffnen
+            const menu = document.getElementById('menu-overlay');
+            if (menu) menu.style.display = 'block';
+            
+            // Scroll zu Mein Konto (nach kurzer Verzögerung für Animation)
+            setTimeout(() => {
+                const profileItem = document.getElementById('menu-profile-item');
+                if (profileItem) {
+                    profileItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Kurzes Highlight
+                    profileItem.style.background = '#dbeafe';
+                    setTimeout(() => {
+                        profileItem.style.background = 'white';
+                    }, 500);
+                }
+            }, 100);
+        }
+        
         // 🆕 v5.42.0: Öffnet Profil-Modal vom Menü aus
+        // 🆕 v5.42.1: Unterstützt beide Login-Typen (Google + Phone)
         function showMyProfileModalFromMenu() {
-            showMyProfileModal();
+            // Quick-Login (Phone)? → Quick-Login Modal
+            if (quickLoginData && quickLoginData.phone) {
+                showQuickLoginProfile();
+            }
+            // Google-Login? → Google-Login Modal
+            else if (myProfileData) {
+                showMyProfileModal();
+            }
         }
         
         // 🆕 v5.42.0: Übernimmt Daten vom Menü aus + schließt Menü
+        // 🆕 v5.42.1: Unterstützt beide Login-Typen (Google + Phone)
         function useMyProfileDataFromMenu() {
-            useMyProfileData();
+            // Quick-Login (Phone)
+            if (quickLoginData && quickLoginData.phone) {
+                if (quickLoginData.name) {
+                    document.getElementById('customer-name').value = quickLoginData.name;
+                }
+                if (quickLoginData.phone) {
+                    document.getElementById('customer-phone').value = quickLoginData.phone;
+                }
+                if (quickLoginData.address) {
+                    document.getElementById('pickup').value = quickLoginData.address;
+                }
+            }
+            // Google-Login
+            else if (myProfileData) {
+                useMyProfileData();
+            }
+            
+            // Menü schließen
             closeMenu();
+            
+            // Scroll zum Formular
+            document.getElementById('booking-form').scrollIntoView({ behavior: 'smooth' });
         }
         
         function showMyProfileModal() {
@@ -22314,6 +22438,9 @@ Stack: ${err.stack}
             
             console.log('✅ Profil gespeichert:', { name, address, billingName, billingStreet, billingZip, billingCity });
             
+            // 🆕 v5.42.1: Lade Quick-Login Daten neu + aktualisiere Menü!
+            loadQuickLoginData();
+            
             // Schließe Modal
             closeQuickProfileModal();
             
@@ -22347,6 +22474,10 @@ Stack: ${err.stack}
                 loginButton.style.display = 'inline-block';
                 console.log('✅ Anmelden-Button wieder angezeigt nach Logout');
             }
+            
+            // 🆕 v5.42.1: Lösche quickLoginData + Update Menü!
+            quickLoginData = null;
+            updateMenuProfile();
             
             // Formular leeren
             const phoneField = document.getElementById('customer-phone');
@@ -22473,6 +22604,9 @@ Stack: ${err.stack}
             // 👤 Lade "Mein Profil" für eingeloggte Kunden
             loadMyProfile();
             
+            // 🆕 v5.42.1: Lade auch Quick-Login Daten (für Phone-Login)
+            loadQuickLoginData();
+            
             // 🆕 v5.19.0: Lade Telegram-ID für diesen User
             loadDriverTelegramId();
             
@@ -22502,6 +22636,7 @@ Stack: ${err.stack}
             currentUser = null;
             userRole = 'fahrgast';
             myProfileData = null;
+            quickLoginData = null; // 🆕 v5.42.1
             
             // 👤 "Mein Profil" Box ausblenden
             const profileBox = document.getElementById('my-profile-box');

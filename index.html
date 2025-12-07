@@ -17,11 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.41.8 - Build 20251207-1230');
-        console.log('🔧 v5.41.8: KRITISCHER FIX! Alternativen werden auf Verfügbarkeit geprüft!');
-        console.log('✅ v5.41.8: Endlos-Schleife gefixed! Nur FREIE Slots werden angezeigt!');
-        console.log('🚀 v5.41.8: Prüft bis zu 20 Slots bis 3 freie gefunden!');
-        console.log('✨ v5.41.7: Live-Check zeigt verfügbare Slots!');
+        console.log('🚕 Funk Taxi App v5.41.9 - Build 20251207-1240');
+        console.log('💰 v5.41.9: AUTO-PREIS nach Alternative! (Patrick\'s Bug-Fix!)');
+        console.log('✅ v5.41.9: Telegram + Bestätigung funktioniert jetzt!');
+        console.log('🔧 v5.41.9: Preis/Distanz/Dauer werden automatisch berechnet!');
+        console.log('🔧 v5.41.8: Alternativen auf Verfügbarkeit geprüft!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
     </script>
@@ -386,7 +386,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.8 - Slot-Check Fix (Build 20251207-1230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.9 - Auto-Preis Fix (Build 20251207-1240)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10412,7 +10412,7 @@
         }
         
         // 🆕 v5.41.7: Übernimmt alternative Zeit in die Felder
-        function applyAlternativeTime(timestamp) {
+        async function applyAlternativeTime(timestamp) {
             const date = new Date(timestamp);
             
             // Setze Datum
@@ -10431,7 +10431,19 @@
             
             console.log('✅ Alternative Zeit übernommen:', date.toLocaleString('de-DE'));
             
-            // Trigger neuen Check
+            // 🆕 v5.41.9: AUTOMATISCH PREIS BERECHNEN! (Patrick's Bug-Fix!)
+            // Wichtig: User muss nicht mehr separat "Preis berechnen" klicken
+            console.log('💰 Berechne Preis automatisch...');
+            
+            try {
+                await calculatePriceAndShow();
+                console.log('✅ Preis automatisch berechnet:', window.currentPrice, '€');
+            } catch (error) {
+                console.error('❌ Fehler bei Auto-Preis-Berechnung:', error);
+                alert('❌ Fehler beim Berechnen des Preises!\n\nBitte klicke manuell auf "Preis berechnen".');
+            }
+            
+            // Trigger neuen Live-Check
             performLiveSlotCheck();
         }
         

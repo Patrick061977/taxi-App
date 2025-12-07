@@ -17,11 +17,11 @@
     
     <!-- 📋 VERSION INFO -->
     <script>
-        console.log('🚕 Funk Taxi App v5.41.5 - Build 20251207-1200');
+        console.log('🚕 Funk Taxi App v5.41.6 - Build 20251207-1210');
+        console.log('🔧 v5.41.6: SYNTAX-FEHLER gefixed! Doppelte Deklaration entfernt!');
         console.log('✨ v5.41.5: LIVE SLOT-CHECK! Prüfung während Datum/Zeit-Eingabe!');
         console.log('✅ v5.41.5: Slot-Warnung beim Preis-Berechnen funktioniert!');
         console.log('✅ v5.41.5: Extra Bestätigung für Alternative Slots!');
-        console.log('🔧 v5.41.5: Koordinaten-Bug gefixed!');
         console.log('🚗 v5.41.1: Route-Berechnung + Extra-Zeit!');
         console.log('');
         console.log('📅 VORBESTELLUNG JETZT TESTEN!');
@@ -387,7 +387,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.5 - Live Slot-Check (Build 20251207-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.41.6 - Syntax-Fix (Build 20251207-1210)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10465,8 +10465,7 @@
             
             // 🆕 v5.41.5: SLOT-CHECK beim Preis-Berechnen (Patrick's Idee!)
             // Prüfe ob es eine Vorbestellung ist
-            const oldPickupTimeElem = document.getElementById('pickup-time');
-            const pickupTimeSelect = oldPickupTimeElem ? oldPickupTimeElem.value : 'sofort';
+            // ✅ v5.41.6: Verwende pickupTimeSelect von oben (bereits deklariert!)
             const isAdvanceBooking = currentRideType === 'vorbestellen' || 
                                     (pickupTimeSelect !== 'sofort' && pickupTimeSelect !== 'jetzt' && pickupTimeSelect !== '5min');
             

@@ -472,7 +472,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.0 - ULTRA OVERLAY (Build 20251207-2230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.1 - KEIN FILTER (Build 20251207-2235)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10817,36 +10817,9 @@
                     return;
                 }
                 
-                // Filtere nur Usedom-relevante Ergebnisse (wenn nicht ÖPNV-Modus)
-                // 🆕 v5.45.8: Filter NUR bei längeren Suchen (>8 Zeichen)
-                let usedomResults = filteredResults;
-                if (!isOPNVMode && query.length > 8) {
-                    usedomResults = filteredResults.filter(r => {
-                        const display = r.display_name.toLowerCase();
-                        return display.includes('usedom') || 
-                               display.includes('heringsdorf') || 
-                               display.includes('ahlbeck') ||
-                               display.includes('bansin') ||
-                               display.includes('zinnowitz') ||
-                               display.includes('karlshagen') ||
-                               display.includes('peenemünde') ||
-                               display.includes('koserow') ||
-                               display.includes('ückeritz') ||
-                               display.includes('loddin') ||
-                               display.includes('zempin') ||
-                               display.includes('trassenheide');
-                    });
-                    console.log('🏝️ Usedom-Filter (query.length=' + query.length + '):', {
-                        vorher: filteredResults.length,
-                        nachher: usedomResults.length,
-                        beispiel: filteredResults[0] ? filteredResults[0].display_name : 'keine'
-                    });
-                } else {
-                    console.log('🔍 Kein Usedom-Filter (query zu kurz: ' + query.length + ' Zeichen)');
-                }
-                
-                const resultsToShow = usedomResults.length > 0 ? usedomResults : filteredResults;
-                console.log('📊 Zeige Ergebnisse:', resultsToShow.length);
+                // 🆕 v5.46.1: KEIN USEDOM-FILTER MEHR! Zeige ALLE Ergebnisse!
+                const resultsToShow = filteredResults;
+                console.log('📊 Zeige ALLE Ergebnisse (kein Filter):', resultsToShow.length);
                 
                 if (resultsToShow.length === 0) {
                     console.log('⚠️ Keine Ergebnisse zum Anzeigen!');

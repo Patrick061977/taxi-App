@@ -472,7 +472,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.8 - FILTER FIX (Build 20251207-2220)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.45.9 - SYNTAX FIX (Build 20251207-2225)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5734,7 +5734,6 @@
                                     }
                                     
                                     // WICHTIG: Nicht weitermachen!
-                                    return;
                                     return;
                                 }
                                 
@@ -23839,14 +23838,6 @@ Stack: ${err.stack}
             // 🆕 v5.45.6: SEITE NEU LADEN damit alles sauber ist!
             console.log('🔄 Lade Seite neu...');
             location.reload();
-        }
-            const nameField = document.getElementById('customer-name');
-            if (nameField) nameField.value = '';
-            
-            // Login-Screen zeigen
-            checkPassengerAuth();
-            
-            console.log('🚪 Quick-Login abgemeldet');
         }
         
         // ═══════════════════════════════════════════════════════════════════════════

@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.47.1 - LOGS LADEN FIX! (Build 20251208-1635)');
-        console.log('🎉 v5.47.1: ALLE LOGS BEIM ÖFFNEN LADEN!');
-        console.log('🐛 v5.47.0: BUG GEFIXT - LOGS FÜR ALLE!');
+        console.log('🚕 Funk Taxi App v5.47.2 - CONSOLE FIX! (Build 20251208-1650)');
+        console.log('🐛 v5.47.2: BUCHUNG FUNKTIONIERT ENDLICH!');
+        console.log('🎉 v5.47.1: LOGS LADEN + FIREBASE FIX!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -561,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.1 - LOGS LADEN FIX (Build 20251208-1635)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.2 - CONSOLE FIX (Build 20251208-1650)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2203,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.47.1 - LOGS LADEN FIX!');
+                    console.log('🚕 Funk Taxi App v5.47.2 - CONSOLE FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5292,9 +5292,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.47.1 - LOGS LADEN FIX! (Build 20251208-1635)');
-        console.log('🎉 v5.47.1: LOGS BEIM ÖFFNEN LADEN + FIREBASE FIX!');
-        console.log('🐛 v5.47.0: LOGS FÜR ALLE!');
+        console.log('🚕 Funk Taxi App v5.47.2 - CONSOLE FIX! (Build 20251208-1650)');
+        console.log('🐛 v5.47.2: BUCHUNG FUNKTIONIERT ENDLICH!');
+        console.log('🎉 v5.47.1: LOGS LADEN + FIREBASE FIX!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -20971,17 +20971,53 @@
             const originalWarn = console.warn;
             
             console.log = function(...args) {
-                consoleLogHistory.push({ type: 'log', time: new Date().toISOString(), message: args.join(' ') });
+                // 🐛 v5.47.2: Konvertiere ALLE Args zu Strings (auch Objects!)
+                const message = args.map(arg => {
+                    if (typeof arg === 'object' && arg !== null) {
+                        try {
+                            return JSON.stringify(arg);
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+                
+                consoleLogHistory.push({ type: 'log', time: new Date().toISOString(), message });
                 originalLog.apply(console, args);
             };
             
             console.error = function(...args) {
-                consoleLogHistory.push({ type: 'error', time: new Date().toISOString(), message: args.join(' ') });
+                // 🐛 v5.47.2: Konvertiere ALLE Args zu Strings (auch Objects!)
+                const message = args.map(arg => {
+                    if (typeof arg === 'object' && arg !== null) {
+                        try {
+                            return JSON.stringify(arg);
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+                
+                consoleLogHistory.push({ type: 'error', time: new Date().toISOString(), message });
                 originalError.apply(console, args);
             };
             
             console.warn = function(...args) {
-                consoleLogHistory.push({ type: 'warn', time: new Date().toISOString(), message: args.join(' ') });
+                // 🐛 v5.47.2: Konvertiere ALLE Args zu Strings (auch Objects!)
+                const message = args.map(arg => {
+                    if (typeof arg === 'object' && arg !== null) {
+                        try {
+                            return JSON.stringify(arg);
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+                
+                consoleLogHistory.push({ type: 'warn', time: new Date().toISOString(), message });
                 originalWarn.apply(console, args);
             };
         })();
@@ -25566,7 +25602,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.47.1 - LOGS LADEN FIX!`);
+            debugLog('info', `📦 Version: 5.47.2 - CONSOLE FIX!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

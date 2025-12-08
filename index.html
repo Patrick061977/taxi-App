@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.47.3 - CLOSE FIX! (Build 20251208-1700)');
-        console.log('🐛 v5.47.3: SCHLIESSEN KLAPPT JETZT!');
-        console.log('🎉 v5.47.2: BUCHUNG FUNKTIONIERT!');
+        console.log('🚕 Funk Taxi App v5.47.4 - PANEL GRÖẞER! (Build 20251208-1705)');
+        console.log('📏 v5.47.4: DEBUG PANEL IST JETZT GROẞ!');
+        console.log('🐛 v5.47.3: SCHLIESSEN KLAPPT!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -427,10 +427,10 @@
     <div id="debug-panel" style="
         display: none;
         position: fixed;
-        top: 100px;
+        top: 80px;
         right: 20px;
-        width: 400px;
-        max-height: 500px;
+        width: 600px;
+        max-height: 700px;
         background: white;
         border: 3px solid #ef4444;
         border-radius: 12px;
@@ -473,7 +473,7 @@
             
             <!-- Logs -->
             <div id="debug-logs-container" style="
-                max-height: 300px;
+                max-height: 550px;
                 overflow-y: auto;
                 padding: 10px;
                 font-size: 11px;
@@ -561,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.3 - CLOSE FIX (Build 20251208-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.4 - PANEL GRÖẞER (Build 20251208-1705)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2203,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.47.3 - CLOSE FIX!');
+                    console.log('🚕 Funk Taxi App v5.47.4 - PANEL GRÖẞER!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5292,9 +5292,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.47.3 - CLOSE FIX! (Build 20251208-1700)');
+        console.log('🚕 Funk Taxi App v5.47.4 - PANEL GRÖẞER! (Build 20251208-1705)');
+        console.log('📏 v5.47.4: DEBUG PANEL IST JETZT GROẞ!');
         console.log('🐛 v5.47.3: SCHLIESSEN KLAPPT!');
-        console.log('🎉 v5.47.2: BUCHUNG FUNKTIONIERT!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -25610,7 +25610,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.47.3 - CLOSE FIX!`);
+            debugLog('info', `📦 Version: 5.47.4 - PANEL GRÖẞER!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

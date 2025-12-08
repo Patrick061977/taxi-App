@@ -472,7 +472,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.2 - OLD DROPDOWN (Build 20251207-2240)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.3 - CLEAN DROPDOWN (Build 20251207-2250)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1482,63 +1482,7 @@
         </div>
         
         <!-- 🆕 v5.42.8: AUTOCOMPLETE OVERLAY (wie Google Maps!) -->
-        <div id="autocomplete-overlay" style="
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 999999999;
-            padding: 20px;
-        ">
-            <div style="
-                background: white;
-                border-radius: 16px;
-                border: 10px solid #ef4444;
-                max-width: 600px;
-                min-height: 200px;
-                margin: 60px auto 0 auto;
-                padding: 20px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            ">
-                <div style="
-                    font-size: 24px;
-                    font-weight: 900;
-                    color: #ef4444;
-                    margin-bottom: 15px;
-                    text-align: center;
-                    background: #fef2f2;
-                    padding: 15px;
-                    border-radius: 8px;
-                ">
-                    📍 Adresse auswählen
-                </div>
-                
-                <div id="overlay-autocomplete-list" style="
-                    max-height: 60vh;
-                    overflow-y: auto;
-                ">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-                
-                <button onclick="closeAutocompleteOverlay()" style="
-                    width: 100%;
-                    padding: 14px;
-                    background: #e5e7eb;
-                    border: none;
-                    border-radius: 10px;
-                    font-weight: 600;
-                    color: #374151;
-                    margin-top: 15px;
-                    cursor: pointer;
-                    font-size: 15px;
-                ">
-                    ✖️ Abbrechen
-                </button>
-            </div>
-        </div>
+        <!-- 🆕 v5.46.3: Overlay entfernt - nutzen nur noch Dropdowns! -->
         
         <!-- Neue Aufträge Slide-In Panel mit TABS! -->
         <div id="new-rides-panel" style="
@@ -10731,8 +10675,9 @@
                     
                     if (value.length < 3) {
                         console.log('⚠️ Zu kurz (<3 Zeichen):', value.length);
-                        // 🆕 v5.45.2: Schließe Overlay bei zu wenig Text
-                        closeAutocompleteOverlay();
+                        // 🆕 v5.46.3: Schließe DROPDOWN bei zu wenig Text
+                        const dropdown = document.getElementById(id + '-dropdown');
+                        if (dropdown) dropdown.style.display = 'none';
                         return;
                     }
                     
@@ -10895,76 +10840,8 @@
         }
         
         // 🆕 v5.42.8: ADRESSE AUS OVERLAY AUSWÄHLEN
-        function selectAddressFromOverlay(inputId, address, lat, lon) {
-            // Schließe Overlay
-            closeAutocompleteOverlay();
-            
-            // Setze Adresse
-            document.getElementById(inputId).value = address;
-            
-            // Speichere Koordinaten
-            if (inputId === 'pickup') {
-                pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                pickupConfirmed = true;
-                updateConfirmationHint('pickup');
-                console.log('✅ Abholort gespeichert:', address, pickupCoords);
-                
-                // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
-                if (currentRideType === 'sofort') {
-                    const display = document.getElementById('available-taxis-display');
-                    display.innerHTML = `
-                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
-                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Position wird geladen...</div>
-                            <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
-                        </div>
-                    `;
-                    
-                    setTimeout(() => {
-                        showAvailableTaxis();
-                    }, 1000);
-                }
-            } else {
-                destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                destinationConfirmed = true;
-                updateConfirmationHint('destination');
-                console.log('✅ Zielort gespeichert:', address, destCoords);
-            }
-        }
-        
-        // 🆕 v5.42.8: OVERLAY SCHLIESSEN
-        function closeAutocompleteOverlay() {
-            document.getElementById('autocomplete-overlay').style.display = 'none';
-            currentAutocompleteField = null;
-        }
-        
-        // 🆕 v5.45.1: POI BESTÄTIGUNG - Zeige einzelne Adresse im Overlay
-        function showSingleAddressInOverlay(inputId, address, lat, lon, displayName) {
-            const overlayList = document.getElementById('overlay-autocomplete-list');
-            currentAutocompleteField = inputId;
-            
-            console.log('🎯 Zeige Bestätigungs-Overlay:', displayName || address);
-            console.log('   Koordinaten:', { lat, lon });
-            
-            // Öffne Overlay
-            document.getElementById('autocomplete-overlay').style.display = 'block';
-            
-            // Zeige nur DIESEN EINEN Eintrag
-            overlayList.innerHTML = `
-                <div style="
-                    padding: 16px;
-                    border-bottom: 1px solid #e5e7eb;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                " 
-                onmouseover="this.style.background='#f3f4f6'"
-                onmouseout="this.style.background='white'"
-                onclick="selectAddressFromOverlay('${inputId}', '${address.replace(/'/g, "\\'")}', ${lat}, ${lon})">
-                    <div style="font-weight:700;color:#667eea;font-size:16px;">📍 ${displayName || address}</div>
-                    ${displayName && displayName !== address ? `<div style="font-size:14px;color:#666;margin-top:4px;">${address}</div>` : ''}
-                </div>
-            `;
-        }
+        // 🆕 v5.46.3: Overlay-Funktionen entfernt - nutzen nur noch Dropdown!
+
 
         function selectAddress(inputId, address, lat, lon) {
             document.getElementById(inputId).value = address;

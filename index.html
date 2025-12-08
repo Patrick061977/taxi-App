@@ -78,7 +78,8 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.45.0 - Build 20251207-1800');
+        console.log('🚕 Funk Taxi App v5.46.6 - DEBUG MENU (Build 20251208-0720)');
+        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ - NUR ADMIN!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL - Live Busfahrplan!');
         console.log('🚏 v5.44.0: ÖPNV-TAXI MODUS!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
@@ -563,7 +564,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.4 - FLOATING DEBUG (Build 20251208-0700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.6 - DEBUG MENU (Build 20251208-0720)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -974,6 +975,33 @@
                     " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
                         ⚡ Meine Daten übernehmen
                     </button>
+                </div>
+
+                <!-- 🐛 Debug Panel - Nur für Admin -->
+                <div id="menu-debug-item" style="
+                    display: none;
+                    background: white;
+                    border: 2px solid #ef4444;
+                    border-radius: 12px;
+                    padding: 15px;
+                    margin-bottom: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                " onmouseover="this.style.borderColor='#dc2626'; this.style.boxShadow='0 2px 8px rgba(239,68,68,0.2)'"
+                   onmouseout="this.style.borderColor='#ef4444'; this.style.boxShadow='none'"
+                   onclick="openDebugPanelFromMenu()">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="font-size: 28px;">🐛</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 700; color: #1f2937; font-size: 15px; margin-bottom: 2px;">
+                                Debug Panel
+                            </div>
+                            <div style="font-size: 12px; color: #6b7280;">
+                                Live-Logs & Diagnose
+                            </div>
+                        </div>
+                        <div style="color: #ef4444; font-size: 20px;">→</div>
+                    </div>
                 </div>
 
                 <div style="border-top: 1px solid #e5e7eb; margin: 20px 0;"></div>
@@ -2177,7 +2205,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.45.0 - ABFAHRTSTAFEL!');
+                    console.log('🚕 Funk Taxi App v5.46.6 - DEBUG MENU!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -3857,17 +3885,17 @@
         let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
         let bookingSystemOnline = true; // 🆕 v5.38.2: Buchungssystem AN/AUS (Standard: AN)
         
-        // 🆕 v5.38.5: DEBUG-MODUS (wird jetzt vom Console-Interceptor verwaltet)
+        // 🆕 v5.38.5: DEBUG-MODUS (Legacy - umbenannt um Konflikt mit Floating Debug zu vermeiden)
         // debugMode ist bereits global definiert!
         
-        // Debug-Console Wrapper
-        const debugLog = (...args) => {
+        // Legacy Debug-Console Wrapper (umbenannt in v5.46.5)
+        const legacyDebugLog = (...args) => {
             if (debugMode) console.log(...args);
         };
-        const debugError = (...args) => {
+        const legacyDebugError = (...args) => {
             if (debugMode) console.error(...args);
         };
-        const debugWarn = (...args) => {
+        const legacyDebugWarn = (...args) => {
             if (debugMode) console.warn(...args);
         };
         
@@ -5270,7 +5298,8 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.45.0 - Build 20251207-1800');
+        console.log('🚕 Funk Taxi App v5.46.6 - DEBUG MENU (Build 20251208-0720)');
+        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ - NUR ADMIN!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL - Live Busfahrplan!');
         console.log('🚏 v5.44.0: ÖPNV-TAXI!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
@@ -6521,6 +6550,12 @@
         function backToBookingFromMenu() {
             closeMenu();
             switchView('passenger');
+        }
+        
+        // 🐛 v5.46.6: Debug Panel aus Menu öffnen
+        function openDebugPanelFromMenu() {
+            closeMenu();
+            toggleDebugPanel();
         }
 
         // 🆕 v5.44.0: ÖPNV-TAXI BUCHUNG STARTEN
@@ -18177,6 +18212,17 @@
                 }
                 
                 menuDetails.innerHTML = detailsHTML;
+            }
+            
+            // 🐛 v5.46.6: Zeige Debug-Menu nur für Admin!
+            const debugMenuItem = document.getElementById('menu-debug-item');
+            if (debugMenuItem) {
+                if (checkAdminAccess()) {
+                    debugMenuItem.style.display = 'block';
+                    console.log('🐛 Debug-Menu-Item aktiviert (Admin erkannt)');
+                } else {
+                    debugMenuItem.style.display = 'none';
+                }
             }
         }
         

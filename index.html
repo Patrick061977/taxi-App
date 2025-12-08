@@ -78,9 +78,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.49.0 - HÄUFIGE ZIELE! (Build 20251208-1950)');
-        console.log('🔥 v5.49.0: HÄUFIGSTE ZIELORTE VON KUNDEN!');
-        console.log('📍 v5.48.5: GEOCODING MIT REGION!');
+        console.log('🚕 Funk Taxi App v5.49.3 - FAHRPLAN-FIX! (Build 20251208-2045)');
+        console.log('🔧 v5.49.3: FAHRPLAN-CRASH BEHOBEN - NULL-CHECKS!');
+        console.log('🎨 v5.49.2: BESTÄTIGUNG ALS ECHTES MODAL MIT OVERLAY!');
+        console.log('📊 v5.49.1: STORNIERTE NICHT IN SCHICHTPLAN-STATISTIK!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -561,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.0 - HÄUFIGE ZIELE (Build 20251208-1950)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.3 - FAHRPLAN-FIX (Build 20251208-2045)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1054,7 +1055,9 @@
             </button>
         </div>
         
-        <div id="ride-status-container"></div>
+        <!-- 🆕 v5.49.2: ECHTES MODAL MIT OVERLAY -->
+        <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
+        
         <div id="booking-form">
             <div class="input-group">
                 <label>📍 Abholort</label>
@@ -1312,7 +1315,10 @@
         
         <!-- Abfahrtstafel -->
         <div id="departures-board" style="display:none;">
-            <!-- Wird dynamisch befüllt -->
+            <!-- Container für Züge -->
+            <div id="schedule-trains"></div>
+            <!-- Container für Busse -->
+            <div id="schedule-buses"></div>
         </div>
         
         <!-- ÖPNV-Taxi Angebot (wenn keine Busse) -->
@@ -2203,7 +2209,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.49.0 - HÄUFIGE ZIELE!');
+                    console.log('🚕 Funk Taxi App v5.49.3 - FAHRPLAN-FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5317,9 +5323,10 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.49.0 - HÄUFIGE ZIELE! (Build 20251208-1950)');
-        console.log('🔥 v5.49.0: HÄUFIGSTE ZIELORTE VON KUNDEN!');
-        console.log('📍 v5.48.5: GEOCODING MIT REGION!');
+        console.log('🚕 Funk Taxi App v5.49.3 - FAHRPLAN-FIX! (Build 20251208-2045)');
+        console.log('🔧 v5.49.3: FAHRPLAN-CRASH BEHOBEN - NULL-CHECKS!');
+        console.log('🎨 v5.49.2: BESTÄTIGUNG ALS ECHTES MODAL MIT OVERLAY!');
+        console.log('📊 v5.49.1: STORNIERTE NICHT IN SCHICHTPLAN-STATISTIK!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -5977,11 +5984,17 @@
         async function refreshSchedule() {
             scheduleLoaded = false;
             
+            // 🆕 v5.49.3: NULL-CHECK!
+            const trainsEl = document.getElementById('schedule-trains');
+            const busesEl = document.getElementById('schedule-buses');
+            
             // Loading states
-            document.getElementById('schedule-trains').innerHTML = 
-                '<div style="text-align:center;padding:20px;color:#6b7280;">Lade Zugverbindungen...</div>';
-            document.getElementById('schedule-buses').innerHTML = 
-                '<div style="text-align:center;padding:20px;color:#6b7280;">Lade Busverbindungen...</div>';
+            if (trainsEl) {
+                trainsEl.innerHTML = '<div style="text-align:center;padding:20px;color:#6b7280;">Lade Zugverbindungen...</div>';
+            }
+            if (busesEl) {
+                busesEl.innerHTML = '<div style="text-align:center;padding:20px;color:#6b7280;">Lade Busverbindungen...</div>';
+            }
             
             await loadSchedule();
         }
@@ -6226,6 +6239,12 @@
         function displayTrains(trains, stopName) {
             const container = document.getElementById('schedule-trains');
             
+            // 🆕 v5.49.3: NULL-CHECK!
+            if (!container) {
+                console.error('❌ Element schedule-trains nicht gefunden!');
+                return;
+            }
+            
             if (trains.length === 0) {
                 container.innerHTML = `
                     <div style="text-align:center;padding:20px;color:#6b7280;">
@@ -6282,6 +6301,12 @@
         function displayBuses(buses, stopName) {
             const container = document.getElementById('schedule-buses');
             
+            // 🆕 v5.49.3: NULL-CHECK!
+            if (!container) {
+                console.error('❌ Element schedule-buses nicht gefunden!');
+                return;
+            }
+            
             if (buses.length === 0) {
                 container.innerHTML = `
                     <div style="text-align:center;padding:20px;color:#6b7280;">
@@ -6336,12 +6361,25 @@
         
         // Zeigt Fehler an
         function showScheduleError(message) {
-            document.getElementById('schedule-trains').innerHTML = `
-                <div style="background:#fef2f2;color:#dc2626;padding:15px;border-radius:8px;text-align:center;">
-                    ⚠️ ${message}
-                </div>
-            `;
-            document.getElementById('schedule-buses').innerHTML = '';
+            // 🆕 v5.49.3: NULL-CHECK!
+            const trainsEl = document.getElementById('schedule-trains');
+            const busesEl = document.getElementById('schedule-buses');
+            
+            if (trainsEl) {
+                trainsEl.innerHTML = `
+                    <div style="background:#fef2f2;color:#dc2626;padding:15px;border-radius:8px;text-align:center;">
+                        ⚠️ ${message}
+                    </div>
+                `;
+            } else {
+                console.error('❌ Element schedule-trains nicht gefunden!');
+            }
+            
+            if (busesEl) {
+                busesEl.innerHTML = '';
+            } else {
+                console.error('❌ Element schedule-buses nicht gefunden!');
+            }
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
@@ -22363,7 +22401,10 @@ Stack: ${err.stack}
             
             localStorage.removeItem('myCurrentRideId');
             myCurrentRide = null;
-            document.getElementById('ride-status-container').innerHTML = '';
+            
+            // 🆕 v5.49.2: Modal verstecken!
+            hideRideStatusModal();
+            
             document.getElementById('booking-form').style.display = 'block';
             
             // 🆕 FORMULAR KOMPLETT ZURÜCKSETZEN
@@ -22373,14 +22414,23 @@ Stack: ${err.stack}
             setTimeout(() => document.getElementById('confirm').innerHTML = '', 3000);
         }
         
+        // 🆕 v5.49.2: Hilfsfunktion zum Verstecken des Modals
+        function hideRideStatusModal() {
+            const container = document.getElementById('ride-status-container');
+            container.innerHTML = '';
+            container.style.display = 'none';
+        }
+        
         function closeFutureRide(rideId) {
             // 🆕 v5.32.5n: ALLES löschen - KOMPLETT wie Abbrechen!
             console.log('✅ OK - Lösche ALLE Felder im Fahrgast-Bereich');
             
+            // 🆕 v5.49.2: Modal verstecken!
+            hideRideStatusModal();
+            
             // 1. Card schließen
             localStorage.removeItem('myCurrentRideId');
             myCurrentRide = null;
-            document.getElementById('ride-status-container').innerHTML = '';
             document.getElementById('booking-form').style.display = 'block';
             
             // 2. ALLE Eingabefelder leeren
@@ -22538,8 +22588,13 @@ Stack: ${err.stack}
                 // 🔗 Tracking-Link erstellen
                 const trackingLink = `${window.location.origin}${window.location.pathname}?ride=${ride.firebaseId}`;
                 
+                // 🆕 v5.49.2: ZENTRIERTES MODAL!
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                
                 container.innerHTML = `
-                    <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;">
+                    <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;max-width:500px;width:100%;margin:auto;">
                         <div style="font-size: 40px; margin-bottom: 8px;">📅</div>
                         <h3 style="font-size: 18px; margin-bottom: 10px;">Vorbestellung bestätigt!</h3>
                         <div style="margin-top: 12px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
@@ -22593,8 +22648,13 @@ Stack: ${err.stack}
                     displayTime2 = formattedTime;
                 }
                 
+                // 🆕 v5.49.2: ZENTRIERTES MODAL!
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                
                 container.innerHTML = `
-                    <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;">
+                    <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;max-width:500px;width:100%;margin:auto;">
                         <div style="font-size: 40px; margin-bottom: 8px;">📅</div>
                         <h3 style="font-size: 18px; margin-bottom: 10px;">Fahrt vorgemerkt!</h3>
                         <div style="margin-top: 12px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
@@ -22620,8 +22680,13 @@ Stack: ${err.stack}
             }
             
             if (ride.status === 'completed') {
+                // 🆕 v5.49.2: ZENTRIERTES MODAL!
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                
                 container.innerHTML = `
-                    <div class="ride-status-box" style="background:#d1fae5;border:2px solid:#10b981;">
+                    <div class="ride-status-box" style="background:#d1fae5;border:2px solid:#10b981;max-width:500px;width:100%;margin:auto;">
                         <div style="font-size: 40px; margin-bottom: 8px;">✅</div>
                         <h3 style="font-size: 18px; margin-bottom: 8px;">Fahrt abgeschlossen!</h3>
                         <p style="margin-top: 8px; font-size: 14px;">Vielen Dank für Ihre Fahrt</p>
@@ -24991,8 +25056,17 @@ Stack: ${err.stack}
                         
                         console.log(`📅 Kalender: ${firebaseRides.length} Fahrten aus Firebase geladen`);
                         
+                        // 🆕 v5.49.1: FILTERE STORNIERTE FAHRTEN RAUS!
+                        // Nur echte Fahrten zählen für Statistik!
+                        const validStatuses = ['completed', 'new', 'assigned', 'vorbestellt', 'in_progress'];
+                        allRides = firebaseRides.filter(ride => {
+                            const status = (ride.status || '').toLowerCase();
+                            return validStatuses.includes(status);
+                        });
+                        
+                        console.log(`📊 Schichtplan: ${allRides.length} gültige Fahrten (${firebaseRides.length - allRides.length} stornierte gefiltert)`);
+                        
                         // Admin: NUR Firebase! KEIN Merge mit localStorage!
-                        allRides = firebaseRides;
                         
                         console.log('📊 Admin-Kalender: NUR Firebase-Fahrten:', allRides.length);
                     }
@@ -26084,7 +26158,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.49.0 - HÄUFIGE ZIELORTE VON KUNDEN!`);
+            debugLog('info', `📦 Version: 5.49.3 - FAHRPLAN-CRASH BEHOBEN!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

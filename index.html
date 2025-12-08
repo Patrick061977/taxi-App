@@ -78,14 +78,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.46.6 - DEBUG MENU (Build 20251208-0720)');
-        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ - NUR ADMIN!');
-        console.log('🚌 v5.45.0: ABFAHRTSTAFEL - Live Busfahrplan!');
-        console.log('🚏 v5.44.0: ÖPNV-TAXI MODUS!');
-        console.log('📊 v5.43.0: SCHICHTPLAN!');
-        console.log('🎉 v5.42.3: SCHÖNE Bestätigungskarte!');
+        console.log('🚕 Funk Taxi App v5.46.7 - ADMIN FIX (Build 20251208-0815)');
+        console.log('🔐 v5.46.7: FLEXIBLE ADMIN-PRÜFUNG + DEBUG-LOGS!');
+        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ!');
+        console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('');
-        console.log('📅 VORBESTELLUNG JETZT TESTEN!');
+        console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -564,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.6 - DEBUG MENU (Build 20251208-0720)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.7 - ADMIN FIX (Build 20251208-0815)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2205,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.46.6 - DEBUG MENU!');
+                    console.log('🚕 Funk Taxi App v5.46.7 - ADMIN FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5298,10 +5296,10 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.46.6 - DEBUG MENU (Build 20251208-0720)');
-        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ - NUR ADMIN!');
-        console.log('🚌 v5.45.0: ABFAHRTSTAFEL - Live Busfahrplan!');
-        console.log('🚏 v5.44.0: ÖPNV-TAXI!');
+        console.log('🚕 Funk Taxi App v5.46.7 - ADMIN FIX (Build 20251208-0815)');
+        console.log('🔐 v5.46.7: FLEXIBLE ADMIN-PRÜFUNG!');
+        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ!');
+        console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
 
@@ -26754,9 +26752,44 @@ Stack: ${err.stack}
         // Admin-Check (Phone-Login)
         function checkAdminAccess() {
             const userPhone = localStorage.getItem('userPhone');
-            // 🔐 Deine Admin-Nummern
-            const adminPhones = ['+493837822751', '+4938378822751'];
-            return adminPhones.includes(userPhone);
+            
+            // 📞 v5.46.7: DEBUG - Zeige gespeicherte Nummer!
+            console.log('═══════════════════════════════════════════');
+            console.log('📞 ADMIN-CHECK:');
+            console.log('   Gespeicherte Nummer:', userPhone);
+            
+            if (!userPhone) {
+                console.log('   ❌ Keine Telefonnummer gefunden!');
+                console.log('═══════════════════════════════════════════');
+                return false;
+            }
+            
+            // 🔐 Admin-Nummern (alle Varianten!)
+            const adminNumbers = [
+                '822751',           // Nur letzte 6 Stellen
+                '3837822751',       // Ohne Vorwahl
+                '038378822751',     // Mit 0
+                '493837822751',     // Mit 49
+                '+493837822751',    // Mit +49
+                '+4938378822751',   // Mit +49 (falls doppelt)
+            ];
+            
+            // Normalisiere Nummer (entferne Leerzeichen, +, -)
+            const normalizedPhone = userPhone.replace(/[\s\-\+]/g, '');
+            console.log('   Normalisiert:', normalizedPhone);
+            
+            // Prüfe ob Nummer endet mit einer Admin-Nummer
+            const isAdmin = adminNumbers.some(num => normalizedPhone.endsWith(num));
+            
+            if (isAdmin) {
+                console.log('   ✅ ADMIN ERKANNT!');
+            } else {
+                console.log('   ❌ KEIN ADMIN!');
+                console.log('   Erwartete Endungen:', adminNumbers.join(', '));
+            }
+            console.log('═══════════════════════════════════════════');
+            
+            return isAdmin;
         }
         
         // Zeige Käfer-Button nur für Admin

@@ -78,10 +78,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.49.3 - FAHRPLAN-FIX! (Build 20251208-2045)');
+        console.log('🚕 Funk Taxi App v5.49.4 - GPS-FAHRPLAN! (Build 20251208-2200)');
+        console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL - DROPDOWN ENTFERNT!');
         console.log('🔧 v5.49.3: FAHRPLAN-CRASH BEHOBEN - NULL-CHECKS!');
         console.log('🎨 v5.49.2: BESTÄTIGUNG ALS ECHTES MODAL MIT OVERLAY!');
-        console.log('📊 v5.49.1: STORNIERTE NICHT IN SCHICHTPLAN-STATISTIK!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.3 - FAHRPLAN-FIX (Build 20251208-2045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.4 - GPS-FAHRPLAN (Build 20251208-2200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1279,55 +1279,24 @@
             </button>
         </div>
         
-        <!-- Bushaltestellen-Auswahl -->
+        <!-- GPS-basierte Abfahrtstafel -->
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-            <label style="display:block;font-weight:700;font-size:16px;margin-bottom:12px;color:#1f2937;">
-                🚏 Wähle deine Bushaltestelle:
-            </label>
-            <select id="bus-stop-select" onchange="loadBusDepartures()" style="
-                width:100%;
-                padding:14px;
-                border:2px solid #e5e7eb;
-                border-radius:10px;
-                font-size:15px;
-                font-weight:600;
-                background:white;
-                cursor:pointer;
-                color:#1f2937;
-            ">
-                <option value="">-- Bitte wählen --</option>
-                <option value="8011155">Heringsdorf Bahnhof</option>
-                <option value="732429">Ahlbeck Ostseetherme</option>
-                <option value="732428">Bansin Seebad</option>
-                <option value="8089072">Zinnowitz Bahnhof</option>
-                <option value="732551">Karlshagen Hafen</option>
-                <option value="732523">Koserow Hauptstraße</option>
-                <option value="732541">Ückeritz Strandstraße</option>
-                <option value="732530">Loddin Stubbenfelde</option>
-                <option value="732545">Zempin Dünenstraße</option>
-                <option value="732548">Trassenheide Strandstraße</option>
-                <option value="732538">Peenemünde Hafen</option>
-            </select>
-            <div style="font-size:13px;color:#6b7280;margin-top:8px;">
-                💡 Wähle die Haltestelle, von der du abfahren möchtest
+            <div style="font-size:16px;font-weight:700;margin-bottom:15px;color:#1f2937;">
+                📍 Abfahrten in Ihrer Nähe
             </div>
-        </div>
-        
-        <!-- Abfahrtstafel -->
-        <div id="departures-board" style="display:none;">
+            <div style="font-size:13px;color:#6b7280;margin-bottom:15px;">
+                Wir zeigen Ihnen automatisch die nächsten Züge und Busse basierend auf Ihrem aktuellen Standort.
+            </div>
+            
             <!-- Container für Züge -->
-            <div id="schedule-trains"></div>
+            <div id="schedule-trains" style="margin-bottom:20px;"></div>
+            
             <!-- Container für Busse -->
             <div id="schedule-buses"></div>
         </div>
         
-        <!-- ÖPNV-Taxi Angebot (wenn keine Busse) -->
-        <div id="opnv-offer" style="display:none;">
-            <!-- Wird dynamisch befüllt -->
-        </div>
-        
         <!-- Info -->
-        <div style="background:#f0f9ff;padding:15px;border-radius:10px;font-size:13px;color:#1e40af;margin-top:20px;">
+        <div style="background:#f0f9ff;padding:15px;border-radius:10px;font-size:13px;color:#1e40af;">
             <strong>💡 Hinweis:</strong> Fahrplandaten werden live von der Deutschen Bahn API abgerufen und enthalten Echtzeit-Verspätungen.
         </div>
     </div>
@@ -2209,7 +2178,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.49.3 - FAHRPLAN-FIX!');
+                    console.log('🚕 Funk Taxi App v5.49.4 - GPS-FAHRPLAN!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5323,10 +5292,10 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.49.3 - FAHRPLAN-FIX! (Build 20251208-2045)');
+        console.log('🚕 Funk Taxi App v5.49.4 - GPS-FAHRPLAN! (Build 20251208-2200)');
+        console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL - DROPDOWN ENTFERNT!');
         console.log('🔧 v5.49.3: FAHRPLAN-CRASH BEHOBEN - NULL-CHECKS!');
         console.log('🎨 v5.49.2: BESTÄTIGUNG ALS ECHTES MODAL MIT OVERLAY!');
-        console.log('📊 v5.49.1: STORNIERTE NICHT IN SCHICHTPLAN-STATISTIK!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -6704,217 +6673,6 @@
         // 🆕 v5.45.0: ABFAHRTSTAFEL-FUNKTIONEN
         
         // Lade Abfahrten für gewählte Bushaltestelle
-        async function loadBusDepartures() {
-            const select = document.getElementById('bus-stop-select');
-            const stopId = select.value;
-            
-            if (!stopId) {
-                document.getElementById('departures-board').style.display = 'none';
-                document.getElementById('opnv-offer').style.display = 'none';
-                return;
-            }
-            
-            const stopName = select.options[select.selectedIndex].text;
-            console.log('🚏 Lade Abfahrten für:', stopName, '(ID:', stopId + ')');
-            
-            // Zeige Loading
-            const board = document.getElementById('departures-board');
-            board.style.display = 'block';
-            board.innerHTML = `
-                <div style="background:white;padding:30px;border-radius:12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                    <div style="font-size:32px;margin-bottom:15px;">🔄</div>
-                    <div style="font-size:16px;font-weight:600;color:#6b7280;">Lade Abfahrten...</div>
-                </div>
-            `;
-            
-            try {
-                // DB API Abfrage für Abfahrten
-                const response = await fetch(
-                    `https://v5.db.transport.rest/stops/${stopId}/departures?` +
-                    `duration=120&` + // Nächste 2 Stunden
-                    `results=10&` +
-                    `bus=true&` +
-                    `subway=false&` +
-                    `tram=false&` +
-                    `ferry=false`
-                );
-                
-                if (!response.ok) {
-                    throw new Error('API Fehler: ' + response.status);
-                }
-                
-                const data = await response.json();
-                console.log('✅ Abfahrten erhalten:', data.length);
-                
-                // Filtere nur Busse
-                const busDepartures = data.filter(d => 
-                    d.line && d.line.product === 'bus'
-                );
-                
-                if (busDepartures.length === 0) {
-                    // Keine Busse → Zeige ÖPNV-Taxi
-                    showNoBusesOffer(stopName);
-                } else {
-                    // Zeige Abfahrten
-                    showDeparturesBoard(busDepartures, stopName);
-                    // Zeige kleine ÖPNV-Box
-                    showSmallOPNVOffer();
-                }
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Laden der Abfahrten:', error);
-                board.innerHTML = `
-                    <div style="background:#fee2e2;padding:20px;border-radius:12px;text-align:center;border:2px solid #dc2626;">
-                        <div style="font-size:32px;margin-bottom:10px;">❌</div>
-                        <div style="font-size:16px;font-weight:600;color:#991b1b;">Fehler beim Laden</div>
-                        <div style="font-size:13px;color:#991b1b;margin-top:5px;">${error.message}</div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Zeige Abfahrtstafel
-        function showDeparturesBoard(departures, stopName) {
-            const board = document.getElementById('departures-board');
-            
-            let html = `
-                <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-                        <div style="font-size:18px;font-weight:700;color:#1f2937;">
-                            🚌 ${stopName}
-                        </div>
-                        <button onclick="loadBusDepartures()" style="padding:8px 16px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">
-                            🔄 Aktualisieren
-                        </button>
-                    </div>
-                    
-                    <div style="display:grid;gap:12px;">
-            `;
-            
-            departures.forEach(dep => {
-                const time = new Date(dep.when || dep.plannedWhen);
-                const now = new Date();
-                const minutesUntil = Math.round((time - now) / 60000);
-                
-                const delay = dep.delay || 0;
-                const delayMinutes = Math.round(delay / 60);
-                
-                const lineNumber = dep.line.name || 'Bus';
-                const direction = dep.direction || 'Unbekannt';
-                const platform = dep.platform || '';
-                
-                const isDelayed = delayMinutes > 0;
-                const isCancelled = dep.cancelled;
-                
-                html += `
-                    <div style="
-                        padding:15px;
-                        border:2px solid ${isCancelled ? '#dc2626' : isDelayed ? '#f59e0b' : '#e5e7eb'};
-                        border-radius:10px;
-                        background:${isCancelled ? '#fee2e2' : 'white'};
-                    ">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                            <div style="font-size:18px;font-weight:700;color:#667eea;">
-                                🚌 ${lineNumber}
-                            </div>
-                            <div style="font-size:20px;font-weight:700;color:${isCancelled ? '#dc2626' : isDelayed ? '#f59e0b' : '#10b981'};">
-                                ${minutesUntil >= 0 ? minutesUntil + ' Min' : 'Fährt ab'}
-                            </div>
-                        </div>
-                        <div style="font-size:15px;color:#374151;margin-bottom:5px;">
-                            → ${direction}
-                        </div>
-                        ${platform ? `<div style="font-size:13px;color:#6b7280;">Gleis ${platform}</div>` : ''}
-                        ${isCancelled ? 
-                            '<div style="font-size:13px;font-weight:700;color:#dc2626;margin-top:8px;">❌ FÄLLT AUS</div>' :
-                            isDelayed ? 
-                            `<div style="font-size:13px;font-weight:600;color:#d97706;margin-top:8px;">⚠️ +${delayMinutes} Min Verspätung</div>` :
-                            '<div style="font-size:13px;font-weight:600;color:#10b981;margin-top:8px;">✅ Pünktlich</div>'
-                        }
-                    </div>
-                `;
-            });
-            
-            html += `
-                    </div>
-                </div>
-            `;
-            
-            board.innerHTML = html;
-        }
-        
-        // Zeige "Keine Busse" Angebot
-        function showNoBusesOffer(stopName) {
-            const board = document.getElementById('departures-board');
-            board.style.display = 'none';
-            
-            const offer = document.getElementById('opnv-offer');
-            offer.style.display = 'block';
-            offer.innerHTML = `
-                <div style="background:linear-gradient(135deg, #dc2626 0%, #991b1b 100%);color:white;padding:25px;border-radius:12px;box-shadow:0 4px 16px rgba(220, 38, 38, 0.3);margin-bottom:20px;">
-                    <div style="font-size:32px;margin-bottom:15px;text-align:center;">⚠️</div>
-                    <div style="font-size:22px;font-weight:700;margin-bottom:10px;text-align:center;">
-                        KEINE BUSSE MEHR!
-                    </div>
-                    <div style="font-size:15px;opacity:0.95;text-align:center;">
-                        Von ${stopName} fahren aktuell keine Busse
-                    </div>
-                </div>
-                
-                <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:25px;border-radius:12px;box-shadow:0 4px 16px rgba(16, 185, 129, 0.3);">
-                    <div style="font-size:32px;margin-bottom:15px;text-align:center;">🚕</div>
-                    <div style="font-size:22px;font-weight:700;margin-bottom:15px;text-align:center;">
-                        ÖPNV-TAXI BUCHEN
-                    </div>
-                    <div style="font-size:15px;opacity:0.95;text-align:center;margin-bottom:20px;">
-                        Busticket-Preis + nur 2€ Aufpreis
-                    </div>
-                    <button onclick="startOPNVBookingFromSchedule('${stopName}')" style="
-                        width:100%;
-                        padding:18px;
-                        background:white;
-                        color:#059669;
-                        border:none;
-                        border-radius:10px;
-                        font-weight:700;
-                        cursor:pointer;
-                        font-size:16px;
-                        box-shadow:0 2px 8px rgba(0,0,0,0.2);
-                    ">
-                        🚏 Jetzt ÖPNV-Taxi buchen
-                    </button>
-                </div>
-            `;
-        }
-        
-        // Zeige kleine ÖPNV-Anzeige (wenn Busse fahren)
-        function showSmallOPNVOffer() {
-            const offer = document.getElementById('opnv-offer');
-            offer.style.display = 'block';
-            offer.innerHTML = `
-                <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;padding:15px;border-radius:10px;margin-top:20px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);display:flex;align-items:center;justify-content:space-between;">
-                    <div style="flex:1;">
-                        <div style="font-size:15px;font-weight:700;margin-bottom:2px;">🚕 Alternativ: ÖPNV-Taxi</div>
-                        <div style="font-size:12px;opacity:0.9;">Busticket-Preis + 2€</div>
-                    </div>
-                    <button onclick="startOPNVBooking()" style="padding:10px 20px;background:white;color:#059669;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap;">
-                        🚏 Buchen
-                    </button>
-                </div>
-            `;
-        }
-        
-        // Starte ÖPNV-Buchung vom Schedule aus
-        function startOPNVBookingFromSchedule(stopName) {
-            console.log('🚏 Starte ÖPNV-Buchung von:', stopName);
-            startOPNVBooking();
-            
-            // Setze Abholort auf Haltestelle
-            const pickupInput = document.getElementById('pickup');
-            if (pickupInput) {
-                pickupInput.value = stopName;
-            }
-        }
 
         // 🆕 v5.33.1: Admin-Tabs anzeigen/verstecken
         function updateAdminTabsVisibility() {
@@ -26158,7 +25916,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.49.3 - FAHRPLAN-CRASH BEHOBEN!`);
+            debugLog('info', `📦 Version: 5.49.4 - GPS-BASIERTE ABFAHRTSTAFEL!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

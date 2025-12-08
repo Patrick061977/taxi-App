@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.47.0 - LOGS FUNKTIONIEREN! (Build 20251208-0845)');
-        console.log('🎉 v5.47.0: BUG GEFIXT - LOGS FÜR ALLE!');
-        console.log('🐛 v5.46.9: COMPLETE LOGGING!');
+        console.log('🚕 Funk Taxi App v5.47.1 - LOGS LADEN FIX! (Build 20251208-1635)');
+        console.log('🎉 v5.47.1: ALLE LOGS BEIM ÖFFNEN LADEN!');
+        console.log('🐛 v5.47.0: BUG GEFIXT - LOGS FÜR ALLE!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -561,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.0 - LOGS FUNKTIONIEREN (Build 20251208-0845)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.1 - LOGS LADEN FIX (Build 20251208-1635)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2203,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.47.0 - LOGS FUNKTIONIEREN!');
+                    console.log('🚕 Funk Taxi App v5.47.1 - LOGS LADEN FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -2225,10 +2225,6 @@
                 panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
             }
             
-            function toggleDebugPanel() {
-                const panel = document.getElementById('debug-panel');
-                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-            }
             
             // 🚨 STORNIERUNG PANEL FUNKTIONEN
             function showCancellationPanel() {
@@ -5296,9 +5292,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.47.0 - LOGS FUNKTIONIEREN! (Build 20251208-0845)');
-        console.log('🎉 v5.47.0: BUG GEFIXT - LOGS FÜR ALLE!');
-        console.log('🐛 v5.46.9: COMPLETE LOGGING!');
+        console.log('🚕 Funk Taxi App v5.47.1 - LOGS LADEN FIX! (Build 20251208-1635)');
+        console.log('🎉 v5.47.1: LOGS BEIM ÖFFNEN LADEN + FIREBASE FIX!');
+        console.log('🐛 v5.47.0: LOGS FÜR ALLE!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -23294,6 +23290,13 @@ Stack: ${err.stack}
         
         // Prüfe ob Fahrgast eingeloggt ist - zeige Login-Screen wenn nicht
         function checkPassengerAuth() {
+            // 🐛 v5.47.1: PRÜFE OB FIREBASE READY IST!
+            if (typeof firebase === 'undefined' || !firebase.apps || firebase.apps.length === 0) {
+                console.log('⚠️ Firebase noch nicht bereit - überspringe Auth-Check');
+                debugLog('warn', '⚠️ Firebase noch nicht bereit');
+                return false;
+            }
+            
             const user = firebase.auth().currentUser;
             const authScreen = document.getElementById('phone-auth-screen');
             
@@ -25561,9 +25564,9 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
-            // 🐛 v5.47.0: Initiales Log im Floating Debug Panel!
+            // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.47.0 - LOGS FUNKTIONIEREN!`);
+            debugLog('info', `📦 Version: 5.47.1 - LOGS LADEN FIX!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren
@@ -26831,9 +26834,23 @@ Stack: ${err.stack}
         // Toggle Debug Panel
         function toggleDebugPanel() {
             const panel = document.getElementById('debug-panel');
-            if (panel.style.display === 'none') {
+            if (panel.style.display === 'none' || !panel.style.display) {
                 panel.style.display = 'block';
                 isDebugPanelOpen = true;
+                
+                // 🐛 v5.47.1: LADE ALLE bisherigen Logs ins Panel!
+                const container = document.getElementById('debug-logs-container');
+                if (container) {
+                    container.innerHTML = ''; // Erst leeren
+                    
+                    // Füge alle Logs hinzu
+                    debugPanelLogs.forEach(log => {
+                        addLogToPanel(log);
+                    });
+                    
+                    console.log(`🐛 Debug Panel geöffnet - ${debugPanelLogs.length} Logs geladen`);
+                }
+                
                 debugLog('info', '🐛 Debug Panel geöffnet');
             } else {
                 panel.style.display = 'none';

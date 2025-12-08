@@ -424,6 +424,97 @@
     </style>
 </head>
 <body>
+    
+    <!-- 🐛 v5.46.4: FLOATING DEBUG PANEL (NUR ADMIN!) -->
+    <div id="debug-panel" style="
+        display: none;
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        width: 400px;
+        max-height: 500px;
+        background: white;
+        border: 3px solid #ef4444;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        z-index: 999999999;
+        font-family: monospace;
+    ">
+        <!-- Header (verschiebbar) -->
+        <div id="debug-header" style="
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 9px 9px 0 0;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        ">
+            <span style="font-weight: 700; font-size: 14px;">🐛 DEBUG LOGS</span>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="minimizeDebugPanel()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Minimieren">−</button>
+                <button onclick="copyDebugLogs()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Logs kopieren">📋</button>
+                <button onclick="clearDebugLogs()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Löschen">🗑️</button>
+                <button onclick="closeDebugPanel()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;" title="Schließen">✕</button>
+            </div>
+        </div>
+        
+        <!-- Content -->
+        <div id="debug-content" style="display: block;">
+            <!-- Filter -->
+            <div style="padding: 10px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                <div style="font-size: 11px; font-weight: 600; margin-bottom: 5px; color: #6b7280;">FILTER:</div>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="setDebugFilter('all')" id="debug-filter-all" style="flex: 1; padding: 5px; border: 2px solid #10b981; background: #d1fae5; color: #065f46; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">✅ Alle</button>
+                    <button onclick="setDebugFilter('warn')" id="debug-filter-warn" style="flex: 1; padding: 5px; border: 1px solid #f59e0b; background: white; color: #92400e; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">⚠️ Warn</button>
+                    <button onclick="setDebugFilter('error')" id="debug-filter-error" style="flex: 1; padding: 5px; border: 1px solid #ef4444; background: white; color: #dc2626; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">❌ Error</button>
+                </div>
+            </div>
+            
+            <!-- Logs -->
+            <div id="debug-logs-container" style="
+                max-height: 300px;
+                overflow-y: auto;
+                padding: 10px;
+                font-size: 11px;
+                line-height: 1.6;
+                background: #fafafa;
+            ">
+                <div style="color: #10b981; font-weight: 600;">🐛 Debug Panel aktiviert!</div>
+                <div style="color: #6b7280; font-size: 10px;">Logs erscheinen hier in Echtzeit...</div>
+            </div>
+            
+            <!-- Actions -->
+            <div style="padding: 10px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; gap: 8px;">
+                <button onclick="copyDebugLogs()" style="flex: 1; padding: 8px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;">📋 Kopieren</button>
+                <button onclick="clearDebugLogs()" style="flex: 1; padding: 8px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;">🗑️ Löschen</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 🐛 DEBUG KÄFER-BUTTON (NUR ADMIN!) -->
+    <button id="debug-toggle-btn" style="
+        display: none;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 999999998;
+        transition: transform 0.2s;
+    " onclick="toggleDebugPanel()" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+        🐛
+    </button>
+    
     <div class="header" id="main-header" style="cursor: pointer; position: relative;" onclick="toggleHeader()">
         <!-- 🆕 v5.42.1: Avatar-Icon für eingeloggte User -->
         <button id="user-avatar-btn" onclick="openMenuAndScrollToProfile(event)" style="
@@ -472,7 +563,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.3 - CLEAN DROPDOWN (Build 20251207-2250)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.4 - FLOATING DEBUG (Build 20251208-0700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -12476,15 +12567,21 @@
         
         // Prüft ob Zeitslot bereits belegt ist
         async function checkTimeSlotAvailability(requestedTimestamp, pickupCoords) {
-            if (!isFirebaseReady) return { available: true };
+            if (!isFirebaseReady) {
+                debugLog('warn', '⚠️ Slot-Check: Firebase nicht bereit');
+                return { available: true };
+            }
             
             // 🎯 v5.33.2: Admin-Override prüfen!
             if (timeslotSettings.adminOverride) {
                 console.log('🎯 Admin-Override aktiv - Zeitslot-Check übersprungen!');
+                debugLog('warn', '🎯 Admin-Override: Slot-Check übersprungen');
                 return { available: true };
             }
             
-            console.log('🔍 Prüfe Zeitslot für:', new Date(requestedTimestamp).toLocaleString('de-DE'));
+            const requestedDate = new Date(requestedTimestamp).toLocaleString('de-DE');
+            console.log('🔍 Prüfe Zeitslot für:', requestedDate);
+            debugLog('info', `🔍 Prüfe Zeitslot: ${requestedDate}`);
             
             try {
                 const snapshot = await db.ref('rides').once('value');
@@ -12570,6 +12667,7 @@
                         // 4. Wenn gewünschte Zeit VOR frühestmöglich → KONFLIKT!
                         if (requestedTimestamp < earliestPossible) {
                             console.log('⚠️ KONFLIKT! Gewünschte Zeit zu früh!');
+                            debugLog('error', `⚠️ KONFLIKT! Gewünschte Zeit zu früh! Frühestens: ${new Date(earliestPossible).toLocaleTimeString('de-DE')}`);
                             return {
                                 available: false,
                                 conflictingRide: ride
@@ -12581,6 +12679,7 @@
                     // 🔧 v5.40.0: FIX - Prüfe ob neue Fahrt WIRKLICH zwischen Start und Ende liegt!
                     if (requestedTimestamp >= ride.pickupTimestamp && requestedTimestamp <= rideEndTime) {
                         console.log('⚠️ KONFLIKT! Gewünschte Zeit liegt während laufender Fahrt!');
+                        debugLog('error', '⚠️ KONFLIKT! Zeit liegt während laufender Fahrt!');
                         return {
                             available: false,
                             conflictingRide: ride
@@ -12589,10 +12688,12 @@
                 }
                 
                 console.log('✅ Zeitslot verfügbar!');
+                debugLog('info', '✅ Zeitslot verfügbar!');
                 return { available: true };
                 
             } catch (error) {
                 console.error('❌ Fehler bei Zeitslot-Prüfung:', error);
+                debugLog('error', `❌ Slot-Check Fehler: ${error.message}`);
                 return { available: true }; // Im Fehlerfall erlauben
             }
         }
@@ -26594,6 +26695,254 @@ Stack: ${err.stack}
             
             console.log(`✅ DEBUG MONITOR bereit (${window.debugPaused ? 'pausiert' : 'recording'} - ${window.debugLogs.length} Logs geladen)`);
         });
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🐛 v5.46.4: FLOATING DEBUG PANEL (NUR ADMIN!)
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let debugPanelLogs = [];
+        let debugFilter = 'all';
+        let debugPanelMinimized = false;
+        let isDebugPanelOpen = false;
+        
+        // Admin-Check (Phone-Login)
+        function checkAdminAccess() {
+            const userPhone = localStorage.getItem('userPhone');
+            // 🔐 Deine Admin-Nummern
+            const adminPhones = ['+493837822751', '+4938378822751'];
+            return adminPhones.includes(userPhone);
+        }
+        
+        // Zeige Käfer-Button nur für Admin
+        setTimeout(() => {
+            if (checkAdminAccess()) {
+                const btn = document.getElementById('debug-toggle-btn');
+                if (btn) {
+                    btn.style.display = 'block';
+                    console.log('🐛 Debug-Button aktiviert (Admin erkannt)');
+                }
+            }
+        }, 2000);
+        
+        // Toggle Debug Panel
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debug-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                isDebugPanelOpen = true;
+                debugLog('info', '🐛 Debug Panel geöffnet');
+            } else {
+                panel.style.display = 'none';
+                isDebugPanelOpen = false;
+            }
+        }
+        
+        // Minimiere Panel
+        function minimizeDebugPanel() {
+            const content = document.getElementById('debug-content');
+            debugPanelMinimized = !debugPanelMinimized;
+            if (debugPanelMinimized) {
+                content.style.display = 'none';
+            } else {
+                content.style.display = 'block';
+            }
+        }
+        
+        // Schließe Panel
+        function closeDebugPanel() {
+            const panel = document.getElementById('debug-panel');
+            panel.style.display = 'none';
+            isDebugPanelOpen = false;
+        }
+        
+        // Kopiere alle Logs
+        function copyDebugLogs() {
+            let text = '═══════════════════════════════════\n';
+            text += '🐛 FUNK TAXI DEBUG LOGS\n';
+            text += '═══════════════════════════════════\n\n';
+            
+            debugPanelLogs.forEach(log => {
+                text += `[${log.time}] ${log.type.toUpperCase()}: ${log.message}\n`;
+            });
+            
+            text += '\n═══════════════════════════════════\n';
+            text += `Total: ${debugPanelLogs.length} Logs\n`;
+            text += `Version: 5.46.4\n`;
+            text += '═══════════════════════════════════';
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert('📋 Logs in Zwischenablage kopiert!\n\n' + 
+                      'Du kannst sie jetzt an Claude schicken! 😊');
+            }).catch(err => {
+                console.error('❌ Kopieren fehlgeschlagen:', err);
+                alert('❌ Kopieren fehlgeschlagen!\n\nBitte öffne F12 → Console und kopiere manuell.');
+            });
+        }
+        
+        // Lösche Logs
+        function clearDebugLogs() {
+            debugPanelLogs = [];
+            const container = document.getElementById('debug-logs-container');
+            container.innerHTML = '<div style="color: #6b7280; font-size: 10px;">Logs gelöscht...</div>';
+        }
+        
+        // Setze Filter
+        function setDebugFilter(filter) {
+            debugFilter = filter;
+            
+            // Update Button-Styles
+            const allBtn = document.getElementById('debug-filter-all');
+            const warnBtn = document.getElementById('debug-filter-warn');
+            const errorBtn = document.getElementById('debug-filter-error');
+            
+            // Reset alle
+            allBtn.style.border = '1px solid #10b981';
+            allBtn.style.background = 'white';
+            warnBtn.style.border = '1px solid #f59e0b';
+            warnBtn.style.background = 'white';
+            errorBtn.style.border = '1px solid #ef4444';
+            errorBtn.style.background = 'white';
+            
+            // Aktiviere gewählten
+            if (filter === 'all') {
+                allBtn.style.border = '2px solid #10b981';
+                allBtn.style.background = '#d1fae5';
+            } else if (filter === 'warn') {
+                warnBtn.style.border = '2px solid #f59e0b';
+                warnBtn.style.background = '#fef3c7';
+            } else if (filter === 'error') {
+                errorBtn.style.border = '2px solid #ef4444';
+                errorBtn.style.background = '#fee2e2';
+            }
+            
+            // Refresh Display
+            refreshDebugPanel();
+        }
+        
+        // Haupt-Logging Funktion
+        function debugLog(type, message) {
+            if (!checkAdminAccess()) return; // Nur für Admin loggen
+            
+            const time = new Date().toLocaleTimeString('de-DE');
+            const log = { time, type, message };
+            
+            debugPanelLogs.push(log);
+            
+            // Limit auf 500 Logs
+            if (debugPanelLogs.length > 500) {
+                debugPanelLogs.shift();
+            }
+            
+            // Wenn Panel offen, zeige sofort
+            if (isDebugPanelOpen) {
+                addLogToPanel(log);
+            }
+            
+            // Auch in Console loggen
+            const icon = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : '✅';
+            console.log(`${icon} [DEBUG] ${message}`);
+        }
+        
+        // Füge Log zu Panel hinzu
+        function addLogToPanel(log) {
+            // Prüfe Filter
+            if (debugFilter !== 'all') {
+                if (debugFilter === 'warn' && log.type !== 'warn') return;
+                if (debugFilter === 'error' && log.type !== 'error') return;
+            }
+            
+            const container = document.getElementById('debug-logs-container');
+            if (!container) return;
+            
+            const color = log.type === 'error' ? '#ef4444' : 
+                         log.type === 'warn' ? '#f59e0b' : 
+                         '#10b981';
+            
+            const icon = log.type === 'error' ? '❌' : 
+                        log.type === 'warn' ? '⚠️' : 
+                        '✅';
+            
+            const div = document.createElement('div');
+            div.style.marginBottom = '4px';
+            div.style.color = color;
+            div.innerHTML = `<span style="color:#6b7280;">[${log.time}]</span> ${icon} ${log.message}`;
+            
+            container.appendChild(div);
+            
+            // Auto-Scroll
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Refresh Panel (bei Filter-Änderung)
+        function refreshDebugPanel() {
+            const container = document.getElementById('debug-logs-container');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            debugPanelLogs.forEach(log => {
+                addLogToPanel(log);
+            });
+        }
+        
+        // Panel verschiebbar machen
+        document.addEventListener('DOMContentLoaded', () => {
+            const panel = document.getElementById('debug-panel');
+            const header = document.getElementById('debug-header');
+            
+            if (!panel || !header) return;
+            
+            let isDragging = false;
+            let currentX;
+            let currentY;
+            let initialX;
+            let initialY;
+            
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                initialX = e.clientX - panel.offsetLeft;
+                initialY = e.clientY - panel.offsetTop;
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                
+                panel.style.left = currentX + 'px';
+                panel.style.top = currentY + 'px';
+                panel.style.right = 'auto'; // Remove right positioning
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        });
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🐛 INTEGRATION: Debug Logs in kritischen Funktionen
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        // Hook in book() Funktion
+        const originalBook = window.book;
+        if (originalBook) {
+            window.book = async function() {
+                debugLog('info', '📝 Buchung gestartet');
+                debugLog('info', `autoBookingEnabled: ${autoBookingEnabled}`);
+                debugLog('info', `currentRideType: ${currentRideType}`);
+                try {
+                    const result = await originalBook.apply(this, arguments);
+                    debugLog('info', '✅ Buchung erfolgreich');
+                    return result;
+                } catch (error) {
+                    debugLog('error', `❌ Buchung fehlgeschlagen: ${error.message}`);
+                    throw error;
+                }
+            };
+        }
+        
     </script>
 
 </body>

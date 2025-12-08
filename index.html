@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.48.3 - KUNDEN-SUCHE! (Build 20251208-1815)');
-        console.log('🔍 v5.48.3: KUNDEN-SUCHE AB 3 ZEICHEN!');
-        console.log('💰 v5.48.2: SCHNELLBUCHUNG MIT PREIS!');
+        console.log('🚕 Funk Taxi App v5.49.0 - HÄUFIGE ZIELE! (Build 20251208-1950)');
+        console.log('🔥 v5.49.0: HÄUFIGSTE ZIELORTE VON KUNDEN!');
+        console.log('📍 v5.48.5: GEOCODING MIT REGION!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -561,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.48.3 - KUNDEN-SUCHE (Build 20251208-1815)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.0 - HÄUFIGE ZIELE (Build 20251208-1950)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2203,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.48.3 - KUNDEN-SUCHE!');
+                    console.log('🚕 Funk Taxi App v5.49.0 - HÄUFIGE ZIELE!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -2661,6 +2661,9 @@
                     >
                     <div id="qb-panel-destination-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
+                
+                <!-- 🆕 v5.49.0: HÄUFIGE ZIELORTE -->
+                <div id="qb-panel-frequent-destinations" style="display:none;margin-bottom:15px;"></div>
                 
                 <!-- Personen -->
                 <div style="margin-bottom: 15px;">
@@ -5314,9 +5317,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.48.3 - KUNDEN-SUCHE! (Build 20251208-1815)');
-        console.log('🔍 v5.48.3: KUNDEN-SUCHE AB 3 ZEICHEN!');
-        console.log('💰 v5.48.2: SCHNELLBUCHUNG MIT PREIS!');
+        console.log('🚕 Funk Taxi App v5.49.0 - HÄUFIGE ZIELE! (Build 20251208-1950)');
+        console.log('🔥 v5.49.0: HÄUFIGSTE ZIELORTE VON KUNDEN!');
+        console.log('📍 v5.48.5: GEOCODING MIT REGION!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -19529,6 +19532,9 @@
                             <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:5px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
+                        <!-- 🆕 v5.49.0: HÄUFIGE ZIELORTE -->
+                        <div id="quick-booking-frequent-destinations" style="display:none;"></div>
+                        
                         <!-- 🆕 v5.38.4: FAVORITEN -->
                         <div style="margin-bottom:10px;">
                             <button onclick="showQuickBookingFavorites()" style="width:100%;padding:10px;background:#f3f4f6;color:#666;border:1px solid #e5e7eb;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
@@ -19654,6 +19660,109 @@
         }
         
         // 🆕 v5.48.3: Kunde aus Dropdown wählen
+        
+        // 🆕 v5.49.0: Finde häufigste Zielorte eines Kunden
+        async function getMostFrequentDestinations(customerPhone, customerId) {
+            console.log('🔍 Suche häufigste Zielorte für:', customerPhone, customerId);
+            
+            try {
+                // Lade alle Fahrten aus Firebase
+                const snapshot = await db.ref('rides').once('value');
+                const allRides = [];
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    ride.firebaseId = child.key;
+                    allRides.push(ride);
+                });
+                
+                // Filtere Fahrten dieses Kunden (nach Telefon oder ID)
+                const customerRides = allRides.filter(r => {
+                    if (customerPhone && r.customerPhone === customerPhone) return true;
+                    if (customerId && r.customerId === customerId) return true;
+                    return false;
+                });
+                
+                console.log('📊 Gefunden:', customerRides.length, 'Fahrten von diesem Kunden');
+                
+                // Zähle Zielorte
+                const destinationCount = {};
+                customerRides.forEach(ride => {
+                    if (ride.destination) {
+                        const dest = ride.destination.trim();
+                        destinationCount[dest] = (destinationCount[dest] || 0) + 1;
+                    }
+                });
+                
+                // Sortiere nach Häufigkeit
+                const sorted = Object.entries(destinationCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)  // Top 5
+                    .map(([dest, count]) => ({ destination: dest, count: count }));
+                
+                console.log('🔥 Top Zielorte:', sorted);
+                
+                return sorted;
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Zielorte:', error);
+                return [];
+            }
+        }
+        
+        // 🆕 v5.49.0: Zeige häufigste Zielorte als Buttons
+        async function showFrequentDestinations(customerPhone, customerId, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Zeige Loading
+            container.innerHTML = '<div style="padding:10px;color:#666;font-size:13px;">🔍 Lade häufige Zielorte...</div>';
+            container.style.display = 'block';
+            
+            const frequentDests = await getMostFrequentDestinations(customerPhone, customerId);
+            
+            if (frequentDests.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            // Erstelle Buttons
+            let html = '<div style="margin-top:10px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">';
+            html += '<div style="font-weight:600;margin-bottom:8px;color:#059669;font-size:13px;">🔥 Häufige Zielorte:</div>';
+            html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+            
+            frequentDests.forEach(item => {
+                const fieldPrefix = containerId.includes('panel') ? 'qb-panel' : 'quick-booking';
+                html += `
+                    <button 
+                        onclick="selectFrequentDestination('${item.destination.replace(/'/g, "\\'")}', '${fieldPrefix}')"
+                        style="padding:10px;background:white;border:2px solid #10b981;border-radius:6px;cursor:pointer;text-align:left;transition:all 0.2s;font-size:13px;"
+                        onmouseover="this.style.background='#d1fae5'"
+                        onmouseout="this.style.background='white'">
+                        <span style="color:#059669;font-weight:600;">📍 ${item.destination}</span>
+                        <span style="color:#6b7280;margin-left:8px;font-size:11px;">(${item.count}x)</span>
+                    </button>
+                `;
+            });
+            
+            html += '</div></div>';
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+        
+        // 🆕 v5.49.0: Wähle häufiges Ziel aus
+        async function selectFrequentDestination(destination, fieldPrefix) {
+            console.log('✅ Häufiges Ziel gewählt:', destination);
+            
+            // Setze Adresse ins Feld
+            document.getElementById(`${fieldPrefix}-destination`).value = destination;
+            
+            // Geocode für Koordinaten
+            const fieldType = `${fieldPrefix}-destination`;
+            await geocodeCustomerAddress(destination, fieldType);
+            
+            console.log('✅ Ziel eingetragen + Koordinaten gesetzt');
+        }
+        
         function selectQuickBookingCustomer(id, name, phone, address, favoriteDestination) {
             console.log('✅ Kunde gewählt:', name);
             
@@ -19669,9 +19778,73 @@
             // Lade Kundendaten (Adresse, etc.)
             if (address) {
                 document.getElementById('quick-booking-pickup').value = address;
+                // 🆕 v5.48.4: GEOCODE Adresse um Koordinaten zu bekommen!
+                geocodeCustomerAddress(address, 'quick-booking-pickup');
             }
             if (favoriteDestination) {
                 document.getElementById('quick-booking-destination').value = favoriteDestination;
+                // 🆕 v5.48.4: GEOCODE Zieladresse um Koordinaten zu bekommen!
+                geocodeCustomerAddress(favoriteDestination, 'quick-booking-destination');
+            }
+            
+            // 🆕 v5.49.0: Zeige häufige Zielorte!
+            showFrequentDestinations(phone, id, 'quick-booking-frequent-destinations');
+        }
+        
+        // 🆕 v5.48.4: Geocode Kundenadresse und setze Koordinaten
+        async function geocodeCustomerAddress(address, fieldType) {
+            console.log('🌍 Geocode Kundenadresse:', address, 'für', fieldType);
+            
+            // 🆕 v5.48.5: Füge Region hinzu wenn keine Stadt/PLZ vorhanden!
+            let searchAddress = address;
+            const hasCity = address.toLowerCase().includes('heringsdorf') || 
+                           address.toLowerCase().includes('zinnowitz') || 
+                           address.toLowerCase().includes('ahlbeck') ||
+                           address.toLowerCase().includes('bansin') ||
+                           address.toLowerCase().includes('ückeritz') ||
+                           address.toLowerCase().includes('usedom');
+            const hasPostalCode = /\d{5}/.test(address); // Prüfe auf 5-stellige PLZ
+            
+            if (!hasCity && !hasPostalCode) {
+                // Füge Heringsdorf + Region hinzu für bessere Geocoding-Ergebnisse
+                searchAddress = `${address}, Heringsdorf, Usedom, Mecklenburg-Vorpommern, Deutschland`;
+                console.log('📍 Erweitere Adresse für Geocoding:', searchAddress);
+            }
+            
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=1`);
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    
+                    console.log('✅ Geocoding erfolgreich:', {
+                        original: address,
+                        searched: searchAddress,
+                        result: data[0].display_name,
+                        coords: { lat, lon }
+                    });
+                    
+                    // Setze Koordinaten je nach Feld
+                    if (fieldType === 'quick-booking-pickup') {
+                        quickBookingPickupCoords = { lat, lon };
+                        console.log('✅ Pickup-Koordinaten gesetzt:', quickBookingPickupCoords);
+                    } else if (fieldType === 'quick-booking-destination') {
+                        quickBookingDestCoords = { lat, lon };
+                        console.log('✅ Destination-Koordinaten gesetzt:', quickBookingDestCoords);
+                    } else if (fieldType === 'qb-panel-pickup') {
+                        qbPanelPickupCoords = { lat, lon };
+                        console.log('✅ Panel-Pickup-Koordinaten gesetzt:', qbPanelPickupCoords);
+                    } else if (fieldType === 'qb-panel-destination') {
+                        qbPanelDestCoords = { lat, lon };
+                        console.log('✅ Panel-Destination-Koordinaten gesetzt:', qbPanelDestCoords);
+                    }
+                } else {
+                    console.warn('⚠️ Keine Koordinaten gefunden für:', searchAddress);
+                }
+            } catch (error) {
+                console.error('❌ Geocoding Fehler:', error);
             }
         }
         
@@ -20135,10 +20308,15 @@
             if (customer.address) {
                 document.getElementById('qb-panel-pickup').value = customer.address;
                 console.log('✅ Kundenadresse in Abholort eingetragen:', customer.address);
+                // 🆕 v5.48.4: GEOCODE Adresse um Koordinaten zu bekommen!
+                geocodeCustomerAddress(customer.address, 'qb-panel-pickup');
             }
             
             // 🆕 Zeige Adress-Optionen wenn Kunde gewählt
             showAddressOptions();
+            
+            // 🆕 v5.49.0: Zeige häufige Zielorte!
+            showFrequentDestinations(customer.phone, customer.id, 'qb-panel-frequent-destinations');
             
             console.log('👤 Kunde gewählt:', customer);
         }
@@ -25906,7 +26084,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.48.3 - KUNDEN-SUCHE AB 3 ZEICHEN!`);
+            debugLog('info', `📦 Version: 5.49.0 - HÄUFIGE ZIELORTE VON KUNDEN!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

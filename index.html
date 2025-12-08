@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.46.7 - ADMIN FIX (Build 20251208-0815)');
-        console.log('🔐 v5.46.7: FLEXIBLE ADMIN-PRÜFUNG + DEBUG-LOGS!');
-        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ!');
+        console.log('🚕 Funk Taxi App v5.46.8 - DEBUG SIMPLE (Build 20251208-0825)');
+        console.log('🐛 v5.46.8: DEBUG FÜR ALLE + ALTER BUTTON WEG!');
+        console.log('🔐 v5.46.7: FLEXIBLE ADMIN-PRÜFUNG!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.7 - ADMIN FIX (Build 20251208-0815)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.8 - DEBUG SIMPLE (Build 20251208-0825)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -696,7 +696,8 @@
             ">
                 📊 Schichtplan
             </button>
-            <button onclick="switchView('debug')" class="admin-tab-btn" data-view="debug" style="
+            <button id="old-debug-tab-btn" onclick="switchView('debug')" class="admin-tab-btn" data-view="debug" style="
+                display: none;
                 padding: 10px 16px;
                 border: 2px solid #ef4444;
                 background: white;
@@ -2203,7 +2204,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.46.7 - ADMIN FIX!');
+                    console.log('🚕 Funk Taxi App v5.46.8 - DEBUG SIMPLE!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5296,9 +5297,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.46.7 - ADMIN FIX (Build 20251208-0815)');
+        console.log('🚕 Funk Taxi App v5.46.8 - DEBUG SIMPLE (Build 20251208-0825)');
+        console.log('🐛 v5.46.8: DEBUG FÜR ALLE EINGELOGGTEN!');
         console.log('🔐 v5.46.7: FLEXIBLE ADMIN-PRÜFUNG!');
-        console.log('🐛 v5.46.6: DEBUG PANEL IM MENÜ!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -18212,12 +18213,13 @@
                 menuDetails.innerHTML = detailsHTML;
             }
             
-            // 🐛 v5.46.6: Zeige Debug-Menu nur für Admin!
+            // 🐛 v5.46.8: Zeige Debug-Menu für ALLE eingeloggten User!
             const debugMenuItem = document.getElementById('menu-debug-item');
             if (debugMenuItem) {
-                if (checkAdminAccess()) {
+                // Wenn Google-Login oder Phone-Login → Zeige Debug!
+                if (hasGoogleLogin || hasQuickLogin) {
                     debugMenuItem.style.display = 'block';
-                    console.log('🐛 Debug-Menu-Item aktiviert (Admin erkannt)');
+                    console.log('🐛 Debug-Menu-Item aktiviert (User eingeloggt)');
                 } else {
                     debugMenuItem.style.display = 'none';
                 }

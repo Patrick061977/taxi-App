@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.47.4 - PANEL GRÖẞER! (Build 20251208-1705)');
-        console.log('📏 v5.47.4: DEBUG PANEL IST JETZT GROẞ!');
-        console.log('🐛 v5.47.3: SCHLIESSEN KLAPPT!');
+        console.log('🚕 Funk Taxi App v5.48.1 - BUCHUNGSQUELLE! (Build 20251208-1720)');
+        console.log('🏷️ v5.48.1: ZEIGT SOFORT/VORBESTELLT + ABGELAUFENE FAHRTEN!');
+        console.log('🔍 v5.48.0: FREIE SLOTS SOFORT SICHTBAR!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -561,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.4 - PANEL GRÖẞER (Build 20251208-1705)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.48.1 - BUCHUNGSQUELLE + ABGELAUFEN (Build 20251208-1720)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2203,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.47.4 - PANEL GRÖẞER!');
+                    console.log('🚕 Funk Taxi App v5.48.1 - BUCHUNGSQUELLE!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -3229,6 +3229,15 @@
         </div>
         <div id="open-content" style="display:block;">
             <div id="upcoming-rides-admin" style="margin-bottom: 20px;"></div>
+        </div>
+        
+        <!-- 🆕 v5.49.0: COLLAPSIBLE: Abgelaufene Fahrten -->
+        <div onclick="toggleAdminSection('expired')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">⏰ Abgelaufene Fahrten</span>
+            <span id="expired-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="expired-content" style="display:none;">
+            <div id="expired-rides-admin" style="margin-bottom: 20px;"></div>
         </div>
         
         <!-- COLLAPSIBLE: Abgelehnte Fahrten -->
@@ -4484,6 +4493,7 @@
         
         // 🆕 v5.30.0: Fahrt-Typ wählen (Sofort / Vorbestellen)
         let currentRideType = null; // 'sofort' oder 'vorbestellen'
+        let isRebooking = false; // 🆕 v5.49.0: Merkt sich ob es eine "Nochmal buchen" ist
         
         function selectRideType(type) {
             currentRideType = type;
@@ -4589,6 +4599,14 @@
             // Stunde und Minute
             hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
             minuteSelect.value = String(defaultTime.getMinutes()).padStart(2, '0');
+            
+            // 🆕 v5.48.0: Wenn Abholadresse schon eingegeben → Trigger Live-Slot-Check!
+            if (pickupCoords) {
+                console.log('🔍 Abholadresse vorhanden, trigger Live-Slot-Check...');
+                setTimeout(() => {
+                    performLiveSlotCheck();
+                }, 500);
+            }
         }
 
         // 🗑️ Fahrt aus Verlauf stornieren
@@ -4656,6 +4674,10 @@
                 alert('❌ Fahrt nicht gefunden');
                 return;
             }
+            
+            // 🆕 v5.49.0: Merke dass dies eine Rebooking ist!
+            isRebooking = true;
+            console.log('🔄 v5.49.0: isRebooking gesetzt auf true');
             
             // Wechsel zum Fahrgast-Tab
             switchView('passenger');
@@ -5292,9 +5314,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.47.4 - PANEL GRÖẞER! (Build 20251208-1705)');
-        console.log('📏 v5.47.4: DEBUG PANEL IST JETZT GROẞ!');
-        console.log('🐛 v5.47.3: SCHLIESSEN KLAPPT!');
+        console.log('🚕 Funk Taxi App v5.48.1 - BUCHUNGSQUELLE! (Build 20251208-1720)');
+        console.log('🏷️ v5.48.1: ZEIGT SOFORT/VORBESTELLT + ABGELAUFENE FAHRTEN!');
+        console.log('🔍 v5.48.0: FREIE SLOTS SOFORT SICHTBAR!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -7261,15 +7283,37 @@
             updateNotificationBar();
             
             // 📋 OFFENE FAHRTEN = vorbestellt, new, akzeptiert, unterwegs, angekommen
+            // 🆕 v5.49.0: ABER NUR WENN NICHT ABGELAUFEN!
             const now = Date.now();
+            const oneHourAgo = now - (60 * 60 * 1000); // 1 Stunde
+            
             const openRides = allRides.filter(r => {
                 const openStatuses = ['vorbestellt', 'new', 'akzeptiert', 'accepted', 'unterwegs', 'picked_up', 'angekommen'];
-                return openStatuses.includes(r.status);
+                if (!openStatuses.includes(r.status)) return false;
+                
+                // 🆕 v5.49.0: Wenn Fahrt VORBESTELLT oder NEU ist UND älter als 1 Stunde → ABGELAUFEN!
+                const rideTime = r.pickupTimestamp || r.createdAt || 0;
+                if ((r.status === 'vorbestellt' || r.status === 'new') && rideTime < oneHourAgo) {
+                    return false; // Nicht in offenen Fahrten!
+                }
+                
+                return true;
             }).sort((a, b) => {
                 // Sortiere nach Abholzeit (falls vorhanden) oder Erstellungszeit
                 const timeA = a.pickupTimestamp || a.createdAt || 0;
                 const timeB = b.pickupTimestamp || b.createdAt || 0;
                 return timeA - timeB;
+            });
+            
+            // 🆕 v5.49.0: ABGELAUFENE FAHRTEN (vorbestellt/new + älter als 1 Stunde)
+            const expiredRides = allRides.filter(r => {
+                const isExpirableStatus = (r.status === 'vorbestellt' || r.status === 'new');
+                const rideTime = r.pickupTimestamp || r.createdAt || 0;
+                return isExpirableStatus && rideTime < oneHourAgo;
+            }).sort((a, b) => {
+                const timeA = a.pickupTimestamp || a.createdAt || 0;
+                const timeB = b.pickupTimestamp || b.createdAt || 0;
+                return timeB - timeA; // Neueste zuerst
             });
             
             if (openRides.length === 0) {
@@ -7349,6 +7393,20 @@
                             bgColor = '#e0f2fe';
                         }
                         
+                        // 🆕 v5.48.1: Buchungsquellen-Badge
+                        let sourceBadge = '';
+                        if (r.bookingSource === 'sofort') {
+                            sourceBadge = '<span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">⚡ Sofort</span>';
+                        } else if (r.bookingSource === 'vorbestellen') {
+                            sourceBadge = '<span style="background:#667eea;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">📅 Vorbestellt</span>';
+                        } else if (r.bookingSource === 'rebooking') {
+                            sourceBadge = '<span style="background:#f59e0b;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">🔄 Nochmal</span>';
+                        } else if (r.bookingSource === 'admin-quick') {
+                            sourceBadge = '<span style="background:#f59e0b;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">⚡ Schnell</span>';
+                        } else if (r.bookingSource === 'admin-panel') {
+                            sourceBadge = '<span style="background:#8b5cf6;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">🛠️ Panel</span>';
+                        }
+                        
                         // 🔘 Aktions-Buttons für offene Fahrten
                         let actionButtons = '';
                         if (r.status === 'vorbestellt' || r.status === 'new') {
@@ -7380,6 +7438,7 @@
                                 <div style="display:flex;gap:6px;align-items:center;">
                                     <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
                                     ${statusBadge}
+                                    ${sourceBadge}
                                     ${r.adminConfirmed || acknowledgedRides.has(r.id) ? '<span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">✅ Bestätigt</span>' : ''}
                                     <button onclick="exportSingleRideToICS('${r.firebaseId || r.id}')" 
                                         style="background:#8b5cf6;color:white;padding:4px 8px;border:none;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;"
@@ -7404,6 +7463,80 @@
                 });
                 
                 document.getElementById('upcoming-rides-admin').innerHTML = html;
+            }
+            
+            // 🆕 v5.49.0: ⏰ ABGELAUFENE FAHRTEN anzeigen
+            if (expiredRides.length === 0) {
+                document.getElementById('expired-rides-admin').innerHTML = '<div style="padding:15px;text-align:center;color:#999;background:white;border-radius:8px;">✅ Keine abgelaufenen Fahrten</div>';
+            } else {
+                let expiredHTML = '';
+                expiredRides.forEach(r => {
+                    const pickupDate = new Date(r.pickupTimestamp || r.createdAt);
+                    const formattedTime = pickupDate.toLocaleTimeString('de-DE', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    const formattedDate = pickupDate.toLocaleDateString('de-DE', {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: '2-digit'
+                    });
+                    
+                    // Berechne wie lange abgelaufen
+                    const hoursAgo = Math.floor((now - pickupDate.getTime()) / (1000 * 60 * 60));
+                    const daysAgo = Math.floor(hoursAgo / 24);
+                    let expiredText = '';
+                    if (daysAgo > 0) {
+                        expiredText = `vor ${daysAgo} Tag${daysAgo > 1 ? 'en' : ''}`;
+                    } else if (hoursAgo > 0) {
+                        expiredText = `vor ${hoursAgo} Stunde${hoursAgo > 1 ? 'n' : ''}`;
+                    } else {
+                        expiredText = 'gerade eben';
+                    }
+                    
+                    // 🆕 v5.48.1: Buchungsquellen-Badge
+                    let sourceBadge = '';
+                    if (r.bookingSource === 'sofort') {
+                        sourceBadge = '<span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">⚡ Sofort</span>';
+                    } else if (r.bookingSource === 'vorbestellen') {
+                        sourceBadge = '<span style="background:#667eea;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">📅 Vorbestellt</span>';
+                    } else if (r.bookingSource === 'rebooking') {
+                        sourceBadge = '<span style="background:#f59e0b;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">🔄 Nochmal</span>';
+                    } else if (r.bookingSource === 'admin-quick') {
+                        sourceBadge = '<span style="background:#f59e0b;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">⚡ Schnell</span>';
+                    } else if (r.bookingSource === 'admin-panel') {
+                        sourceBadge = '<span style="background:#8b5cf6;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;">🛠️ Panel</span>';
+                    }
+                    
+                    expiredHTML += `<div style="background:#f3f4f6;border-left:4px solid #6b7280;border-radius:8px;padding:15px;margin-bottom:10px;opacity:0.7;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <strong>${r.customerName || 'Unbekannt'}</strong>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <span style="background:#6b7280;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">⏰ ABGELAUFEN</span>
+                                ${sourceBadge}
+                            </div>
+                        </div>
+                        <div style="margin-top:10px;font-size:14px;color:#4b5563;">
+                            <strong>📅 ${formattedDate} ${formattedTime} Uhr</strong> (${expiredText})<br>
+                            <strong>📍 Von:</strong> ${r.pickup}<br>
+                            <strong>🎯 Nach:</strong> ${r.destination}<br>
+                            <strong>💰 Preis:</strong> ${r.price}€<br>
+                            <strong>📏 Distanz:</strong> ${r.distance} km
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">
+                            <button onclick="deleteRide('${r.firebaseId || r.id}')" 
+                                style="padding:8px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                🗑️ Löschen
+                            </button>
+                            <button onclick="rebookExpiredRide('${r.firebaseId || r.id}')" 
+                                style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                🔄 Neu buchen
+                            </button>
+                        </div>
+                    </div>`;
+                });
+                
+                document.getElementById('expired-rides-admin').innerHTML = expiredHTML;
             }
             
             // ❌ ABGELEHNTE FAHRTEN anzeigen
@@ -10980,6 +11113,14 @@
                 console.log('✅ Abholort gespeichert:', address, pickupCoords);
                 debugLog('info', `✅ Abholort gespeichert: ${address} (${lat}, ${lon})`);
                 
+                // 🆕 v5.48.0: Bei Vorbestellung → Triggere Live-Slot-Check!
+                if (currentRideType === 'vorbestellen') {
+                    console.log('🔍 Trigger Live-Slot-Check nach Abholadresse...');
+                    setTimeout(() => {
+                        performLiveSlotCheck();
+                    }, 300);
+                }
+                
                 // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
                 if (currentRideType === 'sofort') {
                     debugLog('info', '🚕 Lade verfügbare Taxis...');
@@ -11290,8 +11431,8 @@
         async function performLiveSlotCheck() {
             const liveDisplay = document.getElementById('live-slot-check');
             
-            // Nur bei Vorbestellung relevant
-            if (currentRideType !== 'vorbestellen' || !autoBookingEnabled || !isFirebaseReady) {
+            // 🆕 v5.48.0: NUR prüfen ob Vorbestellung aktiv ist!
+            if (currentRideType !== 'vorbestellen') {
                 if (liveDisplay) liveDisplay.style.display = 'none';
                 return;
             }
@@ -11300,8 +11441,31 @@
             const hourVal = document.getElementById('custom-hour').value;
             const minuteVal = document.getElementById('custom-minute').value;
             
-            if (!dateVal || !pickupCoords) {
+            // 🆕 v5.48.0: Prüfe OHNE pickupCoords - zeige Info wenn Adresse fehlt!
+            if (!dateVal) {
                 if (liveDisplay) liveDisplay.style.display = 'none';
+                return;
+            }
+            
+            // 🆕 v5.48.0: Wenn Abholadresse fehlt - zeige Hinweis!
+            if (!pickupCoords) {
+                if (liveDisplay) {
+                    liveDisplay.innerHTML = '<span style="color:#f59e0b;">⚠️ Bitte zuerst Abholadresse eingeben!</span>';
+                    liveDisplay.style.display = 'block';
+                    liveDisplay.style.background = '#fef3c7';
+                    liveDisplay.style.border = '2px solid #f59e0b';
+                }
+                return;
+            }
+            
+            // 🆕 v5.48.0: Wenn Firebase nicht ready - zeige es!
+            if (!isFirebaseReady) {
+                if (liveDisplay) {
+                    liveDisplay.innerHTML = '<span style="color:#666;">⏳ Warte auf Verbindung...</span>';
+                    liveDisplay.style.display = 'block';
+                    liveDisplay.style.background = '#f3f4f6';
+                    liveDisplay.style.border = '2px solid #d1d5db';
+                }
                 return;
             }
             
@@ -12051,7 +12215,8 @@
                 status: rideStatus,
                 time: new Date().toLocaleString('de-DE'),
                 createdAt: Date.now(),
-                paymentMethod: document.getElementById('payment-method').value // 💳 Zahlungsmethode
+                paymentMethod: document.getElementById('payment-method').value, // 💳 Zahlungsmethode
+                bookingSource: currentRideType || 'sofort' // 🆕 v5.48.1: 'sofort' oder 'vorbestellen'!
             };
             
             console.log('📝 Ride-Objekt erstellt:', {
@@ -20355,7 +20520,8 @@
                     pickupCoords: qbPanelPickupCoords,
                     destCoords: qbPanelDestCoords,
                     createdBy: 'admin',
-                    isAdvanceBooking: true
+                    isAdvanceBooking: true,
+                    bookingSource: 'admin-panel' // 🆕 v5.49.0: Admin Panel Buchung!
                 };
                 
                 // 🔧 EDIT vs CREATE: Prüfe ob wir bearbeiten oder neu erstellen
@@ -20808,7 +20974,8 @@
                 notes: notes || '',
                 customerId: customerId,
                 pickupCoords: quickBookingPickupCoords || null, // 🔧 v5.39.8: FIX - Koordinaten!
-                destCoords: quickBookingDestCoords || null // 🔧 v5.39.8: FIX - Koordinaten!
+                destCoords: quickBookingDestCoords || null, // 🔧 v5.39.8: FIX - Koordinaten!
+                bookingSource: 'admin-quick' // 🆕 v5.49.0: Admin Schnellbuchung!
             };
             
             // Fahrzeug zuweisen wenn ausgewählt
@@ -25610,7 +25777,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.47.4 - PANEL GRÖẞER!`);
+            debugLog('info', `📦 Version: 5.48.1 - BUCHUNGSQUELLE + ABGELAUFEN!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

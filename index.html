@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.46.9 - COMPLETE LOGGING (Build 20251208-0835)');
-        console.log('🐛 v5.46.9: LOGS FÜR JEDEN SCHRITT!');
-        console.log('📍 Adresse wählen | 💰 Preis | 🔄 Tabs | 📱 Menu | 📊 Alles!');
+        console.log('🚕 Funk Taxi App v5.47.0 - LOGS FUNKTIONIEREN! (Build 20251208-0845)');
+        console.log('🎉 v5.47.0: BUG GEFIXT - LOGS FÜR ALLE!');
+        console.log('🐛 v5.46.9: COMPLETE LOGGING!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -561,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.9 - COMPLETE LOGGING (Build 20251208-0835)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.47.0 - LOGS FUNKTIONIEREN (Build 20251208-0845)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2203,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.46.9 - COMPLETE LOGGING!');
+                    console.log('🚕 Funk Taxi App v5.47.0 - LOGS FUNKTIONIEREN!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5296,9 +5296,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.46.9 - COMPLETE LOGGING (Build 20251208-0835)');
-        console.log('🐛 v5.46.9: LOGS FÜR JEDEN SCHRITT!');
-        console.log('📍 Adresse | 💰 Preis | 🔄 Tabs | 📱 Menu');
+        console.log('🚕 Funk Taxi App v5.47.0 - LOGS FUNKTIONIEREN! (Build 20251208-0845)');
+        console.log('🎉 v5.47.0: BUG GEFIXT - LOGS FÜR ALLE!');
+        console.log('🐛 v5.46.9: COMPLETE LOGGING!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -25561,9 +25561,9 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
-            // 🐛 v5.46.9: Initiales Log im Floating Debug Panel!
+            // 🐛 v5.47.0: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.46.9 - COMPLETE LOGGING`);
+            debugLog('info', `📦 Version: 5.47.0 - LOGS FUNKTIONIEREN!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren
@@ -26925,7 +26925,7 @@ Stack: ${err.stack}
         
         // Haupt-Logging Funktion
         function debugLog(type, message) {
-            if (!checkAdminAccess()) return; // Nur für Admin loggen
+            // 🐛 v5.47.0: LOGS FÜR ALLE! (Admin-Check entfernt)
             
             const time = new Date().toLocaleTimeString('de-DE');
             const log = { time, type, message };

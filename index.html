@@ -78,9 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.48.1 - BUCHUNGSQUELLE! (Build 20251208-1720)');
-        console.log('🏷️ v5.48.1: ZEIGT SOFORT/VORBESTELLT + ABGELAUFENE FAHRTEN!');
-        console.log('🔍 v5.48.0: FREIE SLOTS SOFORT SICHTBAR!');
+        console.log('🚕 Funk Taxi App v5.48.3 - KUNDEN-SUCHE! (Build 20251208-1815)');
+        console.log('🔍 v5.48.3: KUNDEN-SUCHE AB 3 ZEICHEN!');
+        console.log('💰 v5.48.2: SCHNELLBUCHUNG MIT PREIS!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -561,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.48.1 - BUCHUNGSQUELLE + ABGELAUFEN (Build 20251208-1720)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.48.3 - KUNDEN-SUCHE (Build 20251208-1815)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2203,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.48.1 - BUCHUNGSQUELLE!');
+                    console.log('🚕 Funk Taxi App v5.48.3 - KUNDEN-SUCHE!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5314,9 +5314,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.48.1 - BUCHUNGSQUELLE! (Build 20251208-1720)');
-        console.log('🏷️ v5.48.1: ZEIGT SOFORT/VORBESTELLT + ABGELAUFENE FAHRTEN!');
-        console.log('🔍 v5.48.0: FREIE SLOTS SOFORT SICHTBAR!');
+        console.log('🚕 Funk Taxi App v5.48.3 - KUNDEN-SUCHE! (Build 20251208-1815)');
+        console.log('🔍 v5.48.3: KUNDEN-SUCHE AB 3 ZEICHEN!');
+        console.log('💰 v5.48.2: SCHNELLBUCHUNG MIT PREIS!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -19478,13 +19478,17 @@
                     </div>
                     
                     <div style="display:flex;flex-direction:column;gap:15px;">
-                        <!-- Kunde auswählen -->
-                        <div>
+                        <!-- 🆕 v5.48.3: Kunde mit Live-Suche (ab 3 Zeichen) -->
+                        <div style="position:relative;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;">👤 Kunde</label>
-                            <select id="quick-booking-customer" onchange="loadQuickBookingCustomerData()" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                                <option value="">Kunde auswählen...</option>
-                                ${allCustomers.map(c => `<option value="${c.id}">${c.name || 'Unbekannt'} ${c.phone ? '(' + c.phone + ')' : ''}</option>`).join('')}
-                            </select>
+                            <input 
+                                type="text" 
+                                id="quick-booking-customer-search" 
+                                placeholder="Name eingeben (mind. 3 Zeichen)..." 
+                                oninput="searchQuickBookingCustomer()"
+                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            <input type="hidden" id="quick-booking-customer" value="">
+                            <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:250px;overflow-y:auto;z-index:10000;margin-top:5px;box-shadow:0 8px 16px rgba(0,0,0,0.15);"></div>
                         </div>
                         
                         <!-- Datum & Zeit -->
@@ -19585,11 +19589,90 @@
             
             document.body.appendChild(modal);
             
+            // 🆕 v5.48.3: Schließe Dropdown beim Klicken außerhalb
+            setTimeout(() => {
+                document.addEventListener('click', function closeCustomerDropdown(e) {
+                    const dropdown = document.getElementById('quick-booking-customer-dropdown');
+                    const searchInput = document.getElementById('quick-booking-customer-search');
+                    if (dropdown && searchInput && !searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+            }, 100);
+            
             // 🆕 v5.38.4: Setup Autocomplete für Schnellbuchung
             setupQuickBookingAutocomplete();
             
             // 🆕 v5.38.4: Lade Fahrzeuge
             loadQuickBookingVehicles();
+        }
+        
+        // 🆕 v5.48.3: Live-Suche für Kunden (ab 3 Zeichen)
+        function searchQuickBookingCustomer() {
+            const searchInput = document.getElementById('quick-booking-customer-search');
+            const dropdown = document.getElementById('quick-booking-customer-dropdown');
+            const searchText = searchInput.value.trim().toLowerCase();
+            
+            // Mindestens 3 Zeichen!
+            if (searchText.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            // Filtere Kunden
+            const matches = allCustomers.filter(c => {
+                const name = (c.name || '').toLowerCase();
+                const phone = (c.phone || '').toLowerCase();
+                return name.includes(searchText) || phone.includes(searchText);
+            });
+            
+            // Zeige Ergebnisse
+            if (matches.length === 0) {
+                dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">Kein Kunde gefunden</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+            
+            // Erstelle Dropdown
+            dropdown.innerHTML = matches.map(c => `
+                <div onclick="selectQuickBookingCustomer('${c.id}', '${(c.name || 'Unbekannt').replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}', '${(c.address || '').replace(/'/g, "\\'")}', '${(c.favoriteDestination || '').replace(/'/g, "\\'")}' )" 
+                    style="padding:12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.2s;"
+                    onmouseover="this.style.background='#f0fdf4'"
+                    onmouseout="this.style.background='white'">
+                    <div style="font-weight:600;color:#1f2937;">${c.name || 'Unbekannt'}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">
+                        ${c.phone ? '📞 ' + c.phone : ''}
+                        ${c.address ? ' · 🏠 ' + c.address : ''}
+                    </div>
+                    <div style="font-size:11px;color:#10b981;margin-top:4px;">
+                        🚕 ${c.totalRides || 0} Fahrten · 💰 ${(c.totalRevenue || 0).toFixed(2)}€
+                    </div>
+                </div>
+            `).join('');
+            
+            dropdown.style.display = 'block';
+        }
+        
+        // 🆕 v5.48.3: Kunde aus Dropdown wählen
+        function selectQuickBookingCustomer(id, name, phone, address, favoriteDestination) {
+            console.log('✅ Kunde gewählt:', name);
+            
+            // Setze Hidden Field
+            document.getElementById('quick-booking-customer').value = id;
+            
+            // Zeige Namen im Suchfeld
+            document.getElementById('quick-booking-customer-search').value = name;
+            
+            // Schließe Dropdown
+            document.getElementById('quick-booking-customer-dropdown').style.display = 'none';
+            
+            // Lade Kundendaten (Adresse, etc.)
+            if (address) {
+                document.getElementById('quick-booking-pickup').value = address;
+            }
+            if (favoriteDestination) {
+                document.getElementById('quick-booking-destination').value = favoriteDestination;
+            }
         }
         
         function loadQuickBookingCustomerData() {
@@ -20496,6 +20579,24 @@
                 return;
             }
             
+            // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
+            if (!qbPanelPickupCoords || !qbPanelDestCoords) {
+                alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
+                return;
+            }
+            
+            // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!
+            console.log('💰 Berechne Route für Panel-Schnellbuchung...');
+            let routeData;
+            try {
+                routeData = await calculateRoute(qbPanelPickupCoords, qbPanelDestCoords);
+                console.log('✅ Route berechnet:', routeData);
+            } catch (error) {
+                console.error('❌ Fehler bei Routenberechnung:', error);
+                alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
+                return;
+            }
+            
             try {
                 const startDate = new Date(startTime);
                 const endDate = new Date(endTime);
@@ -20519,6 +20620,10 @@
                     vehicleId: vehicle || null,
                     pickupCoords: qbPanelPickupCoords,
                     destCoords: qbPanelDestCoords,
+                    // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!
+                    price: routeData.price,
+                    distance: routeData.distance,
+                    duration: routeData.duration,
                     createdBy: 'admin',
                     isAdvanceBooking: true,
                     bookingSource: 'admin-panel' // 🆕 v5.49.0: Admin Panel Buchung!
@@ -20956,6 +21061,24 @@
                 return;
             }
             
+            // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
+            if (!quickBookingPickupCoords || !quickBookingDestCoords) {
+                alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
+                return;
+            }
+            
+            // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!
+            console.log('💰 Berechne Route für Schnellbuchung...');
+            let routeData;
+            try {
+                routeData = await calculateRoute(quickBookingPickupCoords, quickBookingDestCoords);
+                console.log('✅ Route berechnet:', routeData);
+            } catch (error) {
+                console.error('❌ Fehler bei Routenberechnung:', error);
+                alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
+                return;
+            }
+            
             // Erstelle Fahrt
             const pickupTimestamp = new Date(datetime).getTime();
             const pickupDate = new Date(datetime);
@@ -20973,8 +21096,12 @@
                 bookedBy: 'admin',
                 notes: notes || '',
                 customerId: customerId,
-                pickupCoords: quickBookingPickupCoords || null, // 🔧 v5.39.8: FIX - Koordinaten!
-                destCoords: quickBookingDestCoords || null, // 🔧 v5.39.8: FIX - Koordinaten!
+                pickupCoords: quickBookingPickupCoords, // 🔧 v5.39.8: FIX - Koordinaten!
+                destCoords: quickBookingDestCoords, // 🔧 v5.39.8: FIX - Koordinaten!
+                // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!
+                price: routeData.price,
+                distance: routeData.distance,
+                duration: routeData.duration,
                 bookingSource: 'admin-quick' // 🆕 v5.49.0: Admin Schnellbuchung!
             };
             
@@ -20998,12 +21125,14 @@
                 // Schließe Modal
                 document.getElementById('quick-booking-modal').remove();
                 
-                // Zeige Erfolg
+                // 🆕 v5.48.2: Zeige Erfolg MIT PREIS!
                 alert('✅ Fahrt erfolgreich gebucht!\n\n' +
                       '👤 ' + customer.name + '\n' +
                       '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
                       '📍 ' + pickup + '\n' +
-                      '🎯 ' + destination);
+                      '🎯 ' + destination + '\n' +
+                      '💰 ' + ride.price.toFixed(2) + '€\n' +
+                      '📏 ' + ride.distance + ' km');
                 
                 // Aktualisiere Views
                 updateViews();
@@ -25777,7 +25906,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.48.1 - BUCHUNGSQUELLE + ABGELAUFEN!`);
+            debugLog('info', `📦 Version: 5.48.3 - KUNDEN-SUCHE AB 3 ZEICHEN!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

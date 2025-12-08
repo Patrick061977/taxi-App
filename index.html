@@ -78,10 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.46.8 - DEBUG SIMPLE (Build 20251208-0825)');
-        console.log('🐛 v5.46.8: DEBUG FÜR ALLE + ALTER BUTTON WEG!');
-        console.log('🔐 v5.46.7: FLEXIBLE ADMIN-PRÜFUNG!');
-        console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
+        console.log('🚕 Funk Taxi App v5.46.9 - COMPLETE LOGGING (Build 20251208-0835)');
+        console.log('🐛 v5.46.9: LOGS FÜR JEDEN SCHRITT!');
+        console.log('📍 Adresse wählen | 💰 Preis | 🔄 Tabs | 📱 Menu | 📊 Alles!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -562,7 +561,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.8 - DEBUG SIMPLE (Build 20251208-0825)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.46.9 - COMPLETE LOGGING (Build 20251208-0835)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2204,7 +2203,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.46.8 - DEBUG SIMPLE!');
+                    console.log('🚕 Funk Taxi App v5.46.9 - COMPLETE LOGGING!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5297,9 +5296,9 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.46.8 - DEBUG SIMPLE (Build 20251208-0825)');
-        console.log('🐛 v5.46.8: DEBUG FÜR ALLE EINGELOGGTEN!');
-        console.log('🔐 v5.46.7: FLEXIBLE ADMIN-PRÜFUNG!');
+        console.log('🚕 Funk Taxi App v5.46.9 - COMPLETE LOGGING (Build 20251208-0835)');
+        console.log('🐛 v5.46.9: LOGS FÜR JEDEN SCHRITT!');
+        console.log('📍 Adresse | 💰 Preis | 🔄 Tabs | 📱 Menu');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -6399,6 +6398,7 @@
 
         function switchView(view) {
             console.log('🔄 switchView aufgerufen mit:', view);
+            debugLog('info', `🔄 Tab-Wechsel: ${view}`);
             
             // Entferne active von allen Views
             document.querySelectorAll('.view').forEach(v => {
@@ -6523,6 +6523,7 @@
             event.stopPropagation();
             const menu = document.getElementById('menu-overlay');
             if (menu.style.display === 'none' || !menu.style.display) {
+                debugLog('info', '📱 Menu geöffnet');
                 menu.style.display = 'block';
                 document.body.style.overflow = 'hidden'; // Verhindere Scrollen im Hintergrund
             } else {
@@ -6531,6 +6532,7 @@
         }
 
         function closeMenu() {
+            debugLog('info', '📱 Menu geschlossen');
             const menu = document.getElementById('menu-overlay');
             menu.style.display = 'none';
             document.body.style.overflow = ''; // Erlaube Scrollen wieder
@@ -10969,6 +10971,8 @@
 
 
         function selectAddress(inputId, address, lat, lon) {
+            debugLog('info', `📍 Adresse ausgewählt: ${inputId} = ${address}`);
+            
             document.getElementById(inputId).value = address;
             document.getElementById(inputId + '-dropdown').style.display = 'none';
             
@@ -10978,9 +10982,11 @@
                 pickupConfirmed = true; // 🆕 v5.42.7: Markiere als bestätigt!
                 updateConfirmationHint('pickup'); // 🆕 v5.42.7: Zeige grünen Haken!
                 console.log('✅ Abholort gespeichert:', address, pickupCoords);
+                debugLog('info', `✅ Abholort gespeichert: ${address} (${lat}, ${lon})`);
                 
                 // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
                 if (currentRideType === 'sofort') {
+                    debugLog('info', '🚕 Lade verfügbare Taxis...');
                     const display = document.getElementById('available-taxis-display');
                     display.innerHTML = `
                         <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
@@ -10999,6 +11005,7 @@
                 destinationConfirmed = true; // 🆕 v5.42.7: Markiere als bestätigt!
                 updateConfirmationHint('destination'); // 🆕 v5.42.7: Zeige grünen Haken!
                 console.log('✅ Zielort gespeichert:', address, destCoords);
+                debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
             }
         }
 
@@ -11464,28 +11471,38 @@
             const pickup = document.getElementById('pickup').value.trim();
             const destination = document.getElementById('destination').value.trim();
             
+            debugLog('info', `💰 Preisberechnung gestartet: ${pickup} → ${destination}`);
+            
             if (!pickup || !destination) {
+                debugLog('warn', '⚠️ Preis: Abholort oder Zielort fehlt!');
                 alert('❌ Bitte Abholort und Zielort eingeben!');
                 return;
             }
             
             // Wenn Coords noch nicht vorhanden (User hat nicht aus Autocomplete gewählt), geocode
             if (!pickupCoords) {
+                debugLog('info', '🔍 Geocode Abholort...');
                 pickupCoords = await geocode(pickup);
                 if (!pickupCoords) {
+                    debugLog('error', `❌ Abholort nicht gefunden: ${pickup}`);
                     alert('❌ Abholort "' + pickup + '" nicht gefunden!\n\nTipp: Nutze die Autocomplete-Vorschläge');
                     return;
                 }
+                debugLog('info', `✅ Abholort geocoded: ${pickupCoords.lat}, ${pickupCoords.lon}`);
             }
             
             if (!destCoords) {
+                debugLog('info', '🔍 Geocode Zielort...');
                 destCoords = await geocode(destination);
                 if (!destCoords) {
+                    debugLog('error', `❌ Zielort nicht gefunden: ${destination}`);
                     alert('❌ Zielort "' + destination + '" nicht gefunden!\n\nTipp: Nutze die Autocomplete-Vorschläge');
                     return;
                 }
+                debugLog('info', `✅ Zielort geocoded: ${destCoords.lat}, ${destCoords.lon}`);
             }
             
+            debugLog('info', '🗺️ Berechne Route...');
             const route = await calculateRoute(pickupCoords, destCoords);
             
             // Hole Abholzeit für korrekte Tarifberechnung
@@ -25544,6 +25561,11 @@ Stack: ${err.stack}
 
         // EVENT LISTENERS
         window.addEventListener('DOMContentLoaded', () => {
+            // 🐛 v5.46.9: Initiales Log im Floating Debug Panel!
+            debugLog('info', '🚀 Funk Taxi App gestartet!');
+            debugLog('info', `📦 Version: 5.46.9 - COMPLETE LOGGING`);
+            debugLog('info', '🐛 Floating Debug Panel aktiv!');
+            
             // 🆕 v5.38.5: Debug-Icon initialisieren
             const debugIcon = document.getElementById('debug-icon');
             if (debugIcon) {
@@ -25557,6 +25579,7 @@ Stack: ${err.stack}
             
             // 🆕 v5.34.1: schedule-view zur Liste hinzugefügt!
             console.log('🎬 Initialisiere Views...');
+            debugLog('info', '🎬 Initialisiere Views...');
             const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);

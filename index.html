@@ -78,18 +78,18 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.54.0 - NATIVE KONTAKT-AUSWAHL! (Build 20251209-2300)');
-        console.log('📱 v5.54.0: NATIVE KONTAKT-AUSWAHL!');
-        console.log('   ✅ Button: Kontakt auswählen!');
-        console.log('   ✅ Öffnet NATIVE Telefon-Kontakte!');
-        console.log('   ✅ User wählt Kontakt direkt!');
-        console.log('   ✅ Name + Telefon automatisch!');
-        console.log('   ✅ CRM-Suche + Auto-Fill!');
-        console.log('   ✅ 2 Buttons: Kontakt ODER Zwischenablage!');
+        console.log('🚕 Funk Taxi App v5.55.0 - KONTAKT-IMPORT INS CRM! (Build 20251209-2400)');
+        console.log('📱 v5.55.0: KONTAKT-IMPORT INS CRM!');
+        console.log('   ✅ Button im CRM: "📱 Kontakte importieren"!');
+        console.log('   ✅ 1 ODER mehrere Kontakte wählen!');
+        console.log('   ✅ Duplikate-Check (überspringt vorhandene)!');
+        console.log('   ✅ Fortschrittsanzeige live!');
+        console.log('   ✅ Zusammenfassung: X importiert, Y übersprungen!');
+        console.log('   ✅ Abbrechen möglich!');
+        console.log('📱 v5.54.0: NATIVE KONTAKT-AUSWAHL (Buchung)!');
         console.log('📋 v5.53.0: ZWISCHENABLAGE-INTEGRATION!');
-        console.log('👤 v5.52.9: CRM-BUCHUNGS-KONTEXT!');
         console.log('');
-        console.log('✅ WORKFLOW: Button → Kontakt wählen → Automatisch übernommen!');
+        console.log('✅ WORKFLOW: CRM → Kontakte importieren → Mehrfach wählen → Fertig!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -580,7 +580,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.54.0 - KONTAKT-AUSWAHL (Build 20251209-2300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.55.0 - KONTAKT-IMPORT (Build 20251209-2400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3060,6 +3060,23 @@
                 </button>
                 <button onclick="showAddCustomerModal()" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                     ➕ Neuer Kunde
+                </button>
+            </div>
+            <!-- 🆕 v5.55.0: Kontakte importieren -->
+            <div style="margin-top:10px;">
+                <button onclick="importContactsToCRM()" style="
+                    width:100%;
+                    padding:12px;
+                    background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+                    color:white;
+                    border:none;
+                    border-radius:8px;
+                    font-weight:600;
+                    cursor:pointer;
+                    box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);
+                    transition:transform 0.2s;
+                " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    📱 Kontakte aus Telefon importieren
                 </button>
             </div>
             <div style="margin-top:10px;">
@@ -19908,6 +19925,308 @@
                 toast.innerHTML = `❌ Fehler beim Speichern!`;
                 setTimeout(() => toast.remove(), 3000);
             }
+        }
+        
+        // 🆕 v5.55.0: KONTAKTE INS CRM IMPORTIEREN
+        async function importContactsToCRM() {
+            // Prüfe ob Contact Picker API verfügbar
+            if (!('contacts' in navigator && 'ContactsManager' in window)) {
+                // Fallback: Zeige Hinweis
+                const toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#f59e0b;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;max-width:350px;';
+                toast.innerHTML = `
+                    ⚠️ Kontakt-Import in diesem Browser nicht verfügbar!<br>
+                    <small style="font-weight:400;margin-top:5px;display:block;">
+                    Nutze Chrome/Edge oder "📥 Google Kontakte (CSV)"
+                    </small>
+                `;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 5000);
+                
+                console.log('❌ Contact Picker API nicht verfügbar');
+                return;
+            }
+            
+            try {
+                // Lade aktuelle Kunden falls nötig
+                if (!isFirebaseReady || allCustomers.length === 0) {
+                    console.log('⏳ Lade CRM-Kunden...');
+                    await loadAllCustomers();
+                }
+                
+                console.log('📱 Öffne Kontakt-Auswahl für Import...');
+                
+                // Zeige Loading Toast
+                const loadingToast = document.createElement('div');
+                loadingToast.id = 'contacts-import-loading';
+                loadingToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                loadingToast.innerHTML = `📱 Wähle Kontakte zum Importieren...`;
+                document.body.appendChild(loadingToast);
+                
+                // Öffne Contact Picker mit MEHRFACHAUSWAHL!
+                const props = ['name', 'tel', 'email', 'address'];
+                const opts = { multiple: true }; // ← WICHTIG: Mehrere Kontakte!
+                
+                const contacts = await navigator.contacts.select(props, opts);
+                
+                // Remove Loading Toast
+                loadingToast.remove();
+                
+                if (!contacts || contacts.length === 0) {
+                    console.log('❌ Keine Kontakte ausgewählt');
+                    return;
+                }
+                
+                console.log(`✅ ${contacts.length} Kontakte ausgewählt`);
+                
+                // Zeige Fortschritts-Modal
+                showImportProgressModal(contacts);
+                
+            } catch (error) {
+                const loadingToast = document.getElementById('contacts-import-loading');
+                if (loadingToast) loadingToast.remove();
+                
+                if (error.name === 'AbortError') {
+                    console.log('ℹ️ User hat Import abgebrochen');
+                } else {
+                    console.error('❌ Contact Import Fehler:', error);
+                    
+                    const toast = document.createElement('div');
+                    toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                    toast.innerHTML = `❌ Fehler beim Kontakt-Import!`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                }
+            }
+        }
+        
+        // 🆕 v5.55.0: FORTSCHRITTS-MODAL FÜR IMPORT
+        function showImportProgressModal(contacts) {
+            const modal = document.createElement('div');
+            modal.id = 'import-progress-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:30px;width:100%;max-width:500px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <h3 style="margin:0 0 20px 0;font-size:22px;font-weight:700;">📱 Importiere Kontakte</h3>
+                    
+                    <div style="margin-bottom:20px;">
+                        <div style="font-size:14px;color:#6b7280;margin-bottom:8px;">
+                            <span id="import-status">Vorbereite Import...</span>
+                        </div>
+                        <div style="background:#e5e7eb;height:12px;border-radius:6px;overflow:hidden;">
+                            <div id="import-progress-bar" style="width:0%;height:100%;background:linear-gradient(135deg, #10b981 0%, #059669 100%);transition:width 0.3s ease;"></div>
+                        </div>
+                        <div style="font-size:13px;color:#9ca3af;margin-top:6px;">
+                            <span id="import-count">0 von ${contacts.length}</span>
+                        </div>
+                    </div>
+                    
+                    <div id="import-current" style="
+                        padding:12px;
+                        background:#f9fafb;
+                        border-radius:8px;
+                        font-size:14px;
+                        color:#6b7280;
+                        min-height:50px;
+                        margin-bottom:15px;
+                    ">
+                        Starte Import...
+                    </div>
+                    
+                    <div id="import-summary" style="display:none;margin-bottom:15px;">
+                        <!-- Wird nach Import ausgefüllt -->
+                    </div>
+                    
+                    <button id="import-cancel-btn" onclick="cancelImport()" style="
+                        width:100%;
+                        padding:12px;
+                        background:#f3f4f6;
+                        color:#6b7280;
+                        border:none;
+                        border-radius:10px;
+                        font-weight:600;
+                        cursor:pointer;
+                        font-size:14px;
+                    ">
+                        Abbrechen
+                    </button>
+                    
+                    <button id="import-done-btn" onclick="document.getElementById('import-progress-modal').remove(); loadAllCustomers();" style="
+                        display:none;
+                        width:100%;
+                        padding:12px;
+                        background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color:white;
+                        border:none;
+                        border-radius:10px;
+                        font-weight:600;
+                        cursor:pointer;
+                        font-size:14px;
+                    ">
+                        ✅ Fertig
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Starte Import
+            setTimeout(() => {
+                processContactImport(contacts);
+            }, 500);
+        }
+        
+        // 🆕 v5.55.0: VERARBEITE KONTAKT-IMPORT
+        let importCancelled = false;
+        
+        async function processContactImport(contacts) {
+            importCancelled = false;
+            
+            let imported = 0;
+            let skipped = 0;
+            let errors = 0;
+            
+            const totalCount = contacts.length;
+            const progressBar = document.getElementById('import-progress-bar');
+            const countEl = document.getElementById('import-count');
+            const statusEl = document.getElementById('import-status');
+            const currentEl = document.getElementById('import-current');
+            
+            for (let i = 0; i < contacts.length; i++) {
+                if (importCancelled) {
+                    console.log('⚠️ Import abgebrochen bei', i + 1, 'von', totalCount);
+                    break;
+                }
+                
+                const contact = contacts[i];
+                
+                try {
+                    // Extrahiere Daten
+                    const name = contact.name && contact.name[0] ? contact.name[0] : '';
+                    const phone = contact.tel && contact.tel[0] ? contact.tel[0] : '';
+                    const email = contact.email && contact.email[0] ? contact.email[0] : '';
+                    const address = contact.address && contact.address[0] ? contact.address[0] : '';
+                    
+                    // Update UI
+                    statusEl.textContent = `Importiere ${i + 1} von ${totalCount}...`;
+                    countEl.textContent = `${i + 1} von ${totalCount}`;
+                    progressBar.style.width = `${((i + 1) / totalCount) * 100}%`;
+                    currentEl.innerHTML = `
+                        <div style="font-weight:600;color:#1f2937;margin-bottom:4px;">${name || 'Kein Name'}</div>
+                        <div style="font-size:13px;color:#6b7280;">
+                            ${phone ? '📞 ' + phone : '❌ Keine Telefonnummer'}
+                            ${email ? '<br>📧 ' + email : ''}
+                        </div>
+                    `;
+                    
+                    // Validierung
+                    if (!name) {
+                        console.log('⚠️ Überspringe Kontakt ohne Namen');
+                        skipped++;
+                        await sleep(300);
+                        continue;
+                    }
+                    
+                    if (!phone) {
+                        console.log('⚠️ Überspringe Kontakt ohne Telefonnummer:', name);
+                        skipped++;
+                        await sleep(300);
+                        continue;
+                    }
+                    
+                    // Duplikate-Check
+                    const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+                    const existing = allCustomers.find(c => {
+                        const existingPhone = (c.phone || '').replace(/[\s\-\(\)\+]/g, '');
+                        return existingPhone === normalizedPhone || 
+                               existingPhone.endsWith(normalizedPhone.slice(-8)) ||
+                               normalizedPhone.endsWith(existingPhone.slice(-8));
+                    });
+                    
+                    if (existing) {
+                        console.log('⚠️ Überspringe Duplikat:', name, phone);
+                        skipped++;
+                        await sleep(300);
+                        continue;
+                    }
+                    
+                    // Erstelle Kunde
+                    const customer = {
+                        name: name,
+                        phone: phone,
+                        email: email,
+                        address: address,
+                        billingAddresses: [{
+                            id: Date.now() + i,
+                            label: 'Standard',
+                            address: address,
+                            isDefault: true
+                        }],
+                        notes: 'Importiert via Kontakt-Import',
+                        totalRides: 0,
+                        totalRevenue: 0,
+                        createdAt: Date.now()
+                    };
+                    
+                    // Speichere in Firebase
+                    const newRef = await db.ref('customers').push(customer);
+                    customer.id = newRef.key;
+                    
+                    // Füge zur lokalen Liste hinzu
+                    allCustomers.unshift(customer);
+                    
+                    console.log('✅ Importiert:', name);
+                    imported++;
+                    
+                    // Kurze Pause für UI
+                    await sleep(300);
+                    
+                } catch (error) {
+                    console.error('❌ Fehler bei Kontakt:', contact, error);
+                    errors++;
+                    await sleep(300);
+                }
+            }
+            
+            // Import fertig!
+            console.log('✅ Import abgeschlossen!');
+            console.log('   Importiert:', imported);
+            console.log('   Übersprungen:', skipped);
+            console.log('   Fehler:', errors);
+            
+            // Zeige Zusammenfassung
+            statusEl.textContent = 'Import abgeschlossen!';
+            currentEl.style.display = 'none';
+            
+            const summaryEl = document.getElementById('import-summary');
+            summaryEl.style.display = 'block';
+            summaryEl.innerHTML = `
+                <div style="padding:15px;background:#f0fdf4;border:2px solid #86efac;border-radius:10px;">
+                    <div style="font-weight:700;color:#166534;font-size:16px;margin-bottom:10px;">
+                        ✅ Import erfolgreich!
+                    </div>
+                    <div style="font-size:14px;color:#15803d;">
+                        ✅ <strong>${imported}</strong> neue Kunden importiert
+                        ${skipped > 0 ? '<br>⚠️ <strong>' + skipped + '</strong> übersprungen (Duplikate/ungültig)' : ''}
+                        ${errors > 0 ? '<br>❌ <strong>' + errors + '</strong> Fehler' : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Buttons anpassen
+            document.getElementById('import-cancel-btn').style.display = 'none';
+            document.getElementById('import-done-btn').style.display = 'block';
+        }
+        
+        function cancelImport() {
+            importCancelled = true;
+            document.getElementById('import-progress-modal').remove();
+            console.log('❌ Import vom User abgebrochen');
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
         
         // 🆕 v5.53.0: TELEFONNUMMER AUS ZWISCHENABLAGE

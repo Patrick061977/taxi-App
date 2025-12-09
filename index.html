@@ -78,12 +78,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.49.6 - CONFIRMATION-FIX! (Build 20251209-0705)');
-        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER WERDEN NACH BUCHUNG VERSTECKT!');
-        console.log('🔧 v5.49.5: SCHEDULE-LOCATION + NEAREST-STOP FEHLER BEHOBEN!');
-        console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL - DROPDOWN ENTFERNT!');
+        console.log('🚕 Funk Taxi App v5.49.8 - LIVE-UPDATE-FIX! (Build 20251209-0845)');
+        console.log('🔄 v5.49.8: PREIS + ROUTE VERSCHWINDEN BEI FELDÄNDERUNG!');
+        console.log('🗺️ v5.49.7: OSRM STATT GOOGLE - ECHTE FAHRZEITEN!');
+        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER VERSTECKT!');
         console.log('');
-        console.log('📅 VORBESTELLUNG TESTEN!');
+        console.log('🎯 KEINE FALSCHEN PREISE MEHR BEI ADRESSÄNDERUNG!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.6 - CONFIRMATION-FIX (Build 20251209-0705)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.8 - LIVE-UPDATE-FIX (Build 20251209-0845)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2181,7 +2181,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.49.6 - CONFIRMATION-FIX!');
+                    console.log('🚕 Funk Taxi App v5.49.8 - LIVE-UPDATE-FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5295,13 +5295,13 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.49.6 - CONFIRMATION-FIX! (Build 20251209-0705)');
-        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER WERDEN NACH BUCHUNG VERSTECKT!');
-        console.log('🔧 v5.49.5: SCHEDULE-LOCATION + NEAREST-STOP FEHLER BEHOBEN!');
-        console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL - DROPDOWN ENTFERNT!');
-        console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
+        console.log('🚕 Funk Taxi App v5.49.8 - LIVE-UPDATE-FIX! (Build 20251209-0845)');
+        console.log('🔄 v5.49.8: PREIS + ROUTE VERSCHWINDEN BEI FELDÄNDERUNG!');
+        console.log('🗺️ v5.49.7: OSRM STATT GOOGLE - ECHTE FAHRZEITEN!');
+        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER VERSTECKT!');
+        console.log('🔧 v5.49.5: SCHEDULE-LOCATION + NEAREST-STOP BEHOBEN!');
+        console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
-        console.log('🎉 v5.42.3: Bestätigungskarte!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -12799,7 +12799,7 @@
             if (!fromCoords || !toCoords) return 15; // Fallback
             
             try {
-                // 🔧 v5.39.8: FIX - Koordinaten haben .lon statt .lng!
+                // 🔧 v5.49.7: OSRM statt Google! (kostenlos, kein API Key!)
                 const fromLon = fromCoords.lon || fromCoords.lng;
                 const toLon = toCoords.lon || toCoords.lng;
                 
@@ -12808,20 +12808,21 @@
                     return 15; // Fallback
                 }
                 
+                // 🆕 v5.49.7: OSRM Route API (Open Source, kostenlos!)
                 const response = await fetch(
-                    `https://maps.googleapis.com/maps/api/directions/json?` +
-                    `origin=${fromCoords.lat},${fromLon}&` +
-                    `destination=${toCoords.lat},${toLon}&` +
-                    `key=${GOOGLE_MAPS_API_KEY}`
+                    `https://router.project-osrm.org/route/v1/driving/` +
+                    `${fromLon},${fromCoords.lat};${toLon},${toCoords.lat}?overview=false`
                 );
                 
                 const data = await response.json();
                 
-                if (data.routes && data.routes[0]) {
-                    const duration = data.routes[0].legs[0].duration.value; // Sekunden
+                if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                    const duration = data.routes[0].duration; // Sekunden
                     const minutes = Math.ceil(duration / 60); // Minuten, aufgerundet
-                    console.log(`✅ Route berechnet: ${minutes} Min`);
+                    console.log(`✅ Route berechnet (OSRM): ${minutes} Min`);
                     return minutes;
+                } else {
+                    console.warn('⚠️ OSRM konnte Route nicht berechnen:', data.code || 'Unknown');
                 }
             } catch (error) {
                 console.error('❌ Fehler bei Route-Berechnung:', error);
@@ -25936,7 +25937,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.49.6 - CONFIRMATION-FIX!`);
+            debugLog('info', `📦 Version: 5.49.8 - LIVE-UPDATE-FIX!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren
@@ -26084,6 +26085,36 @@ Stack: ${err.stack}
                     bookBtn.style.visibility = 'hidden';
                     console.log('🔒 "Taxi buchen" versteckt (Felder geändert)');
                 }
+                
+                // 🆕 v5.49.8: AUCH Preis + Route verstecken!
+                const priceDisplay = document.getElementById('price-display');
+                if (priceDisplay) {
+                    priceDisplay.innerHTML = '';
+                    priceDisplay.style.display = 'none';
+                }
+                
+                const routeMap = document.getElementById('route-map');
+                if (routeMap) {
+                    routeMap.style.display = 'none';
+                }
+                
+                // Preis-Button zurücksetzen
+                const priceBtn = document.getElementById('price-btn');
+                if (priceBtn) {
+                    priceBtn.innerHTML = '💰 Preis berechnen';
+                    priceBtn.classList.remove('btn-danger');
+                    priceBtn.classList.add('btn-primary');
+                }
+                
+                // Status zurücksetzen
+                priceCalculated = false;
+                window.currentPrice = null;
+                window.currentDistance = null;
+                window.currentDuration = null;
+                pickupCoords = null;
+                destCoords = null;
+                
+                console.log('🔄 Preis + Route zurückgesetzt (Felder geändert)');
             }
             
             if (pickupField) {

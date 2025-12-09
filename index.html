@@ -78,14 +78,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.50.8 - SYNTAX-FIX! (Build 20251209-1200)');
-        console.log('🐛 v5.50.8: SYNTAX-FEHLER BEHOBEN! Doppelte Deklaration entfernt!');
+        console.log('🚕 Funk Taxi App v5.50.9 - ADMIN-SCHUTZ! (Build 20251209-1245)');
+        console.log('🛡️ v5.50.9: ADMIN-FAHRTEN IN PASSENGER-VIEW GESCHÜTZT!');
+        console.log('   ✅ Admin-Buchungen werden NICHT in Passenger-View angezeigt!');
+        console.log('   ✅ Verhindert versehentliches Stornieren durch Admin!');
+        console.log('🐛 v5.50.8: SYNTAX-FEHLER BEHOBEN!');
         console.log('🎨 v5.50.7: KOMPAKTES ADMIN-PANEL + AUTOCOMPLETE!');
-        console.log('   ✅ Autocomplete für qb-panel-pickup & qb-panel-destination!');
-        console.log('   ✅ Panel 30% kompakter!');
-        console.log('🛡️ v5.50.6: Preis-Validierung aktiv!');
         console.log('');
-        console.log('✅ JETZT: Keine Syntax-Fehler mehr!');
+        console.log('✅ JETZT: Admin kann eigene Buchungen nicht mehr stornieren!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -564,7 +564,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.8 - SYNTAX-FIX (Build 20251209-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.9 - ADMIN-SCHUTZ (Build 20251209-1245)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4635,6 +4635,14 @@
                 const ride = snapshot.val();
                 if (ride) {
                     ride.firebaseId = rideId;
+                    
+                    // 🆕 v5.50.9: ADMIN-SCHUTZ! Admin-Fahrten dürfen nicht hier angezeigt werden!
+                    if (ride.bookedBy === 'admin') {
+                        console.log('🛡️ ADMIN-FAHRT! Kann nicht in Passenger-View angezeigt werden!');
+                        alert('ℹ️ Dies ist eine Admin-Buchung.\n\nBitte verwende das Admin-Panel zum Bearbeiten.');
+                        return;
+                    }
+                    
                     myCurrentRide = ride;
                     localStorage.setItem('myCurrentRideId', rideId);
                     
@@ -26192,6 +26200,16 @@ Stack: ${err.stack}
                             const ride = snapshot.val();
                             if (ride) {
                                 ride.firebaseId = savedRideId;
+                                
+                                // 🆕 v5.50.9: ADMIN-SCHUTZ! Admin-Fahrten NICHT in Passenger-View anzeigen!
+                                if (ride.bookedBy === 'admin') {
+                                    console.log('🛡️ ADMIN-FAHRT ignoriert in Passenger-View!');
+                                    console.log('   Diese Fahrt wurde vom Admin erstellt und darf hier nicht storniert werden!');
+                                    localStorage.removeItem('myCurrentRideId');
+                                    document.getElementById('booking-form').style.display = 'block';
+                                    document.getElementById('ride-status-container').innerHTML = '';
+                                    return;
+                                }
                                 
                                 // Prüfe Status
                                 const endedStatuses = ['storniert', 'completed', 'cancelled', 'cancelled_pending_driver'];

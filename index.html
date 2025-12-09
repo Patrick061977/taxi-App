@@ -78,13 +78,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.50.7 - AUTOCOMPLETE + KOMPAKT! (Build 20251209-1145)');
+        console.log('🚕 Funk Taxi App v5.50.8 - SYNTAX-FIX! (Build 20251209-1200)');
+        console.log('🐛 v5.50.8: SYNTAX-FEHLER BEHOBEN! Doppelte Deklaration entfernt!');
         console.log('🎨 v5.50.7: KOMPAKTES ADMIN-PANEL + AUTOCOMPLETE!');
         console.log('   ✅ Autocomplete für qb-panel-pickup & qb-panel-destination!');
-        console.log('   ✅ Panel 30% kompakter (kleinere Abstände + Schriften)!');
-        console.log('🛡️ v5.50.6: KRITISCHE VALIDIERUNG! Kein undefined/NaN/0 mehr!');
+        console.log('   ✅ Panel 30% kompakter!');
+        console.log('🛡️ v5.50.6: Preis-Validierung aktiv!');
         console.log('');
-        console.log('🔍 JETZT: "Dialyse Koserow" erscheint in Admin-Schnellbuchung!');
+        console.log('✅ JETZT: Keine Syntax-Fehler mehr!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -563,7 +564,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.7 - AUTOCOMPLETE + KOMPAKT (Build 20251209-1145)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.8 - SYNTAX-FIX (Build 20251209-1200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -20100,8 +20101,7 @@
         // ═══════════════════════════════════════════════════════════════════════════
         
         let qbPanelCustomer = null;
-        let qbPanelPickupCoords = null;
-        let qbPanelDestCoords = null;
+        // qbPanelPickupCoords & qbPanelDestCoords bereits in Zeile 3857 deklariert! ✅
         let qbPanelAutocompleteTimeout = null;
         
         // 🆕 v5.41.1: Route & Extra-Zeit

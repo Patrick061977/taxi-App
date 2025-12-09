@@ -78,12 +78,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.49.9 - WARNING-FIX! (Build 20251209-0835)');
+        console.log('🚕 Funk Taxi App v5.50.1 - OSRM-LOGS! (Build 20251209-0900)');
+        console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
+        console.log('⏱️ v5.50.0: FAHRTDAUER PROMINENTER ANGEZEIGT ZUM TESTEN!');
         console.log('⚠️ v5.49.9: FALSCHE WARNUNG "ABHOLADRESSE EINGEBEN" BEHOBEN!');
-        console.log('🔄 v5.49.8: PREIS + ROUTE VERSCHWINDEN BEI FELDÄNDERUNG!');
-        console.log('🗺️ v5.49.7: OSRM STATT GOOGLE - ECHTE FAHRZEITEN!');
         console.log('');
-        console.log('🎯 KEINE FALSCHEN WARNUNGEN MEHR!');
+        console.log('🎯 JETZT SIEHST DU OSRM IN ACTION!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.9 - WARNING-FIX (Build 20251209-0835)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.1 - OSRM-LOGS (Build 20251209-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2181,7 +2181,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.49.9 - WARNING-FIX!');
+                    console.log('🚕 Funk Taxi App v5.50.1 - OSRM-LOGS!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5295,13 +5295,11 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.49.9 - WARNING-FIX! (Build 20251209-0835)');
+        console.log('🚕 Funk Taxi App v5.50.1 - OSRM-LOGS! (Build 20251209-0900)');
+        console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
+        console.log('⏱️ v5.50.0: FAHRTDAUER PROMINENTER ANGEZEIGT ZUM TESTEN!');
         console.log('⚠️ v5.49.9: FALSCHE WARNUNG "ABHOLADRESSE EINGEBEN" BEHOBEN!');
         console.log('🔄 v5.49.8: PREIS + ROUTE VERSCHWINDEN BEI FELDÄNDERUNG!');
-        console.log('🗺️ v5.49.7: OSRM STATT GOOGLE - ECHTE FAHRZEITEN!');
-        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER VERSTECKT!');
-        console.log('🔧 v5.49.5: SCHEDULE-LOCATION + NEAREST-STOP BEHOBEN!');
-        console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -11469,6 +11467,16 @@
             debugLog('info', '🗺️ Berechne Route...');
             const route = await calculateRoute(pickupCoords, destCoords);
             
+            // 🆕 v5.50.0: OSRM Fahrtdauer prominent loggen
+            console.log('═══════════════════════════════════════════');
+            console.log('🗺️ OSRM ROUTE BERECHNUNG:');
+            console.log(`   Von: ${pickup}`);
+            console.log(`   Nach: ${destination}`);
+            console.log(`   Distanz: ${route.distance} km`);
+            console.log(`   Fahrtdauer: ${route.duration} Minuten`);
+            console.log('═══════════════════════════════════════════');
+            debugLog('info', `🗺️ Route: ${route.distance} km, ${route.duration} Min`);
+            
             // Hole Abholzeit für korrekte Tarifberechnung
             // 🆕 v5.30.0: Alte pickup-time gibt es nicht mehr, nutze Fallback
             const oldPickupTimeElem = document.getElementById('pickup-time');
@@ -11505,6 +11513,15 @@
                 <div style="font-size:32px;font-weight:bold;color:#10b981;text-align:center;">${pricing.total}€</div>
                 <div style="text-align:center;margin-top:8px;color:#666;">
                     ${route.distance} km • ${route.duration} Min Fahrt
+                </div>
+                
+                <div style="margin-top:12px;padding:10px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;">
+                    <div style="font-size:11px;color:#16a34a;font-weight:600;margin-bottom:4px;">🗺️ BERECHNETE FAHRTDAUER (OSRM)</div>
+                    <div style="font-size:13px;color:#166534;line-height:1.4;">
+                        <strong>${pickup}</strong><br>
+                        → <strong>${destination}</strong><br>
+                        <span style="font-size:16px;font-weight:bold;color:#16a34a;">⏱️ ${route.duration} Minuten</span>
+                    </div>
                 </div>`;
             
             if (pricing.zuschlagText.length > 0) {
@@ -12657,12 +12674,17 @@
                     // 1. Berechne ENDE der vorherigen Fahrt
                     let rideDuration = ride.duration || timeslotSettings.rideDuration; // 🔧 v5.33.2: Aus Einstellungen!
                     
+                    // 🆕 v5.50.1: Zeige ob aus Fahrt oder berechnet!
+                    console.log(`   📊 Dauer der Fahrt: ${rideDuration} Min (${ride.duration ? 'aus Fahrt gespeichert' : 'Standard-Wert'})`);
+                    
                     // Wenn Koordinaten vorhanden, berechne echte Dauer
                     if (ride.pickupCoords && ride.destCoords) {
+                        console.log('   🗺️ Berechne ECHTE Dauer mit OSRM...');
                         rideDuration = await calculateRouteDuration(
                             ride.pickupCoords,
                             ride.destCoords
                         );
+                        console.log(`   ✅ OSRM Berechnung: ${rideDuration} Min`);
                     }
                     
                     const rideEndTime = ride.pickupTimestamp + (rideDuration * 60 * 1000);
@@ -12673,11 +12695,15 @@
                         // Berechne Fahrzeit vom Ziel der alten Fahrt zum Start der neuen
                         let travelTime = timeslotSettings.travelTime; // 🔧 v5.33.2: Aus Einstellungen!
                         
+                        console.log(`   📊 Fahrzeit zum neuen Start: ${travelTime} Min (Standard-Wert)`);
+                        
                         if (ride.destCoords && pickupCoords) {
+                            console.log('   🗺️ Berechne ECHTE Fahrzeit mit OSRM...');
                             travelTime = await calculateRouteDuration(
                                 ride.destCoords,
                                 pickupCoords
                             );
+                            console.log(`   ✅ OSRM Berechnung: ${travelTime} Min Fahrzeit`);
                         }
                         
                         console.log('   Fahrzeit zum neuen Start:', travelTime, 'Min');
@@ -25940,7 +25966,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.49.9 - WARNING-FIX!`);
+            debugLog('info', `📦 Version: 5.50.1 - OSRM-LOGS!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

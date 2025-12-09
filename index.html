@@ -78,12 +78,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG! (Build 20251209-0935)');
-        console.log('🐛 v5.50.5: DEBUG-LOGS FÜR ALTERNATIVE ZEITSLOT TELEGRAM!');
-        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
-        console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
+        console.log('🚕 Funk Taxi App v5.50.7 - AUTOCOMPLETE + KOMPAKT! (Build 20251209-1145)');
+        console.log('🎨 v5.50.7: KOMPAKTES ADMIN-PANEL + AUTOCOMPLETE!');
+        console.log('   ✅ Autocomplete für qb-panel-pickup & qb-panel-destination!');
+        console.log('   ✅ Panel 30% kompakter (kleinere Abstände + Schriften)!');
+        console.log('🛡️ v5.50.6: KRITISCHE VALIDIERUNG! Kein undefined/NaN/0 mehr!');
         console.log('');
-        console.log('🎯 FINDE WARUM TELEGRAM BEI ALTERNATIVEN SLOTS FEHLT!');
+        console.log('🔍 JETZT: "Dialyse Koserow" erscheint in Admin-Schnellbuchung!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -562,7 +563,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.5 - TELEGRAM-DEBUG (Build 20251209-0935)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.7 - AUTOCOMPLETE + KOMPAKT (Build 20251209-1145)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2496,6 +2497,7 @@
             </div>
             
             <!-- 🆕 v5.38.6: SCHNELLBUCHUNG-OVERLAY-PANEL (AUSSERHALB calendar-container!) -->
+            <!-- 🆕 v5.50.7: KOMPAKTERES DESIGN! -->
             <div id="quick-booking-panel" style="
                 display: none;
                 position: fixed;
@@ -2505,148 +2507,148 @@
                 background: white;
                 border: 2px solid #667eea;
                 border-radius: 12px;
-                padding: 20px;
+                padding: 15px;
                 box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                 z-index: 1000;
                 max-height: calc(100vh - 140px);
                 overflow-y: auto;
             ">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h4 style="margin: 0; font-size: 18px; color: #667eea;">⚡ Schnellbuchung</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="margin: 0; font-size: 16px; color: #667eea;">⚡ Schnellbuchung</h4>
                     <button onclick="closeQuickBookingPanel()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999; line-height: 1; padding: 0;">×</button>
                 </div>
                 
                 <!-- Kunde mit Autocomplete -->
-                <div style="margin-bottom: 15px; position: relative;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👤 Kunde</label>
+                <div style="margin-bottom: 10px; position: relative;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">👤 Kunde</label>
                     <input 
                         type="text" 
                         id="qb-panel-customer" 
                         placeholder="Name eingeben..."
                         autocomplete="off"
-                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                     >
-                    <div id="qb-panel-customer-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    <div id="qb-panel-customer-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
                 
                 <!-- Startzeit (Abholung) -->
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📅 Startzeit (Abholung)</label>
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">📅 Startzeit</label>
                     <input 
                         type="datetime-local" 
                         id="qb-panel-start-time" 
-                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                         onchange="updatePanelEndTime()"
                     >
-                    <div id="qb-panel-start-display" style="margin-top: 8px; padding: 8px; background: #f0f9ff; border-radius: 6px; font-size: 13px; color: #0c4a6e; text-align: center;"></div>
+                    <div id="qb-panel-start-display" style="margin-top: 6px; padding: 6px; background: #f0f9ff; border-radius: 6px; font-size: 12px; color: #0c4a6e; text-align: center;"></div>
                 </div>
                 
                 <!-- Endzeit (Voraussichtlich) -->
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">⏱️ Endzeit (Voraussichtlich)</label>
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">⏱️ Endzeit</label>
                     <input 
                         type="datetime-local" 
                         id="qb-panel-end-time" 
-                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                         onchange="updatePanelEndDisplay()"
                     >
-                    <div id="qb-panel-end-display" style="margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 6px; font-size: 13px; color: #92400e; text-align: center;"></div>
+                    <div id="qb-panel-end-display" style="margin-top: 6px; padding: 6px; background: #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e; text-align: center;"></div>
                 </div>
                 
                 <!-- 🆕 v5.41.1: EXTRA-ZEIT Buttons -->
-                <div id="qb-panel-extra-time-section" style="margin-bottom: 15px; padding: 15px; background: #f0f9ff; border-radius: 12px; border: 2px solid #3b82f6;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 12px; color: #1e40af; font-size: 14px;">⏱️ Extra-Zeit (Rollstuhl, Gepäck, etc.)</label>
+                <div id="qb-panel-extra-time-section" style="margin-bottom: 10px; padding: 10px; background: #f0f9ff; border-radius: 8px; border: 2px solid #3b82f6;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1e40af; font-size: 13px;">⏱️ Extra-Zeit</label>
                     
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
                         <button 
                             onclick="setExtraTime(0)" 
                             id="extra-time-0"
-                            style="padding: 12px 8px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s; text-align: center;"
+                            style="padding: 8px 6px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; transition: all 0.2s; text-align: center;"
                             onmouseover="if(!this.classList.contains('active')) this.style.background='#dbeafe'" 
                             onmouseout="if(!this.classList.contains('active')) this.style.background='white'">
-                            Normal<br><span style="font-size: 11px; opacity: 0.7;">0 Min</span>
+                            Normal<br><span style="font-size: 10px; opacity: 0.7;">0 Min</span>
                         </button>
                         <button 
                             onclick="setExtraTime(5)" 
                             id="extra-time-5"
-                            style="padding: 12px 8px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s; text-align: center;"
+                            style="padding: 8px 6px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; transition: all 0.2s; text-align: center;"
                             onmouseover="if(!this.classList.contains('active')) this.style.background='#dbeafe'" 
                             onmouseout="if(!this.classList.contains('active')) this.style.background='white'">
-                            +5 Min<br><span style="font-size: 11px; opacity: 0.7;">♿🧳</span>
+                            +5 Min<br><span style="font-size: 10px; opacity: 0.7;">♿🧳</span>
                         </button>
                         <button 
                             onclick="setExtraTime(10)" 
                             id="extra-time-10"
-                            style="padding: 12px 8px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s; text-align: center;"
+                            style="padding: 8px 6px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; transition: all 0.2s; text-align: center;"
                             onmouseover="if(!this.classList.contains('active')) this.style.background='#dbeafe'" 
                             onmouseout="if(!this.classList.contains('active')) this.style.background='white'">
-                            +10 Min<br><span style="font-size: 11px; opacity: 0.7;">🦽🦽</span>
+                            +10 Min<br><span style="font-size: 10px; opacity: 0.7;">🦽🦽</span>
                         </button>
                         <button 
                             onclick="setExtraTime(15)" 
                             id="extra-time-15"
-                            style="padding: 12px 8px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s; text-align: center;"
+                            style="padding: 8px 6px; background: white; border: 2px solid #3b82f6; color: #1e40af; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; transition: all 0.2s; text-align: center;"
                             onmouseover="if(!this.classList.contains('active')) this.style.background='#dbeafe'" 
                             onmouseout="if(!this.classList.contains('active')) this.style.background='white'">
-                            +15 Min<br><span style="font-size: 11px; opacity: 0.7;">🏥</span>
+                            +15 Min<br><span style="font-size: 10px; opacity: 0.7;">🏥</span>
                         </button>
                     </div>
                     
                     <!-- Info-Anzeige für Route -->
-                    <div id="qb-panel-route-info" style="margin-top: 10px; padding: 8px; background: white; border-radius: 6px; font-size: 12px; color: #1e40af; text-align: center; display: none;"></div>
+                    <div id="qb-panel-route-info" style="margin-top: 8px; padding: 6px; background: white; border-radius: 6px; font-size: 11px; color: #1e40af; text-align: center; display: none;"></div>
                 </div>
                 
                 <!-- Abholort -->
-                <div style="margin-bottom: 15px; position: relative;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📍 Abholort</label>
+                <div style="margin-bottom: 10px; position: relative;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">📍 Abholort</label>
                     <input 
                         type="text" 
                         id="qb-panel-pickup" 
                         placeholder="Adresse eingeben..."
-                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                     >
-                    <div id="qb-panel-pickup-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    <div id="qb-panel-pickup-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                     
                     <!-- Adresse übernehmen Optionen -->
-                    <div id="qb-panel-address-options" style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; display: none;">
-                        <div style="font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 8px;">💾 Adresse übernehmen:</div>
-                        <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer; font-size: 13px;">
-                            <input type="checkbox" id="qb-panel-save-as-main" style="margin-right: 8px; cursor: pointer;">
+                    <div id="qb-panel-address-options" style="margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 6px; display: none;">
+                        <div style="font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 6px;">💾 Adresse übernehmen:</div>
+                        <label style="display: flex; align-items: center; margin-bottom: 4px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="qb-panel-save-as-main" style="margin-right: 6px; cursor: pointer;">
                             <span>Als Stammadresse speichern</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px;">
-                            <input type="checkbox" id="qb-panel-save-as-billing" style="margin-right: 8px; cursor: pointer;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="qb-panel-save-as-billing" style="margin-right: 6px; cursor: pointer;">
                             <span>Als Rechnungsadresse speichern</span>
                         </label>
                     </div>
                 </div>
                 
                 <!-- Swap Button -->
-                <div style="text-align: center; margin: -8px 0 8px 0;">
-                    <button onclick="swapPanelAddresses()" style="padding: 8px 16px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='#667eea'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='#667eea';">
+                <div style="text-align: center; margin: -4px 0 6px 0;">
+                    <button onclick="swapPanelAddresses()" style="padding: 6px 12px; background: white; border: 2px solid #667eea; color: #667eea; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='#667eea'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='#667eea';">
                         🔄 Tauschen
                     </button>
                 </div>
                 
                 <!-- Zielort -->
-                <div style="margin-bottom: 15px; position: relative;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🎯 Zielort</label>
+                <div style="margin-bottom: 10px; position: relative;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">🎯 Zielort</label>
                     <input 
                         type="text" 
                         id="qb-panel-destination" 
                         placeholder="Adresse eingeben..."
-                        style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;"
+                        style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                     >
-                    <div id="qb-panel-destination-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                    <div id="qb-panel-destination-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; max-height: 180px; overflow-y: auto; z-index: 1000; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
                 
                 <!-- 🆕 v5.49.0: HÄUFIGE ZIELORTE -->
-                <div id="qb-panel-frequent-destinations" style="display:none;margin-bottom:15px;"></div>
+                <div id="qb-panel-frequent-destinations" style="display:none;margin-bottom:10px;"></div>
                 
                 <!-- Personen -->
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">👥 Personen</label>
-                    <select id="qb-panel-passengers" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">👥 Personen</label>
+                    <select id="qb-panel-passengers" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
                         <option value="1">1 Person</option>
                         <option value="2">2 Personen</option>
                         <option value="3">3 Personen</option>
@@ -2659,25 +2661,25 @@
                 </div>
                 
                 <!-- Fahrzeug -->
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">🚗 Fahrzeug (optional)</label>
-                    <select id="qb-panel-vehicle" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">🚗 Fahrzeug (optional)</label>
+                    <select id="qb-panel-vehicle" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
                         <option value="">Automatisch zuweisen</option>
                     </select>
                 </div>
                 
                 <!-- Notizen -->
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #1f2937;">📝 Notizen (optional)</label>
-                    <textarea id="qb-panel-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; min-height: 60px; box-sizing: border-box; resize: vertical;"></textarea>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #1f2937; font-size: 13px;">📝 Notizen (optional)</label>
+                    <textarea id="qb-panel-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; min-height: 50px; box-sizing: border-box; resize: vertical;"></textarea>
                 </div>
                 
                 <!-- Buttons -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <button onclick="closeQuickBookingPanel()" style="padding: 14px; background: #f3f4f6; color: #6b7280; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button onclick="closeQuickBookingPanel()" style="padding: 12px; background: #f3f4f6; color: #6b7280; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;">
                         Abbrechen
                     </button>
-                    <button onclick="submitQuickBookingPanel()" style="padding: 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+                    <button onclick="submitQuickBookingPanel()" style="padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
                         ⚡ Buchen
                     </button>
                 </div>
@@ -3852,6 +3854,7 @@
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
+        let qbPanelPickupCoords = null, qbPanelDestCoords = null; // 🆕 v5.50.7: Admin-Panel Koordinaten
         
         // 🆕 v5.42.7: Adressen-Bestätigungs-Status
         let pickupConfirmed = false;
@@ -10700,7 +10703,8 @@
         function setupAutocomplete() {
             console.log('🔧 setupAutocomplete wird initialisiert...');
             
-            ['pickup', 'destination'].forEach(id => {
+            // 🆕 v5.50.7: Auch Admin-Panel Felder!
+            ['pickup', 'destination', 'qb-panel-pickup', 'qb-panel-destination'].forEach(id => {
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
                 
@@ -10717,12 +10721,16 @@
                     // Reset coords wenn User manuell tippt
                     if (id === 'pickup') {
                         pickupCoords = null;
-                        pickupConfirmed = false; // 🆕 v5.42.7: Reset Bestätigung!
-                        updateConfirmationHint('pickup'); // 🆕 v5.42.7: Zeige Hinweis!
-                    } else {
+                        pickupConfirmed = false;
+                        updateConfirmationHint('pickup');
+                    } else if (id === 'destination') {
                         destCoords = null;
-                        destinationConfirmed = false; // 🆕 v5.42.7: Reset Bestätigung!
-                        updateConfirmationHint('destination'); // 🆕 v5.42.7: Zeige Hinweis!
+                        destinationConfirmed = false;
+                        updateConfirmationHint('destination');
+                    } else if (id === 'qb-panel-pickup') {
+                        qbPanelPickupCoords = null; // 🆕 v5.50.7: Admin-Panel Coords!
+                    } else if (id === 'qb-panel-destination') {
+                        qbPanelDestCoords = null; // 🆕 v5.50.7: Admin-Panel Coords!
                     }
                     
                     clearTimeout(autocompleteTimeout);
@@ -10730,7 +10738,6 @@
                     
                     if (value.length < 3) {
                         console.log('⚠️ Zu kurz (<3 Zeichen):', value.length);
-                        // 🆕 v5.46.3: Schließe DROPDOWN bei zu wenig Text
                         const dropdown = document.getElementById(id + '-dropdown');
                         if (dropdown) dropdown.style.display = 'none';
                         return;
@@ -10738,8 +10745,6 @@
                     
                     console.log('✅ Starte Autocomplete-Suche in 300ms für:', value);
                     
-                    // 🆕 v5.45.2: NUR NOCH OVERLAY - Altes Dropdown entfernt!
-                    // Verzögerte Suche (Debounce)
                     autocompleteTimeout = setTimeout(() => {
                         console.log('🔍 Rufe searchAddresses() auf für:', value, 'Feld:', id);
                         searchAddresses(value, id);
@@ -10938,8 +10943,8 @@
             // Speichere Koordinaten
             if (inputId === 'pickup') {
                 pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                pickupConfirmed = true; // 🆕 v5.42.7: Markiere als bestätigt!
-                updateConfirmationHint('pickup'); // 🆕 v5.42.7: Zeige grünen Haken!
+                pickupConfirmed = true;
+                updateConfirmationHint('pickup');
                 console.log('✅ Abholort gespeichert:', address, pickupCoords);
                 debugLog('info', `✅ Abholort gespeichert: ${address} (${lat}, ${lon})`);
                 
@@ -10967,12 +10972,20 @@
                         showAvailableTaxis();
                     }, 1000);
                 }
-            } else {
+            } else if (inputId === 'destination') {
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                destinationConfirmed = true; // 🆕 v5.42.7: Markiere als bestätigt!
-                updateConfirmationHint('destination'); // 🆕 v5.42.7: Zeige grünen Haken!
+                destinationConfirmed = true;
+                updateConfirmationHint('destination');
                 console.log('✅ Zielort gespeichert:', address, destCoords);
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
+            } else if (inputId === 'qb-panel-pickup') {
+                // 🆕 v5.50.7: Admin-Panel Abholort!
+                qbPanelPickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                console.log('✅ Admin-Panel Abholort gespeichert:', address, qbPanelPickupCoords);
+            } else if (inputId === 'qb-panel-destination') {
+                // 🆕 v5.50.7: Admin-Panel Zielort!
+                qbPanelDestCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                console.log('✅ Admin-Panel Zielort gespeichert:', address, qbPanelDestCoords);
             }
         }
 
@@ -20705,6 +20718,16 @@
                 
                 console.log('✅ Preis berechnet:', pricing.total, '€');
                 
+                // 🆕 v5.50.6: KRITISCHE VALIDIERUNG - Verhindere undefined/NaN/0 in Firebase!
+                if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
+                    console.error('❌ KRITISCHER FEHLER: Ungültiger Preis!', routeData.price);
+                    console.error('   Route-Daten:', routeData);
+                    console.error('   Pricing:', pricing);
+                    alert('❌ FEHLER: Preis konnte nicht berechnet werden!\n\nBitte überprüfe die Adressen und versuche es erneut.\n\nPreis war: ' + routeData.price);
+                    return;
+                }
+                console.log('✅ Preis validiert:', routeData.price, '€ - Speicherung erlaubt!');
+                
             } catch (error) {
                 console.error('❌ Fehler bei Routenberechnung:', error);
                 alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
@@ -21187,6 +21210,21 @@
             try {
                 routeData = await calculateRoute(quickBookingPickupCoords, quickBookingDestCoords);
                 console.log('✅ Route berechnet:', routeData);
+                
+                // 🆕 v5.50.6: PREIS BERECHNEN (fehlte vorher!)
+                const pickupTimestamp = new Date(datetime).getTime();
+                const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
+                routeData.price = pricing.total;
+                console.log('✅ Preis berechnet:', pricing.total, '€');
+                
+                // 🆕 v5.50.6: KRITISCHE VALIDIERUNG!
+                if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
+                    console.error('❌ KRITISCHER FEHLER: Ungültiger Preis!', routeData.price);
+                    alert('❌ FEHLER: Preis konnte nicht berechnet werden!\n\nBitte überprüfe die Adressen.\n\nPreis war: ' + routeData.price);
+                    return;
+                }
+                console.log('✅ Preis validiert:', routeData.price, '€');
+                
             } catch (error) {
                 console.error('❌ Fehler bei Routenberechnung:', error);
                 alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
@@ -21194,8 +21232,8 @@
             }
             
             // Erstelle Fahrt
-            const pickupTimestamp = new Date(datetime).getTime();
             const pickupDate = new Date(datetime);
+            const pickupTimestamp = pickupDate.getTime();
             
             const ride = {
                 customerName: customer.name || 'Unbekannt',

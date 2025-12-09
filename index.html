@@ -78,14 +78,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.50.9 - ADMIN-SCHUTZ! (Build 20251209-1245)');
+        console.log('🚕 Funk Taxi App v5.51.0 - WOCHENTAG + BUTTON! (Build 20251209-1300)');
+        console.log('📅 v5.51.0: WOCHENTAG-ANZEIGE + DYNAMISCHER BUTTON!');
+        console.log('   ✅ Zeigt "Mittwoch, 11. Dezember 2025" + Uhrzeit!');
+        console.log('   ✅ Button ändert sich: NEU = "⚡ Buchen" | BEARBEITEN = "💾 Speichern"!');
         console.log('🛡️ v5.50.9: ADMIN-FAHRTEN IN PASSENGER-VIEW GESCHÜTZT!');
-        console.log('   ✅ Admin-Buchungen werden NICHT in Passenger-View angezeigt!');
-        console.log('   ✅ Verhindert versehentliches Stornieren durch Admin!');
-        console.log('🐛 v5.50.8: SYNTAX-FEHLER BEHOBEN!');
         console.log('🎨 v5.50.7: KOMPAKTES ADMIN-PANEL + AUTOCOMPLETE!');
         console.log('');
-        console.log('✅ JETZT: Admin kann eigene Buchungen nicht mehr stornieren!');
+        console.log('✅ JETZT: Du siehst sofort welcher Wochentag!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -564,7 +564,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.9 - ADMIN-SCHUTZ (Build 20251209-1245)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.51.0 - WOCHENTAG + BUTTON (Build 20251209-1300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2541,7 +2541,7 @@
                         style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                         onchange="updatePanelEndTime()"
                     >
-                    <div id="qb-panel-start-display" style="margin-top: 6px; padding: 6px; background: #f0f9ff; border-radius: 6px; font-size: 12px; color: #0c4a6e; text-align: center;"></div>
+                    <div id="qb-panel-start-display" style="margin-top: 8px; padding: 10px; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 2px solid #3b82f6; border-radius: 8px; font-size: 14px; font-weight: 600; color: #1e40af; text-align: center; display: none;"></div>
                 </div>
                 
                 <!-- Endzeit (Voraussichtlich) -->
@@ -2553,7 +2553,7 @@
                         style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                         onchange="updatePanelEndDisplay()"
                     >
-                    <div id="qb-panel-end-display" style="margin-top: 6px; padding: 6px; background: #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e; text-align: center;"></div>
+                    <div id="qb-panel-end-display" style="margin-top: 8px; padding: 10px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #f59e0b; border-radius: 8px; font-size: 14px; font-weight: 600; color: #92400e; text-align: center; display: none;"></div>
                 </div>
                 
                 <!-- 🆕 v5.41.1: EXTRA-ZEIT Buttons -->
@@ -2680,7 +2680,7 @@
                     <button onclick="closeQuickBookingPanel()" style="padding: 12px; background: #f3f4f6; color: #6b7280; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;">
                         Abbrechen
                     </button>
-                    <button onclick="submitQuickBookingPanel()" style="padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+                    <button id="qb-panel-submit-btn" onclick="submitQuickBookingPanel()" style="padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
                         ⚡ Buchen
                     </button>
                 </div>
@@ -20121,6 +20121,10 @@
             if (panel.style.display === 'none' || panel.style.display === '') {
                 panel.style.display = 'block';
                 
+                // 🆕 v5.51.0: Button-Text auf BUCHEN setzen (NEU-Modus)
+                const submitBtn = document.getElementById('qb-panel-submit-btn');
+                if (submitBtn) submitBtn.innerHTML = '⚡ Buchen';
+                
                 // SOFORT Kunden laden wenn Panel öffnet!
                 if (allCustomers.length === 0 && isFirebaseReady) {
                     loadAllCustomersNow();
@@ -20315,7 +20319,10 @@
             const startDisplay = document.getElementById('qb-panel-start-display');
             
             if (!startInput.value) {
-                if (startDisplay) startDisplay.textContent = '';
+                if (startDisplay) {
+                    startDisplay.textContent = '';
+                    startDisplay.style.display = 'none';
+                }
                 return;
             }
             
@@ -20334,10 +20341,20 @@
                 0                            // Millisekunde
             );
             
-            // Anzeige für Startzeit
+            // 🆕 v5.51.0: GROSSE WOCHENTAG-ANZEIGE!
             if (startDisplay) {
-                const formatted = formatDateWithWeekday(startDate);
-                startDisplay.textContent = formatted;
+                const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+                
+                const weekday = weekdays[startDate.getDay()];
+                const day = startDate.getDate();
+                const month = months[startDate.getMonth()];
+                const year = startDate.getFullYear();
+                const hours = String(startDate.getHours()).padStart(2, '0');
+                const minutes = String(startDate.getMinutes()).padStart(2, '0');
+                
+                startDisplay.innerHTML = `📅 ${weekday}, ${day}. ${month} ${year}<br>🕐 ${hours}:${minutes} Uhr`;
+                startDisplay.style.display = 'block';
             }
             
             // 🆕 v5.41.1: Endzeit = Start + Routendauer + Extra-Zeit
@@ -20365,7 +20382,10 @@
             const endDisplay = document.getElementById('qb-panel-end-display');
             
             if (!endInput || !endDisplay || !endInput.value) {
-                if (endDisplay) endDisplay.textContent = '';
+                if (endDisplay) {
+                    endDisplay.textContent = '';
+                    endDisplay.style.display = 'none';
+                }
                 return;
             }
             
@@ -20384,8 +20404,19 @@
                 0
             );
             
-            const formatted = formatDateWithWeekday(endDate);
-            endDisplay.textContent = formatted;
+            // 🆕 v5.51.0: GROSSE WOCHENTAG-ANZEIGE!
+            const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            
+            const weekday = weekdays[endDate.getDay()];
+            const day = endDate.getDate();
+            const month = months[endDate.getMonth()];
+            const year = endDate.getFullYear();
+            const hours = String(endDate.getHours()).padStart(2, '0');
+            const minutes = String(endDate.getMinutes()).padStart(2, '0');
+            
+            endDisplay.innerHTML = `📅 ${weekday}, ${day}. ${month} ${year}<br>🕐 ${hours}:${minutes} Uhr`;
+            endDisplay.style.display = 'block';
         }
         
         // 🆕 v5.41.1: EXTRA-ZEIT setzen
@@ -21000,6 +21031,10 @@
                 console.log('═══════════════════════════════════════');
                 window.editingRideId = rideId;
                 
+                // 🆕 v5.51.0: Button-Text auf SPEICHERN setzen (BEARBEITEN-Modus)
+                const submitBtn = document.getElementById('qb-panel-submit-btn');
+                if (submitBtn) submitBtn.innerHTML = '💾 Speichern';
+                
                 console.log('✏️ Fahrt wird bearbeitet:', rideId);
                 
             } catch (error) {
@@ -21102,6 +21137,10 @@
                 window.editingRideId = null;
                 console.log('🔒 FINALER SCHUTZ: editingRideId am Ende nochmal auf null!');
                 console.log('🔒 Endgültiger Status:', window.editingRideId, '| Ist null?', window.editingRideId === null);
+                
+                // 🆕 v5.51.0: Button-Text auf BUCHEN setzen (KOPIEREN = NEU)
+                const submitBtn = document.getElementById('qb-panel-submit-btn');
+                if (submitBtn) submitBtn.innerHTML = '⚡ Buchen';
                 
                 console.log('📋 Fahrt kopiert:', rideId, '| editingRideId:', window.editingRideId, '| Zeiten: LEER (neu eingeben)');
                 

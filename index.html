@@ -78,18 +78,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.52.2 - RECHNUNG-SYSTEM! (Build 20251209-1600)');
+        console.log('🚕 Funk Taxi App v5.52.3 - FESTLAND-ZIELE! (Build 20251209-1630)');
+        console.log('🗺️ v5.52.3: FESTLAND-ZIELE IN ADRESSSUCHE!');
+        console.log('   ✅ Greifswald, Wolgast, Anklam findbar!');
+        console.log('   ✅ Stralsund, Neubrandenburg findbar!');
+        console.log('   ✅ Filter in allen 4 Such-Bereichen erweitert!');
         console.log('📄 v5.52.2: RECHNUNGSSYSTEM + FAHRZEUG-NAMEN!');
-        console.log('   ✅ Fahrzeuge im Kalender: Name + Kennzeichen statt ID!');
-        console.log('   ✅ Kalender aktualisiert sofort nach Zuweisung!');
-        console.log('   ✅ Rechnung-Button bei jeder Fahrt!');
-        console.log('   ✅ PDF-Rechnung mit automatischer Nr!');
-        console.log('   ✅ MwSt: 7% (<50km) / 19% (≥50km)!');
-        console.log('   ✅ Preis editierbar vor Rechnung!');
         console.log('🚗 v5.52.1: ALLE FAHRZEUGE + RECHNUNGSADRESSE IM CRM!');
-        console.log('🎯 v5.52.0: PANEL VERSCHIEBEN + GRÖßE ÄNDERN!');
         console.log('');
-        console.log('✅ JETZT: Rechnungen erstellen!');
+        console.log('✅ JETZT: Greifswald Uniklinik findbar!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -568,7 +565,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.2 - RECHNUNGS-SYSTEM (Build 20251209-1600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.3 - FESTLAND-ZIELE (Build 20251209-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -18614,7 +18611,7 @@
                     return;
                 }
                 
-                // Filtere nur Usedom-relevante Ergebnisse
+                // 🆕 v5.52.3: Filtere Usedom + WICHTIGE FESTLAND-ZIELE!
                 const usedomResults = results.filter(r => {
                     const display = r.display_name.toLowerCase();
                     return display.includes('usedom') || 
@@ -18628,7 +18625,13 @@
                            display.includes('ückeritz') ||
                            display.includes('loddin') ||
                            display.includes('zempin') ||
-                           display.includes('trassenheide');
+                           display.includes('trassenheide') ||
+                           // 🆕 v5.52.3: FESTLAND-ZIELE!
+                           display.includes('greifswald') ||
+                           display.includes('wolgast') ||
+                           display.includes('anklam') ||
+                           display.includes('stralsund') ||
+                           display.includes('neubrandenburg');
                 });
                 
                 const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
@@ -19019,7 +19022,7 @@
                     return;
                 }
                 
-                // Filtere Usedom-relevante Ergebnisse (wie bei Abholort)
+                // 🆕 v5.52.3: Filtere Usedom + WICHTIGE FESTLAND-ZIELE!
                 const usedomResults = results.filter(r => {
                     const display = r.display_name.toLowerCase();
                     return display.includes('usedom') || 
@@ -19033,7 +19036,13 @@
                            display.includes('ückeritz') ||
                            display.includes('loddin') ||
                            display.includes('zempin') ||
-                           display.includes('trassenheide');
+                           display.includes('trassenheide') ||
+                           // 🆕 v5.52.3: FESTLAND-ZIELE!
+                           display.includes('greifswald') ||
+                           display.includes('wolgast') ||
+                           display.includes('anklam') ||
+                           display.includes('stralsund') ||
+                           display.includes('neubrandenburg');
                 });
                 
                 const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
@@ -19984,7 +19993,7 @@
                     return;
                 }
                 
-                // Filter Usedom-Ergebnisse
+                // 🆕 v5.52.3: Filter Usedom + WICHTIGE FESTLAND-ZIELE!
                 const usedomResults = results.filter(r => {
                     const display = r.display_name.toLowerCase();
                     return display.includes('usedom') || 
@@ -19998,7 +20007,13 @@
                            display.includes('ückeritz') ||
                            display.includes('loddin') ||
                            display.includes('zempin') ||
-                           display.includes('trassenheide');
+                           display.includes('trassenheide') ||
+                           // 🆕 v5.52.3: FESTLAND-ZIELE!
+                           display.includes('greifswald') ||
+                           display.includes('wolgast') ||
+                           display.includes('anklam') ||
+                           display.includes('stralsund') ||
+                           display.includes('neubrandenburg');
                 });
                 
                 const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
@@ -20774,6 +20789,7 @@
                     return;
                 }
                 
+                // 🆕 v5.52.3: Filter Usedom + WICHTIGE FESTLAND-ZIELE!
                 const usedomResults = results.filter(r => {
                     const display = r.display_name.toLowerCase();
                     return display.includes('usedom') || 
@@ -20787,7 +20803,13 @@
                            display.includes('ückeritz') ||
                            display.includes('loddin') ||
                            display.includes('zempin') ||
-                           display.includes('trassenheide');
+                           display.includes('trassenheide') ||
+                           // 🆕 v5.52.3: FESTLAND-ZIELE!
+                           display.includes('greifswald') ||
+                           display.includes('wolgast') ||
+                           display.includes('anklam') ||
+                           display.includes('stralsund') ||
+                           display.includes('neubrandenburg');
                 });
                 
                 const resultsToShow = usedomResults.length > 0 ? usedomResults : results;

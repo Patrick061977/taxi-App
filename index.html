@@ -78,12 +78,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.50.4 - PANEL-PREIS-FIX! (Build 20251209-0925)');
+        console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG! (Build 20251209-0935)');
+        console.log('🐛 v5.50.5: DEBUG-LOGS FÜR ALTERNATIVE ZEITSLOT TELEGRAM!');
         console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
         console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
-        console.log('👉 v5.50.3: USER MUSS JETZT MANUELL "PREIS BERECHNEN" KLICKEN!');
         console.log('');
-        console.log('🎯 PANEL SPEICHERT JETZT KORREKTEN PREIS!');
+        console.log('🎯 FINDE WARUM TELEGRAM BEI ALTERNATIVEN SLOTS FEHLT!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.4 - PANEL-PREIS-FIX (Build 20251209-0925)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.5 - TELEGRAM-DEBUG (Build 20251209-0935)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2181,7 +2181,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.50.4 - PANEL-PREIS-FIX!');
+                    console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5295,10 +5295,10 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.50.4 - PANEL-PREIS-FIX! (Build 20251209-0925)');
+        console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG! (Build 20251209-0935)');
+        console.log('🐛 v5.50.5: DEBUG-LOGS FÜR ALTERNATIVE ZEITSLOT TELEGRAM!');
         console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
         console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
-        console.log('👉 v5.50.3: USER MUSS JETZT MANUELL "PREIS BERECHNEN" KLICKEN!');
         console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
@@ -13396,10 +13396,52 @@
                 console.log('💾 Vorbestellung auch in rideHistory gespeichert!');
             }
             
-            // Telegram senden
+            // 🆕 v5.50.5: ERWEITERTER DEBUG für Alternative Zeitslot Telegram!
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('📱 TELEGRAM DEBUG - Alternative Zeitslot:');
+            console.log('   isFirebaseReady:', isFirebaseReady);
+            console.log('   bookingData.firebaseId:', bookingData.firebaseId);
+            console.log('   bookingData.id:', bookingData.id);
+            console.log('   bookingData.customerName:', bookingData.customerName);
+            console.log('   bookingData.customerPhone:', bookingData.customerPhone);
+            console.log('   bookingData.pickup:', bookingData.pickup);
+            console.log('   bookingData.destination:', bookingData.destination);
+            console.log('   bookingData.price:', bookingData.price);
+            console.log('   bookingData.status:', bookingData.status);
+            console.log('   bookingData.pickupTime:', bookingData.pickupTime);
+            console.log('   bookingData.pickupTimestamp:', bookingData.pickupTimestamp);
+            console.log('═══════════════════════════════════════════════════════');
+            
+            // Telegram senden - MIT ALLEN DATEN!
             if (isFirebaseReady) {
-                await sendTelegramForNewRide(bookingData);
-                await sendCustomerNotifications(bookingData);
+                console.log('✅ Firebase bereit - sende Telegram...');
+                console.log('📞 Rufe sendTelegramForNewRide() auf mit:', {
+                    firebaseId: bookingData.firebaseId,
+                    customerName: bookingData.customerName,
+                    pickup: bookingData.pickup,
+                    destination: bookingData.destination,
+                    status: bookingData.status
+                });
+                
+                try {
+                    await sendTelegramForNewRide(bookingData);
+                    console.log('✅ Telegram gesendet!');
+                } catch (error) {
+                    console.error('❌ TELEGRAM-FEHLER:', error);
+                    console.error('   Error Message:', error.message);
+                    console.error('   Error Stack:', error.stack);
+                }
+                
+                try {
+                    await sendCustomerNotifications(bookingData);
+                    console.log('✅ Kunden-Benachrichtigungen gesendet!');
+                } catch (error) {
+                    console.error('❌ KUNDEN-NOTIFICATION-FEHLER:', error);
+                }
+            } else {
+                console.error('❌ Firebase NICHT bereit - KEIN Telegram!');
+                console.error('   isFirebaseReady:', isFirebaseReady);
+                console.error('   db:', typeof db);
             }
             
             console.log('═══════════════════════════════════════════════════════');
@@ -26020,7 +26062,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.50.4 - PANEL-PREIS-FIX!`);
+            debugLog('info', `📦 Version: 5.50.5 - TELEGRAM-DEBUG!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

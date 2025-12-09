@@ -78,15 +78,17 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.52.3 - FESTLAND-ZIELE! (Build 20251209-1630)');
-        console.log('🗺️ v5.52.3: FESTLAND-ZIELE IN ADRESSSUCHE!');
-        console.log('   ✅ Greifswald, Wolgast, Anklam findbar!');
-        console.log('   ✅ Stralsund, Neubrandenburg findbar!');
-        console.log('   ✅ Filter in allen 4 Such-Bereichen erweitert!');
+        console.log('🚕 Funk Taxi App v5.52.4 - RECHNUNG FLEX! (Build 20251209-1700)');
+        console.log('📄 v5.52.4: RECHNUNGS-SYSTEM ERWEITERT!');
+        console.log('   ✅ BRUTTO-Eingabe (nicht Netto)!');
+        console.log('   ✅ Kilometer änderbar → Auto-MwSt!');
+        console.log('   ✅ MwSt manuell wählbar (7%/19%)!');
+        console.log('   ✅ POSITIONEN hinzufügen!');
+        console.log('   ✅ Rollstuhl-Zuschlag, Wartezeit, etc.!');
+        console.log('🗺️ v5.52.3: FESTLAND-ZIELE (Greifswald!)!');
         console.log('📄 v5.52.2: RECHNUNGSSYSTEM + FAHRZEUG-NAMEN!');
-        console.log('🚗 v5.52.1: ALLE FAHRZEUGE + RECHNUNGSADRESSE IM CRM!');
         console.log('');
-        console.log('✅ JETZT: Greifswald Uniklinik findbar!');
+        console.log('✅ JETZT: Flexible Rechnungen!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -565,7 +567,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.3 - FESTLAND-ZIELE (Build 20251209-1630)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.4 - RECHNUNG FLEX (Build 20251209-1700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -21451,6 +21453,11 @@
         // 🆕 v5.52.2: RECHNUNGS-SYSTEM
         // ═══════════════════════════════════════════════════════════════════════════
         
+        // 🆕 v5.52.4: Globale Variablen für Rechnungs-Positionen
+        let invoicePositions = [];
+        let invoiceRideData = null;
+        let invoiceCustomerData = null;
+        
         async function openInvoiceModal(rideId) {
             console.log('📄 Öffne Rechnungsmodal für:', rideId);
             
@@ -21471,12 +21478,22 @@
                     customer = customerSnapshot.val();
                 }
                 
-                // Bestimme MwSt basierend auf Distanz
+                // 🆕 v5.52.4: Speichere Daten global
+                invoiceRideData = ride;
+                invoiceCustomerData = customer;
+                
+                // 🆕 v5.52.4: Initialisiere Positionen mit Hauptfahrt
                 const distance = parseFloat(ride.distance) || 0;
                 const vatRate = distance < 50 ? 7 : 19;
-                const netPrice = parseFloat(ride.price) || 0;
-                const vatAmount = netPrice * (vatRate / 100);
-                const grossPrice = netPrice + vatAmount;
+                const grossPrice = parseFloat(ride.price) || 0;
+                
+                invoicePositions = [
+                    {
+                        id: 1,
+                        description: 'Taxifahrt',
+                        amount: grossPrice
+                    }
+                ];
                 
                 // Erstelle Modal
                 const modal = document.createElement('div');
@@ -21484,8 +21501,8 @@
                 modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
                 
                 modal.innerHTML = `
-                    <div style="background:white;border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;">
-                        <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                    <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;">
+                        <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:10;">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
                                 <h3 style="margin:0;font-size:20px;">📄 Rechnung erstellen</h3>
                                 <button onclick="closeInvoiceModal()" 
@@ -21510,44 +21527,54 @@
                                 <div style="margin-bottom:5px;"><strong>Uhrzeit:</strong> ${new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}</div>
                                 <div style="margin-bottom:5px;"><strong>Von:</strong> ${ride.pickup || 'Unbekannt'}</div>
                                 <div style="margin-bottom:5px;"><strong>Nach:</strong> ${ride.destination || 'Unbekannt'}</div>
-                                <div style="margin-bottom:5px;"><strong>Distanz:</strong> ${distance.toFixed(1)} km ${distance < 50 ? '(7% MwSt.)' : '(19% MwSt.)'}</div>
+                                
+                                <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Distanz (km):</label>
+                                        <input type="number" id="invoice-distance" value="${distance.toFixed(1)}" step="0.1" min="0"
+                                               onchange="updateInvoiceDistanceAndVat()"
+                                               style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">MwSt:</label>
+                                        <select id="invoice-vat-rate" onchange="updateInvoiceCalculation()"
+                                                style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
+                                            <option value="7" ${vatRate === 7 ? 'selected' : ''}>7% (ermäßigt)</option>
+                                            <option value="19" ${vatRate === 19 ? 'selected' : ''}>19% (normal)</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                             
-                            <!-- PREIS -->
+                            <!-- POSITIONEN -->
                             <div style="background:#f0fdf4;border:2px solid #10b981;padding:15px;border-radius:10px;margin-bottom:20px;">
-                                <div style="font-weight:700;margin-bottom:15px;color:#047857;">💰 Abrechnung</div>
+                                <div style="font-weight:700;margin-bottom:15px;color:#047857;">💰 Positionen (Brutto-Beträge)</div>
                                 
-                                <div style="margin-bottom:10px;">
-                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Netto-Preis (editierbar):</label>
-                                    <input type="number" id="invoice-net-price" value="${netPrice.toFixed(2)}" step="0.01" min="0"
-                                           onchange="updateInvoiceCalculation()"
-                                           style="width:100%;padding:10px;border:2px solid #10b981;border-radius:8px;font-size:16px;font-weight:600;">
-                                </div>
+                                <div id="invoice-positions-container"></div>
                                 
-                                <div style="margin-bottom:10px;">
-                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Zusatzinfo (optional):</label>
-                                    <input type="text" id="invoice-note" placeholder="z.B. Rollstuhl-Zuschlag +3€"
-                                           style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
-                                </div>
+                                <button onclick="addInvoicePosition()" 
+                                        style="width:100%;padding:10px;margin-top:10px;background:#10b981;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s;"
+                                        onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    + Position hinzufügen
+                                </button>
                                 
+                                <!-- BERECHNUNG -->
                                 <div style="border-top:2px solid #10b981;padding-top:15px;margin-top:15px;">
                                     <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
-                                        <span>Netto:</span>
-                                        <span id="invoice-net-display">${netPrice.toFixed(2)}€</span>
+                                        <span>Gesamt (brutto):</span>
+                                        <span id="invoice-gross-total" style="font-weight:600;">0.00€</span>
                                     </div>
-                                    <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
-                                        <span>+ MwSt (${vatRate}%):</span>
-                                        <span id="invoice-vat-display">${vatAmount.toFixed(2)}€</span>
+                                    <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;color:#6b7280;">
+                                        <span>davon Netto:</span>
+                                        <span id="invoice-net-display">0.00€</span>
                                     </div>
-                                    <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;color:#047857;">
-                                        <span>Gesamt:</span>
-                                        <span id="invoice-gross-display">${grossPrice.toFixed(2)}€</span>
+                                    <div style="display:flex;justify-content:space-between;font-size:14px;color:#6b7280;">
+                                        <span>davon MwSt (<span id="invoice-vat-rate-display">7</span>%):</span>
+                                        <span id="invoice-vat-display">0.00€</span>
                                     </div>
                                 </div>
                                 
-                                <input type="hidden" id="invoice-vat-rate" value="${vatRate}">
                                 <input type="hidden" id="invoice-ride-id" value="${rideId}">
-                                <input type="hidden" id="invoice-distance" value="${distance}">
                             </div>
                             
                             <!-- BUTTONS -->
@@ -21567,6 +21594,10 @@
                 
                 document.body.appendChild(modal);
                 
+                // Rendere Positionen initial
+                renderInvoicePositions();
+                updateInvoiceCalculation();
+                
             } catch (error) {
                 console.error('❌ Fehler beim Öffnen des Rechnungsmodals:', error);
                 alert('❌ Fehler: ' + error.message);
@@ -21576,46 +21607,121 @@
         function closeInvoiceModal() {
             const modal = document.getElementById('invoice-modal');
             if (modal) modal.remove();
+            invoicePositions = [];
+            invoiceRideData = null;
+            invoiceCustomerData = null;
         }
         
+        // 🆕 v5.52.4: Rendere Positionen-Liste
+        function renderInvoicePositions() {
+            const container = document.getElementById('invoice-positions-container');
+            if (!container) return;
+            
+            container.innerHTML = invoicePositions.map((pos, index) => `
+                <div style="display:grid;grid-template-columns:1fr 120px 40px;gap:10px;margin-bottom:10px;align-items:center;">
+                    <input type="text" 
+                           value="${pos.description}" 
+                           onchange="updateInvoicePositionDescription(${index}, this.value)"
+                           placeholder="Beschreibung"
+                           style="padding:8px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                    <input type="number" 
+                           value="${pos.amount.toFixed(2)}" 
+                           onchange="updateInvoicePositionAmount(${index}, this.value)"
+                           step="0.01" 
+                           min="0"
+                           placeholder="Betrag"
+                           style="padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
+                    ${index > 0 ? `
+                        <button onclick="removeInvoicePosition(${index})" 
+                                style="padding:8px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-size:16px;">
+                            🗑️
+                        </button>
+                    ` : `<div></div>`}
+                </div>
+            `).join('');
+            
+            updateInvoiceCalculation();
+        }
+        
+        // 🆕 v5.52.4: Position hinzufügen
+        function addInvoicePosition() {
+            const nextId = Math.max(...invoicePositions.map(p => p.id), 0) + 1;
+            invoicePositions.push({
+                id: nextId,
+                description: '',
+                amount: 0
+            });
+            renderInvoicePositions();
+        }
+        
+        // 🆕 v5.52.4: Position entfernen
+        function removeInvoicePosition(index) {
+            invoicePositions.splice(index, 1);
+            renderInvoicePositions();
+        }
+        
+        // 🆕 v5.52.4: Position-Betrag ändern
+        function updateInvoicePositionAmount(index, value) {
+            invoicePositions[index].amount = parseFloat(value) || 0;
+            updateInvoiceCalculation();
+        }
+        
+        // 🆕 v5.52.4: Position-Beschreibung ändern
+        function updateInvoicePositionDescription(index, value) {
+            invoicePositions[index].description = value;
+        }
+        
+        // 🆕 v5.52.4: Distanz ändern → Auto-MwSt
+        function updateInvoiceDistanceAndVat() {
+            const distance = parseFloat(document.getElementById('invoice-distance').value) || 0;
+            const vatSelect = document.getElementById('invoice-vat-rate');
+            
+            // Auto-MwSt basierend auf Distanz
+            if (distance < 50) {
+                vatSelect.value = '7';
+            } else {
+                vatSelect.value = '19';
+            }
+            
+            updateInvoiceCalculation();
+        }
+        
+        // 🆕 v5.52.4: NEUE Berechnung - Brutto → Netto + MwSt
         function updateInvoiceCalculation() {
-            const netPrice = parseFloat(document.getElementById('invoice-net-price').value) || 0;
             const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 0;
             
-            const vatAmount = netPrice * (vatRate / 100);
-            const grossPrice = netPrice + vatAmount;
+            // Summiere alle Positionen (BRUTTO!)
+            const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
             
+            // Rechne RÜCKWÄRTS: Brutto → Netto + MwSt
+            const netPrice = totalGross / (1 + (vatRate / 100));
+            const vatAmount = totalGross - netPrice;
+            
+            // Update Display
+            document.getElementById('invoice-gross-total').textContent = totalGross.toFixed(2) + '€';
             document.getElementById('invoice-net-display').textContent = netPrice.toFixed(2) + '€';
             document.getElementById('invoice-vat-display').textContent = vatAmount.toFixed(2) + '€';
-            document.getElementById('invoice-gross-display').textContent = grossPrice.toFixed(2) + '€';
+            document.getElementById('invoice-vat-rate-display').textContent = vatRate;
         }
         
         async function generateInvoicePDF() {
             try {
-                // Hole Werte aus Modal
+                // 🆕 v5.52.4: Hole Werte aus neuem System
                 const rideId = document.getElementById('invoice-ride-id').value;
-                const netPrice = parseFloat(document.getElementById('invoice-net-price').value) || 0;
                 const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 0;
-                const note = document.getElementById('invoice-note').value.trim();
                 const distance = parseFloat(document.getElementById('invoice-distance').value) || 0;
                 
-                const vatAmount = netPrice * (vatRate / 100);
-                const grossPrice = netPrice + vatAmount;
+                // Berechne aus Positionen
+                const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
+                const netPrice = totalGross / (1 + (vatRate / 100));
+                const vatAmount = totalGross - netPrice;
                 
-                // Lade Fahrt
-                const snapshot = await db.ref(`rides/${rideId}`).once('value');
-                const ride = snapshot.val();
+                const ride = invoiceRideData;
+                const customer = invoiceCustomerData;
                 
                 if (!ride) {
                     alert('❌ Fahrt nicht gefunden!');
                     return;
-                }
-                
-                // Lade Kunde
-                let customer = null;
-                if (ride.customerId) {
-                    const customerSnapshot = await db.ref(`customers/${ride.customerId}`).once('value');
-                    customer = customerSnapshot.val();
                 }
                 
                 // Hole nächste Rechnungsnummer
@@ -21685,15 +21791,7 @@
                 yPos += 5;
                 doc.text(`Distanz: ${distance.toFixed(1)} km`, 20, yPos);
                 
-                // ZUSATZINFO
-                if (note) {
-                    yPos += 5;
-                    doc.setTextColor(100);
-                    doc.text(`Hinweis: ${note}`, 20, yPos);
-                    doc.setTextColor(0);
-                }
-                
-                // ABRECHNUNG
+                // 🆕 v5.52.4: POSITIONEN-TABELLE
                 yPos += 15;
                 doc.setDrawColor(200);
                 doc.line(20, yPos, 190, yPos);
@@ -21709,11 +21807,24 @@
                 
                 yPos += 6;
                 doc.setFont(undefined, 'normal');
-                doc.text('1', 20, yPos);
-                doc.text('Taxifahrt', 40, yPos);
-                doc.text(`${netPrice.toFixed(2)}€`, 160, yPos, { align: 'right' });
                 
-                yPos += 10;
+                // Alle Positionen ausgeben
+                invoicePositions.forEach((pos, index) => {
+                    if (yPos > 250) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.text(`${index + 1}`, 20, yPos);
+                    const desc = pos.description || 'Position';
+                    const descLines = doc.splitTextToSize(desc, 115);
+                    doc.text(descLines, 40, yPos);
+                    doc.text(`${pos.amount.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    
+                    yPos += Math.max(6, descLines.length * 5);
+                });
+                
+                yPos += 4;
                 doc.line(20, yPos, 190, yPos);
                 
                 yPos += 6;
@@ -21732,13 +21843,19 @@
                 doc.setFont(undefined, 'bold');
                 doc.setFontSize(12);
                 doc.text('Gesamtbetrag:', 100, yPos);
-                doc.text(`${grossPrice.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                doc.text(`${totalGross.toFixed(2)}€`, 160, yPos, { align: 'right' });
                 
                 // FOOTER - Bankdaten
                 yPos += 20;
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'normal');
                 doc.setTextColor(80);
+                
+                // Wenn zu nah am Ende → neue Seite
+                if (yPos > 240) {
+                    doc.addPage();
+                    yPos = 20;
+                }
                 
                 doc.text('Bankverbindung:', 20, yPos);
                 yPos += 4;
@@ -21753,18 +21870,18 @@
                 yPos += 4;
                 doc.text('IK: 601318664', 20, yPos);
                 
-                // Speichere in Firebase
+                // 🆕 v5.52.4: Speichere in Firebase mit Positionen
                 const invoiceData = {
                     invoiceNumber: invoiceNumber,
                     rideId: rideId,
                     customerName: ride.customerName || customer?.name || 'Unbekannt',
                     customerId: ride.customerId || null,
                     date: Date.now(),
+                    positions: invoicePositions,
+                    totalGross: totalGross,
                     netPrice: netPrice,
                     vatRate: vatRate,
                     vatAmount: vatAmount,
-                    grossPrice: grossPrice,
-                    note: note,
                     pickup: ride.pickup,
                     destination: ride.destination,
                     distance: distance

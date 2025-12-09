@@ -78,17 +78,18 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.52.1 - FAHRZEUGE + RECHNUNGSADRESSE! (Build 20251209-1500)');
+        console.log('🚕 Funk Taxi App v5.52.2 - RECHNUNG-SYSTEM! (Build 20251209-1600)');
+        console.log('📄 v5.52.2: RECHNUNGSSYSTEM + FAHRZEUG-NAMEN!');
+        console.log('   ✅ Fahrzeuge im Kalender: Name + Kennzeichen statt ID!');
+        console.log('   ✅ Kalender aktualisiert sofort nach Zuweisung!');
+        console.log('   ✅ Rechnung-Button bei jeder Fahrt!');
+        console.log('   ✅ PDF-Rechnung mit automatischer Nr!');
+        console.log('   ✅ MwSt: 7% (<50km) / 19% (≥50km)!');
+        console.log('   ✅ Preis editierbar vor Rechnung!');
         console.log('🚗 v5.52.1: ALLE FAHRZEUGE + RECHNUNGSADRESSE IM CRM!');
-        console.log('   ✅ Zeigt ALLE Fahrzeuge aus Verwaltung!');
-        console.log('   ✅ Mit Name + Kennzeichen: "Tesla Model Y (PW-MY 222 E)"!');
-        console.log('   ✅ 🟢 ONLINE / ⚪ OFFLINE Status!');
-        console.log('   ✅ Auch offline Fahrzeuge zuweisbar!');
-        console.log('   ✅ CRM: Rechnungsadresse mit Checkbox "Wie Wohnanschrift"!');
         console.log('🎯 v5.52.0: PANEL VERSCHIEBEN + GRÖßE ÄNDERN!');
-        console.log('📅 v5.51.0: WOCHENTAG-ANZEIGE + DYNAMISCHER BUTTON!');
         console.log('');
-        console.log('✅ JETZT: Alle Fahrzeuge + Rechnungsadresse!');
+        console.log('✅ JETZT: Rechnungen erstellen!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -567,7 +568,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.1 - FAHRZEUGE + RECHNUNGSADRESSE (Build 20251209-1500)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.2 - RECHNUNGS-SYSTEM (Build 20251209-1600)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -21424,6 +21425,368 @@
             }
         }
         
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.52.2: RECHNUNGS-SYSTEM
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        async function openInvoiceModal(rideId) {
+            console.log('📄 Öffne Rechnungsmodal für:', rideId);
+            
+            try {
+                // Lade Fahrt
+                const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Lade Kunde (falls customerId vorhanden)
+                let customer = null;
+                if (ride.customerId) {
+                    const customerSnapshot = await db.ref(`customers/${ride.customerId}`).once('value');
+                    customer = customerSnapshot.val();
+                }
+                
+                // Bestimme MwSt basierend auf Distanz
+                const distance = parseFloat(ride.distance) || 0;
+                const vatRate = distance < 50 ? 7 : 19;
+                const netPrice = parseFloat(ride.price) || 0;
+                const vatAmount = netPrice * (vatRate / 100);
+                const grossPrice = netPrice + vatAmount;
+                
+                // Erstelle Modal
+                const modal = document.createElement('div');
+                modal.id = 'invoice-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+                
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;">
+                        <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <h3 style="margin:0;font-size:20px;">📄 Rechnung erstellen</h3>
+                                <button onclick="closeInvoiceModal()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+                            </div>
+                        </div>
+                        
+                        <div style="padding:20px;">
+                            <!-- KUNDE -->
+                            <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">👤 Kunde</div>
+                                <div style="margin-bottom:5px;"><strong>Name:</strong> ${ride.customerName || customer?.name || 'Unbekannt'}</div>
+                                ${customer?.email ? `<div style="margin-bottom:5px;"><strong>Email:</strong> ${customer.email}</div>` : ''}
+                                ${customer?.billingAddress ? `<div style="margin-bottom:5px;"><strong>Rechnungsadresse:</strong><br>${customer.billingAddress}</div>` : 
+                                  customer?.address ? `<div style="margin-bottom:5px;"><strong>Adresse:</strong><br>${customer.address}</div>` : ''}
+                            </div>
+                            
+                            <!-- FAHRT -->
+                            <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">🚕 Fahrtdetails</div>
+                                <div style="margin-bottom:5px;"><strong>Datum:</strong> ${new Date(ride.pickupTimestamp || ride.createdAt).toLocaleDateString('de-DE')}</div>
+                                <div style="margin-bottom:5px;"><strong>Uhrzeit:</strong> ${new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}</div>
+                                <div style="margin-bottom:5px;"><strong>Von:</strong> ${ride.pickup || 'Unbekannt'}</div>
+                                <div style="margin-bottom:5px;"><strong>Nach:</strong> ${ride.destination || 'Unbekannt'}</div>
+                                <div style="margin-bottom:5px;"><strong>Distanz:</strong> ${distance.toFixed(1)} km ${distance < 50 ? '(7% MwSt.)' : '(19% MwSt.)'}</div>
+                            </div>
+                            
+                            <!-- PREIS -->
+                            <div style="background:#f0fdf4;border:2px solid #10b981;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#047857;">💰 Abrechnung</div>
+                                
+                                <div style="margin-bottom:10px;">
+                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Netto-Preis (editierbar):</label>
+                                    <input type="number" id="invoice-net-price" value="${netPrice.toFixed(2)}" step="0.01" min="0"
+                                           onchange="updateInvoiceCalculation()"
+                                           style="width:100%;padding:10px;border:2px solid #10b981;border-radius:8px;font-size:16px;font-weight:600;">
+                                </div>
+                                
+                                <div style="margin-bottom:10px;">
+                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Zusatzinfo (optional):</label>
+                                    <input type="text" id="invoice-note" placeholder="z.B. Rollstuhl-Zuschlag +3€"
+                                           style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                                </div>
+                                
+                                <div style="border-top:2px solid #10b981;padding-top:15px;margin-top:15px;">
+                                    <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+                                        <span>Netto:</span>
+                                        <span id="invoice-net-display">${netPrice.toFixed(2)}€</span>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
+                                        <span>+ MwSt (${vatRate}%):</span>
+                                        <span id="invoice-vat-display">${vatAmount.toFixed(2)}€</span>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;color:#047857;">
+                                        <span>Gesamt:</span>
+                                        <span id="invoice-gross-display">${grossPrice.toFixed(2)}€</span>
+                                    </div>
+                                </div>
+                                
+                                <input type="hidden" id="invoice-vat-rate" value="${vatRate}">
+                                <input type="hidden" id="invoice-ride-id" value="${rideId}">
+                                <input type="hidden" id="invoice-distance" value="${distance}">
+                            </div>
+                            
+                            <!-- BUTTONS -->
+                            <div style="display:flex;gap:10px;">
+                                <button onclick="generateInvoicePDF()" 
+                                        style="flex:1;padding:15px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;">
+                                    📥 PDF herunterladen
+                                </button>
+                                <button onclick="closeInvoiceModal()" 
+                                        style="flex:0.3;padding:15px;background:#6b7280;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;">
+                                    Abbrechen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Öffnen des Rechnungsmodals:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        function closeInvoiceModal() {
+            const modal = document.getElementById('invoice-modal');
+            if (modal) modal.remove();
+        }
+        
+        function updateInvoiceCalculation() {
+            const netPrice = parseFloat(document.getElementById('invoice-net-price').value) || 0;
+            const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 0;
+            
+            const vatAmount = netPrice * (vatRate / 100);
+            const grossPrice = netPrice + vatAmount;
+            
+            document.getElementById('invoice-net-display').textContent = netPrice.toFixed(2) + '€';
+            document.getElementById('invoice-vat-display').textContent = vatAmount.toFixed(2) + '€';
+            document.getElementById('invoice-gross-display').textContent = grossPrice.toFixed(2) + '€';
+        }
+        
+        async function generateInvoicePDF() {
+            try {
+                // Hole Werte aus Modal
+                const rideId = document.getElementById('invoice-ride-id').value;
+                const netPrice = parseFloat(document.getElementById('invoice-net-price').value) || 0;
+                const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 0;
+                const note = document.getElementById('invoice-note').value.trim();
+                const distance = parseFloat(document.getElementById('invoice-distance').value) || 0;
+                
+                const vatAmount = netPrice * (vatRate / 100);
+                const grossPrice = netPrice + vatAmount;
+                
+                // Lade Fahrt
+                const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Lade Kunde
+                let customer = null;
+                if (ride.customerId) {
+                    const customerSnapshot = await db.ref(`customers/${ride.customerId}`).once('value');
+                    customer = customerSnapshot.val();
+                }
+                
+                // Hole nächste Rechnungsnummer
+                const invoiceNumber = await getNextInvoiceNumber();
+                
+                console.log('📄 Erstelle PDF:', invoiceNumber);
+                
+                // Erstelle PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // HEADER - Firmendaten
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text('Taxiunternehmen Patrick Wydra', 20, 20);
+                doc.text('Amselring 10', 20, 25);
+                doc.text('17424 Ostseebad Heringsdorf', 20, 30);
+                doc.text('Tel.: 038378/22022', 20, 35);
+                
+                // TITEL
+                doc.setFontSize(20);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text('Rechnung', 20, 50);
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
+                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 63);
+                
+                // KUNDE
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.text('Kunde:', 20, 80);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(10);
+                
+                let yPos = 86;
+                doc.text(ride.customerName || customer?.name || 'Unbekannt', 20, yPos);
+                
+                if (customer?.billingAddress) {
+                    yPos += 5;
+                    const addressLines = doc.splitTextToSize(customer.billingAddress, 80);
+                    doc.text(addressLines, 20, yPos);
+                    yPos += addressLines.length * 5;
+                } else if (customer?.address) {
+                    yPos += 5;
+                    const addressLines = doc.splitTextToSize(customer.address, 80);
+                    doc.text(addressLines, 20, yPos);
+                    yPos += addressLines.length * 5;
+                }
+                
+                // FAHRTDETAILS
+                yPos += 10;
+                doc.setFont(undefined, 'bold');
+                doc.text('Fahrtdetails:', 20, yPos);
+                doc.setFont(undefined, 'normal');
+                
+                yPos += 6;
+                doc.text(`Datum: ${new Date(ride.pickupTimestamp || ride.createdAt).toLocaleDateString('de-DE')}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Uhrzeit: ${new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Von: ${ride.pickup || 'Unbekannt'}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Nach: ${ride.destination || 'Unbekannt'}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Distanz: ${distance.toFixed(1)} km`, 20, yPos);
+                
+                // ZUSATZINFO
+                if (note) {
+                    yPos += 5;
+                    doc.setTextColor(100);
+                    doc.text(`Hinweis: ${note}`, 20, yPos);
+                    doc.setTextColor(0);
+                }
+                
+                // ABRECHNUNG
+                yPos += 15;
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 8;
+                doc.setFont(undefined, 'bold');
+                doc.text('Pos.', 20, yPos);
+                doc.text('Beschreibung', 40, yPos);
+                doc.text('Betrag', 160, yPos, { align: 'right' });
+                
+                yPos += 2;
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 6;
+                doc.setFont(undefined, 'normal');
+                doc.text('1', 20, yPos);
+                doc.text('Taxifahrt', 40, yPos);
+                doc.text(`${netPrice.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                
+                yPos += 10;
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 6;
+                doc.text('Zwischensumme (netto):', 100, yPos);
+                doc.text(`${netPrice.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                
+                yPos += 6;
+                doc.text(`Umsatzsteuer ${vatRate}%:`, 100, yPos);
+                doc.text(`${vatAmount.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                
+                yPos += 2;
+                doc.setDrawColor(0);
+                doc.line(100, yPos, 190, yPos);
+                
+                yPos += 6;
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.text('Gesamtbetrag:', 100, yPos);
+                doc.text(`${grossPrice.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                
+                // FOOTER - Bankdaten
+                yPos += 20;
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(80);
+                
+                doc.text('Bankverbindung:', 20, yPos);
+                yPos += 4;
+                doc.text('Volksbank Vorpommern', 20, yPos);
+                yPos += 4;
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos);
+                yPos += 4;
+                doc.text('BIC: GENODEF1HST', 20, yPos);
+                
+                yPos += 8;
+                doc.text('Steuernummer: 084 289/01178', 20, yPos);
+                yPos += 4;
+                doc.text('IK: 601318664', 20, yPos);
+                
+                // Speichere in Firebase
+                const invoiceData = {
+                    invoiceNumber: invoiceNumber,
+                    rideId: rideId,
+                    customerName: ride.customerName || customer?.name || 'Unbekannt',
+                    customerId: ride.customerId || null,
+                    date: Date.now(),
+                    netPrice: netPrice,
+                    vatRate: vatRate,
+                    vatAmount: vatAmount,
+                    grossPrice: grossPrice,
+                    note: note,
+                    pickup: ride.pickup,
+                    destination: ride.destination,
+                    distance: distance
+                };
+                
+                await db.ref(`invoices/${invoiceNumber}`).set(invoiceData);
+                console.log('✅ Rechnung in Firebase gespeichert:', invoiceNumber);
+                
+                // PDF herunterladen
+                doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                
+                alert(`✅ Rechnung ${invoiceNumber} erstellt und heruntergeladen!`);
+                
+                closeInvoiceModal();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der Rechnung:', error);
+                alert('❌ Fehler beim Erstellen der Rechnung: ' + error.message);
+            }
+        }
+        
+        async function getNextInvoiceNumber() {
+            try {
+                // Lade letzte Rechnungsnummer
+                const snapshot = await db.ref('invoiceCounter').once('value');
+                let counter = snapshot.val() || 0;
+                
+                counter++;
+                
+                // Speichere neue Nummer
+                await db.ref('invoiceCounter').set(counter);
+                
+                // Format: RE1323, RE1324, etc.
+                return `RE${counter}`;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Abrufen der Rechnungsnummer:', error);
+                // Fallback: Zeitstempel
+                return `RE${Date.now()}`;
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        
         // 🆕 Helper: Format für datetime-local Input
         function formatForDatetimeLocal(date) {
             const year = date.getFullYear();
@@ -25274,11 +25637,23 @@ Stack: ${err.stack}
             console.log('📅 Rendere Kalender:', currentCalendarView, currentCalendarDate);
             
             let allRides = [];
+            let allVehicles = []; // 🆕 v5.52.2: Für Fahrzeug-Namen!
             
             // 🔥 v5.41.0: Admin-Kalender zeigt NUR Firebase!
             // KEIN localStorage-Merge für Admin!
             if (isFirebaseReady && currentUser) {
                 try {
+                    // 🆕 v5.52.2: Lade Fahrzeuge für Name+Kennzeichen
+                    const vehiclesSnapshot = await db.ref('vehicles').once('value');
+                    if (vehiclesSnapshot.exists()) {
+                        vehiclesSnapshot.forEach(child => {
+                            const v = child.val();
+                            v.id = child.key;
+                            allVehicles.push(v);
+                        });
+                        console.log('🚗 Fahrzeuge für Kalender geladen:', allVehicles.length);
+                    }
+                    
                     // Für Admin: Lade ALLE Fahrten aus Firebase (einzige Quelle der Wahrheit!)
                     const snapshot = await db.ref('rides').once('value');
                     if (snapshot.exists()) {
@@ -25310,6 +25685,9 @@ Stack: ${err.stack}
                     console.error('❌ Fehler beim Laden der Firebase-Fahrten:', e);
                 }
             }
+            
+            // 🆕 v5.52.2: Mache allVehicles verfügbar für render-Funktionen
+            window.calendarVehicles = allVehicles;
             
             if (currentCalendarView === 'month') {
                 renderMonthView(allRides);
@@ -25766,18 +26144,26 @@ Stack: ${err.stack}
                             </div>
                             
                             ${(() => {
-                                // 🆕 v5.32.5: FAHRZEUG-ZUWEISUNG
+                                // 🆕 v5.52.2: FAHRZEUG MIT NAME + KENNZEICHEN!
                                 let vehicleHtml = '';
                                 
                                 if (ride.vehicleId || ride.assignedVehicle) {
                                     // Fahrzeug ist zugewiesen
                                     const vehicleId = ride.vehicleId || ride.assignedVehicle;
+                                    
+                                    // 🆕 v5.52.2: Lade Fahrzeug-Details aus vehicles
+                                    let vehicleDisplay = vehicleId;
+                                    const vehicle = (window.calendarVehicles || []).find(v => v.id === vehicleId);
+                                    if (vehicle) {
+                                        vehicleDisplay = `${vehicle.name || vehicleId}${vehicle.plate ? ` (${vehicle.plate})` : ''}`;
+                                    }
+                                    
                                     vehicleHtml = `
                                         <div style="margin-top: 10px; padding: 8px 12px; background: #d1fae5; border: 2px solid #10b981; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
                                             <div style="display: flex; align-items: center; gap: 8px;">
                                                 <div style="font-size: 18px;">🚗</div>
                                                 <div>
-                                                    <div style="font-weight: 600; font-size: 13px; color: #047857;">Fahrzeug: ${vehicleId}</div>
+                                                    <div style="font-weight: 600; font-size: 13px; color: #047857;">${vehicleDisplay}</div>
                                                     ${ride.driverName ? `<div style="font-size: 11px; color: #059669;">👤 ${ride.driverName}</div>` : ''}
                                                 </div>
                                             </div>
@@ -25802,12 +26188,17 @@ Stack: ${err.stack}
                                 return vehicleHtml;
                             })()}
                             
-                            <!-- 🆕 BEARBEITEN/KOPIEREN/LÖSCHEN Buttons -->
-                            <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                            <!-- 🆕 BEARBEITEN/RECHNUNG/KOPIEREN/LÖSCHEN Buttons -->
+                            <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #e5e7eb; flex-wrap: wrap;">
                                 <button onclick="event.stopPropagation(); editRideFromCalendar('${ride.firebaseId || ride.id}')" 
                                         style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
                                         onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
                                     ✏️ Bearbeiten
+                                </button>
+                                <button onclick="event.stopPropagation(); openInvoiceModal('${ride.firebaseId || ride.id}')" 
+                                        style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                        onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    📄 Rechnung
                                 </button>
                                 <button onclick="event.stopPropagation(); copyRideFromCalendar('${ride.firebaseId || ride.id}')" 
                                         style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
@@ -26415,6 +26806,12 @@ Stack: ${err.stack}
                 if (typeof updateAdminTabsVisibility === 'function') {
                     updateAdminTabsVisibility();
                     console.log('✅ Admin-Tabs nach Zuweisen aktualisiert!');
+                }
+                
+                // 🆕 v5.52.2: KALENDER SOFORT NEU LADEN!
+                if (typeof renderCalendar === 'function') {
+                    await renderCalendar();
+                    console.log('✅ Kalender nach Zuweisen neu geladen!');
                 }
                 
                 alert(`✅ Fahrzeug ${vehicleId} erfolgreich zugewiesen!`);

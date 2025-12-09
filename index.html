@@ -78,16 +78,17 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.52.5 - MEHRFACH-ADRESSEN! (Build 20251209-1730)');
+        console.log('🚕 Funk Taxi App v5.52.6 - NOSHOW-RECHNUNG! (Build 20251209-1800)');
+        console.log('📝 v5.52.6: NOSHOW-RECHNUNG SYSTEM!');
+        console.log('   ✅ NoShow-Button im Kalender!');
+        console.log('   ✅ Kostenaufstellung editierbar!');
+        console.log('   ✅ PDF mit rechtlicher Grundlage!');
+        console.log('   ✅ §§ 642, 643 BGB + AG Siegen!');
+        console.log('   ✅ Separate Nummerierung (NS1, NS2...)!');
         console.log('📬 v5.52.5: MEHRFACH-RECHNUNGSADRESSEN!');
-        console.log('   ✅ Mehrere Rechnungsadressen pro Kunde!');
-        console.log('   ✅ Labels (Privat, Firma, Büro, etc.)!');
-        console.log('   ✅ Standard-Markierung!');
-        console.log('   ✅ Dropdown bei Rechnung → Auswahl!');
-        console.log('📄 v5.52.4: RECHNUNGS-SYSTEM ERWEITERT!');
-        console.log('🗺️ v5.52.3: FESTLAND-ZIELE (Greifswald!)!');
+        console.log('📄 v5.52.4: RECHNUNGS-FLEX!');
         console.log('');
-        console.log('✅ JETZT: Flexible Rechnungsadressen!');
+        console.log('✅ JETZT: NoShow abrechnen!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -566,7 +567,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.5 - MEHRFACH-ADRESSEN (Build 20251209-1730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.6 - NOSHOW-RECHNUNG (Build 20251209-1800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -21982,6 +21983,464 @@
         }
         
         // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.52.6: NOSHOW-RECHNUNG SYSTEM
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let noShowRideData = null;
+        let noShowCustomerData = null;
+        
+        async function openNoShowInvoiceModal(rideId) {
+            console.log('📝 Öffne NoShow-Rechnung für:', rideId);
+            
+            try {
+                // Lade Fahrt
+                const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Lade Kunde
+                let customer = null;
+                if (ride.customerId) {
+                    const customerSnapshot = await db.ref(`customers/${ride.customerId}`).once('value');
+                    customer = customerSnapshot.val();
+                }
+                
+                noShowRideData = ride;
+                noShowCustomerData = customer;
+                
+                // Berechne Standard-Werte
+                const distance = parseFloat(ride.distance) || 0;
+                const anfahrtKm = distance > 0 ? (distance / 2).toFixed(1) : '0.0'; // Halbe Strecke als Anfahrt
+                const grundgebuehr = 5.00;
+                const anfahrtEuro = distance > 0 ? ((distance / 2) * 2.50).toFixed(2) : '0.00'; // 2.50€ pro km
+                const wartezeitMin = 10;
+                const wartezeitEuro = (wartezeitMin * 0.50).toFixed(2); // 0.50€ pro Min
+                
+                const gesamt = (parseFloat(grundgebuehr) + parseFloat(anfahrtEuro) + parseFloat(wartezeitEuro)).toFixed(2);
+                
+                // Zahlungsziel: 14 Tage
+                const zahlungsziel = new Date();
+                zahlungsziel.setDate(zahlungsziel.getDate() + 14);
+                
+                const modal = document.createElement('div');
+                modal.id = 'noshow-invoice-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+                
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;">
+                        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:20px;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:10;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <h3 style="margin:0;font-size:20px;">📝 NoShow-Rechnung erstellen</h3>
+                                <button onclick="closeNoShowInvoiceModal()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+                            </div>
+                        </div>
+                        
+                        <div style="padding:20px;">
+                            <!-- KUNDE -->
+                            <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">👤 Kunde</div>
+                                <div style="margin-bottom:5px;"><strong>Name:</strong> ${ride.customerName || customer?.name || 'Unbekannt'}</div>
+                                ${customer?.email ? `<div style="margin-bottom:5px;"><strong>Email:</strong> ${customer.email}</div>` : ''}
+                                ${customer?.phone ? `<div style="margin-bottom:5px;"><strong>Telefon:</strong> ${customer.phone}</div>` : ''}
+                                
+                                ${(() => {
+                                    // Rechnungsadresse
+                                    if (customer?.billingAddresses && customer.billingAddresses.length > 0) {
+                                        const defaultAddr = customer.billingAddresses.find(a => a.isDefault) || customer.billingAddresses[0];
+                                        return `<div style="margin-top:8px;padding:8px;background:#fff;border-radius:6px;"><strong>Rechnungsadresse:</strong><br>${defaultAddr.address}</div>`;
+                                    } else if (customer?.billingAddress) {
+                                        return `<div style="margin-top:8px;padding:8px;background:#fff;border-radius:6px;"><strong>Rechnungsadresse:</strong><br>${customer.billingAddress}</div>`;
+                                    } else if (customer?.address) {
+                                        return `<div style="margin-top:8px;padding:8px;background:#fff;border-radius:6px;"><strong>Adresse:</strong><br>${customer.address}</div>`;
+                                    }
+                                    return '';
+                                })()}
+                            </div>
+                            
+                            <!-- BESTELLUNG -->
+                            <div style="background:#fef3c7;border:2px solid #f59e0b;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#92400e;">📅 Bestelldetails</div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Bestelldatum:</label>
+                                        <input type="date" id="noshow-order-date" value="${new Date(ride.createdAt || Date.now()).toISOString().split('T')[0]}"
+                                               style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Bestelluhrzeit:</label>
+                                        <input type="time" id="noshow-order-time" value="${new Date(ride.createdAt || Date.now()).toTimeString().slice(0,5)}"
+                                               style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:14px;">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Abholadresse:</label>
+                                    <input type="text" id="noshow-pickup-address" value="${ride.pickup || ''}"
+                                           style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:14px;">
+                                </div>
+                                
+                                <div style="margin-top:10px;">
+                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Geplante Abholzeit:</label>
+                                    <input type="time" id="noshow-pickup-time" value="${new Date(ride.pickupTimestamp || Date.now()).toTimeString().slice(0,5)}"
+                                           style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:14px;">
+                                </div>
+                            </div>
+                            
+                            <!-- KOSTENAUFSTELLUNG -->
+                            <div style="background:#fef2f2;border:2px solid #ef4444;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#991b1b;">💰 Kostenaufstellung</div>
+                                
+                                <div style="margin-bottom:10px;">
+                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Grundgebühr:</label>
+                                    <input type="number" id="noshow-grundgebuehr" value="${grundgebuehr}" step="0.01" min="0"
+                                           onchange="updateNoShowTotal()"
+                                           style="width:100%;padding:8px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-weight:600;">
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Anfahrt (km):</label>
+                                        <input type="number" id="noshow-anfahrt-km" value="${anfahrtKm}" step="0.1" min="0"
+                                               onchange="updateNoShowTotal()"
+                                               style="width:100%;padding:8px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-weight:600;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Anfahrt (€):</label>
+                                        <input type="number" id="noshow-anfahrt-euro" value="${anfahrtEuro}" step="0.01" min="0"
+                                               onchange="updateNoShowTotal()"
+                                               style="width:100%;padding:8px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-weight:600;">
+                                    </div>
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Wartezeit (Min):</label>
+                                        <input type="number" id="noshow-wartezeit-min" value="${wartezeitMin}" step="1" min="0"
+                                               onchange="updateNoShowTotal()"
+                                               style="width:100%;padding:8px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-weight:600;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Wartezeit (€):</label>
+                                        <input type="number" id="noshow-wartezeit-euro" value="${wartezeitEuro}" step="0.01" min="0"
+                                               onchange="updateNoShowTotal()"
+                                               style="width:100%;padding:8px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-weight:600;">
+                                    </div>
+                                </div>
+                                
+                                <div style="border-top:2px solid #ef4444;padding-top:15px;">
+                                    <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;color:#991b1b;">
+                                        <span>Gesamtbetrag:</span>
+                                        <span id="noshow-total">${gesamt}€</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ZAHLUNGSZIEL -->
+                            <div style="background:#f0fdf4;border:2px solid #10b981;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#047857;">📆 Zahlungsziel</div>
+                                <input type="date" id="noshow-payment-deadline" value="${zahlungsziel.toISOString().split('T')[0]}"
+                                       style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
+                                <div style="font-size:12px;color:#6b7280;margin-top:5px;">Standard: 14 Tage ab heute</div>
+                            </div>
+                            
+                            <!-- BUTTONS -->
+                            <div style="display:flex;gap:10px;">
+                                <button onclick="generateNoShowPDF()" 
+                                        style="flex:1;padding:15px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;">
+                                    📥 NoShow-PDF erstellen
+                                </button>
+                                <button onclick="closeNoShowInvoiceModal()" 
+                                        style="flex:0.3;padding:15px;background:#6b7280;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;">
+                                    Abbrechen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Öffnen NoShow-Modal:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        function closeNoShowInvoiceModal() {
+            const modal = document.getElementById('noshow-invoice-modal');
+            if (modal) modal.remove();
+            noShowRideData = null;
+            noShowCustomerData = null;
+        }
+        
+        function updateNoShowTotal() {
+            const grundgebuehr = parseFloat(document.getElementById('noshow-grundgebuehr').value) || 0;
+            const anfahrtEuro = parseFloat(document.getElementById('noshow-anfahrt-euro').value) || 0;
+            const wartezeitEuro = parseFloat(document.getElementById('noshow-wartezeit-euro').value) || 0;
+            
+            const total = grundgebuehr + anfahrtEuro + wartezeitEuro;
+            document.getElementById('noshow-total').textContent = total.toFixed(2) + '€';
+        }
+        
+        async function generateNoShowPDF() {
+            try {
+                // Hole Werte aus Modal
+                const orderDate = document.getElementById('noshow-order-date').value;
+                const orderTime = document.getElementById('noshow-order-time').value;
+                const pickupAddress = document.getElementById('noshow-pickup-address').value;
+                const pickupTime = document.getElementById('noshow-pickup-time').value;
+                
+                const grundgebuehr = parseFloat(document.getElementById('noshow-grundgebuehr').value) || 0;
+                const anfahrtKm = parseFloat(document.getElementById('noshow-anfahrt-km').value) || 0;
+                const anfahrtEuro = parseFloat(document.getElementById('noshow-anfahrt-euro').value) || 0;
+                const wartezeitMin = parseFloat(document.getElementById('noshow-wartezeit-min').value) || 0;
+                const wartezeitEuro = parseFloat(document.getElementById('noshow-wartezeit-euro').value) || 0;
+                const paymentDeadline = document.getElementById('noshow-payment-deadline').value;
+                
+                const gesamt = grundgebuehr + anfahrtEuro + wartezeitEuro;
+                
+                const ride = noShowRideData;
+                const customer = noShowCustomerData;
+                
+                // Hole Rechnungsnummer
+                const invoiceNumber = await getNextNoShowInvoiceNumber();
+                
+                console.log('📝 Erstelle NoShow-PDF:', invoiceNumber);
+                
+                // Erstelle PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // HEADER - Firmendaten
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.text('Funk Taxi Heringsdorf', 20, 20);
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text('Patrick Wydra', 20, 26);
+                doc.text('Amselring 10 • 17424 Ostseebad Heringsdorf', 20, 31);
+                doc.text('Tel: 038378 22022 • Mobil: 0151 27585179', 20, 36);
+                
+                // KUNDENADRESSE
+                let yPos = 50;
+                doc.setFont(undefined, 'bold');
+                doc.text(ride.customerName || customer?.name || 'Unbekannt', 20, yPos);
+                doc.setFont(undefined, 'normal');
+                
+                // Rechnungsadresse
+                let billingAddr = '';
+                if (customer?.billingAddresses && customer.billingAddresses.length > 0) {
+                    const defaultAddr = customer.billingAddresses.find(a => a.isDefault) || customer.billingAddresses[0];
+                    billingAddr = defaultAddr.address;
+                } else if (customer?.billingAddress) {
+                    billingAddr = customer.billingAddress;
+                } else if (customer?.address) {
+                    billingAddr = customer.address;
+                }
+                
+                if (billingAddr) {
+                    yPos += 5;
+                    const addrLines = doc.splitTextToSize(billingAddr, 80);
+                    doc.text(addrLines, 20, yPos);
+                    yPos += addrLines.length * 5;
+                }
+                
+                // RECHNUNGSNUMMER & DATUM
+                yPos += 10;
+                doc.setFont(undefined, 'bold');
+                doc.text(`Rechnungsnummer: ${invoiceNumber}`, 20, yPos);
+                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 120, yPos);
+                
+                // TITEL
+                yPos += 10;
+                doc.setFontSize(12);
+                doc.text('Rechnung -- Entschädigung wegen Nichterscheinen (No-Show)', 20, yPos);
+                
+                // ANREDE
+                yPos += 10;
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Sehr geehrte/r ${ride.customerName || customer?.name || 'Kunde'},`, 20, yPos);
+                
+                // TEXT
+                yPos += 8;
+                const orderDateFormatted = new Date(orderDate).toLocaleDateString('de-DE');
+                doc.text(`Sie haben am ${orderDateFormatted} um ${orderTime} Uhr ein Taxi zur Abholung an`, 20, yPos);
+                yPos += 5;
+                doc.text(`folgender Adresse bestellt:`, 20, yPos);
+                
+                yPos += 8;
+                doc.setFont(undefined, 'bold');
+                doc.text(pickupAddress, 30, yPos);
+                doc.setFont(undefined, 'normal');
+                
+                yPos += 8;
+                doc.text(`Unser Fahrzeug war pünktlich um ${pickupTime} Uhr vor Ort. Trotz telefonischer`, 20, yPos);
+                yPos += 5;
+                doc.text(`Kontaktversuche und einer Wartezeit von ${wartezeitMin} Minuten sind Sie nicht erschienen`, 20, yPos);
+                yPos += 5;
+                doc.text(`und haben die Fahrt nicht in Anspruch genommen.`, 20, yPos);
+                
+                // KOSTENAUFSTELLUNG
+                yPos += 12;
+                doc.setFont(undefined, 'bold');
+                doc.text('Kostenaufstellung:', 20, yPos);
+                
+                yPos += 2;
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 8;
+                doc.setFont(undefined, 'bold');
+                doc.text('Position', 20, yPos);
+                doc.text('Menge', 100, yPos);
+                doc.text('Betrag', 160, yPos, { align: 'right' });
+                
+                yPos += 2;
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 6;
+                doc.setFont(undefined, 'normal');
+                doc.text('Grundgebühr (gem. Taxitarif)', 20, yPos);
+                doc.text('1', 100, yPos);
+                doc.text(`${grundgebuehr.toFixed(2)} €`, 160, yPos, { align: 'right' });
+                
+                yPos += 6;
+                doc.text('Anfahrt zum Abholort', 20, yPos);
+                doc.text(`${anfahrtKm.toFixed(1)} km`, 100, yPos);
+                doc.text(`${anfahrtEuro.toFixed(2)} €`, 160, yPos, { align: 'right' });
+                
+                yPos += 6;
+                doc.text('Wartezeit vor Ort', 20, yPos);
+                doc.text(`${wartezeitMin} min`, 100, yPos);
+                doc.text(`${wartezeitEuro.toFixed(2)} €`, 160, yPos, { align: 'right' });
+                
+                yPos += 2;
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 6;
+                doc.setFont(undefined, 'bold');
+                doc.text('Gesamtbetrag', 100, yPos);
+                doc.text(`${gesamt.toFixed(2)} €`, 160, yPos, { align: 'right' });
+                
+                // RECHTLICHE GRUNDLAGE
+                yPos += 12;
+                doc.setFont(undefined, 'bold');
+                doc.text('Rechtliche Grundlage:', 20, yPos);
+                
+                yPos += 6;
+                doc.setFont(undefined, 'normal');
+                const legalText1 = doc.splitTextToSize(
+                    'Mit Ihrer Bestellung ist ein Beförderungsvertrag (Werkvertrag) zustande gekommen. Da Sie Ihrer Mitwirkungspflicht -- nämlich am vereinbarten Ort zur Abholung bereit zu stehen -- nicht nachgekommen sind, steht mir gemäß §§ 642, 643 BGB ein Entschädigungsanspruch zu.',
+                    170
+                );
+                doc.text(legalText1, 20, yPos);
+                yPos += legalText1.length * 5;
+                
+                yPos += 3;
+                const legalText2 = doc.splitTextToSize(
+                    'Dieser Anspruch umfasst die Vergütung für die bereits erbrachte Teilleistung (Anfahrt) sowie eine Entschädigung dafür, dass ich meine Arbeitskraft und mein Fahrzeug bereitgehalten habe und meine zeitliche Disposition durchkreuzt wurde (vgl. AG Siegen, Urteil vom 19.11.2001).',
+                    170
+                );
+                doc.text(legalText2, 20, yPos);
+                yPos += legalText2.length * 5;
+                
+                // ZAHLUNGSMODALITÄTEN
+                yPos += 8;
+                doc.setFont(undefined, 'bold');
+                doc.text('Zahlungsmodalitäten:', 20, yPos);
+                
+                yPos += 6;
+                doc.setFont(undefined, 'normal');
+                const paymentDeadlineFormatted = new Date(paymentDeadline).toLocaleDateString('de-DE');
+                doc.text(`Bitte überweisen Sie den Gesamtbetrag von ${gesamt.toFixed(2)} € bis zum ${paymentDeadlineFormatted}`, 20, yPos);
+                yPos += 5;
+                doc.text('auf folgendes Konto:', 20, yPos);
+                
+                yPos += 8;
+                doc.text('Kontoinhaber: Patrick Wydra', 30, yPos);
+                yPos += 5;
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 30, yPos);
+                yPos += 5;
+                doc.text('BIC: GENODEF1HST', 30, yPos);
+                yPos += 5;
+                doc.text(`Verwendungszweck: Rechnung ${invoiceNumber}`, 30, yPos);
+                
+                yPos += 8;
+                doc.text('Bei Nichtzahlung behalte ich mir vor, die Forderung gerichtlich geltend zu machen,', 20, yPos);
+                yPos += 5;
+                doc.text('was für Sie mit weiteren Kosten verbunden wäre.', 20, yPos);
+                
+                // GRUß
+                yPos += 10;
+                doc.text('Mit freundlichen Grüßen', 20, yPos);
+                yPos += 8;
+                doc.text('Patrick Wydra', 20, yPos);
+                yPos += 5;
+                doc.text('Funk Taxi Heringsdorf', 20, yPos);
+                
+                // Speichere in Firebase
+                const noShowData = {
+                    invoiceNumber: invoiceNumber,
+                    rideId: ride.id || ride.firebaseId,
+                    customerName: ride.customerName || customer?.name,
+                    customerId: ride.customerId || null,
+                    date: Date.now(),
+                    orderDate: orderDate,
+                    orderTime: orderTime,
+                    pickupAddress: pickupAddress,
+                    pickupTime: pickupTime,
+                    grundgebuehr: grundgebuehr,
+                    anfahrtKm: anfahrtKm,
+                    anfahrtEuro: anfahrtEuro,
+                    wartezeitMin: wartezeitMin,
+                    wartezeitEuro: wartezeitEuro,
+                    gesamt: gesamt,
+                    paymentDeadline: paymentDeadline
+                };
+                
+                await db.ref(`noShowInvoices/${invoiceNumber}`).set(noShowData);
+                console.log('✅ NoShow-Rechnung in Firebase gespeichert:', invoiceNumber);
+                
+                // PDF herunterladen
+                doc.save(`NoShow-Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                
+                alert(`✅ NoShow-Rechnung ${invoiceNumber} erstellt und heruntergeladen!`);
+                
+                closeNoShowInvoiceModal();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der NoShow-Rechnung:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        async function getNextNoShowInvoiceNumber() {
+            try {
+                const snapshot = await db.ref('noShowInvoiceCounter').once('value');
+                let counter = snapshot.val() || 0;
+                
+                counter++;
+                
+                await db.ref('noShowInvoiceCounter').set(counter);
+                
+                // Format: NS1, NS2, etc.
+                return `NS${counter}`;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Abrufen der NoShow-Rechnungsnummer:', error);
+                return `NS${Date.now()}`;
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
         
         // 🆕 Helper: Format für datetime-local Input
         function formatForDatetimeLocal(date) {
@@ -26665,6 +27124,11 @@ Stack: ${err.stack}
                                         style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
                                         onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
                                     📄 Rechnung
+                                </button>
+                                <button onclick="event.stopPropagation(); openNoShowInvoiceModal('${ride.firebaseId || ride.id}')" 
+                                        style="padding: 6px 12px; background: ${ride.status === 'abgesagt' || ride.status === 'nicht erschienen' ? '#f59e0b' : '#6b7280'}; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                        onmouseover="this.style.background='${ride.status === 'abgesagt' || ride.status === 'nicht erschienen' ? '#d97706' : '#4b5563'}'" onmouseout="this.style.background='${ride.status === 'abgesagt' || ride.status === 'nicht erschienen' ? '#f59e0b' : '#6b7280'}'">
+                                    📝 NoShow
                                 </button>
                                 <button onclick="event.stopPropagation(); copyRideFromCalendar('${ride.firebaseId || ride.id}')" 
                                         style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"

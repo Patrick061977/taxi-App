@@ -78,14 +78,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.51.0 - WOCHENTAG + BUTTON! (Build 20251209-1300)');
+        console.log('🚕 Funk Taxi App v5.52.0 - DRAGGABLE PANEL! (Build 20251209-1400)');
+        console.log('🎯 v5.52.0: PANEL VERSCHIEBEN + GRÖßE ÄNDERN!');
+        console.log('   ✅ Panel mit Header greifen & verschieben!');
+        console.log('   ✅ Größe ändern mit CSS resize!');
+        console.log('   ✅ Position & Größe werden gespeichert!');
+        console.log('   ✅ Wochentag-Anzeige auf Handy größer & deutlicher!');
         console.log('📅 v5.51.0: WOCHENTAG-ANZEIGE + DYNAMISCHER BUTTON!');
-        console.log('   ✅ Zeigt "Mittwoch, 11. Dezember 2025" + Uhrzeit!');
-        console.log('   ✅ Button ändert sich: NEU = "⚡ Buchen" | BEARBEITEN = "💾 Speichern"!');
         console.log('🛡️ v5.50.9: ADMIN-FAHRTEN IN PASSENGER-VIEW GESCHÜTZT!');
-        console.log('🎨 v5.50.7: KOMPAKTES ADMIN-PANEL + AUTOCOMPLETE!');
         console.log('');
-        console.log('✅ JETZT: Du siehst sofort welcher Wochentag!');
+        console.log('✅ JETZT: Panel verschieben & Größe ändern!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -564,7 +566,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.51.0 - WOCHENTAG + BUTTON (Build 20251209-1300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.0 - DRAGGABLE PANEL (Build 20251209-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2499,6 +2501,7 @@
             
             <!-- 🆕 v5.38.6: SCHNELLBUCHUNG-OVERLAY-PANEL (AUSSERHALB calendar-container!) -->
             <!-- 🆕 v5.50.7: KOMPAKTERES DESIGN! -->
+            <!-- 🆕 v5.52.0: DRAGGABLE + RESIZABLE! -->
             <div id="quick-booking-panel" style="
                 display: none;
                 position: fixed;
@@ -2508,16 +2511,33 @@
                 background: white;
                 border: 2px solid #667eea;
                 border-radius: 12px;
-                padding: 15px;
+                padding: 0;
                 box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                 z-index: 1000;
                 max-height: calc(100vh - 140px);
-                overflow-y: auto;
+                overflow: hidden;
+                resize: both;
+                min-width: 280px;
+                min-height: 400px;
             ">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h4 style="margin: 0; font-size: 16px; color: #667eea;">⚡ Schnellbuchung</h4>
-                    <button onclick="closeQuickBookingPanel()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999; line-height: 1; padding: 0;">×</button>
+                <!-- 🆕 v5.52.0: DRAGGABLE HEADER -->
+                <div id="qb-panel-header" style="
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: center; 
+                    padding: 15px; 
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    cursor: move;
+                    user-select: none;
+                    border-radius: 10px 10px 0 0;
+                ">
+                    <h4 style="margin: 0; font-size: 16px; font-weight: 700;">⚡ Schnellbuchung</h4>
+                    <button onclick="closeQuickBookingPanel()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: white; line-height: 1; padding: 0; opacity: 0.9;">×</button>
                 </div>
+                
+                <!-- 🆕 v5.52.0: CONTENT MIT SCROLL -->
+                <div style="padding: 15px; overflow-y: auto; max-height: calc(100% - 60px);">
                 
                 <!-- Kunde mit Autocomplete -->
                 <div style="margin-bottom: 10px; position: relative;">
@@ -2541,7 +2561,7 @@
                         style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                         onchange="updatePanelEndTime()"
                     >
-                    <div id="qb-panel-start-display" style="margin-top: 8px; padding: 10px; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 2px solid #3b82f6; border-radius: 8px; font-size: 14px; font-weight: 600; color: #1e40af; text-align: center; display: none;"></div>
+                    <div id="qb-panel-start-display" style="margin-top: 8px; padding: 12px; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 2px solid #3b82f6; border-radius: 8px; font-size: 15px; font-weight: 700; color: #1e40af; text-align: center; display: none; line-height: 1.5;"></div>
                 </div>
                 
                 <!-- Endzeit (Voraussichtlich) -->
@@ -2553,7 +2573,7 @@
                         style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; box-sizing: border-box;"
                         onchange="updatePanelEndDisplay()"
                     >
-                    <div id="qb-panel-end-display" style="margin-top: 8px; padding: 10px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #f59e0b; border-radius: 8px; font-size: 14px; font-weight: 600; color: #92400e; text-align: center; display: none;"></div>
+                    <div id="qb-panel-end-display" style="margin-top: 8px; padding: 12px; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #f59e0b; border-radius: 8px; font-size: 15px; font-weight: 700; color: #92400e; text-align: center; display: none; line-height: 1.5;"></div>
                 </div>
                 
                 <!-- 🆕 v5.41.1: EXTRA-ZEIT Buttons -->
@@ -2684,7 +2704,8 @@
                         ⚡ Buchen
                     </button>
                 </div>
-            </div>
+                </div><!-- Ende Content -->
+            </div><!-- Ende Panel -->
             
             <!-- Statistik -->
             <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
@@ -20121,6 +20142,9 @@
             if (panel.style.display === 'none' || panel.style.display === '') {
                 panel.style.display = 'block';
                 
+                // 🆕 v5.52.0: Position & Größe aus localStorage laden
+                restorePanelPosition();
+                
                 // 🆕 v5.51.0: Button-Text auf BUCHEN setzen (NEU-Modus)
                 const submitBtn = document.getElementById('qb-panel-submit-btn');
                 if (submitBtn) submitBtn.innerHTML = '⚡ Buchen';
@@ -20137,10 +20161,116 @@
                 
                 // 🆕 v5.41.1: Default Extra-Zeit auf 0 setzen
                 setExtraTime(0);
+                
+                // 🆕 v5.52.0: Dragging initialisieren (nur einmal!)
+                if (!panel.dataset.draggingInit) {
+                    initPanelDragging();
+                    panel.dataset.draggingInit = 'true';
+                }
             } else {
                 panel.style.display = 'none';
             }
         }
+        
+        // 🆕 v5.52.0: PANEL DRAGGING & RESIZING
+        function restorePanelPosition() {
+            const panel = document.getElementById('quick-booking-panel');
+            const saved = localStorage.getItem('qb-panel-position');
+            
+            if (saved) {
+                try {
+                    const pos = JSON.parse(saved);
+                    if (pos.top) panel.style.top = pos.top;
+                    if (pos.left) panel.style.left = pos.left;
+                    if (pos.right) panel.style.right = pos.right;
+                    if (pos.width) panel.style.width = pos.width;
+                    if (pos.height) panel.style.height = pos.height;
+                    console.log('📍 Panel-Position wiederhergestellt:', pos);
+                } catch (e) {
+                    console.error('❌ Fehler beim Laden der Position:', e);
+                }
+            }
+        }
+        
+        function savePanelPosition() {
+            const panel = document.getElementById('quick-booking-panel');
+            const pos = {
+                top: panel.style.top,
+                left: panel.style.left,
+                right: panel.style.right,
+                width: panel.style.width,
+                height: panel.style.height
+            };
+            localStorage.setItem('qb-panel-position', JSON.stringify(pos));
+        }
+        
+        function initPanelDragging() {
+            const panel = document.getElementById('quick-booking-panel');
+            const header = document.getElementById('qb-panel-header');
+            
+            let isDragging = false;
+            let currentX;
+            let currentY;
+            let initialX;
+            let initialY;
+            let xOffset = 0;
+            let yOffset = 0;
+            
+            header.addEventListener('mousedown', dragStart);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', dragEnd);
+            
+            function dragStart(e) {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+                
+                if (e.target === header || header.contains(e.target)) {
+                    isDragging = true;
+                    panel.style.transition = 'none';
+                }
+            }
+            
+            function drag(e) {
+                if (isDragging) {
+                    e.preventDefault();
+                    
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                    
+                    xOffset = currentX;
+                    yOffset = currentY;
+                    
+                    // Berechne Position
+                    const rect = panel.getBoundingClientRect();
+                    panel.style.left = rect.left + currentX + 'px';
+                    panel.style.top = rect.top + currentY + 'px';
+                    panel.style.right = 'auto'; // Remove right positioning
+                    
+                    initialX = e.clientX;
+                    initialY = e.clientY;
+                }
+            }
+            
+            function dragEnd() {
+                if (isDragging) {
+                    isDragging = false;
+                    panel.style.transition = '';
+                    savePanelPosition();
+                    xOffset = 0;
+                    yOffset = 0;
+                    console.log('💾 Panel-Position gespeichert');
+                }
+            }
+            
+            // 🆕 RESIZE OBSERVER - speichert Größe automatisch
+            const resizeObserver = new ResizeObserver(() => {
+                if (panel.style.display !== 'none') {
+                    savePanelPosition();
+                }
+            });
+            resizeObserver.observe(panel);
+        }
+        
         
         // Kunden SOFORT laden
         function loadAllCustomersNow() {

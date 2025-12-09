@@ -78,17 +78,18 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.52.6 - NOSHOW-RECHNUNG! (Build 20251209-1800)');
-        console.log('📝 v5.52.6: NOSHOW-RECHNUNG SYSTEM!');
-        console.log('   ✅ NoShow-Button im Kalender!');
-        console.log('   ✅ Kostenaufstellung editierbar!');
-        console.log('   ✅ PDF mit rechtlicher Grundlage!');
-        console.log('   ✅ §§ 642, 643 BGB + AG Siegen!');
-        console.log('   ✅ Separate Nummerierung (NS1, NS2...)!');
-        console.log('📬 v5.52.5: MEHRFACH-RECHNUNGSADRESSEN!');
-        console.log('📄 v5.52.4: RECHNUNGS-FLEX!');
+        console.log('🚕 Funk Taxi App v5.54.0 - NATIVE KONTAKT-AUSWAHL! (Build 20251209-2300)');
+        console.log('📱 v5.54.0: NATIVE KONTAKT-AUSWAHL!');
+        console.log('   ✅ Button: Kontakt auswählen!');
+        console.log('   ✅ Öffnet NATIVE Telefon-Kontakte!');
+        console.log('   ✅ User wählt Kontakt direkt!');
+        console.log('   ✅ Name + Telefon automatisch!');
+        console.log('   ✅ CRM-Suche + Auto-Fill!');
+        console.log('   ✅ 2 Buttons: Kontakt ODER Zwischenablage!');
+        console.log('📋 v5.53.0: ZWISCHENABLAGE-INTEGRATION!');
+        console.log('👤 v5.52.9: CRM-BUCHUNGS-KONTEXT!');
         console.log('');
-        console.log('✅ JETZT: NoShow abrechnen!');
+        console.log('✅ WORKFLOW: Button → Kontakt wählen → Automatisch übernommen!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -387,6 +388,18 @@
             to { transform: translateX(0); }
         }
 
+        /* 🚀 v5.52.8: Toast Animation */
+        @keyframes slideIn {
+            from { 
+                opacity: 0; 
+                transform: translateX(100px);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateX(0);
+            }
+        }
+
         /* Hamburger Button Hover */
         #menu-toggle-btn:hover {
             background: rgba(255,255,255,0.3) !important;
@@ -567,7 +580,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.6 - NOSHOW-RECHNUNG (Build 20251209-1800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.54.0 - KONTAKT-AUSWAHL (Build 20251209-2300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1032,6 +1045,20 @@
     <div id="passenger-view" class="view active">
         <h3 style="margin:0 0 15px 0;">🚕 Taxi buchen</h3>
         
+        <!-- 🆕 v5.52.9: CRM-BUCHUNGS-BANNER -->
+        <div id="crm-booking-banner" style="display:none; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <div style="font-size: 13px; opacity: 0.9; margin-bottom: 4px;">📋 Buchst für CRM-Kunde:</div>
+                    <div id="crm-booking-customer-name" style="font-size: 18px; font-weight: 700; margin-bottom: 4px;"></div>
+                    <div id="crm-booking-customer-phone" style="font-size: 14px; opacity: 0.9;"></div>
+                </div>
+                <button onclick="clearCRMBooking()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                    ✕ Abbrechen
+                </button>
+            </div>
+        </div>
+        
         <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
         <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
         <!-- 🆕 v5.42.1: Quick-Login Box DEAKTIVIERT - zu groß! -->
@@ -1062,6 +1089,41 @@
         
         <!-- 🆕 v5.49.2: ECHTES MODAL MIT OVERLAY -->
         <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
+        
+        <!-- 🆕 v5.54.0: KONTAKT-AUSWAHL BUTTONS -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+            <!-- Kontakt aus Telefon -->
+            <button onclick="selectContactFromPhone()" style="
+                padding: 12px 16px;
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 14px;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+                transition: transform 0.2s;
+            " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                📱 Kontakt auswählen
+            </button>
+            
+            <!-- Nummer aus Zwischenablage -->
+            <button onclick="searchFromClipboard()" style="
+                padding: 12px 16px;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 14px;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+                transition: transform 0.2s;
+            " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                📋 Aus Zwischenablage
+            </button>
+        </div>
         
         <div id="booking-form">
             <div class="input-group">
@@ -4280,9 +4342,11 @@
                 
                 // 🚗 Fahrzeug-Info (falls vorhanden)
                 let vehicleInfo = '';
-                if (r.assignedDriver && r.vehicleLabel) {
+                if (r.assignedDriver && (r.vehicleLabel || r.vehicle)) {
+                    const vehicleName = r.vehicleLabel || r.vehicle;
+                    const plateInfo = r.vehiclePlate ? ` (${r.vehiclePlate})` : '';
                     vehicleInfo = `<div style="margin-top:8px;padding:8px;background:rgba(102,126,234,0.1);border-radius:6px;font-size:12px;">
-                        🚗 <strong>${r.vehicleLabel}</strong>
+                        🚗 <strong>${vehicleName}${plateInfo}</strong>
                     </div>`;
                 }
                 
@@ -5223,6 +5287,7 @@
                     await db.ref('rides/' + rideId).update({
                         vehicleId: vehicleId,
                         vehicle: vehicleName,
+                        vehicleLabel: vehicleName, // 🆕 v5.52.7: Für Kompatibilität
                         vehiclePlate: vehicleData.plate || '',
                         status: 'accepted',
                         acceptedAt: Date.now(),
@@ -5235,6 +5300,7 @@
                 if (ride) {
                     ride.vehicleId = vehicleId;
                     ride.vehicle = vehicleName;
+                    ride.vehicleLabel = vehicleName; // 🆕 v5.52.7: Für Kompatibilität
                     ride.vehiclePlate = vehicleData.plate || '';
                     ride.status = 'accepted';
                     ride.acceptedAt = Date.now();
@@ -7317,7 +7383,7 @@
                                 <strong>🎯 Nach:</strong> ${r.destination}<br>
                                 <strong>💰 Preis:</strong> ${r.price}€<br>
                                 <strong>📏 Distanz:</strong> ${r.distance} km
-                                ${r.vehicleLabel ? '<br><strong>🚗 Fahrzeug:</strong> '+r.vehicleLabel : ''}
+                                ${r.vehicle ? '<br><strong>🚗 Fahrzeug:</strong> '+r.vehicle+(r.vehiclePlate ? ' ('+r.vehiclePlate+')' : '') : ''}
                             </div>
                             ${actionButtons}
                         </div>`;
@@ -8853,11 +8919,13 @@
             }
             
             // FAHRZEUG-INFO (falls vorhanden)
-            if (ride.vehicleLabel) {
+            if (ride.vehicleLabel || ride.vehicle) {
+                const vehicleName = ride.vehicleLabel || ride.vehicle;
+                const plateInfo = ride.vehiclePlate ? ` (${ride.vehiclePlate})` : '';
                 doc.setFont('helvetica', 'bold');
                 doc.text('Fahrzeug:', 20, 168);
                 doc.setFont('helvetica', 'normal');
-                doc.text(ride.vehicleLabel, 20, 175);
+                doc.text(vehicleName + plateInfo, 20, 175);
             }
             
             // FOOTER
@@ -12251,6 +12319,10 @@
                     await sendCustomerNotifications(savedRide);
                 }
                 
+                // 🆕 v5.52.9: Hide CRM-Banner nach Buchung
+                const crmBanner = document.getElementById('crm-booking-banner');
+                if (crmBanner) crmBanner.style.display = 'none';
+                
                 // 🆕 v5.32.5L: Zeige CARD statt Modal!
                 document.getElementById('booking-form').style.display = 'none';
                 showRideStatus(savedRide);
@@ -12293,6 +12365,10 @@
                 console.log('✅ v5.32.5e: Vorbestellung gespeichert, Formular zurückgesetzt, bereit für nächste Buchung!');
                 
             } else {
+                // 🆕 v5.52.9: Hide CRM-Banner nach Buchung
+                const crmBanner = document.getElementById('crm-booking-banner');
+                if (crmBanner) crmBanner.style.display = 'none';
+                
                 // ⚡ SOFORT-FAHRTEN: Zeige Status-Ansicht
                 document.getElementById('booking-form').style.display = 'none';
                 showRideStatus(savedRide);
@@ -18989,10 +19065,10 @@
                 dropdown.innerHTML = '<div style="padding:10px;color:#999;font-size:13px;">Suche...</div>';
                 dropdown.style.display = 'block';
                 
-                // Verzögerte Suche (Debounce)
+                // 🆕 v5.52.8: Verzögerte Suche (Debounce) - SCHNELLER!
                 customerAddressTimeout = setTimeout(() => {
                     searchCustomerAddresses(value, inputId, suggestionsId);
-                }, 300);
+                }, 150); // 🚀 v5.52.8: 300ms → 150ms (schneller!)
             });
             
             // Schließe Dropdown wenn außerhalb geklickt
@@ -19457,15 +19533,40 @@
                 createdAt: Date.now()
             };
             
+            // 🚀 v5.52.8: OPTIMISTISCHES UI UPDATE - Modal SOFORT schließen!
+            closeAddCustomerModal();
+            
+            // 🚀 v5.52.8: Zeige Toast-Benachrichtigung statt Alert
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `⏳ Speichere "${name}"...`;
+            document.body.appendChild(toast);
+            
             try {
-                await db.ref('customers').push(customer);
+                // 🚀 v5.52.8: Parallel speichern UND ID holen
+                const newRef = await db.ref('customers').push(customer);
+                customer.id = newRef.key;
+                
+                // 🚀 v5.52.8: Füge Kunde DIREKT zur Liste hinzu (kein komplettes Neuladen!)
+                allCustomers.unshift(customer); // Vorne hinzufügen
+                
+                // 🚀 v5.52.8: Nur die Liste neu rendern (OHNE Firebase-Load!)
+                renderCustomersList(allCustomers);
+                
                 console.log('✅ Kunde gespeichert:', customer.name);
-                closeAddCustomerModal();
-                loadAllCustomers();
-                alert('✅ Kunde "' + name + '" wurde angelegt!');
+                
+                // 🚀 v5.52.8: Update Toast zu Erfolg
+                toast.style.background = '#10b981';
+                toast.innerHTML = `✅ "${name}" gespeichert!`;
+                setTimeout(() => toast.remove(), 2000);
+                
             } catch (error) {
                 console.error('❌ Fehler beim Speichern:', error);
-                alert('❌ Fehler beim Speichern');
+                
+                // 🚀 v5.52.8: Update Toast zu Fehler
+                toast.style.background = '#ef4444';
+                toast.innerHTML = `❌ Fehler beim Speichern!`;
+                setTimeout(() => toast.remove(), 3000);
             }
         }
         
@@ -19478,6 +19579,22 @@
             
             // Wechsel zum Fahrgast-Tab und fülle Daten aus
             switchView('passenger');
+            
+            // 🆕 v5.52.9: ZEIGE CRM-BUCHUNGS-BANNER!
+            const banner = document.getElementById('crm-booking-banner');
+            const nameEl = document.getElementById('crm-booking-customer-name');
+            const phoneEl = document.getElementById('crm-booking-customer-phone');
+            
+            if (banner && nameEl && phoneEl) {
+                nameEl.textContent = customer.name || 'Unbekannt';
+                phoneEl.textContent = customer.phone ? '📞 ' + customer.phone : '';
+                banner.style.display = 'block';
+                
+                // 🎨 Scroll zum Banner
+                setTimeout(() => {
+                    banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
             
             // 🆕 v5.34.0: Umfassende Datenübernahme!
             if (customer.name) document.getElementById('customer-name').value = customer.name;
@@ -19492,16 +19609,667 @@
                 document.getElementById('save-to-crm').checked = true;
             }
             
-            // Zeige Bestätigung
+            // 🚀 v5.52.9: Toast statt Alert!
             const filledFields = [];
             if (customer.name) filledFields.push('Name');
             if (customer.phone) filledFields.push('Telefon');
             if (customer.address) filledFields.push('Abholort');
             if (customer.favoriteDestination) filledFields.push('Zielort');
             
-            alert('✅ Daten von "' + customer.name + '" eingefüllt!\n\n' + 
-                  '📋 Übernommen: ' + filledFields.join(', ') + '\n\n' +
-                  (customer.favoriteDestination ? 'Preis kann jetzt berechnet werden!' : 'Bitte Zielort eingeben!'));
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#8b5cf6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;max-width:300px;';
+            toast.innerHTML = `✅ Buchung für:<br><strong style="font-size:16px;">${customer.name}</strong><br><small>📋 ${filledFields.join(', ')}</small>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        // 🆕 v5.54.0: KONTAKT AUS TELEFON AUSWÄHLEN
+        async function selectContactFromPhone() {
+            // Prüfe ob Contact Picker API verfügbar
+            if (!('contacts' in navigator && 'ContactsManager' in window)) {
+                // Fallback: Zeige Hinweis + Alternative
+                const toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#f59e0b;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;max-width:350px;';
+                toast.innerHTML = `
+                    ⚠️ Kontakt-Auswahl in diesem Browser nicht verfügbar!<br>
+                    <small style="font-weight:400;margin-top:5px;display:block;">
+                    Nutze: "📋 Aus Zwischenablage" oder Chrome/Edge Browser
+                    </small>
+                `;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 5000);
+                
+                console.log('❌ Contact Picker API nicht verfügbar');
+                console.log('Browser:', navigator.userAgent);
+                return;
+            }
+            
+            try {
+                // Lade Kunden falls nötig
+                if (!isFirebaseReady || allCustomers.length === 0) {
+                    console.log('⏳ Lade Kunden...');
+                    await loadAllCustomers();
+                }
+                
+                console.log('📱 Öffne Kontakt-Auswahl...');
+                
+                // Zeige Toast
+                const loadingToast = document.createElement('div');
+                loadingToast.id = 'contact-loading-toast';
+                loadingToast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                loadingToast.innerHTML = `📱 Wähle Kontakt aus...`;
+                document.body.appendChild(loadingToast);
+                
+                // Öffne NATIVE Kontakt-Auswahl!
+                const props = ['name', 'tel'];
+                const opts = { multiple: false }; // Nur ein Kontakt
+                
+                const contacts = await navigator.contacts.select(props, opts);
+                
+                // Remove Loading Toast
+                loadingToast.remove();
+                
+                if (!contacts || contacts.length === 0) {
+                    console.log('❌ Kein Kontakt ausgewählt');
+                    return;
+                }
+                
+                const contact = contacts[0];
+                console.log('✅ Kontakt ausgewählt:', contact);
+                
+                // Extrahiere Daten
+                const name = contact.name && contact.name[0] ? contact.name[0] : '';
+                const phone = contact.tel && contact.tel[0] ? contact.tel[0] : '';
+                
+                if (!phone) {
+                    const toast = document.createElement('div');
+                    toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                    toast.innerHTML = `❌ Kontakt hat keine Telefonnummer!`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                    return;
+                }
+                
+                console.log('📞 Name:', name);
+                console.log('📞 Telefon:', phone);
+                
+                // Suche in CRM
+                const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+                const matches = allCustomers.filter(c => {
+                    const customerPhone = (c.phone || '').replace(/[\s\-\(\)\+]/g, '');
+                    return customerPhone.includes(normalizedPhone) || 
+                           normalizedPhone.includes(customerPhone) ||
+                           customerPhone.endsWith(normalizedPhone.slice(-8));
+                });
+                
+                if (matches.length === 1) {
+                    // ✅ GENAU 1 KUNDE GEFUNDEN!
+                    console.log('✅ Kunde im CRM gefunden!');
+                    selectPhoneSearchCustomer(matches[0]);
+                    
+                } else if (matches.length > 1) {
+                    // ⚠️ MEHRERE KUNDEN!
+                    console.log('⚠️ Mehrere Kunden gefunden:', matches.length);
+                    showContactMultipleMatchesModal(matches, name, phone);
+                    
+                } else {
+                    // ❌ NICHT GEFUNDEN → Neuen Kunde anlegen
+                    console.log('❌ Kunde nicht im CRM → Neuen anlegen');
+                    showContactNewCustomerModal(name, phone);
+                }
+                
+            } catch (error) {
+                // User hat abgebrochen oder Fehler
+                const loadingToast = document.getElementById('contact-loading-toast');
+                if (loadingToast) loadingToast.remove();
+                
+                if (error.name === 'AbortError') {
+                    console.log('ℹ️ User hat Auswahl abgebrochen');
+                } else {
+                    console.error('❌ Contact Picker Fehler:', error);
+                    
+                    const toast = document.createElement('div');
+                    toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                    toast.innerHTML = `❌ Fehler beim Zugriff auf Kontakte!`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3000);
+                }
+            }
+        }
+        
+        // 🆕 v5.54.0: MEHRERE MATCHES AUS KONTAKT-AUSWAHL
+        function showContactMultipleMatchesModal(matches, originalName, originalPhone) {
+            const modal = document.createElement('div');
+            modal.id = 'contact-matches-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:25px;width:100%;max-width:450px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;font-size:20px;">📱 Mehrere Kunden gefunden</h3>
+                        <button onclick="document.getElementById('contact-matches-modal').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
+                    </div>
+                    
+                    <div style="padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;margin-bottom:15px;">
+                        <div style="font-weight:600;color:#92400e;margin-bottom:4px;">Ausgewählter Kontakt:</div>
+                        <div style="font-size:14px;color:#78350f;">
+                            <strong>${originalName || 'Unbekannt'}</strong><br>
+                            📞 ${originalPhone}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <div style="font-weight:600;margin-bottom:10px;color:#374151;">Welcher Kunde ist das?</div>
+                        ${matches.map(c => `
+                            <div onclick="selectPhoneSearchCustomer({id:'${c.id}',name:'${(c.name || 'Unbekannt').replace(/'/g, "\\'")}',phone:'${(c.phone || '').replace(/'/g, "\\'")}',address:'${(c.address || '').replace(/'/g, "\\'")}'}); document.getElementById('contact-matches-modal').remove();" 
+                                style="
+                                    padding:12px;
+                                    background:white;
+                                    border:2px solid #e5e7eb;
+                                    border-radius:10px;
+                                    margin-bottom:8px;
+                                    cursor:pointer;
+                                    transition:all 0.2s;
+                                "
+                                onmouseover="this.style.background='#f0fdf4';this.style.borderColor='#10b981'"
+                                onmouseout="this.style.background='white';this.style.borderColor='#e5e7eb'">
+                                <div style="font-weight:600;color:#1f2937;margin-bottom:4px;">${c.name || 'Unbekannt'}</div>
+                                <div style="font-size:13px;color:#6b7280;">
+                                    📞 ${c.phone || 'Keine Nummer'}
+                                    ${c.address ? '<br>📍 ' + c.address : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <button onclick="document.getElementById('contact-matches-modal').remove()" style="width:100%;padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:10px;font-weight:600;cursor:pointer;">
+                        Abbrechen
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // 🆕 v5.54.0: NEUER KUNDE AUS KONTAKT-AUSWAHL
+        function showContactNewCustomerModal(name, phone) {
+            const modal = document.createElement('div');
+            modal.id = 'contact-new-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:25px;width:100%;max-width:450px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;font-size:20px;">➕ Neuer Kunde</h3>
+                        <button onclick="document.getElementById('contact-new-modal').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
+                    </div>
+                    
+                    <div style="padding:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;margin-bottom:15px;">
+                        <div style="font-weight:600;color:#92400e;margin-bottom:4px;">❌ Nicht im CRM gefunden</div>
+                        <div style="font-size:13px;color:#78350f;">Kontakt wird als neuer Kunde angelegt</div>
+                    </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;">Name:</label>
+                        <input type="text" id="contact-new-name" value="${name || ''}" placeholder="Name eingeben" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;">
+                    </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;">Telefon:</label>
+                        <input type="text" id="contact-new-phone" value="${phone}" readonly style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;background:#f9fafb;">
+                    </div>
+                    
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;">Adresse (optional):</label>
+                        <input type="text" id="contact-new-address" placeholder="z.B. Bahnhofstr. 123, Heringsdorf" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:10px;font-size:14px;">
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button onclick="document.getElementById('contact-new-modal').remove()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:10px;font-weight:600;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveContactNewCustomer()" style="padding:14px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Focus auf Name (falls leer) oder Adresse (falls Name da ist)
+            setTimeout(() => {
+                if (!name) {
+                    document.getElementById('contact-new-name').focus();
+                } else {
+                    document.getElementById('contact-new-address').focus();
+                }
+            }, 100);
+        }
+        
+        // 🆕 v5.54.0: SPEICHERE NEUEN KUNDE AUS KONTAKT
+        async function saveContactNewCustomer() {
+            const name = document.getElementById('contact-new-name').value.trim();
+            const phone = document.getElementById('contact-new-phone').value.trim();
+            const address = document.getElementById('contact-new-address').value.trim();
+            
+            if (!name) {
+                alert('❌ Bitte Namen eingeben!');
+                document.getElementById('contact-new-name').focus();
+                return;
+            }
+            
+            const customer = {
+                name: name,
+                phone: phone,
+                email: '',
+                address: address,
+                billingAddresses: [{
+                    id: Date.now(),
+                    label: 'Standard',
+                    address: address,
+                    isDefault: true
+                }],
+                notes: 'Erstellt via Kontakt-Auswahl',
+                totalRides: 0,
+                totalRevenue: 0,
+                createdAt: Date.now()
+            };
+            
+            // Toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `⏳ Speichere "${name}"...`;
+            document.body.appendChild(toast);
+            
+            try {
+                // Speichere in Firebase
+                const newRef = await db.ref('customers').push(customer);
+                customer.id = newRef.key;
+                
+                // Füge zur lokalen Liste hinzu
+                allCustomers.unshift(customer);
+                
+                // Schließe Modal
+                const modal = document.getElementById('contact-new-modal');
+                if (modal) modal.remove();
+                
+                // Wähle den neuen Kunden aus
+                selectPhoneSearchCustomer(customer);
+                
+                // Update Toast
+                toast.style.background = '#10b981';
+                toast.innerHTML = `✅ "${name}" ins CRM gespeichert!`;
+                setTimeout(() => toast.remove(), 2000);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                toast.style.background = '#ef4444';
+                toast.innerHTML = `❌ Fehler beim Speichern!`;
+                setTimeout(() => toast.remove(), 3000);
+            }
+        }
+        
+        // 🆕 v5.53.0: TELEFONNUMMER AUS ZWISCHENABLAGE
+        async function searchFromClipboard() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            // Lade Kunden wenn noch nicht geladen
+            if (allCustomers.length === 0) {
+                console.log('⏳ Lade Kunden für Telefonnummer-Suche...');
+                await loadAllCustomers();
+            }
+            
+            try {
+                // Lese Zwischenablage
+                const clipboardText = await navigator.clipboard.readText();
+                
+                if (!clipboardText || clipboardText.trim() === '') {
+                    showPhoneSearchModal('');
+                    return;
+                }
+                
+                // Extrahiere Telefonnummer aus Clipboard
+                // Suche nach Mustern wie: +49..., 0049..., 0175..., etc.
+                const phonePattern = /[\+\d][\d\s\-\(\)]{7,}/g;
+                const matches = clipboardText.match(phonePattern);
+                
+                if (matches && matches.length > 0) {
+                    // Nimm erste gefundene Nummer
+                    const phoneNumber = matches[0].trim();
+                    console.log('📋 Telefonnummer aus Zwischenablage:', phoneNumber);
+                    
+                    // Zeige Modal mit vorausgefüllter Nummer
+                    showPhoneSearchModal(phoneNumber);
+                    
+                    // Automatisch suchen!
+                    setTimeout(() => {
+                        searchByPhoneNumber();
+                    }, 300);
+                } else {
+                    // Keine Nummer gefunden, zeige Modal
+                    showPhoneSearchModal(clipboardText);
+                }
+                
+            } catch (error) {
+                console.error('❌ Clipboard-Fehler:', error);
+                // Fallback: Zeige Modal für manuelle Eingabe
+                showPhoneSearchModal('');
+            }
+        }
+        
+        // 🆕 v5.53.0: TELEFONNUMMER-SUCH-MODAL
+        function showPhoneSearchModal(initialPhone = '') {
+            const modal = document.createElement('div');
+            modal.id = 'phone-search-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:25px;width:100%;max-width:450px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;font-size:20px;">📞 Telefonnummer-Suche</h3>
+                        <button onclick="document.getElementById('phone-search-modal').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">Telefonnummer:</label>
+                        <input 
+                            type="tel" 
+                            id="phone-search-input" 
+                            value="${initialPhone}"
+                            placeholder="z.B. 0175-1234567"
+                            style="width:100%;padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;font-weight:500;"
+                            onkeypress="if(event.key==='Enter') searchByPhoneNumber()">
+                    </div>
+                    
+                    <div id="phone-search-result" style="display:none;margin:15px 0;"></div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button onclick="document.getElementById('phone-search-modal').remove()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px;">
+                            Abbrechen
+                        </button>
+                        <button onclick="searchByPhoneNumber()" style="padding:14px;background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(59, 130, 246, 0.3);">
+                            🔍 Suchen
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Focus auf Input
+            setTimeout(() => {
+                document.getElementById('phone-search-input').focus();
+                document.getElementById('phone-search-input').select();
+            }, 100);
+        }
+        
+        // 🆕 v5.53.0: SUCHE KUNDE NACH TELEFONNUMMER
+        function searchByPhoneNumber() {
+            const input = document.getElementById('phone-search-input');
+            const resultDiv = document.getElementById('phone-search-result');
+            const phoneNumber = input.value.trim();
+            
+            if (!phoneNumber) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<div style="padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;font-weight:600;">⚠️ Bitte Telefonnummer eingeben!</div>';
+                return;
+            }
+            
+            // Normalisiere Telefonnummer (entferne Leerzeichen, Bindestriche, etc.)
+            const normalizedPhone = phoneNumber.replace(/[\s\-\(\)\+]/g, '');
+            
+            console.log('🔍 Suche Kunde mit Nummer:', normalizedPhone);
+            
+            // Suche in allCustomers
+            const matches = allCustomers.filter(c => {
+                const customerPhone = (c.phone || '').replace(/[\s\-\(\)\+]/g, '');
+                // Flexible Suche: Beide Richtungen
+                return customerPhone.includes(normalizedPhone) || 
+                       normalizedPhone.includes(customerPhone) ||
+                       customerPhone.endsWith(normalizedPhone.slice(-8)); // Letzte 8 Ziffern
+            });
+            
+            console.log('✅ Gefundene Kunden:', matches.length);
+            
+            if (matches.length === 0) {
+                // NICHT GEFUNDEN → Option neuen Kunde anlegen
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div style="padding:15px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;margin-bottom:10px;">
+                        <div style="font-weight:600;color:#92400e;margin-bottom:8px;">❌ Kein Kunde mit dieser Nummer gefunden</div>
+                        <div style="font-size:13px;color:#78350f;">Telefonnummer: <strong>${phoneNumber}</strong></div>
+                    </div>
+                    <button onclick="createCustomerFromPhone('${phoneNumber.replace(/'/g, "\\'")}' )" style="
+                        width:100%;
+                        padding:12px;
+                        background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color:white;
+                        border:none;
+                        border-radius:10px;
+                        font-weight:600;
+                        cursor:pointer;
+                        font-size:14px;
+                        box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);
+                    ">
+                        ➕ Als neuen Kunden mit dieser Nummer anlegen
+                    </button>
+                `;
+                return;
+            }
+            
+            // GEFUNDEN!
+            if (matches.length === 1) {
+                // Genau EIN Match → Direkt auswählen
+                const customer = matches[0];
+                selectPhoneSearchCustomer(customer);
+            } else {
+                // MEHRERE Matches → Auswahl anbieten
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div style="padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:10px;">
+                        <div style="font-weight:600;color:#166534;margin-bottom:5px;">✅ ${matches.length} Kunden gefunden:</div>
+                    </div>
+                    ${matches.map(c => `
+                        <div onclick="selectPhoneSearchCustomer({id:'${c.id}',name:'${(c.name || 'Unbekannt').replace(/'/g, "\\'")}',phone:'${(c.phone || '').replace(/'/g, "\\'")}',address:'${(c.address || '').replace(/'/g, "\\'")}'})" 
+                            style="
+                                padding:12px;
+                                background:white;
+                                border:1px solid #e5e7eb;
+                                border-radius:8px;
+                                margin-bottom:8px;
+                                cursor:pointer;
+                                transition:all 0.2s;
+                            "
+                            onmouseover="this.style.background='#f0fdf4';this.style.borderColor='#10b981'"
+                            onmouseout="this.style.background='white';this.style.borderColor='#e5e7eb'">
+                            <div style="font-weight:600;color:#1f2937;margin-bottom:4px;">${c.name || 'Unbekannt'}</div>
+                            <div style="font-size:13px;color:#6b7280;">
+                                📞 ${c.phone || 'Keine Nummer'}
+                                ${c.address ? '<br>📍 ' + c.address : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            }
+        }
+        
+        // 🆕 v5.53.0: WÄHLE KUNDE AUS TELEFONNUMMER-SUCHE
+        function selectPhoneSearchCustomer(customer) {
+            console.log('✅ Kunde ausgewählt:', customer);
+            
+            // Schließe Modal
+            const modal = document.getElementById('phone-search-modal');
+            if (modal) modal.remove();
+            
+            // Speichere für CRM-Update
+            currentBookingCustomerId = customer.id;
+            
+            // Zeige CRM-BANNER!
+            const banner = document.getElementById('crm-booking-banner');
+            const nameEl = document.getElementById('crm-booking-customer-name');
+            const phoneEl = document.getElementById('crm-booking-customer-phone');
+            
+            if (banner && nameEl && phoneEl) {
+                nameEl.textContent = customer.name || 'Unbekannt';
+                phoneEl.textContent = customer.phone ? '📞 ' + customer.phone : '';
+                banner.style.display = 'block';
+                
+                // Scroll zum Banner
+                setTimeout(() => {
+                    banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+            
+            // Fülle Felder aus
+            document.getElementById('customer-name').value = customer.name || '';
+            document.getElementById('customer-phone').value = customer.phone || '';
+            if (customer.address) {
+                document.getElementById('pickup').value = customer.address;
+            }
+            
+            // CRM-Option zeigen
+            const crmOption = document.getElementById('crm-save-option');
+            if (crmOption) {
+                crmOption.style.display = 'block';
+                document.getElementById('save-to-crm').checked = true;
+            }
+            
+            // Toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;max-width:300px;';
+            toast.innerHTML = `✅ Kunde gefunden!<br><strong style="font-size:16px;">${customer.name}</strong>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        // 🆕 v5.53.0: ERSTELLE NEUEN KUNDE AUS TELEFONNUMMER
+        async function createCustomerFromPhone(phoneNumber) {
+            const miniModal = document.createElement('div');
+            miniModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            miniModal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
+                    <h3 style="margin:0 0 15px 0;">➕ Neuer Kunde</h3>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Telefon:</label>
+                        <input type="text" id="new-phone-customer-phone" value="${phoneNumber}" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;background:#f9fafb;" readonly>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Name:</label>
+                        <input type="text" id="new-phone-customer-name" placeholder="Erforderlich" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Adresse:</label>
+                        <input type="text" id="new-phone-customer-address" placeholder="Optional" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button onclick="this.closest('div').parentElement.remove()" style="padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveNewPhoneCustomer()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(miniModal);
+            
+            // Focus auf Name
+            setTimeout(() => {
+                document.getElementById('new-phone-customer-name').focus();
+            }, 100);
+        }
+        
+        // 🆕 v5.53.0: SPEICHERE NEUEN KUNDE AUS TELEFONNUMMER
+        async function saveNewPhoneCustomer() {
+            const phone = document.getElementById('new-phone-customer-phone').value.trim();
+            const name = document.getElementById('new-phone-customer-name').value.trim();
+            const address = document.getElementById('new-phone-customer-address').value.trim();
+            
+            if (!name) {
+                alert('❌ Name ist erforderlich!');
+                document.getElementById('new-phone-customer-name').focus();
+                return;
+            }
+            
+            const customer = {
+                name: name,
+                phone: phone,
+                email: '',
+                address: address,
+                billingAddresses: [{
+                    id: Date.now(),
+                    label: 'Standard',
+                    address: address,
+                    isDefault: true
+                }],
+                notes: 'Erstellt via Telefonnummer-Suche',
+                totalRides: 0,
+                totalRevenue: 0,
+                createdAt: Date.now()
+            };
+            
+            // Toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `⏳ Speichere "${name}"...`;
+            document.body.appendChild(toast);
+            
+            try {
+                // Speichere in Firebase
+                const newRef = await db.ref('customers').push(customer);
+                customer.id = newRef.key;
+                
+                // Füge zur lokalen Liste hinzu
+                allCustomers.unshift(customer);
+                
+                // Schließe Mini-Modal
+                const miniModal = document.querySelector('div[style*="z-index:10001"]');
+                if (miniModal) miniModal.remove();
+                
+                // Schließe Such-Modal
+                const searchModal = document.getElementById('phone-search-modal');
+                if (searchModal) searchModal.remove();
+                
+                // Wähle den neuen Kunden aus
+                selectPhoneSearchCustomer(customer);
+                
+                // Update Toast
+                toast.style.background = '#10b981';
+                toast.innerHTML = `✅ "${name}" ins CRM gespeichert!`;
+                setTimeout(() => toast.remove(), 2000);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                toast.style.background = '#ef4444';
+                toast.innerHTML = `❌ Fehler beim Speichern!`;
+                setTimeout(() => toast.remove(), 3000);
+            }
+        }
+        
+        // 🆕 v5.52.9: CLEAR CRM BUCHUNG
+        function clearCRMBooking() {
+            const banner = document.getElementById('crm-booking-banner');
+            if (banner) banner.style.display = 'none';
+            
+            // Reset currentBookingCustomerId
+            currentBookingCustomerId = null;
+            
+            // Leere Felder
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-phone').value = '';
+            document.getElementById('pickup').value = '';
+            document.getElementById('destination').value = '';
+            
+            // Toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#6b7280;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `✅ CRM-Buchung abgebrochen`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
         }
         
         // 🆕 v5.34.0: SCHNELLBUCHUNG MODAL
@@ -19688,7 +20456,16 @@
             
             // Zeige Ergebnisse
             if (matches.length === 0) {
-                dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">Kein Kunde gefunden</div>';
+                // 🆕 v5.52.9: NEUER KUNDE OPTION!
+                dropdown.innerHTML = `
+                    <div style="padding:12px;text-align:center;color:#999;">Kein Kunde gefunden</div>
+                    <div style="padding:8px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+                        <button onclick="createNewCustomerFromQuickBooking()" 
+                                style="width:100%;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                            ➕ Als neuen Kunden anlegen
+                        </button>
+                    </div>
+                `;
                 dropdown.style.display = 'block';
                 return;
             }
@@ -19815,6 +20592,109 @@
             await geocodeCustomerAddress(destination, fieldType);
             
             console.log('✅ Ziel eingetragen + Koordinaten gesetzt');
+        }
+        
+        // 🆕 v5.52.9: NEUEN KUNDEN AUS SCHNELLBUCHUNG ANLEGEN
+        async function createNewCustomerFromQuickBooking() {
+            const searchInput = document.getElementById('quick-booking-customer-search');
+            const enteredName = searchInput.value.trim();
+            
+            if (!enteredName) {
+                alert('❌ Bitte Namen eingeben!');
+                return;
+            }
+            
+            // Mini-Modal für zusätzliche Daten
+            const miniModal = document.createElement('div');
+            miniModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            miniModal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
+                    <h3 style="margin:0 0 15px 0;">➕ Neuer Kunde</h3>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Name:</label>
+                        <input type="text" id="new-qb-customer-name" value="${enteredName}" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Telefon:</label>
+                        <input type="text" id="new-qb-customer-phone" placeholder="Optional" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-weight:600;margin-bottom:5px;">Adresse:</label>
+                        <input type="text" id="new-qb-customer-address" placeholder="Optional" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button onclick="this.closest('div').parentElement.remove()" style="padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveNewQuickBookingCustomer()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(miniModal);
+        }
+        
+        // 🆕 v5.52.9: SPEICHERE NEUEN KUNDEN AUS SCHNELLBUCHUNG
+        async function saveNewQuickBookingCustomer() {
+            const name = document.getElementById('new-qb-customer-name').value.trim();
+            const phone = document.getElementById('new-qb-customer-phone').value.trim();
+            const address = document.getElementById('new-qb-customer-address').value.trim();
+            
+            if (!name) {
+                alert('❌ Name ist erforderlich!');
+                return;
+            }
+            
+            const customer = {
+                name: name,
+                phone: phone,
+                email: '',
+                address: address,
+                billingAddresses: [{
+                    id: Date.now(),
+                    label: 'Standard',
+                    address: address,
+                    isDefault: true
+                }],
+                notes: 'Erstellt via Schnellbuchung',
+                totalRides: 0,
+                totalRevenue: 0,
+                createdAt: Date.now()
+            };
+            
+            // Toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `⏳ Speichere "${name}"...`;
+            document.body.appendChild(toast);
+            
+            try {
+                // Speichere in Firebase
+                const newRef = await db.ref('customers').push(customer);
+                customer.id = newRef.key;
+                
+                // Füge zur lokalen Liste hinzu
+                allCustomers.unshift(customer);
+                
+                // Schließe Mini-Modal
+                const miniModal = document.querySelector('div[style*="z-index:10001"]');
+                if (miniModal) miniModal.remove();
+                
+                // Wähle den neuen Kunden in der Schnellbuchung aus
+                selectQuickBookingCustomer(customer.id, name, phone, address, '');
+                
+                // Update Toast
+                toast.style.background = '#10b981';
+                toast.innerHTML = `✅ "${name}" ins CRM gespeichert!`;
+                setTimeout(() => toast.remove(), 2000);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                toast.style.background = '#ef4444';
+                toast.innerHTML = `❌ Fehler beim Speichern!`;
+                setTimeout(() => toast.remove(), 3000);
+            }
         }
         
         function selectQuickBookingCustomer(id, name, phone, address, favoriteDestination) {
@@ -22935,30 +23815,86 @@
                 notes: document.getElementById('edit-customer-notes').value.trim()
             };
             
+            // 🚀 v5.52.8: OPTIMISTISCHES UI UPDATE - Modal SOFORT schließen!
+            closeEditCustomerModal();
+            
+            // 🚀 v5.52.8: Zeige Toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `⏳ Update "${name}"...`;
+            document.body.appendChild(toast);
+            
             try {
                 await db.ref('customers/' + customerId).update(updates);
+                
+                // 🚀 v5.52.8: Update lokale Kopie (kein komplettes Neuladen!)
+                const customer = allCustomers.find(c => c.id === customerId);
+                if (customer) {
+                    Object.assign(customer, updates);
+                }
+                
+                // 🚀 v5.52.8: Nur die Liste neu rendern (OHNE Firebase-Load!)
+                renderCustomersList(allCustomers);
+                
                 console.log('✅ Kunde aktualisiert:', name);
-                closeEditCustomerModal();
-                loadAllCustomers();
-                alert('✅ Kunde aktualisiert!');
+                
+                // 🚀 v5.52.8: Update Toast zu Erfolg
+                toast.style.background = '#10b981';
+                toast.innerHTML = `✅ "${name}" aktualisiert!`;
+                setTimeout(() => toast.remove(), 2000);
+                
             } catch (error) {
                 console.error('❌ Fehler beim Aktualisieren:', error);
-                alert('❌ Fehler beim Aktualisieren');
+                
+                // 🚀 v5.52.8: Update Toast zu Fehler
+                toast.style.background = '#ef4444';
+                toast.innerHTML = `❌ Fehler beim Aktualisieren!`;
+                setTimeout(() => toast.remove(), 3000);
             }
         }
         
         async function deleteCustomer(customerId) {
             if (!confirm('⚠️ Kunde wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!')) return;
             
+            // 🚀 v5.52.8: Hole Namen VORHER für Toast
+            const customer = allCustomers.find(c => c.id === customerId);
+            const customerName = customer ? customer.name : 'Kunde';
+            
+            // 🚀 v5.52.8: OPTIMISTISCHES UI UPDATE - Modal SOFORT schließen!
+            closeEditCustomerModal();
+            
+            // 🚀 v5.52.8: Zeige Toast
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `⏳ Lösche "${customerName}"...`;
+            document.body.appendChild(toast);
+            
             try {
                 await db.ref('customers/' + customerId).remove();
+                
+                // 🚀 v5.52.8: Entferne aus lokaler Liste (kein komplettes Neuladen!)
+                const index = allCustomers.findIndex(c => c.id === customerId);
+                if (index !== -1) {
+                    allCustomers.splice(index, 1);
+                }
+                
+                // 🚀 v5.52.8: Nur die Liste neu rendern (OHNE Firebase-Load!)
+                renderCustomersList(allCustomers);
+                
                 console.log('🗑️ Kunde gelöscht');
-                closeEditCustomerModal();
-                loadAllCustomers();
-                alert('✅ Kunde gelöscht!');
+                
+                // 🚀 v5.52.8: Update Toast zu Erfolg
+                toast.style.background = '#10b981';
+                toast.innerHTML = `✅ "${customerName}" gelöscht!`;
+                setTimeout(() => toast.remove(), 2000);
+                
             } catch (error) {
                 console.error('❌ Fehler beim Löschen:', error);
-                alert('❌ Fehler beim Löschen');
+                
+                // 🚀 v5.52.8: Update Toast zu Fehler
+                toast.style.background = '#ef4444';
+                toast.innerHTML = `❌ Fehler beim Löschen!`;
+                setTimeout(() => toast.remove(), 3000);
             }
         }
         
@@ -27714,9 +28650,19 @@ Stack: ${err.stack}
             console.log('🚕 Weise Fahrzeug zu:', vehicleId, '→ Ride:', rideId);
             
             try {
+                // 🆕 v5.52.7: Lade Fahrzeug-Daten
+                const vehicleSnapshot = await db.ref('vehicles/' + vehicleId).once('value');
+                const vehicleData = vehicleSnapshot.val();
+                
+                const vehicleName = vehicleData?.name || vehicleId;
+                const vehiclePlate = vehicleData?.plate || '';
+                
                 await db.ref('rides/' + rideId).update({
                     vehicleId: vehicleId,
                     assignedVehicle: vehicleId,
+                    vehicle: vehicleName, // 🆕 v5.52.7
+                    vehicleLabel: vehicleName, // 🆕 v5.52.7
+                    vehiclePlate: vehiclePlate, // 🆕 v5.52.7
                     assignedAt: Date.now(),
                     status: 'assigned'
                 });
@@ -27724,8 +28670,9 @@ Stack: ${err.stack}
                 await db.ref('rides/' + rideId + '/activityLog').push({
                     type: 'vehicle_assigned',
                     vehicleId: vehicleId,
+                    vehicleName: vehicleName, // 🆕 v5.52.7
                     timestamp: Date.now(),
-                    message: `Fahrzeug ${vehicleId} zugewiesen (Admin)`
+                    message: `Fahrzeug ${vehicleName} zugewiesen (Admin)`
                 });
                 
                 console.log('✅ Fahrzeug erfolgreich zugewiesen!');
@@ -27744,7 +28691,7 @@ Stack: ${err.stack}
                     console.log('✅ Kalender nach Zuweisen neu geladen!');
                 }
                 
-                alert(`✅ Fahrzeug ${vehicleId} erfolgreich zugewiesen!`);
+                alert(`✅ Fahrzeug ${vehicleName} erfolgreich zugewiesen!`);
                 
                 // 🔧 v5.39.8: TABS NOCHMAL AKTUALISIEREN nach Alert!
                 if (typeof updateAdminTabsVisibility === 'function') {

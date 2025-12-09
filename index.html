@@ -78,12 +78,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.49.8 - LIVE-UPDATE-FIX! (Build 20251209-0845)');
+        console.log('🚕 Funk Taxi App v5.49.9 - WARNING-FIX! (Build 20251209-0835)');
+        console.log('⚠️ v5.49.9: FALSCHE WARNUNG "ABHOLADRESSE EINGEBEN" BEHOBEN!');
         console.log('🔄 v5.49.8: PREIS + ROUTE VERSCHWINDEN BEI FELDÄNDERUNG!');
         console.log('🗺️ v5.49.7: OSRM STATT GOOGLE - ECHTE FAHRZEITEN!');
-        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER VERSTECKT!');
         console.log('');
-        console.log('🎯 KEINE FALSCHEN PREISE MEHR BEI ADRESSÄNDERUNG!');
+        console.log('🎯 KEINE FALSCHEN WARNUNGEN MEHR!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.8 - LIVE-UPDATE-FIX (Build 20251209-0845)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.9 - WARNING-FIX (Build 20251209-0835)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2181,7 +2181,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.49.8 - LIVE-UPDATE-FIX!');
+                    console.log('🚕 Funk Taxi App v5.49.9 - WARNING-FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5295,13 +5295,13 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.49.8 - LIVE-UPDATE-FIX! (Build 20251209-0845)');
+        console.log('🚕 Funk Taxi App v5.49.9 - WARNING-FIX! (Build 20251209-0835)');
+        console.log('⚠️ v5.49.9: FALSCHE WARNUNG "ABHOLADRESSE EINGEBEN" BEHOBEN!');
         console.log('🔄 v5.49.8: PREIS + ROUTE VERSCHWINDEN BEI FELDÄNDERUNG!');
         console.log('🗺️ v5.49.7: OSRM STATT GOOGLE - ECHTE FAHRZEITEN!');
         console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER VERSTECKT!');
         console.log('🔧 v5.49.5: SCHEDULE-LOCATION + NEAREST-STOP BEHOBEN!');
         console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL!');
-        console.log('📊 v5.43.0: SCHICHTPLAN!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -11248,8 +11248,11 @@
                 return;
             }
             
-            // 🆕 v5.48.0: Wenn Abholadresse fehlt - zeige Hinweis!
-            if (!pickupCoords) {
+            // 🆕 v5.49.9: Besserer Check - prüfe auch ob Input gefüllt ist!
+            const pickupInput = document.getElementById('pickup');
+            const pickupValue = pickupInput ? pickupInput.value.trim() : '';
+            
+            if (!pickupCoords && !pickupValue) {
                 if (liveDisplay) {
                     liveDisplay.innerHTML = '<span style="color:#f59e0b;">⚠️ Bitte zuerst Abholadresse eingeben!</span>';
                     liveDisplay.style.display = 'block';
@@ -25937,7 +25940,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.49.8 - LIVE-UPDATE-FIX!`);
+            debugLog('info', `📦 Version: 5.49.9 - WARNING-FIX!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

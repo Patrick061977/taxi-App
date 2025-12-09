@@ -78,17 +78,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.52.4 - RECHNUNG FLEX! (Build 20251209-1700)');
+        console.log('🚕 Funk Taxi App v5.52.5 - MEHRFACH-ADRESSEN! (Build 20251209-1730)');
+        console.log('📬 v5.52.5: MEHRFACH-RECHNUNGSADRESSEN!');
+        console.log('   ✅ Mehrere Rechnungsadressen pro Kunde!');
+        console.log('   ✅ Labels (Privat, Firma, Büro, etc.)!');
+        console.log('   ✅ Standard-Markierung!');
+        console.log('   ✅ Dropdown bei Rechnung → Auswahl!');
         console.log('📄 v5.52.4: RECHNUNGS-SYSTEM ERWEITERT!');
-        console.log('   ✅ BRUTTO-Eingabe (nicht Netto)!');
-        console.log('   ✅ Kilometer änderbar → Auto-MwSt!');
-        console.log('   ✅ MwSt manuell wählbar (7%/19%)!');
-        console.log('   ✅ POSITIONEN hinzufügen!');
-        console.log('   ✅ Rollstuhl-Zuschlag, Wartezeit, etc.!');
         console.log('🗺️ v5.52.3: FESTLAND-ZIELE (Greifswald!)!');
-        console.log('📄 v5.52.2: RECHNUNGSSYSTEM + FAHRZEUG-NAMEN!');
         console.log('');
-        console.log('✅ JETZT: Flexible Rechnungen!');
+        console.log('✅ JETZT: Flexible Rechnungsadressen!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -567,7 +566,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.4 - RECHNUNG FLEX (Build 20251209-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.5 - MEHRFACH-ADRESSEN (Build 20251209-1730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -19435,7 +19434,7 @@
                 return;
             }
             
-            // 🆕 v5.52.1: Rechnungsadresse
+            // 🆕 v5.52.5: Rechnungsadresse als Array initialisieren
             const address = document.getElementById('new-customer-address').value.trim();
             const billingSameAsAddress = document.getElementById('new-customer-billing-same').checked;
             const billingAddress = billingSameAsAddress ? address : document.getElementById('new-customer-billing').value.trim();
@@ -19445,8 +19444,12 @@
                 phone: document.getElementById('new-customer-phone').value.trim(),
                 email: document.getElementById('new-customer-email').value.trim(),
                 address: address,
-                billingAddress: billingAddress || address, // Falls leer, verwende Wohnanschrift
-                billingSameAsAddress: billingSameAsAddress,
+                billingAddresses: [{ // 🆕 v5.52.5: Array mit Standard-Adresse
+                    id: Date.now(),
+                    label: 'Standard',
+                    address: billingAddress || address,
+                    isDefault: true
+                }],
                 notes: document.getElementById('new-customer-notes').value.trim(),
                 totalRides: 0,
                 totalRevenue: 0,
@@ -21457,6 +21460,7 @@
         let invoicePositions = [];
         let invoiceRideData = null;
         let invoiceCustomerData = null;
+        let invoiceSelectedBillingAddress = null; // 🆕 v5.52.5: Gewählte Rechnungsadresse
         
         async function openInvoiceModal(rideId) {
             console.log('📄 Öffne Rechnungsmodal für:', rideId);
@@ -21481,6 +21485,19 @@
                 // 🆕 v5.52.4: Speichere Daten global
                 invoiceRideData = ride;
                 invoiceCustomerData = customer;
+                
+                // 🆕 v5.52.5: Initialisiere Rechnungsadresse
+                if (customer?.billingAddresses && customer.billingAddresses.length > 0) {
+                    const defaultAddr = customer.billingAddresses.find(a => a.isDefault) || customer.billingAddresses[0];
+                    invoiceSelectedBillingAddress = defaultAddr.address;
+                } else if (customer?.billingAddress) {
+                    // Migration: Alte Adresse
+                    invoiceSelectedBillingAddress = customer.billingAddress;
+                } else if (customer?.address) {
+                    invoiceSelectedBillingAddress = customer.address;
+                } else {
+                    invoiceSelectedBillingAddress = '';
+                }
                 
                 // 🆕 v5.52.4: Initialisiere Positionen mit Hauptfahrt
                 const distance = parseFloat(ride.distance) || 0;
@@ -21516,8 +21533,40 @@
                                 <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">👤 Kunde</div>
                                 <div style="margin-bottom:5px;"><strong>Name:</strong> ${ride.customerName || customer?.name || 'Unbekannt'}</div>
                                 ${customer?.email ? `<div style="margin-bottom:5px;"><strong>Email:</strong> ${customer.email}</div>` : ''}
-                                ${customer?.billingAddress ? `<div style="margin-bottom:5px;"><strong>Rechnungsadresse:</strong><br>${customer.billingAddress}</div>` : 
-                                  customer?.address ? `<div style="margin-bottom:5px;"><strong>Adresse:</strong><br>${customer.address}</div>` : ''}
+                                
+                                ${(() => {
+                                    // 🆕 v5.52.5: Rechnungsadresse-Dropdown
+                                    if (customer?.billingAddresses && customer.billingAddresses.length > 0) {
+                                        const defaultAddr = customer.billingAddresses.find(a => a.isDefault) || customer.billingAddresses[0];
+                                        
+                                        if (customer.billingAddresses.length === 1) {
+                                            // Nur eine Adresse → direkt anzeigen
+                                            return `<div style="margin-bottom:5px;"><strong>Rechnungsadresse:</strong><br>${defaultAddr.address}</div>`;
+                                        } else {
+                                            // Mehrere Adressen → Dropdown
+                                            const options = customer.billingAddresses.map(addr => 
+                                                `<option value="${addr.id}" ${addr.isDefault ? 'selected' : ''}>${addr.label || 'Ohne Label'} - ${addr.address.substring(0, 50)}...</option>`
+                                            ).join('');
+                                            
+                                            return `
+                                                <div style="margin-bottom:5px;">
+                                                    <strong>Rechnungsadresse:</strong>
+                                                    <select id="invoice-billing-address-select" 
+                                                            onchange="updateInvoiceBillingAddress()"
+                                                            style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;margin-top:5px;font-size:13px;">
+                                                        ${options}
+                                                    </select>
+                                                </div>
+                                            `;
+                                        }
+                                    } else if (customer?.billingAddress) {
+                                        // 🔄 Migration: Alte einzelne Adresse
+                                        return `<div style="margin-bottom:5px;"><strong>Rechnungsadresse:</strong><br>${customer.billingAddress}</div>`;
+                                    } else if (customer?.address) {
+                                        return `<div style="margin-bottom:5px;"><strong>Adresse:</strong><br>${customer.address}</div>`;
+                                    }
+                                    return '';
+                                })()}
                             </div>
                             
                             <!-- FAHRT -->
@@ -21610,6 +21659,7 @@
             invoicePositions = [];
             invoiceRideData = null;
             invoiceCustomerData = null;
+            invoiceSelectedBillingAddress = null; // 🆕 v5.52.5
         }
         
         // 🆕 v5.52.4: Rendere Positionen-Liste
@@ -21762,7 +21812,14 @@
                 let yPos = 86;
                 doc.text(ride.customerName || customer?.name || 'Unbekannt', 20, yPos);
                 
-                if (customer?.billingAddress) {
+                // 🆕 v5.52.5: Nutze gewählte Rechnungsadresse
+                if (invoiceSelectedBillingAddress) {
+                    yPos += 5;
+                    const addressLines = doc.splitTextToSize(invoiceSelectedBillingAddress, 80);
+                    doc.text(addressLines, 20, yPos);
+                    yPos += addressLines.length * 5;
+                } else if (customer?.billingAddress) {
+                    // Fallback: alte einzelne Adresse
                     yPos += 5;
                     const addressLines = doc.splitTextToSize(customer.billingAddress, 80);
                     doc.text(addressLines, 20, yPos);
@@ -22066,18 +22123,36 @@
             }
         }
         
+        // 🆕 v5.52.5: Globale Variable für Rechnungsadressen beim Bearbeiten
+        let currentCustomerBillingAddresses = [];
+        
         function editCustomer(customerId) {
             const customer = allCustomers.find(c => c.id === customerId);
             if (!customer) return;
             
-            const billingSameChecked = customer.billingSameAsAddress !== false; // Default true wenn nicht gesetzt
-            const billingAddress = customer.billingAddress || customer.address || '';
+            // 🆕 v5.52.5: Lade bestehende Rechnungsadressen oder erstelle Standard
+            currentCustomerBillingAddresses = customer.billingAddresses ? [...customer.billingAddresses] : [];
+            
+            // Migration: Alte einzelne billingAddress → neues Array
+            if (!customer.billingAddresses && customer.billingAddress) {
+                currentCustomerBillingAddresses = [{
+                    id: Date.now(),
+                    label: 'Standard',
+                    address: customer.billingAddress,
+                    isDefault: true
+                }];
+            }
+            
+            // Wenn keine Adresse vorhanden, erstelle leeres Array
+            if (currentCustomerBillingAddresses.length === 0) {
+                currentCustomerBillingAddresses = [];
+            }
             
             const modal = document.createElement('div');
             modal.id = 'edit-customer-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
             modal.innerHTML = `
-                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:400px;max-height:90vh;overflow-y:auto;">
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;">
                     <h3 style="margin:0 0 15px 0;">✏️ Kunde bearbeiten</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="edit-customer-name" value="${customer.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
@@ -22088,17 +22163,17 @@
                             <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                         </div>
                         
-                        <!-- 🆕 v5.52.1: RECHNUNGSADRESSE -->
-                        <div style="margin-top:10px;padding:15px;background:#f9fafb;border-radius:8px;">
-                            <div style="font-weight:600;margin-bottom:10px;color:#1f2937;">💰 Rechnungsadresse</div>
-                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;">
-                                <input type="checkbox" id="edit-customer-billing-same" ${billingSameChecked ? 'checked' : ''} onchange="toggleBillingAddress(this, 'edit')" style="width:18px;height:18px;">
-                                <span style="font-size:14px;">Wie Wohnanschrift</span>
-                            </label>
-                            <div id="edit-customer-billing-container" style="position:relative;">
-                                <input type="text" id="edit-customer-billing" value="${billingAddress}" placeholder="Rechnungsadresse (falls abweichend)" ${billingSameChecked ? 'disabled' : ''} style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;background:${billingSameChecked ? '#f3f4f6' : 'white'};">
-                                <div id="edit-customer-billing-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
-                            </div>
+                        <!-- 🆕 v5.52.5: MEHRFACH-RECHNUNGSADRESSEN -->
+                        <div style="margin-top:10px;padding:15px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
+                            <div style="font-weight:700;margin-bottom:10px;color:#047857;">📬 Rechnungsadressen</div>
+                            
+                            <div id="billing-addresses-list" style="margin-bottom:10px;"></div>
+                            
+                            <button onclick="addBillingAddressField()" 
+                                    style="width:100%;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s;"
+                                    onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                + Rechnungsadresse hinzufügen
+                            </button>
                         </div>
                         
                         <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
@@ -22115,16 +22190,260 @@
             `;
             document.body.appendChild(modal);
             
+            // Rendere Adressen-Liste
+            renderBillingAddressesList();
+            
             // Autocomplete aktivieren nach Modal erscheint
             setTimeout(() => {
                 setupCustomerAddressAutocomplete('edit-customer-address', 'edit-customer-address-dropdown');
-                setupCustomerAddressAutocomplete('edit-customer-billing', 'edit-customer-billing-dropdown');
             }, 100);
+        }
+        
+        // 🆕 v5.52.5: Rendere Liste der Rechnungsadressen
+        function renderBillingAddressesList() {
+            const container = document.getElementById('billing-addresses-list');
+            if (!container) return;
+            
+            if (currentCustomerBillingAddresses.length === 0) {
+                container.innerHTML = '<div style="padding:10px;text-align:center;color:#6b7280;font-size:13px;">Noch keine Rechnungsadressen</div>';
+                return;
+            }
+            
+            container.innerHTML = currentCustomerBillingAddresses.map((addr, index) => `
+                <div style="background:white;border:2px solid ${addr.isDefault ? '#10b981' : '#e5e7eb'};border-radius:8px;padding:12px;margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                        <div style="flex:1;">
+                            <input type="text" 
+                                   id="billing-label-${index}"
+                                   value="${addr.label || ''}" 
+                                   onchange="updateBillingAddressLabel(${index}, this.value)"
+                                   placeholder="Label (z.B. Privat, Firma)"
+                                   style="padding:6px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;font-weight:600;width:100%;margin-bottom:8px;">
+                            
+                            <div style="position:relative;">
+                                <textarea 
+                                    id="billing-address-${index}"
+                                    onchange="updateBillingAddressText(${index}, this.value)"
+                                    placeholder="Rechnungsadresse"
+                                    style="padding:8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;width:100%;min-height:60px;resize:vertical;">${addr.address || ''}</textarea>
+                                <div id="billing-address-dropdown-${index}" 
+                                     style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10001;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
+                            <input type="checkbox" 
+                                   ${addr.isDefault ? 'checked' : ''} 
+                                   onchange="setBillingAddressDefault(${index})"
+                                   style="width:16px;height:16px;">
+                            <span style="font-size:13px;color:#6b7280;">Als Standard</span>
+                        </label>
+                        
+                        <button onclick="removeBillingAddress(${index})" 
+                                style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Aktiviere Autocomplete für alle Adressfelder
+            setTimeout(() => {
+                currentCustomerBillingAddresses.forEach((_, index) => {
+                    setupBillingAddressAutocomplete(index);
+                });
+            }, 100);
+        }
+        
+        // 🆕 v5.52.5: Autocomplete für Rechnungsadresse-Feld
+        function setupBillingAddressAutocomplete(index) {
+            const textarea = document.getElementById(`billing-address-${index}`);
+            const dropdown = document.getElementById(`billing-address-dropdown-${index}`);
+            
+            if (!textarea || !dropdown) return;
+            
+            let timeout;
+            
+            textarea.addEventListener('input', (e) => {
+                clearTimeout(timeout);
+                const value = e.target.value.trim();
+                
+                if (value.length < 3) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                
+                dropdown.innerHTML = '<div style="padding:10px;color:#999;font-size:13px;">Suche...</div>';
+                dropdown.style.display = 'block';
+                
+                timeout = setTimeout(() => {
+                    searchAddressForBilling(value, index);
+                }, 300);
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (e.target !== textarea && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+        
+        // 🆕 v5.52.5: Adresssuche für Rechnungsadresse
+        async function searchAddressForBilling(query, index) {
+            const dropdown = document.getElementById(`billing-address-dropdown-${index}`);
+            if (!dropdown) return;
+            
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?` +
+                    `format=json&` +
+                    `q=${encodeURIComponent(query)}&` +
+                    `countrycodes=de&` +
+                    `limit=8&` +
+                    `addressdetails=1`
+                );
+                
+                const results = await response.json();
+                
+                if (results.length === 0) {
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;font-size:13px;">Keine Ergebnisse</div>';
+                    return;
+                }
+                
+                const usedomResults = results.filter(r => {
+                    const display = r.display_name.toLowerCase();
+                    return display.includes('usedom') || 
+                           display.includes('heringsdorf') || 
+                           display.includes('ahlbeck') ||
+                           display.includes('bansin') ||
+                           display.includes('zinnowitz') ||
+                           display.includes('karlshagen') ||
+                           display.includes('peenemünde') ||
+                           display.includes('koserow') ||
+                           display.includes('ückeritz') ||
+                           display.includes('loddin') ||
+                           display.includes('zempin') ||
+                           display.includes('trassenheide') ||
+                           display.includes('greifswald') ||
+                           display.includes('wolgast') ||
+                           display.includes('anklam') ||
+                           display.includes('stralsund') ||
+                           display.includes('neubrandenburg');
+                });
+                
+                const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
+                
+                dropdown.innerHTML = resultsToShow.map(r => {
+                    const address = r.address;
+                    let displayText = '';
+                    if (address.road) displayText += address.road + ' ';
+                    if (address.house_number) displayText += address.house_number + ', ';
+                    if (address.postcode) displayText += address.postcode + ' ';
+                    if (address.village || address.town || address.city) {
+                        displayText += (address.village || address.town || address.city);
+                    }
+                    
+                    return `
+                        <div onclick="selectBillingAddress(${index}, '${displayText.replace(/'/g, "\\'")}', '${r.display_name.replace(/'/g, "\\'")}' )" 
+                             style="padding:10px;cursor:pointer;border-bottom:1px solid #f0f0f0;transition:background 0.2s;"
+                             onmouseover="this.style.background='#f9fafb'" 
+                             onmouseout="this.style.background='white'">
+                            <div style="font-weight:600;font-size:13px;">${displayText}</div>
+                            <div style="font-size:11px;color:#999;">${r.display_name}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Autocomplete Fehler:', error);
+                dropdown.innerHTML = '<div style="padding:10px;color:#ef4444;font-size:13px;">Fehler bei der Suche</div>';
+            }
+        }
+        
+        // 🆕 v5.52.5: Adresse aus Dropdown auswählen
+        function selectBillingAddress(index, shortAddress, fullAddress) {
+            const textarea = document.getElementById(`billing-address-${index}`);
+            const dropdown = document.getElementById(`billing-address-dropdown-${index}`);
+            
+            if (textarea) {
+                textarea.value = fullAddress;
+                currentCustomerBillingAddresses[index].address = fullAddress;
+            }
+            
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
+        }
+        
+        // 🆕 v5.52.5: Neue leere Adresse hinzufügen
+        function addBillingAddressField() {
+            const nextId = Date.now();
+            currentCustomerBillingAddresses.push({
+                id: nextId,
+                label: '',
+                address: '',
+                isDefault: currentCustomerBillingAddresses.length === 0 // Erste ist automatisch Standard
+            });
+            renderBillingAddressesList();
+        }
+        
+        // 🆕 v5.52.5: Adresse entfernen
+        function removeBillingAddress(index) {
+            if (currentCustomerBillingAddresses.length === 1) {
+                alert('⚠️ Du kannst nicht die letzte Adresse löschen!');
+                return;
+            }
+            
+            const wasDefault = currentCustomerBillingAddresses[index].isDefault;
+            currentCustomerBillingAddresses.splice(index, 1);
+            
+            // Wenn Standard gelöscht wurde, setze ersten Eintrag als Standard
+            if (wasDefault && currentCustomerBillingAddresses.length > 0) {
+                currentCustomerBillingAddresses[0].isDefault = true;
+            }
+            
+            renderBillingAddressesList();
+        }
+        
+        // 🆕 v5.52.5: Label ändern
+        function updateBillingAddressLabel(index, value) {
+            currentCustomerBillingAddresses[index].label = value;
+        }
+        
+        // 🆕 v5.52.5: Adress-Text ändern
+        function updateBillingAddressText(index, value) {
+            currentCustomerBillingAddresses[index].address = value;
+        }
+        
+        // 🆕 v5.52.5: Als Standard markieren
+        function setBillingAddressDefault(index) {
+            // Entferne Standard von allen
+            currentCustomerBillingAddresses.forEach(addr => addr.isDefault = false);
+            // Setze neuen Standard
+            currentCustomerBillingAddresses[index].isDefault = true;
+            renderBillingAddressesList();
+        }
+        
+        // 🆕 v5.52.5: Rechnungsadresse im Rechnungsmodal ändern
+        function updateInvoiceBillingAddress() {
+            const select = document.getElementById('invoice-billing-address-select');
+            if (!select || !invoiceCustomerData) return;
+            
+            const selectedId = parseInt(select.value);
+            const selectedAddr = invoiceCustomerData.billingAddresses.find(a => a.id === selectedId);
+            
+            if (selectedAddr) {
+                invoiceSelectedBillingAddress = selectedAddr.address;
+                console.log('📬 Rechnungsadresse gewählt:', selectedAddr.label, '-', selectedAddr.address);
+            }
         }
         
         function closeEditCustomerModal() {
             const modal = document.getElementById('edit-customer-modal');
             if (modal) modal.remove();
+            currentCustomerBillingAddresses = [];
         }
         
         async function updateCustomer(customerId) {
@@ -22134,18 +22453,26 @@
                 return;
             }
             
-            // 🆕 v5.52.1: Rechnungsadresse
+            // 🆕 v5.52.5: Speichere Mehrfach-Rechnungsadressen
             const address = document.getElementById('edit-customer-address').value.trim();
-            const billingSameAsAddress = document.getElementById('edit-customer-billing-same').checked;
-            const billingAddress = billingSameAsAddress ? address : document.getElementById('edit-customer-billing').value.trim();
+            
+            // Prüfe ob mindestens eine Rechnungsadresse vorhanden
+            if (currentCustomerBillingAddresses.length === 0) {
+                // Fallback: Nutze Wohnanschrift als Standard-Rechnungsadresse
+                currentCustomerBillingAddresses = [{
+                    id: Date.now(),
+                    label: 'Standard',
+                    address: address,
+                    isDefault: true
+                }];
+            }
             
             const updates = {
                 name: name,
                 phone: document.getElementById('edit-customer-phone').value.trim(),
                 email: document.getElementById('edit-customer-email').value.trim(),
                 address: address,
-                billingAddress: billingAddress || address,
-                billingSameAsAddress: billingSameAsAddress,
+                billingAddresses: currentCustomerBillingAddresses, // 🆕 v5.52.5: Array!
                 notes: document.getElementById('edit-customer-notes').value.trim()
             };
             

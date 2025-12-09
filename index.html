@@ -78,16 +78,17 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.52.0 - DRAGGABLE PANEL! (Build 20251209-1400)');
+        console.log('🚕 Funk Taxi App v5.52.1 - FAHRZEUGE + RECHNUNGSADRESSE! (Build 20251209-1500)');
+        console.log('🚗 v5.52.1: ALLE FAHRZEUGE + RECHNUNGSADRESSE IM CRM!');
+        console.log('   ✅ Zeigt ALLE Fahrzeuge aus Verwaltung!');
+        console.log('   ✅ Mit Name + Kennzeichen: "Tesla Model Y (PW-MY 222 E)"!');
+        console.log('   ✅ 🟢 ONLINE / ⚪ OFFLINE Status!');
+        console.log('   ✅ Auch offline Fahrzeuge zuweisbar!');
+        console.log('   ✅ CRM: Rechnungsadresse mit Checkbox "Wie Wohnanschrift"!');
         console.log('🎯 v5.52.0: PANEL VERSCHIEBEN + GRÖßE ÄNDERN!');
-        console.log('   ✅ Panel mit Header greifen & verschieben!');
-        console.log('   ✅ Größe ändern mit CSS resize!');
-        console.log('   ✅ Position & Größe werden gespeichert!');
-        console.log('   ✅ Wochentag-Anzeige auf Handy größer & deutlicher!');
         console.log('📅 v5.51.0: WOCHENTAG-ANZEIGE + DYNAMISCHER BUTTON!');
-        console.log('🛡️ v5.50.9: ADMIN-FAHRTEN IN PASSENGER-VIEW GESCHÜTZT!');
         console.log('');
-        console.log('✅ JETZT: Panel verschieben & Größe ändern!');
+        console.log('✅ JETZT: Alle Fahrzeuge + Rechnungsadresse!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -566,7 +567,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.0 - DRAGGABLE PANEL (Build 20251209-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.52.1 - FAHRZEUGE + RECHNUNGSADRESSE (Build 20251209-1500)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5095,17 +5096,38 @@
                     return;
                 }
                 
-                // Lade alle Fahrzeuge
-                let vehiclesList = [];
+                // 🆕 v5.52.1: Lade ALLE Fahrzeuge aus Verwaltung + prüfe Online-Status
+                const vehiclesList = [];
                 if (isFirebaseReady) {
-                    const snapshot = await db.ref('drivers').once('value');
-                    const driversData = snapshot.val() || {};
-                    vehiclesList = Object.entries(driversData).map(([id, data]) => ({
-                        id: id,
-                        vehicle: data.vehicle || id,
-                        plate: data.plate || '',
-                        userId: data.userId
-                    }));
+                    const [vehiclesSnapshot, driversSnapshot] = await Promise.all([
+                        db.ref('vehicles').once('value'),
+                        db.ref('drivers').once('value')
+                    ]);
+                    
+                    const onlineVehicleIds = new Set();
+                    
+                    // Sammle Online-Fahrzeuge von Fahrern
+                    driversSnapshot.forEach(child => {
+                        const driver = child.val();
+                        if (driver.online && driver.vehicle) {
+                            onlineVehicleIds.add(driver.vehicle);
+                        }
+                    });
+                    
+                    // Lade alle Fahrzeuge aus Verwaltung
+                    vehiclesSnapshot.forEach(child => {
+                        const v = child.val();
+                        v.id = child.key;
+                        v.isOnline = onlineVehicleIds.has(v.id);
+                        vehiclesList.push(v);
+                    });
+                    
+                    // Sortiere: Online zuerst, dann alphabetisch
+                    vehiclesList.sort((a, b) => {
+                        if (a.isOnline && !b.isOnline) return -1;
+                        if (!a.isOnline && b.isOnline) return 1;
+                        return (a.name || '').localeCompare(b.name || '');
+                    });
                 }
                 
                 if (vehiclesList.length === 0) {
@@ -5119,15 +5141,25 @@
                 
                 let vehicleOptions = '';
                 vehiclesList.forEach(v => {
+                    const statusIcon = v.isOnline ? '🟢' : '⚪';
+                    const statusText = v.isOnline ? 'ONLINE' : 'OFFLINE';
+                    const displayName = `${v.name || v.id}`;
+                    const plate = v.plate || 'Kein Kennzeichen';
+                    
                     vehicleOptions += `
                         <div onclick="selectVehicleForAssignment('${rideId}', '${v.id}')" 
-                             style="padding:15px;background:white;border:2px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:10px;transition:all 0.2s;"
+                             style="padding:15px;background:white;border:2px solid ${v.isOnline ? '#10b981' : '#e5e7eb'};border-radius:10px;cursor:pointer;margin-bottom:10px;transition:all 0.2s;"
                              onmouseover="this.style.borderColor='#667eea';this.style.background='#f3f4f6'"
-                             onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white'">
-                            <div style="font-size:18px;font-weight:700;color:#1f2937;margin-bottom:5px;">
-                                🚗 ${v.vehicle}
+                             onmouseout="this.style.borderColor='${v.isOnline ? '#10b981' : '#e5e7eb'}';this.style.background='white'">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <div style="font-size:18px;font-weight:700;color:#1f2937;">
+                                    ${statusIcon} ${displayName}
+                                </div>
+                                <div style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:12px;background:${v.isOnline ? '#d1fae5' : '#f3f4f6'};color:${v.isOnline ? '#065f46' : '#6b7280'};">
+                                    ${statusText}
+                                </div>
                             </div>
-                            ${v.plate ? `<div style="font-size:14px;color:#6b7280;">📋 ${v.plate}</div>` : ''}
+                            <div style="font-size:14px;color:#6b7280;">🚗 ${plate}</div>
                         </div>
                     `;
                 });
@@ -5136,7 +5168,7 @@
                     <div style="background:white;border-radius:16px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;">
                         <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:16px 16px 0 0;">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <h3 style="margin:0;font-size:20px;">🚗 Fahrer zuweisen</h3>
+                                <h3 style="margin:0;font-size:20px;">🚗 Fahrzeug zuweisen</h3>
                                 <button onclick="this.closest('div').parentElement.parentElement.remove()" 
                                     style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
                             </div>
@@ -18884,6 +18916,20 @@
                             <input type="text" id="new-customer-address" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
                             <div id="new-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                         </div>
+                        
+                        <!-- 🆕 v5.52.1: RECHNUNGSADRESSE -->
+                        <div style="margin-top:10px;padding:15px;background:#f9fafb;border-radius:8px;">
+                            <div style="font-weight:600;margin-bottom:10px;color:#1f2937;">💰 Rechnungsadresse</div>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;">
+                                <input type="checkbox" id="new-customer-billing-same" onchange="toggleBillingAddress(this, 'new')" style="width:18px;height:18px;">
+                                <span style="font-size:14px;">Wie Wohnanschrift</span>
+                            </label>
+                            <div id="new-customer-billing-container" style="position:relative;">
+                                <input type="text" id="new-customer-billing" placeholder="Rechnungsadresse (falls abweichend)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
+                                <div id="new-customer-billing-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
+                            </div>
+                        </div>
+                        
                         <textarea id="new-customer-notes" placeholder="Notizen (z.B. Kindersitz, Rollstuhl)" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;"></textarea>
                     </div>
                     <div style="display:flex;gap:10px;margin-top:15px;">
@@ -18897,7 +18943,23 @@
             // Autocomplete aktivieren nach Modal erscheint
             setTimeout(() => {
                 setupCustomerAddressAutocomplete('new-customer-address', 'new-customer-address-dropdown');
+                setupCustomerAddressAutocomplete('new-customer-billing', 'new-customer-billing-dropdown');
             }, 100);
+        }
+        
+        // 🆕 v5.52.1: Toggle Rechnungsadresse
+        function toggleBillingAddress(checkbox, prefix) {
+            const billingInput = document.getElementById(`${prefix}-customer-billing`);
+            const addressInput = document.getElementById(`${prefix}-customer-address`);
+            
+            if (checkbox.checked) {
+                billingInput.value = addressInput.value;
+                billingInput.disabled = true;
+                billingInput.style.background = '#f3f4f6';
+            } else {
+                billingInput.disabled = false;
+                billingInput.style.background = 'white';
+            }
         }
         
         // 🏠 Autocomplete für Kunden-Wohnanschrift - nutzt GLEICHE Funktion wie Abholort/Zielort
@@ -19361,11 +19423,18 @@
                 return;
             }
             
+            // 🆕 v5.52.1: Rechnungsadresse
+            const address = document.getElementById('new-customer-address').value.trim();
+            const billingSameAsAddress = document.getElementById('new-customer-billing-same').checked;
+            const billingAddress = billingSameAsAddress ? address : document.getElementById('new-customer-billing').value.trim();
+            
             const customer = {
                 name: name,
                 phone: document.getElementById('new-customer-phone').value.trim(),
                 email: document.getElementById('new-customer-email').value.trim(),
-                address: document.getElementById('new-customer-address').value.trim(),
+                address: address,
+                billingAddress: billingAddress || address, // Falls leer, verwende Wohnanschrift
+                billingSameAsAddress: billingSameAsAddress,
                 notes: document.getElementById('new-customer-notes').value.trim(),
                 totalRides: 0,
                 totalRevenue: 0,
@@ -20776,25 +20845,48 @@
             const select = document.getElementById('qb-panel-vehicle');
             if (!select || !isFirebaseReady) return;
             
-            db.ref('vehicles').once('value').then(snapshot => {
+            // 🆕 v5.52.1: Lade ALLE Fahrzeuge aus Verwaltung + prüfe Online-Status
+            Promise.all([
+                db.ref('vehicles').once('value'),
+                db.ref('drivers').once('value')
+            ]).then(([vehiclesSnapshot, driversSnapshot]) => {
                 const vehicles = [];
-                snapshot.forEach(child => {
+                const onlineVehicleIds = new Set();
+                
+                // Sammle Online-Fahrzeuge von Fahrern
+                driversSnapshot.forEach(child => {
+                    const driver = child.val();
+                    if (driver.online && driver.vehicle) {
+                        onlineVehicleIds.add(driver.vehicle);
+                    }
+                });
+                
+                // Lade alle Fahrzeuge aus Verwaltung
+                vehiclesSnapshot.forEach(child => {
                     const v = child.val();
                     v.id = child.key;
+                    v.isOnline = onlineVehicleIds.has(v.id);
                     vehicles.push(v);
                 });
                 
+                // Sortiere: Online zuerst, dann alphabetisch
                 vehicles.sort((a, b) => {
                     if (a.isOnline && !b.isOnline) return -1;
                     if (!a.isOnline && b.isOnline) return 1;
                     return (a.name || '').localeCompare(b.name || '');
                 });
                 
+                // 🆕 v5.52.1: Zeige Name + Kennzeichen!
                 select.innerHTML = '<option value="">Automatisch zuweisen</option>' +
                     vehicles.map(v => {
-                        const onlineText = v.isOnline ? '🟢' : '🔴';
-                        return `<option value="${v.id}">${onlineText} ${v.name || v.id}</option>`;
+                        const statusIcon = v.isOnline ? '🟢' : '⚪';
+                        const displayName = `${v.name || v.id} (${v.plate || 'Kein Kennzeichen'})`;
+                        return `<option value="${v.id}">${statusIcon} ${displayName}</option>`;
                     }).join('');
+                    
+                console.log('🚗 Fahrzeuge geladen:', vehicles.length, 'davon online:', onlineVehicleIds.size);
+            }).catch(err => {
+                console.error('❌ Fehler beim Laden der Fahrzeuge:', err);
             });
         }
         
@@ -21476,6 +21568,9 @@
             const customer = allCustomers.find(c => c.id === customerId);
             if (!customer) return;
             
+            const billingSameChecked = customer.billingSameAsAddress !== false; // Default true wenn nicht gesetzt
+            const billingAddress = customer.billingAddress || customer.address || '';
+            
             const modal = document.createElement('div');
             modal.id = 'edit-customer-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
@@ -21490,6 +21585,20 @@
                             <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
                             <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                         </div>
+                        
+                        <!-- 🆕 v5.52.1: RECHNUNGSADRESSE -->
+                        <div style="margin-top:10px;padding:15px;background:#f9fafb;border-radius:8px;">
+                            <div style="font-weight:600;margin-bottom:10px;color:#1f2937;">💰 Rechnungsadresse</div>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;">
+                                <input type="checkbox" id="edit-customer-billing-same" ${billingSameChecked ? 'checked' : ''} onchange="toggleBillingAddress(this, 'edit')" style="width:18px;height:18px;">
+                                <span style="font-size:14px;">Wie Wohnanschrift</span>
+                            </label>
+                            <div id="edit-customer-billing-container" style="position:relative;">
+                                <input type="text" id="edit-customer-billing" value="${billingAddress}" placeholder="Rechnungsadresse (falls abweichend)" ${billingSameChecked ? 'disabled' : ''} style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;background:${billingSameChecked ? '#f3f4f6' : 'white'};">
+                                <div id="edit-customer-billing-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
+                            </div>
+                        </div>
+                        
                         <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
                     </div>
                     <div style="font-size:12px;color:#666;margin-top:10px;padding:10px;background:#f9fafb;border-radius:6px;">
@@ -21507,6 +21616,7 @@
             // Autocomplete aktivieren nach Modal erscheint
             setTimeout(() => {
                 setupCustomerAddressAutocomplete('edit-customer-address', 'edit-customer-address-dropdown');
+                setupCustomerAddressAutocomplete('edit-customer-billing', 'edit-customer-billing-dropdown');
             }, 100);
         }
         
@@ -21522,11 +21632,18 @@
                 return;
             }
             
+            // 🆕 v5.52.1: Rechnungsadresse
+            const address = document.getElementById('edit-customer-address').value.trim();
+            const billingSameAsAddress = document.getElementById('edit-customer-billing-same').checked;
+            const billingAddress = billingSameAsAddress ? address : document.getElementById('edit-customer-billing').value.trim();
+            
             const updates = {
                 name: name,
                 phone: document.getElementById('edit-customer-phone').value.trim(),
                 email: document.getElementById('edit-customer-email').value.trim(),
-                address: document.getElementById('edit-customer-address').value.trim(),
+                address: address,
+                billingAddress: billingAddress || address,
+                billingSameAsAddress: billingSameAsAddress,
                 notes: document.getElementById('edit-customer-notes').value.trim()
             };
             
@@ -26076,10 +26193,15 @@ Stack: ${err.stack}
             content.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 40px 20px;">🔄 Lade Fahrzeuge...</p>';
             
             try {
-                const driversSnapshot = await db.ref('drivers').once('value');
-                const drivers = driversSnapshot.val() || {};
+                // 🆕 v5.52.1: Lade ALLE Fahrzeuge aus Verwaltung + Fahrer-Status
+                const [vehiclesSnapshot, driversSnapshot, rideSnapshot] = await Promise.all([
+                    db.ref('vehicles').once('value'),
+                    db.ref('drivers').once('value'),
+                    db.ref('rides/' + rideId).once('value')
+                ]);
                 
-                const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                const allVehicles = vehiclesSnapshot.val() || {};
+                const drivers = driversSnapshot.val() || {};
                 const ride = rideSnapshot.val();
                 
                 if (!ride) {
@@ -26124,21 +26246,48 @@ Stack: ${err.stack}
                     </h4>
                 `;
                 
+                // 🆕 v5.52.1: Sammle Fahrzeuge mit Online-Status
                 const onlineVehicles = [];
                 const offlineVehicles = [];
                 
-                for (const [vehicleId, driver] of Object.entries(drivers)) {
-                    if (driver.online) {
-                        onlineVehicles.push({ vehicleId, driver });
-                    } else {
-                        offlineVehicles.push({ vehicleId, driver });
+                // Prüfe welche Fahrzeuge online sind
+                const onlineVehicleIds = new Set();
+                const driverByVehicle = {};
+                
+                for (const [driverId, driver] of Object.entries(drivers)) {
+                    if (driver.online && driver.vehicle) {
+                        onlineVehicleIds.add(driver.vehicle);
+                        driverByVehicle[driver.vehicle] = driver;
                     }
                 }
                 
+                // Sortiere Fahrzeuge nach Online/Offline
+                for (const [vehicleId, vehicle] of Object.entries(allVehicles)) {
+                    const isOnline = onlineVehicleIds.has(vehicleId);
+                    const vehicleData = {
+                        id: vehicleId,
+                        name: vehicle.name || vehicleId,
+                        plate: vehicle.plate || 'Kein Kennzeichen',
+                        driver: driverByVehicle[vehicleId] || null
+                    };
+                    
+                    if (isOnline) {
+                        onlineVehicles.push(vehicleData);
+                    } else {
+                        offlineVehicles.push(vehicleData);
+                    }
+                }
+                
+                // Sortiere alphabetisch
+                onlineVehicles.sort((a, b) => a.name.localeCompare(b.name));
+                offlineVehicles.sort((a, b) => a.name.localeCompare(b.name));
+                
+                // 🟢 ONLINE FAHRZEUGE
                 if (onlineVehicles.length > 0) {
-                    onlineVehicles.forEach(({ vehicleId, driver }) => {
-                        const lastUpdate = driver.lastUpdate ? new Date(driver.lastUpdate).toLocaleTimeString('de-DE') : 'k.A.';
-                        const hasGPS = driver.location && driver.location.latitude && driver.location.longitude;
+                    onlineVehicles.forEach(vehicle => {
+                        const driver = vehicle.driver;
+                        const lastUpdate = driver && driver.lastUpdate ? new Date(driver.lastUpdate).toLocaleTimeString('de-DE') : 'k.A.';
+                        const hasGPS = driver && driver.location && driver.location.latitude && driver.location.longitude;
                         
                         html += `
                             <div style="border: 3px solid #10b981; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: linear-gradient(to right, #d1fae5, #f0fdf4); transition: all 0.3s; cursor: pointer;"
@@ -26148,10 +26297,13 @@ Stack: ${err.stack}
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                     <div style="font-weight: 700; font-size: 18px; color: #1f2937; display: flex; align-items: center; gap: 8px;">
                                         <span style="font-size: 24px;">🚗</span>
-                                        <span>${vehicleId}</span>
+                                        <div>
+                                            <div>${vehicle.name}</div>
+                                            <div style="font-size: 13px; font-weight: 600; color: #059669;">🚙 ${vehicle.plate}</div>
+                                        </div>
                                     </div>
                                     <div style="background: #10b981; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;">
-                                        ✅ ONLINE
+                                        🟢 ONLINE
                                     </div>
                                 </div>
                                 
@@ -26167,7 +26319,7 @@ Stack: ${err.stack}
                                     <span>Letztes Update: ${lastUpdate}</span>
                                 </div>
                                 
-                                <button onclick="assignVehicleToRide('${rideId}', '${vehicleId}')" 
+                                <button onclick="assignVehicleToRide('${rideId}', '${vehicle.id}')" 
                                         style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.3s; box-shadow: 0 2px 8px rgba(102,126,234,0.3);"
                                         onmouseenter="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 12px rgba(102,126,234,0.5)';"
                                         onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(102,126,234,0.3)';">
@@ -26184,38 +26336,52 @@ Stack: ${err.stack}
                                 Keine Fahrzeuge online!
                             </div>
                             <div style="color: #78350f; font-size: 13px;">
-                                Bitte warte bis ein Fahrer online geht oder weise die Fahrt später zu.
+                                Du kannst trotzdem ein OFFLINE-Fahrzeug für die Planung zuweisen.
                             </div>
                         </div>
                     `;
                 }
                 
+                // ⚪ OFFLINE FAHRZEUGE (auch zuweisbar!)
                 if (offlineVehicles.length > 0) {
                     html += `
                         <h4 style="margin: 20px 0 12px 0; color: #6b7280; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 18px;">⚪</span>
-                            <span>Offline Fahrzeuge</span>
+                            <span>Offline Fahrzeuge (trotzdem zuweisbar)</span>
                         </h4>
                     `;
                     
-                    offlineVehicles.forEach(({ vehicleId }) => {
+                    offlineVehicles.forEach(vehicle => {
                         html += `
-                            <div style="border: 2px solid #d1d5db; border-radius: 8px; padding: 14px; margin-bottom: 8px; background: #f9fafb; opacity: 0.6;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="border: 2px solid #d1d5db; border-radius: 8px; padding: 14px; margin-bottom: 8px; background: #f9fafb; transition: all 0.3s; cursor: pointer;"
+                                 onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)';"
+                                 onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                     <div style="font-weight: 600; font-size: 15px; color: #6b7280; display: flex; align-items: center; gap: 8px;">
                                         <span style="font-size: 20px;">🚗</span>
-                                        <span>${vehicleId}</span>
+                                        <div>
+                                            <div>${vehicle.name}</div>
+                                            <div style="font-size: 12px; font-weight: 600; color: #9ca3af;">🚙 ${vehicle.plate}</div>
+                                        </div>
                                     </div>
                                     <div style="background: #9ca3af; color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;">
                                         ⚪ OFFLINE
                                     </div>
                                 </div>
+                                
+                                <button onclick="assignVehicleToRide('${rideId}', '${vehicle.id}')" 
+                                        style="width: 100%; padding: 10px; background: linear-gradient(135deg, #9ca3af, #6b7280); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;"
+                                        onmouseenter="this.style.transform='scale(1.02)';"
+                                        onmouseleave="this.style.transform='scale(1)';">
+                                    📋 Für Planung zuweisen
+                                </button>
                             </div>
                         `;
                     });
                 }
                 
                 content.innerHTML = html;
+                console.log('🚗 Fahrzeuge geladen:', onlineVehicles.length, 'online,', offlineVehicles.length, 'offline');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Fahrzeuge:', error);

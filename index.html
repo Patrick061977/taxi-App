@@ -78,12 +78,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.50.1 - OSRM-LOGS! (Build 20251209-0900)');
-        console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
-        console.log('⏱️ v5.50.0: FAHRTDAUER PROMINENTER ANGEZEIGT ZUM TESTEN!');
-        console.log('⚠️ v5.49.9: FALSCHE WARNUNG "ABHOLADRESSE EINGEBEN" BEHOBEN!');
+        console.log('🚕 Funk Taxi App v5.50.4 - PANEL-PREIS-FIX! (Build 20251209-0925)');
+        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
+        console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
+        console.log('👉 v5.50.3: USER MUSS JETZT MANUELL "PREIS BERECHNEN" KLICKEN!');
         console.log('');
-        console.log('🎯 JETZT SIEHST DU OSRM IN ACTION!');
+        console.log('🎯 PANEL SPEICHERT JETZT KORREKTEN PREIS!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.1 - OSRM-LOGS (Build 20251209-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.50.4 - PANEL-PREIS-FIX (Build 20251209-0925)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2181,7 +2181,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.50.1 - OSRM-LOGS!');
+                    console.log('🚕 Funk Taxi App v5.50.4 - PANEL-PREIS-FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5295,11 +5295,11 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.50.1 - OSRM-LOGS! (Build 20251209-0900)');
+        console.log('🚕 Funk Taxi App v5.50.4 - PANEL-PREIS-FIX! (Build 20251209-0925)');
+        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
+        console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
+        console.log('👉 v5.50.3: USER MUSS JETZT MANUELL "PREIS BERECHNEN" KLICKEN!');
         console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
-        console.log('⏱️ v5.50.0: FAHRTDAUER PROMINENTER ANGEZEIGT ZUM TESTEN!');
-        console.log('⚠️ v5.49.9: FALSCHE WARNUNG "ABHOLADRESSE EINGEBEN" BEHOBEN!');
-        console.log('🔄 v5.49.8: PREIS + ROUTE VERSCHWINDEN BEI FELDÄNDERUNG!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -10896,6 +10896,37 @@
         
         // 🆕 v5.42.8: ADRESSE AUS OVERLAY AUSWÄHLEN
         // 🆕 v5.46.3: Overlay-Funktionen entfernt - nutzen nur noch Dropdown!
+        
+        // 🆕 v5.50.2: GPS-Button Funktion (fehlte vorher!)
+        function showSingleAddressInOverlay(inputId, address, lat, lon, title) {
+            console.log('📍 GPS-Adresse übernehmen:', address);
+            
+            // Setze Adresse ins Feld
+            document.getElementById(inputId).value = address;
+            
+            // Speichere Koordinaten
+            if (inputId === 'pickup') {
+                pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                pickupConfirmed = true;
+                updateConfirmationHint('pickup');
+                console.log('✅ GPS-Abholort gespeichert:', address, pickupCoords);
+                
+                // Bei Vorbestellung → Live-Slot-Check!
+                if (currentRideType === 'vorbestellen') {
+                    setTimeout(() => performLiveSlotCheck(), 300);
+                }
+                
+                // Bei Sofort → Taxis laden!
+                if (currentRideType === 'sofort') {
+                    setTimeout(() => showAvailableTaxis(), 1000);
+                }
+            } else {
+                destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                destinationConfirmed = true;
+                updateConfirmationHint('destination');
+                console.log('✅ GPS-Zielort gespeichert:', address, destCoords);
+            }
+        }
 
 
         function selectAddress(inputId, address, lat, lon) {
@@ -11385,20 +11416,33 @@
             
             console.log('✅ Alternative Zeit übernommen:', date.toLocaleString('de-DE'));
             
-            // 🆕 v5.41.9: AUTOMATISCH PREIS BERECHNEN! (Patrick's Bug-Fix!)
-            // Wichtig: User muss nicht mehr separat "Preis berechnen" klicken
-            console.log('💰 Berechne Preis automatisch...');
+            // 🔧 v5.50.3: KEIN Auto-Preis mehr! (Patrick's Bug-Fix!)
+            // User MUSS manuell "Preis berechnen" klicken!
+            console.log('💡 Zeit übernommen - bitte jetzt "Preis berechnen" klicken!');
             
-            try {
-                await calculatePriceAndShow();
-                console.log('✅ Preis automatisch berechnet:', window.currentPrice, '€');
-            } catch (error) {
-                console.error('❌ Fehler bei Auto-Preis-Berechnung:', error);
-                alert('❌ Fehler beim Berechnen des Preises!\n\nBitte klicke manuell auf "Preis berechnen".');
+            // Zeige Hinweis im Live-Display
+            const liveDisplay = document.getElementById('live-slot-check');
+            if (liveDisplay) {
+                liveDisplay.innerHTML = `
+                    <div style="color:#10b981;font-weight:bold;margin-bottom:8px;">
+                        ✅ Zeit übernommen: ${date.toLocaleString('de-DE', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })} Uhr
+                    </div>
+                    <div style="color:#666;font-size:13px;">
+                        👉 Jetzt "Preis berechnen" klicken!
+                    </div>
+                `;
+                liveDisplay.style.background = '#d1fae5';
+                liveDisplay.style.border = '2px solid #10b981';
+                liveDisplay.style.display = 'block';
             }
             
-            // Trigger neuen Live-Check
-            performLiveSlotCheck();
+            // Trigger neuen Live-Check (nach kurzer Verzögerung)
+            setTimeout(() => {
+                performLiveSlotCheck();
+            }, 2000); // 2 Sekunden warten, damit Hinweis sichtbar bleibt
         }
         
         // Event Listeners für Live-Check
@@ -20609,6 +20653,16 @@
             try {
                 routeData = await calculateRoute(qbPanelPickupCoords, qbPanelDestCoords);
                 console.log('✅ Route berechnet:', routeData);
+                
+                // 🆕 v5.50.2: PREIS BERECHNEN!
+                const startDate = new Date(startTime);
+                const pricing = calculatePrice(parseFloat(routeData.distance), startDate.getTime());
+                
+                // 🆕 v5.50.2: Füge Preis zu routeData hinzu!
+                routeData.price = pricing.total;
+                
+                console.log('✅ Preis berechnet:', pricing.total, '€');
+                
             } catch (error) {
                 console.error('❌ Fehler bei Routenberechnung:', error);
                 alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
@@ -25966,7 +26020,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.50.1 - OSRM-LOGS!`);
+            debugLog('info', `📦 Version: 5.50.4 - PANEL-PREIS-FIX!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

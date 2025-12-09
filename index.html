@@ -78,10 +78,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.49.4 - GPS-FAHRPLAN! (Build 20251208-2200)');
+        console.log('🚕 Funk Taxi App v5.49.6 - CONFIRMATION-FIX! (Build 20251209-0705)');
+        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER WERDEN NACH BUCHUNG VERSTECKT!');
+        console.log('🔧 v5.49.5: SCHEDULE-LOCATION + NEAREST-STOP FEHLER BEHOBEN!');
         console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL - DROPDOWN ENTFERNT!');
-        console.log('🔧 v5.49.3: FAHRPLAN-CRASH BEHOBEN - NULL-CHECKS!');
-        console.log('🎨 v5.49.2: BESTÄTIGUNG ALS ECHTES MODAL MIT OVERLAY!');
         console.log('');
         console.log('📅 VORBESTELLUNG TESTEN!');
     </script>
@@ -562,7 +562,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.4 - GPS-FAHRPLAN (Build 20251208-2200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.49.6 - CONFIRMATION-FIX (Build 20251209-0705)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1287,6 +1287,9 @@
             <div style="font-size:13px;color:#6b7280;margin-bottom:15px;">
                 Wir zeigen Ihnen automatisch die nächsten Züge und Busse basierend auf Ihrem aktuellen Standort.
             </div>
+            
+            <!-- Container für Haltestellenauswahl -->
+            <div id="schedule-nearest-stop"></div>
             
             <!-- Container für Züge -->
             <div id="schedule-trains" style="margin-bottom:20px;"></div>
@@ -2178,7 +2181,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.49.4 - GPS-FAHRPLAN!');
+                    console.log('🚕 Funk Taxi App v5.49.6 - CONFIRMATION-FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5292,10 +5295,10 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.49.4 - GPS-FAHRPLAN! (Build 20251208-2200)');
+        console.log('🚕 Funk Taxi App v5.49.6 - CONFIRMATION-FIX! (Build 20251209-0705)');
+        console.log('✅ v5.49.6: GRÜNE BESTÄTIGUNGSFELDER WERDEN NACH BUCHUNG VERSTECKT!');
+        console.log('🔧 v5.49.5: SCHEDULE-LOCATION + NEAREST-STOP FEHLER BEHOBEN!');
         console.log('🌍 v5.49.4: GPS-BASIERTE ABFAHRTSTAFEL - DROPDOWN ENTFERNT!');
-        console.log('🔧 v5.49.3: FAHRPLAN-CRASH BEHOBEN - NULL-CHECKS!');
-        console.log('🎨 v5.49.2: BESTÄTIGUNG ALS ECHTES MODAL MIT OVERLAY!');
         console.log('🚌 v5.45.0: ABFAHRTSTAFEL!');
         console.log('📊 v5.43.0: SCHICHTPLAN!');
         console.log('🎉 v5.42.3: Bestätigungskarte!');
@@ -5915,8 +5918,7 @@
                 });
                 
                 const { latitude, longitude } = location;
-                document.getElementById('schedule-location').textContent = 
-                    `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
+                // 🆕 v5.49.5: schedule-location Element existiert nicht mehr (mit Dropdown entfernt)
                 
                 // 2. Nächste Haltestellen finden (mehrere zur Auswahl!)
                 console.log('🔍 Suche Haltestellen in der Nähe...');
@@ -12177,6 +12179,12 @@
             document.getElementById('destination').value = '';
             document.getElementById('passengers').value = '1';
             
+            // 🆕 v5.49.6: Confirmation-Felder verstecken!
+            const pickupConf = document.getElementById('pickup-confirmation');
+            const destConf = document.getElementById('destination-confirmation');
+            if (pickupConf) pickupConf.style.display = 'none';
+            if (destConf) destConf.style.display = 'none';
+            
             // 📅 Vorbestell-Felder zurücksetzen
             const preorderDateTime = document.getElementById('preorder-datetime');
             if (preorderDateTime) {
@@ -14152,6 +14160,12 @@
             // Felder LEEREN
             document.getElementById('pickup').value = '';
             document.getElementById('destination').value = '';
+            
+            // 🆕 v5.49.6: Confirmation-Felder verstecken!
+            const pickupConf = document.getElementById('pickup-confirmation');
+            const destConf = document.getElementById('destination-confirmation');
+            if (pickupConf) pickupConf.style.display = 'none';
+            if (destConf) destConf.style.display = 'none';
             
             // Zurücksetzen auf Default-Werte
             const oldPickupTime = document.getElementById('pickup-time');
@@ -22198,6 +22212,12 @@ Stack: ${err.stack}
             document.getElementById('destination').value = '';
             document.getElementById('passengers').value = '1';
             
+            // 🆕 v5.49.6: Confirmation-Felder verstecken!
+            const pickupConf = document.getElementById('pickup-confirmation');
+            const destConf = document.getElementById('destination-confirmation');
+            if (pickupConf) pickupConf.style.display = 'none';
+            if (destConf) destConf.style.display = 'none';
+            
             // 3. VORBESTELL-FELDER leeren
             document.getElementById('custom-date').value = '';
             document.getElementById('custom-hour').value = '00';
@@ -25916,7 +25936,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.49.4 - GPS-BASIERTE ABFAHRTSTAFEL!`);
+            debugLog('info', `📦 Version: 5.49.6 - CONFIRMATION-FIX!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

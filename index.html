@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.9 - CRM-BUCHUNG & MODAL KOMPAKT! 🚕📱 (Build 20251210-2245)');
+        console.log('🚕 Funk Taxi App v5.64.10 - SYNTAX ERROR GEFIXT! ✅ (Build 20251210-2250)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.9 - CRM-BUCHUNG & MODAL KOMPAKT! 🚕📱 (Build 20251210-2245)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.10 - SYNTAX ERROR GEFIXT! ✅ (Build 20251210-2250)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -20185,18 +20185,6 @@
             
             // 🆕 v5.64.9: Öffne direkt Schnellbuchung-Modal!
             openQuickBookingModal(customer);
-        }
-            const filledFields = [];
-            if (customer.name) filledFields.push('Name');
-            if (customer.phone) filledFields.push('Telefon');
-            if (customer.address) filledFields.push('Abholort');
-            if (customer.favoriteDestination) filledFields.push('Zielort');
-            
-            const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#8b5cf6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;max-width:300px;';
-            toast.innerHTML = `✅ Buchung für:<br><strong style="font-size:16px;">${customer.name}</strong><br><small>📋 ${filledFields.join(', ')}</small>`;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
         }
         
         // 🆕 v5.54.0: KONTAKT AUS TELEFON AUSWÄHLEN

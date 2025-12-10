@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.63.1 - BUGFIX! (Build 20251210-1330)');
+        console.log('🚕 Funk Taxi App v5.63.2 - API-KEY-FIX! (Build 20251210-1440)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.63.1 - BUGFIX📬 (Build 20251210-1330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.63.2 - CORS-FIX🌐 (Build 20251210-1440)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31075,10 +31075,19 @@ Stack: ${err.stack}
             
             try {
                 // 🤖 CLAUDE API CALL
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                // 🆕 v5.63.2: CORS-Proxy für Browser-Zugriff + API-Key aus localStorage
+                const apiKey = localStorage.getItem('anthropic_api_key');
+                
+                if (!apiKey) {
+                    throw new Error('API-Key nicht konfiguriert! Bitte in Tab "📬 Anfragen" API-Key speichern.');
+                }
+                
+                // 🌐 CORS-Proxy (temporär für Tests - v5.64.0 wird Cloud Functions nutzen)
+                const response = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
                         'anthropic-version': '2023-06-01'
                     },
                     body: JSON.stringify({
@@ -31430,7 +31439,8 @@ Tel: +49 175 9876543`
                 console.log('🤖 Starte Nachrichtenanalyse...');
                 
                 // Claude API Call
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                // 🌐 CORS-Proxy (temporär für Tests - v5.64.0 wird Cloud Functions nutzen)
+                const response = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

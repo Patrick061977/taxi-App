@@ -78,8 +78,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.56.0 - CRM NUR FÜR ADMIN! (Build 20251209-2430)');
-        console.log('🔒 v5.56.0: CRM NUR FÜR ADMIN!');
+        console.log('🚕 Funk Taxi App v5.63.0 - TELEGRAM-BOT FÜR FAHRGÄSTE! (Build 20251210-1300)');
+        console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
+        console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
         console.log('   ❌ Fahrer sehen CRM NICHT!');
         console.log('   ❌ Fahrgäste sehen CRM NICHT!');
@@ -116,6 +117,7 @@
         .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; }
         .sync-dot.online { background: #10b981; animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
         #gps-indicator { display: none; align-items: center; gap: 8px; font-size: 11px; }
         #gps-dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; }
         #gps-dot.online { background: #10b981; animation: pulse 2s infinite; }
@@ -579,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.56.0 - CRM NUR ADMIN (Build 20251209-2430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.63.0 - Telegram-Bot📬 (Build 20251210-1300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -727,6 +729,36 @@
                 transition: all 0.2s;
             ">
                 🔍 DEBUG
+            </button>
+            <button onclick="switchView('ai-assistant')" class="admin-tab-btn" data-view="ai-assistant" style="
+                padding: 10px 16px;
+                border: 2px solid #10b981;
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+            ">
+                🤖 AI-Assistent
+            </button>
+            <button onclick="switchView('booking-requests')" class="admin-tab-btn" data-view="booking-requests" style="
+                padding: 10px 16px;
+                border: 2px solid #3b82f6;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            ">
+                📬 Anfragen
             </button>
         </div>
     </div>
@@ -1044,19 +1076,9 @@
     <div id="passenger-view" class="view active">
         <h3 style="margin:0 0 15px 0;">🚕 Taxi buchen</h3>
         
-        <!-- 🆕 v5.52.9: CRM-BUCHUNGS-BANNER -->
-        <div id="crm-booking-banner" style="display:none; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-                <div style="flex: 1;">
-                    <div style="font-size: 13px; opacity: 0.9; margin-bottom: 4px;">📋 Buchst für CRM-Kunde:</div>
-                    <div id="crm-booking-customer-name" style="font-size: 18px; font-weight: 700; margin-bottom: 4px;"></div>
-                    <div id="crm-booking-customer-phone" style="font-size: 14px; opacity: 0.9;"></div>
-                </div>
-                <button onclick="clearCRMBooking()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; white-space: nowrap;">
-                    ✕ Abbrechen
-                </button>
-            </div>
-        </div>
+        <!-- 🗑️ v5.58.0: CRM-BUCHUNGS-BANNER ENTFERNT! -->
+        <!-- "Buchst für CRM-Kunde" ist Admin-Funktion! -->
+        <!-- Nur im Admin-Panel! -->
         
         <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
         <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
@@ -1089,40 +1111,9 @@
         <!-- 🆕 v5.49.2: ECHTES MODAL MIT OVERLAY -->
         <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
         
-        <!-- 🆕 v5.54.0: KONTAKT-AUSWAHL BUTTONS -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
-            <!-- Kontakt aus Telefon -->
-            <button onclick="selectContactFromPhone()" style="
-                padding: 12px 16px;
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: 600;
-                cursor: pointer;
-                font-size: 14px;
-                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-                transition: transform 0.2s;
-            " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                📱 Kontakt auswählen
-            </button>
-            
-            <!-- Nummer aus Zwischenablage -->
-            <button onclick="searchFromClipboard()" style="
-                padding: 12px 16px;
-                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: 600;
-                cursor: pointer;
-                font-size: 14px;
-                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-                transition: transform 0.2s;
-            " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                📋 Aus Zwischenablage
-            </button>
-        </div>
+        <!-- 🗑️ v5.58.0: ADMIN-BUTTONS ENTFERNT! -->
+        <!-- Kontakt auswählen & Zwischenablage sind ADMIN-Funktionen! -->
+        <!-- Nur im Admin-Panel verfügbar! -->
         
         <div id="booking-form">
             <div class="input-group">
@@ -1499,6 +1490,26 @@
             ">
                 ≡
             </button>
+        </div>
+        
+        <!-- 🆕 v5.61.0: GPS-WARNUNG FÜR FAHRER! -->
+        <div id="gps-warning-banner" style="display:none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 15px; margin: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); animation: shake 0.5s;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <div style="font-size: 16px; font-weight: 700; margin-bottom: 6px;">
+                        🚨 GPS-PROBLEM ERKANNT!
+                    </div>
+                    <div id="gps-warning-text" style="font-size: 13px; opacity: 0.95; margin-bottom: 8px;">
+                        GPS sendet keine Updates mehr!
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.85;">
+                        ⚠️ Patrick sieht möglicherweise alte Position!
+                    </div>
+                </div>
+                <button onclick="location.reload()" style="background: white; color: #ef4444; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; margin-left: 10px;">
+                    🔄 Neu laden
+                </button>
+            </div>
         </div>
         
         <!-- Debug Panel (versteckt by default) -->
@@ -3873,6 +3884,302 @@
                 <div style="color: #9ca3af; text-align: center; padding: 40px 20px;">
                     🔍 Warte auf Logs...<br>
                     <span style="font-size: 11px;">Alle console.log(), console.warn(), console.error() werden hier angezeigt</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.62.0: AI-ASSISTENT VIEW -->
+    <div id="ai-assistant-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+        <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">🤖</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">AI-BUCHUNGS-ASSISTENT</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">E-Mails & Telegram-Nachrichten automatisch analysieren & buchen</p>
+            </div>
+
+            <!-- Info Banner -->
+            <div style="padding: 15px; background: #ecfdf5; border-bottom: 2px solid #10b981;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 24px;">ℹ️</div>
+                    <div style="flex: 1; font-size: 13px; color: #065f46;">
+                        <strong>So funktioniert's:</strong> Kopiere eine E-Mail oder Telegram-Nachricht in das Textfeld.
+                        Der AI-Assistent erkennt automatisch Datum, Zeit, Abholort, Zielort und Anzahl Personen.
+                        Du bestätigst die Buchung mit einem Klick!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div style="padding: 20px;">
+                
+                <!-- Input Area -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">
+                        📧 E-Mail oder Telegram-Nachricht einfügen:
+                    </label>
+                    <textarea id="ai-input-text" placeholder="Beispiel:&#10;&#10;Guten Tag,&#10;ich möchte ein Taxi für morgen 14:30 Uhr buchen.&#10;Abholung: Bahnhof Heringsdorf&#10;Ziel: Strandhotel Ahlbeck&#10;2 Personen&#10;&#10;Mit freundlichen Grüßen&#10;Maria Schmidt&#10;+49 170 1234567" 
+                        style="width: 100%; height: 200px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: monospace; resize: vertical;">
+                    </textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button onclick="analyzeBookingRequest()" id="ai-analyze-btn" style="
+                        flex: 1;
+                        padding: 14px 24px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 15px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+                    ">
+                        🔍 Analysieren
+                    </button>
+                    <button onclick="clearAIAssistant()" style="
+                        padding: 14px 24px;
+                        background: #6b7280;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 15px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    ">
+                        🗑️ Löschen
+                    </button>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="ai-loading" style="display: none; text-align: center; padding: 20px; background: #f9fafb; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="font-size: 32px; margin-bottom: 10px; animation: pulse 1.5s infinite;">🤖</div>
+                    <div style="font-size: 14px; color: #6b7280; font-weight: 600;">AI analysiert Nachricht...</div>
+                </div>
+
+                <!-- Results Area -->
+                <div id="ai-results" style="display: none;">
+                    <!-- Analysis Result -->
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 2px solid #10b981;">
+                        <div style="font-size: 16px; font-weight: 700; color: #065f46; margin-bottom: 15px;">
+                            ✅ Buchungs-Daten erkannt:
+                        </div>
+                        <div id="ai-analysis-result" style="font-size: 14px; line-height: 1.8;"></div>
+                    </div>
+
+                    <!-- Booking Form -->
+                    <div style="background: white; border: 2px solid #10b981; border-radius: 8px; padding: 20px;">
+                        <div style="font-size: 16px; font-weight: 700; color: #065f46; margin-bottom: 15px;">
+                            📝 Buchung erstellen:
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Datum & Zeit:</label>
+                                <input type="datetime-local" id="ai-booking-datetime" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Anzahl Personen:</label>
+                                <input type="number" id="ai-booking-passengers" min="1" max="8" value="1" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Abholort:</label>
+                            <input type="text" id="ai-booking-pickup" placeholder="z.B. Bahnhof Heringsdorf" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Zielort:</label>
+                            <input type="text" id="ai-booking-destination" placeholder="z.B. Strandhotel Ahlbeck" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Kunden-Name:</label>
+                                <input type="text" id="ai-booking-name" placeholder="z.B. Maria Schmidt" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Telefon:</label>
+                                <input type="tel" id="ai-booking-phone" placeholder="z.B. +49 170 1234567" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Berechneter Preis:</label>
+                            <div id="ai-booking-price" style="font-size: 24px; font-weight: 700; color: #10b981;">-- €</div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="createBookingFromAI()" style="
+                                flex: 1;
+                                padding: 16px;
+                                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                                color: white;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 16px;
+                                font-weight: 700;
+                                cursor: pointer;
+                                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+                            ">
+                                ✅ Buchung erstellen
+                            </button>
+                            <button onclick="calculateAIPrice()" style="
+                                padding: 16px 24px;
+                                background: #3b82f6;
+                                color: white;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 16px;
+                                font-weight: 700;
+                                cursor: pointer;
+                            ">
+                                💰 Preis berechnen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Examples -->
+                <div style="margin-top: 30px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+                    <div style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px;">
+                        💡 Beispiel-Nachrichten:
+                    </div>
+                    <div style="display: grid; gap: 10px;">
+                        <button onclick="loadAIExample(1)" style="
+                            text-align: left;
+                            padding: 12px;
+                            background: white;
+                            border: 2px solid #e5e7eb;
+                            border-radius: 6px;
+                            font-size: 13px;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        " onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e5e7eb'">
+                            📧 E-Mail: "Taxi für morgen 14:30, Bahnhof → Hotel, 2 Personen"
+                        </button>
+                        <button onclick="loadAIExample(2)" style="
+                            text-align: left;
+                            padding: 12px;
+                            background: white;
+                            border: 2px solid #e5e7eb;
+                            border-radius: 6px;
+                            font-size: 13px;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                        " onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e5e7eb'">
+                            💬 Telegram: "Brauche Taxi 15.12. 10:00 Uhr Flughafen abholen 4 Personen"
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.63.0: BUCHUNGSANFRAGEN VIEW (Telegram-Bot für Fahrgäste) -->
+    <div id="booking-requests-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+        <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">📬</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">BUCHUNGSANFRAGEN</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">Fahrgäste können über Telegram Fahrten anfragen</p>
+            </div>
+
+            <!-- API-Key Einstellungen -->
+            <div id="api-key-section" style="padding: 20px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                    <div style="font-size: 24px;">🔑</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 16px; font-weight: 700; color: #374151; margin-bottom: 4px;">
+                            Anthropic API-Key
+                        </div>
+                        <div style="font-size: 13px; color: #6b7280;">
+                            Benötigt für automatische Buchungsanalyse mit Claude AI
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="password" id="anthropic-api-key" placeholder="sk-ant-api03-..." 
+                        style="flex: 1; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: monospace;">
+                    <button onclick="saveAnthropicAPIKey()" style="
+                        padding: 12px 24px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        white-space: nowrap;
+                    ">
+                        💾 Speichern
+                    </button>
+                </div>
+                
+                <div id="api-key-status" style="font-size: 12px; color: #6b7280;">
+                    Status: <span id="api-key-status-text">Nicht konfiguriert</span>
+                </div>
+                
+                <div style="margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e;">
+                    ℹ️ <strong>API-Key holen:</strong> 
+                    <a href="https://console.anthropic.com/" target="_blank" style="color: #92400e; text-decoration: underline;">
+                        console.anthropic.com
+                    </a> → API Keys → Create Key
+                </div>
+            </div>
+
+            <!-- Test-Bereich -->
+            <div style="padding: 20px;">
+                <div style="font-size: 18px; font-weight: 700; color: #374151; margin-bottom: 15px;">
+                    🧪 Test-Bereich
+                </div>
+                
+                <div style="background: #f9fafb; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">
+                        Telegram-Nachricht simulieren:
+                    </label>
+                    <textarea id="test-telegram-message" placeholder="Beispiel:&#10;&#10;Hallo, ich brauche ein Taxi morgen um 14 Uhr vom Bahnhof zum Hotel Ahlbeck. Wir sind 2 Personen.&#10;&#10;MfG Max Mustermann&#10;+49 170 1234567" 
+                        style="width: 100%; height: 150px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: sans-serif; resize: vertical;">
+                    </textarea>
+                    
+                    <button onclick="testTelegramMessage()" id="test-telegram-btn" style="
+                        width: 100%;
+                        margin-top: 10px;
+                        padding: 14px;
+                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 15px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+                    ">
+                        🔍 Nachricht analysieren
+                    </button>
+                </div>
+
+                <!-- Test-Ergebnis -->
+                <div id="test-result" style="display: none;"></div>
+
+                <!-- Anfragen-Liste -->
+                <div style="margin-top: 30px;">
+                    <div style="font-size: 18px; font-weight: 700; color: #374151; margin-bottom: 15px;">
+                        📋 Offene Anfragen
+                    </div>
+                    
+                    <div id="booking-requests-list" style="display: grid; gap: 15px;">
+                        <div style="text-align: center; padding: 40px; color: #9ca3af; font-size: 14px;">
+                            Keine offenen Anfragen
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -6590,7 +6897,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -10669,16 +10976,31 @@
             icsContent += `DTSTAMP:${formatDate(new Date())}\n`;
             icsContent += `DTSTART:${formatDate(startDate)}\n`;
             icsContent += `DTEND:${formatDate(endDate)}\n`;
-            icsContent += `SUMMARY:🚕 Taxi ${ride.customerName}\n`;
-            icsContent += `DESCRIPTION:Kunde: ${ride.customerName}\\nTelefon: ${ride.customerPhone}\\n\\nVon: ${ride.pickup}\\nNach: ${ride.destination}\\n\\nPreis: ${ride.price}€\\nDistanz: ${ride.distance} km\n`;
+            
+            // 🆕 v5.59.0: AUSSAGEKRÄFTIGER TITEL!
+            // Format: "Abholort → Zielort | X Pers. | Name | Telefon"
+            const passengerCount = ride.passengers || 1;
+            const passengerText = `${passengerCount} Pers.`;
+            const phoneText = ride.customerPhone || 'Keine Nr.';
+            const titleSummary = `${ride.pickup} → ${ride.destination} | ${passengerText} | ${ride.customerName} | ${phoneText}`;
+            
+            // 🆕 v5.60.0: FAHRZEUG-INFO PROMINENT GANZ VORNE!
+            const vehicleInfo = ride.vehicle 
+                ? `🚗 FAHRZEUG: ${ride.vehicle.toUpperCase()}${ride.vehiclePlate ? ' ('+ride.vehiclePlate+')' : ''}\\n\\n` 
+                : '';
+            
+            icsContent += `SUMMARY:${titleSummary}\n`;
+            icsContent += `DESCRIPTION:🚕 TAXI-FAHRT\\n\\n${vehicleInfo}Kunde: ${ride.customerName}\\nTelefon: ${ride.customerPhone}\\n\\nVon: ${ride.pickup}\\nNach: ${ride.destination}\\n\\nPassagiere: ${passengerCount}\\nPreis: ${ride.price}€\\nDistanz: ${ride.distance} km\n`;
             icsContent += `LOCATION:${ride.pickup}\n`;
             icsContent += 'STATUS:CONFIRMED\n';
             
-            // Erinnerung 30 Minuten vorher
+            // 🆕 v5.59.0: Erinnerung 30 Minuten vorher mit allen Details
+            // 🆕 v5.60.0: Fahrzeug-Info auch in Erinnerung!
+            const alarmVehicle = ride.vehicle ? `\\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' ('+ride.vehiclePlate+')' : ''}` : '';
             icsContent += 'BEGIN:VALARM\n';
             icsContent += 'TRIGGER:-PT30M\n';
             icsContent += 'ACTION:DISPLAY\n';
-            icsContent += `DESCRIPTION:🚕 Taxi-Abholung in 30 Minuten\\n\\nKunde: ${ride.customerName}\\nVon: ${ride.pickup}\\nNach: ${ride.destination}\n`;
+            icsContent += `DESCRIPTION:🚕 Taxi-Abholung in 30 Minuten\\n\\n${ride.pickup} → ${ride.destination}\\nKunde: ${ride.customerName}${ride.customerPhone ? '\\nTelefon: '+ride.customerPhone : ''}\\nPassagiere: ${passengerCount}${alarmVehicle}\n`;
             icsContent += 'END:VALARM\n';
             
             icsContent += 'END:VEVENT\n';
@@ -10700,7 +11022,7 @@
                 
                 navigator.share({
                     files: [file],
-                    title: `🚕 Taxi ${ride.customerName}`,
+                    title: titleSummary, // 🆕 v5.59.0: Aussagekräftiger Share-Titel!
                     text: `Taxi-Fahrt am ${startDate.toLocaleDateString('de-DE')}`
                 }).then(() => {
                     console.log('✅ Erfolgreich geteilt');
@@ -15576,6 +15898,60 @@
             }, 30000); // Alle 30 Sekunden prüfen
             
             console.log('✅ GPS 30s Intervall gestartet');
+            
+            // 🆕 v5.61.0: GPS-HEALTH-MONITOR - Warnt Fahrer bei GPS-Problemen!
+            startGPSHealthMonitor();
+        }
+        
+        // 🆕 v5.61.0: GPS HEALTH MONITOR
+        function startGPSHealthMonitor() {
+            // Stoppe alte Intervalle falls vorhanden
+            if (window.gpsHealthMonitor) {
+                clearInterval(window.gpsHealthMonitor);
+            }
+            
+            console.log('🏥 GPS Health Monitor gestartet');
+            
+            window.gpsHealthMonitor = setInterval(() => {
+                // Nur wenn Fahrer online und Fahrzeug gewählt
+                if (!isOnline || !currentVehicle) {
+                    return;
+                }
+                
+                const warningBanner = document.getElementById('gps-warning-banner');
+                const warningText = document.getElementById('gps-warning-text');
+                
+                if (!warningBanner || !warningText) {
+                    return;
+                }
+                
+                // Prüfe wie lange letztes GPS-Update her ist
+                const timeSinceLastUpdate = Date.now() - (lastGPSUpdate || 0);
+                
+                // KRITISCH: Länger als 30 Sekunden kein Update!
+                if (timeSinceLastUpdate > 30000) {
+                    // Zeige Warnung!
+                    warningBanner.style.display = 'block';
+                    
+                    // Berechne wie lange her
+                    const secondsAgo = Math.floor(timeSinceLastUpdate / 1000);
+                    const minutesAgo = Math.floor(secondsAgo / 60);
+                    
+                    let timeText = '';
+                    if (minutesAgo > 0) {
+                        timeText = `vor ${minutesAgo} Min ${secondsAgo % 60} Sek`;
+                    } else {
+                        timeText = `vor ${secondsAgo} Sek`;
+                    }
+                    
+                    warningText.innerHTML = `📍 Letzte GPS-Position: ${timeText}<br>⚠️ GPS sendet keine Updates mehr!`;
+                    
+                    console.warn(`🚨 GPS-WARNUNG: Letztes Update ${timeText}`);
+                } else {
+                    // GPS funktioniert - Warnung ausblenden
+                    warningBanner.style.display = 'none';
+                }
+            }, 10000); // Alle 10 Sekunden prüfen
         }
         
         // 🆕 Separate Funktion für GPS-Position-Handling
@@ -15616,6 +15992,12 @@
                 statusDiv.style.color = '#10b981';
                 iconSpan.textContent = '📍';
                 textSpan.textContent = Math.round(location.accuracy) + 'm';
+            }
+            
+            // 🆕 v5.61.0: GPS-WARNUNG AUSBLENDEN wenn GPS wieder funktioniert!
+            const warningBanner = document.getElementById('gps-warning-banner');
+            if (warningBanner) {
+                warningBanner.style.display = 'none';
             }
             
             if (!isFirebaseReady) {
@@ -15666,6 +16048,19 @@
                 clearInterval(window.gpsRegularInterval);
                 window.gpsRegularInterval = null;
                 console.log('🛑 GPS 30s Intervall gestoppt');
+            }
+            
+            // 🆕 v5.61.0: Stoppe GPS Health Monitor
+            if (window.gpsHealthMonitor) {
+                clearInterval(window.gpsHealthMonitor);
+                window.gpsHealthMonitor = null;
+                console.log('🛑 GPS Health Monitor gestoppt');
+            }
+            
+            // 🆕 v5.61.0: Verstecke GPS-Warnung
+            const warningBanner = document.getElementById('gps-warning-banner');
+            if (warningBanner) {
+                warningBanner.style.display = 'none';
             }
             
             if (isFirebaseReady && currentVehicle) {
@@ -23733,7 +24128,7 @@
                 pickupTime: pickupDate.toISOString(), // 🔧 v5.39.8: FIX - Auch als ISO String!
                 passengers: passengers,
                 createdAt: Date.now(),
-                status: 'vorbestellt',
+                status: vehicle ? 'accepted' : 'vorbestellt', // 🆕 v5.57.0: Status abhängig von Zuweisung!
                 bookedBy: 'admin',
                 notes: notes || '',
                 customerId: customerId,
@@ -23746,16 +24141,53 @@
                 bookingSource: 'admin-quick' // 🆕 v5.49.0: Admin Schnellbuchung!
             };
             
+            // 🆕 v5.57.0: FAHRZEUG-ZUWEISUNG KOMPLETT ÜBERARBEITET!
             // Fahrzeug zuweisen wenn ausgewählt
             if (vehicle) {
-                ride.vehicleId = vehicle; // 🔧 v5.39.8: FIX - Konsistent mit Panel!
-                ride.assignedVehicle = vehicle; // 🔧 v5.39.8: Auch assignedVehicle setzen!
+                try {
+                    console.log('🚗 Lade Fahrzeugdaten für:', vehicle);
+                    const vehicleSnapshot = await db.ref('drivers/' + vehicle).once('value');
+                    const vehicleData = vehicleSnapshot.val();
+                    
+                    if (vehicleData) {
+                        const vehicleName = vehicleData.vehicle || vehicle;
+                        
+                        // Setze ALLE benötigten Felder (wie bei manueller Zuweisung!)
+                        ride.vehicleId = vehicle;
+                        ride.vehicle = vehicleName;
+                        ride.vehicleLabel = vehicleName; // 🆕 v5.57.0: Für Kompatibilität
+                        ride.vehiclePlate = vehicleData.plate || '';
+                        ride.status = 'accepted'; // 🆕 v5.57.0: KRITISCH - Status auf 'accepted'!
+                        ride.acceptedAt = Date.now(); // 🆕 v5.57.0: Akzeptiert-Zeitstempel
+                        ride.assignedBy = 'admin'; // 🆕 v5.57.0: Zugewiesen durch Admin
+                        
+                        console.log('✅ Fahrzeug zugewiesen:', vehicleName);
+                    } else {
+                        console.warn('⚠️ Fahrzeugdaten nicht gefunden für:', vehicle);
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden der Fahrzeugdaten:', error);
+                }
             }
             
             try {
                 // Speichere in Firebase
                 const rideRef = await db.ref('rides').push(ride);
-                console.log('✅ Schnellbuchung erstellt:', rideRef.key);
+                const rideId = rideRef.key;
+                console.log('✅ Schnellbuchung erstellt:', rideId);
+                
+                // 🆕 v5.57.0: TELEGRAM AN FAHRER SENDEN (wenn Fahrzeug zugewiesen!)
+                if (vehicle && ride.status === 'accepted') {
+                    try {
+                        // Setze firebaseId für Telegram
+                        ride.firebaseId = rideId;
+                        await sendTelegramToDriver(vehicle, ride, 0);
+                        console.log('✅ Telegram an Fahrer gesendet!');
+                    } catch (telegramError) {
+                        console.error('❌ Fehler beim Telegram-Versand:', telegramError);
+                        // Fahrt wurde trotzdem erstellt, nur Telegram fehlgeschlagen
+                    }
+                }
                 
                 // CRM aktualisieren
                 await db.ref('customers/' + customerId).update({
@@ -23766,14 +24198,25 @@
                 // Schließe Modal
                 document.getElementById('quick-booking-modal').remove();
                 
-                // 🆕 v5.48.2: Zeige Erfolg MIT PREIS!
-                alert('✅ Fahrt erfolgreich gebucht!\n\n' +
+                // 🆕 v5.57.0: Erfolgs-Meldung MIT Fahrzeug-Info!
+                let successMessage = '✅ Fahrt erfolgreich gebucht!\n\n' +
                       '👤 ' + customer.name + '\n' +
                       '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
                       '📍 ' + pickup + '\n' +
                       '🎯 ' + destination + '\n' +
                       '💰 ' + ride.price.toFixed(2) + '€\n' +
-                      '📏 ' + ride.distance + ' km');
+                      '📏 ' + ride.distance + ' km';
+                
+                // 🆕 v5.57.0: Zeige Fahrzeug-Info wenn zugewiesen!
+                if (vehicle && ride.vehicle) {
+                    successMessage += '\n\n🚗 Zugewiesen: ' + ride.vehicle;
+                    if (ride.vehiclePlate) {
+                        successMessage += ' (' + ride.vehiclePlate + ')';
+                    }
+                    successMessage += '\n📱 Telegram gesendet!';
+                }
+                
+                alert(successMessage);
                 
                 // Aktualisiere Views
                 updateViews();
@@ -29075,7 +29518,7 @@ Stack: ${err.stack}
             // 🆕 v5.34.1: schedule-view zur Liste hinzugefügt!
             console.log('🎬 Initialisiere Views...');
             debugLog('info', '🎬 Initialisiere Views...');
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -29661,7 +30104,7 @@ Stack: ${err.stack}
             
             function forcePassengerViewOnly() {
                 // Verstecke ALLE Views brutal!
-                const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
+                const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view'];
                 allViews.forEach(viewId => {
                     const viewEl = document.getElementById(viewId);
                     if (viewEl) {
@@ -29699,7 +30142,7 @@ Stack: ${err.stack}
         
         // 🆕 v5.33.4: VIEW-GUARD - Überwacht dass nur aktive View sichtbar ist!
         setInterval(() => {
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view'];
             
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
@@ -30595,6 +31038,593 @@ Stack: ${err.stack}
                 }
             };
         }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🤖 AI-ASSISTENT FUNKTIONEN (v5.62.0)
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        async function analyzeBookingRequest() {
+            const inputText = document.getElementById('ai-input-text').value.trim();
+            
+            if (!inputText) {
+                alert('❌ Bitte Text eingeben!');
+                return;
+            }
+            
+            // Zeige Loading
+            document.getElementById('ai-loading').style.display = 'block';
+            document.getElementById('ai-results').style.display = 'none';
+            document.getElementById('ai-analyze-btn').disabled = true;
+            document.getElementById('ai-analyze-btn').style.opacity = '0.5';
+            
+            console.log('🤖 Starte AI-Analyse...');
+            
+            try {
+                // 🤖 CLAUDE API CALL
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 1000,
+                        messages: [{
+                            role: 'user',
+                            content: `Du bist ein Taxi-Buchungs-Assistent. Analysiere folgende Nachricht und extrahiere die Buchungsdaten.
+
+NACHRICHT:
+${inputText}
+
+WICHTIG:
+- Datum/Zeit: Wenn "morgen" → berechne morgiges Datum
+- Wenn "heute" → heutiges Datum
+- Wenn nur Uhrzeit → heute + Uhrzeit
+- Orte: Möglichst genau mit Straße/Hausnummer
+- Telefon: Im Format +49...
+
+ANTWORTE NUR MIT JSON (keine Erklärungen):
+{
+  "datetime": "YYYY-MM-DDTHH:MM",
+  "pickup": "Abholort",
+  "destination": "Zielort", 
+  "passengers": 1,
+  "name": "Name",
+  "phone": "+49..."
+}`
+                        }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API-Fehler: ' + response.status);
+                }
+                
+                const data = await response.json();
+                console.log('🤖 API Response:', data);
+                
+                // Extrahiere JSON aus Antwort
+                const textContent = data.content.find(c => c.type === 'text')?.text || '';
+                console.log('🤖 Text Content:', textContent);
+                
+                // Parse JSON (entferne eventuelle Markdown-Backticks)
+                let jsonText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                const bookingData = JSON.parse(jsonText);
+                
+                console.log('🤖 Geparste Daten:', bookingData);
+                
+                // Zeige Ergebnisse
+                displayAIResults(bookingData);
+                
+            } catch (error) {
+                console.error('❌ AI-Analyse Fehler:', error);
+                alert('❌ Fehler bei der Analyse: ' + error.message);
+            } finally {
+                // Verstecke Loading
+                document.getElementById('ai-loading').style.display = 'none';
+                document.getElementById('ai-analyze-btn').disabled = false;
+                document.getElementById('ai-analyze-btn').style.opacity = '1';
+            }
+        }
+        
+        function displayAIResults(data) {
+            // Zeige Results-Section
+            document.getElementById('ai-results').style.display = 'block';
+            
+            // Zeige erkannte Daten
+            const resultHTML = `
+                <div style="display: grid; gap: 8px;">
+                    <div><strong>📅 Datum/Zeit:</strong> ${formatDateTimeForDisplay(data.datetime)}</div>
+                    <div><strong>📍 Abholort:</strong> ${data.pickup}</div>
+                    <div><strong>🎯 Zielort:</strong> ${data.destination}</div>
+                    <div><strong>👥 Personen:</strong> ${data.passengers}</div>
+                    <div><strong>👤 Name:</strong> ${data.name || '(nicht angegeben)'}</div>
+                    <div><strong>📞 Telefon:</strong> ${data.phone || '(nicht angegeben)'}</div>
+                </div>
+            `;
+            document.getElementById('ai-analysis-result').innerHTML = resultHTML;
+            
+            // Fülle Formular
+            document.getElementById('ai-booking-datetime').value = data.datetime;
+            document.getElementById('ai-booking-pickup').value = data.pickup;
+            document.getElementById('ai-booking-destination').value = data.destination;
+            document.getElementById('ai-booking-passengers').value = data.passengers || 1;
+            document.getElementById('ai-booking-name').value = data.name || '';
+            document.getElementById('ai-booking-phone').value = data.phone || '';
+            
+            // Auto-Preis berechnen
+            calculateAIPrice();
+        }
+        
+        function formatDateTimeForDisplay(isoString) {
+            if (!isoString) return '(nicht angegeben)';
+            const date = new Date(isoString);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}.${year} um ${hours}:${minutes} Uhr`;
+        }
+        
+        async function calculateAIPrice() {
+            const pickup = document.getElementById('ai-booking-pickup').value.trim();
+            const destination = document.getElementById('ai-booking-destination').value.trim();
+            
+            if (!pickup || !destination) {
+                document.getElementById('ai-booking-price').textContent = '-- €';
+                return;
+            }
+            
+            try {
+                // Nutze bestehende calculateDistance Funktion
+                const result = await calculateDistance(pickup, destination);
+                
+                if (result && result.price) {
+                    document.getElementById('ai-booking-price').textContent = result.price.toFixed(2) + ' €';
+                } else {
+                    document.getElementById('ai-booking-price').textContent = '❌ Preis konnte nicht berechnet werden';
+                }
+            } catch (error) {
+                console.error('Preis-Berechnung Fehler:', error);
+                document.getElementById('ai-booking-price').textContent = '❌ Fehler';
+            }
+        }
+        
+        async function createBookingFromAI() {
+            // Hole alle Daten
+            const datetime = document.getElementById('ai-booking-datetime').value;
+            const pickup = document.getElementById('ai-booking-pickup').value.trim();
+            const destination = document.getElementById('ai-booking-destination').value.trim();
+            const passengers = parseInt(document.getElementById('ai-booking-passengers').value) || 1;
+            const name = document.getElementById('ai-booking-name').value.trim();
+            const phone = document.getElementById('ai-booking-phone').value.trim();
+            const priceText = document.getElementById('ai-booking-price').textContent;
+            
+            // Validierung
+            if (!datetime || !pickup || !destination) {
+                alert('❌ Bitte alle Pflichtfelder ausfüllen!');
+                return;
+            }
+            
+            if (!name || !phone) {
+                alert('❌ Bitte Name und Telefon angeben!');
+                return;
+            }
+            
+            if (!priceText || priceText.includes('❌') || priceText === '-- €') {
+                alert('❌ Bitte erst Preis berechnen!');
+                return;
+            }
+            
+            const price = parseFloat(priceText.replace(' €', ''));
+            
+            if (isNaN(price)) {
+                alert('❌ Ungültiger Preis!');
+                return;
+            }
+            
+            // Bestätigung
+            const confirmMsg = `Buchung erstellen?
+
+📅 ${formatDateTimeForDisplay(datetime)}
+📍 ${pickup}
+🎯 ${destination}
+👥 ${passengers} Person(en)
+💰 ${price.toFixed(2)} €
+
+👤 ${name}
+📞 ${phone}`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            try {
+                // Berechne Distanz für vollständige Daten
+                const distanceResult = await calculateDistance(pickup, destination);
+                
+                if (!distanceResult) {
+                    throw new Error('Distanz konnte nicht berechnet werden');
+                }
+                
+                // Erstelle Ride-Objekt
+                const rideId = 'ride_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const rideData = {
+                    id: rideId,
+                    customerId: 'ai_customer_' + Date.now(),
+                    customerName: name,
+                    customerPhone: phone,
+                    pickup: pickup,
+                    destination: destination,
+                    datetime: datetime,
+                    passengers: passengers,
+                    price: price,
+                    distance: distanceResult.distance || 0,
+                    duration: distanceResult.duration || 0,
+                    status: 'vorbestellt',
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser ? currentUser.uid : 'ai_assistant',
+                    bookingType: 'ai_assistant'
+                };
+                
+                console.log('🤖 Erstelle Buchung:', rideData);
+                
+                // Speichere in Firebase
+                if (!isFirebaseReady) {
+                    throw new Error('Firebase nicht bereit');
+                }
+                
+                await db.ref('rides/' + rideId).set(rideData);
+                
+                // Erfolg!
+                alert('✅ Buchung erfolgreich erstellt!
+
+Die Fahrt wurde im System gespeichert.');
+                
+                // Clear Form
+                clearAIAssistant();
+                
+                // Wechsle zu Schedule-View um Buchung zu zeigen
+                switchView('schedule');
+                
+            } catch (error) {
+                console.error('❌ Buchung fehlgeschlagen:', error);
+                alert('❌ Fehler beim Erstellen der Buchung: ' + error.message);
+            }
+        }
+        
+        function clearAIAssistant() {
+            document.getElementById('ai-input-text').value = '';
+            document.getElementById('ai-results').style.display = 'none';
+            document.getElementById('ai-analysis-result').innerHTML = '';
+            document.getElementById('ai-booking-datetime').value = '';
+            document.getElementById('ai-booking-pickup').value = '';
+            document.getElementById('ai-booking-destination').value = '';
+            document.getElementById('ai-booking-passengers').value = '1';
+            document.getElementById('ai-booking-name').value = '';
+            document.getElementById('ai-booking-phone').value = '';
+            document.getElementById('ai-booking-price').textContent = '-- €';
+        }
+        
+        function loadAIExample(exampleNum) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toLocaleDateString('de-DE');
+            
+            const examples = {
+                1: `Guten Tag,
+
+ich möchte ein Taxi für morgen (${tomorrowStr}) um 14:30 Uhr buchen.
+
+Abholung: Bahnhof Heringsdorf
+Ziel: Strandhotel Ahlbeck
+2 Personen
+
+Mit freundlichen Grüßen
+Maria Schmidt
++49 170 1234567`,
+                2: `Hi, brauche Taxi am 15.12. um 10:00 Uhr
+
+Flughafen abholen
+Nach: Hotel Kaiserhof, Bansin
+4 Personen mit Gepäck
+
+Peter Hansen
+Tel: +49 175 9876543`
+            };
+            
+            document.getElementById('ai-input-text').value = examples[exampleNum] || '';
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.63.0: BUCHUNGSANFRAGEN-SYSTEM (Telegram-Bot für Fahrgäste)
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        // API-Key speichern
+        function saveAnthropicAPIKey() {
+            const apiKey = document.getElementById('anthropic-api-key').value.trim();
+            
+            if (!apiKey) {
+                alert('❌ Bitte API-Key eingeben!');
+                return;
+            }
+            
+            if (!apiKey.startsWith('sk-ant-api')) {
+                alert('❌ Ungültiger API-Key!\n\nAnthrop API-Keys beginnen mit: sk-ant-api03-...');
+                return;
+            }
+            
+            // Speichere in localStorage
+            localStorage.setItem('anthropic_api_key', apiKey);
+            
+            // Update Status
+            updateAPIKeyStatus();
+            
+            alert('✅ API-Key gespeichert!\n\nDu kannst jetzt Telegram-Nachrichten analysieren lassen.');
+            
+            console.log('✅ Anthropic API-Key gespeichert');
+        }
+        
+        // API-Key Status anzeigen
+        function updateAPIKeyStatus() {
+            const apiKey = localStorage.getItem('anthropic_api_key');
+            const statusText = document.getElementById('api-key-status-text');
+            const keyInput = document.getElementById('anthropic-api-key');
+            
+            if (apiKey) {
+                statusText.textContent = '✅ Konfiguriert';
+                statusText.style.color = '#10b981';
+                keyInput.value = apiKey;
+            } else {
+                statusText.textContent = '❌ Nicht konfiguriert';
+                statusText.style.color = '#ef4444';
+            }
+        }
+        
+        // Telegram-Nachricht testen
+        async function testTelegramMessage() {
+            const message = document.getElementById('test-telegram-message').value.trim();
+            const resultDiv = document.getElementById('test-result');
+            const testBtn = document.getElementById('test-telegram-btn');
+            
+            if (!message) {
+                alert('❌ Bitte Nachricht eingeben!');
+                return;
+            }
+            
+            // Prüfe API-Key
+            const apiKey = localStorage.getItem('anthropic_api_key');
+            if (!apiKey) {
+                alert('❌ Bitte zuerst API-Key konfigurieren!');
+                return;
+            }
+            
+            // Zeige Loading
+            testBtn.disabled = true;
+            testBtn.textContent = '🔄 Analysiere...';
+            testBtn.style.opacity = '0.5';
+            
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <div style="background: #f9fafb; border-radius: 8px; padding: 20px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 10px; animation: pulse 1.5s infinite;">🤖</div>
+                    <div style="font-size: 14px; color: #6b7280; font-weight: 600;">Claude analysiert die Nachricht...</div>
+                </div>
+            `;
+            
+            try {
+                console.log('🤖 Starte Nachrichtenanalyse...');
+                
+                // Claude API Call
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 1000,
+                        messages: [{
+                            role: 'user',
+                            content: `Du bist ein Taxi-Buchungs-Assistent für "Funk Taxi Heringsdorf". Analysiere folgende Nachricht und extrahiere die Buchungsdaten.
+
+NACHRICHT:
+${message}
+
+WICHTIG:
+- Datum/Zeit: Wenn "morgen" → berechne morgiges Datum (heute ist ${new Date().toLocaleDateString('de-DE')})
+- Wenn "heute" → heutiges Datum
+- Wenn nur Uhrzeit → heute + Uhrzeit
+- Orte: Möglichst genau mit Straße/Hausnummer wenn angegeben
+- Telefon: Im Format +49... (normalisiere deutsche Nummern)
+- Name: Extrahiere wenn vorhanden
+
+ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
+{
+  "datetime": "YYYY-MM-DDTHH:MM",
+  "pickup": "Abholort",
+  "destination": "Zielort",
+  "passengers": 1,
+  "name": "Name oder null",
+  "phone": "+49... oder null"
+}`
+                        }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API-Fehler: ${response.status} - ${errorData.error?.message || 'Unbekannt'}`);
+                }
+                
+                const data = await response.json();
+                console.log('🤖 API Response:', data);
+                
+                // Extrahiere JSON aus Antwort
+                const textContent = data.content.find(c => c.type === 'text')?.text || '';
+                console.log('🤖 Text Content:', textContent);
+                
+                // Parse JSON (entferne eventuelle Markdown-Backticks)
+                let jsonText = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                const bookingData = JSON.parse(jsonText);
+                
+                console.log('🤖 Geparste Daten:', bookingData);
+                
+                // Zeige Ergebnis
+                displayTestResult(bookingData, message);
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Analyse:', error);
+                
+                resultDiv.innerHTML = `
+                    <div style="background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px; padding: 20px;">
+                        <div style="font-size: 16px; font-weight: 700; color: #991b1b; margin-bottom: 10px;">
+                            ❌ Fehler bei der Analyse
+                        </div>
+                        <div style="font-size: 14px; color: #7f1d1d;">
+                            ${error.message}
+                        </div>
+                        ${error.message.includes('401') ? `
+                            <div style="margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e;">
+                                💡 <strong>Tipp:</strong> API-Key überprüfen und neu speichern
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '🔍 Nachricht analysieren';
+                testBtn.style.opacity = '1';
+            }
+        }
+        
+        // Test-Ergebnis anzeigen
+        function displayTestResult(data, originalMessage) {
+            const resultDiv = document.getElementById('test-result');
+            
+            // Parse datetime
+            const datetime = new Date(data.datetime);
+            const dateStr = datetime.toLocaleDateString('de-DE', { 
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const timeStr = datetime.toLocaleTimeString('de-DE', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            resultDiv.innerHTML = `
+                <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <div style="font-size: 16px; font-weight: 700; color: #065f46; margin-bottom: 15px;">
+                        ✅ Analyse erfolgreich!
+                    </div>
+                    
+                    <div style="display: grid; gap: 12px;">
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                            <div style="font-weight: 600; color: #047857;">📅 Datum:</div>
+                            <div>${dateStr}</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                            <div style="font-weight: 600; color: #047857;">🕐 Uhrzeit:</div>
+                            <div>${timeStr} Uhr</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                            <div style="font-weight: 600; color: #047857;">📍 Von:</div>
+                            <div>${data.pickup}</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                            <div style="font-weight: 600; color: #047857;">🎯 Nach:</div>
+                            <div>${data.destination}</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                            <div style="font-weight: 600; color: #047857;">👥 Personen:</div>
+                            <div>${data.passengers}</div>
+                        </div>
+                        ${data.name ? `
+                            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                                <div style="font-weight: 600; color: #047857;">👤 Name:</div>
+                                <div>${data.name}</div>
+                            </div>
+                        ` : ''}
+                        ${data.phone ? `
+                            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                                <div style="font-weight: 600; color: #047857;">📞 Telefon:</div>
+                                <div>${data.phone}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 6px; border: 1px solid #d1fae5;">
+                        <div style="font-size: 13px; font-weight: 600; color: #065f46; margin-bottom: 8px;">
+                            💬 Ursprüngliche Nachricht:
+                        </div>
+                        <div style="font-size: 12px; color: #047857; white-space: pre-wrap; font-family: monospace;">
+                            ${originalMessage}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button onclick="createBookingFromTest(${JSON.stringify(data).replace(/"/g, '&quot;')})" style="
+                            flex: 1;
+                            padding: 12px;
+                            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            font-weight: 700;
+                            cursor: pointer;
+                        ">
+                            ✅ Buchung erstellen
+                        </button>
+                        <button onclick="document.getElementById('test-result').style.display='none'" style="
+                            padding: 12px 20px;
+                            background: #f3f4f6;
+                            color: #6b7280;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        ">
+                            Schließen
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Buchung aus Test erstellen
+        async function createBookingFromTest(data) {
+            if (!confirm(`✅ Buchung erstellen?\n\n📅 ${new Date(data.datetime).toLocaleString('de-DE')}\n📍 ${data.pickup} → ${data.destination}\n👥 ${data.passengers} Person(en)`)) {
+                return;
+            }
+            
+            // Hier würde die normale Buchungslogik aufgerufen werden
+            // TODO: Integration mit bestehendem Buchungssystem
+            
+            alert('🚧 Buchungserstellung wird in der nächsten Version implementiert!\n\nAktuell nur Test-Modus.');
+            
+            console.log('📝 Würde Buchung erstellen:', data);
+        }
+        
+        // Beim Laden der View: API-Key Status prüfen
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update API-Key Status wenn View gewechselt wird
+            const originalSwitchView = window.switchView;
+            window.switchView = function(view) {
+                originalSwitchView(view);
+                if (view === 'booking-requests') {
+                    updateAPIKeyStatus();
+                }
+            };
+        });
         
     </script>
 

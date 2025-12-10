@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.63.6 - ZENTRALE FAHRZEUG-ZUWEISUNG! (Build 20251210-1835)');
+        console.log('🚕 Funk Taxi App v5.63.7 - PANEL UPDATE FAHRZEUG-FIX! (Build 20251210-1845)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -22769,7 +22769,7 @@
                     endTimestamp: endDate.getTime(), // 🔧 v5.39.8: FIX - Als Zahl!
                     durationMinutes: durationMinutes,
                     passengers,
-                    status: 'vorbestellt',
+                    status: 'vorbestellt', // Default, wird unten ggf. auf 'accepted' gesetzt
                     createdAt: new Date().toISOString(),
                     notes: notes || '',
                     vehicleId: vehicle || null,
@@ -22783,6 +22783,30 @@
                     isAdvanceBooking: true,
                     bookingSource: 'admin-panel' // 🆕 v5.49.0: Admin Panel Buchung!
                 };
+                
+                // 🆕 v5.63.6: FAHRZEUG-FELDER SETZEN (wie bei Schnellbuchung)!
+                if (vehicle && vehicle !== 'auto') {
+                    try {
+                        console.log('🚗 Panel: Lade Fahrzeugdaten für:', vehicle);
+                        const vehicleSnapshot = await db.ref('vehicles/' + vehicle).once('value');
+                        const vehicleData = vehicleSnapshot.val();
+                        
+                        if (vehicleData) {
+                            rideData.vehicle = vehicleData.name || vehicle;
+                            rideData.vehicleLabel = vehicleData.name || vehicle;
+                            rideData.vehiclePlate = vehicleData.plate || '';
+                            rideData.status = 'accepted'; // ← WICHTIG!
+                            rideData.acceptedAt = Date.now();
+                            rideData.assignedBy = 'admin';
+                            
+                            console.log('✅ Panel: Fahrzeug gesetzt:', vehicleData.name, vehicleData.plate);
+                        } else {
+                            console.warn('⚠️ Panel: Fahrzeugdaten nicht gefunden für:', vehicle);
+                        }
+                    } catch (error) {
+                        console.error('❌ Panel: Fehler beim Laden der Fahrzeugdaten:', error);
+                    }
+                }
                 
                 // 🔧 EDIT vs CREATE: Prüfe ob wir bearbeiten oder neu erstellen
                 let rideRef;

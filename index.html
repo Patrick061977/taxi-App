@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.63.8 - FAHRZEUG-DROPDOWN BEIM BEARBEITEN FIX! (Build 20251210-1855)');
+        console.log('🚕 Funk Taxi App v5.63.9 - HÄUFIGE ZIELORTE SMART-MATCHING FIX! (Build 20251210-1905)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -21364,22 +21364,69 @@
                 
                 console.log('📊 Gefunden:', customerRides.length, 'Fahrten von diesem Kunden');
                 
-                // Zähle Zielorte
-                const destinationCount = {};
+                // 🆕 v5.63.9: SMART MATCHING - Normalisiere Adressen!
+                function normalizeAddress(addr) {
+                    if (!addr) return '';
+                    
+                    // Konvertiere zu Lowercase
+                    let normalized = addr.toLowerCase();
+                    
+                    // Entferne Postleitzahlen (5 Ziffern)
+                    normalized = normalized.replace(/\b\d{5}\b/g, '');
+                    
+                    // Entferne häufige Präfixe
+                    normalized = normalized.replace(/^(am|an der|in der|zur|zum)\s+/gi, '');
+                    
+                    // Straßenabkürzungen vereinheitlichen
+                    normalized = normalized.replace(/straße|str\.|str$/gi, 'strasse');
+                    
+                    // Entferne mehrfache Leerzeichen
+                    normalized = normalized.replace(/\s+/g, ' ').trim();
+                    
+                    // Entferne Sonderzeichen
+                    normalized = normalized.replace(/[,\.]/g, '');
+                    
+                    return normalized;
+                }
+                
+                // Zähle Zielorte (mit Normalisierung!)
+                const destinationGroups = {}; // normalisiert → [original addresses]
+                const destinationCount = {};  // normalisiert → count
+                
                 customerRides.forEach(ride => {
                     if (ride.destination) {
-                        const dest = ride.destination.trim();
-                        destinationCount[dest] = (destinationCount[dest] || 0) + 1;
+                        const original = ride.destination.trim();
+                        const normalized = normalizeAddress(original);
+                        
+                        if (!destinationGroups[normalized]) {
+                            destinationGroups[normalized] = [];
+                        }
+                        destinationGroups[normalized].push(original);
+                        
+                        destinationCount[normalized] = (destinationCount[normalized] || 0) + 1;
                     }
                 });
+                
+                console.log('🔥 Normalisierte Ziele:', Object.keys(destinationCount).length);
+                console.log('   Gruppen:', destinationGroups);
+                console.log('   Counts:', destinationCount);
                 
                 // Sortiere nach Häufigkeit
                 const sorted = Object.entries(destinationCount)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 5)  // Top 5
-                    .map(([dest, count]) => ({ destination: dest, count: count }));
+                    .map(([normalizedDest, count]) => {
+                        // Wähle die häufigste/längste Original-Adresse aus dieser Gruppe
+                        const originals = destinationGroups[normalizedDest];
+                        const bestOriginal = originals.sort((a, b) => b.length - a.length)[0];
+                        
+                        return { 
+                            destination: bestOriginal,
+                            count: count 
+                        };
+                    });
                 
-                console.log('🔥 Top Zielorte:', sorted);
+                console.log('🔥 Top Zielorte (smart matched):', sorted);
                 
                 return sorted;
             } catch (error) {
@@ -23050,6 +23097,12 @@
                 
                 // Adress-Optionen anzeigen
                 showAddressOptions();
+                
+                // 🆕 v5.63.9: HÄUFIGE ZIELORTE ANZEIGEN beim Bearbeiten!
+                if (qbPanelCustomer && qbPanelCustomer.phone) {
+                    console.log('🔥 Lade häufige Zielorte für:', qbPanelCustomer.name);
+                    showFrequentDestinations(qbPanelCustomer.phone, qbPanelCustomer.id, 'qb-panel-frequent-destinations');
+                }
                 
                 // 🔧 WICHTIG: Speichere Original-ID für Update statt Create
                 console.log('═══════════════════════════════════════');

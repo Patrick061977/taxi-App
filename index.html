@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.12 - FAHRGAST-AI ENTFERNT! ✅ (Build 20251210-2310)');
+        console.log('🚕 Funk Taxi App v5.64.13 - MODAL-SCROLL + NaN FIX! ✅ (Build 20251210-2330)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.12 - FAHRGAST-AI ENTFERNT! ✅ (Build 20251210-2310)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.13 - MODAL-SCROLL + NaN FIX! ✅ (Build 20251210-2330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -16675,8 +16675,8 @@
             }
             
             // Zeit seit Erstellung
-            const ageMinutes = Math.round((Date.now() - (ride.createdAt || 0)) / 60000);
-            const ageText = ageMinutes < 60 ? ageMinutes + ' Min' : Math.round(ageMinutes / 60) + ' Std';
+            const ageMinutes = ride.createdAt ? Math.round((Date.now() - ride.createdAt) / 60000) : 0;
+            const ageText = !ride.createdAt ? 'Neu' : (ageMinutes < 60 ? ageMinutes + ' Min' : Math.round(ageMinutes / 60) + ' Std');
             
             return `
                 <div style="padding:12px;border-bottom:1px solid #e5e7eb;${isActive ? 'background:#fffbeb;' : ''}">
@@ -21135,7 +21135,7 @@
             
             const modal = document.createElement('div');
             modal.id = 'quick-booking-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:15px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:flex-start;justify-content:center;z-index:10000;padding:20px 15px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
             
             // Aktuelle Zeit + 15 Minuten als Default
             const now = new Date();
@@ -21149,10 +21149,7 @@
                     padding:15px;
                     width:100%;
                     max-width:500px;
-                    max-height:80vh;
-                    overflow-y:auto;
-                    overflow-x:hidden;
-                    -webkit-overflow-scrolling:touch;
+                    margin:auto;
                     box-shadow:0 20px 60px rgba(0,0,0,0.3);
                 ">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;position:sticky;top:0;background:white;z-index:1;padding-bottom:8px;border-bottom:2px solid #f3f4f6;">

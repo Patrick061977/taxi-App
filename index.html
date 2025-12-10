@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.63.0 - TELEGRAM-BOT FÜR FAHRGÄSTE! (Build 20251210-1300)');
+        console.log('🚕 Funk Taxi App v5.63.1 - BUGFIX! (Build 20251210-1330)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.63.0 - Telegram-Bot📬 (Build 20251210-1300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.63.1 - BUGFIX📬 (Build 20251210-1330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4199,6 +4199,22 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
     <script>
+        // 🐛 DEBUG STUB - Wird später überschrieben, aber verhindert Fehler bei frühen Aufrufen
+        let debugPanelLogs = [];
+        let isDebugPanelOpen = false;
+        let debugFilter = 'all';
+        let debugPanelMinimized = false;
+        
+        function debugLog(type, message) {
+            const time = new Date().toLocaleTimeString('de-DE');
+            debugPanelLogs.push({ time, type, message });
+            const icon = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : '✅';
+            console.log(`${icon} [DEBUG] ${message}`);
+        }
+        
+        function addLogToPanel() {} // Stub
+        function refreshDebugPanel() {} // Stub
+        
         // 🐛 DEBUG MODE - Global Variable (für alte Debug-Button Kompatibilität)
         let debugMode = false; // Wird vom Console-Interceptor verwaltet
         
@@ -30747,10 +30763,8 @@ Stack: ${err.stack}
         // 🐛 v5.46.4: FLOATING DEBUG PANEL (NUR ADMIN!)
         // ═══════════════════════════════════════════════════════════════════════════
         
-        let debugPanelLogs = [];
-        let debugFilter = 'all';
-        let debugPanelMinimized = false;
-        let isDebugPanelOpen = false;
+        // Variablen sind bereits oben als Stubs deklariert, hier nur zurücksetzen falls nötig
+        // debugPanelLogs, debugFilter, debugPanelMinimized, isDebugPanelOpen bereits definiert
         
         // Admin-Check (Phone-Login)
         function checkAdminAccess() {
@@ -31279,9 +31293,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 await db.ref('rides/' + rideId).set(rideData);
                 
                 // Erfolg!
-                alert('✅ Buchung erfolgreich erstellt!
-
-Die Fahrt wurde im System gespeichert.');
+                alert('✅ Buchung erfolgreich erstellt!\n\nDie Fahrt wurde im System gespeichert.');
                 
                 // Clear Form
                 clearAIAssistant();

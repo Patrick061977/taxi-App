@@ -78,18 +78,17 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.55.0 - KONTAKT-IMPORT INS CRM! (Build 20251209-2400)');
+        console.log('🚕 Funk Taxi App v5.56.0 - CRM NUR FÜR ADMIN! (Build 20251209-2430)');
+        console.log('🔒 v5.56.0: CRM NUR FÜR ADMIN!');
+        console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
+        console.log('   ❌ Fahrer sehen CRM NICHT!');
+        console.log('   ❌ Fahrgäste sehen CRM NICHT!');
+        console.log('   ✅ Klare Rollen-Trennung!');
         console.log('📱 v5.55.0: KONTAKT-IMPORT INS CRM!');
-        console.log('   ✅ Button im CRM: "📱 Kontakte importieren"!');
-        console.log('   ✅ 1 ODER mehrere Kontakte wählen!');
-        console.log('   ✅ Duplikate-Check (überspringt vorhandene)!');
-        console.log('   ✅ Fortschrittsanzeige live!');
-        console.log('   ✅ Zusammenfassung: X importiert, Y übersprungen!');
-        console.log('   ✅ Abbrechen möglich!');
         console.log('📱 v5.54.0: NATIVE KONTAKT-AUSWAHL (Buchung)!');
-        console.log('📋 v5.53.0: ZWISCHENABLAGE-INTEGRATION!');
         console.log('');
-        console.log('✅ WORKFLOW: CRM → Kontakte importieren → Mehrfach wählen → Fertig!');
+        console.log('✅ ADMIN: Sieht alles inkl. CRM!');
+        console.log('❌ FAHRER: Kein CRM-Zugriff!');
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -580,7 +579,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.55.0 - KONTAKT-IMPORT (Build 20251209-2400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.56.0 - CRM NUR ADMIN (Build 20251209-2430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3034,6 +3033,8 @@
             </button>
         </div>
         
+        <!-- 📋 CRM-SECTION - NUR FÜR ADMIN! v5.56.0 -->
+        <div id="crm-section" style="display:none;">
         <!-- 📋 NEU: STAMMKUNDEN-CRM -->
         <div onclick="toggleAdminSection('customers')" style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">📋 Stammkunden-CRM</span>
@@ -3090,6 +3091,8 @@
                     🗑️ Alle Kunden löschen
                 </button>
             </div>
+        </div>
+        <!-- END: CRM-SECTION -->
         </div>
         
         <!-- COLLAPSIBLE: Controls -->
@@ -26615,12 +26618,22 @@ Stack: ${err.stack}
                 // Fahrgast sieht: Fahrgast + Verlauf
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block'; // ✅ IMMER anzeigen!
+                
+                // 🆕 v5.56.0: KEIN CRM für Fahrgast!
+                const crmSection = document.getElementById('crm-section');
+                if (crmSection) crmSection.style.display = 'none';
+                
                 switchView('passenger');
             } else if (role === 'fahrer') {
                 // Fahrer sieht: Fahrgast + Verlauf + Fahrer
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block';
                 if (fahrerBtn) fahrerBtn.style.display = 'block';
+                
+                // 🆕 v5.56.0: KEIN CRM für Fahrer!
+                const crmSection = document.getElementById('crm-section');
+                if (crmSection) crmSection.style.display = 'none';
+                
                 switchView('driver');
             } else if (role === 'admin') {
                 // Admin sieht: ALLES
@@ -26628,6 +26641,10 @@ Stack: ${err.stack}
                 if (verlaufBtn) verlaufBtn.style.display = 'block';
                 if (fahrerBtn) fahrerBtn.style.display = 'block';
                 if (adminBtn) adminBtn.style.display = 'block';
+                
+                // 🆕 v5.56.0: CRM NUR FÜR ADMIN!
+                const crmSection = document.getElementById('crm-section');
+                if (crmSection) crmSection.style.display = 'block';
                 
                 // 🆕 Starte Checker für offene Fahrten (nur für Admin)
                 startOpenRideChecker();
@@ -26638,6 +26655,11 @@ Stack: ${err.stack}
                 // 🆕 v5.26.14d: Nicht eingeloggt: Fahrgast + Verlauf BEIDE anzeigen!
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block'; // ✅ AUCH ohne Login!
+                
+                // 🆕 v5.56.0: KEIN CRM ohne Login!
+                const crmSection = document.getElementById('crm-section');
+                if (crmSection) crmSection.style.display = 'none';
+                
                 switchView('passenger');
             }
         }

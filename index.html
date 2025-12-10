@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.5 - AI-ASSISTENT FÜR FAHRGÄSTE! 🤖✨ (Build 20251210-2000)');
+        console.log('🚕 Funk Taxi App v5.64.6 - AI-BUTTON OBEN! 🤖⬆️ (Build 20251210-2010)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -1076,6 +1076,38 @@
     <div id="passenger-view" class="view active">
         <h3 style="margin:0 0 15px 0;">🚕 Taxi buchen</h3>
         
+        <!-- 🆕 v5.64.6: AI-ASSISTENT BUTTON GANZ OBEN! -->
+        <button id="passenger-ai-btn-top" onclick="openPassengerAIModal()" style="
+            margin-bottom: 20px;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+            transition: all 0.2s;
+        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139, 92, 246, 0.5)'"
+           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+                <span style="font-size: 28px;">🤖</span>
+                <span>Mit AI-Assistent buchen</span>
+            </div>
+        </button>
+        <div style="text-align: center; margin-top: -12px; margin-bottom: 20px; font-size: 13px; color: #6b7280; font-weight: 500;">
+            💬 Beschreibe einfach deine Fahrt – die KI hilft dir!
+        </div>
+        
+        <!-- ODER-TRENNER -->
+        <div style="display: flex; align-items: center; margin-bottom: 20px;">
+            <div style="flex: 1; height: 1px; background: #e5e7eb;"></div>
+            <span style="padding: 0 15px; color: #9ca3af; font-weight: 600; font-size: 13px;">ODER</span>
+            <div style="flex: 1; height: 1px; background: #e5e7eb;"></div>
+        </div>
+        
         <!-- 🗑️ v5.58.0: CRM-BUCHUNGS-BANNER ENTFERNT! -->
         <!-- "Buchst für CRM-Kunde" ist Admin-Funktion! -->
         <!-- Nur im Admin-Panel! -->
@@ -1294,30 +1326,6 @@
             </div>
             
             <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
-            
-            <!-- 🆕 v5.64.5: AI-ASSISTENT FÜR FAHRGÄSTE -->
-            <button id="passenger-ai-btn" onclick="openPassengerAIModal()" style="
-                margin-top: 15px;
-                width: 100%;
-                padding: 16px;
-                background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-                color: white;
-                border: none;
-                border-radius: 12px;
-                font-size: 16px;
-                font-weight: 700;
-                cursor: pointer;
-                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
-                transition: all 0.2s;
-                display: none;
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(139, 92, 246, 0.5)'"
-               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)'">
-                <span style="font-size: 24px;">🤖</span>
-                <span>Mit AI-Assistent buchen</span>
-            </button>
-            <div id="passenger-ai-hint" style="text-align: center; margin-top: 8px; font-size: 12px; color: #6b7280; display: none;">
-                💬 Beschreibe einfach deine Fahrt – die KI hilft dir!
-            </div>
         </div>
         
         <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
@@ -12269,17 +12277,6 @@
             if (bookBtn) {
                 bookBtn.style.display = 'block';
                 bookBtn.style.visibility = 'visible';
-            }
-            
-            // 🆕 v5.64.5: ZEIGE AI-ASSISTENT BUTTON
-            const aiBtn = document.getElementById('passenger-ai-btn');
-            const aiHint = document.getElementById('passenger-ai-hint');
-            if (aiBtn) {
-                aiBtn.style.display = 'block';
-                aiBtn.style.visibility = 'visible';
-            }
-            if (aiHint) {
-                aiHint.style.display = 'block';
             }
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN

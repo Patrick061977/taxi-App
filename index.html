@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.2 - Taxi Bot entfernt (Build 20251210-1930)');
+        console.log('🚕 Funk Taxi App v5.64.3 - SCHNELLBUCHUNG HÄUFIGE ZIELORTE FIX! (Build 20251210-1940)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -21127,6 +21127,13 @@
                 return;
             }
             
+            // 🆕 v5.64.3: Entferne alte Modals falls vorhanden (verhindert Duplikate)
+            const oldModal = document.getElementById('quick-booking-modal');
+            if (oldModal) {
+                console.log('🧹 Entferne altes Schnellbuchungs-Modal...');
+                oldModal.remove();
+            }
+            
             // Lade Kunden wenn noch nicht geladen
             if (allCustomers.length === 0) {
                 console.log('⏳ Lade Kunden für Schnellbuchung...');
@@ -21202,7 +21209,7 @@
                             <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:5px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
-                        <!-- 🆕 v5.49.0: HÄUFIGE ZIELORTE -->
+                        <!-- 🆕 v5.49.0 + v5.64.3: HÄUFIGE ZIELORTE (WIRD ERST NACH KUNDENAUSWAHL GEFÜLLT) -->
                         <div id="quick-booking-frequent-destinations" style="display:none;"></div>
                         
                         <!-- 🆕 v5.38.4: FAVORITEN -->
@@ -21604,6 +21611,13 @@
             // Schließe Dropdown
             document.getElementById('quick-booking-customer-dropdown').style.display = 'none';
             
+            // 🆕 v5.64.3: Leere häufige Zielorte VOR dem Neuladen (verhindert alte Daten)
+            const frequentContainer = document.getElementById('quick-booking-frequent-destinations');
+            if (frequentContainer) {
+                frequentContainer.innerHTML = '';
+                frequentContainer.style.display = 'none';
+            }
+            
             // Lade Kundendaten (Adresse, etc.)
             if (address) {
                 document.getElementById('quick-booking-pickup').value = address;
@@ -21617,7 +21631,12 @@
             }
             
             // 🆕 v5.49.0: Zeige häufige Zielorte!
-            showFrequentDestinations(phone, id, 'quick-booking-frequent-destinations');
+            if (phone) {
+                console.log('🔥 Lade häufige Zielorte für:', name, '(' + phone + ')');
+                showFrequentDestinations(phone, id, 'quick-booking-frequent-destinations');
+            } else {
+                console.log('⚠️ Kunde hat keine Telefonnummer → Keine häufigen Zielorte');
+            }
         }
         
         // 🆕 v5.48.4: Geocode Kundenadresse und setze Koordinaten

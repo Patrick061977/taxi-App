@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.63.7 - PANEL UPDATE FAHRZEUG-FIX! (Build 20251210-1845)');
+        console.log('🚕 Funk Taxi App v5.63.8 - FAHRZEUG-DROPDOWN BEIM BEARBEITEN FIX! (Build 20251210-1855)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -22598,15 +22598,17 @@
         }
         
         // Fahrzeuge laden
-        function loadQuickBookingPanelVehicles() {
+        async function loadQuickBookingPanelVehicles() {
             const select = document.getElementById('qb-panel-vehicle');
             if (!select || !isFirebaseReady) return;
             
             // 🆕 v5.52.1: Lade ALLE Fahrzeuge aus Verwaltung + prüfe Online-Status
-            Promise.all([
-                db.ref('vehicles').once('value'),
-                db.ref('drivers').once('value')
-            ]).then(([vehiclesSnapshot, driversSnapshot]) => {
+            try {
+                const [vehiclesSnapshot, driversSnapshot] = await Promise.all([
+                    db.ref('vehicles').once('value'),
+                    db.ref('drivers').once('value')
+                ]);
+                
                 const vehicles = [];
                 const onlineVehicleIds = new Set();
                 
@@ -22642,9 +22644,19 @@
                     }).join('');
                     
                 console.log('🚗 Fahrzeuge geladen:', vehicles.length, 'davon online:', onlineVehicleIds.size);
-            }).catch(err => {
+            } catch (err) {
                 console.error('❌ Fehler beim Laden der Fahrzeuge:', err);
-            });
+            }
+        }
+        
+        // 🆕 v5.63.7: UPDATE AI-NACHFRAGEN HEADER
+        function updateAiNachfragenHeader() {
+            // Diese Funktion prüft ob die Fahrt vollständig ist
+            // und versteckt ggf. Warning-Header
+            // 
+            // Aktuell: Platzhalter-Funktion
+            // TODO: Implementiere konkrete Logik wenn klar ist welcher Header gemeint ist
+            console.log('📋 updateAiNachfragenHeader aufgerufen');
         }
         
         // Datetime-Anzeige aktualisieren (mit Wochentag!)
@@ -23020,8 +23032,21 @@
                 
                 // Weitere Felder
                 document.getElementById('qb-panel-passengers').value = ride.passengers || 1;
-                document.getElementById('qb-panel-vehicle').value = ride.vehicleId || '';
                 document.getElementById('qb-panel-notes').value = ride.notes || '';
+                
+                // 🆕 v5.63.7: FAHRZEUG-DROPDOWN NACH LADEN SETZEN!
+                // Warte auf Fahrzeug-Dropdown Laden, dann setze Wert
+                console.log('🚗 Lade Fahrzeuge für Dropdown...');
+                await loadQuickBookingPanelVehicles(); // Warte auf Laden!
+                
+                // Jetzt setze Fahrzeug-Wert
+                if (ride.vehicleId) {
+                    document.getElementById('qb-panel-vehicle').value = ride.vehicleId;
+                    console.log('✅ Fahrzeug gesetzt:', ride.vehicleId);
+                } else {
+                    document.getElementById('qb-panel-vehicle').value = '';
+                    console.log('⚪ Kein Fahrzeug zugewiesen');
+                }
                 
                 // Adress-Optionen anzeigen
                 showAddressOptions();
@@ -23037,6 +23062,9 @@
                 // 🆕 v5.51.0: Button-Text auf SPEICHERN setzen (BEARBEITEN-Modus)
                 const submitBtn = document.getElementById('qb-panel-submit-btn');
                 if (submitBtn) submitBtn.innerHTML = '💾 Speichern';
+                
+                // 🆕 v5.63.7: VERSTECKE AI-NACHFRAGEN HEADER wenn Fahrt vollständig
+                updateAiNachfragenHeader();
                 
                 console.log('✏️ Fahrt wird bearbeitet:', rideId);
                 

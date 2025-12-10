@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.7 - API-KEY ANZEIGEN & KOPIEREN! 🔑👁️ (Build 20251210-2020)');
+        console.log('🚕 Funk Taxi App v5.64.8 - IMPORT & MODAL FIXES! 🔧📱 (Build 20251210-2230)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.63.4 - AI-NACHFRAGEN💬 (Build 20251210-1520)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.8 - IMPORT & MODAL FIXES! 🔧📱 (Build 20251210-2230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -20725,19 +20725,25 @@
                         continue;
                     }
                     
-                    // Duplikate-Check
+                    // Duplikate-Check (nur exakte Übereinstimmung!)
                     const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '');
                     const existing = allCustomers.find(c => {
                         const existingPhone = (c.phone || '').replace(/[\s\-\(\)\+]/g, '');
-                        return existingPhone === normalizedPhone || 
-                               existingPhone.endsWith(normalizedPhone.slice(-8)) ||
-                               normalizedPhone.endsWith(existingPhone.slice(-8));
+                        // NUR exakte Übereinstimmung (keine fuzzy matches mehr!)
+                        return existingPhone === normalizedPhone;
                     });
                     
                     if (existing) {
-                        console.log('⚠️ Überspringe Duplikat:', name, phone);
+                        console.log('⚠️ Überspringe Duplikat:', name, phone, '→ Existiert als:', existing.name);
+                        currentEl.innerHTML = `
+                            <div style="font-weight:600;color:#f59e0b;margin-bottom:4px;">⚠️ ${name} - Duplikat!</div>
+                            <div style="font-size:13px;color:#92400e;">
+                                📞 ${phone}<br>
+                                Existiert bereits als: <strong>${existing.name}</strong>
+                            </div>
+                        `;
                         skipped++;
-                        await sleep(300);
+                        await sleep(500);
                         continue;
                     }
                     
@@ -21212,8 +21218,19 @@
             const defaultDate = now.toISOString().slice(0, 16);
             
             modal.innerHTML = `
-                <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div style="
+                    background:white;
+                    border-radius:16px;
+                    padding:20px;
+                    width:100%;
+                    max-width:500px;
+                    max-height:85vh;
+                    overflow-y:auto;
+                    overflow-x:hidden;
+                    -webkit-overflow-scrolling:touch;
+                    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+                ">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;position:sticky;top:0;background:white;z-index:1;padding-bottom:10px;">
                         <h3 style="margin:0;font-size:20px;">⚡ Schnellbuchung</h3>
                         <button onclick="document.getElementById('quick-booking-modal').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
                     </div>

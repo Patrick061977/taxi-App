@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.8 - IMPORT & MODAL FIXES! 🔧📱 (Build 20251210-2230)');
+        console.log('🚕 Funk Taxi App v5.64.9 - CRM-BUCHUNG & MODAL KOMPAKT! 🚕📱 (Build 20251210-2245)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.8 - IMPORT & MODAL FIXES! 🔧📱 (Build 20251210-2230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.9 - CRM-BUCHUNG & MODAL KOMPAKT! 🚕📱 (Build 20251210-2245)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -20181,42 +20181,11 @@
             const customer = allCustomers.find(c => c.id === customerId);
             if (!customer) return;
             
-            // Speichere Kunden-ID für spätere CRM-Aktualisierung
-            currentBookingCustomerId = customerId;
+            console.log('🚕 Öffne Schnellbuchung für:', customer.name);
             
-            // Wechsel zum Fahrgast-Tab und fülle Daten aus
-            switchView('passenger');
-            
-            // 🆕 v5.52.9: ZEIGE CRM-BUCHUNGS-BANNER!
-            const banner = document.getElementById('crm-booking-banner');
-            const nameEl = document.getElementById('crm-booking-customer-name');
-            const phoneEl = document.getElementById('crm-booking-customer-phone');
-            
-            if (banner && nameEl && phoneEl) {
-                nameEl.textContent = customer.name || 'Unbekannt';
-                phoneEl.textContent = customer.phone ? '📞 ' + customer.phone : '';
-                banner.style.display = 'block';
-                
-                // 🎨 Scroll zum Banner
-                setTimeout(() => {
-                    banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
-            }
-            
-            // 🆕 v5.34.0: Umfassende Datenübernahme!
-            if (customer.name) document.getElementById('customer-name').value = customer.name;
-            if (customer.phone) document.getElementById('customer-phone').value = customer.phone;
-            if (customer.address) document.getElementById('pickup').value = customer.address;
-            if (customer.favoriteDestination) document.getElementById('destination').value = customer.favoriteDestination;
-            
-            // Zeige CRM-Speicher-Option
-            const crmOption = document.getElementById('crm-save-option');
-            if (crmOption) {
-                crmOption.style.display = 'block';
-                document.getElementById('save-to-crm').checked = true;
-            }
-            
-            // 🚀 v5.52.9: Toast statt Alert!
+            // 🆕 v5.64.9: Öffne direkt Schnellbuchung-Modal!
+            openQuickBookingModal(customer);
+        }
             const filledFields = [];
             if (customer.name) filledFields.push('Name');
             if (customer.phone) filledFields.push('Telefon');
@@ -21188,7 +21157,7 @@
         }
         
         // 🆕 v5.34.0: SCHNELLBUCHUNG MODAL
-        async function openQuickBookingModal() {
+        async function openQuickBookingModal(prefilledCustomer = null) {
             if (!isFirebaseReady) {
                 alert('❌ Firebase nicht verbunden!');
                 return;
@@ -21220,87 +21189,84 @@
             modal.innerHTML = `
                 <div style="
                     background:white;
-                    border-radius:16px;
-                    padding:20px;
+                    border-radius:12px;
+                    padding:15px;
                     width:100%;
                     max-width:500px;
-                    max-height:85vh;
+                    max-height:80vh;
                     overflow-y:auto;
                     overflow-x:hidden;
                     -webkit-overflow-scrolling:touch;
                     box-shadow:0 20px 60px rgba(0,0,0,0.3);
                 ">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;position:sticky;top:0;background:white;z-index:1;padding-bottom:10px;">
-                        <h3 style="margin:0;font-size:20px;">⚡ Schnellbuchung</h3>
-                        <button onclick="document.getElementById('quick-booking-modal').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;position:sticky;top:0;background:white;z-index:1;padding-bottom:8px;border-bottom:2px solid #f3f4f6;">
+                        <h3 style="margin:0;font-size:18px;font-weight:700;">⚡ Schnellbuchung</h3>
+                        <button onclick="document.getElementById('quick-booking-modal').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;line-height:1;padding:0 5px;">×</button>
                     </div>
                     
-                    <div style="display:flex;flex-direction:column;gap:15px;">
+                    <div style="display:flex;flex-direction:column;gap:10px;">
                         <!-- 🆕 v5.48.3: Kunde mit Live-Suche (ab 3 Zeichen) -->
                         <div style="position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;">👤 Kunde</label>
+                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">👤 Kunde</label>
                             <input 
                                 type="text" 
                                 id="quick-booking-customer-search" 
                                 placeholder="Name eingeben (mind. 3 Zeichen)..." 
                                 oninput="searchQuickBookingCustomer()"
-                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                                style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
                             <input type="hidden" id="quick-booking-customer" value="">
-                            <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:250px;overflow-y:auto;z-index:10000;margin-top:5px;box-shadow:0 8px 16px rgba(0,0,0,0.15);"></div>
+                            <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:6px;max-height:200px;overflow-y:auto;z-index:10000;margin-top:3px;box-shadow:0 8px 16px rgba(0,0,0,0.15);"></div>
                         </div>
                         
                         <!-- Datum & Zeit -->
                         <div>
-                            <label style="display:block;font-weight:600;margin-bottom:8px;">📅 Datum & Zeit</label>
-                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">📅 Datum & Zeit</label>
+                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
                         </div>
                         
-                        <!-- Abholort -->;
+                        <!-- Abholort -->
                         <div style="position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;">📍 Abholort</label>
-                            <input type="text" id="quick-booking-pickup" placeholder="Adresse eingeben..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                            <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:5px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">📍 Abholort</label>
+                            <input type="text" id="quick-booking-pickup" placeholder="Adresse eingeben..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                            <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:6px;max-height:180px;overflow-y:auto;z-index:1000;margin-top:3px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
-                        <!-- 🆕 v5.36.0: SWAP-BUTTON -->
-                        <div style="text-align:center;margin:15px 0;">
+                        <!-- 🆕 v5.36.0: SWAP-BUTTON (KOMPAKT!) -->
+                        <div style="text-align:center;margin:5px 0;">
                             <button onclick="swapQuickBookingLocations()" style="
-                                padding:10px 20px;
+                                padding:8px 16px;
                                 background:linear-gradient(135deg, #10b981 0%, #059669 100%);
                                 color:white;
                                 border:none;
-                                border-radius:8px;
+                                border-radius:6px;
                                 font-weight:600;
                                 cursor:pointer;
-                                font-size:14px;
-                                box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);
-                                transition:transform 0.2s;
-                            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                                ⇄ Vertauschen
-                            </button>
+                                font-size:13px;
+                                box-shadow:0 2px 6px rgba(16, 185, 129, 0.3);
+                            ">⇄ Vertauschen</button>
                         </div>
                         
                         <!-- Zielort -->
                         <div style="position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;">🎯 Zielort</label>
-                            <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                            <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:5px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">🎯 Zielort</label>
+                            <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                            <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:6px;max-height:180px;overflow-y:auto;z-index:1000;margin-top:3px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
                         <!-- 🆕 v5.49.0 + v5.64.3: HÄUFIGE ZIELORTE (WIRD ERST NACH KUNDENAUSWAHL GEFÜLLT) -->
                         <div id="quick-booking-frequent-destinations" style="display:none;"></div>
                         
-                        <!-- 🆕 v5.38.4: FAVORITEN -->
-                        <div style="margin-bottom:10px;">
-                            <button onclick="showQuickBookingFavorites()" style="width:100%;padding:10px;background:#f3f4f6;color:#666;border:1px solid #e5e7eb;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                        <!-- 🆕 v5.38.4: FAVORITEN (KOMPAKT!) -->
+                        <div>
+                            <button onclick="showQuickBookingFavorites()" style="width:100%;padding:8px;background:#f3f4f6;color:#666;border:1px solid #e5e7eb;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
                                 ⭐ Favoriten verwenden
                             </button>
                         </div>
                         
                         <!-- Personen -->
                         <div>
-                            <label style="display:block;font-weight:600;margin-bottom:8px;">👥 Anzahl Personen</label>
-                            <select id="quick-booking-passengers" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">👥 Anzahl Personen</label>
+                            <select id="quick-booking-passengers" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
                                 <option value="1">1 Person</option>
                                 <option value="2">2 Personen</option>
                                 <option value="3">3 Personen</option>
@@ -21312,35 +21278,34 @@
                             </select>
                         </div>
                         
-                        <!-- Fahrzeug (optional) -->
+                        <!-- Fahrzeug (optional) (KOMPAKT!) -->
                         <div>
-                            <label style="display:block;font-weight:600;margin-bottom:8px;">🚗 Fahrzeug (optional)</label>
-                            <select id="quick-booking-vehicle" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">🚗 Fahrzeug (optional)</label>
+                            <select id="quick-booking-vehicle" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
                                 <option value="">Automatisch zuweisen</option>
                                 <!-- Wird dynamisch gefüllt -->
                             </select>
                         </div>
                         
-                        <!-- Notizen -->
+                        <!-- Notizen (KOMPAKT!) -->
                         <div>
-                            <label style="display:block;font-weight:600;margin-bottom:8px;">📝 Notizen (optional)</label>
-                            <textarea id="quick-booking-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;min-height:60px;"></textarea>
+                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">📝 Notizen (optional)</label>
+                            <textarea id="quick-booking-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;min-height:50px;resize:vertical;"></textarea>
                         </div>
                         
-                        
-                        <!-- Favorit speichern -->
-                        <div style="margin-top:10px;">
-                            <button onclick="saveQuickBookingAsFavorite()" style="width:100%;padding:10px;background:#fbbf24;color:#78350f;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                        <!-- Favorit speichern (KOMPAKT!) -->
+                        <div>
+                            <button onclick="saveQuickBookingAsFavorite()" style="width:100%;padding:8px;background:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
                                 ⭐ Als Favorit speichern
                             </button>
                         </div>
                         
-                        <!-- Buttons -->
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
-                            <button onclick="document.getElementById('quick-booking-modal').remove()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                        <!-- Buttons (KOMPAKT!) -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding-top:8px;border-top:2px solid #f3f4f6;">
+                            <button onclick="document.getElementById('quick-booking-modal').remove()" style="padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
                                 Abbrechen
                             </button>
-                            <button onclick="submitQuickBooking()" style="padding:14px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);">
+                            <button onclick="submitQuickBooking()" style="padding:12px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);">
                                 ⚡ Jetzt buchen
                             </button>
                         </div>
@@ -21366,6 +21331,46 @@
             
             // 🆕 v5.38.4: Lade Fahrzeuge
             loadQuickBookingVehicles();
+            
+            // 🆕 v5.64.9: Vorausfüllen wenn Kunde aus CRM übergeben wurde!
+            if (prefilledCustomer) {
+                setTimeout(() => {
+                    console.log('📝 Fülle Kundendaten vor:', prefilledCustomer.name);
+                    
+                    // Kunde
+                    const searchInput = document.getElementById('quick-booking-customer-search');
+                    const customerIdInput = document.getElementById('quick-booking-customer');
+                    if (searchInput && customerIdInput) {
+                        searchInput.value = prefilledCustomer.name || '';
+                        customerIdInput.value = prefilledCustomer.id || '';
+                        // Grüner Border = ausgewählt
+                        searchInput.style.borderColor = '#10b981';
+                        searchInput.style.background = '#f0fdf4';
+                    }
+                    
+                    // Abholort (falls vorhanden)
+                    const pickupInput = document.getElementById('quick-booking-pickup');
+                    if (pickupInput && prefilledCustomer.address) {
+                        pickupInput.value = prefilledCustomer.address;
+                    }
+                    
+                    // Zielort (falls Favorit vorhanden)
+                    const destInput = document.getElementById('quick-booking-destination');
+                    if (destInput && prefilledCustomer.favoriteDestination) {
+                        destInput.value = prefilledCustomer.favoriteDestination;
+                    }
+                    
+                    // Toast: Kundendaten übernommen!
+                    const toast = document.createElement('div');
+                    toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;font-size:14px;';
+                    toast.innerHTML = `✅ Kundendaten übernommen: ${prefilledCustomer.name}`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2500);
+                    
+                    // Häufige Zielorte laden
+                    loadFrequentDestinations(prefilledCustomer.id);
+                }, 200);
+            }
         }
         
         // 🆕 v5.48.3: Live-Suche für Kunden (ab 3 Zeichen)

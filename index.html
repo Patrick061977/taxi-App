@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.63.4 - AI-NACHFRAGEN! (Build 20251210-1520)');
+        console.log('🚕 Funk Taxi App v5.63.6 - ZENTRALE FAHRZEUG-ZUWEISUNG! (Build 20251210-1835)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -5627,71 +5627,163 @@
             }
         }
         
-        // 🚗 v5.31.5: FAHRZEUG AUSWAHL BESTÄTIGEN
+        // ═══════════════════════════════════════════════════════════════
+        // 🚗 v5.63.6: ZENTRALE FAHRZEUG-ZUWEISUNG
+        // ═══════════════════════════════════════════════════════════════
+        // DIESE Funktion wird von ÜBERALL genutzt:
+        // - Schnellbuchung
+        // - Admin offene Fahrten
+        // - Admin Kalender
+        // - Überall gleiche Logik!
+        
+        async function assignVehicleUnified(rideId, vehicleId, options = {}) {
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🚗 ZENTRALE FAHRZEUG-ZUWEISUNG');
+            console.log('   Fahrt:', rideId);
+            console.log('   Fahrzeug:', vehicleId);
+            console.log('   Quelle:', options.source || 'unbekannt');
+            console.log('═══════════════════════════════════════════════════════════');
+            
+            try {
+                // 1️⃣ LADE FAHRZEUGDATEN AUS /VEHICLES/
+                console.log('📥 Lade Fahrzeugdaten aus /vehicles/' + vehicleId);
+                const vehicleSnapshot = await db.ref('vehicles/' + vehicleId).once('value');
+                const vehicleData = vehicleSnapshot.val();
+                
+                if (!vehicleData) {
+                    console.error('❌ Fahrzeug nicht gefunden in /vehicles/' + vehicleId);
+                    throw new Error('Fahrzeug nicht gefunden!');
+                }
+                
+                console.log('📋 Fahrzeugdaten geladen:', vehicleData);
+                
+                const vehicleName = vehicleData.name || vehicleId;
+                const vehiclePlate = vehicleData.plate || '';
+                
+                console.log('✅ Name:', vehicleName);
+                console.log('✅ Kennzeichen:', vehiclePlate);
+                
+                // 2️⃣ ERSTELLE UPDATE-DATEN
+                const updateData = {
+                    vehicleId: vehicleId,
+                    vehicle: vehicleName,
+                    vehicleLabel: vehicleName,
+                    vehiclePlate: vehiclePlate,
+                    status: 'accepted',
+                    acceptedAt: Date.now(),
+                    assignedBy: 'admin'
+                };
+                
+                // Optional: assignedVehicle für Kalender-Kompatibilität
+                if (options.includeAssignedVehicle) {
+                    updateData.assignedVehicle = vehicleId;
+                }
+                
+                console.log('💾 Speichere in Firebase:', updateData);
+                
+                // 3️⃣ SPEICHERE IN FIREBASE
+                await db.ref('rides/' + rideId).update(updateData);
+                
+                // 4️⃣ UPDATE LOKAL (wenn Fahrt geladen)
+                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                if (ride) {
+                    Object.assign(ride, updateData);
+                    console.log('✅ Lokale Fahrt aktualisiert');
+                }
+                
+                // 5️⃣ ACTIVITY LOG
+                await db.ref('rides/' + rideId + '/activityLog').push({
+                    type: 'vehicle_assigned',
+                    vehicleId: vehicleId,
+                    vehicleName: vehicleName,
+                    vehiclePlate: vehiclePlate,
+                    timestamp: Date.now(),
+                    message: `Fahrzeug ${vehicleName}${vehiclePlate ? ' (' + vehiclePlate + ')' : ''} zugewiesen (${options.source || 'Admin'})`
+                });
+                
+                // 6️⃣ TELEGRAM SENDEN (optional)
+                if (options.sendTelegram !== false && ride) {
+                    console.log('📱 Sende Telegram an Fahrer...');
+                    await sendTelegramToDriver(vehicleId, ride, 0);
+                }
+                
+                // 7️⃣ VIEWS AKTUALISIEREN (optional)
+                if (options.updateViews !== false) {
+                    console.log('🔄 Aktualisiere Views...');
+                    if (typeof updateViews === 'function') updateViews();
+                    if (typeof updateAdminTabsVisibility === 'function') updateAdminTabsVisibility();
+                    if (typeof renderCalendar === 'function') await renderCalendar();
+                    if (typeof loadCalendarData === 'function') await loadCalendarData();
+                }
+                
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('✅ FAHRZEUG ERFOLGREICH ZUGEWIESEN!');
+                console.log('   Fahrzeug:', vehicleName, vehiclePlate ? '(' + vehiclePlate + ')' : '');
+                console.log('═══════════════════════════════════════════════════════════');
+                
+                return {
+                    success: true,
+                    vehicleName: vehicleName,
+                    vehiclePlate: vehiclePlate
+                };
+                
+            } catch (error) {
+                console.error('═══════════════════════════════════════════════════════════');
+                console.error('❌ FEHLER BEI FAHRZEUG-ZUWEISUNG!');
+                console.error('   Fehler:', error);
+                console.error('═══════════════════════════════════════════════════════════');
+                throw error;
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+
+        // 🚗 v5.63.6: FAHRZEUG AUSWAHL BESTÄTIGEN - NUTZT JETZT ZENTRALE FUNKTION!
         async function selectVehicleForAssignment(rideId, vehicleId) {
             try {
-                // Lade Fahrzeug-Daten
-                let vehicleData = null;
-                if (isFirebaseReady) {
-                    const snapshot = await db.ref('drivers/' + vehicleId).once('value');
-                    vehicleData = snapshot.val();
-                }
+                console.log('🚗 selectVehicleForAssignment:', vehicleId, '→', rideId);
+                
+                // Lade Fahrzeug-Vorschau für Bestätigung
+                const vehicleSnapshot = await db.ref('vehicles/' + vehicleId).once('value');
+                const vehicleData = vehicleSnapshot.val();
                 
                 if (!vehicleData) {
                     alert('❌ Fahrzeug nicht gefunden!');
                     return;
                 }
                 
-                const vehicleName = vehicleData.vehicle || vehicleId;
+                const vehicleName = vehicleData.name || vehicleId;
+                const vehiclePlate = vehicleData.plate || '';
                 
-                if (!confirm(`🚗 Fahrt zuweisen an:\n\n${vehicleName}\n\nFortfahren?`)) {
+                // Bestätigung vom Benutzer
+                if (!confirm(`🚗 Fahrt zuweisen an:\n\n${vehicleName}${vehiclePlate ? ' (' + vehiclePlate + ')' : ''}\n\nFortfahren?`)) {
                     return;
                 }
                 
-                // Update Fahrt in Firebase
-                if (isFirebaseReady) {
-                    await db.ref('rides/' + rideId).update({
-                        vehicleId: vehicleId,
-                        vehicle: vehicleName,
-                        vehicleLabel: vehicleName, // 🆕 v5.52.7: Für Kompatibilität
-                        vehiclePlate: vehicleData.plate || '',
-                        status: 'accepted',
-                        acceptedAt: Date.now(),
-                        assignedBy: 'admin'
-                    });
-                }
-                
-                // Update lokal
-                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
-                if (ride) {
-                    ride.vehicleId = vehicleId;
-                    ride.vehicle = vehicleName;
-                    ride.vehicleLabel = vehicleName; // 🆕 v5.52.7: Für Kompatibilität
-                    ride.vehiclePlate = vehicleData.plate || '';
-                    ride.status = 'accepted';
-                    ride.acceptedAt = Date.now();
-                    ride.assignedBy = 'admin';
-                }
-                
-                // Telegram an Fahrer senden
-                await sendTelegramToDriver(vehicleId, ride, 0);
-                
-                // Log Activity
-                logActivity('admin', 'assign', `Admin hat Fahrt zugewiesen: ${vehicleName}`, {
-                    vehicle: vehicleName,
-                    customer: ride.customerName,
-                    pickup: ride.pickup,
-                    destination: ride.destination
+                // 🆕 v5.63.6: NUTZE ZENTRALE FUNKTION!
+                const result = await assignVehicleUnified(rideId, vehicleId, {
+                    source: 'Admin offene Fahrten',
+                    sendTelegram: true,
+                    updateViews: true
                 });
                 
-                // Schließe Modal
+                // Modal schließen
                 const modal = document.querySelector('div[style*="position:fixed"]');
                 if (modal) modal.remove();
                 
-                // Update Views
-                updateViews();
+                // Log Activity (zusätzlich)
+                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                if (ride) {
+                    logActivity('admin', 'assign', `Admin hat Fahrt zugewiesen: ${result.vehicleName}${result.vehiclePlate ? ' (' + result.vehiclePlate + ')' : ''}`, {
+                        vehicle: result.vehicleName,
+                        vehiclePlate: result.vehiclePlate,
+                        customer: ride.customerName,
+                        pickup: ride.pickup,
+                        destination: ride.destination
+                    });
+                }
                 
-                alert(`✅ Fahrt zugewiesen!\n\n🚗 ${vehicleName}\n📱 Telegram gesendet!`);
+                alert(`✅ Fahrt zugewiesen!\n\n🚗 ${result.vehicleName}${result.vehiclePlate ? ' (' + result.vehiclePlate + ')' : ''}\n📱 Telegram gesendet!`);
                 
             } catch (error) {
                 console.error('❌ Fehler:', error);
@@ -24180,27 +24272,27 @@
                 bookingSource: 'admin-quick' // 🆕 v5.49.0: Admin Schnellbuchung!
             };
             
-            // 🆕 v5.57.0: FAHRZEUG-ZUWEISUNG KOMPLETT ÜBERARBEITET!
+            // 🆕 v5.63.6: FAHRZEUG-ZUWEISUNG - NUTZT JETZT ZENTRALE FUNKTION!
             // Fahrzeug zuweisen wenn ausgewählt
             if (vehicle) {
                 try {
-                    console.log('🚗 Lade Fahrzeugdaten für:', vehicle);
-                    const vehicleSnapshot = await db.ref('drivers/' + vehicle).once('value');
+                    console.log('🚗 Schnellbuchung: Weise Fahrzeug zu:', vehicle);
+                    
+                    // Lade Fahrzeugdaten für lokale Ride-Objekt Vorab-Füllung
+                    const vehicleSnapshot = await db.ref('vehicles/' + vehicle).once('value');
                     const vehicleData = vehicleSnapshot.val();
                     
                     if (vehicleData) {
-                        const vehicleName = vehicleData.vehicle || vehicle;
-                        
-                        // Setze ALLE benötigten Felder (wie bei manueller Zuweisung!)
+                        // Setze Felder im lokalen Ride-Objekt (vor dem Speichern)
                         ride.vehicleId = vehicle;
-                        ride.vehicle = vehicleName;
-                        ride.vehicleLabel = vehicleName; // 🆕 v5.57.0: Für Kompatibilität
+                        ride.vehicle = vehicleData.name || vehicle;
+                        ride.vehicleLabel = vehicleData.name || vehicle;
                         ride.vehiclePlate = vehicleData.plate || '';
-                        ride.status = 'accepted'; // 🆕 v5.57.0: KRITISCH - Status auf 'accepted'!
-                        ride.acceptedAt = Date.now(); // 🆕 v5.57.0: Akzeptiert-Zeitstempel
-                        ride.assignedBy = 'admin'; // 🆕 v5.57.0: Zugewiesen durch Admin
+                        ride.status = 'accepted';
+                        ride.acceptedAt = Date.now();
+                        ride.assignedBy = 'admin';
                         
-                        console.log('✅ Fahrzeug zugewiesen:', vehicleName);
+                        console.log('✅ Fahrzeug vorab gesetzt:', vehicleData.name);
                     } else {
                         console.warn('⚠️ Fahrzeugdaten nicht gefunden für:', vehicle);
                     }
@@ -29472,63 +29564,20 @@ Stack: ${err.stack}
         }
         
         async function assignVehicleToRide(rideId, vehicleId) {
-            console.log('🚕 Weise Fahrzeug zu:', vehicleId, '→ Ride:', rideId);
+            console.log('🚕 assignVehicleToRide (Kalender):', vehicleId, '→ Ride:', rideId);
             
             try {
-                // 🆕 v5.52.7: Lade Fahrzeug-Daten
-                const vehicleSnapshot = await db.ref('vehicles/' + vehicleId).once('value');
-                const vehicleData = vehicleSnapshot.val();
-                
-                const vehicleName = vehicleData?.name || vehicleId;
-                const vehiclePlate = vehicleData?.plate || '';
-                
-                await db.ref('rides/' + rideId).update({
-                    vehicleId: vehicleId,
-                    assignedVehicle: vehicleId,
-                    vehicle: vehicleName, // 🆕 v5.52.7
-                    vehicleLabel: vehicleName, // 🆕 v5.52.7
-                    vehiclePlate: vehiclePlate, // 🆕 v5.52.7
-                    assignedAt: Date.now(),
-                    status: 'assigned'
+                // 🆕 v5.63.6: NUTZE ZENTRALE FUNKTION!
+                const result = await assignVehicleUnified(rideId, vehicleId, {
+                    source: 'Admin Kalender',
+                    sendTelegram: false, // Kalender sendet kein Telegram
+                    updateViews: true,
+                    includeAssignedVehicle: true // Kalender nutzt auch assignedVehicle
                 });
-                
-                await db.ref('rides/' + rideId + '/activityLog').push({
-                    type: 'vehicle_assigned',
-                    vehicleId: vehicleId,
-                    vehicleName: vehicleName, // 🆕 v5.52.7
-                    timestamp: Date.now(),
-                    message: `Fahrzeug ${vehicleName} zugewiesen (Admin)`
-                });
-                
-                console.log('✅ Fahrzeug erfolgreich zugewiesen!');
                 
                 closeVehicleAssignmentModal();
                 
-                // 🔧 v5.39.8: TABS AKTUALISIEREN nach Zuweisen!
-                if (typeof updateAdminTabsVisibility === 'function') {
-                    updateAdminTabsVisibility();
-                    console.log('✅ Admin-Tabs nach Zuweisen aktualisiert!');
-                }
-                
-                // 🆕 v5.52.2: KALENDER SOFORT NEU LADEN!
-                if (typeof renderCalendar === 'function') {
-                    await renderCalendar();
-                    console.log('✅ Kalender nach Zuweisen neu geladen!');
-                }
-                
-                alert(`✅ Fahrzeug ${vehicleName} erfolgreich zugewiesen!`);
-                
-                // 🔧 v5.39.8: TABS NOCHMAL AKTUALISIEREN nach Alert!
-                if (typeof updateAdminTabsVisibility === 'function') {
-                    setTimeout(() => {
-                        updateAdminTabsVisibility();
-                        console.log('✅ Admin-Tabs nach Alert aktualisiert!');
-                    }, 100);
-                }
-                
-                if (typeof loadCalendarData === 'function') {
-                    await loadCalendarData();
-                }
+                alert(`✅ Fahrzeug ${result.vehicleName}${result.vehiclePlate ? ' (' + result.vehiclePlate + ')' : ''} erfolgreich zugewiesen!`);
                 
             } catch (error) {
                 console.error('❌ Fehler beim Zuweisen:', error);

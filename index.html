@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.16 - MODAL ULTRA-KOMPAKT! 📱 (Build 20251211-0615)');
+        console.log('🚕 Funk Taxi App v5.64.18 - PREIS & ZEIT OPTIONEN! ⚙️ (Build 20251211-0730)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.16 - MODAL ULTRA-KOMPAKT! 📱 (Build 20251211-0615)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.18 - PREIS & ZEIT OPTIONEN! ⚙️ (Build 20251211-0730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -21245,6 +21245,28 @@
                             <textarea id="quick-booking-notes" placeholder="Optional..." style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;min-height:40px;resize:vertical;"></textarea>
                         </div>
                         
+                        <!-- 🆕 v5.64.18: PREIS-BERECHNUNG OPTION -->
+                        <div style="padding:8px;background:#f0fdf4;border:1px solid #10b981;border-radius:4px;">
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:12px;font-weight:600;color:#047857;">
+                                <input type="checkbox" id="quick-booking-calculate-price" checked style="margin-right:6px;cursor:pointer;width:16px;height:16px;">
+                                <span>💰 Preis berechnen</span>
+                            </label>
+                            <div style="font-size:10px;color:#059669;margin-top:2px;margin-left:22px;">Aus: z.B. für Krankenfahrten</div>
+                        </div>
+                        
+                        <!-- 🆕 v5.64.18: ZEIT-BERECHNUNG OPTION -->
+                        <div style="padding:8px;background:#eff6ff;border:1px solid #3b82f6;border-radius:4px;">
+                            <div style="font-size:11px;font-weight:600;color:#1e40af;margin-bottom:4px;">⏱️ Fahrtdauer:</div>
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:11px;margin-bottom:3px;">
+                                <input type="radio" name="quick-booking-duration-mode" value="calculated" checked style="margin-right:6px;cursor:pointer;">
+                                <span>📏 Aus Distanz berechnen</span>
+                            </label>
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:11px;">
+                                <input type="radio" name="quick-booking-duration-mode" value="fixed" style="margin-right:6px;cursor:pointer;">
+                                <span>🕐 Feste Zeit (15 Min)</span>
+                            </label>
+                        </div>
+                        
                         <!-- Favorit Button kompakter -->
                         <div>
                             <button onclick="saveQuickBookingAsFavorite()" style="width:100%;padding:6px;background:#fbbf24;color:#78350f;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:11px;">
@@ -22803,10 +22825,20 @@
         
         // Buchung absenden
         async function submitQuickBookingPanel() {
-            if (!qbPanelCustomer) {
-                alert('❌ Bitte Kunde auswählen!');
+            // 🔒 v5.64.16: DOPPELKLICK-SCHUTZ!
+            if (window.isSubmittingQuickBookingPanel) {
+                console.log('⚠️ Submit bereits in Bearbeitung - ignoriere Klick');
                 return;
             }
+            
+            window.isSubmittingQuickBookingPanel = true;
+            console.log('🔒 Panel-Submit gesperrt (Doppelklick-Schutz)');
+            
+            try {
+                if (!qbPanelCustomer) {
+                    alert('❌ Bitte Kunde auswählen!');
+                    return;
+                }
             
             const startTime = document.getElementById('qb-panel-start-time').value;
             const endTime = document.getElementById('qb-panel-end-time').value;
@@ -23077,6 +23109,10 @@
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);
                 alert('❌ Fehler beim Buchen: ' + error.message);
+            } finally {
+                // 🔒 v5.64.16: DOPPELKLICK-SCHUTZ zurücksetzen!
+                window.isSubmittingQuickBookingPanel = false;
+                console.log('🔓 Panel-Submit entsperrt (Doppelklick-Schutz zurückgesetzt)');
             }
         }
         
@@ -24344,39 +24380,55 @@
         }
         
         async function submitQuickBooking() {
-            const customerId = document.getElementById('quick-booking-customer').value;
-            const datetime = document.getElementById('quick-booking-datetime').value;
-            const pickup = document.getElementById('quick-booking-pickup').value;
-            const destination = document.getElementById('quick-booking-destination').value;
-            const passengers = parseInt(document.getElementById('quick-booking-passengers').value);
-            const vehicle = document.getElementById('quick-booking-vehicle').value;
-            const notes = document.getElementById('quick-booking-notes').value;
-            
-            // Validierung
-            if (!customerId) {
-                alert('❌ Bitte Kunde auswählen!');
-                return;
-            }
-            if (!datetime) {
-                alert('❌ Bitte Datum & Zeit eingeben!');
-                return;
-            }
-            if (!pickup) {
-                alert('❌ Bitte Abholort eingeben!');
-                return;
-            }
-            if (!destination) {
-                alert('❌ Bitte Zielort eingeben!');
+            // 🔒 v5.64.16: DOPPELKLICK-SCHUTZ!
+            if (window.isSubmittingQuickBooking) {
+                console.log('⚠️ Submit bereits in Bearbeitung - ignoriere Klick');
                 return;
             }
             
-            const customer = allCustomers.find(c => c.id === customerId);
-            if (!customer) {
-                alert('❌ Kunde nicht gefunden!');
-                return;
-            }
+            window.isSubmittingQuickBooking = true;
+            console.log('🔒 Submit gesperrt (Doppelklick-Schutz)');
             
-            // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
+            try {
+                const customerId = document.getElementById('quick-booking-customer').value;
+                const datetime = document.getElementById('quick-booking-datetime').value;
+                const pickup = document.getElementById('quick-booking-pickup').value;
+                const destination = document.getElementById('quick-booking-destination').value;
+                const passengers = parseInt(document.getElementById('quick-booking-passengers').value);
+                const vehicle = document.getElementById('quick-booking-vehicle').value;
+                const notes = document.getElementById('quick-booking-notes').value;
+                
+                // Validierung
+                if (!customerId) {
+                    alert('❌ Bitte Kunde auswählen!');
+                    return;
+                }
+                if (!datetime) {
+                    alert('❌ Bitte Datum & Zeit eingeben!');
+                    return;
+                }
+                if (!pickup) {
+                    alert('❌ Bitte Abholort eingeben!');
+                    return;
+                }
+                if (!destination) {
+                    alert('❌ Bitte Zielort eingeben!');
+                    return;
+                }
+                
+                const customer = allCustomers.find(c => c.id === customerId);
+                if (!customer) {
+                    alert('❌ Kunde nicht gefunden!');
+                    return;
+                }
+                
+                // 🆕 v5.64.18: LESE OPTIONEN AUS!
+                const calculatePrice = document.getElementById('quick-booking-calculate-price').checked;
+                const durationMode = document.querySelector('input[name="quick-booking-duration-mode"]:checked').value;
+                console.log('💰 Preis berechnen?', calculatePrice);
+                console.log('⏱️ Dauer-Modus:', durationMode);
+                
+                // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
             if (!quickBookingPickupCoords || !quickBookingDestCoords) {
                 alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
                 return;
@@ -24389,19 +24441,35 @@
                 routeData = await calculateRoute(quickBookingPickupCoords, quickBookingDestCoords);
                 console.log('✅ Route berechnet:', routeData);
                 
-                // 🆕 v5.50.6: PREIS BERECHNEN (fehlte vorher!)
+                // 🆕 v5.64.18: PREIS-BERECHNUNG OPTIONAL!
                 const pickupTimestamp = new Date(datetime).getTime();
-                const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
-                routeData.price = pricing.total;
-                console.log('✅ Preis berechnet:', pricing.total, '€');
-                
-                // 🆕 v5.50.6: KRITISCHE VALIDIERUNG!
-                if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
-                    console.error('❌ KRITISCHER FEHLER: Ungültiger Preis!', routeData.price);
-                    alert('❌ FEHLER: Preis konnte nicht berechnet werden!\n\nBitte überprüfe die Adressen.\n\nPreis war: ' + routeData.price);
-                    return;
+                if (calculatePrice) {
+                    // PREIS BERECHNEN!
+                    const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
+                    routeData.price = pricing.total;
+                    console.log('✅ Preis berechnet:', pricing.total, '€');
+                    
+                    // Validierung
+                    if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
+                        console.error('❌ KRITISCHER FEHLER: Ungültiger Preis!', routeData.price);
+                        alert('❌ FEHLER: Preis konnte nicht berechnet werden!\n\nBitte überprüfe die Adressen.');
+                        return;
+                    }
+                } else {
+                    // KEIN PREIS! (z.B. Krankenfahrt)
+                    routeData.price = 0;
+                    console.log('ℹ️ Preis-Berechnung deaktiviert → 0 €');
                 }
-                console.log('✅ Preis validiert:', routeData.price, '€');
+                
+                // 🆕 v5.64.18: ZEIT-BERECHNUNG OPTIONAL!
+                if (durationMode === 'fixed') {
+                    // FESTE ZEIT: 15 Minuten
+                    routeData.duration = 15;
+                    console.log('⏱️ Feste Dauer: 15 Min');
+                } else {
+                    // Dauer aus Route (bereits berechnet)
+                    console.log('⏱️ Berechnete Dauer:', routeData.duration, 'Min');
+                }
                 
             } catch (error) {
                 console.error('❌ Fehler bei Routenberechnung:', error);
@@ -24498,8 +24566,8 @@
                       '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
                       '📍 ' + pickup + '\n' +
                       '🎯 ' + destination + '\n' +
-                      '💰 ' + ride.price.toFixed(2) + '€\n' +
-                      '📏 ' + ride.distance + ' km';
+                      '💰 ' + (ride.price || 0).toFixed(2) + '€\n' +
+                      '📏 ' + (ride.distance || 0) + ' km';
                 
                 // 🆕 v5.57.0: Zeige Fahrzeug-Info wenn zugewiesen!
                 if (vehicle && ride.vehicle) {
@@ -24518,6 +24586,10 @@
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);
                 alert('❌ Fehler beim Buchen: ' + error.message);
+            } finally {
+                // 🔒 v5.64.16: DOPPELKLICK-SCHUTZ zurücksetzen!
+                window.isSubmittingQuickBooking = false;
+                console.log('🔓 Submit entsperrt (Doppelklick-Schutz zurückgesetzt)');
             }
         }
         

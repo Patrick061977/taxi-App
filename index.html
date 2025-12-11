@@ -4091,7 +4091,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.21.9';
+        const APP_VERSION = '5.21.10';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -32355,6 +32355,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         function displayTestResult(data, originalMessage) {
             const resultDiv = document.getElementById('test-result');
             
+            // Speichere Daten global für Button
+            currentTestBookingData = data;
+            
             // Prüfe ob wichtige Daten fehlen
             const hasMissing = data.missing && data.missing.length > 0;
             
@@ -32486,7 +32489,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         
                         <div style="margin-top: 15px; display: flex; gap: 10px;">
                             ${!hasMissing ? `
-                            <button onclick="createBookingFromTest(${JSON.stringify(data).replace(/"/g, '&quot;')})" style="
+                            <button onclick="createBookingFromTest()" style="
                                 flex: 1;
                                 padding: 12px;
                                 background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -32523,8 +32526,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             resultDiv.innerHTML = html;
         }
         
+        // Globale Variable für Test-Buchungsdaten
+        let currentTestBookingData = null;
+        
         // Buchung aus Test erstellen
-        async function createBookingFromTest(data) {
+        async function createBookingFromTest() {
+            const data = currentTestBookingData;
+            if (!data) return;
+            
             const confirmMsg = `✅ Buchung erstellen?\n\n📅 ${new Date(data.datetime).toLocaleString('de-DE')}\n📍 ${data.pickup} → ${data.destination}\n👥 ${data.passengers} Person(en)${data.notes ? `\n📝 ${data.notes}` : ''}`;
             
             if (!confirm(confirmMsg)) {

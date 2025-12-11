@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.13 - MODAL-SCROLL + NaN FIX! ✅ (Build 20251210-2330)');
+        console.log('🚕 Funk Taxi App v5.64.15 - ACCEPTED IM KALENDER! 🔥 (Build 20251211-0600)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.13 - MODAL-SCROLL + NaN FIX! ✅ (Build 20251210-2330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.15 - ACCEPTED IM KALENDER! 🔥 (Build 20251211-0600)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -16699,7 +16699,7 @@
                             📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
                         </div>
                         <div style="color:#6b7280;margin-top:4px;font-size:11px;">
-                            🕐 Erstellt: ${createdTime}
+                            🕐 ${ride.pickupTimestamp && ride.pickupTimestamp > Date.now() ? 'Abholung: ' + pickupTime : 'Erstellt: ' + createdTime}
                             ${ride.assignedTo ? ' | 🚗 ' + (ride.assignedVehicleName || ride.assignedTo) : ''}
                             ${ride.price ? ' | 💰 ' + ride.price + '€' : ''}
                         </div>
@@ -28609,7 +28609,7 @@ Stack: ${err.stack}
                         
                         // 🆕 v5.49.1: FILTERE STORNIERTE FAHRTEN RAUS!
                         // Nur echte Fahrten zählen für Statistik!
-                        const validStatuses = ['completed', 'new', 'assigned', 'vorbestellt', 'in_progress'];
+                        const validStatuses = ['completed', 'new', 'assigned', 'accepted', 'vorbestellt', 'in_progress'];
                         allRides = firebaseRides.filter(ride => {
                             const status = (ride.status || '').toLowerCase();
                             return validStatuses.includes(status);

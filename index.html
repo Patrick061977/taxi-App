@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.19 - SYNTAX-FIX! 🔧 (Build 20251211-0745)');
+        console.log('🚕 Funk Taxi App v5.64.20 - EINRÜCKUNGS-FIX! 🔧 (Build 20251211-0800)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.19 - SYNTAX-FIX! 🔧 (Build 20251211-0745)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.20 - EINRÜCKUNGS-FIX! 🔧 (Build 20251211-0800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -24429,159 +24429,164 @@
                 console.log('⏱️ Dauer-Modus:', durationMode);
                 
                 // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
-            if (!quickBookingPickupCoords || !quickBookingDestCoords) {
-                alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
-                return;
-            }
-            
-            // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!
-            console.log('💰 Berechne Route für Schnellbuchung...');
-            let routeData;
-            try {
-                routeData = await calculateRoute(quickBookingPickupCoords, quickBookingDestCoords);
-                console.log('✅ Route berechnet:', routeData);
-                
-                // 🆕 v5.64.18: PREIS-BERECHNUNG OPTIONAL!
-                const pickupTimestamp = new Date(datetime).getTime();
-                if (shouldCalculatePrice) {
-                    // PREIS BERECHNEN!
-                    const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
-                    routeData.price = pricing.total;
-                    console.log('✅ Preis berechnet:', pricing.total, '€');
-                    
-                    // Validierung
-                    if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
-                        console.error('❌ KRITISCHER FEHLER: Ungültiger Preis!', routeData.price);
-                        alert('❌ FEHLER: Preis konnte nicht berechnet werden!\n\nBitte überprüfe die Adressen.');
-                        return;
-                    }
-                } else {
-                    // KEIN PREIS! (z.B. Krankenfahrt)
-                    routeData.price = 0;
-                    console.log('ℹ️ Preis-Berechnung deaktiviert → 0 €');
+                if (!quickBookingPickupCoords || !quickBookingDestCoords) {
+                    alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
+                    return;
                 }
                 
-                // 🆕 v5.64.18: ZEIT-BERECHNUNG OPTIONAL!
-                if (durationMode === 'fixed') {
-                    // FESTE ZEIT: 15 Minuten
-                    routeData.duration = 15;
-                    console.log('⏱️ Feste Dauer: 15 Min');
-                } else {
-                    // Dauer aus Route (bereits berechnet)
-                    console.log('⏱️ Berechnete Dauer:', routeData.duration, 'Min');
-                }
-                
-            } catch (error) {
-                console.error('❌ Fehler bei Routenberechnung:', error);
-                alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
-                return;
-            }
-            
-            // Erstelle Fahrt
-            const pickupDate = new Date(datetime);
-            const pickupTimestamp = pickupDate.getTime();
-            
-            const ride = {
-                customerName: customer.name || 'Unbekannt',
-                customerPhone: customer.phone || '',
-                pickup: pickup,
-                destination: destination,
-                pickupTimestamp: pickupTimestamp,
-                pickupTime: pickupDate.toISOString(), // 🔧 v5.39.8: FIX - Auch als ISO String!
-                passengers: passengers,
-                createdAt: Date.now(),
-                status: vehicle ? 'accepted' : 'vorbestellt', // 🆕 v5.57.0: Status abhängig von Zuweisung!
-                bookedBy: 'admin',
-                notes: notes || '',
-                customerId: customerId,
-                pickupCoords: quickBookingPickupCoords, // 🔧 v5.39.8: FIX - Koordinaten!
-                destCoords: quickBookingDestCoords, // 🔧 v5.39.8: FIX - Koordinaten!
-                // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!
-                price: routeData.price,
-                distance: routeData.distance,
-                duration: routeData.duration,
-                bookingSource: 'admin-quick' // 🆕 v5.49.0: Admin Schnellbuchung!
-            };
-            
-            // 🆕 v5.63.6: FAHRZEUG-ZUWEISUNG - NUTZT JETZT ZENTRALE FUNKTION!
-            // Fahrzeug zuweisen wenn ausgewählt
-            if (vehicle) {
+                // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!
+                console.log('💰 Berechne Route für Schnellbuchung...');
+                let routeData;
                 try {
-                    console.log('🚗 Schnellbuchung: Weise Fahrzeug zu:', vehicle);
+                    routeData = await calculateRoute(quickBookingPickupCoords, quickBookingDestCoords);
+                    console.log('✅ Route berechnet:', routeData);
                     
-                    // Lade Fahrzeugdaten für lokale Ride-Objekt Vorab-Füllung
-                    const vehicleSnapshot = await db.ref('vehicles/' + vehicle).once('value');
-                    const vehicleData = vehicleSnapshot.val();
-                    
-                    if (vehicleData) {
-                        // Setze Felder im lokalen Ride-Objekt (vor dem Speichern)
-                        ride.vehicleId = vehicle;
-                        ride.vehicle = vehicleData.name || vehicle;
-                        ride.vehicleLabel = vehicleData.name || vehicle;
-                        ride.vehiclePlate = vehicleData.plate || '';
-                        ride.status = 'accepted';
-                        ride.acceptedAt = Date.now();
-                        ride.assignedBy = 'admin';
+                    // 🆕 v5.64.18: PREIS-BERECHNUNG OPTIONAL!
+                    const pickupTimestamp = new Date(datetime).getTime();
+                    if (shouldCalculatePrice) {
+                        // PREIS BERECHNEN!
+                        const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
+                        routeData.price = pricing.total;
+                        console.log('✅ Preis berechnet:', pricing.total, '€');
                         
-                        console.log('✅ Fahrzeug vorab gesetzt:', vehicleData.name);
+                        // Validierung
+                        if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
+                            console.error('❌ KRITISCHER FEHLER: Ungültiger Preis!', routeData.price);
+                            alert('❌ FEHLER: Preis konnte nicht berechnet werden!\n\nBitte überprüfe die Adressen.');
+                            return;
+                        }
                     } else {
-                        console.warn('⚠️ Fahrzeugdaten nicht gefunden für:', vehicle);
+                        // KEIN PREIS! (z.B. Krankenfahrt)
+                        routeData.price = 0;
+                        console.log('ℹ️ Preis-Berechnung deaktiviert → 0 €');
                     }
+                    
+                    // 🆕 v5.64.18: ZEIT-BERECHNUNG OPTIONAL!
+                    if (durationMode === 'fixed') {
+                        // FESTE ZEIT: 15 Minuten
+                        routeData.duration = 15;
+                        console.log('⏱️ Feste Dauer: 15 Min');
+                    } else {
+                        // Dauer aus Route (bereits berechnet)
+                        console.log('⏱️ Berechnete Dauer:', routeData.duration, 'Min');
+                    }
+                    
                 } catch (error) {
-                    console.error('❌ Fehler beim Laden der Fahrzeugdaten:', error);
+                    console.error('❌ Fehler bei Routenberechnung:', error);
+                    alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
+                    return;
                 }
-            }
-            
-            try {
-                // Speichere in Firebase
-                const rideRef = await db.ref('rides').push(ride);
-                const rideId = rideRef.key;
-                console.log('✅ Schnellbuchung erstellt:', rideId);
                 
-                // 🆕 v5.57.0: TELEGRAM AN FAHRER SENDEN (wenn Fahrzeug zugewiesen!)
-                if (vehicle && ride.status === 'accepted') {
+                // Erstelle Fahrt
+                const pickupDate = new Date(datetime);
+                const pickupTimestamp = pickupDate.getTime();
+                
+                const ride = {
+                    customerName: customer.name || 'Unbekannt',
+                    customerPhone: customer.phone || '',
+                    pickup: pickup,
+                    destination: destination,
+                    pickupTimestamp: pickupTimestamp,
+                    pickupTime: pickupDate.toISOString(), // 🔧 v5.39.8: FIX - Auch als ISO String!
+                    passengers: passengers,
+                    createdAt: Date.now(),
+                    status: vehicle ? 'accepted' : 'vorbestellt', // 🆕 v5.57.0: Status abhängig von Zuweisung!
+                    bookedBy: 'admin',
+                    notes: notes || '',
+                    customerId: customerId,
+                    pickupCoords: quickBookingPickupCoords, // 🔧 v5.39.8: FIX - Koordinaten!
+                    destCoords: quickBookingDestCoords, // 🔧 v5.39.8: FIX - Koordinaten!
+                    // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!
+                    price: routeData.price,
+                    distance: routeData.distance,
+                    duration: routeData.duration,
+                    bookingSource: 'admin-quick' // 🆕 v5.49.0: Admin Schnellbuchung!
+                };
+                
+                // 🆕 v5.63.6: FAHRZEUG-ZUWEISUNG - NUTZT JETZT ZENTRALE FUNKTION!
+                // Fahrzeug zuweisen wenn ausgewählt
+                if (vehicle) {
                     try {
-                        // Setze firebaseId für Telegram
-                        ride.firebaseId = rideId;
-                        await sendTelegramToDriver(vehicle, ride, 0);
-                        console.log('✅ Telegram an Fahrer gesendet!');
-                    } catch (telegramError) {
-                        console.error('❌ Fehler beim Telegram-Versand:', telegramError);
-                        // Fahrt wurde trotzdem erstellt, nur Telegram fehlgeschlagen
+                        console.log('🚗 Schnellbuchung: Weise Fahrzeug zu:', vehicle);
+                        
+                        // Lade Fahrzeugdaten für lokale Ride-Objekt Vorab-Füllung
+                        const vehicleSnapshot = await db.ref('vehicles/' + vehicle).once('value');
+                        const vehicleData = vehicleSnapshot.val();
+                        
+                        if (vehicleData) {
+                            // Setze Felder im lokalen Ride-Objekt (vor dem Speichern)
+                            ride.vehicleId = vehicle;
+                            ride.vehicle = vehicleData.name || vehicle;
+                            ride.vehicleLabel = vehicleData.name || vehicle;
+                            ride.vehiclePlate = vehicleData.plate || '';
+                            ride.status = 'accepted';
+                            ride.acceptedAt = Date.now();
+                            ride.assignedBy = 'admin';
+                            
+                            console.log('✅ Fahrzeug vorab gesetzt:', vehicleData.name);
+                        } else {
+                            console.warn('⚠️ Fahrzeugdaten nicht gefunden für:', vehicle);
+                        }
+                    } catch (error) {
+                        console.error('❌ Fehler beim Laden der Fahrzeugdaten:', error);
                     }
                 }
                 
-                // CRM aktualisieren
-                await db.ref('customers/' + customerId).update({
-                    lastRide: Date.now(),
-                    totalRides: (customer.totalRides || 0) + 1
-                });
-                
-                // Schließe Modal
-                document.getElementById('quick-booking-modal').remove();
-                
-                // 🆕 v5.57.0: Erfolgs-Meldung MIT Fahrzeug-Info!
-                let successMessage = '✅ Fahrt erfolgreich gebucht!\n\n' +
-                      '👤 ' + customer.name + '\n' +
-                      '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
-                      '📍 ' + pickup + '\n' +
-                      '🎯 ' + destination + '\n' +
-                      '💰 ' + (ride.price || 0).toFixed(2) + '€\n' +
-                      '📏 ' + (ride.distance || 0) + ' km';
-                
-                // 🆕 v5.57.0: Zeige Fahrzeug-Info wenn zugewiesen!
-                if (vehicle && ride.vehicle) {
-                    successMessage += '\n\n🚗 Zugewiesen: ' + ride.vehicle;
-                    if (ride.vehiclePlate) {
-                        successMessage += ' (' + ride.vehiclePlate + ')';
+                try {
+                    // Speichere in Firebase
+                    const rideRef = await db.ref('rides').push(ride);
+                    const rideId = rideRef.key;
+                    console.log('✅ Schnellbuchung erstellt:', rideId);
+                    
+                    // 🆕 v5.57.0: TELEGRAM AN FAHRER SENDEN (wenn Fahrzeug zugewiesen!)
+                    if (vehicle && ride.status === 'accepted') {
+                        try {
+                            // Setze firebaseId für Telegram
+                            ride.firebaseId = rideId;
+                            await sendTelegramToDriver(vehicle, ride, 0);
+                            console.log('✅ Telegram an Fahrer gesendet!');
+                        } catch (telegramError) {
+                            console.error('❌ Fehler beim Telegram-Versand:', telegramError);
+                            // Fahrt wurde trotzdem erstellt, nur Telegram fehlgeschlagen
+                        }
                     }
-                    successMessage += '\n📱 Telegram gesendet!';
+                    
+                    // CRM aktualisieren
+                    await db.ref('customers/' + customerId).update({
+                        lastRide: Date.now(),
+                        totalRides: (customer.totalRides || 0) + 1
+                    });
+                    
+                    // Schließe Modal
+                    document.getElementById('quick-booking-modal').remove();
+                    
+                    // 🆕 v5.57.0: Erfolgs-Meldung MIT Fahrzeug-Info!
+                    let successMessage = '✅ Fahrt erfolgreich gebucht!\n\n' +
+                          '👤 ' + customer.name + '\n' +
+                          '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
+                          '📍 ' + pickup + '\n' +
+                          '🎯 ' + destination + '\n' +
+                          '💰 ' + (ride.price || 0).toFixed(2) + '€\n' +
+                          '📏 ' + (ride.distance || 0) + ' km';
+                    
+                    // 🆕 v5.57.0: Zeige Fahrzeug-Info wenn zugewiesen!
+                    if (vehicle && ride.vehicle) {
+                        successMessage += '\n\n🚗 Zugewiesen: ' + ride.vehicle;
+                        if (ride.vehiclePlate) {
+                            successMessage += ' (' + ride.vehiclePlate + ')';
+                        }
+                        successMessage += '\n📱 Telegram gesendet!';
+                    }
+                    
+                    alert(successMessage);
+                    
+                    // Aktualisiere Views
+                    updateViews();
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Buchen:', error);
+                    alert('❌ Fehler beim Buchen: ' + error.message);
                 }
-                
-                alert(successMessage);
-                
-                // Aktualisiere Views
-                updateViews();
                 
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);

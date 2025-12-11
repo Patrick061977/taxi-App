@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.33 - NOTIZEN-FEATURE SAUBER! 📝 (Build 20251211-1600)');
+        console.log('🚕 Funk Taxi App v5.64.34 - NOTIZEN + PREISFIX! 📝💰 (Build 20251211-1630)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.33 - NOTIZEN-FEATURE SAUBER! 📝 (Build 20251211-1600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.34 - NOTIZEN + PREISFIX! 📝💰 (Build 20251211-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3800,6 +3800,11 @@
                             </div>
                         </div>
 
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">📝 Notizen (optional):</label>
+                            <textarea id="ai-booking-notes" placeholder="z.B. Zwischenstopps, Kindersitz, besondere Wünsche..." style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; min-height: 60px; resize: vertical; font-family: inherit;"></textarea>
+                        </div>
+
                         <div style="margin-bottom: 20px;">
                             <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Berechneter Preis:</label>
                             <div id="ai-booking-price" style="font-size: 24px; font-weight: 700; color: #10b981;">-- €</div>
@@ -4091,7 +4096,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.64.33';
+        const APP_VERSION = '5.64.34';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -31694,6 +31699,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             document.getElementById('ai-booking-passengers').value = data.passengers || 1;
             document.getElementById('ai-booking-name').value = data.name || '';
             document.getElementById('ai-booking-phone').value = data.phone || '';
+            document.getElementById('ai-booking-notes').value = data.notes && data.notes !== 'null' ? data.notes : '';
             
             // Auto-Preis berechnen (nur wenn Orte vorhanden)
             if (data.pickup && data.destination) {
@@ -31714,6 +31720,46 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             return `${day}.${month}.${year} um ${hours}:${minutes} Uhr`;
         }
         
+        
+        // 🤖 v5.64.33: Calculate Distance mit Geocoding für AI-Assistant
+        async function calculateDistance(pickupAddress, destinationAddress) {
+            try {
+                // Geocode Abholort
+                const pickupCoords = await geocode(pickupAddress);
+                if (!pickupCoords) {
+                    console.error('❌ Abholort nicht gefunden:', pickupAddress);
+                    return null;
+                }
+                
+                // Geocode Zielort
+                const destCoords = await geocode(destinationAddress);
+                if (!destCoords) {
+                    console.error('❌ Zielort nicht gefunden:', destinationAddress);
+                    return null;
+                }
+                
+                // Berechne Route
+                const route = await calculateRoute(pickupCoords, destCoords);
+                
+                if (!route || !route.distance) {
+                    return null;
+                }
+                
+                // Berechne Preis (mit aktuellem Zeitstempel für Tag/Nacht-Tarif)
+                const pricing = calculatePrice(parseFloat(route.distance), Date.now());
+                
+                return {
+                    distance: route.distance,
+                    duration: route.duration,
+                    price: pricing.total,
+                    pickupCoords: pickupCoords,
+                    destCoords: destCoords
+                };
+            } catch (error) {
+                console.error('❌ Fehler bei calculateDistance:', error);
+                return null;
+            }
+        }
         
         async function calculateAIPrice() {
             const pickup = document.getElementById('ai-booking-pickup').value.trim();
@@ -31747,6 +31793,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             const passengers = parseInt(document.getElementById('ai-booking-passengers').value) || 1;
             const name = document.getElementById('ai-booking-name').value.trim();
             const phone = document.getElementById('ai-booking-phone').value.trim();
+            const notes = document.getElementById('ai-booking-notes').value.trim();
             const priceText = document.getElementById('ai-booking-price').textContent;
             
             // Validierung
@@ -31773,16 +31820,17 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             }
             
             // Bestätigung
-            const confirmMsg = `Buchung erstellen?
-
-📅 ${formatDateTimeForDisplay(datetime)}
-📍 ${pickup}
-🎯 ${destination}
-👥 ${passengers} Person(en)
-💰 ${parseFloat(price).toFixed(2)} €
-
-👤 ${name}
-📞 ${phone}`;
+            let confirmMsg = 'Buchung erstellen?\n\n';
+            confirmMsg += '📅 ' + formatDateTimeForDisplay(datetime) + '\n';
+            confirmMsg += '📍 ' + pickup + '\n';
+            confirmMsg += '🎯 ' + destination + '\n';
+            confirmMsg += '👥 ' + passengers + ' Person(en)\n';
+            confirmMsg += '💰 ' + parseFloat(price).toFixed(2) + ' €\n';
+            if (notes) {
+                confirmMsg += '📝 ' + notes + '\n';
+            }
+            confirmMsg += '\n👤 ' + name + '\n';
+            confirmMsg += '📞 ' + phone;
             
             if (!confirm(confirmMsg)) {
                 return;
@@ -31810,6 +31858,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                     price: price,
                     distance: distanceResult.distance || 0,
                     duration: distanceResult.duration || 0,
+                    notes: notes || null,
                     status: 'vorbestellt',
                     createdAt: new Date().toISOString(),
                     createdBy: currentUser ? currentUser.uid : 'ai_assistant',

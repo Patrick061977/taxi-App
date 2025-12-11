@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.36 - BUCHUNGSSYSTEM AKTIV! ✅ (Build 20251211-1730)');
+        console.log('🚕 Funk Taxi App v5.64.39 - KALENDER-BEARBEITEN FIX! 🐛 (Build 20251211-2155)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -23102,8 +23102,15 @@
                     return;
                 }
                 
-                // Panel öffnen
+                // 🆕 v5.64.39: SICHERHEITS-CHECK! Panel muss existieren!
                 const panel = document.getElementById('quick-booking-panel');
+                if (!panel) {
+                    console.error('❌ Schnellbuchungs-Panel nicht gefunden!');
+                    alert('❌ Fehler: Schnellbuchungs-Panel nicht gefunden!\n\nBitte lade die Seite neu.');
+                    return;
+                }
+                
+                // Panel öffnen
                 if (panel.style.display === 'none' || panel.style.display === '') {
                     toggleQuickBookingPanel();
                 }
@@ -29180,7 +29187,7 @@ Stack: ${err.stack}
                             
                             <!-- 🆕 BEARBEITEN/RECHNUNG/KOPIEREN/LÖSCHEN Buttons -->
                             <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #e5e7eb; flex-wrap: wrap;">
-                                <button onclick="event.stopPropagation(); editRideFromCalendar('${ride.firebaseId || ride.id}')" 
+                                <button onclick="event.stopPropagation(); editRide('${ride.firebaseId || ride.id}')" 
                                         style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
                                         onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
                                     ✏️ Bearbeiten

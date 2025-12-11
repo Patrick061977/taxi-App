@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.31 - HTML-ESCAPE BUGFIX 🔒 (Build 20251211-1530)');
+        console.log('🚕 Funk Taxi App v5.64.32 - TEMPLATE-LITERAL-FIX 🎯 (Build 20251211-1540)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.31 - HTML-ESCAPE BUGFIX 🔒 (Build 20251211-1530)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.32 - TEMPLATE-LITERAL-FIX 🎯 (Build 20251211-1540)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4091,7 +4091,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.64.31';
+        const APP_VERSION = '5.64.32';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -32542,7 +32542,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const data = currentTestBookingData;
             if (!data) return;
             
-            const confirmMsg = `✅ Buchung erstellen?\n\n📅 ${new Date(data.datetime).toLocaleString('de-DE')}\n📍 ${data.pickup} → ${data.destination}\n👥 ${data.passengers} Person(en)${data.notes ? `\n📝 ${data.notes}` : ''}`;
+            let confirmMsg = '✅ Buchung erstellen?\n\n' +
+                `📅 ${new Date(data.datetime).toLocaleString('de-DE')}\n` +
+                `📍 ${data.pickup} → ${data.destination}\n` +
+                `👥 ${data.passengers} Person(en)`;
+            
+            if (data.notes) {
+                confirmMsg += '\n📝 ' + data.notes;
+            }
             
             if (!confirm(confirmMsg)) {
                 return;

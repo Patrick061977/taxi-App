@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.39 - KALENDER-BEARBEITEN FIX! 🐛 (Build 20251211-2155)');
+        console.log('🚕 Funk Taxi App v5.64.40 - FAHRZEUG-ZUWEISUNG NACHTRÄGLICH ÄNDERN! 🚗 (Build 20251211-2220)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.36 - BUCHUNGSSYSTEM AKTIV! ✅ (Build 20251211-1730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.40 - FAHRZEUG-ZUWEISUNG NACHTRÄGLICH ÄNDERN! 🚗 (Build 20251211-2220)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5146,6 +5146,13 @@
                     </div>
                     
                     <div style="margin-bottom:15px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">🚗 Fahrzeug</label>
+                        <select id="edit-vehicle" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                            <option value="">Kein Fahrzeug zugewiesen</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">👥 Personen</label>
                         <select id="edit-passengers" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
                             <option value="1" ${ride.passengers == 1 ? 'selected' : ''}>1 Person</option>
@@ -5168,6 +5175,28 @@
             
             document.body.appendChild(modal);
             window.currentEditModal = modal;
+            
+            // 🆕 v5.64.40: Fahrzeuge laden und setzen
+            const vehicleSelect = document.getElementById('edit-vehicle');
+            if (isFirebaseReady && vehicleSelect) {
+                try {
+                    const snapshot = await db.ref('vehicles').once('value');
+                    const vehicles = [];
+                    snapshot.forEach(child => {
+                        vehicles.push({id: child.key, ...child.val()});
+                    });
+                    
+                    vehicles.forEach(v => {
+                        const option = document.createElement('option');
+                        option.value = v.id;
+                        option.textContent = `${v.brand} ${v.model} (${v.licensePlate})`;
+                        if (ride.vehicleId === v.id) option.selected = true;
+                        vehicleSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
+                }
+            }
         }
         
         function closeEditModal() {
@@ -5183,6 +5212,7 @@
             const newCustomer = document.getElementById('edit-customer').value.trim();
             const newDateTime = document.getElementById('edit-datetime').value;
             const newPassengers = document.getElementById('edit-passengers').value;
+            const newVehicleId = document.getElementById('edit-vehicle').value; // 🆕 v5.64.40
             
             if (!newPickup || !newDestination) {
                 alert('❌ Abholort und Zielort müssen ausgefüllt sein!');
@@ -5210,6 +5240,13 @@
                 status: newStatus,
                 editedAt: Date.now()
             };
+            
+            // 🆕 v5.64.40: Fahrzeug-Zuweisung
+            if (newVehicleId) {
+                updates.vehicleId = newVehicleId;
+            } else {
+                updates.vehicleId = null;
+            }
             
             // Update Firebase
             if (isFirebaseReady) {
@@ -8348,10 +8385,15 @@
                         ` : ''}
                         
                         <!-- Buttons -->
-                        <div style="margin-top:25px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div style="margin-top:25px;display:grid;grid-template-columns:${ride.status === 'cancelled' ? '1fr 1fr 1fr' : '1fr 1fr'};gap:10px;">
                             <button onclick="this.closest('#ride-details-modal').remove()" style="padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 Schließen
                             </button>
+                            ${ride.status === 'cancelled' && ride.firebaseId ? `
+                            <button onclick="restoreRide('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                🔄 Wiederherstellen
+                            </button>
+                            ` : ''}
                             ${ride.firebaseId ? `
                             <button onclick="navigator.clipboard.writeText('${ride.firebaseId || ride.id}');alert('✅ ID kopiert!');" style="padding:12px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 📋 ID kopieren
@@ -14748,6 +14790,65 @@
             
             // 🛡️ Reset Doppelklick-Schutz
             cancelInProgress = false;
+        }
+
+        // 🆕 v5.64.40: STORNIERTE FAHRT WIEDERHERSTELLEN
+        async function restoreRide(rideId) {
+            if (!confirm('🔄 Fahrt wirklich wiederherstellen?\n\nStatus wird von "storniert" auf "vorbestellt" geändert.')) {
+                return;
+            }
+            
+            try {
+                if (isFirebaseReady) {
+                    // Lade aktuelle Fahrt
+                    const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                    const ride = snapshot.val();
+                    
+                    if (!ride) {
+                        alert('❌ Fahrt nicht gefunden!');
+                        return;
+                    }
+                    
+                    if (ride.status !== 'cancelled') {
+                        alert('⚠️ Nur stornierte Fahrten können wiederhergestellt werden!');
+                        return;
+                    }
+                    
+                    // Berechne neuen Status
+                    const now = Date.now();
+                    const pickupTime = ride.pickupTimestamp || now;
+                    const minutesUntilPickup = (pickupTime - now) / 60000;
+                    const newStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
+                    
+                    // Wiederherstellen
+                    await db.ref(`rides/${rideId}`).update({
+                        status: newStatus,
+                        restoredAt: Date.now(),
+                        restoredBy: 'admin',
+                        cancelledAt: null,
+                        cancelledBy: null,
+                        cancellationFee: null,
+                        cancellationReason: null
+                    });
+                    
+                    console.log('✅ Fahrt wiederhergestellt:', rideId);
+                    alert('✅ Fahrt wurde wiederhergestellt!\n\nStatus: ' + newStatus);
+                    
+                    // Logs
+                    logActivity('status', newStatus, 'Fahrt wiederhergestellt (war storniert)', {
+                        customer: ride.customerName,
+                        from: ride.pickup,
+                        to: ride.destination
+                    });
+                    
+                    // Views aktualisieren
+                    updateAdminView();
+                    loadRidesForCalendar();
+                }
+            } catch (error) {
+                console.error('❌ Fehler beim Wiederherstellen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
         }
 
         // 🆕 FORMULAR ZURÜCKSETZEN (nach Stornierung oder abgeschlossener Fahrt)

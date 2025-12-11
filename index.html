@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.25 - AUTO-GEOCODE + TOOLTIPS! 🗺️✨ (Build 20251211-1015)');
+        console.log('🚕 Funk Taxi App v5.64.26 - PRICE BUG GEFIXT! ✅ (Build 20251211-1050)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.25 - AUTO-GEOCODE + TOOLTIPS! 🗺️✨ (Build 20251211-1015)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.26 - PRICE BUG GEFIXT! ✅ (Build 20251211-1050)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9377,7 +9377,7 @@
             doc.setFontSize(10);
             doc.setTextColor(100, 100, 100);
             doc.text('Stornierung innerhalb 60 Min - 15% Stornogebuehr', 20, 180);
-            doc.text('(Urspruenglicher Preis: ' + (ride.price || 0).toFixed(2) + ' EUR)', 20, 187);
+            doc.text('(Urspruenglicher Preis: ' + parseFloat(ride.price || 0).toFixed(2) + ' EUR)', 20, 187);
             
             // FOOTER
             doc.setFontSize(9);
@@ -24568,7 +24568,7 @@
                           '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
                           '📍 ' + pickup + '\n' +
                           '🎯 ' + destination + '\n' +
-                          '💰 ' + (ride.price || 0).toFixed(2) + '€\n' +
+                          '💰 ' + parseFloat(ride.price || 0).toFixed(2) + '€\n' +
                           '📏 ' + (ride.distance || 0) + ' km';
                     
                     // 🆕 v5.57.0: Zeige Fahrzeug-Info wenn zugewiesen!
@@ -31726,7 +31726,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 const result = await calculateDistance(pickup, destination);
                 
                 if (result && result.price) {
-                    document.getElementById('ai-booking-price').textContent = result.price.toFixed(2) + ' €';
+                    document.getElementById('ai-booking-price').textContent = parseFloat(result.price).toFixed(2) + ' €';
                 } else {
                     document.getElementById('ai-booking-price').textContent = '❌ Preis konnte nicht berechnet werden';
                 }
@@ -31776,7 +31776,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
 📍 ${pickup}
 🎯 ${destination}
 👥 ${passengers} Person(en)
-💰 ${price.toFixed(2)} €
+💰 ${parseFloat(price).toFixed(2)} €
 
 👤 ${name}
 📞 ${phone}`;

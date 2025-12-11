@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.20 - EINRÜCKUNGS-FIX! 🔧 (Build 20251211-0800)');
+        console.log('🚕 Funk Taxi App v5.64.21 - PANEL-EINRÜCKUNGS-FIX! 🔧 (Build 20251211-0830)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.20 - EINRÜCKUNGS-FIX! 🔧 (Build 20251211-0800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.21 - PANEL-EINRÜCKUNG-FIX! 🔧 (Build 20251211-0830)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -22839,40 +22839,40 @@
                     alert('❌ Bitte Kunde auswählen!');
                     return;
                 }
-            
-            const startTime = document.getElementById('qb-panel-start-time').value;
-            const endTime = document.getElementById('qb-panel-end-time').value;
-            const pickup = document.getElementById('qb-panel-pickup').value;
-            const destination = document.getElementById('qb-panel-destination').value;
-            const passengers = parseInt(document.getElementById('qb-panel-passengers').value);
-            const vehicle = document.getElementById('qb-panel-vehicle').value;
-            const notes = document.getElementById('qb-panel-notes').value;
-            
-            if (!startTime) {
-                alert('❌ Bitte Startzeit auswählen!');
-                return;
-            }
-            
-            if (!endTime) {
-                alert('❌ Bitte Endzeit auswählen!');
-                return;
-            }
-            
-            if (!pickup || !destination) {
-                alert('❌ Bitte Abholort und Zielort eingeben!');
-                return;
-            }
-            
-            // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
-            if (!qbPanelPickupCoords || !qbPanelDestCoords) {
-                alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
-                return;
-            }
-            
-            // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!
-            console.log('💰 Berechne Route für Panel-Schnellbuchung...');
-            let routeData;
-            try {
+                
+                const startTime = document.getElementById('qb-panel-start-time').value;
+                const endTime = document.getElementById('qb-panel-end-time').value;
+                const pickup = document.getElementById('qb-panel-pickup').value;
+                const destination = document.getElementById('qb-panel-destination').value;
+                const passengers = parseInt(document.getElementById('qb-panel-passengers').value);
+                const vehicle = document.getElementById('qb-panel-vehicle').value;
+                const notes = document.getElementById('qb-panel-notes').value;
+                
+                if (!startTime) {
+                    alert('❌ Bitte Startzeit auswählen!');
+                    return;
+                }
+                
+                if (!endTime) {
+                    alert('❌ Bitte Endzeit auswählen!');
+                    return;
+                }
+                
+                if (!pickup || !destination) {
+                    alert('❌ Bitte Abholort und Zielort eingeben!');
+                    return;
+                }
+                
+                // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
+                if (!qbPanelPickupCoords || !qbPanelDestCoords) {
+                    alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
+                    return;
+                }
+                
+                // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!
+                console.log('💰 Berechne Route für Panel-Schnellbuchung...');
+                let routeData;
+                try {
                 routeData = await calculateRoute(qbPanelPickupCoords, qbPanelDestCoords);
                 console.log('✅ Route berechnet:', routeData);
                 
@@ -22895,216 +22895,221 @@
                 }
                 console.log('✅ Preis validiert:', routeData.price, '€ - Speicherung erlaubt!');
                 
-            } catch (error) {
-                console.error('❌ Fehler bei Routenberechnung:', error);
-                alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
-                return;
-            }
-            
-            try {
-                const startDate = new Date(startTime);
-                const endDate = new Date(endTime);
-                const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
+                } catch (error) {
+                    console.error('❌ Fehler bei Routenberechnung:', error);
+                    alert('❌ Fehler bei Routenberechnung!\n\nBitte versuche es erneut.');
+                    return;
+                }
                 
-                const rideData = {
-                    customerId: qbPanelCustomer.id,
-                    customerName: qbPanelCustomer.name || 'Unbekannt',
-                    customerPhone: qbPanelCustomer.phone || '',
-                    pickup,
-                    destination,
-                    pickupTime: startDate.toISOString(),
-                    pickupTimestamp: startDate.getTime(), // 🔧 v5.39.8: FIX - Als Zahl für Zeitslot-Check!
-                    endTime: endDate.toISOString(),
-                    endTimestamp: endDate.getTime(), // 🔧 v5.39.8: FIX - Als Zahl!
-                    durationMinutes: durationMinutes,
-                    passengers,
-                    status: 'vorbestellt', // Default, wird unten ggf. auf 'accepted' gesetzt
-                    createdAt: new Date().toISOString(),
-                    notes: notes || '',
-                    vehicleId: vehicle || null,
-                    pickupCoords: qbPanelPickupCoords,
-                    destCoords: qbPanelDestCoords,
-                    // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!
-                    price: routeData.price,
-                    distance: routeData.distance,
-                    duration: routeData.duration,
-                    createdBy: 'admin',
-                    isAdvanceBooking: true,
-                    bookingSource: 'admin-panel' // 🆕 v5.49.0: Admin Panel Buchung!
-                };
+                try {
+                    const startDate = new Date(startTime);
+                    const endDate = new Date(endTime);
+                    const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
                 
-                // 🆕 v5.63.6: FAHRZEUG-FELDER SETZEN (wie bei Schnellbuchung)!
-                if (vehicle && vehicle !== 'auto') {
-                    try {
-                        console.log('🚗 Panel: Lade Fahrzeugdaten für:', vehicle);
-                        const vehicleSnapshot = await db.ref('vehicles/' + vehicle).once('value');
-                        const vehicleData = vehicleSnapshot.val();
+                    const rideData = {
+                        customerId: qbPanelCustomer.id,
+                        customerName: qbPanelCustomer.name || 'Unbekannt',
+                        customerPhone: qbPanelCustomer.phone || '',
+                        pickup,
+                        destination,
+                        pickupTime: startDate.toISOString(),
+                        pickupTimestamp: startDate.getTime(), // 🔧 v5.39.8: FIX - Als Zahl für Zeitslot-Check!
+                        endTime: endDate.toISOString(),
+                        endTimestamp: endDate.getTime(), // 🔧 v5.39.8: FIX - Als Zahl!
+                        durationMinutes: durationMinutes,
+                        passengers,
+                        status: 'vorbestellt', // Default, wird unten ggf. auf 'accepted' gesetzt
+                        createdAt: new Date().toISOString(),
+                        notes: notes || '',
+                        vehicleId: vehicle || null,
+                        pickupCoords: qbPanelPickupCoords,
+                        destCoords: qbPanelDestCoords,
+                        // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!
+                        price: routeData.price,
+                        distance: routeData.distance,
+                        duration: routeData.duration,
+                        createdBy: 'admin',
+                        isAdvanceBooking: true,
+                        bookingSource: 'admin-panel' // 🆕 v5.49.0: Admin Panel Buchung!
+                    };
+                
+                    // 🆕 v5.63.6: FAHRZEUG-FELDER SETZEN (wie bei Schnellbuchung)!
+                    if (vehicle && vehicle !== 'auto') {
+                        try {
+                            console.log('🚗 Panel: Lade Fahrzeugdaten für:', vehicle);
+                            const vehicleSnapshot = await db.ref('vehicles/' + vehicle).once('value');
+                            const vehicleData = vehicleSnapshot.val();
                         
-                        if (vehicleData) {
-                            rideData.vehicle = vehicleData.name || vehicle;
-                            rideData.vehicleLabel = vehicleData.name || vehicle;
-                            rideData.vehiclePlate = vehicleData.plate || '';
-                            rideData.status = 'accepted'; // ← WICHTIG!
-                            rideData.acceptedAt = Date.now();
-                            rideData.assignedBy = 'admin';
+                            if (vehicleData) {
+                                rideData.vehicle = vehicleData.name || vehicle;
+                                rideData.vehicleLabel = vehicleData.name || vehicle;
+                                rideData.vehiclePlate = vehicleData.plate || '';
+                                rideData.status = 'accepted'; // ← WICHTIG!
+                                rideData.acceptedAt = Date.now();
+                                rideData.assignedBy = 'admin';
                             
-                            console.log('✅ Panel: Fahrzeug gesetzt:', vehicleData.name, vehicleData.plate);
-                        } else {
-                            console.warn('⚠️ Panel: Fahrzeugdaten nicht gefunden für:', vehicle);
+                                console.log('✅ Panel: Fahrzeug gesetzt:', vehicleData.name, vehicleData.plate);
+                            } else {
+                                console.warn('⚠️ Panel: Fahrzeugdaten nicht gefunden für:', vehicle);
+                            }
+                        } catch (error) {
+                            console.error('❌ Panel: Fehler beim Laden der Fahrzeugdaten:', error);
                         }
-                    } catch (error) {
-                        console.error('❌ Panel: Fehler beim Laden der Fahrzeugdaten:', error);
                     }
-                }
                 
-                // 🔧 EDIT vs CREATE: Prüfe ob wir bearbeiten oder neu erstellen
-                let rideRef;
+                    // 🔧 EDIT vs CREATE: Prüfe ob wir bearbeiten oder neu erstellen
+                    let rideRef;
                 
-                // 🔒 v5.40.3: TRIPLE-SCHUTZ für Kopieren-Bug!
-                console.log('═══════════════════════════════════════');
-                console.log('🔍 SPEICHERN - WICHTIGE INFO:');
-                console.log('   window.editingRideId:', window.editingRideId);
-                console.log('   Typ:', typeof window.editingRideId);
-                console.log('   Ist null?', window.editingRideId === null);
-                console.log('   Ist undefined?', window.editingRideId === undefined);
-                console.log('   Ist falsy?', !window.editingRideId);
-                console.log('═══════════════════════════════════════');
-                
-                if (window.editingRideId) {
-                    // BEARBEITEN: Update existierende Fahrt
-                    console.log('⚠️ MODUS: BEARBEITEN (Update)');
-                    await db.ref(`rides/${window.editingRideId}`).update(rideData);
-                    rideRef = { key: window.editingRideId };
-                    console.log('✏️ Fahrt aktualisiert:', window.editingRideId);
-                } else {
-                    // NEU ERSTELLEN: Push neue Fahrt
-                    console.log('✅ MODUS: NEU ERSTELLEN (Push)');
-                    rideRef = await db.ref('rides').push(rideData);
-                    console.log('✅ Neue Fahrt erstellt:', rideRef.key);
-                    
-                    // 🔒 v5.40.3: EXTRA-PRÜFUNG! Fahrt wirklich in Firebase?
+                    // 🔒 v5.40.3: TRIPLE-SCHUTZ für Kopieren-Bug!
                     console.log('═══════════════════════════════════════');
-                    console.log('🔍 VERIFIKATION: Prüfe ob Fahrt existiert...');
-                    const verifySnapshot = await db.ref(`rides/${rideRef.key}`).once('value');
-                    if (verifySnapshot.exists()) {
-                        const verifyData = verifySnapshot.val();
-                        console.log('✅ BESTÄTIGT! Fahrt existiert in Firebase!');
-                        console.log('   ID:', rideRef.key);
-                        console.log('   Abholzeit:', verifyData.pickupTime);
-                        console.log('   Von:', verifyData.pickup);
-                        console.log('   Nach:', verifyData.destination);
+                    console.log('🔍 SPEICHERN - WICHTIGE INFO:');
+                    console.log('   window.editingRideId:', window.editingRideId);
+                    console.log('   Typ:', typeof window.editingRideId);
+                    console.log('   Ist null?', window.editingRideId === null);
+                    console.log('   Ist undefined?', window.editingRideId === undefined);
+                    console.log('   Ist falsy?', !window.editingRideId);
+                    console.log('═══════════════════════════════════════');
+                
+                    if (window.editingRideId) {
+                        // BEARBEITEN: Update existierende Fahrt
+                        console.log('⚠️ MODUS: BEARBEITEN (Update)');
+                        await db.ref(`rides/${window.editingRideId}`).update(rideData);
+                        rideRef = { key: window.editingRideId };
+                        console.log('✏️ Fahrt aktualisiert:', window.editingRideId);
                     } else {
-                        console.error('❌ FEHLER! Fahrt NICHT in Firebase gefunden!');
-                    }
-                    console.log('═══════════════════════════════════════');
-                }
-                
-                // 🔒 v5.40.4: SUPER-DEBUG! Prüfe ob Original-Fahrt noch existiert!
-                if (window.copiedFromRideId) {
-                    console.log('═══════════════════════════════════════');
-                    console.log('🔍 SUPER-DEBUG: Prüfe Original-Fahrt...');
-                    console.log('   Original-Fahrt-ID:', window.copiedFromRideId);
-                    console.log('   Neue-Fahrt-ID:', rideRef.key);
+                        // NEU ERSTELLEN: Push neue Fahrt
+                        console.log('✅ MODUS: NEU ERSTELLEN (Push)');
+                        rideRef = await db.ref('rides').push(rideData);
+                        console.log('✅ Neue Fahrt erstellt:', rideRef.key);
                     
-                    try {
-                        const originalSnapshot = await db.ref(`rides/${window.copiedFromRideId}`).once('value');
-                        if (originalSnapshot.exists()) {
-                            const originalData = originalSnapshot.val();
-                            console.log('✅ ORIGINAL-FAHRT NOCH DA!');
-                            console.log('   Zeit:', originalData.pickupTime);
-                            console.log('   Von:', originalData.pickup);
-                            console.log('   Nach:', originalData.destination);
+                        // 🔒 v5.40.3: EXTRA-PRÜFUNG! Fahrt wirklich in Firebase?
+                        console.log('═══════════════════════════════════════');
+                        console.log('🔍 VERIFIKATION: Prüfe ob Fahrt existiert...');
+                        const verifySnapshot = await db.ref(`rides/${rideRef.key}`).once('value');
+                        if (verifySnapshot.exists()) {
+                            const verifyData = verifySnapshot.val();
+                            console.log('✅ BESTÄTIGT! Fahrt existiert in Firebase!');
+                            console.log('   ID:', rideRef.key);
+                            console.log('   Abholzeit:', verifyData.pickupTime);
+                            console.log('   Von:', verifyData.pickup);
+                            console.log('   Nach:', verifyData.destination);
                         } else {
-                            console.error('❌❌❌ KRITISCH: ORIGINAL-FAHRT WURDE GELÖSCHT! ❌❌❌');
-                            console.error('   Gelöschte ID:', window.copiedFromRideId);
-                            console.error('   Das sollte NICHT passieren beim Kopieren!');
+                            console.error('❌ FEHLER! Fahrt NICHT in Firebase gefunden!');
                         }
-                    } catch (error) {
-                        console.error('❌ Fehler beim Prüfen der Original-Fahrt:', error);
+                        console.log('═══════════════════════════════════════');
                     }
-                    
-                    // Reset
-                    window.copiedFromRideId = null;
-                    console.log('═══════════════════════════════════════');
-                }
                 
-                // 📱 v5.40.5: TELEGRAM für NEUE Schnellbuchungen!
-                if (!window.editingRideId) {
-                    // Nur bei NEUEN Fahrten (nicht beim Bearbeiten)
-                    console.log('═══════════════════════════════════════');
-                    console.log('📱 TELEGRAM: Sende Benachrichtigung für Schnellbuchung...');
+                    // 🔒 v5.40.4: SUPER-DEBUG! Prüfe ob Original-Fahrt noch existiert!
+                    if (window.copiedFromRideId) {
+                        console.log('═══════════════════════════════════════');
+                        console.log('🔍 SUPER-DEBUG: Prüfe Original-Fahrt...');
+                        console.log('   Original-Fahrt-ID:', window.copiedFromRideId);
+                        console.log('   Neue-Fahrt-ID:', rideRef.key);
                     
-                    try {
-                        // Baue ride-Objekt für Telegram
-                        const rideForTelegram = {
-                            firebaseId: rideRef.key,
-                            id: rideRef.key,
-                            ...rideData
-                        };
+                        try {
+                            const originalSnapshot = await db.ref(`rides/${window.copiedFromRideId}`).once('value');
+                            if (originalSnapshot.exists()) {
+                                const originalData = originalSnapshot.val();
+                                console.log('✅ ORIGINAL-FAHRT NOCH DA!');
+                                console.log('   Zeit:', originalData.pickupTime);
+                                console.log('   Von:', originalData.pickup);
+                                console.log('   Nach:', originalData.destination);
+                            } else {
+                                console.error('❌❌❌ KRITISCH: ORIGINAL-FAHRT WURDE GELÖSCHT! ❌❌❌');
+                                console.error('   Gelöschte ID:', window.copiedFromRideId);
+                                console.error('   Das sollte NICHT passieren beim Kopieren!');
+                            }
+                        } catch (error) {
+                            console.error('❌ Fehler beim Prüfen der Original-Fahrt:', error);
+                        }
+                    
+                        // Reset
+                        window.copiedFromRideId = null;
+                        console.log('═══════════════════════════════════════');
+                    }
+                
+                    // 📱 v5.40.5: TELEGRAM für NEUE Schnellbuchungen!
+                    if (!window.editingRideId) {
+                        // Nur bei NEUEN Fahrten (nicht beim Bearbeiten)
+                        console.log('═══════════════════════════════════════');
+                        console.log('📱 TELEGRAM: Sende Benachrichtigung für Schnellbuchung...');
+                    
+                        try {
+                            // Baue ride-Objekt für Telegram
+                            const rideForTelegram = {
+                                firebaseId: rideRef.key,
+                                id: rideRef.key,
+                                ...rideData
+                            };
                         
-                        await sendTelegramForNewRide(rideForTelegram);
-                        console.log('✅ TELEGRAM: Benachrichtigung gesendet!');
-                    } catch (error) {
-                        console.error('❌ TELEGRAM: Fehler beim Senden:', error);
+                            await sendTelegramForNewRide(rideForTelegram);
+                            console.log('✅ TELEGRAM: Benachrichtigung gesendet!');
+                        } catch (error) {
+                            console.error('❌ TELEGRAM: Fehler beim Senden:', error);
+                        }
+                        console.log('═══════════════════════════════════════');
                     }
-                    console.log('═══════════════════════════════════════');
-                }
                 
-                // 🆕 Speichere Adressen in CRM wenn Checkboxen aktiviert
-                const saveAsMain = document.getElementById('qb-panel-save-as-main').checked;
-                const saveAsBilling = document.getElementById('qb-panel-save-as-billing').checked;
+                    // 🆕 Speichere Adressen in CRM wenn Checkboxen aktiviert
+                    const saveAsMain = document.getElementById('qb-panel-save-as-main').checked;
+                    const saveAsBilling = document.getElementById('qb-panel-save-as-billing').checked;
                 
-                if (saveAsMain || saveAsBilling) {
-                    const updates = {};
+                    if (saveAsMain || saveAsBilling) {
+                        const updates = {};
                     
-                    if (saveAsMain) {
-                        updates['address'] = pickup;
-                        console.log('💾 Stammadresse gespeichert:', pickup);
+                        if (saveAsMain) {
+                            updates['address'] = pickup;
+                            console.log('💾 Stammadresse gespeichert:', pickup);
+                        }
+                    
+                        if (saveAsBilling) {
+                            updates['billingAddress'] = pickup;
+                            console.log('💾 Rechnungsadresse gespeichert:', pickup);
+                        }
+                    
+                        await db.ref(`customers/${qbPanelCustomer.id}`).update(updates);
+                    
+                        // Update lokales Objekt
+                        if (saveAsMain) qbPanelCustomer.address = pickup;
+                        if (saveAsBilling) qbPanelCustomer.billingAddress = pickup;
                     }
-                    
-                    if (saveAsBilling) {
-                        updates['billingAddress'] = pickup;
-                        console.log('💾 Rechnungsadresse gespeichert:', pickup);
+                
+                    const successMsg = window.editingRideId ? '✅ Fahrt aktualisiert!' : '✅ Fahrt erfolgreich gebucht!';
+                    alert(successMsg + (saveAsMain || saveAsBilling ? '\n💾 Adresse im CRM gespeichert!' : ''));
+                
+                    // 🔧 Reset editingRideId
+                    window.editingRideId = null;
+                
+                    // Panel schließen
+                    closeQuickBookingPanel();
+                
+                    // Kalender neu laden
+                    if (typeof loadCalendar === 'function') {
+                        loadCalendar();
                     }
+                
+                    // Felder zurücksetzen
+                    document.getElementById('qb-panel-customer').value = '';
+                    document.getElementById('qb-panel-start-time').value = '';
+                    document.getElementById('qb-panel-end-time').value = '';
+                    document.getElementById('qb-panel-pickup').value = '';
+                    document.getElementById('qb-panel-destination').value = '';
+                    document.getElementById('qb-panel-passengers').value = '1';
+                    document.getElementById('qb-panel-vehicle').value = '';
+                    document.getElementById('qb-panel-notes').value = '';
+                    document.getElementById('qb-panel-save-as-main').checked = false;
+                    document.getElementById('qb-panel-save-as-billing').checked = false;
+                    document.getElementById('qb-panel-address-options').style.display = 'none';
+                    qbPanelCustomer = null;
+                    qbPanelPickupCoords = null;
+                    qbPanelDestCoords = null;
+                
+                    console.log('✅ Schnellbuchung erstellt:', rideRef.key, 'Dauer:', durationMinutes, 'Min');
                     
-                    await db.ref(`customers/${qbPanelCustomer.id}`).update(updates);
-                    
-                    // Update lokales Objekt
-                    if (saveAsMain) qbPanelCustomer.address = pickup;
-                    if (saveAsBilling) qbPanelCustomer.billingAddress = pickup;
+                } catch (error) {
+                    console.error('❌ Fehler beim Speichern:', error);
+                    alert('❌ Fehler beim Speichern: ' + error.message);
                 }
-                
-                const successMsg = window.editingRideId ? '✅ Fahrt aktualisiert!' : '✅ Fahrt erfolgreich gebucht!';
-                alert(successMsg + (saveAsMain || saveAsBilling ? '\n💾 Adresse im CRM gespeichert!' : ''));
-                
-                // 🔧 Reset editingRideId
-                window.editingRideId = null;
-                
-                // Panel schließen
-                closeQuickBookingPanel();
-                
-                // Kalender neu laden
-                if (typeof loadCalendar === 'function') {
-                    loadCalendar();
-                }
-                
-                // Felder zurücksetzen
-                document.getElementById('qb-panel-customer').value = '';
-                document.getElementById('qb-panel-start-time').value = '';
-                document.getElementById('qb-panel-end-time').value = '';
-                document.getElementById('qb-panel-pickup').value = '';
-                document.getElementById('qb-panel-destination').value = '';
-                document.getElementById('qb-panel-passengers').value = '1';
-                document.getElementById('qb-panel-vehicle').value = '';
-                document.getElementById('qb-panel-notes').value = '';
-                document.getElementById('qb-panel-save-as-main').checked = false;
-                document.getElementById('qb-panel-save-as-billing').checked = false;
-                document.getElementById('qb-panel-address-options').style.display = 'none';
-                qbPanelCustomer = null;
-                qbPanelPickupCoords = null;
-                qbPanelDestCoords = null;
-                
-                console.log('✅ Schnellbuchung erstellt:', rideRef.key, 'Dauer:', durationMinutes, 'Min');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);

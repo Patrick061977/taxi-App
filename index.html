@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.15 - ACCEPTED IM KALENDER! 🔥 (Build 20251211-0600)');
+        console.log('🚕 Funk Taxi App v5.64.16 - MODAL ULTRA-KOMPAKT! 📱 (Build 20251211-0615)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.15 - ACCEPTED IM KALENDER! 🔥 (Build 20251211-0600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.16 - MODAL ULTRA-KOMPAKT! 📱 (Build 20251211-0615)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -21145,121 +21145,120 @@
             modal.innerHTML = `
                 <div style="
                     background:white;
-                    border-radius:12px;
-                    padding:15px;
+                    border-radius:8px;
+                    padding:10px;
                     width:100%;
                     max-width:500px;
                     margin:auto;
                     box-shadow:0 20px 60px rgba(0,0,0,0.3);
                 ">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;position:sticky;top:0;background:white;z-index:1;padding-bottom:8px;border-bottom:2px solid #f3f4f6;">
-                        <h3 style="margin:0;font-size:18px;font-weight:700;">⚡ Schnellbuchung</h3>
-                        <button onclick="document.getElementById('quick-booking-modal').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;line-height:1;padding:0 5px;">×</button>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;position:sticky;top:0;background:white;z-index:1;padding-bottom:6px;border-bottom:1px solid #e5e7eb;">
+                        <h3 style="margin:0;font-size:16px;font-weight:700;">⚡ Schnellbuchung</h3>
+                        <button onclick="document.getElementById('quick-booking-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;line-height:1;padding:0;">×</button>
                     </div>
                     
-                    <div style="display:flex;flex-direction:column;gap:10px;">
-                        <!-- 🆕 v5.48.3: Kunde mit Live-Suche (ab 3 Zeichen) -->
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        <!-- Kunde -->
                         <div style="position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">👤 Kunde</label>
+                            <label style="display:block;font-weight:600;margin-bottom:3px;font-size:11px;color:#666;">👤 Kunde</label>
                             <input 
                                 type="text" 
                                 id="quick-booking-customer-search" 
-                                placeholder="Name eingeben (mind. 3 Zeichen)..." 
+                                placeholder="Name..." 
                                 oninput="searchQuickBookingCustomer()"
-                                style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                                style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
                             <input type="hidden" id="quick-booking-customer" value="">
-                            <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:6px;max-height:200px;overflow-y:auto;z-index:10000;margin-top:3px;box-shadow:0 8px 16px rgba(0,0,0,0.15);"></div>
+                            <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:4px;max-height:150px;overflow-y:auto;z-index:10000;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
                         </div>
                         
                         <!-- Datum & Zeit -->
                         <div>
-                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">📅 Datum & Zeit</label>
-                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                            <label style="display:block;font-weight:600;margin-bottom:3px;font-size:11px;color:#666;">📅 Datum & Zeit</label>
+                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
                         </div>
                         
                         <!-- Abholort -->
                         <div style="position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">📍 Abholort</label>
-                            <input type="text" id="quick-booking-pickup" placeholder="Adresse eingeben..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
-                            <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:6px;max-height:180px;overflow-y:auto;z-index:1000;margin-top:3px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            <label style="display:block;font-weight:600;margin-bottom:3px;font-size:11px;color:#666;">📍 Abholort</label>
+                            <input type="text" id="quick-booking-pickup" placeholder="Adresse..." style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+                            <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:4px;max-height:150px;overflow-y:auto;z-index:1000;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
-                        <!-- 🆕 v5.36.0: SWAP-BUTTON (KOMPAKT!) -->
-                        <div style="text-align:center;margin:5px 0;">
+                        <!-- SWAP kompakter -->
+                        <div style="text-align:center;margin:2px 0;">
                             <button onclick="swapQuickBookingLocations()" style="
-                                padding:8px 16px;
-                                background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+                                padding:5px 12px;
+                                background:#10b981;
                                 color:white;
                                 border:none;
-                                border-radius:6px;
+                                border-radius:4px;
                                 font-weight:600;
                                 cursor:pointer;
-                                font-size:13px;
-                                box-shadow:0 2px 6px rgba(16, 185, 129, 0.3);
-                            ">⇄ Vertauschen</button>
+                                font-size:11px;
+                            ">⇄</button>
                         </div>
                         
                         <!-- Zielort -->
                         <div style="position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">🎯 Zielort</label>
-                            <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
-                            <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:6px;max-height:180px;overflow-y:auto;z-index:1000;margin-top:3px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            <label style="display:block;font-weight:600;margin-bottom:3px;font-size:11px;color:#666;">🎯 Zielort</label>
+                            <input type="text" id="quick-booking-destination" placeholder="Adresse..." style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+                            <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:4px;max-height:150px;overflow-y:auto;z-index:1000;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
-                        <!-- 🆕 v5.49.0 + v5.64.3: HÄUFIGE ZIELORTE (WIRD ERST NACH KUNDENAUSWAHL GEFÜLLT) -->
+                        <!-- Häufige Zielorte -->
                         <div id="quick-booking-frequent-destinations" style="display:none;"></div>
                         
-                        <!-- 🆕 v5.38.4: FAVORITEN (KOMPAKT!) -->
+                        <!-- Favoriten Button kompakter -->
                         <div>
-                            <button onclick="showQuickBookingFavorites()" style="width:100%;padding:8px;background:#f3f4f6;color:#666;border:1px solid #e5e7eb;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
-                                ⭐ Favoriten verwenden
+                            <button onclick="showQuickBookingFavorites()" style="width:100%;padding:6px;background:#f9fafb;color:#666;border:1px solid #e5e7eb;border-radius:4px;font-weight:600;cursor:pointer;font-size:11px;">
+                                ⭐ Favoriten
                             </button>
                         </div>
                         
-                        <!-- Personen -->
-                        <div>
-                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">👥 Anzahl Personen</label>
-                            <select id="quick-booking-passengers" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
-                                <option value="1">1 Person</option>
-                                <option value="2">2 Personen</option>
-                                <option value="3">3 Personen</option>
-                                <option value="4">4 Personen</option>
-                                <option value="5">5 Personen</option>
-                                <option value="6">6 Personen</option>
-                                <option value="7">7 Personen</option>
-                                <option value="8">8 Personen</option>
-                            </select>
+                        <!-- Personen & Fahrzeug in 2 Spalten -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                            <div>
+                                <label style="display:block;font-weight:600;margin-bottom:3px;font-size:11px;color:#666;">👥 Pers.</label>
+                                <select id="quick-booking-passengers" style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block;font-weight:600;margin-bottom:3px;font-size:11px;color:#666;">🚗 Auto</label>
+                                <select id="quick-booking-vehicle" style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:13px;">
+                                    <option value="">Auto</option>
+                                    <!-- Wird dynamisch gefüllt -->
+                                </select>
+                            </div>
                         </div>
                         
-                        <!-- Fahrzeug (optional) (KOMPAKT!) -->
+                        <!-- Notizen kompakter -->
                         <div>
-                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">🚗 Fahrzeug (optional)</label>
-                            <select id="quick-booking-vehicle" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
-                                <option value="">Automatisch zuweisen</option>
-                                <!-- Wird dynamisch gefüllt -->
-                            </select>
+                            <label style="display:block;font-weight:600;margin-bottom:3px;font-size:11px;color:#666;">📝 Notizen</label>
+                            <textarea id="quick-booking-notes" placeholder="Optional..." style="width:100%;padding:7px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;min-height:40px;resize:vertical;"></textarea>
                         </div>
                         
-                        <!-- Notizen (KOMPAKT!) -->
+                        <!-- Favorit Button kompakter -->
                         <div>
-                            <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">📝 Notizen (optional)</label>
-                            <textarea id="quick-booking-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;min-height:50px;resize:vertical;"></textarea>
-                        </div>
-                        
-                        <!-- Favorit speichern (KOMPAKT!) -->
-                        <div>
-                            <button onclick="saveQuickBookingAsFavorite()" style="width:100%;padding:8px;background:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
-                                ⭐ Als Favorit speichern
+                            <button onclick="saveQuickBookingAsFavorite()" style="width:100%;padding:6px;background:#fbbf24;color:#78350f;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:11px;">
+                                ⭐ Als Favorit
                             </button>
                         </div>
                         
-                        <!-- Buttons (KOMPAKT!) -->
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding-top:8px;border-top:2px solid #f3f4f6;">
-                            <button onclick="document.getElementById('quick-booking-modal').remove()" style="padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                        <!-- Action Buttons kompakt -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid #e5e7eb;">
+                            <button onclick="document.getElementById('quick-booking-modal').remove()" style="padding:10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">
                                 Abbrechen
                             </button>
-                            <button onclick="submitQuickBooking()" style="padding:12px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);">
-                                ⚡ Jetzt buchen
+                            <button onclick="submitQuickBooking()" style="padding:10px;background:#10b981;color:white;border:none;border-radius:4px;font-weight:700;cursor:pointer;font-size:12px;">
+                                ⚡ Buchen
                             </button>
                         </div>
                     </div>

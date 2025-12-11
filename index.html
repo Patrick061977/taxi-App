@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.41 - FAHRZEUG-DROPDOWN FIX + ADMIN-STORNIERUNG! 🐛 (Build 20251211-2235)');
+        console.log('🚕 Funk Taxi App v5.64.42 - BEARBEITEN-SPEICHERN FIX! 🔧 (Build 20251211-2245)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.41 - FAHRZEUG-DROPDOWN FIX + ADMIN-STORNIERUNG! 🐛 (Build 20251211-2235)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.42 - BEARBEITEN-SPEICHERN FIX! 🔧 (Build 20251211-2245)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5212,7 +5212,7 @@
             const newCustomer = document.getElementById('edit-customer').value.trim();
             const newDateTime = document.getElementById('edit-datetime').value;
             const newPassengers = document.getElementById('edit-passengers').value;
-            const newVehicleId = document.getElementById('edit-vehicle').value; // 🆕 v5.64.40
+            const newVehicleId = document.getElementById('edit-vehicle').value;
             
             if (!newPickup || !newDestination) {
                 alert('❌ Abholort und Zielort müssen ausgefüllt sein!');
@@ -5241,11 +5241,36 @@
                 editedAt: Date.now()
             };
             
-            // 🆕 v5.64.40: Fahrzeug-Zuweisung
-            if (newVehicleId) {
-                updates.vehicleId = newVehicleId;
+            // 🆕 v5.64.42: VOLLSTÄNDIGE FAHRZEUG-ZUWEISUNG!
+            if (newVehicleId && newVehicleId !== '') {
+                try {
+                    // Lade Fahrzeugdaten aus Firebase
+                    const vehicleSnapshot = await db.ref('vehicles/' + newVehicleId).once('value');
+                    const vehicleData = vehicleSnapshot.val();
+                    
+                    if (vehicleData) {
+                        // Speichere ALLE Fahrzeugdaten
+                        updates.vehicleId = newVehicleId;
+                        updates.vehicle = vehicleData.name || newVehicleId;
+                        updates.vehicleLabel = vehicleData.name || newVehicleId;
+                        updates.vehiclePlate = vehicleData.plate || '';
+                        updates.status = 'accepted'; // ← Status auf ACCEPTED!
+                        updates.acceptedAt = Date.now();
+                        updates.assignedBy = 'admin';
+                        
+                        console.log('✅ Fahrzeugdaten geladen:', vehicleData.name, vehicleData.plate);
+                    } else {
+                        console.warn('⚠️ Fahrzeug nicht gefunden:', newVehicleId);
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden der Fahrzeugdaten:', error);
+                }
             } else {
+                // Fahrzeug entfernen
                 updates.vehicleId = null;
+                updates.vehicle = null;
+                updates.vehicleLabel = null;
+                updates.vehiclePlate = null;
             }
             
             // Update Firebase
@@ -5253,8 +5278,29 @@
                 try {
                     await db.ref('rides/' + rideId).update(updates);
                     console.log('✅ Fahrt in Firebase aktualisiert');
+                    
+                    // 📱 v5.64.42: TELEGRAM SENDEN wenn Fahrzeug zugewiesen!
+                    if (newVehicleId && updates.vehicle) {
+                        console.log('📱 Sende Telegram an Fahrer...');
+                        
+                        // Lade komplette Fahrt für Telegram
+                        const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                        const ride = rideSnapshot.val();
+                        
+                        if (ride) {
+                            try {
+                                await sendTelegramToDriver(newVehicleId, ride, 0);
+                                console.log('✅ Telegram gesendet!');
+                            } catch (telegramError) {
+                                console.error('❌ Telegram-Fehler:', telegramError);
+                            }
+                        }
+                    }
+                    
                 } catch (error) {
                     console.error('❌ Fehler beim Aktualisieren:', error);
+                    alert('❌ Fehler beim Speichern: ' + error.message);
+                    return;
                 }
             }
             
@@ -5267,11 +5313,18 @@
             }
             
             closeEditModal();
-            alert('✅ Fahrt wurde aktualisiert!');
+            
+            // 🆕 v5.64.42: Bessere Erfolgs-Meldung
+            if (newVehicleId && updates.vehicle) {
+                alert(`✅ Fahrt aktualisiert!\n\n🚗 Zugewiesen an: ${updates.vehicle}${updates.vehiclePlate ? ' (' + updates.vehiclePlate + ')' : ''}\n📱 Telegram wurde gesendet!`);
+            } else {
+                alert('✅ Fahrt wurde aktualisiert!');
+            }
             
             // Aktualisiere Views
             updateHistoryView();
             updateAdminView();
+            if (typeof loadCalendarData === 'function') loadCalendarData();
         }
         
         // 🔄 FAHRT NEU ZUWEISEN (aus rejected zurück zu new)

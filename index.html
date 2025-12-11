@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.26 - PRICE BUG GEFIXT! ✅ (Build 20251211-1050)');
+        console.log('🚕 Funk Taxi App v5.64.29 - FAHRT LÖSCHEN IN "MEINE FAHRTEN"! 🗑️ (Build 20251211-1215)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.26 - PRICE BUG GEFIXT! ✅ (Build 20251211-1050)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.29 - FAHRT LÖSCHEN IN "MEINE FAHRTEN"! 🗑️ (Build 20251211-1215)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4091,7 +4091,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.21.8';
+        const APP_VERSION = '5.21.9';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -4662,10 +4662,16 @@
                                 🔄 Umdrehen
                             </button>
                         </div>
-                        <button onclick="saveAsFavorite(${r.createdAt || r.id})" 
-                            style="width:100%;margin-top:8px;padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
-                            ⭐ Als Favorit
-                        </button>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                            <button onclick="saveAsFavorite(${r.createdAt || r.id})" 
+                                style="padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                ⭐ Als Favorit
+                            </button>
+                            <button onclick="deleteRideFromHistory(${r.createdAt || r.id})" 
+                                style="padding:10px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                🗑️ Löschen
+                            </button>
+                        </div>
                         ${documentButton}
                     `;
                 }
@@ -5082,6 +5088,46 @@
                   'Favoriten findest du im Fahrgast-Tab oben.');
             
             // TODO: Favoriten-Anzeige implementieren
+        }
+        
+        // 🗑️ v5.64.29: FAHRT AUS HISTORY LÖSCHEN
+        function deleteRideFromHistory(rideId) {
+            const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+            const ride = history.find(r => r.createdAt === rideId || r.id === rideId);
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Bestätigung
+            const confirmMsg = `🗑️ Fahrt wirklich löschen?\n\n` +
+                `📍 Von: ${ride.pickup}\n` +
+                `🎯 Nach: ${ride.destination}\n` +
+                `🕐 ${new Date(ride.createdAt || ride.pickupTimestamp).toLocaleString('de-DE')}\n\n` +
+                `⚠️ Diese Aktion kann nicht rückgängig gemacht werden!`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            // Lösche aus localStorage
+            const filteredHistory = history.filter(r => 
+                r.createdAt !== rideId && r.id !== rideId
+            );
+            
+            localStorage.setItem('rideHistory', JSON.stringify(filteredHistory));
+            
+            console.log('✅ Fahrt aus History gelöscht:', rideId);
+            console.log('   Vorher:', history.length, 'Fahrten');
+            console.log('   Nachher:', filteredHistory.length, 'Fahrten');
+            
+            // Alert
+            alert('✅ Fahrt erfolgreich gelöscht!\n\n' +
+                  'Die Fahrt wurde aus deinem Fahrtenverlauf entfernt.');
+            
+            // Aktualisiere Ansicht
+            updateViews();
         }
         
         // ✏️ FAHRT BEARBEITEN
@@ -9378,6 +9424,20 @@
             doc.setTextColor(100, 100, 100);
             doc.text('Stornierung innerhalb 60 Min - 15% Stornogebuehr', 20, 180);
             doc.text('(Urspruenglicher Preis: ' + parseFloat(ride.price || 0).toFixed(2) + ' EUR)', 20, 187);
+            
+            // 🆕 v5.64.27: ZAHLUNGSMETHODE (falls vorhanden)
+            if (ride.paymentMethod) {
+                const paymentMethodText = {
+                    'bar': 'Barzahlung',
+                    'rechnung': 'Rechnung',
+                    'kreditkarte': 'Kreditkarte',
+                    'paypal': 'PayPal',
+                    'ec': 'EC-Karte',
+                    'cash': 'Barzahlung',
+                    'card': 'Karte'
+                }[ride.paymentMethod] || ride.paymentMethod;
+                doc.text('Zahlungsart: ' + paymentMethodText, 20, 194);
+            }
             
             // FOOTER
             doc.setFontSize(9);
@@ -22885,7 +22945,8 @@
                         duration: routeData.duration,
                         createdBy: 'admin',
                         isAdvanceBooking: true,
-                        bookingSource: 'admin-panel' // 🆕 v5.49.0: Admin Panel Buchung!
+                        bookingSource: 'admin-panel', // 🆕 v5.49.0: Admin Panel Buchung!
+                        paymentMethod: 'bar' // 🆕 v5.64.27: Admin-Buchungen defaultmäßig Barzahlung
                     };
                 
                     // 🆕 v5.63.6: FAHRZEUG-FELDER SETZEN (wie bei Schnellbuchung)!
@@ -23481,6 +23542,19 @@
                                         </select>
                                     </div>
                                 </div>
+                                
+                                <!-- 🆕 v5.64.27: ZAHLUNGSMETHODE -->
+                                <div style="margin-top:15px;">
+                                    <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;font-weight:600;">💳 Zahlungsmethode:</label>
+                                    <select id="invoice-payment-method"
+                                            style="width:100%;padding:10px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;background:white;">
+                                        <option value="bar">💵 Barzahlung</option>
+                                        <option value="rechnung">📄 Rechnung (14 Tage Zahlungsziel)</option>
+                                        <option value="kreditkarte">💳 Bezahlt per Kreditkarte</option>
+                                        <option value="paypal">🅿️ Bezahlt per PayPal</option>
+                                        <option value="ec">💳 Bezahlt per EC-Karte</option>
+                                    </select>
+                                </div>
                             </div>
                             
                             <!-- POSITIONEN -->
@@ -23648,6 +23722,7 @@
                 const rideId = document.getElementById('invoice-ride-id').value;
                 const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 0;
                 const distance = parseFloat(document.getElementById('invoice-distance').value) || 0;
+                const paymentMethod = document.getElementById('invoice-payment-method').value; // 🆕 v5.64.27
                 
                 // Berechne aus Positionen
                 const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
@@ -23662,10 +23737,27 @@
                     return;
                 }
                 
-                // Hole nächste Rechnungsnummer
-                const invoiceNumber = await getNextInvoiceNumber();
+                // 🆕 v5.64.27: Prüfe ob Rechnung bereits heruntergeladen wurde
+                const existingInvoiceSnapshot = await db.ref('invoices').orderByChild('rideId').equalTo(rideId).once('value');
+                let invoiceNumber;
+                let isCopy = false;
+                let downloadCount = 0;
                 
-                console.log('📄 Erstelle PDF:', invoiceNumber);
+                if (existingInvoiceSnapshot.exists()) {
+                    // Rechnung existiert schon
+                    const invoices = Object.values(existingInvoiceSnapshot.val());
+                    const existingInvoice = invoices[0];
+                    invoiceNumber = existingInvoice.invoiceNumber;
+                    downloadCount = (existingInvoice.downloadCount || 0) + 1;
+                    isCopy = downloadCount > 1; // Ab 2. Download ist es eine KOPIE
+                    
+                    console.log(`📄 Rechnung ${invoiceNumber} bereits vorhanden - Download #${downloadCount}${isCopy ? ' (KOPIE)' : ''}`);
+                } else {
+                    // Hole nächste Rechnungsnummer
+                    invoiceNumber = await getNextInvoiceNumber();
+                    downloadCount = 1;
+                    console.log('📄 Erstelle neue Rechnung:', invoiceNumber);
+                }
                 
                 // Erstelle PDF
                 const { jsPDF } = window.jspdf;
@@ -23683,21 +23775,35 @@
                 doc.setFontSize(20);
                 doc.setTextColor(0);
                 doc.setFont(undefined, 'bold');
-                doc.text('Rechnung', 20, 50);
+                // 🆕 v5.64.27: KOPIE-Kennzeichnung
+                const title = isCopy ? 'KOPIE - Rechnung' : 'Rechnung';
+                doc.text(title, 20, 50);
                 
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'normal');
                 doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
                 doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 63);
                 
+                // 🆕 v5.64.27: ZAHLUNGSMETHODE
+                const paymentMethodText = {
+                    'bar': '💵 Barzahlung',
+                    'rechnung': '📄 Rechnung (Zahlungsziel: 14 Tage)',
+                    'kreditkarte': '💳 Bezahlt per Kreditkarte',
+                    'paypal': '🅿️ Bezahlt per PayPal',
+                    'ec': '💳 Bezahlt per EC-Karte'
+                }[paymentMethod] || paymentMethod;
+                
+                doc.setFont(undefined, 'bold');
+                doc.text(`Zahlung: ${paymentMethodText}`, 20, 68);
+                
                 // KUNDE
                 doc.setFontSize(11);
                 doc.setFont(undefined, 'bold');
-                doc.text('Kunde:', 20, 80);
+                doc.text('Kunde:', 20, 85); // 🆕 v5.64.27: +5 wegen Zahlungszeile
                 doc.setFont(undefined, 'normal');
                 doc.setFontSize(10);
                 
-                let yPos = 86;
+                let yPos = 91;
                 doc.text(ride.customerName || customer?.name || 'Unbekannt', 20, yPos);
                 
                 // 🆕 v5.52.5: Nutze gewählte Rechnungsadresse
@@ -23829,16 +23935,57 @@
                     vatAmount: vatAmount,
                     pickup: ride.pickup,
                     destination: ride.destination,
-                    distance: distance
+                    distance: distance,
+                    paymentMethod: paymentMethod, // 🆕 v5.64.27
+                    downloadCount: downloadCount, // 🆕 v5.64.27
+                    firstDownloadAt: downloadCount === 1 ? Date.now() : (existingInvoiceSnapshot.exists() ? Object.values(existingInvoiceSnapshot.val())[0].firstDownloadAt : Date.now()), // 🆕 v5.64.27
+                    lastDownloadAt: Date.now() // 🆕 v5.64.27
                 };
                 
                 await db.ref(`invoices/${invoiceNumber}`).set(invoiceData);
                 console.log('✅ Rechnung in Firebase gespeichert:', invoiceNumber);
                 
-                // PDF herunterladen
-                doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                // PDF herunterladen - 🆕 v5.64.27: Mit KOPIE im Dateinamen
+                const fileName = isCopy 
+                    ? `KOPIE_Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`
+                    : `Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`;
+                doc.save(fileName);
                 
-                alert(`✅ Rechnung ${invoiceNumber} erstellt und heruntergeladen!`);
+                alert(`✅ Rechnung ${invoiceNumber} ${isCopy ? '(KOPIE) ' : ''}erstellt und heruntergeladen!`);
+                
+                // 🆕 v5.64.27: Aktualisiere Rechnungs-Badge im Kalender
+                const badgeElement = document.getElementById(`invoice-badge-${rideId}`);
+                if (badgeElement) {
+                    const bgColor = isCopy ? '#fef3c7' : '#d1fae5';
+                    const borderColor = isCopy ? '#f59e0b' : '#10b981';
+                    const textColor = isCopy ? '#92400e' : '#047857';
+                    
+                    const paymentMethodText = {
+                        'bar': '💵 Bar',
+                        'rechnung': '📄 Rechnung',
+                        'kreditkarte': '💳 Kreditkarte',
+                        'paypal': '🅿️ PayPal',
+                        'ec': '💳 EC-Karte'
+                    }[paymentMethod] || paymentMethod;
+                    
+                    badgeElement.innerHTML = `
+                        <div style="padding: 8px 12px; background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <div style="font-size: 16px;">${isCopy ? '📋' : '📄'}</div>
+                                    <div>
+                                        <div style="font-weight: 600; font-size: 12px; color: ${textColor};">
+                                            ${isCopy ? 'KOPIE - ' : ''}Rechnung ${invoiceNumber}
+                                        </div>
+                                        <div style="font-size: 11px; color: ${textColor}; opacity: 0.8;">
+                                            ${paymentMethodText} • ${downloadCount}x heruntergeladen
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
                 
                 closeInvoiceModal();
                 
@@ -24502,7 +24649,8 @@
                     price: routeData.price,
                     distance: routeData.distance,
                     duration: routeData.duration,
-                    bookingSource: 'admin-quick' // 🆕 v5.49.0: Admin Schnellbuchung!
+                    bookingSource: 'admin-quick', // 🆕 v5.49.0: Admin Schnellbuchung!
+                    paymentMethod: 'bar' // 🆕 v5.64.27: Admin-Buchungen defaultmäßig Barzahlung
                 };
                 
                 // 🆕 v5.63.6: FAHRZEUG-ZUWEISUNG - NUTZT JETZT ZENTRALE FUNKTION!
@@ -29163,6 +29311,9 @@ Stack: ${err.stack}
                                 return vehicleHtml;
                             })()}
                             
+                            <!-- 🆕 v5.64.27: RECHNUNGS-STATUS BADGE -->
+                            <div id="invoice-badge-${ride.firebaseId || ride.id}" style="margin-top: 10px;"></div>
+                            
                             <!-- 🆕 BEARBEITEN/RECHNUNG/KOPIEREN/LÖSCHEN Buttons -->
                             <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #e5e7eb; flex-wrap: wrap;">
                                 <button onclick="event.stopPropagation(); editRideFromCalendar('${ride.firebaseId || ride.id}')" 
@@ -29245,6 +29396,9 @@ Stack: ${err.stack}
             
             document.getElementById('calendar-container').innerHTML = html;
             updateCalendarStats(dayRides, 'Tag');
+            
+            // 🆕 v5.64.27: Lade Rechnungs-Status für Tag-Ansicht
+            setTimeout(() => loadInvoiceBadgesForCalendar(dayRides), 100);
         }
         
         function updateCalendarStats(rides, period) {
@@ -29252,6 +29406,100 @@ Stack: ${err.stack}
             const cancelled = rides.filter(r => r.status === 'cancelled' || r.status === 'storniert');
             
             // 🔧 v5.29.2: FIX - Stelle sicher dass totalRevenue eine Zahl ist!
+            const totalRevenue = completed.reduce((sum, r) => {
+                const price = parseFloat(r.price) || 0;
+                return sum + price;
+            }, 0);
+            
+            document.getElementById('cal-rides-count').textContent = completed.length;
+            document.getElementById('cal-revenue').textContent = totalRevenue.toFixed(2) + '€';
+            document.getElementById('cal-cancelled').textContent = cancelled.length;
+        }
+        
+        // 🆕 v5.64.27: RECHNUNGS-STATUS IM KALENDER ANZEIGEN
+        async function loadInvoiceBadgesForCalendar(rides) {
+            if (!rides || rides.length === 0) return;
+            
+            console.log('📄 Lade Rechnungs-Status für', rides.length, 'Fahrten...');
+            
+            // Lade alle Rechnungen aus Firebase
+            try {
+                const invoicesSnapshot = await db.ref('invoices').once('value');
+                const allInvoices = invoicesSnapshot.val() || {};
+                
+                // Erstelle Map: rideId -> invoice
+                const invoicesByRideId = {};
+                Object.values(allInvoices).forEach(invoice => {
+                    if (invoice.rideId) {
+                        invoicesByRideId[invoice.rideId] = invoice;
+                    }
+                });
+                
+                // Für jede Fahrt Badge erstellen
+                rides.forEach(ride => {
+                    const rideId = ride.firebaseId || ride.id;
+                    const badgeElement = document.getElementById(`invoice-badge-${rideId}`);
+                    
+                    if (!badgeElement) return;
+                    
+                    const invoice = invoicesByRideId[rideId];
+                    
+                    if (invoice) {
+                        // Rechnung existiert!
+                        const downloadCount = invoice.downloadCount || 1;
+                        const paymentMethod = invoice.paymentMethod || 'unbekannt';
+                        
+                        const paymentMethodText = {
+                            'bar': '💵 Bar',
+                            'rechnung': '📄 Rechnung',
+                            'kreditkarte': '💳 Kreditkarte',
+                            'paypal': '🅿️ PayPal',
+                            'ec': '💳 EC-Karte'
+                        }[paymentMethod] || paymentMethod;
+                        
+                        const isCopy = downloadCount > 1;
+                        const bgColor = isCopy ? '#fef3c7' : '#d1fae5';
+                        const borderColor = isCopy ? '#f59e0b' : '#10b981';
+                        const textColor = isCopy ? '#92400e' : '#047857';
+                        
+                        badgeElement.innerHTML = `
+                            <div style="padding: 8px 12px; background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 8px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div style="font-size: 16px;">${isCopy ? '📋' : '📄'}</div>
+                                        <div>
+                                            <div style="font-weight: 600; font-size: 12px; color: ${textColor};">
+                                                ${isCopy ? 'KOPIE - ' : ''}Rechnung ${invoice.invoiceNumber}
+                                            </div>
+                                            <div style="font-size: 11px; color: ${textColor}; opacity: 0.8;">
+                                                ${paymentMethodText} • ${downloadCount}x heruntergeladen
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Keine Rechnung
+                        badgeElement.innerHTML = `
+                            <div style="padding: 8px 12px; background: #f3f4f6; border: 2px dashed #d1d5db; border-radius: 8px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <div style="font-size: 16px;">❌</div>
+                                    <div style="font-size: 12px; color: #6b7280; font-weight: 600;">
+                                        Keine Rechnung erstellt
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                
+                console.log('✅ Rechnungs-Status geladen!');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Rechnungs-Status:', error);
+            }
+        }
             const totalRevenue = completed.reduce((sum, r) => {
                 const price = parseFloat(r.price) || 0;
                 return sum + price;
@@ -32028,10 +32276,11 @@ WICHTIG:
 - Wenn "heute" → heutiges Datum
 - Wenn nur Uhrzeit → heute + Uhrzeit
 - Wenn kein Datum/Zeit angegeben → setze null
-- Orte: Möglichst genau mit Straße/Hausnummer wenn angegeben
-- Wenn Orte fehlen → setze null
+- Orte: Extrahiere ERSTE Adresse als pickup, LETZTE Adresse als destination
+- Zwischenziele: Alle Adressen ZWISCHEN erster und letzter Adresse → in "notes" schreiben
 - Telefon: Im Format +49... (normalisiere deutsche Nummern)
 - Name: Extrahiere wenn vorhanden, sonst null
+- Notizen: Sammle ALLE wichtigen Details (Zwischenstopps, Kindersitz, Rollstuhl, Gepäck, besondere Wünsche)
 
 WENN WICHTIGE DATEN FEHLEN:
 - Setze fehlende Felder auf null
@@ -32048,6 +32297,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
   "passengers": 1,
   "name": "Name oder null",
   "phone": "+49... oder null",
+  "notes": "Zwischenstopps, besondere Wünsche, wichtige Details oder null",
   "missing": ["pickup", "destination"] oder [],
   "question": "Freundliche Nachfrage oder null"
 }`
@@ -32155,6 +32405,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 ${data.passengers ? `<div>👥 Personen: ${data.passengers}</div>` : ''}
                                 ${data.name ? `<div>👤 Name: ${data.name}</div>` : ''}
                                 ${data.phone ? `<div>📞 Telefon: ${data.phone}</div>` : ''}
+                                ${data.notes ? `<div>📝 Notizen: ${data.notes}</div>` : ''}
                             </div>
                         </div>
                     </div>
@@ -32210,6 +32461,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
                                     <div style="font-weight: 600; color: #047857;">📞 Telefon:</div>
                                     <div>${data.phone}</div>
+                                </div>
+                            ` : ''}
+                            ${data.notes ? `
+                                <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
+                                    <div style="font-weight: 600; color: #047857;">📝 Notizen:</div>
+                                    <div>${data.notes}</div>
                                 </div>
                             ` : ''}
                         </div>
@@ -32268,7 +32525,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         // Buchung aus Test erstellen
         async function createBookingFromTest(data) {
-            if (!confirm(`✅ Buchung erstellen?\n\n📅 ${new Date(data.datetime).toLocaleString('de-DE')}\n📍 ${data.pickup} → ${data.destination}\n👥 ${data.passengers} Person(en)`)) {
+            const confirmMsg = `✅ Buchung erstellen?\n\n📅 ${new Date(data.datetime).toLocaleString('de-DE')}\n📍 ${data.pickup} → ${data.destination}\n👥 ${data.passengers} Person(en)${data.notes ? `\n📝 ${data.notes}` : ''}`;
+            
+            if (!confirm(confirmMsg)) {
                 return;
             }
             

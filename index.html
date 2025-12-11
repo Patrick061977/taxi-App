@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.18 - PREIS & ZEIT OPTIONEN! ⚙️ (Build 20251211-0730)');
+        console.log('🚕 Funk Taxi App v5.64.19 - SYNTAX-FIX! 🔧 (Build 20251211-0745)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.18 - PREIS & ZEIT OPTIONEN! ⚙️ (Build 20251211-0730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.19 - SYNTAX-FIX! 🔧 (Build 20251211-0745)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -24423,9 +24423,9 @@
                 }
                 
                 // 🆕 v5.64.18: LESE OPTIONEN AUS!
-                const calculatePrice = document.getElementById('quick-booking-calculate-price').checked;
+                const shouldCalculatePrice = document.getElementById('quick-booking-calculate-price').checked;
                 const durationMode = document.querySelector('input[name="quick-booking-duration-mode"]:checked').value;
-                console.log('💰 Preis berechnen?', calculatePrice);
+                console.log('💰 Preis berechnen?', shouldCalculatePrice);
                 console.log('⏱️ Dauer-Modus:', durationMode);
                 
                 // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
@@ -24443,7 +24443,7 @@
                 
                 // 🆕 v5.64.18: PREIS-BERECHNUNG OPTIONAL!
                 const pickupTimestamp = new Date(datetime).getTime();
-                if (calculatePrice) {
+                if (shouldCalculatePrice) {
                     // PREIS BERECHNEN!
                     const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
                     routeData.price = pricing.total;

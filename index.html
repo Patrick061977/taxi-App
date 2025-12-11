@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.35 - AUTOCOMPLETE FÜR AI-MASKE! 🔍 (Build 20251211-1700)');
+        console.log('🚕 Funk Taxi App v5.64.36 - BUCHUNGSSYSTEM AKTIV! ✅ (Build 20251211-1730)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.35 - AUTOCOMPLETE FÜR AI-MASKE! 🔍 (Build 20251211-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.36 - BUCHUNGSSYSTEM AKTIV! ✅ (Build 20251211-1730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3973,24 +3973,16 @@
                     🧪 Test-Bereich
                 </div>
                 
-                <!-- INFO: Aktuell nur Test-Modus -->
-                <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border: 2px solid #3b82f6; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border: 2px solid #10b981; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                     <div style="display: flex; align-items: start; gap: 12px;">
-                        <div style="font-size: 28px;">ℹ️</div>
+                        <div style="font-size: 28px;">✅</div>
                         <div style="flex: 1;">
-                            <div style="font-size: 15px; font-weight: 700; color: #1e40af; margin-bottom: 8px;">
-                                Aktuell: Test-Modus v5.63.4
+                            <div style="font-size: 15px; font-weight: 700; color: #065f46; margin-bottom: 8px;">
+                                Buchungssystem aktiv!
                             </div>
-                            <div style="font-size: 13px; color: #1e3a8a; line-height: 1.6;">
-                                Du kannst hier Claude AI testen indem du Nachrichten einfügst.<br>
-                                <strong>Claude extrahiert automatisch:</strong> Datum, Uhrzeit, Abholort, Zielort, Personen<br>
-                                <strong>Bei fehlenden Daten:</strong> Claude schlägt Nachfrage-Text vor
-                            </div>
-                            <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.7); border-radius: 6px; font-size: 12px; color: #1e3a8a;">
-                                <strong>🔜 Nächste Version v5.64.0:</strong><br>
-                                • Telegram Webhook (automatischer Empfang)<br>
-                                • Push-Benachrichtigungen für neue Anfragen<br>
-                                • Direktes Antworten an Fahrgäste
+                            <div style="font-size: 13px; color: #047857; line-height: 1.6;">
+                                Claude AI analysiert eingehende Nachrichten und erstellt automatisch Buchungen.<br>
+                                Die Buchungen werden direkt in Firebase gespeichert und an die Fahrer verteilt.
                             </div>
                         </div>
                     </div>
@@ -4102,7 +4094,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.64.35';
+        const APP_VERSION = '5.64.36';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -32395,6 +32387,17 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 return;
             }
             
+            // Validierung
+            if (!data.datetime || !data.pickup || !data.destination) {
+                alert('❌ Bitte alle Pflichtfelder ausfüllen!');
+                return;
+            }
+            
+            if (!data.name || !data.phone) {
+                alert('❌ Bitte Name und Telefon angeben!');
+                return;
+            }
+            
             // Confirm-Nachricht zusammenbauen
             let confirmMsg = '✅ Buchung erstellen?\n\n';
             confirmMsg += '📅 ' + new Date(data.datetime).toLocaleString('de-DE') + '\n';
@@ -32409,12 +32412,49 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 return;
             }
             
-            // Hier würde die normale Buchungslogik aufgerufen werden
-            // TODO: Integration mit bestehendem Buchungssystem
-            
-            alert('🚧 Buchungserstellung wird in der nächsten Version implementiert!\n\nAktuell nur Test-Modus.');
-            
-            console.log('📝 Würde Buchung erstellen:', data);
+            try {
+                // Berechne Distanz
+                const distanceResult = await calculateDistance(data.pickup, data.destination);
+                
+                if (!distanceResult) {
+                    throw new Error('Distanz konnte nicht berechnet werden');
+                }
+                
+                // Erstelle Ride-Objekt
+                const rideId = 'ride_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const rideData = {
+                    id: rideId,
+                    customerId: 'ai_customer_' + Date.now(),
+                    customerName: data.name,
+                    customerPhone: data.phone,
+                    pickup: data.pickup,
+                    destination: data.destination,
+                    datetime: data.datetime,
+                    passengers: data.passengers,
+                    price: distanceResult.price || 0,
+                    distance: distanceResult.distance || 0,
+                    duration: distanceResult.duration || 0,
+                    notes: data.notes || null,
+                    status: 'vorbestellt',
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser ? currentUser.uid : 'ai_assistant',
+                    bookingType: 'ai_assistant'
+                };
+                
+                console.log('🤖 Erstelle Buchung:', rideData);
+                
+                // Speichere in Firebase
+                await db.ref('rides/' + rideId).set(rideData);
+                
+                alert('✅ Buchung erfolgreich erstellt!');
+                
+                // Wechsle zu Fahrplan
+                switchView('fahrplan');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der Buchung:', error);
+                alert('❌ Fehler beim Erstellen der Buchung:\n\n' + error.message);
+            }
         }
         
         // Beim Laden der View: API-Key Status prüfen

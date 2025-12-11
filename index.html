@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.24 - HANDY-KONTAKTE + SMART-ANLEGEN! 📱 (Build 20251211-0930)');
+        console.log('🚕 Funk Taxi App v5.64.25 - AUTO-GEOCODE + TOOLTIPS! 🗺️✨ (Build 20251211-1015)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.24 - HANDY-KONTAKTE + SMART-ANLEGEN! 📱 (Build 20251211-0930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.25 - AUTO-GEOCODE + TOOLTIPS! 🗺️✨ (Build 20251211-1015)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -631,7 +631,7 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     ">
         <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-            <button onclick="switchView('passenger')" class="admin-tab-btn" data-view="passenger" style="
+            <button onclick="switchView('passenger')" class="admin-tab-btn admin-only" data-view="passenger" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -645,7 +645,7 @@
             ">
                 🚕 Taxi buchen
             </button>
-            <button onclick="switchView('schedule')" class="admin-tab-btn" data-view="schedule" style="
+            <button onclick="switchView('schedule')" class="admin-tab-btn admin-only" data-view="schedule" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -659,7 +659,7 @@
             ">
                 🚌🚂 Fahrplan
             </button>
-            <button onclick="switchView('history')" class="admin-tab-btn" data-view="history" style="
+            <button onclick="switchView('history')" class="admin-tab-btn admin-only" data-view="history" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -673,7 +673,7 @@
             ">
                 📖 Verlauf
             </button>
-            <button onclick="switchView('driver')" class="admin-tab-btn" data-view="driver" style="
+            <button onclick="switchView('driver')" class="admin-tab-btn driver-visible" data-view="driver" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -687,7 +687,7 @@
             ">
                 🚗 Fahrer
             </button>
-            <button onclick="switchView('admin')" class="admin-tab-btn" data-view="admin" style="
+            <button onclick="switchView('admin')" class="admin-tab-btn admin-only" data-view="admin" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -701,7 +701,7 @@
             ">
                 ⚙️ Admin
             </button>
-            <button onclick="switchView('shift-plan')" class="admin-tab-btn" data-view="shift-plan" style="
+            <button onclick="switchView('shift-plan')" class="admin-tab-btn admin-only" data-view="shift-plan" style="
                 padding: 10px 16px;
                 border: 2px solid #10b981;
                 background: white;
@@ -1457,14 +1457,14 @@
                 border-radius: 6px;
                 font-size: 12px;
                 flex: 1;
-                max-width: 110px;
+                max-width: 140px;
             ">
-                <option value="">Fzg.</option>
-                <option value="tesla_model3_1">#1</option>
-                <option value="tesla_model3_2">#2</option>
-                <option value="tesla_model3_3">#3</option>
-                <option value="tesla_modely_1">Y#1</option>
-                <option value="tesla_modely_2">Y#2</option>
+                <option value="">Fahrzeug wählen</option>
+                <option value="tesla_model3_1">🚗 PW-TX 111</option>
+                <option value="tesla_model3_2">🚗 PW-TX 222</option>
+                <option value="tesla_model3_3">🚗 PW-TX 333</option>
+                <option value="tesla_modely_1">🚙 PW-MY 222</option>
+                <option value="tesla_modely_2">🚙 PW-MY 333</option>
             </select>
             
             <!-- Stats Mini -->
@@ -7110,6 +7110,25 @@
             
             if (showTabs) {
                 adminTabs.style.display = 'block';
+                
+                // 🆕 v5.64.25: FILTER TABS BY ROLE!
+                if (userRole === 'fahrer') {
+                    // FAHRER: Nur Fahrer-Tab anzeigen!
+                    document.querySelectorAll('.admin-tab-btn.admin-only').forEach(btn => {
+                        btn.style.display = 'none';
+                    });
+                    document.querySelectorAll('.admin-tab-btn.driver-visible').forEach(btn => {
+                        btn.style.display = 'inline-block';
+                    });
+                    console.log('✅ Fahrer-Tabs gefiltert: Nur Fahrer-Tab sichtbar');
+                } else if (userRole === 'admin') {
+                    // ADMIN: Alle Tabs anzeigen!
+                    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+                        btn.style.display = 'inline-block';
+                    });
+                    console.log('✅ Admin: Alle Tabs sichtbar');
+                }
+                
                 console.log('✅ Admin-Tabs angezeigt (User:', userRole, ')');
             } else {
                 adminTabs.style.display = 'none';
@@ -20958,47 +20977,48 @@
                         
                         <!-- Kunde -->
                         <div style="margin-bottom:15px;position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">👤 Kunde</label>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Kunde aus CRM wählen oder neu anlegen">👤 Kunde</label>
                             <input 
                                 type="text" 
                                 id="quick-booking-customer-search" 
                                 placeholder="Telefon oder Name eingeben..." 
                                 oninput="searchQuickBookingCustomer()"
                                 autocomplete="off"
+                                title="Tippe min. 3 Zeichen um zu suchen"
                                 style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <input type="hidden" id="quick-booking-customer" value="">
                             <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
                             
                             <!-- 🆕 v5.64.23: HANDY-KONTAKTE BUTTON -->
-                            <button onclick="importPhoneContact()" style="margin-top:8px;width:100%;padding:10px;background:#f0f9ff;color:#1e40af;border:2px solid #3b82f6;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                            <button onclick="importPhoneContact()" title="Kontakt aus Handy-Kontakten importieren" style="margin-top:8px;width:100%;padding:10px;background:#f0f9ff;color:#1e40af;border:2px solid #3b82f6;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
                                 📱 Aus Handy-Kontakten importieren
                             </button>
                         </div>
                         
                         <!-- Startzeit -->
                         <div style="margin-bottom:15px;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📅 Startzeit</label>
-                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Datum und Uhrzeit der Abholung">📅 Startzeit</label>
+                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" title="Wann soll der Kunde abgeholt werden?" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         </div>
                         
                         <!-- Abholort -->
                         <div style="margin-bottom:15px;position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Abholort</label>
-                            <input type="text" id="quick-booking-pickup" placeholder="Adresse eingeben..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Von wo soll der Kunde abgeholt werden?">📍 Abholort</label>
+                            <input type="text" id="quick-booking-pickup" placeholder="Adresse eingeben..." title="Tippe Adresse ein - Dropdown mit Vorschlägen erscheint" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
                         <!-- Swap Button -->
                         <div style="text-align:center;margin:-6px 0 10px 0;">
-                            <button onclick="swapQuickBookingLocations()" style="padding:8px 16px;background:white;border:2px solid #667eea;color:#667eea;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#667eea';this.style.color='white';" onmouseout="this.style.background='white';this.style.color='#667eea';">
+                            <button onclick="swapQuickBookingLocations()" title="Abholort und Zielort vertauschen" style="padding:8px 16px;background:white;border:2px solid #667eea;color:#667eea;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#667eea';this.style.color='white';" onmouseout="this.style.background='white';this.style.color='#667eea';">
                                 🔄 Tauschen
                             </button>
                         </div>
                         
                         <!-- Zielort -->
                         <div style="margin-bottom:15px;position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🎯 Zielort</label>
-                            <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Wohin soll der Kunde fahren?">🎯 Zielort</label>
+                            <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." title="Tippe Adresse ein - Dropdown mit Vorschlägen erscheint" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                         
@@ -21007,7 +21027,7 @@
                         
                         <!-- Favoriten Button -->
                         <div style="margin-bottom:15px;">
-                            <button onclick="showQuickBookingFavorites()" style="width:100%;padding:10px;background:#f9fafb;color:#666;border:2px solid #e5e7eb;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                            <button onclick="showQuickBookingFavorites()" title="Häufig genutzte Adressen anzeigen und speichern" style="width:100%;padding:10px;background:#f9fafb;color:#666;border:2px solid #e5e7eb;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
                                 ⭐ Favoriten
                             </button>
                         </div>
@@ -21044,7 +21064,7 @@
                         
                         <!-- 🆕 v5.64.18: PREIS-BERECHNUNG OPTION -->
                         <div style="margin-bottom:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
-                            <label style="display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:600;color:#047857;">
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:600;color:#047857;" title="Preis automatisch aus Distanz berechnen">
                                 <input type="checkbox" id="quick-booking-calculate-price" checked style="margin-right:8px;cursor:pointer;width:18px;height:18px;">
                                 <span>💰 Preis berechnen</span>
                             </label>
@@ -21053,12 +21073,12 @@
                         
                         <!-- 🆕 v5.64.18: ZEIT-BERECHNUNG OPTION -->
                         <div style="margin-bottom:15px;padding:12px;background:#eff6ff;border:2px solid #3b82f6;border-radius:8px;">
-                            <div style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:8px;">⏱️ Fahrtdauer:</div>
-                            <label style="display:flex;align-items:center;cursor:pointer;font-size:13px;margin-bottom:6px;">
+                            <div style="font-size:13px;font-weight:600;color:#1e40af;margin-bottom:8px;" title="Fahrtdauer-Berechnung wählen">⏱️ Fahrtdauer:</div>
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:13px;margin-bottom:6px;" title="Fahrtdauer aus Distanz und Geschwindigkeit berechnen">
                                 <input type="radio" name="quick-booking-duration-mode" value="calculated" checked style="margin-right:8px;cursor:pointer;">
                                 <span>📏 Aus Distanz berechnen</span>
                             </label>
-                            <label style="display:flex;align-items:center;cursor:pointer;font-size:13px;">
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:13px;" title="Feste Fahrtdauer von 15 Minuten verwenden">
                                 <input type="radio" name="quick-booking-duration-mode" value="fixed" style="margin-right:8px;cursor:pointer;">
                                 <span>🕐 Feste Zeit (15 Min)</span>
                             </label>
@@ -21066,7 +21086,7 @@
                         
                         <!-- Favorit Button -->
                         <div style="margin-bottom:15px;">
-                            <button onclick="saveQuickBookingAsFavorite()" style="width:100%;padding:10px;background:#fbbf24;color:#78350f;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                            <button onclick="saveQuickBookingAsFavorite()" title="Diese Strecke als Favorit speichern (z.B. häufig genutzte Route)" style="width:100%;padding:10px;background:#fbbf24;color:#78350f;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
                                 ⭐ Als Favorit speichern
                             </button>
                         </div>
@@ -21074,10 +21094,10 @@
                     
                     <!-- Action Buttons -->
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px;border-top:2px solid #e5e7eb;">
-                        <button onclick="document.getElementById('quick-booking-modal').remove()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                        <button onclick="document.getElementById('quick-booking-modal').remove()" title="Schnellbuchung abbrechen" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                             Abbrechen
                         </button>
-                        <button onclick="submitQuickBooking()" style="padding:14px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);">
+                        <button onclick="submitQuickBooking()" title="Fahrt jetzt buchen und Fahrer benachrichtigen" style="padding:14px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(16, 185, 129, 0.3);">
                             ⚡ Buchen
                         </button>
                     </div>
@@ -22756,10 +22776,52 @@
                     return;
                 }
                 
-                // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
+                // 🆕 v5.64.25: AUTO-GEOCODE WENN COORDS FEHLEN!
                 if (!qbPanelPickupCoords || !qbPanelDestCoords) {
-                    alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
-                    return;
+                    console.log('⚠️ Panel-Koordinaten fehlen - versuche Auto-Geocode...');
+                    
+                    // Versuche Adressen zu geocoden
+                    const tasks = [];
+                    if (!qbPanelPickupCoords && pickup) {
+                        tasks.push(
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de&limit=1`)
+                                .then(r => r.json())
+                                .then(results => {
+                                    if (results.length > 0) {
+                                        qbPanelPickupCoords = { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+                                        console.log('✅ Panel-Abholort geocoded:', qbPanelPickupCoords);
+                                    }
+                                })
+                        );
+                    }
+                    if (!qbPanelDestCoords && destination) {
+                        tasks.push(
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de&limit=1`)
+                                .then(r => r.json())
+                                .then(results => {
+                                    if (results.length > 0) {
+                                        qbPanelDestCoords = { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+                                        console.log('✅ Panel-Zielort geocoded:', qbPanelDestCoords);
+                                    }
+                                })
+                        );
+                    }
+                    
+                    if (tasks.length > 0) {
+                        const toast = document.createElement('div');
+                        toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                        toast.innerHTML = '🗺️ Suche Koordinaten...';
+                        document.body.appendChild(toast);
+                        
+                        await Promise.all(tasks);
+                        toast.remove();
+                    }
+                    
+                    // Prüfe erneut
+                    if (!qbPanelPickupCoords || !qbPanelDestCoords) {
+                        alert('❌ Koordinaten konnten nicht gefunden werden!\n\n💡 Tipp: Wähle Adressen aus dem Dropdown (erscheint beim Tippen).');
+                        return;
+                    }
                 }
                 
                 // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!
@@ -24326,10 +24388,52 @@
                 console.log('💰 Preis berechnen?', shouldCalculatePrice);
                 console.log('⏱️ Dauer-Modus:', durationMode);
                 
-                // 🆕 v5.48.2: Prüfe ob Koordinaten vorhanden sind!
+                // 🆕 v5.64.25: AUTO-GEOCODE WENN COORDS FEHLEN!
                 if (!quickBookingPickupCoords || !quickBookingDestCoords) {
-                    alert('❌ Bitte wähle Adressen aus dem Dropdown!\n\nDie Koordinaten werden für Preisberechnung benötigt.');
-                    return;
+                    console.log('⚠️ Koordinaten fehlen - versuche Auto-Geocode...');
+                    
+                    // Versuche Adressen zu geocoden
+                    const tasks = [];
+                    if (!quickBookingPickupCoords && pickup) {
+                        tasks.push(
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de&limit=1`)
+                                .then(r => r.json())
+                                .then(results => {
+                                    if (results.length > 0) {
+                                        quickBookingPickupCoords = { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+                                        console.log('✅ Abholort geocoded:', quickBookingPickupCoords);
+                                    }
+                                })
+                        );
+                    }
+                    if (!quickBookingDestCoords && destination) {
+                        tasks.push(
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de&limit=1`)
+                                .then(r => r.json())
+                                .then(results => {
+                                    if (results.length > 0) {
+                                        quickBookingDestCoords = { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+                                        console.log('✅ Zielort geocoded:', quickBookingDestCoords);
+                                    }
+                                })
+                        );
+                    }
+                    
+                    if (tasks.length > 0) {
+                        const toast = document.createElement('div');
+                        toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                        toast.innerHTML = '🗺️ Suche Koordinaten...';
+                        document.body.appendChild(toast);
+                        
+                        await Promise.all(tasks);
+                        toast.remove();
+                    }
+                    
+                    // Prüfe erneut
+                    if (!quickBookingPickupCoords || !quickBookingDestCoords) {
+                        alert('❌ Koordinaten konnten nicht gefunden werden!\n\n💡 Tipp: Wähle Adressen aus dem Dropdown (erscheint beim Tippen).');
+                        return;
+                    }
                 }
                 
                 // 🆕 v5.48.2: BERECHNE ROUTE + PREIS!

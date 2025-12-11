@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.34 - NOTIZEN + PREISFIX! 📝💰 (Build 20251211-1630)');
+        console.log('🚕 Funk Taxi App v5.64.35 - AUTOCOMPLETE FÜR AI-MASKE! 🔍 (Build 20251211-1700)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.34 - NOTIZEN + PREISFIX! 📝💰 (Build 20251211-1630)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.35 - AUTOCOMPLETE FÜR AI-MASKE! 🔍 (Build 20251211-1700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3781,12 +3781,18 @@
 
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Abholort:</label>
-                            <input type="text" id="ai-booking-pickup" placeholder="z.B. Bahnhof Heringsdorf" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                            <div style="position: relative;">
+                                <input type="text" id="ai-booking-pickup" placeholder="z.B. Bahnhof Heringsdorf" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                                <div class="autocomplete-dropdown" id="ai-booking-pickup-dropdown" style="display: none;"></div>
+                            </div>
                         </div>
 
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Zielort:</label>
-                            <input type="text" id="ai-booking-destination" placeholder="z.B. Strandhotel Ahlbeck" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                            <div style="position: relative;">
+                                <input type="text" id="ai-booking-destination" placeholder="z.B. Strandhotel Ahlbeck" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                                <div class="autocomplete-dropdown" id="ai-booking-destination-dropdown" style="display: none;"></div>
+                            </div>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
@@ -4096,7 +4102,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.64.34';
+        const APP_VERSION = '5.64.35';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -11151,8 +11157,8 @@
         function setupAutocomplete() {
             console.log('🔧 setupAutocomplete wird initialisiert...');
             
-            // 🆕 v5.50.7: Auch Admin-Panel Felder!
-            ['pickup', 'destination', 'qb-panel-pickup', 'qb-panel-destination'].forEach(id => {
+            // 🆕 v5.64.34: Auch AI-Buchungsmaske Felder!
+            ['pickup', 'destination', 'qb-panel-pickup', 'qb-panel-destination', 'ai-booking-pickup', 'ai-booking-destination'].forEach(id => {
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
                 
@@ -11179,6 +11185,10 @@
                         qbPanelPickupCoords = null; // 🆕 v5.50.7: Admin-Panel Coords!
                     } else if (id === 'qb-panel-destination') {
                         qbPanelDestCoords = null; // 🆕 v5.50.7: Admin-Panel Coords!
+                    } else if (id === 'ai-booking-pickup') {
+                        window.aiBookingPickupCoords = null; // 🆕 v5.64.34: AI-Maske Coords!
+                    } else if (id === 'ai-booking-destination') {
+                        window.aiBookingDestCoords = null; // 🆕 v5.64.34: AI-Maske Coords!
                     }
                     
                     clearTimeout(autocompleteTimeout);
@@ -11434,6 +11444,14 @@
                 // 🆕 v5.50.7: Admin-Panel Zielort!
                 qbPanelDestCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 console.log('✅ Admin-Panel Zielort gespeichert:', address, qbPanelDestCoords);
+            } else if (inputId === 'ai-booking-pickup') {
+                // 🆕 v5.64.34: AI-Buchungsmaske Abholort!
+                window.aiBookingPickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                console.log('✅ AI-Maske Abholort gespeichert:', address, window.aiBookingPickupCoords);
+            } else if (inputId === 'ai-booking-destination') {
+                // 🆕 v5.64.34: AI-Buchungsmaske Zielort!
+                window.aiBookingDestCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                console.log('✅ AI-Maske Zielort gespeichert:', address, window.aiBookingDestCoords);
             }
         }
 
@@ -31771,8 +31789,25 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             }
             
             try {
-                // Nutze bestehende calculateDistance Funktion
-                const result = await calculateDistance(pickup, destination);
+                // Prüfe ob Coords bereits vorhanden (aus Autocomplete)
+                let result;
+                if (window.aiBookingPickupCoords && window.aiBookingDestCoords) {
+                    console.log('✅ Verwende gespeicherte Coords aus Autocomplete');
+                    // Berechne Route direkt mit Coords
+                    const route = await calculateRoute(window.aiBookingPickupCoords, window.aiBookingDestCoords);
+                    if (route && route.distance) {
+                        const pricing = calculatePrice(parseFloat(route.distance), Date.now());
+                        result = {
+                            distance: route.distance,
+                            duration: route.duration,
+                            price: pricing.total
+                        };
+                    }
+                } else {
+                    console.log('🔍 Keine Coords vorhanden, starte Geocoding...');
+                    // Nutze calculateDistance mit Geocoding
+                    result = await calculateDistance(pickup, destination);
+                }
                 
                 if (result && result.price) {
                     document.getElementById('ai-booking-price').textContent = parseFloat(result.price).toFixed(2) + ' €';
@@ -31838,7 +31873,25 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             
             try {
                 // Berechne Distanz für vollständige Daten
-                const distanceResult = await calculateDistance(pickup, destination);
+                let distanceResult;
+                
+                if (window.aiBookingPickupCoords && window.aiBookingDestCoords) {
+                    console.log('✅ Verwende gespeicherte Coords für Distanzberechnung');
+                    const route = await calculateRoute(window.aiBookingPickupCoords, window.aiBookingDestCoords);
+                    if (route && route.distance) {
+                        const pricing = calculatePrice(parseFloat(route.distance), Date.now());
+                        distanceResult = {
+                            distance: route.distance,
+                            duration: route.duration,
+                            price: pricing.total,
+                            pickupCoords: window.aiBookingPickupCoords,
+                            destCoords: window.aiBookingDestCoords
+                        };
+                    }
+                } else {
+                    console.log('🔍 Keine Coords, starte Geocoding...');
+                    distanceResult = await calculateDistance(pickup, destination);
+                }
                 
                 if (!distanceResult) {
                     throw new Error('Distanz konnte nicht berechnet werden');

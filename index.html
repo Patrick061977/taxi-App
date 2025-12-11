@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.23 - BUTTON WIEDER DA! ✅ (Build 20251211-0900)');
+        console.log('🚕 Funk Taxi App v5.64.24 - HANDY-KONTAKTE + SMART-ANLEGEN! 📱 (Build 20251211-0930)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.23 - BUTTON WIEDER DA! ✅ (Build 20251211-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.24 - HANDY-KONTAKTE + SMART-ANLEGEN! 📱 (Build 20251211-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -20962,12 +20962,17 @@
                             <input 
                                 type="text" 
                                 id="quick-booking-customer-search" 
-                                placeholder="Name eingeben..." 
+                                placeholder="Telefon oder Name eingeben..." 
                                 oninput="searchQuickBookingCustomer()"
                                 autocomplete="off"
                                 style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <input type="hidden" id="quick-booking-customer" value="">
                             <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                            
+                            <!-- 🆕 v5.64.23: HANDY-KONTAKTE BUTTON -->
+                            <button onclick="importPhoneContact()" style="margin-top:8px;width:100%;padding:10px;background:#f0f9ff;color:#1e40af;border:2px solid #3b82f6;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                📱 Aus Handy-Kontakten importieren
+                            </button>
                         </div>
                         
                         <!-- Startzeit -->
@@ -21352,59 +21357,91 @@
         // 🆕 v5.52.9: NEUEN KUNDEN AUS SCHNELLBUCHUNG ANLEGEN
         async function createNewCustomerFromQuickBooking() {
             const searchInput = document.getElementById('quick-booking-customer-search');
-            const enteredName = searchInput.value.trim();
+            const enteredText = searchInput.value.trim();
             
-            if (!enteredName) {
-                alert('❌ Bitte Namen eingeben!');
+            if (!enteredText) {
+                alert('❌ Bitte Namen oder Telefonnummer eingeben!');
                 return;
             }
+            
+            // 🆕 v5.64.23: ERKENNE OB TELEFONNUMMER!
+            const isPhone = /^[\d\s\+\-\(\)]+$/.test(enteredText);
+            const prefillName = isPhone ? '' : enteredText;
+            const prefillPhone = isPhone ? enteredText : '';
             
             // Mini-Modal für zusätzliche Daten
             const miniModal = document.createElement('div');
             miniModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
             miniModal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
-                    <h3 style="margin:0 0 15px 0;">➕ Neuer Kunde</h3>
-                    <div style="margin-bottom:10px;">
-                        <label style="display:block;font-weight:600;margin-bottom:5px;">Name:</label>
-                        <input type="text" id="new-qb-customer-name" value="${enteredName}" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                    <h3 style="margin:0 0 15px 0;color:#1f2937;">➕ Neuer Kunde</h3>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Telefon: <span style="color:#ef4444;">*</span></label>
+                        <input type="tel" id="new-qb-customer-phone" value="${prefillPhone}" placeholder="z.B. 0170 1234567" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
-                    <div style="margin-bottom:10px;">
-                        <label style="display:block;font-weight:600;margin-bottom:5px;">Telefon:</label>
-                        <input type="text" id="new-qb-customer-phone" placeholder="Optional" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">👤 Name: <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="new-qb-customer-name" value="${prefillName}" placeholder="z.B. Max Mustermann" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📧 Email:</label>
+                        <input type="email" id="new-qb-customer-email" placeholder="Optional" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
                     <div style="margin-bottom:15px;">
-                        <label style="display:block;font-weight:600;margin-bottom:5px;">Adresse:</label>
-                        <input type="text" id="new-qb-customer-address" placeholder="Optional" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">🏠 Adresse:</label>
+                        <input type="text" id="new-qb-customer-address" placeholder="Optional" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
+                    
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                        <button onclick="this.closest('div').parentElement.remove()" style="padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                        <button onclick="this.closest('div').parentElement.remove()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                             Abbrechen
                         </button>
-                        <button onclick="saveNewQuickBookingCustomer()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                        <button onclick="saveNewQuickBookingCustomer()" style="padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
                             💾 Speichern
                         </button>
                     </div>
                 </div>
             `;
             document.body.appendChild(miniModal);
+            
+            // 🆕 v5.64.23: FOKUS AUF ERSTES LEERES FELD!
+            setTimeout(() => {
+                if (isPhone) {
+                    document.getElementById('new-qb-customer-name').focus();
+                } else {
+                    document.getElementById('new-qb-customer-phone').focus();
+                }
+            }, 100);
         }
         
         // 🆕 v5.52.9: SPEICHERE NEUEN KUNDEN AUS SCHNELLBUCHUNG
         async function saveNewQuickBookingCustomer() {
-            const name = document.getElementById('new-qb-customer-name').value.trim();
             const phone = document.getElementById('new-qb-customer-phone').value.trim();
+            const name = document.getElementById('new-qb-customer-name').value.trim();
+            const email = document.getElementById('new-qb-customer-email').value.trim();
             const address = document.getElementById('new-qb-customer-address').value.trim();
+            
+            // 🆕 v5.64.23: TELEFON + NAME PFLICHT!
+            if (!phone) {
+                alert('❌ Telefonnummer ist erforderlich!');
+                document.getElementById('new-qb-customer-phone').focus();
+                return;
+            }
             
             if (!name) {
                 alert('❌ Name ist erforderlich!');
+                document.getElementById('new-qb-customer-name').focus();
                 return;
             }
             
             const customer = {
                 name: name,
                 phone: phone,
-                email: '',
+                email: email,
                 address: address,
                 billingAddresses: [{
                     id: Date.now(),
@@ -21449,6 +21486,70 @@
                 toast.style.background = '#ef4444';
                 toast.innerHTML = `❌ Fehler beim Speichern!`;
                 setTimeout(() => toast.remove(), 3000);
+            }
+        }
+        
+        // 🆕 v5.64.23: HANDY-KONTAKTE IMPORTIEREN
+        async function importPhoneContact() {
+            // Check if Contact Picker API is supported
+            if (!('contacts' in navigator) || !('ContactsManager' in window)) {
+                alert('❌ Dein Browser unterstützt leider keinen Handy-Kontakte-Import.\n\nBitte gib Name und Telefon manuell ein.');
+                return;
+            }
+            
+            try {
+                const props = ['name', 'tel'];
+                const opts = {multiple: false};
+                
+                const contacts = await navigator.contacts.select(props, opts);
+                
+                if (contacts && contacts.length > 0) {
+                    const contact = contacts[0];
+                    const name = contact.name && contact.name.length > 0 ? contact.name[0] : '';
+                    const phone = contact.tel && contact.tel.length > 0 ? contact.tel[0] : '';
+                    
+                    if (!name && !phone) {
+                        alert('❌ Kontakt enthält keinen Namen oder Telefonnummer!');
+                        return;
+                    }
+                    
+                    // Prüfe ob Kunde schon existiert
+                    const existing = allCustomers.find(c => 
+                        (phone && c.phone === phone) || 
+                        (name && c.name === name)
+                    );
+                    
+                    if (existing) {
+                        // Kunde existiert schon - wähle ihn aus
+                        selectQuickBookingCustomer(existing.id, existing.name, existing.phone, existing.address || '', existing.favoriteDestination || '');
+                        
+                        const toast = document.createElement('div');
+                        toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                        toast.innerHTML = `✅ "${existing.name}" ausgewählt!`;
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 2000);
+                    } else {
+                        // Neuer Kunde - öffne Anlege-Popup mit vorausgefüllten Daten
+                        const searchInput = document.getElementById('quick-booking-customer-search');
+                        searchInput.value = phone || name;
+                        
+                        // Warte kurz, dann öffne Popup
+                        setTimeout(() => {
+                            createNewCustomerFromQuickBooking();
+                            
+                            // Warte bis Popup da ist, dann fülle Felder aus
+                            setTimeout(() => {
+                                if (phone) document.getElementById('new-qb-customer-phone').value = phone;
+                                if (name) document.getElementById('new-qb-customer-name').value = name;
+                            }, 100);
+                        }, 100);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Fehler beim Kontakt-Import:', error);
+                if (error.name !== 'AbortError') {
+                    alert('❌ Fehler beim Importieren!\n\n' + error.message);
+                }
             }
         }
         

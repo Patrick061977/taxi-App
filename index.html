@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.30 - NOTIZEN-EXTRAKTION + SYNTAXFEHLER-FIX 🎯 (Build 20251211-1505)');
+        console.log('🚕 Funk Taxi App v5.64.31 - HTML-ESCAPE BUGFIX 🔒 (Build 20251211-1530)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.30 - NOTIZEN-EXTRAKTION + SYNTAXFEHLER-FIX 🎯 (Build 20251211-1505)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.31 - HTML-ESCAPE BUGFIX 🔒 (Build 20251211-1530)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4091,7 +4091,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.64.30';
+        const APP_VERSION = '5.64.31';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -32352,6 +32352,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // Test-Ergebnis anzeigen
+        // HTML-Escape-Funktion für sichere Anzeige
+        function escapeHtml(text) {
+            if (!text) return text;
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         function displayTestResult(data, originalMessage) {
             const resultDiv = document.getElementById('test-result');
             
@@ -32403,12 +32411,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             </div>
                             <div style="display: grid; gap: 8px; font-size: 13px; color: #78350f;">
                                 ${data.datetime ? `<div>📅 Datum/Zeit: ${new Date(data.datetime).toLocaleString('de-DE')}</div>` : '<div>❌ Datum/Zeit: Nicht angegeben</div>'}
-                                ${data.pickup ? `<div>📍 Von: ${data.pickup}</div>` : '<div>❌ Von: Nicht angegeben</div>'}
-                                ${data.destination ? `<div>🎯 Nach: ${data.destination}</div>` : '<div>❌ Nach: Nicht angegeben</div>'}
+                                ${data.pickup ? `<div>📍 Von: ${escapeHtml(data.pickup)}</div>` : '<div>❌ Von: Nicht angegeben</div>'}
+                                ${data.destination ? `<div>🎯 Nach: ${escapeHtml(data.destination)}</div>` : '<div>❌ Nach: Nicht angegeben</div>'}
                                 ${data.passengers ? `<div>👥 Personen: ${data.passengers}</div>` : ''}
-                                ${data.name ? `<div>👤 Name: ${data.name}</div>` : ''}
-                                ${data.phone ? `<div>📞 Telefon: ${data.phone}</div>` : ''}
-                                ${data.notes ? `<div>📝 Notizen: ${data.notes}</div>` : ''}
+                                ${data.name ? `<div>👤 Name: ${escapeHtml(data.name)}</div>` : ''}
+                                ${data.phone ? `<div>📞 Telefon: ${escapeHtml(data.phone)}</div>` : ''}
+                                ${data.notes ? `<div>📝 Notizen: ${escapeHtml(data.notes)}</div>` : ''}
                             </div>
                         </div>
                     </div>
@@ -32444,11 +32452,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             </div>
                             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
                                 <div style="font-weight: 600; color: #047857;">📍 Von:</div>
-                                <div>${data.pickup}</div>
+                                <div>${escapeHtml(data.pickup)}</div>
                             </div>
                             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
                                 <div style="font-weight: 600; color: #047857;">🎯 Nach:</div>
-                                <div>${data.destination}</div>
+                                <div>${escapeHtml(data.destination)}</div>
                             </div>
                             <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
                                 <div style="font-weight: 600; color: #047857;">👥 Personen:</div>
@@ -32457,19 +32465,19 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             ${data.name ? `
                                 <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
                                     <div style="font-weight: 600; color: #047857;">👤 Name:</div>
-                                    <div>${data.name}</div>
+                                    <div>${escapeHtml(data.name)}</div>
                                 </div>
                             ` : ''}
                             ${data.phone ? `
                                 <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
                                     <div style="font-weight: 600; color: #047857;">📞 Telefon:</div>
-                                    <div>${data.phone}</div>
+                                    <div>${escapeHtml(data.phone)}</div>
                                 </div>
                             ` : ''}
                             ${data.notes ? `
                                 <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
                                     <div style="font-weight: 600; color: #047857;">📝 Notizen:</div>
-                                    <div>${data.notes}</div>
+                                    <div>${escapeHtml(data.notes)}</div>
                                 </div>
                             ` : ''}
                         </div>

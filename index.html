@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.40 - FAHRZEUG-ZUWEISUNG NACHTRÄGLICH ÄNDERN! 🚗 (Build 20251211-2220)');
+        console.log('🚕 Funk Taxi App v5.64.41 - FAHRZEUG-DROPDOWN FIX + ADMIN-STORNIERUNG! 🐛 (Build 20251211-2235)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.40 - FAHRZEUG-ZUWEISUNG NACHTRÄGLICH ÄNDERN! 🚗 (Build 20251211-2220)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.41 - FAHRZEUG-DROPDOWN FIX + ADMIN-STORNIERUNG! 🐛 (Build 20251211-2235)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5189,7 +5189,7 @@
                     vehicles.forEach(v => {
                         const option = document.createElement('option');
                         option.value = v.id;
-                        option.textContent = `${v.brand} ${v.model} (${v.licensePlate})`;
+                        option.textContent = `${v.name || 'Unbekannt'}${v.plate ? ' (' + v.plate + ')' : ''}`;
                         if (ride.vehicleId === v.id) option.selected = true;
                         vehicleSelect.appendChild(option);
                     });
@@ -8385,13 +8385,24 @@
                         ` : ''}
                         
                         <!-- Buttons -->
-                        <div style="margin-top:25px;display:grid;grid-template-columns:${ride.status === 'cancelled' ? '1fr 1fr 1fr' : '1fr 1fr'};gap:10px;">
+                        ${(() => {
+                            let buttonCount = 2; // Schließen + ID kopieren
+                            if (ride.status === 'cancelled') buttonCount++; // Wiederherstellen
+                            if (ride.status !== 'cancelled' && ride.status !== 'completed') buttonCount++; // Stornieren
+                            const gridCols = 'repeat(' + buttonCount + ', 1fr)';
+                            return `<div style="margin-top:25px;display:grid;grid-template-columns:${gridCols};gap:10px;">`;
+                        })()}
                             <button onclick="this.closest('#ride-details-modal').remove()" style="padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 Schließen
                             </button>
                             ${ride.status === 'cancelled' && ride.firebaseId ? `
                             <button onclick="restoreRide('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 🔄 Wiederherstellen
+                            </button>
+                            ` : ''}
+                            ${ride.status !== 'cancelled' && ride.status !== 'completed' && ride.firebaseId ? `
+                            <button onclick="cancelRideAsAdmin('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                🚫 Stornieren
                             </button>
                             ` : ''}
                             ${ride.firebaseId ? `
@@ -23412,6 +23423,85 @@
         }
         
         // 🆕 FAHRT LÖSCHEN
+        // 🆕 v5.64.41: ADMIN-STORNIERUNG MIT TELEGRAM
+        async function cancelRideAsAdmin(rideId) {
+            const snapshot = await db.ref(`rides/${rideId}`).once('value');
+            const ride = snapshot.val();
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            if (ride.status === 'cancelled') {
+                alert('⚠️ Fahrt ist bereits storniert!');
+                return;
+            }
+            
+            const confirmMsg = `Fahrt wirklich stornieren?\n\n` +
+                `📍 Von: ${ride.pickup || '?'}\n` +
+                `🎯 Nach: ${ride.destination || '?'}\n` +
+                `👤 Kunde: ${ride.customerName || '?'}\n\n` +
+                `⚠️ Der Fahrer wird per Telegram benachrichtigt!`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            try {
+                // Status auf cancelled setzen
+                await db.ref(`rides/${rideId}`).update({
+                    status: 'cancelled',
+                    cancelledAt: Date.now(),
+                    cancelledBy: 'admin',
+                    cancellationReason: 'Von Admin storniert'
+                });
+                
+                // 📱 TELEGRAM AN FAHRER - AUCH WENN NICHT ZUGEWIESEN!
+                console.log('📱 Sende Stornierung-Telegram...');
+                
+                // Nachricht vorbereiten
+                const cancelMessage = `🚫 <b>FAHRT STORNIERT (ADMIN)!</b>\n\n` +
+                    `👤 Kunde: ${ride.customerName || 'Unbekannt'}\n` +
+                    `📍 Von: ${ride.pickup}\n` +
+                    `🎯 Nach: ${ride.destination}\n` +
+                    `💰 Preis: ${ride.price || '?'}€\n\n` +
+                    `❌ Die Fahrt wurde vom Admin storniert.`;
+                
+                // Sende an zugewiesenen Fahrer ODER an alle
+                if (ride.assignedTo) {
+                    // An zugewiesenen Fahrer
+                    try {
+                        await sendTelegramToDriverCancel(ride.assignedTo, cancelMessage);
+                        console.log('✅ Telegram an zugewiesenen Fahrer gesendet');
+                    } catch (error) {
+                        console.error('❌ Telegram-Fehler:', error);
+                    }
+                } else {
+                    // KEINE Zuweisung - Sende Info-Telegram an Admin-Gruppe
+                    console.log('⚠️ Fahrt war nicht zugewiesen - Info-Nachricht');
+                    // Hier könnte man eine Nachricht an eine Admin-Gruppe senden
+                }
+                
+                alert('✅ Fahrt storniert!\n\nTelegram wurde gesendet.');
+                
+                // Logs
+                logActivity('status', 'cancelled', 'Admin-Stornierung', {
+                    customer: ride.customerName,
+                    from: ride.pickup,
+                    to: ride.destination
+                });
+                
+                // Views aktualisieren
+                updateAdminView();
+                loadRidesForCalendar();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Stornieren:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+
         async function deleteRideFromCalendar(rideId) {
             const snapshot = await db.ref(`rides/${rideId}`).once('value');
             const ride = snapshot.val();

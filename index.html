@@ -2485,6 +2485,25 @@
             </div>
         </div>
         
+        <!-- 📞 ANRUFHISTORIE -->
+        <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #10b981;box-shadow:0 4px 12px rgba(16,185,129,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="font-size:24px;">📞</div>
+                    <div style="font-weight:600;font-size:16px;color:#1f2937;">Anrufhistorie</div>
+                </div>
+                <button onclick="refreshCallHistory()" style="padding:8px 16px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    🔄 Aktualisieren
+                </button>
+            </div>
+            
+            <div id="call-history-container" style="max-height:400px;overflow-y:auto;">
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    Lade Anrufhistorie...
+                </div>
+            </div>
+        </div>
+        
         <!-- 🆕 v5.27.1: KALENDER (NUR FÜR ADMIN!) -->
         <div onclick="toggleAdminSection('calendar')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">📅 Fahrten-Kalender</span>
@@ -33314,6 +33333,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             });
             
             console.log('✅ CallPopup Listener aktiv');
+            
+            // 📞 Starte auch Call-Historie Listener
+            initCallHistory();
         }
         
         function showCallPopup(data) {
@@ -33466,7 +33488,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         function openQuickBookingWithCustomer(customerId) {
-            console.log('🚕 Öffne Schnellbuchung für Kunde:', customerId);
+            console.log('🚕 Öffne Admin-Schnellbuchung für Kunde:', customerId);
             
             // Lade Kundendaten
             db.ref('customers/' + customerId).once('value').then(snapshot => {
@@ -33476,35 +33498,190 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     return;
                 }
                 
-                // Schließe Popup zuerst
+                console.log('✅ Kunde geladen:', customer.name);
+                
+                // Schließe Popup
                 closeCallPopup();
-                
-                // Wechsle zu Admin-Bereich
-                const loginPanel = document.getElementById('login-panel');
-                const mainView = document.getElementById('main-view');
-                if (loginPanel) loginPanel.style.display = 'none';
-                if (mainView) mainView.style.display = 'block';
-                
-                // Aktiviere Admin-Tab
-                const adminTab = document.getElementById('admin-tab');
-                if (adminTab) adminTab.style.display = 'block';
                 
                 // Wechsle zu Admin
                 switchView('admin');
                 
-                // Füge ID zum Customer-Objekt hinzu
-                customer.id = customerId;
-                
-                // Öffne Schnellbuchung mit der richtigen Funktion!
+                // Öffne das Admin-Panel Quick-Booking
                 setTimeout(() => {
-                    console.log('📞 Öffne Schnellbuchung-Modal für:', customer.name);
-                    openQuickBookingModal(customer);
+                    const panel = document.getElementById('quick-booking-panel');
+                    if (!panel) {
+                        console.error('❌ Quick-Booking-Panel nicht gefunden!');
+                        alert('❌ Quick-Booking-Panel nicht gefunden! Bitte Seite neu laden.');
+                        return;
+                    }
+                    
+                    // Öffne Panel falls geschlossen
+                    if (panel.style.display === 'none' || panel.style.display === '') {
+                        toggleQuickBookingPanel();
+                    }
+                    
+                    // Warte kurz bis Panel offen ist
+                    setTimeout(() => {
+                        // Setze Kundendaten
+                        window.qbPanelCustomer = { 
+                            id: customerId, 
+                            name: customer.name,
+                            phone: customer.phone,
+                            address: customer.address
+                        };
+                        
+                        // Zeige Kunde im Panel an
+                        const customerDisplay = document.getElementById('qb-panel-customer-display');
+                        if (customerDisplay) {
+                            customerDisplay.innerHTML = `
+                                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#10b981;color:white;border-radius:8px;margin-bottom:10px;">
+                                    <div>
+                                        <div style="font-weight:700;font-size:16px;">👤 ${customer.name}</div>
+                                        <div style="font-size:13px;opacity:0.9;">📞 ${customer.phone || 'Keine Nummer'}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        // Fülle Abholadresse
+                        const pickupInput = document.getElementById('qb-panel-pickup');
+                        if (pickupInput && customer.address) {
+                            pickupInput.value = customer.address;
+                        }
+                        
+                        console.log('✅ Kundendaten im Panel gesetzt!');
+                        console.log('   Name:', customer.name);
+                        console.log('   Telefon:', customer.phone);
+                        console.log('   Abholadresse:', customer.address);
+                        
+                        // Fokus auf Zielort
+                        const destInput = document.getElementById('qb-panel-destination');
+                        if (destInput) {
+                            destInput.focus();
+                        }
+                        
+                    }, 300);
+                    
                 }, 500);
                 
             }).catch(err => {
                 console.error('❌ Fehler beim Laden des Kunden:', err);
                 alert('❌ Fehler beim Laden der Kundendaten!');
             });
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 📞 ANRUFHISTORIE FUNKTIONEN
+        // ═══════════════════════════════════════════════════════════════════
+        
+        let callHistoryListener = null;
+        
+        function initCallHistory() {
+            console.log('📞 Initialisiere Anrufhistorie Listener...');
+            
+            // Lösche alten Listener falls vorhanden
+            if (callHistoryListener) {
+                db.ref('callHistory').off('value', callHistoryListener);
+            }
+            
+            // Erstelle neuen Listener
+            callHistoryListener = db.ref('callHistory')
+                .orderByChild('timestamp')
+                .limitToLast(20)
+                .on('value', snapshot => {
+                    displayCallHistory(snapshot);
+                });
+            
+            console.log('✅ Anrufhistorie Listener aktiv');
+        }
+        
+        function displayCallHistory(snapshot) {
+            const container = document.getElementById('call-history-container');
+            if (!container) return;
+            
+            const calls = [];
+            snapshot.forEach(child => {
+                calls.push({
+                    id: child.key,
+                    ...child.val()
+                });
+            });
+            
+            // Sortiere nach Timestamp (neueste zuerst)
+            calls.sort((a, b) => b.timestamp - a.timestamp);
+            
+            if (calls.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">📞</div>
+                        <div style="font-weight:600;margin-bottom:5px;">Keine Anrufe</div>
+                        <div style="font-size:13px;">Anrufe erscheinen hier automatisch</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="display:grid;gap:8px;">';
+            
+            calls.forEach(call => {
+                const date = new Date(call.timestamp);
+                const timeStr = date.toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const bgColor = call.customerFound ? '#d1fae5' : '#fef3c7';
+                const borderColor = call.customerFound ? '#10b981' : '#f59e0b';
+                const icon = call.customerFound ? '✅' : '⚠️';
+                const statusText = call.customerFound ? 'Bekannter Kunde' : 'Neuer Kunde';
+                
+                html += `
+                    <div style="background:${bgColor};border:2px solid ${borderColor};border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;">
+                        <div style="font-size:32px;">${icon}</div>
+                        <div style="flex:1;">
+                            <div style="display:flex;justify-content:between;align-items:start;gap:10px;">
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:15px;color:#1f2937;margin-bottom:4px;">
+                                        ${call.customerName || call.caller}
+                                    </div>
+                                    ${call.customerFound && call.customerName ? `
+                                        <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">
+                                            📞 ${call.caller}
+                                        </div>
+                                    ` : ''}
+                                    <div style="font-size:12px;color:#6b7280;">
+                                        ${statusText} • ${timeStr}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ${call.customerFound ? `
+                            <button onclick="openQuickBookingWithCustomer('${call.customerId}')" 
+                                    style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                🚕 Buchen
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            html += `
+                <div style="text-align:center;margin-top:12px;font-size:12px;color:#6b7280;">
+                    Zeige letzte ${calls.length} Anrufe
+                </div>
+            `;
+            
+            container.innerHTML = html;
+            console.log(`📞 ${calls.length} Anrufe angezeigt`);
+        }
+        
+        function refreshCallHistory() {
+            console.log('🔄 Aktualisiere Anrufhistorie...');
+            initCallHistory();
         }
         
         async function saveNewCustomerAndBook(phone) {

@@ -33476,6 +33476,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     return;
                 }
                 
+                // Schließe Popup zuerst
+                closeCallPopup();
+                
                 // Wechsle zu Admin-Bereich
                 const loginPanel = document.getElementById('login-panel');
                 const mainView = document.getElementById('main-view');
@@ -33489,36 +33492,19 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Wechsle zu Admin
                 switchView('admin');
                 
-                // Öffne Schnellbuchung
-                const modal = document.getElementById('admin-quick-booking-modal');
-                if (modal) {
-                    modal.style.display = 'block';
-                    
-                    // Fülle Kundendaten
-                    setTimeout(() => {
-                        const pickupInput = document.getElementById('quick-booking-pickup');
-                        if (pickupInput && customer.address) {
-                            pickupInput.value = customer.address;
-                        }
-                        
-                        // Fülle Passagiername
-                        const nameInput = document.getElementById('quick-booking-name');
-                        if (nameInput && customer.name) {
-                            nameInput.value = customer.name;
-                        }
-                        
-                        // Fülle Telefonnummer
-                        const phoneInput = document.getElementById('quick-booking-phone');
-                        if (phoneInput && customer.phone) {
-                            phoneInput.value = customer.phone;
-                        }
-                        
-                        console.log('✅ Kundendaten eingefügt');
-                    }, 300);
-                }
+                // Füge ID zum Customer-Objekt hinzu
+                customer.id = customerId;
+                
+                // Öffne Schnellbuchung mit der richtigen Funktion!
+                setTimeout(() => {
+                    console.log('📞 Öffne Schnellbuchung-Modal für:', customer.name);
+                    openQuickBookingModal(customer);
+                }, 500);
+                
+            }).catch(err => {
+                console.error('❌ Fehler beim Laden des Kunden:', err);
+                alert('❌ Fehler beim Laden der Kundendaten!');
             });
-            
-            closeCallPopup();
         }
         
         async function saveNewCustomerAndBook(phone) {

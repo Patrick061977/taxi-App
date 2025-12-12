@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.42 - BEARBEITEN-SPEICHERN FIX! 🔧 (Build 20251211-2245)');
+        console.log('🚕 Funk Taxi App v5.64.48 - UNIKLINIK RICHTIG SUCHBAR! 🔍🏥 (Build 20251212-0900)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.42 - BEARBEITEN-SPEICHERN FIX! 🔧 (Build 20251211-2245)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.48 - UNIKLINIK RICHTIG SUCHBAR! 🔍🏥 (Build 20251212-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3170,6 +3170,83 @@
             <div id="prebookings-list" style="max-height:400px;overflow-y:auto;"></div>
         </div>
         
+        <!-- 🆕 v5.64.45: KALENDER-EXPORT EINSTELLUNGEN -->
+        <div onclick="toggleAdminSection('calendar-settings')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">⚙️ Kalender-Export Einstellungen</span>
+            <span id="calendar-settings-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="calendar-settings-content" style="display:none;margin-bottom:20px;padding:15px;background:#fff;border-radius:8px;border:1px solid #e5e7eb;">
+            <div style="background:#f0f9ff;padding:15px;border-radius:8px;margin-bottom:15px;border-left:4px solid #3b82f6;">
+                <div style="font-weight:600;margin-bottom:8px;color:#1e40af;">📅 Was soll in Google Calendar angezeigt werden?</div>
+                <div style="font-size:13px;color:#1e40af;">Diese Einstellungen gelten für manuelle Exports UND automatische Synchronisation!</div>
+            </div>
+            
+            <div style="display:grid;gap:12px;">
+                <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
+                    <input type="checkbox" id="cal-setting-customer-name" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">👤 Kundenname anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
+                    <input type="checkbox" id="cal-setting-phone" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">📱 Telefonnummer anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
+                    <input type="checkbox" id="cal-setting-pickup" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">📍 Abholort anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
+                    <input type="checkbox" id="cal-setting-destination" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">🎯 Zielort anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
+                    <input type="checkbox" id="cal-setting-passengers" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">👥 Passagieranzahl anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#fff3cd;border-radius:8px;cursor:pointer;border:2px solid #fbbf24;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff3cd'">
+                    <input type="checkbox" id="cal-setting-price" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">💰 Preis anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#fff3cd;border-radius:8px;cursor:pointer;border:2px solid #fbbf24;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff3cd'">
+                    <input type="checkbox" id="cal-setting-distance" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">📏 Distanz anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
+                    <input type="checkbox" id="cal-setting-vehicle" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">🚗 Fahrzeug anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
+                    <input type="checkbox" id="cal-setting-notes" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">📝 Notizen anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#dcfce7;border-radius:8px;cursor:pointer;border:2px solid #10b981;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
+                    <input type="checkbox" id="cal-setting-reminder" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">⏰ Erinnerung 30 Min vorher</span>
+                </label>
+            </div>
+            
+            <button onclick="saveCalendarExportSettings()" style="width:100%;margin-top:20px;padding:15px;background:linear-gradient(135deg, #10b981 0%, #059669 100%);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);">
+                💾 Einstellungen speichern
+            </button>
+            
+            <div style="margin-top:15px;padding:12px;background:#fef3c7;border-radius:8px;border-left:4px solid #f59e0b;">
+                <div style="font-size:13px;color:#92400e;">
+                    <div style="font-weight:600;margin-bottom:4px;">💡 Hinweis:</div>
+                    Diese Einstellungen werden in Firebase gespeichert und gelten für:<br>
+                    • Manuellen Kalender-Export aus der App<br>
+                    • Automatische Google Calendar Synchronisation
+                </div>
+            </div>
+        </div>
+        
         <!-- 📱 NEU: TELEGRAM-ALARME -->
         <div onclick="toggleAdminSection('telegram')" style="background:linear-gradient(135deg,#0088cc,#0077b3);color:white;padding:12px;border-radius:8px;cursor:pointer;margin:20px 0 10px 0;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">📱 Telegram-Alarme</span>
@@ -5279,21 +5356,38 @@
                     await db.ref('rides/' + rideId).update(updates);
                     console.log('✅ Fahrt in Firebase aktualisiert');
                     
-                    // 📱 v5.64.42: TELEGRAM SENDEN wenn Fahrzeug zugewiesen!
+                    // 📱 v5.64.43: TELEGRAM RICHTIG SENDEN!
                     if (newVehicleId && updates.vehicle) {
-                        console.log('📱 Sende Telegram an Fahrer...');
+                        console.log('📱 Suche Fahrer für Fahrzeug:', newVehicleId);
                         
-                        // Lade komplette Fahrt für Telegram
-                        const rideSnapshot = await db.ref('rides/' + rideId).once('value');
-                        const ride = rideSnapshot.val();
+                        // 1️⃣ FINDE FAHRER DER DIESES FAHRZEUG NUTZT
+                        const driversSnapshot = await db.ref('drivers').once('value');
+                        let driverId = null;
                         
-                        if (ride) {
-                            try {
-                                await sendTelegramToDriver(newVehicleId, ride, 0);
-                                console.log('✅ Telegram gesendet!');
-                            } catch (telegramError) {
-                                console.error('❌ Telegram-Fehler:', telegramError);
+                        driversSnapshot.forEach(child => {
+                            const driver = child.val();
+                            // Prüfe ob Fahrer dieses Fahrzeug hat
+                            if (child.key === newVehicleId || driver.vehicle === newVehicleId) {
+                                driverId = child.key;
+                                console.log('✅ Fahrer gefunden:', driverId, 'für Fahrzeug:', newVehicleId);
                             }
+                        });
+                        
+                        if (driverId) {
+                            // Lade komplette Fahrt für Telegram
+                            const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                            const ride = rideSnapshot.val();
+                            
+                            if (ride) {
+                                try {
+                                    await sendTelegramToDriver(driverId, ride, 0);
+                                    console.log('✅ Telegram gesendet an Fahrer:', driverId);
+                                } catch (telegramError) {
+                                    console.error('❌ Telegram-Fehler:', telegramError);
+                                }
+                            }
+                        } else {
+                            console.warn('⚠️ Kein Fahrer gefunden für Fahrzeug:', newVehicleId);
                         }
                     }
                     
@@ -5324,7 +5418,36 @@
             // Aktualisiere Views
             updateHistoryView();
             updateAdminView();
-            if (typeof loadCalendarData === 'function') loadCalendarData();
+            
+            // 🆕 v5.64.43: ECHTZEIT-UPDATES! Kalender & alle Views
+            if (typeof loadCalendarData === 'function') {
+                console.log('🔄 Lade Kalender neu...');
+                await loadCalendarData();
+            }
+            if (typeof renderCalendar === 'function') {
+                console.log('🔄 Rendere Kalender...');
+                await renderCalendar();
+            }
+            if (typeof updateViews === 'function') {
+                console.log('🔄 Aktualisiere alle Views...');
+                updateViews();
+            }
+            if (typeof updateAdminTabsVisibility === 'function') {
+                updateAdminTabsVisibility();
+            }
+            
+            // 🆕 v5.64.43: Trigger manuellen Reload der rides
+            if (isFirebaseReady) {
+                console.log('🔄 Triggere rides reload...');
+                const ridesSnapshot = await db.ref('rides').once('value');
+                rides = [];
+                ridesSnapshot.forEach(child => {
+                    const r = child.val();
+                    r.firebaseId = child.key;
+                    rides.push(r);
+                });
+                console.log('✅ Rides neu geladen:', rides.length);
+            }
         }
         
         // 🔄 FAHRT NEU ZUWEISEN (aus rejected zurück zu new)
@@ -5617,8 +5740,27 @@
                 
                 // 6️⃣ TELEGRAM SENDEN (optional)
                 if (options.sendTelegram !== false && ride) {
-                    console.log('📱 Sende Telegram an Fahrer...');
-                    await sendTelegramToDriver(vehicleId, ride, 0);
+                    console.log('📱 Sende Telegram an Fahrer für Fahrzeug:', vehicleId);
+                    
+                    // 🆕 v5.64.43: FINDE FAHRER FÜR DIESES FAHRZEUG!
+                    const driversSnapshot = await db.ref('drivers').once('value');
+                    let driverId = null;
+                    
+                    driversSnapshot.forEach(child => {
+                        const driver = child.val();
+                        // Prüfe ob Fahrer dieses Fahrzeug hat
+                        if (child.key === vehicleId || driver.vehicle === vehicleId) {
+                            driverId = child.key;
+                            console.log('✅ Fahrer gefunden:', driverId);
+                        }
+                    });
+                    
+                    if (driverId) {
+                        await sendTelegramToDriver(driverId, ride, 0);
+                        console.log('✅ Telegram gesendet!');
+                    } else {
+                        console.warn('⚠️ Kein Fahrer für Fahrzeug:', vehicleId);
+                    }
                 }
                 
                 // 7️⃣ VIEWS AKTUALISIEREN (optional)
@@ -10950,12 +11092,24 @@
         }
 
         // 📅 VORBESTELLUNGEN - ICS Export
-        function exportPrebookingsToICS() {
+        async function exportPrebookingsToICS() {
             const prebookings = rides.filter(r => r.status === 'vorbestellt');
             
             if (prebookings.length === 0) {
                 alert('📅 Keine Vorbestellungen vorhanden!');
                 return;
+            }
+            
+            // 🆕 v5.64.45: Lade Kalender-Export Settings aus Firebase!
+            let settings = defaultCalendarSettings;
+            try {
+                if (isFirebaseReady) {
+                    const snapshot = await db.ref('settings/calendarExport').once('value');
+                    settings = snapshot.val() || defaultCalendarSettings;
+                    console.log('📅 Kalender-Settings für Vorbestellungen geladen:', settings);
+                }
+            } catch (error) {
+                console.error('⚠️ Settings laden fehlgeschlagen, verwende Defaults:', error);
             }
             
             // ICS Datei erstellen
@@ -10986,15 +11140,34 @@
                 icsContent += `DTSTAMP:${formatDate(new Date())}\n`;
                 icsContent += `DTSTART:${formatDate(startDate)}\n`;
                 icsContent += `DTEND:${formatDate(endDate)}\n`;
-                icsContent += `SUMMARY:🚕 Taxi ${ride.customerName}\n`;
-                icsContent += `DESCRIPTION:Von: ${ride.pickup}\\nNach: ${ride.destination}\\nTel: ${ride.customerPhone}\\nPreis: ${ride.price}€\n`;
-                icsContent += `LOCATION:${ride.pickup}\n`;
+                
+                // 🆕 v5.64.45: SUMMARY - Basierend auf Settings!
+                const customerName = settings.showCustomerName ? ride.customerName : 'Kunde';
+                icsContent += `SUMMARY:🚕 Taxi ${customerName}\n`;
+                
+                // 🆕 v5.64.45: DESCRIPTION - Basierend auf Settings!
+                let descParts = [];
+                if (settings.showPickup) descParts.push(`Von: ${ride.pickup}`);
+                if (settings.showDestination) descParts.push(`Nach: ${ride.destination}`);
+                if (settings.showPhone && ride.customerPhone) descParts.push(`Tel: ${ride.customerPhone}`);
+                if (settings.showPrice && ride.price) descParts.push(`Preis: ${ride.price}€`);
+                if (settings.showDistance && ride.distance) descParts.push(`Distanz: ${ride.distance} km`);
+                if (settings.showPassengers) descParts.push(`Passagiere: ${ride.passengers || 1}`);
+                if (settings.showVehicle && ride.vehicle) descParts.push(`Fahrzeug: ${ride.vehicle}`);
+                
+                icsContent += `DESCRIPTION:${descParts.join('\\n')}\n`;
+                icsContent += `LOCATION:${settings.showPickup ? ride.pickup : 'Abholort'}\n`;
                 icsContent += 'STATUS:CONFIRMED\n';
-                icsContent += 'BEGIN:VALARM\n';
-                icsContent += 'TRIGGER:-PT15M\n';
-                icsContent += 'ACTION:DISPLAY\n';
-                icsContent += `DESCRIPTION:Taxi-Abholung in 15 Minuten: ${ride.customerName}\n`;
-                icsContent += 'END:VALARM\n';
+                
+                // 🆕 v5.64.45: ALARM - Nur wenn aktiviert!
+                if (settings.showReminder) {
+                    icsContent += 'BEGIN:VALARM\n';
+                    icsContent += 'TRIGGER:-PT15M\n';
+                    icsContent += 'ACTION:DISPLAY\n';
+                    icsContent += `DESCRIPTION:Taxi-Abholung in 15 Minuten: ${customerName}\n`;
+                    icsContent += 'END:VALARM\n';
+                }
+                
                 icsContent += 'END:VEVENT\n';
             });
             
@@ -11015,7 +11188,7 @@
         }
         
         // 📥 EINZELNE FAHRT als ICS exportieren
-        function exportSingleRideToICS(rideId) {
+        async function exportSingleRideToICS(rideId) {
             // Finde die Fahrt
             const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
             
@@ -11027,6 +11200,18 @@
             if (!ride.pickupTimestamp) {
                 alert('❌ Keine Abholzeit vorhanden!');
                 return;
+            }
+            
+            // 🆕 v5.64.45: Lade Kalender-Export Settings aus Firebase!
+            let settings = defaultCalendarSettings;
+            try {
+                if (isFirebaseReady) {
+                    const snapshot = await db.ref('settings/calendarExport').once('value');
+                    settings = snapshot.val() || defaultCalendarSettings;
+                    console.log('📅 Kalender-Settings geladen:', settings);
+                }
+            } catch (error) {
+                console.error('⚠️ Settings laden fehlgeschlagen, verwende Defaults:', error);
             }
             
             // ICS Datei erstellen
@@ -11057,31 +11242,112 @@
             icsContent += `DTSTART:${formatDate(startDate)}\n`;
             icsContent += `DTEND:${formatDate(endDate)}\n`;
             
-            // 🆕 v5.59.0: AUSSAGEKRÄFTIGER TITEL!
-            // Format: "Abholort → Zielort | X Pers. | Name | Telefon"
+            // 🆕 v5.64.45: TITLE - Basierend auf Settings!
             const passengerCount = ride.passengers || 1;
-            const passengerText = `${passengerCount} Pers.`;
-            const phoneText = ride.customerPhone || 'Keine Nr.';
-            const titleSummary = `${ride.pickup} → ${ride.destination} | ${passengerText} | ${ride.customerName} | ${phoneText}`;
+            const passengerText = settings.showPassengers ? `${passengerCount} Pers.` : '';
+            const phoneText = settings.showPhone ? (ride.customerPhone || 'Keine Nr.') : '';
+            const nameText = settings.showCustomerName ? ride.customerName : 'Kunde';
             
-            // 🆕 v5.60.0: FAHRZEUG-INFO PROMINENT GANZ VORNE!
-            const vehicleInfo = ride.vehicle 
-                ? `🚗 FAHRZEUG: ${ride.vehicle.toUpperCase()}${ride.vehiclePlate ? ' ('+ride.vehiclePlate+')' : ''}\\n\\n` 
-                : '';
+            let titleParts = [];
+            if (settings.showPickup) titleParts.push(ride.pickup);
+            if (settings.showDestination) titleParts.push(ride.destination);
+            const titleRoute = titleParts.join(' → ');
+            
+            let titleExtras = [];
+            if (passengerText) titleExtras.push(passengerText);
+            if (settings.showCustomerName) titleExtras.push(nameText);
+            if (phoneText) titleExtras.push(phoneText);
+            
+            const titleSummary = titleRoute + (titleExtras.length > 0 ? ' | ' + titleExtras.join(' | ') : '');
+            
+            // 🆕 v5.64.45: DESCRIPTION - Basierend auf Settings!
+            let descriptionLines = ['🚕 TAXI-FAHRT', ''];
+            
+            // Fahrzeug (wenn aktiviert und vorhanden)
+            if (settings.showVehicle && ride.vehicle) {
+                const vehicleInfo = `🚗 FAHRZEUG: ${ride.vehicle.toUpperCase()}${ride.vehiclePlate ? ' ('+ride.vehiclePlate+')' : ''}`;
+                descriptionLines.push(vehicleInfo, '');
+            }
+            
+            // Kunde
+            if (settings.showCustomerName) {
+                descriptionLines.push(`Kunde: ${ride.customerName}`);
+            }
+            if (settings.showPhone && ride.customerPhone) {
+                descriptionLines.push(`Telefon: ${ride.customerPhone}`);
+            }
+            if ((settings.showCustomerName || settings.showPhone) && 
+                (settings.showPickup || settings.showDestination)) {
+                descriptionLines.push('');
+            }
+            
+            // Route
+            if (settings.showPickup) {
+                descriptionLines.push(`Von: ${ride.pickup}`);
+            }
+            if (settings.showDestination) {
+                descriptionLines.push(`Nach: ${ride.destination}`);
+            }
+            if ((settings.showPickup || settings.showDestination) && 
+                (settings.showPassengers || settings.showPrice || settings.showDistance)) {
+                descriptionLines.push('');
+            }
+            
+            // Details
+            if (settings.showPassengers) {
+                descriptionLines.push(`Passagiere: ${passengerCount}`);
+            }
+            if (settings.showPrice && ride.price) {
+                descriptionLines.push(`Preis: ${ride.price}€`);
+            }
+            if (settings.showDistance && ride.distance) {
+                descriptionLines.push(`Distanz: ${ride.distance} km`);
+            }
+            
+            // Notizen
+            if (settings.showNotes && ride.notes) {
+                descriptionLines.push('', `Notizen: ${ride.notes}`);
+            }
+            
+            const description = descriptionLines.join('\\n');
             
             icsContent += `SUMMARY:${titleSummary}\n`;
-            icsContent += `DESCRIPTION:🚕 TAXI-FAHRT\\n\\n${vehicleInfo}Kunde: ${ride.customerName}\\nTelefon: ${ride.customerPhone}\\n\\nVon: ${ride.pickup}\\nNach: ${ride.destination}\\n\\nPassagiere: ${passengerCount}\\nPreis: ${ride.price}€\\nDistanz: ${ride.distance} km\n`;
-            icsContent += `LOCATION:${ride.pickup}\n`;
+            icsContent += `DESCRIPTION:${description}\n`;
+            icsContent += `LOCATION:${settings.showPickup ? ride.pickup : 'Abholort'}\n`;
             icsContent += 'STATUS:CONFIRMED\n';
             
-            // 🆕 v5.59.0: Erinnerung 30 Minuten vorher mit allen Details
-            // 🆕 v5.60.0: Fahrzeug-Info auch in Erinnerung!
-            const alarmVehicle = ride.vehicle ? `\\n🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' ('+ride.vehiclePlate+')' : ''}` : '';
-            icsContent += 'BEGIN:VALARM\n';
-            icsContent += 'TRIGGER:-PT30M\n';
-            icsContent += 'ACTION:DISPLAY\n';
-            icsContent += `DESCRIPTION:🚕 Taxi-Abholung in 30 Minuten\\n\\n${ride.pickup} → ${ride.destination}\\nKunde: ${ride.customerName}${ride.customerPhone ? '\\nTelefon: '+ride.customerPhone : ''}\\nPassagiere: ${passengerCount}${alarmVehicle}\n`;
-            icsContent += 'END:VALARM\n';
+            // 🆕 v5.64.45: ERINNERUNG - Nur wenn aktiviert!
+            if (settings.showReminder) {
+                let alarmParts = ['🚕 Taxi-Abholung in 30 Minuten', ''];
+                
+                if (settings.showPickup || settings.showDestination) {
+                    const alarmRoute = [];
+                    if (settings.showPickup) alarmRoute.push(ride.pickup);
+                    if (settings.showDestination) alarmRoute.push(ride.destination);
+                    alarmParts.push(alarmRoute.join(' → '));
+                }
+                
+                if (settings.showCustomerName) {
+                    alarmParts.push(`Kunde: ${ride.customerName}`);
+                }
+                if (settings.showPhone && ride.customerPhone) {
+                    alarmParts.push(`Telefon: ${ride.customerPhone}`);
+                }
+                if (settings.showPassengers) {
+                    alarmParts.push(`Passagiere: ${passengerCount}`);
+                }
+                if (settings.showVehicle && ride.vehicle) {
+                    alarmParts.push(`🚗 Fahrzeug: ${ride.vehicle}${ride.vehiclePlate ? ' ('+ride.vehiclePlate+')' : ''}`);
+                }
+                
+                const alarmDescription = alarmParts.join('\\n');
+                
+                icsContent += 'BEGIN:VALARM\n';
+                icsContent += 'TRIGGER:-PT30M\n';
+                icsContent += 'ACTION:DISPLAY\n';
+                icsContent += `DESCRIPTION:${alarmDescription}\n`;
+                icsContent += 'END:VALARM\n';
+            }
             
             icsContent += 'END:VEVENT\n';
             icsContent += 'END:VCALENDAR';
@@ -11102,7 +11368,7 @@
                 
                 navigator.share({
                     files: [file],
-                    title: titleSummary, // 🆕 v5.59.0: Aussagekräftiger Share-Titel!
+                    title: titleSummary,
                     text: `Taxi-Fahrt am ${startDate.toLocaleDateString('de-DE')}`
                 }).then(() => {
                     console.log('✅ Erfolgreich geteilt');
@@ -11326,11 +11592,56 @@
             console.log('   Input ID:', inputId);
             console.log('   Dropdown gefunden:', dropdown.id);
             
+            // 🆕 v5.64.46: HÄUFIGE ZIELE (Favoriten)
+            const frequentDestinations = [
+                {
+                    name: 'Universitätsklinikum Greifswald',
+                    address: 'Sauerbruchstraße, 17475 Greifswald',
+                    lat: 54.08930769201436,
+                    lon: 13.404924882332695
+                },
+                {
+                    name: 'Bahnhof Heringsdorf',
+                    address: 'Bahnhofsplatz 1, 17424 Heringsdorf',
+                    lat: 53.9544,
+                    lon: 14.1614
+                },
+                {
+                    name: 'Seebrücke Ahlbeck',
+                    address: 'Dünenstraße, 17419 Seebad Ahlbeck',
+                    lat: 53.9425,
+                    lon: 14.1956
+                }
+            ];
+            
+            // Zeige Favoriten wenn Suche sehr kurz ist (< 3 Zeichen) ODER wenn Query leer
+            if (!query || query.length < 3) {
+                dropdown.style.display = 'block';
+                dropdown.innerHTML = frequentDestinations.map(dest => {
+                    const addressString = `${dest.name}, ${dest.address}`;
+                    return `
+                        <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})">
+                            <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
+                            <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                        </div>
+                    `;
+                }).join('');
+                return;
+            }
+            
             try {
                 // Zeige "Suche..." Nachricht
                 dropdown.style.display = 'block';
                 dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">🔍 Suche...</div>';
                 console.log('✅ Dropdown geöffnet mit "Suche..."');
+                
+                // 🆕 v5.64.48: ERST EIGENE POI-LISTE DURCHSUCHEN!
+                const lowerQuery = query.toLowerCase();
+                const matchingPOIs = frequentDestinations.filter(dest => 
+                    dest.name.toLowerCase().includes(lowerQuery) || 
+                    dest.address.toLowerCase().includes(lowerQuery)
+                );
+                console.log('🔍 POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
                 
                 // Suche mit Nominatim API
                 console.log('📡 Starte API-Request...');
@@ -11347,17 +11658,46 @@
                 const results = await response.json();
                 console.log('✅ JSON geparst, Anzahl Ergebnisse:', results.length);
                 
-                if (results.length === 0) {
+                // 🆕 v5.64.48: Wenn BEIDE leer → Keine Ergebnisse
+                if (matchingPOIs.length === 0 && results.length === 0) {
                     dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">Keine Ergebnisse</div>';
-                    console.log('⚠️ Keine Ergebnisse gefunden');
+                    console.log('⚠️ Keine Ergebnisse gefunden (POI + Nominatim)');
                     return;
+                }
+                
+                // 🆕 v5.64.48: EIGENE POIs AM ANFANG!
+                let poiHTML = '';
+                if (matchingPOIs.length > 0) {
+                    poiHTML = `
+                        <div style="padding:8px;background:#fef3c7;border-bottom:2px solid #f59e0b;font-weight:600;font-size:12px;color:#92400e;">
+                            🏥 BEKANNTE ORTE
+                        </div>
+                    `;
+                    poiHTML += matchingPOIs.map(dest => {
+                        const addressString = `${dest.name}, ${dest.address}`;
+                        return `
+                            <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="background:#fffbeb;">
+                                <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    // Nur Trennlinie wenn auch Nominatim-Ergebnisse kommen
+                    if (results.length > 0) {
+                        poiHTML += `
+                            <div style="padding:8px;background:#f3f4f6;border-bottom:2px solid #9ca3af;font-weight:600;font-size:12px;color:#4b5563;">
+                                📍 WEITERE ERGEBNISSE
+                            </div>
+                        `;
+                    }
                 }
                 
                 // 🆕 v5.46.2: KEIN FILTER! Zeige ALLE Ergebnisse!
                 const resultsToShow = results;
                 console.log('📊 Zeige ALLE Ergebnisse (kein Filter):', resultsToShow.length);
                 
-                dropdown.innerHTML = resultsToShow.map(r => {
+                dropdown.innerHTML = poiHTML + resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
                     let fullAddress = '';
@@ -16510,6 +16850,9 @@
                 // Spezielle Aktionen beim Öffnen
                 if (section === 'telegram') {
                     updateTelegramStatus();
+                } else if (section === 'calendar-settings') {
+                    // 🆕 v5.64.45: Kalender-Export Einstellungen laden
+                    loadCalendarExportSettings();
                 } else if (section === 'prebookings') {
                     updatePrebookingsList();
                 } else if (section === 'activitylog') {
@@ -16553,6 +16896,101 @@
                         btn.style.background = '#10b981';
                     }
                 }
+            }
+        }
+        
+        // 🆕 v5.64.45: KALENDER-EXPORT EINSTELLUNGEN
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        // Default Settings (ALLES AN!)
+        const defaultCalendarSettings = {
+            showCustomerName: true,
+            showPhone: true,
+            showPickup: true,
+            showDestination: true,
+            showPassengers: true,
+            showPrice: true,
+            showDistance: true,
+            showVehicle: true,
+            showNotes: true,
+            showReminder: true
+        };
+        
+        // Lade Einstellungen aus Firebase
+        async function loadCalendarExportSettings() {
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            console.log('📥 Lade Kalender-Export Einstellungen...');
+            
+            try {
+                const snapshot = await db.ref('settings/calendarExport').once('value');
+                const settings = snapshot.val() || defaultCalendarSettings;
+                
+                console.log('✅ Settings geladen:', settings);
+                
+                // Checkboxen aktualisieren
+                document.getElementById('cal-setting-customer-name').checked = settings.showCustomerName !== false;
+                document.getElementById('cal-setting-phone').checked = settings.showPhone !== false;
+                document.getElementById('cal-setting-pickup').checked = settings.showPickup !== false;
+                document.getElementById('cal-setting-destination').checked = settings.showDestination !== false;
+                document.getElementById('cal-setting-passengers').checked = settings.showPassengers !== false;
+                document.getElementById('cal-setting-price').checked = settings.showPrice !== false;
+                document.getElementById('cal-setting-distance').checked = settings.showDistance !== false;
+                document.getElementById('cal-setting-vehicle').checked = settings.showVehicle !== false;
+                document.getElementById('cal-setting-notes').checked = settings.showNotes !== false;
+                document.getElementById('cal-setting-reminder').checked = settings.showReminder !== false;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden:', error);
+                alert('❌ Fehler beim Laden der Einstellungen!');
+            }
+        }
+        
+        // Speichere Einstellungen in Firebase
+        async function saveCalendarExportSettings() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            // Lese Checkbox-Werte
+            const settings = {
+                showCustomerName: document.getElementById('cal-setting-customer-name').checked,
+                showPhone: document.getElementById('cal-setting-phone').checked,
+                showPickup: document.getElementById('cal-setting-pickup').checked,
+                showDestination: document.getElementById('cal-setting-destination').checked,
+                showPassengers: document.getElementById('cal-setting-passengers').checked,
+                showPrice: document.getElementById('cal-setting-price').checked,
+                showDistance: document.getElementById('cal-setting-distance').checked,
+                showVehicle: document.getElementById('cal-setting-vehicle').checked,
+                showNotes: document.getElementById('cal-setting-notes').checked,
+                showReminder: document.getElementById('cal-setting-reminder').checked
+            };
+            
+            console.log('💾 Speichere Settings:', settings);
+            
+            try {
+                await db.ref('settings/calendarExport').set(settings);
+                
+                // Erfolgs-Meldung
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Gespeichert!';
+                btn.style.background = '#10b981';
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                }, 2000);
+                
+                console.log('✅ Settings gespeichert!');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern der Einstellungen!');
             }
         }
         
@@ -16679,9 +17117,14 @@
                             <span style="margin-left:8px;font-size:11px;color:#6b7280;">vor ${ageText}</span>
                         </div>
                         ${isActive ? `
-                            <button onclick="forceCompleteRide('${ride.firebaseId}')" style="background:#ef4444;color:white;border:none;padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;">
-                                🗑️ Löschen
-                            </button>
+                            <div style="display:flex;gap:8px;">
+                                <button onclick="completeRide('${ride.firebaseId}')" style="background:#10b981;color:white;border:none;padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;">
+                                    ✅ Abschließen
+                                </button>
+                                <button onclick="forceCompleteRide('${ride.firebaseId}')" style="background:#ef4444;color:white;border:none;padding:5px 10px;border-radius:4px;font-size:11px;cursor:pointer;">
+                                    🗑️ Stornieren
+                                </button>
+                            </div>
                         ` : ''}
                     </div>
                     <div style="font-size:13px;">
@@ -16727,25 +17170,25 @@
         }
         
         async function forceCompleteRide(rideId) {
-            if (!confirm('Fahrt wirklich löschen/stornieren?')) return;
+            if (!confirm('Fahrt wirklich STORNIEREN?\n\nHinweis: Zum Abschließen nutze den grünen "✅ Abschließen" Button!')) return;
             
             try {
                 await db.ref('rides/' + rideId).update({
                     status: 'cancelled',
                     cancelledAt: Date.now(),
-                    cancelReason: 'Admin: Manuell gelöscht',
+                    cancelReason: 'Admin: Manuell storniert',
                     forceClosed: true
                 });
                 
-                console.log('✅ Fahrt ' + rideId + ' gelöscht');
+                console.log('✅ Fahrt ' + rideId + ' storniert');
                 loadActiveRides(); // Neu laden
                 
-                logActivity('admin', 'force_cancel', 'Admin hat Fahrt manuell gelöscht', {
+                logActivity('admin', 'force_cancel', 'Admin hat Fahrt manuell storniert', {
                     rideId: rideId
                 });
             } catch (error) {
                 console.error('❌ Fehler:', error);
-                alert('Fehler beim Löschen: ' + error.message);
+                alert('Fehler beim Stornieren: ' + error.message);
             }
         }
         
@@ -21930,69 +22373,171 @@
         async function searchQuickBookingAddresses(query, fieldId) {
             const dropdown = document.getElementById(fieldId + '-dropdown');
             
+            // 🆕 v5.64.46: HÄUFIGE ZIELE (Favoriten)
+            const frequentDestinations = [
+                {
+                    name: 'Universitätsklinikum Greifswald',
+                    address: 'Sauerbruchstraße, 17475 Greifswald',
+                    lat: 54.08930769201436,
+                    lon: 13.404924882332695
+                },
+                {
+                    name: 'Bahnhof Heringsdorf',
+                    address: 'Bahnhofsplatz 1, 17424 Heringsdorf',
+                    lat: 53.9544,
+                    lon: 14.1614
+                },
+                {
+                    name: 'Seebrücke Ahlbeck',
+                    address: 'Dünenstraße, 17419 Seebad Ahlbeck',
+                    lat: 53.9425,
+                    lon: 14.1956
+                }
+            ];
+            
+            // Zeige Favoriten wenn Suche sehr kurz ist (< 3 Zeichen) ODER wenn Query leer
+            if (!query || query.length < 3) {
+                dropdown.innerHTML = frequentDestinations.map(dest => {
+                    const addressString = `${dest.name}, ${dest.address}`;
+                    return `
+                        <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
+                            padding: 12px;
+                            cursor: pointer;
+                            border-bottom: 1px solid #e5e7eb;
+                        ">
+                            <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
+                            <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                        </div>
+                    `;
+                }).join('');
+                return;
+            }
+            
             try {
+                // 🆕 v5.64.48: ERST EIGENE POI-LISTE DURCHSUCHEN!
+                const lowerQuery = query.toLowerCase();
+                const matchingPOIs = frequentDestinations.filter(dest => 
+                    dest.name.toLowerCase().includes(lowerQuery) || 
+                    dest.address.toLowerCase().includes(lowerQuery)
+                );
+                console.log('🔍 Admin POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
+                
                 const response = await fetch(
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
                     `countrycodes=de&` +
-                    `limit=8&` +
+                    `limit=20&` +  // 🆕 v5.64.44: 20 statt 8!
                     `addressdetails=1`
                 );
                 
                 const results = await response.json();
                 
-                if (results.length === 0) {
+                // 🆕 v5.64.48: Wenn BEIDE leer → Keine Ergebnisse
+                if (matchingPOIs.length === 0 && results.length === 0) {
                     dropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Ergebnisse</div>';
                     return;
                 }
                 
-                // 🆕 v5.52.3: Filter Usedom + WICHTIGE FESTLAND-ZIELE!
-                const usedomResults = results.filter(r => {
-                    const display = r.display_name.toLowerCase();
-                    return display.includes('usedom') || 
-                           display.includes('heringsdorf') || 
-                           display.includes('ahlbeck') ||
-                           display.includes('bansin') ||
-                           display.includes('zinnowitz') ||
-                           display.includes('karlshagen') ||
-                           display.includes('peenemünde') ||
-                           display.includes('koserow') ||
-                           display.includes('ückeritz') ||
-                           display.includes('loddin') ||
-                           display.includes('zempin') ||
-                           display.includes('trassenheide') ||
-                           // 🆕 v5.52.3: FESTLAND-ZIELE!
-                           display.includes('greifswald') ||
-                           display.includes('wolgast') ||
-                           display.includes('anklam') ||
-                           display.includes('stralsund') ||
-                           display.includes('neubrandenburg');
-                });
+                // 🆕 v5.64.44: KEIN FILTER! Zeige ALLES wie im Fahrgast-Tab!
+                // Damit werden auch Krankenhäuser, Uniklinik Greifswald, etc. gefunden!
+                const resultsToShow = results;
+                console.log('📊 Schnellbuchung: Zeige ALLE Ergebnisse (kein Filter):', resultsToShow.length);
                 
-                const resultsToShow = usedomResults.length > 0 ? usedomResults : results;
+                // 🆕 v5.64.48: EIGENE POIs AM ANFANG!
+                let poiHTML = '';
+                if (matchingPOIs.length > 0) {
+                    poiHTML = `
+                        <div style="padding:8px;background:#fef3c7;border-bottom:2px solid #f59e0b;font-weight:600;font-size:12px;color:#92400e;">
+                            🏥 BEKANNTE ORTE
+                        </div>
+                    `;
+                    poiHTML += matchingPOIs.map(dest => {
+                        const addressString = `${dest.name}, ${dest.address}`;
+                        return `
+                            <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
+                                padding: 12px;
+                                cursor: pointer;
+                                border-bottom: 1px solid #e5e7eb;
+                                background:#fffbeb;
+                            ">
+                                <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    // Nur Trennlinie wenn auch Nominatim-Ergebnisse kommen
+                    if (results.length > 0) {
+                        poiHTML += `
+                            <div style="padding:8px;background:#f3f4f6;border-bottom:2px solid #9ca3af;font-weight:600;font-size:12px;color:#4b5563;">
+                                📍 WEITERE ERGEBNISSE
+                            </div>
+                        `;
+                    }
+                }
                 
-                dropdown.innerHTML = resultsToShow.map(r => {
+                dropdown.innerHTML = poiHTML + resultsToShow.map(r => {
                     const address = r.address;
+                    let displayText = '';
+                    let fullAddress = '';
+                    
+                    // 🏨 HOTEL, RESTAURANT, POI, KRANKENHAUS Namen
                     const poiName = address.amenity || address.tourism || address.building || r.name;
                     
-                    let displayText = '';
-                    if (poiName) displayText += poiName + ', ';
-                    if (address.road) displayText += address.road + ' ';
-                    if (address.house_number) displayText += address.house_number + ', ';
-                    if (address.village || address.town || address.city) {
-                        displayText += (address.village || address.town || address.city);
+                    // Baue Haupt-Adresszeile
+                    if (address.road) {
+                        fullAddress = address.road;
+                        if (address.house_number) fullAddress += ' ' + address.house_number;
                     }
                     
+                    // Ort
+                    let city = '';
+                    if (address.village) city = address.village;
+                    else if (address.town) city = address.town;
+                    else if (address.city) city = address.city;
+                    else if (address.municipality) city = address.municipality;
+                    
+                    // PLZ
+                    const zip = address.postcode || '';
+                    
+                    // 🎨 Baue schöne Anzeige (wie Fahrgast-Tab!)
+                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                        displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
+                        displayText += `<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">`;
+                        if (fullAddress) displayText += fullAddress;
+                        if (zip) displayText += ', ' + zip;
+                        if (city) displayText += ' ' + city;
+                        displayText += '</div>';
+                    } else {
+                        if (fullAddress) {
+                            displayText = fullAddress;
+                            if (zip) displayText += ', ' + zip;
+                            if (city) displayText += ' ' + city;
+                        } else {
+                            displayText = r.display_name;
+                        }
+                    }
+                    
+                    // Vollständige Adresse als String
+                    let addressString = '';
+                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                        addressString = poiName + ' ';
+                    }
+                    if (fullAddress) addressString += fullAddress;
+                    if (zip) addressString += ', ' + zip;
+                    if (city) addressString += ' ' + city;
+                    
+                    if (!addressString) addressString = r.display_name;
+                    
                     return `
-                        <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" style="
+                        <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" style="
                             padding:12px;
                             cursor:pointer;
                             border-bottom:1px solid #f0f0f0;
                             transition:background 0.2s;
                         " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                            <div style="font-weight:600;font-size:14px;">${displayText}</div>
-                            <div style="font-size:11px;color:#999;">${r.display_name}</div>
+                            ${displayText}
                         </div>
                     `;
                 }).join('');
@@ -24811,8 +25356,26 @@
                         try {
                             // Setze firebaseId für Telegram
                             ride.firebaseId = rideId;
-                            await sendTelegramToDriver(vehicle, ride, 0);
-                            console.log('✅ Telegram an Fahrer gesendet!');
+                            
+                            // 🆕 v5.64.43: FINDE FAHRER FÜR FAHRZEUG!
+                            console.log('📱 Suche Fahrer für Fahrzeug:', vehicle);
+                            const driversSnapshot = await db.ref('drivers').once('value');
+                            let driverId = null;
+                            
+                            driversSnapshot.forEach(child => {
+                                const driver = child.val();
+                                if (child.key === vehicle || driver.vehicle === vehicle) {
+                                    driverId = child.key;
+                                    console.log('✅ Fahrer gefunden:', driverId);
+                                }
+                            });
+                            
+                            if (driverId) {
+                                await sendTelegramToDriver(driverId, ride, 0);
+                                console.log('✅ Telegram an Fahrer gesendet!');
+                            } else {
+                                console.warn('⚠️ Kein Fahrer für Fahrzeug:', vehicle);
+                            }
                         } catch (telegramError) {
                             console.error('❌ Fehler beim Telegram-Versand:', telegramError);
                             // Fahrt wurde trotzdem erstellt, nur Telegram fehlgeschlagen

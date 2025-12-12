@@ -23938,22 +23938,9 @@
         // 🆕 FAHRT KOPIEREN
         async function copyRideFromCalendar(rideId) {
             try {
-                // 🔒 v5.40.4: SUPER-DEBUG! Speichere Original-Fahrt-ID
-                window.copiedFromRideId = rideId;
-                console.log('🔍 SUPER-DEBUG: Original-Fahrt-ID gespeichert:', rideId);
-                
-                // 🔧 v5.39.9: editingRideId SOFORT zurücksetzen!
                 console.log('═══════════════════════════════════════');
-                console.log('📋 KOPIEREN GESTARTET!');
+                console.log('📋 FAHRT KOPIEREN GESTARTET!');
                 console.log('   Von Fahrt:', rideId);
-                console.log('   editingRideId VORHER:', window.editingRideId);
-                console.log('═══════════════════════════════════════');
-                
-                window.editingRideId = null;
-                
-                console.log('🔄 editingRideId zurückgesetzt für Kopieren');
-                console.log('   editingRideId NACHHER:', window.editingRideId);
-                console.log('   Ist null?', window.editingRideId === null);
                 console.log('═══════════════════════════════════════');
                 
                 const snapshot = await db.ref(`rides/${rideId}`).once('value');
@@ -23964,77 +23951,58 @@
                     return;
                 }
                 
-                // 🔧 v5.39.9: ZUERST alle Felder LEEREN!
-                document.getElementById('qb-panel-customer').value = '';
-                document.getElementById('qb-panel-pickup').value = '';
-                document.getElementById('qb-panel-destination').value = '';
-                document.getElementById('qb-panel-start-time').value = '';
-                document.getElementById('qb-panel-end-time').value = '';
-                document.getElementById('qb-panel-passengers').value = '1';
-                document.getElementById('qb-panel-vehicle').value = '';
-                document.getElementById('qb-panel-notes').value = '';
-                qbPanelCustomer = null;
-                qbPanelPickupCoords = null;
-                qbPanelDestCoords = null;
-                console.log('🧹 Alle Felder geleert');
-                
-                // Panel öffnen (oder offen lassen wenn schon offen)
-                const panel = document.getElementById('quick-booking-panel');
-                if (panel.style.display === 'none' || panel.style.display === '') {
-                    panel.style.display = 'block';
-                    setupQuickBookingPanelAutocomplete();
-                    loadQuickBookingPanelVehicles();
-                    loadQuickBookingPanelCustomers();
-                    watchPickupChanges();
-                }
-                
-                // 🔒 v5.40.3: EXTRA-SCHUTZ! editingRideId NOCHMAL auf null setzen!
-                // Falls irgendein Event-Handler sie wieder gesetzt hat!
-                window.editingRideId = null;
-                console.log('🔒 EXTRA-SCHUTZ: editingRideId nochmal auf null gesetzt!');
-                
-                // JETZT Daten aus kopierter Fahrt einfügen
+                // Erstelle Customer-Objekt
+                let customer = null;
                 if (ride.customerId) {
-                    const customer = allCustomers.find(c => c.id === ride.customerId);
-                    if (customer) {
-                        qbPanelCustomer = customer;
-                        document.getElementById('qb-panel-customer').value = customer.name || 'Unbekannt';
-                    } else {
-                        qbPanelCustomer = {id: ride.customerId, name: ride.customerName || 'Unbekannt', phone: ride.customerPhone || ''};
-                        document.getElementById('qb-panel-customer').value = ride.customerName || 'Unbekannt';
+                    // Versuche Kunde aus allCustomers zu finden
+                    customer = allCustomers.find(c => c.id === ride.customerId);
+                    if (!customer) {
+                        // Fallback: Erstelle Customer-Objekt aus Fahrt-Daten
+                        customer = {
+                            id: ride.customerId,
+                            name: ride.customerName || 'Unbekannt',
+                            phone: ride.customerPhone || '',
+                            address: ride.pickup || ''
+                        };
                     }
                 }
                 
-                // Adressen kopieren
-                document.getElementById('qb-panel-pickup').value = ride.pickup || '';
-                document.getElementById('qb-panel-destination').value = ride.destination || '';
+                console.log('📋 Fahrt-Daten:');
+                console.log('   Kunde:', customer ? customer.name : 'Keiner');
+                console.log('   Von:', ride.pickup);
+                console.log('   Nach:', ride.destination);
+                console.log('   Fahrzeug:', ride.vehicleId);
                 
-                // Koordinaten kopieren
-                qbPanelPickupCoords = ride.pickupCoords || null;
-                qbPanelDestCoords = ride.destCoords || null;
+                // Öffne Schnellbuchungs-Modal mit kopierten Daten
+                await openQuickBookingModal(customer);
                 
-                // Weitere Felder kopieren
-                document.getElementById('qb-panel-passengers').value = ride.passengers || 1;
-                document.getElementById('qb-panel-vehicle').value = ride.vehicleId || '';
-                document.getElementById('qb-panel-notes').value = ride.notes || '';
-                
-                // Zeiten NICHT kopieren - Benutzer muss neue Zeit eingeben!
-                // (So wird sichergestellt dass es eine NEUE Fahrt ist)
-                
-                // Adress-Optionen anzeigen
-                showAddressOptions();
-                
-                // 🔒 v5.40.3: NOCHMALS! editingRideId auf null setzen am Ende!
-                // Doppelt hält besser - absolut sicherstellen dass es null ist!
-                window.editingRideId = null;
-                console.log('🔒 FINALER SCHUTZ: editingRideId am Ende nochmal auf null!');
-                console.log('🔒 Endgültiger Status:', window.editingRideId, '| Ist null?', window.editingRideId === null);
-                
-                // 🆕 v5.51.0: Button-Text auf BUCHEN setzen (KOPIEREN = NEU)
-                const submitBtn = document.getElementById('qb-panel-submit-btn');
-                if (submitBtn) submitBtn.innerHTML = '⚡ Buchen';
-                
-                console.log('📋 Fahrt kopiert:', rideId, '| editingRideId:', window.editingRideId, '| Zeiten: LEER (neu eingeben)');
+                // Warte kurz bis Modal fertig geladen ist
+                setTimeout(() => {
+                    // Fülle Felder mit kopierten Daten
+                    const pickupInput = document.getElementById('pickup');
+                    const destInput = document.getElementById('destination');
+                    const passengersInput = document.getElementById('passengers');
+                    const vehicleSelect = document.getElementById('vehicle');
+                    const notesInput = document.getElementById('notes');
+                    
+                    if (pickupInput) pickupInput.value = ride.pickup || '';
+                    if (destInput) destInput.value = ride.destination || '';
+                    if (passengersInput) passengersInput.value = ride.passengers || 1;
+                    if (vehicleSelect) vehicleSelect.value = ride.vehicleId || '';
+                    if (notesInput) notesInput.value = ride.notes || '';
+                    
+                    // Koordinaten für Route
+                    if (ride.pickupCoords) window.pickupCoords = ride.pickupCoords;
+                    if (ride.destCoords) window.destCoords = ride.destCoords;
+                    
+                    console.log('✅ Fahrt-Daten ins Modal kopiert!');
+                    console.log('💡 WICHTIG: Zeiten wurden NICHT kopiert - bitte neue Zeit eingeben!');
+                    
+                    // Fokus auf Startzeit damit User direkt Zeit eingeben kann
+                    const datetimeInput = document.getElementById('quick-booking-datetime');
+                    if (datetimeInput) datetimeInput.focus();
+                    
+                }, 500);
                 
             } catch (error) {
                 console.error('❌ Fehler beim Kopieren:', error);
@@ -33488,7 +33456,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         function openQuickBookingWithCustomer(customerId) {
-            console.log('🚕 Öffne Admin-Schnellbuchung für Kunde:', customerId);
+            console.log('🚕 Öffne Schnellbuchung für Kunde:', customerId);
             
             // Lade Kundendaten
             db.ref('customers/' + customerId).once('value').then(snapshot => {
@@ -33503,65 +33471,18 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Schließe Popup
                 closeCallPopup();
                 
-                // Wechsle zu Admin
+                // Wechsle zu Admin-Bereich
                 switchView('admin');
                 
-                // Öffne das Admin-Panel Quick-Booking
+                // Warte kurz, dann öffne Schnellbuchungs-Modal
                 setTimeout(() => {
-                    const panel = document.getElementById('quick-booking-panel');
-                    if (!panel) {
-                        console.error('❌ Quick-Booking-Panel nicht gefunden!');
-                        alert('❌ Quick-Booking-Panel nicht gefunden! Bitte Seite neu laden.');
-                        return;
-                    }
+                    // Füge ID zum Customer-Objekt hinzu
+                    customer.id = customerId;
                     
-                    // Öffne Panel falls geschlossen
-                    if (panel.style.display === 'none' || panel.style.display === '') {
-                        toggleQuickBookingPanel();
-                    }
+                    // Öffne das Schnellbuchungs-Modal mit vorausgefüllten Kundendaten
+                    openQuickBookingModal(customer);
                     
-                    // Warte kurz bis Panel offen ist
-                    setTimeout(() => {
-                        // Setze Kundendaten
-                        window.qbPanelCustomer = { 
-                            id: customerId, 
-                            name: customer.name,
-                            phone: customer.phone,
-                            address: customer.address
-                        };
-                        
-                        // Zeige Kunde im Panel an
-                        const customerDisplay = document.getElementById('qb-panel-customer-display');
-                        if (customerDisplay) {
-                            customerDisplay.innerHTML = `
-                                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#10b981;color:white;border-radius:8px;margin-bottom:10px;">
-                                    <div>
-                                        <div style="font-weight:700;font-size:16px;">👤 ${customer.name}</div>
-                                        <div style="font-size:13px;opacity:0.9;">📞 ${customer.phone || 'Keine Nummer'}</div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                        
-                        // Fülle Abholadresse
-                        const pickupInput = document.getElementById('qb-panel-pickup');
-                        if (pickupInput && customer.address) {
-                            pickupInput.value = customer.address;
-                        }
-                        
-                        console.log('✅ Kundendaten im Panel gesetzt!');
-                        console.log('   Name:', customer.name);
-                        console.log('   Telefon:', customer.phone);
-                        console.log('   Abholadresse:', customer.address);
-                        
-                        // Fokus auf Zielort
-                        const destInput = document.getElementById('qb-panel-destination');
-                        if (destInput) {
-                            destInput.focus();
-                        }
-                        
-                    }, 300);
-                    
+                    console.log('✅ Schnellbuchungs-Modal geöffnet für:', customer.name);
                 }, 500);
                 
             }).catch(err => {

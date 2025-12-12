@@ -23450,34 +23450,37 @@
         // Kalender-Zeit-Klick (wird von Kalender aufgerufen)
         // 🆕 Kalender-Zeit-Klick: Startzeit setzen & Endzeit automatisch +15 Min
         function setQuickBookingPanelTime(datetime) {
-            const startInput = document.getElementById('qb-panel-start-time');
-            if (!startInput) return;
+            console.log('⏰ Zeit aus Kalender ausgewählt:', datetime);
             
-            // Format für datetime-local Input
+            // Formatiere Datum für datetime-local Input
             const d = new Date(datetime);
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             const hours = String(d.getHours()).padStart(2, '0');
             const minutes = String(d.getMinutes()).padStart(2, '0');
+            const formattedTime = `${year}-${month}-${day}T${hours}:${minutes}`;
             
-            startInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            console.log('   Formatierte Zeit:', formattedTime);
             
-            // Endzeit automatisch setzen & Anzeigen updaten
-            updatePanelEndTime();
+            // Öffne Schnellbuchungs-Modal
+            openQuickBookingModal();
             
-            // Panel öffnen falls geschlossen
-            const panel = document.getElementById('quick-booking-panel');
-            if (panel.style.display === 'none' || panel.style.display === '') {
-                toggleQuickBookingPanel();
-            }
-            
-            // Panel kurz highlighten
-            panel.style.borderColor = '#f59e0b';
-            panel.style.boxShadow = '0 10px 40px rgba(245, 158, 11, 0.4)';
+            // Warte kurz bis Modal geladen ist, dann setze Zeit
             setTimeout(() => {
-                panel.style.borderColor = '#667eea';
-                panel.style.boxShadow = '0 10px 40px rgba(0,0,0,0.2)';
+                const datetimeInput = document.getElementById('quick-booking-datetime');
+                if (datetimeInput) {
+                    datetimeInput.value = formattedTime;
+                    console.log('✅ Zeit ins Modal eingetragen!');
+                    
+                    // Fokus auf Kunde damit man direkt eingeben kann
+                    const customerInput = document.getElementById('quick-booking-customer-search');
+                    if (customerInput) customerInput.focus();
+                } else {
+                    console.error('❌ Datetime-Input nicht gefunden!');
+                }
+            }, 500);
+        }
             }, 500);
             
             console.log('⏰ Zeit vom Kalender übernommen:', datetime);
@@ -33616,6 +33619,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             try {
+                console.log('💾 Speichere neuen Kunden...');
+                
                 // Speichere Kunde in Firebase
                 const newCustomerRef = db.ref('customers').push();
                 await newCustomerRef.set({
@@ -33629,8 +33634,16 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 console.log('✅ Neuer Kunde gespeichert:', newCustomerRef.key);
                 
-                // Öffne Schnellbuchung mit diesem Kunden
-                openQuickBookingWithCustomer(newCustomerRef.key);
+                // WICHTIG: Popup KOMPLETT schließen BEVOR Modal öffnet!
+                closeCallPopup();
+                console.log('🚪 CallPopup geschlossen');
+                
+                // Warte 500ms damit Popup-Overlay sicher weg ist
+                setTimeout(() => {
+                    console.log('🚕 Öffne Schnellbuchung...');
+                    // Öffne Schnellbuchung mit diesem Kunden
+                    openQuickBookingWithCustomer(newCustomerRef.key);
+                }, 500);
                 
             } catch (err) {
                 console.error('❌ Fehler beim Speichern:', err);

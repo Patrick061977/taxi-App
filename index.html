@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.64.48 - UNIKLINIK RICHTIG SUCHBAR! 🔍🏥 (Build 20251212-0900)');
+        console.log('🚕 Funk Taxi App v5.64.49 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251212-0930)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.48 - UNIKLINIK RICHTIG SUCHBAR! 🔍🏥 (Build 20251212-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.64.49 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251212-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6284,6 +6284,9 @@
                     
                     // 🔴 Buchungssystem-Status aus Firebase laden
                     loadBookingSystemStatus();
+                    
+                    // 📞 v5.64.49: FRITZBOX CALL POPUP LISTENER
+                    initCallPopupListener();
                     
                     // 🚗 Fahrzeuge aus Firebase laden
                     loadVehiclesFromFirebase();
@@ -33282,6 +33285,274 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 }
             };
         });
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 📞 FRITZBOX CALL POPUP
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function initCallPopupListener() {
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase not ready for CallPopup listener');
+                return;
+            }
+            
+            console.log('📞 Initialisiere CallPopup Listener...');
+            
+            db.ref('callPopup').on('value', snapshot => {
+                const data = snapshot.val();
+                if (!data) return;
+                
+                console.log('📞 ANRUF EMPFANGEN!', data);
+                
+                // Zeige Popup
+                showCallPopup(data);
+                
+                // Lösche Event nach 2 Sekunden (damit es nur einmal angezeigt wird)
+                setTimeout(() => {
+                    db.ref('callPopup').remove();
+                }, 2000);
+            });
+            
+            console.log('✅ CallPopup Listener aktiv');
+        }
+        
+        function showCallPopup(data) {
+            const { type, caller, called, timestamp, customer, lastRides } = data;
+            
+            // Erstelle Popup HTML
+            let popupHTML = `
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;" id="call-popup">
+                    <div style="background:white;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:slideUp 0.3s;">
+                        
+                        <!-- Header -->
+                        <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <div style="font-size:40px;">📞</div>
+                                    <div>
+                                        <div style="font-size:24px;font-weight:700;">Eingehender Anruf</div>
+                                        <div style="font-size:14px;opacity:0.9;">${new Date(timestamp).toLocaleString('de-DE')}</div>
+                                    </div>
+                                </div>
+                                <button onclick="closeCallPopup()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;">×</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Body -->
+                        <div style="padding:24px;">
+                            <div style="margin-bottom:20px;padding:16px;background:#f3f4f6;border-radius:12px;">
+                                <div style="font-size:14px;color:#6b7280;margin-bottom:4px;">Anrufer</div>
+                                <div style="font-size:24px;font-weight:700;color:#1f2937;">${caller}</div>
+                            </div>
+            `;
+            
+            if (type === 'existing' && customer) {
+                // BEKANNTER KUNDE
+                popupHTML += `
+                    <div style="background:#d1fae5;padding:16px;border-radius:12px;margin-bottom:20px;border:2px solid #10b981;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                            <span style="font-size:24px;">✅</span>
+                            <span style="font-size:18px;font-weight:700;color:#065f46;">Bekannter Kunde</span>
+                        </div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:24px;font-weight:700;color:#047857;">${customer.name || 'Kein Name'}</div>
+                            ${customer.address ? `<div style="font-size:14px;color:#065f46;margin-top:4px;">📍 ${customer.address}</div>` : ''}
+                            ${customer.email ? `<div style="font-size:14px;color:#065f46;margin-top:4px;">📧 ${customer.email}</div>` : ''}
+                        </div>
+                        
+                        ${lastRides && lastRides.length > 0 ? `
+                            <div style="margin-top:16px;padding-top:16px;border-top:2px solid #10b981;">
+                                <div style="font-weight:600;color:#065f46;margin-bottom:8px;">🚕 Letzte Fahrten:</div>
+                                ${lastRides.slice(0, 3).map(ride => `
+                                    <div style="background:white;padding:8px;border-radius:6px;margin-bottom:6px;font-size:13px;">
+                                        <div style="font-weight:600;">${ride.pickup || 'Unbekannt'} → ${ride.destination || 'Unbekannt'}</div>
+                                        <div style="color:#6b7280;font-size:12px;">${new Date(ride.timestamp).toLocaleDateString('de-DE')}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="display:flex;gap:12px;">
+                        <button onclick="openQuickBookingWithCustomer('${customer.id}')" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                            🚕 Neue Fahrt buchen
+                        </button>
+                        <button onclick="closeCallPopup()" style="flex:1;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">
+                            Schließen
+                        </button>
+                    </div>
+                `;
+            } else {
+                // NEUER KUNDE
+                popupHTML += `
+                    <div style="background:#fef3c7;padding:16px;border-radius:12px;margin-bottom:20px;border:2px solid #f59e0b;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                            <span style="font-size:24px;">⚠️</span>
+                            <span style="font-size:18px;font-weight:700;color:#92400e;">Neuer Kunde</span>
+                        </div>
+                        <div style="color:#92400e;">Diese Nummer ist noch nicht in der Datenbank.</div>
+                    </div>
+                    
+                    <!-- Kunde erfassen -->
+                    <div style="background:#f9fafb;padding:16px;border-radius:12px;margin-bottom:20px;">
+                        <div style="font-weight:600;margin-bottom:12px;color:#1f2937;">Kundendaten erfassen:</div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">Name</label>
+                            <input type="text" id="new-customer-name" placeholder="Max Mustermann" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">Adresse</label>
+                            <input type="text" id="new-customer-address" placeholder="Musterstraße 1, 17424 Heringsdorf" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">E-Mail (optional)</label>
+                            <input type="email" id="new-customer-email" placeholder="max@example.com" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="display:flex;gap:12px;">
+                        <button onclick="saveNewCustomerAndBook('${caller}')" style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                            💾 Speichern & Fahrt buchen
+                        </button>
+                        <button onclick="closeCallPopup()" style="flex:1;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">
+                            Später
+                        </button>
+                    </div>
+                `;
+            }
+            
+            popupHTML += `
+                        </div>
+                    </div>
+                </div>
+                
+                <style>
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideUp {
+                        from { transform: translateY(50px); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                    }
+                </style>
+            `;
+            
+            // Füge Popup ins DOM ein
+            const existingPopup = document.getElementById('call-popup');
+            if (existingPopup) existingPopup.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', popupHTML);
+            
+            // Sound abspielen (optional)
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS56+mcTgwOUKXh8LhlHAU5kdPyynkrBSR3yO/ekj8JFFyx6OmnUxMJQ5/e8rxrIAUrlM/ y2Yg1Bxhju+rqm0wLDU+k4O+7aRsFOZDT8sp4KgUjdsju35NAChNYr+jprFQUCj+c3vC6aB8FKpHP8tmINQcXYrvo7aVPDAxPo+Duu2gaBTiPz/LKdyoEI3bI7+CSQAoTVq3n7axUFAk9mt7wuWgfBSmRz/HajDQHF2K7+eetShALPp/d8cxwJwUdhcXy146RQQoRUarnr6pTEQo7mN3wuGYeCCWPz/HajDQHFl+65+OkSxALO5zd8ctwJwUdhsTy156QQQoQT6nm8KlRFA');
+                audio.volume = 0.3;
+                audio.play().catch(() => {}); // Ignore errors
+            } catch (e) {}
+            
+            console.log('✅ CallPopup angezeigt!');
+        }
+        
+        function closeCallPopup() {
+            const popup = document.getElementById('call-popup');
+            if (popup) popup.remove();
+        }
+        
+        function openQuickBookingWithCustomer(customerId) {
+            console.log('🚕 Öffne Schnellbuchung für Kunde:', customerId);
+            
+            // Lade Kundendaten
+            db.ref('customers/' + customerId).once('value').then(snapshot => {
+                const customer = snapshot.val();
+                if (!customer) {
+                    alert('❌ Kunde nicht gefunden!');
+                    return;
+                }
+                
+                // Wechsle zu Admin-Bereich
+                const loginPanel = document.getElementById('login-panel');
+                const mainView = document.getElementById('main-view');
+                if (loginPanel) loginPanel.style.display = 'none';
+                if (mainView) mainView.style.display = 'block';
+                
+                // Aktiviere Admin-Tab
+                const adminTab = document.getElementById('admin-tab');
+                if (adminTab) adminTab.style.display = 'block';
+                
+                // Wechsle zu Admin
+                switchView('admin');
+                
+                // Öffne Schnellbuchung
+                const modal = document.getElementById('admin-quick-booking-modal');
+                if (modal) {
+                    modal.style.display = 'block';
+                    
+                    // Fülle Kundendaten
+                    setTimeout(() => {
+                        const pickupInput = document.getElementById('quick-booking-pickup');
+                        if (pickupInput && customer.address) {
+                            pickupInput.value = customer.address;
+                        }
+                        
+                        // Fülle Passagiername
+                        const nameInput = document.getElementById('quick-booking-name');
+                        if (nameInput && customer.name) {
+                            nameInput.value = customer.name;
+                        }
+                        
+                        // Fülle Telefonnummer
+                        const phoneInput = document.getElementById('quick-booking-phone');
+                        if (phoneInput && customer.phone) {
+                            phoneInput.value = customer.phone;
+                        }
+                        
+                        console.log('✅ Kundendaten eingefügt');
+                    }, 300);
+                }
+            });
+            
+            closeCallPopup();
+        }
+        
+        async function saveNewCustomerAndBook(phone) {
+            const name = document.getElementById('new-customer-name').value.trim();
+            const address = document.getElementById('new-customer-address').value.trim();
+            const email = document.getElementById('new-customer-email').value.trim();
+            
+            if (!name) {
+                alert('❌ Bitte Name eingeben!');
+                return;
+            }
+            
+            try {
+                // Speichere Kunde in Firebase
+                const newCustomerRef = db.ref('customers').push();
+                await newCustomerRef.set({
+                    name: name,
+                    phone: phone,
+                    address: address || '',
+                    email: email || '',
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    createdBy: 'call-popup'
+                });
+                
+                console.log('✅ Neuer Kunde gespeichert:', newCustomerRef.key);
+                
+                // Öffne Schnellbuchung mit diesem Kunden
+                openQuickBookingWithCustomer(newCustomerRef.key);
+                
+            } catch (err) {
+                console.error('❌ Fehler beim Speichern:', err);
+                alert('❌ Fehler: ' + err.message);
+            }
+        }
         
     </script>
 

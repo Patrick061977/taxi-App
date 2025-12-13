@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.71.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1145)');
+        console.log('🚕 Funk Taxi App v5.72.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1200)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.71.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1145)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.72.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -28679,65 +28679,58 @@ Stack: ${err.stack}
                 localStorage.setItem('loggedInPhone', userPhone);
                 localStorage.setItem('loggedInUserId', userId);
                 
-                // Login-Screen verstecken
-                document.getElementById('phone-auth-screen').style.display = 'none';
+                // 🆕 v5.72.0: SOFORT UI VORBEREITEN!
+                console.log('🔄 Schließe Login-Modal...');
                 
-                // 🆕 v5.66.0: Wenn NEU → Name abfragen!
+                // Modal KOMPLETT schließen
+                const authScreen = document.getElementById('phone-auth-screen');
+                if (authScreen) {
+                    authScreen.style.display = 'none';
+                }
+                
+                // Login-Modal auch schließen falls offen
+                const loginModal = document.getElementById('login-modal');
+                if (loginModal) {
+                    loginModal.style.display = 'none';
+                }
+                
+                // 🆕 v5.72.0: NAME-HANDLING!
                 if (isNewUser) {
                     console.log('🎯 Neuer User → frage nach Namen');
                     
-                    // Warte kurz damit Login-Screen weg ist
-                    setTimeout(async () => {
-                        const userName = prompt('👋 Willkommen!\n\nWie heißen Sie?');
+                    // SOFORT Name abfragen (KEIN setTimeout!)
+                    const userName = prompt('👋 Willkommen!\n\nWie heißen Sie?');
+                    
+                    if (userName && userName.trim()) {
+                        const trimmedName = userName.trim();
+                        localStorage.setItem('loggedInUserName', trimmedName);
+                        console.log('💾 Name gespeichert:', trimmedName);
                         
-                        if (userName && userName.trim()) {
-                            const trimmedName = userName.trim();
-                            localStorage.setItem('loggedInUserName', trimmedName);
-                            
-                            // 🔥 Speichere auch in Firebase CRM
-                            // 🆕 v5.70.0: Prüfe erst ob Kunde schon existiert!
-                            try {
-                                const existing = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
-                                if (!existing.exists()) {
-                                    // Kunde existiert noch nicht → erstellen!
-                                    await db.ref('customers').push({
-                                        name: trimmedName,
-                                        phone: userPhone,
-                                        uid: userId,
-                                        createdAt: Date.now(),
-                                        totalRides: 0,
-                                        totalRevenue: 0,
-                                        source: 'phone-auth'
-                                    });
-                                    console.log('✅ Kunde in Firebase erstellt');
-                                } else {
-                                    console.log('ℹ️ Kunde existiert bereits in Firebase');
-                                }
-                            } catch (err) {
-                                console.error('⚠️ Fehler beim Speichern in Firebase:', err);
+                        // In Firebase speichern
+                        try {
+                            const existing = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
+                            if (!existing.exists()) {
+                                await db.ref('customers').push({
+                                    name: trimmedName,
+                                    phone: userPhone,
+                                    uid: userId,
+                                    createdAt: Date.now(),
+                                    totalRides: 0,
+                                    totalRevenue: 0,
+                                    source: 'phone-auth'
+                                });
+                                console.log('✅ Kunde in Firebase erstellt');
                             }
-                            
-                            console.log('✅ Name gespeichert:', trimmedName);
-                            
-                            // 🆕 v5.70.0: UI AKTUALISIEREN!
-                            loadQuickLoginData();
-                            updateLoginButton();
-                            
-                            alert(`✅ Willkommen ${trimmedName}!\n\nDu kannst jetzt Taxis buchen.`);
-                        } else {
-                            console.log('⚠️ Kein Name eingegeben - verwende Telefon');
-                            localStorage.setItem('loggedInUserName', userPhone);
-                            
-                            // 🆕 v5.70.0: UI AKTUALISIEREN!
-                            loadQuickLoginData();
-                            updateLoginButton();
-                            
-                            alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
+                        } catch (err) {
+                            console.error('⚠️ Firebase-Fehler:', err);
                         }
-                    }, 300);
+                    } else {
+                        console.log('⚠️ Kein Name → verwende Telefon');
+                        localStorage.setItem('loggedInUserName', userPhone);
+                    }
                 } else {
-                    // 🔄 BESTEHENDER USER → Lade Name aus Firebase
-                    console.log('👤 Bestehender User → lade Daten');
+                    // BESTEHENDER USER → Name aus Firebase laden
+                    console.log('👤 Bestehender User → lade Name aus Firebase');
                     
                     try {
                         const snapshot = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
@@ -28745,20 +28738,66 @@ Stack: ${err.stack}
                             const customerData = Object.values(snapshot.val())[0];
                             if (customerData.name) {
                                 localStorage.setItem('loggedInUserName', customerData.name);
-                                console.log('✅ Name geladen:', customerData.name);
+                                console.log('✅ Name aus Firebase geladen:', customerData.name);
+                            } else {
+                                console.log('⚠️ Kein Name in Firebase → verwende Telefon');
+                                localStorage.setItem('loggedInUserName', userPhone);
                             }
+                        } else {
+                            console.log('⚠️ Kunde nicht in Firebase → verwende Telefon');
+                            localStorage.setItem('loggedInUserName', userPhone);
                         }
                     } catch (err) {
-                        console.error('⚠️ Fehler beim Laden:', err);
+                        console.error('⚠️ Firebase-Fehler:', err);
+                        localStorage.setItem('loggedInUserName', userPhone);
                     }
-                    
-                    // 🆕 v5.70.0: UI AKTUALISIEREN!
-                    loadQuickLoginData();
-                    updateLoginButton();
-                    
-                    alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
                 }
                 
+                // 🆕 v5.72.0: JETZT ALLES UPDATEN!
+                console.log('🔄 Aktualisiere UI...');
+                
+                // 1. Quick-Login Daten laden
+                loadQuickLoginData();
+                console.log('✅ loadQuickLoginData() fertig');
+                
+                // 2. Login-Button updaten
+                updateLoginButton();
+                console.log('✅ updateLoginButton() fertig');
+                
+                // 3. Menü updaten
+                updateMenuProfile();
+                console.log('✅ updateMenuProfile() fertig');
+                
+                // 4. Success-Message
+                const displayName = localStorage.getItem('loggedInUserName') || userPhone;
+                alert(`✅ Willkommen ${displayName}!\n\nDu kannst jetzt Taxis buchen.`);
+                
+                console.log('🎉 Login komplett!');
+                
+            } catch (error) {
+                console.error('❌ Code-Fehler:', error);
+                
+                let errorMessage = '❌ Falscher Code';
+                if (error.code === 'auth/invalid-verification-code') {
+                    errorMessage = '❌ Falscher Code. Bitte erneut versuchen.';
+                } else if (error.code === 'auth/code-expired') {
+                    errorMessage = '❌ Code abgelaufen. Bitte neuen Code anfordern.';
+                }
+                
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+                
+                // Code-Felder leeren
+                for (let i = 1; i <= 6; i++) {
+                    document.getElementById('code-' + i).value = '';
+                }
+                document.getElementById('code-1').focus();
+                
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = '✅ Bestätigen';
+            }
+        }
+        
             } catch (error) {
                 console.error('❌ Code-Fehler:', error);
                 

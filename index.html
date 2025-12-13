@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.65.4 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0750)');
+        console.log('🚕 Funk Taxi App v5.66.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0800)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.65.4 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0750)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.66.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -21642,8 +21642,24 @@
                         
                         <!-- Startzeit -->
                         <div style="margin-bottom:15px;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Datum und Uhrzeit der Abholung">📅 Startzeit</label>
-                            <input type="datetime-local" id="quick-booking-datetime" value="${defaultDate}" title="Wann soll der Kunde abgeholt werden?" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📅 Startzeit</label>
+                            
+                            <!-- Wochentag-Anzeige -->
+                            <div id="quick-booking-weekday-display" style="font-size:13px;color:#6b7280;margin-bottom:6px;font-weight:500;padding:4px 0;">
+                                <!-- Wird mit JavaScript gefüllt -->
+                            </div>
+                            
+                            <!-- Datum und Zeit in separaten Feldern -->
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <div>
+                                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
+                                    <input type="date" id="quick-booking-date" value="${defaultDate.split('T')[0]}" onchange="updateQuickBookingWeekday()" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Uhrzeit</label>
+                                    <input type="time" id="quick-booking-time" value="${defaultDate.split('T')[1] || '09:00'}" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Abholort -->
@@ -21767,6 +21783,9 @@
             
             // 🆕 v5.38.4: Lade Fahrzeuge
             loadQuickBookingVehicles();
+            
+            // 🆕 v5.65.4: Zeige Wochentag an
+            updateQuickBookingWeekday();
             
             // 🆕 v5.64.9: Vorausfüllen wenn Kunde aus CRM übergeben wurde!
             if (prefilledCustomer) {
@@ -22091,6 +22110,34 @@
                 miniModal.remove();
                 console.log('✅ Mini-Modal geschlossen');
             }
+        }
+        
+        // 🆕 v5.65.4: Zeige Wochentag für gewähltes Datum an
+        function updateQuickBookingWeekday() {
+            const dateInput = document.getElementById('quick-booking-date');
+            const weekdayDisplay = document.getElementById('quick-booking-weekday-display');
+            
+            if (!dateInput || !weekdayDisplay) return;
+            
+            const dateValue = dateInput.value;
+            if (!dateValue) {
+                weekdayDisplay.textContent = '';
+                return;
+            }
+            
+            // Parse Datum
+            const date = new Date(dateValue + 'T12:00:00'); // Mittag für Zeitzone-Sicherheit
+            const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            
+            const weekday = weekdays[date.getDay()];
+            const day = date.getDate();
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            
+            // Formatiere schön
+            weekdayDisplay.innerHTML = `<strong>${weekday}</strong>, ${day}. ${month} ${year}`;
+            console.log('📅 Wochentag aktualisiert:', weekday);
         }
         
         // 🆕 v5.52.9: SPEICHERE NEUEN KUNDEN AUS SCHNELLBUCHUNG
@@ -23461,32 +23508,41 @@
         function setQuickBookingPanelTime(datetime) {
             console.log('⏰ Zeit aus Kalender ausgewählt:', datetime);
             
-            // Formatiere Datum für datetime-local Input
+            // Formatiere Datum für separate Felder
             const d = new Date(datetime);
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             const hours = String(d.getHours()).padStart(2, '0');
             const minutes = String(d.getMinutes()).padStart(2, '0');
-            const formattedTime = `${year}-${month}-${day}T${hours}:${minutes}`;
             
-            console.log('   Formatierte Zeit:', formattedTime);
+            const dateValue = `${year}-${month}-${day}`;
+            const timeValue = `${hours}:${minutes}`;
+            
+            console.log('   Formatiertes Datum:', dateValue);
+            console.log('   Formatierte Zeit:', timeValue);
             
             // Öffne Schnellbuchungs-Modal
             openQuickBookingModal();
             
-            // Warte kurz bis Modal geladen ist, dann setze Zeit
+            // Warte kurz bis Modal geladen ist, dann setze Datum + Zeit
             setTimeout(() => {
-                const datetimeInput = document.getElementById('quick-booking-datetime');
-                if (datetimeInput) {
-                    datetimeInput.value = formattedTime;
-                    console.log('✅ Zeit ins Modal eingetragen!');
+                const dateInput = document.getElementById('quick-booking-date');
+                const timeInput = document.getElementById('quick-booking-time');
+                
+                if (dateInput && timeInput) {
+                    dateInput.value = dateValue;
+                    timeInput.value = timeValue;
+                    console.log('✅ Datum & Zeit ins Modal eingetragen!');
+                    
+                    // Wochentag aktualisieren
+                    updateQuickBookingWeekday();
                     
                     // Fokus auf Kunde damit man direkt eingeben kann
                     const customerInput = document.getElementById('quick-booking-customer-search');
                     if (customerInput) customerInput.focus();
                 } else {
-                    console.error('❌ Datetime-Input nicht gefunden!');
+                    console.error('❌ Datum/Zeit-Inputs nicht gefunden!');
                 }
             }, 500);
         }
@@ -24006,9 +24062,9 @@
                     console.log('✅ Fahrt-Daten ins Modal kopiert!');
                     console.log('💡 WICHTIG: Zeiten wurden NICHT kopiert - bitte neue Zeit eingeben!');
                     
-                    // Fokus auf Startzeit damit User direkt Zeit eingeben kann
-                    const datetimeInput = document.getElementById('quick-booking-datetime');
-                    if (datetimeInput) datetimeInput.focus();
+                    // Fokus auf Datum damit User direkt Zeit eingeben kann
+                    const dateInput = document.getElementById('quick-booking-date');
+                    if (dateInput) dateInput.focus();
                     
                 }, 500);
                 
@@ -25160,7 +25216,13 @@
             
             try {
                 const customerId = document.getElementById('quick-booking-customer').value;
-                const datetime = document.getElementById('quick-booking-datetime').value;
+                
+                // 🆕 v5.65.4: Kombiniere separate Datum + Zeit Felder
+                const dateValue = document.getElementById('quick-booking-date').value;
+                const timeValue = document.getElementById('quick-booking-time').value;
+                const datetime = dateValue && timeValue ? `${dateValue}T${timeValue}` : '';
+                console.log('📅 Kombiniertes Datum/Zeit:', datetime);
+                
                 const pickup = document.getElementById('quick-booking-pickup').value;
                 const destination = document.getElementById('quick-booking-destination').value;
                 const passengers = parseInt(document.getElementById('quick-booking-passengers').value);

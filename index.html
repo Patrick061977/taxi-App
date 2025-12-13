@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.67.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0830)');
+        console.log('🚕 Funk Taxi App v5.68.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0900)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.67.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.68.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -30124,44 +30124,54 @@ Stack: ${err.stack}
             // 🆕 v5.63.3: ZEITLEISTE IMMER ANZEIGEN (auch ohne Fahrten!)
             // Vorher war Timeline NUR im else-Block bei Fahrten
             // Jetzt IMMER damit man auch auf leere Slots klicken kann!
+            
+            // 🆕 v5.67.0: Datum/Zeit Picker statt viele Buttons
+            const today = new Date(currentCalendarDate);
+            const dateStr = today.toISOString().split('T')[0];
+            const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            const weekday = weekdays[today.getDay()];
+            const day = today.getDate();
+            const month = months[today.getMonth()];
+            const year = today.getFullYear();
+            
             html += `
-                <div style="margin: 20px 0;">
-                    <div style="font-weight:600;font-size:15px;color:#1f2937;padding:0 5px 10px 5px;">⏰ Neue Fahrt buchen:</div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px;">
-                        ${Array.from({length: 18}, (_, i) => i + 6).map(hour => {
-                            const hourStr = String(hour).padStart(2, '0') + ':00';
-                            const date = new Date(currentCalendarDate);
-                            date.setHours(hour, 0, 0, 0);
-                            
-                            // Prüfe ob in dieser Stunde schon Fahrten sind
-                            const hasRides = dayRides.some(r => {
-                                const rideTime = new Date(r.pickupTimestamp || r.createdAt || 0);
-                                return rideTime.getHours() === hour;
-                            });
-                            
-                            const bgColor = hasRides ? '#fef3c7' : '#f0f9ff';
-                            const borderColor = hasRides ? '#f59e0b' : '#3b82f6';
-                            const icon = hasRides ? '📅' : '➕';
-                            
-                            return `
-                                <div onclick="setQuickBookingPanelTime('${date.toISOString()}')" style="
-                                    padding: 12px 8px;
-                                    background: ${bgColor};
-                                    border: 2px solid ${borderColor};
-                                    border-radius: 8px;
-                                    text-align: center;
-                                    cursor: pointer;
-                                    transition: all 0.2s;
-                                    font-weight: 600;
-                                    font-size: 13px;
-                                    color: ${borderColor};
-                                " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.15)'" 
-                                   onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
-                                    <div style="font-size: 16px; margin-bottom: 4px;">${icon}</div>
-                                    <div>${hourStr}</div>
-                                </div>
-                            `;
-                        }).join('')}
+                <div style="margin: 20px 0; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-weight:600;font-size:15px;color:#1f2937;margin-bottom:12px;">⏰ Neue Fahrt buchen:</div>
+                    
+                    <!-- Wochentag-Anzeige -->
+                    <div id="admin-quick-weekday" style="font-size:14px;color:#6b7280;margin-bottom:12px;font-weight:500;">
+                        <strong>${weekday}</strong>, ${day}. ${month} ${year}
+                    </div>
+                    
+                    <!-- Datum + Zeit Auswahl -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+                        <div>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
+                            <input type="date" id="admin-quick-date" value="${dateStr}" 
+                                onchange="updateAdminQuickWeekday()"
+                                style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Uhrzeit</label>
+                            <input type="time" id="admin-quick-time" value="09:00"
+                                style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        <div>
+                            <button onclick="openQuickBookingFromAdmin()" style="
+                                padding:10px 20px;
+                                background:linear-gradient(135deg,#10b981,#059669);
+                                color:white;
+                                border:none;
+                                border-radius:8px;
+                                font-weight:700;
+                                cursor:pointer;
+                                font-size:14px;
+                                white-space:nowrap;
+                            ">
+                                ⚡ Schnellbuchung
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -30170,6 +30180,56 @@ Stack: ${err.stack}
             
             document.getElementById('calendar-container').innerHTML = html;
             updateCalendarStats(dayRides, 'Tag');
+        }
+        
+        // 🆕 v5.67.0: Wochentag für Admin Quick Booking aktualisieren
+        function updateAdminQuickWeekday() {
+            const dateInput = document.getElementById('admin-quick-date');
+            const weekdayDisplay = document.getElementById('admin-quick-weekday');
+            
+            if (!dateInput || !weekdayDisplay) return;
+            
+            const dateValue = dateInput.value;
+            if (!dateValue) return;
+            
+            const date = new Date(dateValue + 'T12:00:00');
+            const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            
+            const weekday = weekdays[date.getDay()];
+            const day = date.getDate();
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            
+            weekdayDisplay.innerHTML = `<strong>${weekday}</strong>, ${day}. ${month} ${year}`;
+        }
+        
+        // 🆕 v5.67.0: Schnellbuchung aus Admin-Bereich öffnen
+        function openQuickBookingFromAdmin() {
+            const dateInput = document.getElementById('admin-quick-date');
+            const timeInput = document.getElementById('admin-quick-time');
+            
+            if (!dateInput || !timeInput) {
+                console.error('❌ Datum/Zeit Felder nicht gefunden!');
+                return;
+            }
+            
+            const dateValue = dateInput.value;
+            const timeValue = timeInput.value;
+            
+            if (!dateValue || !timeValue) {
+                alert('❌ Bitte Datum und Uhrzeit auswählen!');
+                return;
+            }
+            
+            // Kombiniere zu ISO-String
+            const datetime = `${dateValue}T${timeValue}:00`;
+            const date = new Date(datetime);
+            
+            console.log('⚡ Öffne Schnellbuchung für:', datetime);
+            
+            // Nutze bestehende Funktion
+            setQuickBookingPanelTime(date.toISOString());
         }
         
         function updateCalendarStats(rides, period) {

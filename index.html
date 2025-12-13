@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.68.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0900)');
+        console.log('🚕 Funk Taxi App v5.70.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.68.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.70.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -19347,6 +19347,8 @@
                     phone: phone,
                     name: localStorage.getItem('loggedInUserName') || '',
                     address: localStorage.getItem('loggedInUserAddress') || '',
+                    addressLat: localStorage.getItem('loggedInUserAddressLat') || null,
+                    addressLng: localStorage.getItem('loggedInUserAddressLng') || null,
                     billingName: localStorage.getItem('loggedInBillingName') || '',
                     billingStreet: localStorage.getItem('loggedInBillingStreet') || '',
                     billingZip: localStorage.getItem('loggedInBillingZip') || '',
@@ -19354,6 +19356,25 @@
                 };
                 
                 console.log('📞 Quick-Login Daten geladen:', quickLoginData.phone);
+                
+                // 🆕 v5.68.0: Befülle Standard-Abholadresse + Koordinaten im Formular!
+                const pickupInput = document.getElementById('pickup');
+                if (pickupInput && quickLoginData.address) {
+                    pickupInput.value = quickLoginData.address;
+                    console.log('📍 Standard-Abholadresse geladen:', quickLoginData.address);
+                    
+                    // Setze Koordinaten wenn vorhanden
+                    if (quickLoginData.addressLat && quickLoginData.addressLng) {
+                        window.pickupCoords = {
+                            lat: parseFloat(quickLoginData.addressLat),
+                            lng: parseFloat(quickLoginData.addressLng)
+                        };
+                        console.log('🗺️ Koordinaten geladen:', window.pickupCoords);
+                        
+                        // Grüner Border = Adresse validiert
+                        pickupInput.style.borderColor = '#10b981';
+                    }
+                }
                 
                 // Aktualisiere Menü
                 updateMenuProfile();
@@ -28783,6 +28804,19 @@ Stack: ${err.stack}
             const billingZip = localStorage.getItem('loggedInBillingZip') || '';
             const billingCity = localStorage.getItem('loggedInBillingCity') || '';
             
+            // 🆕 v5.68.0: Lade auch Koordinaten
+            const addressLat = localStorage.getItem('loggedInUserAddressLat');
+            const addressLng = localStorage.getItem('loggedInUserAddressLng');
+            if (addressLat && addressLng) {
+                profileAddressCoords = {
+                    lat: parseFloat(addressLat),
+                    lon: parseFloat(addressLng)
+                };
+                console.log('📍 Gespeicherte Koordinaten geladen:', profileAddressCoords);
+            } else {
+                profileAddressCoords = null;
+            }
+            
             // Erstelle Modal
             const modal = document.createElement('div');
             modal.id = 'quick-login-profile-modal';
@@ -28806,9 +28840,12 @@ Stack: ${err.stack}
                         </div>
                         
                         <!-- Abholadresse -->
-                        <div>
+                        <div style="position:relative;">
                             <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">📍 Standard-Abholadresse</label>
-                            <input type="text" id="quick-profile-address" value="${address}" placeholder="z.B. Bahnhof Heringsdorf" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                            <input type="text" id="quick-profile-address" value="${address}" placeholder="z.B. Bahnhof Heringsdorf" 
+                                oninput="handleProfileAddressInput()" 
+                                style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
+                            <div id="profile-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                             <div style="font-size:11px;color:#999;margin-top:4px;">Wird automatisch als Abholort verwendet</div>
                         </div>
                         
@@ -28862,6 +28899,66 @@ Stack: ${err.stack}
             }, 100);
         }
         
+        // 🆕 v5.68.0: Autocomplete für Standard-Abholadresse im Profil
+        let profileAddressCoords = null;
+        let profileAddressDebounce = null;
+        
+        function handleProfileAddressInput() {
+            const input = document.getElementById('quick-profile-address');
+            const dropdown = document.getElementById('profile-address-dropdown');
+            if (!input || !dropdown) return;
+            
+            const query = input.value.trim();
+            
+            // Kein Query → verstecke Dropdown
+            if (!query || query.length < 3) {
+                dropdown.style.display = 'none';
+                profileAddressCoords = null;
+                return;
+            }
+            
+            // Debounce: Warte 300ms nach letzter Eingabe
+            clearTimeout(profileAddressDebounce);
+            profileAddressDebounce = setTimeout(async () => {
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&limit=5`;
+                    const response = await fetch(url);
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        dropdown.innerHTML = '<div style="padding:12px;color:#999;">Keine Ergebnisse gefunden</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    
+                    dropdown.innerHTML = results.map(r => `
+                        <div onclick="selectProfileAddress('${r.display_name.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" 
+                            style="padding:12px;cursor:pointer;border-bottom:1px solid #f0f0f0;"
+                            onmouseover="this.style.background='#f3f4f6'"
+                            onmouseout="this.style.background='white'">
+                            📍 ${r.display_name}
+                        </div>
+                    `).join('');
+                    dropdown.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('Autocomplete Fehler:', error);
+                }
+            }, 300);
+        }
+        
+        function selectProfileAddress(address, lat, lon) {
+            const input = document.getElementById('quick-profile-address');
+            const dropdown = document.getElementById('profile-address-dropdown');
+            
+            if (input) input.value = address;
+            if (dropdown) dropdown.style.display = 'none';
+            
+            // Speichere Koordinaten temporär
+            profileAddressCoords = { lat, lon };
+            console.log('✅ Profil-Adresse gewählt:', address, profileAddressCoords);
+        }
+        
         function closeQuickProfileModal() {
             const modal = document.getElementById('quick-login-profile-modal');
             if (modal) modal.remove();
@@ -28886,13 +28983,24 @@ Stack: ${err.stack}
             
             // Speichere in localStorage
             localStorage.setItem('loggedInUserName', name);
-            if (address) localStorage.setItem('loggedInUserAddress', address);
+            if (address) {
+                localStorage.setItem('loggedInUserAddress', address);
+                // 🆕 v5.68.0: Speichere auch Koordinaten wenn vorhanden!
+                if (profileAddressCoords) {
+                    localStorage.setItem('loggedInUserAddressLat', String(profileAddressCoords.lat));
+                    localStorage.setItem('loggedInUserAddressLng', String(profileAddressCoords.lon));
+                    console.log('✅ Koordinaten gespeichert:', profileAddressCoords);
+                }
+            }
             if (billingName) localStorage.setItem('loggedInBillingName', billingName);
             if (billingStreet) localStorage.setItem('loggedInBillingStreet', billingStreet);
             if (billingZip) localStorage.setItem('loggedInBillingZip', billingZip);
             if (billingCity) localStorage.setItem('loggedInBillingCity', billingCity);
             
             console.log('✅ Profil gespeichert:', { name, address, billingName, billingStreet, billingZip, billingCity });
+            
+            // Reset coords
+            profileAddressCoords = null;
             
             // 🆕 v5.42.1: Lade Quick-Login Daten neu + aktualisiere Menü!
             loadQuickLoginData();
@@ -29926,6 +30034,53 @@ Stack: ${err.stack}
             // Erstelle Tagesansicht
             let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
             
+            // 🆕 v5.69.0: Quick-Booking Box ZUERST (oben)!
+            const today = new Date(currentCalendarDate);
+            const dateStr = today.toISOString().split('T')[0];
+            
+            html += `
+                <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
+                    <div style="color:white;font-weight:700;font-size:16px;margin-bottom:15px;display:flex;align-items:center;gap:8px;">
+                        ⚡ Neue Fahrt buchen
+                    </div>
+                    
+                    <!-- Datum + Zeit Auswahl -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                        <div>
+                            <label style="display:block;font-size:11px;color:rgba(255,255,255,0.8);margin-bottom:6px;font-weight:600;">📅 Datum</label>
+                            <input type="date" id="admin-quick-date" value="${dateStr}" 
+                                onchange="updateAdminQuickWeekday()"
+                                style="width:100%;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:600;">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:11px;color:rgba(255,255,255,0.8);margin-bottom:6px;font-weight:600;">⏰ Uhrzeit</label>
+                            <input type="time" id="admin-quick-time" value="09:00"
+                                style="width:100%;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:600;">
+                        </div>
+                    </div>
+                    
+                    <!-- Wochentag-Anzeige (unsichtbar für updateAdminQuickWeekday) -->
+                    <div id="admin-quick-weekday" style="display:none;"></div>
+                    
+                    <!-- Button -->
+                    <button onclick="openQuickBookingFromAdmin()" style="
+                        width:100%;
+                        padding:14px;
+                        background:white;
+                        color:#667eea;
+                        border:none;
+                        border-radius:10px;
+                        font-weight:700;
+                        cursor:pointer;
+                        font-size:15px;
+                        box-shadow:0 2px 8px rgba(0,0,0,0.1);
+                        transition:all 0.2s;
+                    " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'">
+                        🚀 Schnellbuchung öffnen
+                    </button>
+                </div>
+            `;
+            
             if (dayRides.length === 0) {
                 html += `
                     <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
@@ -30121,60 +30276,6 @@ Stack: ${err.stack}
                 });
             }
             
-            // 🆕 v5.63.3: ZEITLEISTE IMMER ANZEIGEN (auch ohne Fahrten!)
-            // Vorher war Timeline NUR im else-Block bei Fahrten
-            // Jetzt IMMER damit man auch auf leere Slots klicken kann!
-            
-            // 🆕 v5.67.0: Datum/Zeit Picker statt viele Buttons
-            const today = new Date(currentCalendarDate);
-            const dateStr = today.toISOString().split('T')[0];
-            const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-            const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            const weekday = weekdays[today.getDay()];
-            const day = today.getDate();
-            const month = months[today.getMonth()];
-            const year = today.getFullYear();
-            
-            html += `
-                <div style="margin: 20px 0; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <div style="font-weight:600;font-size:15px;color:#1f2937;margin-bottom:12px;">⏰ Neue Fahrt buchen:</div>
-                    
-                    <!-- Wochentag-Anzeige -->
-                    <div id="admin-quick-weekday" style="font-size:14px;color:#6b7280;margin-bottom:12px;font-weight:500;">
-                        <strong>${weekday}</strong>, ${day}. ${month} ${year}
-                    </div>
-                    
-                    <!-- Datum + Zeit Auswahl -->
-                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
-                        <div>
-                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
-                            <input type="date" id="admin-quick-date" value="${dateStr}" 
-                                onchange="updateAdminQuickWeekday()"
-                                style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                        </div>
-                        <div>
-                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Uhrzeit</label>
-                            <input type="time" id="admin-quick-time" value="09:00"
-                                style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                        </div>
-                        <div>
-                            <button onclick="openQuickBookingFromAdmin()" style="
-                                padding:10px 20px;
-                                background:linear-gradient(135deg,#10b981,#059669);
-                                color:white;
-                                border:none;
-                                border-radius:8px;
-                                font-weight:700;
-                                cursor:pointer;
-                                font-size:14px;
-                                white-space:nowrap;
-                            ">
-                                ⚡ Schnellbuchung
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
             
             html += '</div>';
             

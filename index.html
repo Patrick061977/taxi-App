@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.72.1 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1215)');
+        console.log('🚕 Funk Taxi App v5.73.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1230)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.72.1 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1215)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.73.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -19445,6 +19445,15 @@
             const hasGoogleLogin = myProfileData && currentUser;
             const hasQuickLogin = quickLoginData && quickLoginData.phone;
             
+            // 🆕 v5.72.2: DEBUGGING!
+            console.log('🔄 updateMenuProfile() aufgerufen');
+            console.log('  - hasGoogleLogin:', hasGoogleLogin);
+            console.log('  - hasQuickLogin:', hasQuickLogin);
+            if (hasQuickLogin) {
+                console.log('  - quickLoginData.name:', quickLoginData.name || '❌ LEER!');
+                console.log('  - quickLoginData.phone:', quickLoginData.phone);
+            }
+            
             if (!hasGoogleLogin && !hasQuickLogin) {
                 if (menuItem) menuItem.style.display = 'none';
                 if (avatarBtn) avatarBtn.style.display = 'none';
@@ -21797,17 +21806,26 @@
             // 🆕 v5.64.9: Vorausfüllen wenn Kunde aus CRM übergeben wurde!
             if (prefilledCustomer) {
                 setTimeout(() => {
-                    console.log('📝 Fülle Kundendaten vor:', prefilledCustomer.name);
+                    console.log('📝 Fülle Kundendaten vor:', prefilledCustomer.name || prefilledCustomer.phone);
                     
                     // Kunde
                     const searchInput = document.getElementById('quick-booking-customer-search');
                     const customerIdInput = document.getElementById('quick-booking-customer');
                     if (searchInput && customerIdInput) {
-                        searchInput.value = prefilledCustomer.name || '';
+                        // 🆕 v5.73.0: Bei neuen Kunden (kein Name) → Telefon anzeigen!
+                        const displayValue = prefilledCustomer.name || prefilledCustomer.phone || '';
+                        searchInput.value = displayValue;
                         customerIdInput.value = prefilledCustomer.id || '';
                         // Grüner Border = ausgewählt
                         searchInput.style.borderColor = '#10b981';
                         searchInput.style.background = '#f0fdf4';
+                        
+                        // 🆕 v5.73.0: Bei neuen Kunden Placeholder setzen!
+                        if (prefilledCustomer.isNew) {
+                            searchInput.placeholder = 'Name eingeben (erforderlich)...';
+                            searchInput.style.borderColor = '#f59e0b';
+                            searchInput.style.background = '#fffbeb';
+                        }
                     }
                     
                     // 🆕 v5.64.11: Abholort (mit Koordinaten!)
@@ -21829,12 +21847,18 @@
                     // Toast: Kundendaten übernommen!
                     const toast = document.createElement('div');
                     toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 20px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;font-size:14px;';
-                    toast.innerHTML = `✅ Kundendaten übernommen: ${prefilledCustomer.name}`;
+                    // 🆕 v5.73.0: Bei neuen Kunden andere Message!
+                    const toastMessage = prefilledCustomer.isNew 
+                        ? `📞 ${prefilledCustomer.phone} - Bitte Namen eingeben!`
+                        : `✅ Kundendaten übernommen: ${prefilledCustomer.name}`;
+                    toast.innerHTML = toastMessage;
                     document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 2500);
+                    setTimeout(() => toast.remove(), 3000);
                     
-                    // Häufige Zielorte laden
-                    loadFrequentDestinations(prefilledCustomer.id);
+                    // Häufige Zielorte laden (nur wenn NICHT neu!)
+                    if (!prefilledCustomer.isNew) {
+                        loadFrequentDestinations(prefilledCustomer.id);
+                    }
                 }, 200);
             }
         }
@@ -25260,6 +25284,79 @@
                     return;
                 }
                 
+                // 🆕 v5.73.0: NEUER KUNDE → INS CRM SPEICHERN!
+                let finalCustomerId = customerId;
+                let finalCustomer = customer;
+                
+                if (customer.isNew) {
+                    console.log('🆕 Neuer Kunde erkannt - speichere ins CRM...');
+                    
+                    // Hole Name aus dem Suchfeld
+                    const searchField = document.getElementById('quick-booking-customer-search');
+                    let customerName = searchField ? searchField.value.trim() : '';
+                    
+                    // Wenn leer → Frage nach!
+                    if (!customerName) {
+                        customerName = prompt('👤 Wie heißt der Kunde?\n\n📞 Telefon: ' + customer.phone);
+                        if (!customerName || !customerName.trim()) {
+                            alert('❌ Name ist erforderlich!');
+                            return;
+                        }
+                        customerName = customerName.trim();
+                    }
+                    
+                    try {
+                        // Speichere Kunde in Firebase CRM
+                        const newCustomerRef = db.ref('customers').push();
+                        await newCustomerRef.set({
+                            name: customerName,
+                            phone: customer.phone,
+                            address: '',
+                            email: '',
+                            createdAt: firebase.database.ServerValue.TIMESTAMP,
+                            createdBy: 'quick-booking',
+                            source: 'call-booking'
+                        });
+                        
+                        finalCustomerId = newCustomerRef.key;
+                        console.log('✅ Neuer Kunde gespeichert:', finalCustomerId, '-', customerName);
+                        
+                        // Update finalCustomer
+                        finalCustomer = {
+                            id: finalCustomerId,
+                            name: customerName,
+                            phone: customer.phone,
+                            address: '',
+                            email: ''
+                        };
+                        
+                        // Update allCustomers Array
+                        allCustomers.push(finalCustomer);
+                        
+                        // 🆕 v5.73.0: UPDATE ANRUFHISTORIE!
+                        const callHistorySnapshot = await db.ref('callHistory')
+                            .orderByChild('caller')
+                            .equalTo(customer.phone)
+                            .once('value');
+                        
+                        if (callHistorySnapshot.exists()) {
+                            const updates = {};
+                            callHistorySnapshot.forEach(child => {
+                                updates[`callHistory/${child.key}/customerFound`] = true;
+                                updates[`callHistory/${child.key}/customerName`] = customerName;
+                                updates[`callHistory/${child.key}/customerId`] = finalCustomerId;
+                            });
+                            await db.ref().update(updates);
+                            console.log('✅ Anrufhistorie aktualisiert!');
+                        }
+                        
+                    } catch (err) {
+                        console.error('❌ Fehler beim Speichern des Kunden:', err);
+                        alert('❌ Fehler beim Speichern: ' + err.message);
+                        return;
+                    }
+                }
+                
                 // 🆕 v5.64.18: LESE OPTIONEN AUS!
                 const shouldCalculatePrice = document.getElementById('quick-booking-calculate-price').checked;
                 const durationMode = document.querySelector('input[name="quick-booking-duration-mode"]:checked').value;
@@ -25362,8 +25459,8 @@
                 const pickupTimestamp = pickupDate.getTime();
                 
                 const ride = {
-                    customerName: customer.name || 'Unbekannt',
-                    customerPhone: customer.phone || '',
+                    customerName: finalCustomer.name || 'Unbekannt',
+                    customerPhone: finalCustomer.phone || '',
                     pickup: pickup,
                     destination: destination,
                     pickupTimestamp: pickupTimestamp,
@@ -25373,7 +25470,7 @@
                     status: vehicle ? 'accepted' : 'vorbestellt', // 🆕 v5.57.0: Status abhängig von Zuweisung!
                     bookedBy: 'admin',
                     notes: notes || '',
-                    customerId: customerId,
+                    customerId: finalCustomerId,
                     pickupCoords: quickBookingPickupCoords, // 🔧 v5.39.8: FIX - Koordinaten!
                     destCoords: quickBookingDestCoords, // 🔧 v5.39.8: FIX - Koordinaten!
                     // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!
@@ -28848,6 +28945,22 @@ Stack: ${err.stack}
             const billingZip = localStorage.getItem('loggedInBillingZip') || '';
             const billingCity = localStorage.getItem('loggedInBillingCity') || '';
             
+            // 🆕 v5.72.2: DEBUGGING!
+            console.log('📋 Geladene Daten aus localStorage:');
+            console.log('  - Telefon:', phone);
+            console.log('  - Name:', name || '❌ LEER!');
+            console.log('  - Adresse:', address || '(leer)');
+            console.log('  - Rechnungsname:', billingName || '(leer)');
+            
+            if (!name) {
+                console.error('⚠️ PROBLEM: loggedInUserName ist LEER!');
+                console.log('💡 Alle localStorage Keys:');
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    console.log(`   - ${key} = ${localStorage.getItem(key)}`);
+                }
+            }
+            
             // 🆕 v5.68.0: Lade auch Koordinaten
             const addressLat = localStorage.getItem('loggedInUserAddressLat');
             const addressLng = localStorage.getItem('loggedInUserAddressLng');
@@ -29019,14 +29132,22 @@ Stack: ${err.stack}
             const billingZip = document.getElementById('quick-profile-billing-zip')?.value.trim() || '';
             const billingCity = document.getElementById('quick-profile-billing-city')?.value.trim() || '';
             
+            // 🆕 v5.72.2: DEBUGGING!
+            console.log('📝 Werte aus Formular:');
+            console.log('  - Name:', name || '❌ LEER!');
+            console.log('  - Adresse:', address || '(leer)');
+            
             // Validierung
             if (!name) {
+                console.error('❌ VALIDIERUNG FEHLGESCHLAGEN: Name ist leer!');
                 alert('❌ Bitte Name eingeben!');
                 return;
             }
             
             // Speichere in localStorage
+            console.log('💾 Speichere in localStorage...');
             localStorage.setItem('loggedInUserName', name);
+            console.log('✅ loggedInUserName gespeichert:', localStorage.getItem('loggedInUserName'));
             if (address) {
                 localStorage.setItem('loggedInUserAddress', address);
                 // 🆕 v5.68.0: Speichere auch Koordinaten wenn vorhanden!
@@ -33811,6 +33932,47 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             });
         }
         
+        // 🆕 v5.73.0: Schnellbuchung mit Telefonnummer (für neue Kunden)
+        function openQuickBookingWithPhone(phone) {
+            console.log('🚕 Öffne Schnellbuchung für neue Nummer:', phone);
+            
+            // Erstelle temporäres Kunden-Objekt mit nur Telefon
+            const tempCustomer = {
+                id: 'new',
+                name: '',  // LEER - wird eingegeben!
+                phone: phone,
+                address: '',
+                email: '',
+                isNew: true  // Marker dass Kunde neu ist
+            };
+            
+            // Füge temporären Kunden zu allCustomers hinzu damit er gefunden wird
+            const existingTempIndex = allCustomers.findIndex(c => c.id === 'new');
+            if (existingTempIndex >= 0) {
+                allCustomers[existingTempIndex] = tempCustomer;
+            } else {
+                allCustomers.push(tempCustomer);
+            }
+            console.log('✅ Temporärer Kunde in allCustomers');
+            
+            // Schließe Popup falls offen
+            const popup = document.getElementById('call-notification-popup');
+            if (popup) {
+                popup.style.display = 'none';
+            }
+            
+            // Wechsle zu Admin-Bereich
+            switchView('admin');
+            
+            // Warte kurz, dann öffne Schnellbuchungs-Modal
+            setTimeout(() => {
+                // Öffne das Schnellbuchungs-Modal
+                openQuickBookingModal(tempCustomer);
+                
+                console.log('✅ Schnellbuchungs-Modal geöffnet für neue Nummer:', phone);
+            }, 500);
+        }
+        
         // ═══════════════════════════════════════════════════════════════════
         // 📞 ANRUFHISTORIE FUNKTIONEN
         // ═══════════════════════════════════════════════════════════════════
@@ -33904,7 +34066,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                     style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
                                 🚕 Buchen
                             </button>
-                        ` : ''}
+                        ` : `
+                            <button onclick="openQuickBookingWithPhone('${call.caller}')" 
+                                    style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                🚕 Buchen
+                            </button>
+                        `}
                     </div>
                 `;
             });

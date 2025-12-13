@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.70.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1000)');
+        console.log('🚕 Funk Taxi App v5.71.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1145)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.70.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.71.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1145)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -19378,6 +19378,9 @@
                 
                 // Aktualisiere Menü
                 updateMenuProfile();
+                
+                // 🆕 v5.70.0: Aktualisiere auch Login-Button!
+                updateLoginButton();
             }
         }
         
@@ -28684,7 +28687,7 @@ Stack: ${err.stack}
                     console.log('🎯 Neuer User → frage nach Namen');
                     
                     // Warte kurz damit Login-Screen weg ist
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         const userName = prompt('👋 Willkommen!\n\nWie heißen Sie?');
                         
                         if (userName && userName.trim()) {
@@ -28692,21 +28695,43 @@ Stack: ${err.stack}
                             localStorage.setItem('loggedInUserName', trimmedName);
                             
                             // 🔥 Speichere auch in Firebase CRM
-                            db.ref('customers').push({
-                                name: trimmedName,
-                                phone: userPhone,
-                                uid: userId,
-                                createdAt: Date.now(),
-                                totalRides: 0,
-                                totalRevenue: 0,
-                                source: 'phone-auth'
-                            });
+                            // 🆕 v5.70.0: Prüfe erst ob Kunde schon existiert!
+                            try {
+                                const existing = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
+                                if (!existing.exists()) {
+                                    // Kunde existiert noch nicht → erstellen!
+                                    await db.ref('customers').push({
+                                        name: trimmedName,
+                                        phone: userPhone,
+                                        uid: userId,
+                                        createdAt: Date.now(),
+                                        totalRides: 0,
+                                        totalRevenue: 0,
+                                        source: 'phone-auth'
+                                    });
+                                    console.log('✅ Kunde in Firebase erstellt');
+                                } else {
+                                    console.log('ℹ️ Kunde existiert bereits in Firebase');
+                                }
+                            } catch (err) {
+                                console.error('⚠️ Fehler beim Speichern in Firebase:', err);
+                            }
                             
                             console.log('✅ Name gespeichert:', trimmedName);
+                            
+                            // 🆕 v5.70.0: UI AKTUALISIEREN!
+                            loadQuickLoginData();
+                            updateLoginButton();
+                            
                             alert(`✅ Willkommen ${trimmedName}!\n\nDu kannst jetzt Taxis buchen.`);
                         } else {
                             console.log('⚠️ Kein Name eingegeben - verwende Telefon');
                             localStorage.setItem('loggedInUserName', userPhone);
+                            
+                            // 🆕 v5.70.0: UI AKTUALISIEREN!
+                            loadQuickLoginData();
+                            updateLoginButton();
+                            
                             alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
                         }
                     }, 300);
@@ -28726,6 +28751,10 @@ Stack: ${err.stack}
                     } catch (err) {
                         console.error('⚠️ Fehler beim Laden:', err);
                     }
+                    
+                    // 🆕 v5.70.0: UI AKTUALISIEREN!
+                    loadQuickLoginData();
+                    updateLoginButton();
                     
                     alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
                 }
@@ -29194,6 +29223,11 @@ Stack: ${err.stack}
             updateUserProfile();
         }
         
+        // 🆕 v5.70.0: updateLoginButton ist Alias für updateUserProfile
+        function updateLoginButton() {
+            updateUserProfile();
+        }
+        
         function updateUserProfile() {
             const header = document.querySelector('.header');
             if (!header) {
@@ -29236,6 +29270,7 @@ Stack: ${err.stack}
             } else {
                 // 🆕 v5.42.2: Prüfe auch Quick-Login!
                 const quickLoginPhone = localStorage.getItem('loggedInPhone');
+                const quickLoginName = localStorage.getItem('loggedInUserName');
                 
                 if (quickLoginPhone) {
                     // Quick-Login User ist eingeloggt → Zeige Profil + LOGOUT!
@@ -29246,12 +29281,15 @@ Stack: ${err.stack}
                         header.appendChild(profileBox);
                     }
                     
-                    // 🎯 v5.45.6: MIT LOGOUT-BUTTON!
+                    // 🆕 v5.70.0: Zeige NAME statt "Telefon-Login"!
                     const phoneDisplay = quickLoginPhone.substring(0, 6) + '***';
+                    const nameDisplay = quickLoginName || phoneDisplay;
+                    const initial = quickLoginName ? quickLoginName.charAt(0).toUpperCase() : '📱';
+                    
                     profileBox.innerHTML = `
-                        <div class="user-avatar">📱</div>
+                        <div class="user-avatar">${initial}</div>
                         <div class="user-info">
-                            <div style="font-weight: 600; font-size: 11px;">📱 Telefon-Login</div>
+                            <div style="font-weight: 600; font-size: 11px;">${nameDisplay}</div>
                             <div style="font-size: 9px; opacity: 0.75;">${phoneDisplay}</div>
                         </div>
                         <button class="btn-logout" onclick="logoutQuickLogin()">Aus</button>

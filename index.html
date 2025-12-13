@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.73.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1230)');
+        console.log('🚕 Funk Taxi App v5.75.2 - ALLE MODALS EINHEITLICH! ✅ (Build 20251213-2130)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.73.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.74.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1345)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5215,8 +5215,20 @@
                     </div>
                     
                     <div style="margin-bottom:15px;">
-                        <label style="display:block;margin-bottom:5px;font-weight:600;">👤 Kundenname</label>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">👤 Kundenname (Rechnung)</label>
                         <input type="text" id="edit-customer" value="${ride.customerName || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                    </div>
+                    
+                    <!-- 🆕 v5.75.2: GAST-NAME -->
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">
+                            📝 Gast-Name (optional)
+                            <span style="font-weight:400;font-size:11px;color:#6b7280;margin-left:4px;">für Hotels</span>
+                        </label>
+                        <input type="text" id="edit-guest-name" value="${ride.guestName || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                            💡 Rechnung geht an Kunde, Fahrt wird für Gast durchgeführt
+                        </div>
                     </div>
                     
                     <div style="margin-bottom:15px;">
@@ -5239,6 +5251,30 @@
                             <option value="3" ${ride.passengers == 3 ? 'selected' : ''}>3 Personen</option>
                             <option value="4" ${ride.passengers == 4 ? 'selected' : ''}>4 Personen</option>
                         </select>
+                    </div>
+                    
+                    <!-- 🆕 v5.75.0: PREIS-BERECHNUNG OPTION -->
+                    <div style="margin-bottom:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="edit-calculate-price" ${ride.price > 0 ? 'checked' : ''} style="width:18px;height:18px;">
+                            <span style="font-weight:600;">💰 Preis berechnen</span>
+                        </label>
+                        <div style="font-size:12px;color:#065f46;margin-top:4px;">
+                            Aus: z.B. für Krankenfahrten
+                        </div>
+                    </div>
+                    
+                    <!-- 🆕 v5.75.0: FAHRTDAUER OPTION -->
+                    <div style="margin-bottom:15px;padding:12px;background:#eff6ff;border:2px solid #3b82f6;border-radius:8px;">
+                        <div style="font-weight:600;margin-bottom:8px;">⏱️ Fahrtdauer:</div>
+                        <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
+                            <input type="radio" name="edit-duration-mode" value="calculated" ${!ride.duration || ride.duration > 15 ? 'checked' : ''} style="width:16px;height:16px;">
+                            <span>📏 Aus Distanz berechnen</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="radio" name="edit-duration-mode" value="fixed" ${ride.duration === 15 ? 'checked' : ''} style="width:16px;height:16px;">
+                            <span>🕐 Feste Zeit (15 Min)</span>
+                        </label>
                     </div>
                     
                     <div style="display:flex;gap:10px;margin-top:20px;">
@@ -5293,9 +5329,97 @@
             const newPassengers = document.getElementById('edit-passengers').value;
             const newVehicleId = document.getElementById('edit-vehicle').value;
             
+            // 🆕 v5.75.2: GAST-NAME!
+            const newGuestName = document.getElementById('edit-guest-name')?.value?.trim() || '';
+            
+            // 🆕 v5.75.0: PREIS/ZEIT OPTIONEN!
+            const shouldCalculatePrice = document.getElementById('edit-calculate-price').checked;
+            const durationMode = document.querySelector('input[name="edit-duration-mode"]:checked').value;
+            console.log('💰 Preis berechnen?', shouldCalculatePrice);
+            console.log('⏱️ Dauer-Modus:', durationMode);
+            console.log('📝 Gast-Name:', newGuestName || '(leer)');
+            
             if (!newPickup || !newDestination) {
                 alert('❌ Abholort und Zielort müssen ausgefüllt sein!');
                 return;
+            }
+            
+            // 🆕 v5.75.0: GEOCODE WENN PREIS/ZEIT BERECHNET WERDEN SOLL!
+            let pickupCoords = null;
+            let destCoords = null;
+            let distance = 0;
+            let duration = 15;
+            let price = 0;
+            
+            if (shouldCalculatePrice || durationMode === 'calculated') {
+                console.log('🗺️ Geocode Adressen für Berechnung...');
+                
+                try {
+                    // Geocode Abholort
+                    const pickupResponse = await fetch(
+                        `https://nominatim.openstreetmap.org/search?` +
+                        `format=json&` +
+                        `q=${encodeURIComponent(newPickup)}&` +
+                        `countrycodes=de,pl&` +
+                        `limit=1`
+                    );
+                    const pickupData = await pickupResponse.json();
+                    if (pickupData.length > 0) {
+                        pickupCoords = { lat: parseFloat(pickupData[0].lat), lon: parseFloat(pickupData[0].lon) };
+                    }
+                    
+                    // Geocode Zielort
+                    const destResponse = await fetch(
+                        `https://nominatim.openstreetmap.org/search?` +
+                        `format=json&` +
+                        `q=${encodeURIComponent(newDestination)}&` +
+                        `countrycodes=de,pl&` +
+                        `limit=1`
+                    );
+                    const destData = await destResponse.json();
+                    if (destData.length > 0) {
+                        destCoords = { lat: parseFloat(destData[0].lat), lon: parseFloat(destData[0].lon) };
+                    }
+                    
+                    // Route berechnen wenn beides vorhanden
+                    if (pickupCoords && destCoords) {
+                        const routeData = await calculateRoute(pickupCoords, destCoords);
+                        distance = parseFloat(routeData.distance);
+                        duration = routeData.duration;
+                        
+                        // Preis berechnen wenn gewünscht
+                        if (shouldCalculatePrice) {
+                            const pricing = calculatePrice(distance, newTimestamp);
+                            price = pricing.total;
+                            console.log('✅ Preis berechnet:', price, '€');
+                        }
+                        
+                        // Dauer überschreiben wenn feste Zeit
+                        if (durationMode === 'fixed') {
+                            duration = 15;
+                            console.log('⏱️ Feste Dauer: 15 Min');
+                        } else {
+                            console.log('⏱️ Berechnete Dauer:', duration, 'Min');
+                        }
+                        
+                        console.log('✅ Route berechnet: Distanz', distance, 'km, Dauer', duration, 'Min');
+                    } else {
+                        console.warn('⚠️ Koordinaten konnten nicht gefunden werden');
+                        // Fallback: Feste Werte
+                        duration = durationMode === 'fixed' ? 15 : 20;
+                        price = 0;
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler bei Geocoding/Route:', error);
+                    // Fallback
+                    duration = durationMode === 'fixed' ? 15 : 20;
+                    price = 0;
+                }
+            } else {
+                // Keine Berechnung gewünscht
+                duration = durationMode === 'fixed' ? 15 : 20;
+                price = 0;
+                console.log('ℹ️ Keine Berechnung - Feste Werte verwendet');
             }
             
             const newTimestamp = new Date(newDateTime).getTime();
@@ -5307,6 +5431,7 @@
                 pickup: newPickup,
                 destination: newDestination,
                 customerName: newCustomer,
+                guestName: newGuestName, // 🆕 v5.75.2: GAST-NAME!
                 pickupTimestamp: newTimestamp,
                 pickupTime: new Date(newTimestamp).toLocaleString('de-DE', {
                     day: '2-digit',
@@ -5317,8 +5442,18 @@
                 }),
                 passengers: newPassengers,
                 status: newStatus,
-                editedAt: Date.now()
+                editedAt: Date.now(),
+                // 🆕 v5.75.0: PREIS/DISTANZ/DAUER!
+                price: price,
+                distance: distance,
+                duration: duration
             };
+            
+            // 🆕 v5.75.0: Koordinaten speichern falls vorhanden
+            if (pickupCoords && destCoords) {
+                updates.pickupCoords = pickupCoords;
+                updates.destCoords = destCoords;
+            }
             
             // 🆕 v5.64.42: VOLLSTÄNDIGE FAHRZEUG-ZUWEISUNG!
             if (newVehicleId && newVehicleId !== '') {
@@ -7902,7 +8037,7 @@
                         
                         html += `<div class="ride-card" style="border-left:4px solid ${borderColor};background:${bgColor};">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <strong>${r.customerName || 'Unbekannt'}</strong>
+                                <strong>${r.customerName || 'Unbekannt'}${r.guestName ? ' → 📝 ' + r.guestName : ''}</strong>
                                 <div style="display:flex;gap:6px;align-items:center;">
                                     <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
                                     ${statusBadge}
@@ -8698,13 +8833,31 @@
             
             // Dann via API suchen
             try {
-                // Versuche zuerst mit Usedom, Deutschland
+                // 🆕 v5.74.0: Versuche zuerst mit Usedom/Swinemünde (DE/PL)
                 let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Usedom, Deutschland')}&limit=1`);
                 let data = await response.json();
+                
+                // Wenn nichts gefunden, versuche Swinemünde, Polen
+                if (data.length === 0) {
+                    response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Swinemünde, Polen')}&limit=1`);
+                    data = await response.json();
+                }
+                
+                // Wenn nichts gefunden, versuche Świnoujście (polnischer Name)
+                if (data.length === 0) {
+                    response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Świnoujście, Polska')}&limit=1`);
+                    data = await response.json();
+                }
                 
                 // Wenn nichts gefunden, versuche nur mit Deutschland
                 if (data.length === 0) {
                     response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Deutschland')}&limit=1`);
+                    data = await response.json();
+                }
+                
+                // Wenn nichts gefunden, versuche nur mit Polen
+                if (data.length === 0) {
+                    response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ', Polen')}&limit=1`);
                     data = await response.json();
                 }
                 
@@ -10258,13 +10411,20 @@
                 
                 // Formatiere Nachricht für Fahrer MIT RIDE-ID
                 const rideId = ride.firebaseId || ride.id || 'unbekannt';
+                
+                // 🆕 v5.75.0: Kunde + Gast-Name!
+                let customerInfo = `👤 <b>Kunde:</b> ${ride.customerName}`;
+                if (ride.guestName) {
+                    customerInfo += `\n📝 <b>Gast:</b> ${ride.guestName}`;
+                }
+                
                 const message = `🚨 <b>NEUER AUFTRAG FÜR DICH!</b> 🚨\n` +
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `⏱️ <b>Du hast 60 SEKUNDEN Zeit!</b>\n` +
                     gpsWarning +
                     `\n📍 <b>Abholung:</b> ${ride.pickup}\n` +
                     `🎯 <b>Ziel:</b> ${ride.destination}\n` +
-                    `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                    customerInfo + `\n` +
                     `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                     `💰 <b>Preis:</b> ${ride.price}€\n\n` +
                     `👉 <b>JETZT App öffnen und ANNEHMEN!</b>\n` +
@@ -11654,7 +11814,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de&` +
+                    `countrycodes=de,pl&` +
                     `limit=20&` +
                     `addressdetails=1`
                 );
@@ -15534,7 +15694,12 @@
             // Customer Name
             const customerName = document.getElementById('driver-customer-name');
             if (customerName) {
-                customerName.textContent = '👤 ' + (ride.customerName || 'Kunde');
+                let nameText = '👤 ' + (ride.customerName || 'Kunde');
+                // 🆕 v5.75.0: Gast-Name anzeigen wenn vorhanden!
+                if (ride.guestName) {
+                    nameText += '\n📝 Gast: ' + ride.guestName;
+                }
+                customerName.textContent = nameText;
             }
             
             // Call Button
@@ -19724,7 +19889,7 @@
                     'https://nominatim.openstreetmap.org/search?' +
                     'format=json&' +
                     'q=' + encodeURIComponent(query) + '&' +
-                    'countrycodes=de&' +
+                    'countrycodes=de,pl&' +
                     'limit=8&' +
                     'addressdetails=1'
                 );
@@ -19835,7 +20000,7 @@
                     'https://nominatim.openstreetmap.org/search?' +
                     'format=json&' +
                     'q=' + encodeURIComponent(query) + '&' +
-                    'countrycodes=de&' +
+                    'countrycodes=de,pl&' +
                     'limit=8&' +
                     'addressdetails=1'
                 );
@@ -20135,7 +20300,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de&` +
+                    `countrycodes=de,pl&` +
                     `limit=8&` +
                     `addressdetails=1`
                 );
@@ -21638,7 +21803,7 @@
                         
                         <!-- Kunde -->
                         <div style="margin-bottom:15px;position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Kunde aus CRM wählen oder neu anlegen">👤 Kunde</label>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Kunde aus CRM wählen oder neu anlegen">👤 Kunde (Rechnung)</label>
                             <input 
                                 type="text" 
                                 id="quick-booking-customer-search" 
@@ -21654,6 +21819,22 @@
                             <button onclick="importPhoneContact()" title="Kontakt aus Handy-Kontakten importieren" style="margin-top:8px;width:100%;padding:10px;background:#f0f9ff;color:#1e40af;border:2px solid #3b82f6;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
                                 📱 Aus Handy-Kontakten importieren
                             </button>
+                        </div>
+                        
+                        <!-- 🆕 v5.75.0: GAST-NAME (optional) -->
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Optional: Name des Gastes (z.B. bei Hotel-Buchungen)">
+                                📝 Gast-Name (optional)
+                                <span style="font-weight:400;font-size:12px;color:#6b7280;margin-left:4px;">für Hotels</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="quick-booking-guest-name" 
+                                placeholder="z.B. Herr Müller" 
+                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                            <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+                                💡 Rechnung geht an Kunde, Fahrt wird für Gast durchgeführt
+                            </div>
                         </div>
                         
                         <!-- Startzeit -->
@@ -22535,7 +22716,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de&` +
+                    `countrycodes=de,pl&` +
                     `limit=20&` +  // 🆕 v5.64.44: 20 statt 8!
                     `addressdetails=1`
                 );
@@ -23385,7 +23566,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de&` +
+                    `countrycodes=de,pl&` +
                     `limit=8&` +
                     `addressdetails=1`
                 );
@@ -23626,7 +23807,7 @@
                     const tasks = [];
                     if (!qbPanelPickupCoords && pickup) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de,pl&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -23638,7 +23819,7 @@
                     }
                     if (!qbPanelDestCoords && destination) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de,pl&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -24036,6 +24217,8 @@
                 console.log('═══════════════════════════════════════');
                 console.log('📋 FAHRT KOPIEREN GESTARTET!');
                 console.log('   Von Fahrt:', rideId);
+                console.log('   ✅ Wird kopiert: Kunde, Gast, Start, Ziel, Personen, Notizen');
+                console.log('   ❌ Wird NICHT kopiert: Fahrzeug, Uhrzeit');
                 console.log('═══════════════════════════════════════');
                 
                 const snapshot = await db.ref(`rides/${rideId}`).once('value');
@@ -24063,35 +24246,53 @@
                 }
                 
                 console.log('📋 Fahrt-Daten:');
-                console.log('   Kunde:', customer ? customer.name : 'Keiner');
-                console.log('   Von:', ride.pickup);
-                console.log('   Nach:', ride.destination);
-                console.log('   Fahrzeug:', ride.vehicleId);
+                console.log('   ✅ Kunde:', customer ? customer.name : 'Keiner');
+                console.log('   ✅ Gast:', ride.guestName || 'Keiner');
+                console.log('   ✅ Von:', ride.pickup);
+                console.log('   ✅ Nach:', ride.destination);
+                console.log('   ✅ Personen:', ride.passengers || 1);
+                console.log('   ✅ Notizen:', ride.notes || 'Keine');
+                console.log('   ❌ Fahrzeug: NICHT kopiert');
+                console.log('   ❌ Zeit: NICHT kopiert (Default: Jetzt + 15 Min)');
                 
                 // Öffne Schnellbuchungs-Modal mit kopierten Daten
                 await openQuickBookingModal(customer);
                 
                 // Warte kurz bis Modal fertig geladen ist
                 setTimeout(() => {
-                    // Fülle Felder mit kopierten Daten
-                    const pickupInput = document.getElementById('pickup');
-                    const destInput = document.getElementById('destination');
-                    const passengersInput = document.getElementById('passengers');
-                    const vehicleSelect = document.getElementById('vehicle');
-                    const notesInput = document.getElementById('notes');
+                    // 🆕 v5.75.1: QUICK BOOKING MODAL IDS!
+                    const pickupInput = document.getElementById('quick-booking-pickup');
+                    const destInput = document.getElementById('quick-booking-destination');
+                    const passengersInput = document.getElementById('quick-booking-passengers');
+                    const notesInput = document.getElementById('quick-booking-notes');
+                    const guestNameInput = document.getElementById('quick-booking-guest-name');
                     
                     if (pickupInput) pickupInput.value = ride.pickup || '';
                     if (destInput) destInput.value = ride.destination || '';
                     if (passengersInput) passengersInput.value = ride.passengers || 1;
-                    if (vehicleSelect) vehicleSelect.value = ride.vehicleId || '';
                     if (notesInput) notesInput.value = ride.notes || '';
                     
-                    // Koordinaten für Route
-                    if (ride.pickupCoords) window.pickupCoords = ride.pickupCoords;
-                    if (ride.destCoords) window.destCoords = ride.destCoords;
+                    // 🆕 v5.75.1: Gast-Name kopieren wenn vorhanden!
+                    if (guestNameInput && ride.guestName) {
+                        guestNameInput.value = ride.guestName;
+                        console.log('✅ Gast-Name kopiert:', ride.guestName);
+                    }
                     
-                    console.log('✅ Fahrt-Daten ins Modal kopiert!');
-                    console.log('💡 WICHTIG: Zeiten wurden NICHT kopiert - bitte neue Zeit eingeben!');
+                    // ❌ v5.75.1: FAHRZEUG WIRD NICHT MEHR KOPIERT!
+                    // ❌ v5.75.1: ZEIT WIRD NICHT KOPIERT (bleibt auf +15 Min Default)
+                    
+                    // Koordinaten für Route (falls vorhanden)
+                    if (ride.pickupCoords) {
+                        window.quickBookingPickupCoords = ride.pickupCoords;
+                        console.log('✅ Pickup-Koordinaten kopiert');
+                    }
+                    if (ride.destCoords) {
+                        window.quickBookingDestCoords = ride.destCoords;
+                        console.log('✅ Ziel-Koordinaten kopiert');
+                    }
+                    
+                    console.log('✅ Fahrt-Daten kopiert (ohne Fahrzeug + Zeit)!');
+                    console.log('📋 Kopiert: Kunde, Gast, Start, Ziel, Personen, Notizen');
                     
                     // Fokus auf Datum damit User direkt Zeit eingeben kann
                     const dateInput = document.getElementById('quick-booking-date');
@@ -25371,7 +25572,7 @@
                     const tasks = [];
                     if (!quickBookingPickupCoords && pickup) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de,pl&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -25383,7 +25584,7 @@
                     }
                     if (!quickBookingDestCoords && destination) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de,pl&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -25461,6 +25662,8 @@
                 const ride = {
                     customerName: finalCustomer.name || 'Unbekannt',
                     customerPhone: finalCustomer.phone || '',
+                    // 🆕 v5.75.0: GAST-NAME (optional)
+                    guestName: document.getElementById('quick-booking-guest-name')?.value?.trim() || '',
                     pickup: pickup,
                     destination: destination,
                     pickupTimestamp: pickupTimestamp,
@@ -25557,8 +25760,14 @@
                     
                     // 🆕 v5.57.0: Erfolgs-Meldung MIT Fahrzeug-Info!
                     let successMessage = '✅ Fahrt erfolgreich gebucht!\n\n' +
-                          '👤 ' + customer.name + '\n' +
-                          '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
+                          '👤 ' + customer.name + '\n';
+                    
+                    // 🆕 v5.75.0: Gast-Name anzeigen wenn vorhanden!
+                    if (ride.guestName) {
+                        successMessage += '📝 Gast: ' + ride.guestName + '\n';
+                    }
+                    
+                    successMessage += '📅 ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n' +
                           '📍 ' + pickup + '\n' +
                           '🎯 ' + destination + '\n' +
                           '💰 ' + parseFloat(ride.price || 0).toFixed(2) + '€\n' +
@@ -25770,7 +25979,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de&` +
+                    `countrycodes=de,pl&` +
                     `limit=8&` +
                     `addressdetails=1`
                 );
@@ -28828,14 +29037,22 @@ Stack: ${err.stack}
                 } else {
                     // BESTEHENDER USER → Name aus Firebase laden
                     console.log('👤 Bestehender User → lade Name aus Firebase');
+                    console.log('📞 Suche Kunde mit Telefon:', userPhone);
                     
                     try {
-                        const snapshot = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
+                        // 🆕 v5.73.1: Suche nach TELEFON statt UID (robuster!)
+                        const snapshot = await db.ref('customers').orderByChild('phone').equalTo(userPhone).once('value');
                         if (snapshot.exists()) {
                             const customerData = Object.values(snapshot.val())[0];
                             if (customerData.name) {
                                 localStorage.setItem('loggedInUserName', customerData.name);
                                 console.log('✅ Name aus Firebase geladen:', customerData.name);
+                                
+                                // 🆕 v5.73.1: Speichere auch Adresse falls vorhanden
+                                if (customerData.address) {
+                                    localStorage.setItem('loggedInUserAddress', customerData.address);
+                                    console.log('✅ Adresse aus Firebase geladen:', customerData.address);
+                                }
                             } else {
                                 console.log('⚠️ Kein Name in Firebase → verwende Telefon');
                                 localStorage.setItem('loggedInUserName', userPhone);
@@ -29078,7 +29295,7 @@ Stack: ${err.stack}
             clearTimeout(profileAddressDebounce);
             profileAddressDebounce = setTimeout(async () => {
                 try {
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&limit=5`;
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=5`;
                     const response = await fetch(url);
                     const results = await response.json();
                     
@@ -29317,6 +29534,29 @@ Stack: ${err.stack}
             
             // 🆕 v5.42.1: Lade auch Quick-Login Daten (für Phone-Login)
             loadQuickLoginData();
+            
+            // 🆕 v5.73.1: Wenn Phone-Login UND kein Name in localStorage → aus Firebase laden!
+            if (user.phoneNumber && !localStorage.getItem('loggedInUserName')) {
+                console.log('📞 Phone-Login OHNE Namen → lade aus Firebase...');
+                db.ref('customers').orderByChild('phone').equalTo(user.phoneNumber).once('value').then(snapshot => {
+                    if (snapshot.exists()) {
+                        const customerData = Object.values(snapshot.val())[0];
+                        if (customerData.name) {
+                            localStorage.setItem('loggedInUserName', customerData.name);
+                            console.log('✅ Name nachgeladen:', customerData.name);
+                            
+                            // UI aktualisieren!
+                            loadQuickLoginData();
+                            updateLoginButton();
+                            updateMenuProfile();
+                        }
+                    } else {
+                        console.log('⚠️ Kein Kunde in Firebase gefunden');
+                    }
+                }).catch(err => {
+                    console.error('❌ Fehler beim Laden des Namens:', err);
+                });
+            }
             
             // 🆕 v5.19.0: Lade Telegram-ID für diesen User
             loadDriverTelegramId();

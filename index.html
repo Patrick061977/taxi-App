@@ -21934,7 +21934,46 @@
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                 <div>
                                     <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
-                                    <input type="date" id="quick-booking-date" value="${defaultDate.split('T')[0]}" onchange="updateQuickBookingWeekday()" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                    
+                                    <!-- 🆕 v5.76.0: CUSTOM CALENDAR PICKER -->
+                                    <div style="position:relative;">
+                                        <!-- Anzeige-Feld (klickbar) -->
+                                        <input type="text" 
+                                            id="quick-booking-date-display" 
+                                            readonly 
+                                            onclick="toggleQuickBookingCalendar()" 
+                                            placeholder="Datum wählen"
+                                            style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;background:white;">
+                                        
+                                        <!-- Hidden Feld für Wert -->
+                                        <input type="hidden" id="quick-booking-date" value="${defaultDate.split('T')[0]}">
+                                        
+                                        <!-- Calendar Dropdown -->
+                                        <div id="quick-booking-calendar" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #667eea;border-radius:12px;padding:15px;z-index:1001;margin-top:4px;box-shadow:0 10px 40px rgba(102, 126, 234, 0.3);">
+                                            <!-- Header mit Monat/Jahr Navigation -->
+                                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                                                <button onclick="changeQuickBookingMonth(-1);event.stopPropagation();" style="background:none;border:none;font-size:20px;cursor:pointer;padding:5px 10px;color:#667eea;">◄</button>
+                                                <div id="quick-booking-cal-month" style="font-weight:700;font-size:15px;color:#1f2937;"></div>
+                                                <button onclick="changeQuickBookingMonth(1);event.stopPropagation();" style="background:none;border:none;font-size:20px;cursor:pointer;padding:5px 10px;color:#667eea;">►</button>
+                                            </div>
+                                            
+                                            <!-- Wochentage -->
+                                            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
+                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Mo</div>
+                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Di</div>
+                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Mi</div>
+                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Do</div>
+                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Fr</div>
+                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#10b981;padding:4px;">Sa</div>
+                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#10b981;padding:4px;">So</div>
+                                            </div>
+                                            
+                                            <!-- Tage (wird mit JS gefüllt) -->
+                                            <div id="quick-booking-cal-days" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+                                                <!-- Wird dynamisch gefüllt -->
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
                                     <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Uhrzeit</label>
@@ -22126,6 +22165,12 @@
                     }
                 }, 200);
             }
+            
+            // 🆕 v5.76.0: Initialisiere Calendar Picker
+            setTimeout(() => {
+                initQuickBookingCalendar();
+                updateQuickBookingWeekday();
+            }, 250);
         }
         
         // 🆕 v5.48.3: Live-Suche für Kunden (ab 3 Zeichen)
@@ -22435,6 +22480,173 @@
             weekdayDisplay.innerHTML = `<strong>${weekday}</strong>, ${day}. ${month} ${year}`;
             console.log('📅 Wochentag aktualisiert:', weekday);
         }
+        
+        // 🆕 v5.76.0: CUSTOM CALENDAR PICKER FÜR SCHNELLBUCHUNG
+        let quickBookingCalendarCurrentMonth = new Date();
+        let quickBookingCalendarSelectedDate = null;
+        
+        function toggleQuickBookingCalendar() {
+            const calendar = document.getElementById('quick-booking-calendar');
+            if (calendar.style.display === 'none') {
+                // Öffnen
+                calendar.style.display = 'block';
+                renderQuickBookingCalendar();
+            } else {
+                // Schließen
+                calendar.style.display = 'none';
+            }
+        }
+        
+        function renderQuickBookingCalendar() {
+            const year = quickBookingCalendarCurrentMonth.getFullYear();
+            const month = quickBookingCalendarCurrentMonth.getMonth();
+            
+            // Monat/Jahr Header
+            const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            document.getElementById('quick-booking-cal-month').textContent = `${months[month]} ${year}`;
+            
+            // Tage rendern
+            const daysContainer = document.getElementById('quick-booking-cal-days');
+            daysContainer.innerHTML = '';
+            
+            // Erster Tag des Monats
+            const firstDay = new Date(year, month, 1);
+            let firstDayOfWeek = firstDay.getDay(); // 0 = Sonntag
+            // In DE: Montag = 0
+            firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+            
+            // Anzahl Tage im Monat
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            // Heute
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Gewähltes Datum
+            const selectedDateValue = document.getElementById('quick-booking-date').value;
+            const selectedDate = selectedDateValue ? new Date(selectedDateValue + 'T12:00:00') : null;
+            
+            // Leere Zellen für Wochenanfang
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const emptyCell = document.createElement('div');
+                daysContainer.appendChild(emptyCell);
+            }
+            
+            // Tage des Monats
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                date.setHours(0, 0, 0, 0);
+                
+                const dayCell = document.createElement('div');
+                dayCell.textContent = day;
+                dayCell.style.cssText = 'text-align:center;padding:8px 4px;cursor:pointer;border-radius:6px;font-size:13px;transition:all 0.2s;';
+                
+                // Styling
+                const isToday = date.getTime() === today.getTime();
+                const isSelected = selectedDate && date.getTime() === selectedDate.getTime();
+                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                const isPast = date < today;
+                
+                if (isPast) {
+                    dayCell.style.color = '#d1d5db';
+                    dayCell.style.cursor = 'not-allowed';
+                } else if (isSelected) {
+                    dayCell.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    dayCell.style.color = 'white';
+                    dayCell.style.fontWeight = '700';
+                } else if (isToday) {
+                    dayCell.style.background = '#dbeafe';
+                    dayCell.style.color = '#1e40af';
+                    dayCell.style.fontWeight = '600';
+                } else if (isWeekend) {
+                    dayCell.style.color = '#10b981';
+                    dayCell.style.fontWeight = '500';
+                } else {
+                    dayCell.style.color = '#374151';
+                }
+                
+                // Hover Effekt (nur für zukünftige Tage)
+                if (!isPast) {
+                    dayCell.onmouseover = function() {
+                        if (!isSelected) {
+                            this.style.background = '#f3f4f6';
+                        }
+                    };
+                    dayCell.onmouseout = function() {
+                        if (!isSelected) {
+                            if (isToday) {
+                                this.style.background = '#dbeafe';
+                            } else {
+                                this.style.background = 'transparent';
+                            }
+                        }
+                    };
+                    
+                    // Click Handler
+                    dayCell.onclick = function() {
+                        selectQuickBookingDate(date);
+                    };
+                }
+                
+                daysContainer.appendChild(dayCell);
+            }
+        }
+        
+        function changeQuickBookingMonth(delta) {
+            quickBookingCalendarCurrentMonth.setMonth(quickBookingCalendarCurrentMonth.getMonth() + delta);
+            renderQuickBookingCalendar();
+        }
+        
+        function selectQuickBookingDate(date) {
+            // Format: YYYY-MM-DD
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateString = `${year}-${month}-${day}`;
+            
+            // Setze Wert
+            document.getElementById('quick-booking-date').value = dateString;
+            
+            // Update Anzeige
+            const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+            const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+            const displayText = `${weekdays[date.getDay()]}, ${day}. ${months[date.getMonth()]} ${year}`;
+            document.getElementById('quick-booking-date-display').value = displayText;
+            
+            // Wochentag-Anzeige aktualisieren
+            updateQuickBookingWeekday();
+            
+            // Calendar schließen
+            document.getElementById('quick-booking-calendar').style.display = 'none';
+            
+            console.log('📅 Datum gewählt:', dateString, displayText);
+        }
+        
+        // Initialisierung: Setze initiales Datum im Display
+        function initQuickBookingCalendar() {
+            const dateInput = document.getElementById('quick-booking-date');
+            if (dateInput && dateInput.value) {
+                const date = new Date(dateInput.value + 'T12:00:00');
+                quickBookingCalendarCurrentMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+                
+                const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+                const day = String(date.getDate()).padStart(2, '0');
+                const displayText = `${weekdays[date.getDay()]}, ${day}. ${months[date.getMonth()]} ${date.getFullYear()}`;
+                document.getElementById('quick-booking-date-display').value = displayText;
+            }
+        }
+        
+        // Calendar schließen wenn außerhalb geklickt
+        document.addEventListener('click', function(e) {
+            const calendar = document.getElementById('quick-booking-calendar');
+            const display = document.getElementById('quick-booking-date-display');
+            if (calendar && display && calendar.style.display === 'block') {
+                if (!calendar.contains(e.target) && e.target !== display) {
+                    calendar.style.display = 'none';
+                }
+            }
+        });
         
         // 🆕 v5.52.9: SPEICHERE NEUEN KUNDEN AUS SCHNELLBUCHUNG
         async function saveNewQuickBookingCustomer() {

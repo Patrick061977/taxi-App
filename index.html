@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.72.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1200)');
+        console.log('🚕 Funk Taxi App v5.72.1 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1215)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.72.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.72.1 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1215)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -28774,30 +28774,6 @@ Stack: ${err.stack}
                 
                 console.log('🎉 Login komplett!');
                 
-            } catch (error) {
-                console.error('❌ Code-Fehler:', error);
-                
-                let errorMessage = '❌ Falscher Code';
-                if (error.code === 'auth/invalid-verification-code') {
-                    errorMessage = '❌ Falscher Code. Bitte erneut versuchen.';
-                } else if (error.code === 'auth/code-expired') {
-                    errorMessage = '❌ Code abgelaufen. Bitte neuen Code anfordern.';
-                }
-                
-                errorDiv.textContent = errorMessage;
-                errorDiv.style.display = 'block';
-                
-                // Code-Felder leeren
-                for (let i = 1; i <= 6; i++) {
-                    document.getElementById('code-' + i).value = '';
-                }
-                document.getElementById('code-1').focus();
-                
-                verifyBtn.disabled = false;
-                verifyBtn.textContent = '✅ Bestätigen';
-            }
-        }
-        
             } catch (error) {
                 console.error('❌ Code-Fehler:', error);
                 

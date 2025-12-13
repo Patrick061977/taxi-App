@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.66.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0800)');
+        console.log('🚕 Funk Taxi App v5.67.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0830)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.66.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.67.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0830)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1238,23 +1238,6 @@
                 </div>
             </div>
             
-            <div class="input-group">
-                <label>👤 Ihr Name</label>
-                <input type="text" id="customer-name" placeholder="z.B. Max Mustermann">
-            </div>
-            <div class="input-group">
-                <label>📞 Telefonnummer *</label>
-                <input type="tel" id="customer-phone" placeholder="z.B. 0173 1234567" required oninput="checkPhoneInCRM()">
-                <div id="crm-greeting" style="display:none;margin-top:8px;padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:8px;font-size:14px;">
-                </div>
-                <div style="font-size:12px;color:#666;margin-top:5px;">
-                    Pflichtfeld – für Rückfragen durch den Fahrer
-                </div>
-                <div style="margin-top:8px;padding:10px;background:#f0f9ff;border:1px solid #bfdbfe;border-radius:6px;font-size:12px;color:#1e40af;">
-                    📲 <strong>Nach der Buchung:</strong> Sie erhalten SMS + Telegram mit Tracking-Link!<br>
-                    💬 <em>Für Telegram:</em> <a href="https://t.me/${TELEGRAM_BOT_USERNAME}" target="_blank" style="color:#1e40af;text-decoration:underline;">Bot starten</a> und verknüpfen
-                </div>
-            </div>
             <div class="input-group">
                 <label>👥 Personen</label>
                 <select id="passengers">
@@ -12892,17 +12875,17 @@
             // ✅ BUGFIX v5.9.3: Version-Check entfernt!
             // Der alte Check rief nicht-existierende Funktionen auf und blockierte ALLE Buchungen!
             
-            const customerName = document.getElementById('customer-name').value.trim();
-            const customerPhone = document.getElementById('customer-phone').value.trim();
+            // 🆕 v5.66.0: Hole Name + Telefon aus localStorage (nach Phone-Auth)
+            const customerName = localStorage.getItem('loggedInUserName') || '';
+            const customerPhone = localStorage.getItem('loggedInPhone') || '';
             
             if (!customerName) {
-                alert('❌ Bitte Name eingeben!');
+                alert('❌ Bitte erst anmelden!\n\nDu musst dich mit deiner Telefonnummer verifizieren.');
                 return;
             }
             
             if (!customerPhone) {
-                alert('❌ Bitte Telefonnummer eingeben!\n\nDie Telefonnummer wird benötigt, damit der Fahrer Sie bei Rückfragen erreichen kann.');
-                document.getElementById('customer-phone').focus();
+                alert('❌ Bitte erst anmelden!\n\nDu musst dich mit deiner Telefonnummer verifizieren.');
                 return;
             }
             
@@ -28661,17 +28644,70 @@ Stack: ${err.stack}
                 const result = await phoneConfirmationResult.confirm(code);
                 console.log('✅ Telefon verifiziert!', result.user);
                 
+                const userPhone = result.user.phoneNumber;
+                const userId = result.user.uid;
+                
+                // 🆕 v5.66.0: Prüfe ob User NEU ist
+                const isNewUser = result.additionalUserInfo?.isNewUser || false;
+                console.log('🆕 Neuer User?', isNewUser);
+                
+                // Speichere in localStorage
+                localStorage.setItem('loggedInPhone', userPhone);
+                localStorage.setItem('loggedInUserId', userId);
+                
                 // Login-Screen verstecken
                 document.getElementById('phone-auth-screen').style.display = 'none';
                 
-                // Telefonnummer ins Formular übernehmen
-                const phoneField = document.getElementById('customer-phone');
-                if (phoneField && result.user.phoneNumber) {
-                    phoneField.value = result.user.phoneNumber;
+                // 🆕 v5.66.0: Wenn NEU → Name abfragen!
+                if (isNewUser) {
+                    console.log('🎯 Neuer User → frage nach Namen');
+                    
+                    // Warte kurz damit Login-Screen weg ist
+                    setTimeout(() => {
+                        const userName = prompt('👋 Willkommen!\n\nWie heißen Sie?');
+                        
+                        if (userName && userName.trim()) {
+                            const trimmedName = userName.trim();
+                            localStorage.setItem('loggedInUserName', trimmedName);
+                            
+                            // 🔥 Speichere auch in Firebase CRM
+                            db.ref('customers').push({
+                                name: trimmedName,
+                                phone: userPhone,
+                                uid: userId,
+                                createdAt: Date.now(),
+                                totalRides: 0,
+                                totalRevenue: 0,
+                                source: 'phone-auth'
+                            });
+                            
+                            console.log('✅ Name gespeichert:', trimmedName);
+                            alert(`✅ Willkommen ${trimmedName}!\n\nDu kannst jetzt Taxis buchen.`);
+                        } else {
+                            console.log('⚠️ Kein Name eingegeben - verwende Telefon');
+                            localStorage.setItem('loggedInUserName', userPhone);
+                            alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
+                        }
+                    }, 300);
+                } else {
+                    // 🔄 BESTEHENDER USER → Lade Name aus Firebase
+                    console.log('👤 Bestehender User → lade Daten');
+                    
+                    try {
+                        const snapshot = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
+                        if (snapshot.exists()) {
+                            const customerData = Object.values(snapshot.val())[0];
+                            if (customerData.name) {
+                                localStorage.setItem('loggedInUserName', customerData.name);
+                                console.log('✅ Name geladen:', customerData.name);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('⚠️ Fehler beim Laden:', err);
+                    }
+                    
+                    alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
                 }
-                
-                // Erfolgs-Meldung
-                alert('✅ Erfolgreich angemeldet!\n\nDu kannst jetzt Taxis buchen.');
                 
             } catch (error) {
                 console.error('❌ Code-Fehler:', error);

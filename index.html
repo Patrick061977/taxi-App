@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.65.3 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251212-1920)');
+        console.log('🚕 Funk Taxi App v5.65.4 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0750)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.65.3 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251212-1920)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.65.4 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-0750)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -22036,6 +22036,7 @@
             
             // Mini-Modal für zusätzliche Daten
             const miniModal = document.createElement('div');
+            miniModal.id = 'new-qb-customer-modal';  // 🔧 ID für sicheres Schließen!
             miniModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
             miniModal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
@@ -22062,7 +22063,7 @@
                     </div>
                     
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                        <button onclick="this.closest('div').parentElement.remove()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                        <button onclick="closeMiniModal()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                             Abbrechen
                         </button>
                         <button onclick="saveNewQuickBookingCustomer()" style="padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
@@ -22081,6 +22082,15 @@
                     document.getElementById('new-qb-customer-phone').focus();
                 }
             }, 100);
+        }
+        
+        // 🔧 Helper: Schließe Mini-Modal sicher
+        function closeMiniModal() {
+            const miniModal = document.getElementById('new-qb-customer-modal');
+            if (miniModal) {
+                miniModal.remove();
+                console.log('✅ Mini-Modal geschlossen');
+            }
         }
         
         // 🆕 v5.52.9: SPEICHERE NEUEN KUNDEN AUS SCHNELLBUCHUNG
@@ -22135,8 +22145,7 @@
                 allCustomers.unshift(customer);
                 
                 // Schließe Mini-Modal
-                const miniModal = document.querySelector('div[style*="z-index:10001"]');
-                if (miniModal) miniModal.remove();
+                closeMiniModal();
                 
                 // Wähle den neuen Kunden in der Schnellbuchung aus
                 selectQuickBookingCustomer(customer.id, name, phone, address, '');

@@ -448,6 +448,9 @@
     <!-- ICS File Input (hidden) -->
     <input type="file" id="ics-file-input" accept=".ics" style="display:none;" onchange="handleIcsFileUpload(event)">
     
+    <!-- 🆕 v5.84.0: CSV File Input (hidden) -->
+    <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCsvFileUpload(event)">
+    
     <!-- ICS Review Container -->
     <div id="ics-review-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100000;padding:20px;overflow-y:auto;">
         <div style="max-width:1200px;margin:50px auto;background:white;border-radius:12px;padding:20px;">
@@ -2815,8 +2818,13 @@
             </div>
             
             <!-- Add Button -->
-            <button onclick="showAddHotelCalendarForm()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:15px;font-size:15px;box-shadow:0 4px 12px rgba(249,115,22,0.3);">
+            <button onclick="showAddHotelCalendarForm()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:10px;font-size:15px;box-shadow:0 4px 12px rgba(249,115,22,0.3);">
                 ➕ Neuen Hotel-Kalender hinzufügen
+            </button>
+            
+            <!-- 🆕 v5.84.0: CSV IMPORT BUTTON -->
+            <button onclick="showCSVImportDialog()" style="width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:15px;font-size:15px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                📊 CSV Importieren (Calengoo)
             </button>
             
             <!-- Add Form (versteckt) -->
@@ -22201,7 +22209,7 @@
             
             const modal = document.createElement('div');
             modal.id = 'quick-booking-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10001;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
             
             // Aktuelle Zeit + 15 Minuten als Default
             const now = new Date();
@@ -34746,10 +34754,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Zeige Popup
                 showCallPopup(data);
                 
-                // Lösche Event nach 2 Sekunden (damit es nur einmal angezeigt wird)
-                setTimeout(() => {
-                    db.ref('callPopup').remove();
-                }, 2000);
+                // ❌ NICHT automatisch löschen!
+                // User soll in Ruhe klicken können!
+                // Wird gelöscht wenn:
+                // 1. User auf "Neue Fahrt buchen" klickt
+                // 2. User auf "Schließen" klickt
+                // 3. User auf "Speichern & Fahrt buchen" klickt
             });
             
             console.log('✅ CallPopup Listener aktiv');
@@ -34908,6 +34918,10 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         function closeCallPopup() {
             const popup = document.getElementById('call-popup');
             if (popup) popup.remove();
+            
+            // ✅ v5.84.0: Lösche Firebase Event
+            db.ref('callPopup').remove();
+            console.log('✅ CallPopup Event gelöscht');
         }
         
         // 🆕 v5.83.0: FRITZBOX CLICK-TO-CALL (aus Firebase Settings)
@@ -35125,6 +35139,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         function openQuickBookingWithCustomer(customerId) {
             console.log('🚕 Öffne Schnellbuchung für Kunde:', customerId);
+            
+            // ✅ v5.84.0: Lösche callPopup Event SOFORT!
+            db.ref('callPopup').remove();
             
             // Lade Kundendaten
             db.ref('customers/' + customerId).once('value').then(snapshot => {
@@ -35446,12 +35463,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             </button>
                         </div>
                         
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
                             <button onclick="cloudSyncHotelCalendar('${id}')" style="padding:10px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
                                 ☁️ Cloud-Sync
                             </button>
                             <button onclick="uploadIcsForHotel('${id}')" style="padding:10px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(249,115,22,0.3);">
                                 📤 .ics Upload
+                            </button>
+                            <button onclick="uploadCsvForHotel('${id}')" style="padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
+                                📊 CSV Import
                             </button>
                         </div>
                     </div>
@@ -36968,6 +36988,483 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             } catch (error) {
                 console.error('❌ Import-Fehler:', error);
                 alert('❌ Fehler beim Import:\n\n' + error.message);
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🆕 v5.84.0: CSV IMPORT FÜR HOTEL-KALENDER
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // Globale Variablen für CSV
+        let currentCsvRides = [];
+        let currentCsvHotelName = '';
+        let currentCsvCalendarId = '';
+        
+        // 🆕 v5.84.0: CSV Import Dialog zeigen
+        function showCSVImportDialog() {
+            console.log('📊 Öffne CSV Import Dialog...');
+            
+            // Prüfe ob Hotel-Kalender existieren
+            const hotelIds = Object.keys(hotelCalendars || {});
+            if (hotelIds.length === 0) {
+                alert('⚠️ Bitte zuerst einen Hotel-Kalender anlegen!\n\nGehe zu "Hotel-Kalender" und klicke "Neuen Hotel-Kalender hinzufügen".');
+                return;
+            }
+            
+            // Erstelle Hotel-Auswahl Dialog
+            let hotelsHTML = '<div style="max-height:300px;overflow-y:auto;">';
+            hotelIds.forEach(id => {
+                const hotel = hotelCalendars[id];
+                hotelsHTML += `
+                    <button onclick="uploadCsvForHotel('${id}')" style="width:100%;padding:16px;margin-bottom:10px;background:white;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left;transition:all 0.2s;" onmouseover="this.style.borderColor='#10b981';this.style.background='#f0fdf4';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='white';">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:12px;height:12px;border-radius:50%;background:${hotel.color};"></div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:15px;color:#1f2937;">${hotel.name}</div>
+                                <div style="font-size:12px;color:#6b7280;">CSV Datei hochladen</div>
+                            </div>
+                            <div style="font-size:20px;">📊</div>
+                        </div>
+                    </button>
+                `;
+            });
+            hotelsHTML += '</div>';
+            
+            // Zeige Modal
+            const modal = document.createElement('div');
+            modal.id = 'csv-import-dialog';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:0;width:100%;max-width:600px;max-height:80vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:12px 12px 0 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <h3 style="margin:0;font-size:20px;font-weight:700;">📊 CSV Import (Calengoo)</h3>
+                            <button onclick="document.getElementById('csv-import-dialog').remove()" style="background:none;border:none;color:white;font-size:28px;cursor:pointer;line-height:1;padding:0;">×</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="padding:20px;overflow-y:auto;">
+                        <div style="background:#ecfdf5;border:2px solid #10b981;border-radius:8px;padding:12px;margin-bottom:20px;">
+                            <div style="font-weight:700;margin-bottom:8px;color:#065f46;">ℹ️ Hinweis:</div>
+                            <ul style="margin:0;padding-left:20px;color:#065f46;font-size:13px;">
+                                <li>CSV muss Calengoo-Format haben (Semikolon-getrennt)</li>
+                                <li>Spalten: Start date;Start time;End date;End time;Title;Description;</li>
+                                <li>Fahrten werden automatisch geparst</li>
+                                <li>Du kannst die Fahrten vor dem Import nochmal prüfen</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="font-weight:700;margin-bottom:12px;color:#1f2937;">Wähle Hotel-Kalender:</div>
+                        ${hotelsHTML}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            console.log('✅ CSV Import Dialog gezeigt');
+        }
+        
+        // CSV Upload triggern
+        function uploadCsvForHotel(calendarId) {
+            console.log('📊 CSV Upload für Hotel-Kalender:', calendarId);
+            
+            // Schließe Dialog
+            const dialog = document.getElementById('csv-import-dialog');
+            if (dialog) dialog.remove();
+            
+            // Lade Hotel-Infos
+            db.ref('hotelCalendars/' + calendarId).once('value').then(snapshot => {
+                const calendar = snapshot.val();
+                if (!calendar) {
+                    alert('❌ Kalender nicht gefunden!');
+                    return;
+                }
+                
+                currentCsvCalendarId = calendarId;
+                currentCsvHotelName = calendar.name;
+                
+                console.log('✅ Hotel geladen:', currentCsvHotelName);
+                
+                // Trigger File Input
+                const input = document.getElementById('csv-file-input');
+                input.click();
+            });
+        }
+        
+        // CSV Datei verarbeiten
+        async function handleCsvFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            console.log('📊 CSV Datei hochgeladen:', file.name);
+            
+            try {
+                // Lese Datei
+                const text = await file.text();
+                console.log('📄 CSV Text gelesen, Länge:', text.length);
+                
+                // Parse CSV
+                const rides = parseCsvToRides(text);
+                console.log('✅ CSV geparst:', rides.length, 'Fahrten');
+                
+                if (rides.length === 0) {
+                    alert('❌ Keine Fahrten in CSV gefunden!');
+                    return;
+                }
+                
+                // Speichere für Review
+                currentCsvRides = rides.map(r => ({...r, selected: true}));
+                
+                // Zeige Review
+                showCsvReview();
+                
+            } catch (error) {
+                console.error('❌ CSV Parse Fehler:', error);
+                alert('❌ Fehler beim Lesen der CSV:\n\n' + error.message);
+            }
+            
+            // Reset Input
+            event.target.value = '';
+        }
+        
+        // CSV Parser - Calengoo Format
+        function parseCsvToRides(csvText) {
+            const rides = [];
+            const lines = csvText.split('\n').filter(line => line.trim());
+            
+            console.log('📊 Parse CSV, Zeilen:', lines.length);
+            
+            // Skip Header (erste Zeile)
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                if (!line.trim()) continue;
+                
+                try {
+                    // Split by Semicolon
+                    const parts = line.split(';').map(p => p.trim());
+                    
+                    if (parts.length < 5) {
+                        console.warn('⚠️ Zeile übersprungen (zu wenig Spalten):', line);
+                        continue;
+                    }
+                    
+                    const [startDate, startTime, endDate, endTime, title, description] = parts;
+                    
+                    // Parse Datum: DD.MM.YY
+                    const dateParts = startDate.split('.');
+                    if (dateParts.length !== 3) {
+                        console.warn('⚠️ Ungültiges Datum:', startDate);
+                        continue;
+                    }
+                    
+                    const day = parseInt(dateParts[0]);
+                    const month = parseInt(dateParts[1]) - 1; // JS Monate sind 0-based
+                    let year = parseInt(dateParts[2]);
+                    
+                    // 2-stelliges Jahr zu 4-stellig
+                    if (year < 100) {
+                        year += 2000;
+                    }
+                    
+                    // Parse Zeit: HH:MM
+                    const timeParts = startTime.split(':');
+                    const hours = parseInt(timeParts[0] || 0);
+                    const minutes = parseInt(timeParts[1] || 0);
+                    
+                    // Erstelle Date Objekt
+                    const date = new Date(year, month, day, hours, minutes);
+                    
+                    // Parse Title - Extrahiere Infos
+                    // Format: "11.00 Uhr , 2 PAx vom Hotel zum BHF, Fam Eichberg"
+                    const titleLower = title.toLowerCase();
+                    
+                    // Personenzahl extrahieren
+                    let passengers = 2; // Default
+                    const paxMatch = title.match(/(\d+)\s*pax/i);
+                    if (paxMatch) {
+                        passengers = parseInt(paxMatch[1]);
+                    }
+                    
+                    // Route extrahieren
+                    let from = '';
+                    let to = '';
+                    
+                    if (titleLower.includes('vom hotel') || titleLower.includes('hotel -') || titleLower.includes('hotel zum')) {
+                        from = currentCsvHotelName || 'Hotel';
+                        if (titleLower.includes('bhf') || titleLower.includes('bahnhof')) {
+                            to = 'Bahnhof Heringsdorf';
+                        }
+                    } else if (titleLower.includes('vom bhf') || titleLower.includes('bahnhof') || titleLower.includes('bhf -') || titleLower.includes('bhf.')) {
+                        from = 'Bahnhof Heringsdorf';
+                        if (titleLower.includes('hotel')) {
+                            to = currentCsvHotelName || 'Hotel';
+                        }
+                    }
+                    
+                    // Fallback wenn nicht erkannt
+                    if (!from && !to) {
+                        if (titleLower.includes('hotel')) {
+                            from = currentCsvHotelName || 'Hotel';
+                            to = 'Bahnhof Heringsdorf';
+                        } else {
+                            from = 'Bahnhof Heringsdorf';
+                            to = currentCsvHotelName || 'Hotel';
+                        }
+                    }
+                    
+                    // Gast-Name extrahieren (letzter Teil nach Komma)
+                    let guest = '';
+                    const guestMatch = title.match(/,\s*([^,]+)$/);
+                    if (guestMatch) {
+                        guest = guestMatch[1].trim();
+                        // Entferne "Fam." / "Frau" / "Herr"
+                        guest = guest.replace(/^(Fam\.?|Frau|Herr)\s*/i, '');
+                    }
+                    
+                    // Preis berechnen (Standard 25€)
+                    const price = 25.00;
+                    
+                    rides.push({
+                        date: date,
+                        from: from,
+                        to: to,
+                        guest: guest || 'Gast',
+                        passengers: passengers,
+                        price: price,
+                        originalTitle: title
+                    });
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Parsen von Zeile:', line, error);
+                }
+            }
+            
+            console.log('✅ CSV geparst:', rides.length, 'Fahrten');
+            return rides;
+        }
+        
+        // Zeige CSV Review Modal
+        function showCsvReview() {
+            const container = document.getElementById('ics-review-container');
+            if (!container) {
+                console.error('❌ ICS Review Container nicht gefunden!');
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;overflow-y:auto;">
+                    <div style="background:white;border-radius:12px;max-width:1200px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                        
+                        <!-- Header -->
+                        <div style="padding:20px;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <h3 style="margin:0;font-size:20px;font-weight:700;">📊 CSV Import - ${currentCsvHotelName}</h3>
+                                <div style="font-size:14px;opacity:0.9;margin-top:4px;">${currentCsvRides.length} Fahrten gefunden</div>
+                            </div>
+                            <button onclick="closeCsvReview()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:24px;">×</button>
+                        </div>
+                        
+                        <!-- Content -->
+                        <div style="padding:20px;overflow-y:auto;flex:1;">
+                            <div id="csv-review-table"></div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div style="padding:20px;border-top:2px solid #e5e7eb;display:flex;gap:12px;">
+                            <button onclick="closeCsvReview()" style="flex:1;padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                Abbrechen
+                            </button>
+                            <button onclick="confirmCsvImport()" style="flex:1;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(16,185,129,0.3);">
+                                ✅ ${currentCsvRides.length} Fahrten importieren & Rechnung erstellen
+                            </button>
+                        </div>
+                        
+                    </div>
+                </div>
+            `;
+            
+            container.style.display = 'block';
+            renderCsvReviewTable();
+        }
+        
+        // Rendere CSV Review Tabelle
+        function renderCsvReviewTable() {
+            const table = document.getElementById('csv-review-table');
+            if (!table) return;
+            
+            const selected = currentCsvRides.filter(r => r.selected).length;
+            
+            let html = `
+                <div style="background:#f0fdf4;padding:12px;border-radius:8px;margin-bottom:16px;border:2px solid #10b981;">
+                    <div style="font-weight:600;color:#065f46;">
+                        ✅ ${selected} von ${currentCsvRides.length} Fahrten ausgewählt
+                    </div>
+                    <div style="font-size:13px;color:#065f46;margin-top:4px;">
+                        Alle Fahrten werden in eine Rechnung zusammengefasst
+                    </div>
+                </div>
+                
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f3f4f6;">
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">
+                                    <input type="checkbox" ${selected === currentCsvRides.length ? 'checked' : ''} onchange="toggleAllCsvRides(this.checked)" style="cursor:pointer;">
+                                </th>
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Datum & Zeit</th>
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Von</th>
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Nach</th>
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Gast</th>
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Personen</th>
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Preis</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            currentCsvRides.forEach((ride, index) => {
+                const dateStr = ride.date.toLocaleDateString('de-DE', {weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric'});
+                const timeStr = ride.date.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+                
+                html += `
+                    <tr style="border-bottom:1px solid #e5e7eb;${ride.selected ? 'background:#f0fdf4;' : ''}">
+                        <td style="padding:12px;">
+                            <input type="checkbox" ${ride.selected ? 'checked' : ''} onchange="toggleCsvRide(${index}, this.checked)" style="cursor:pointer;">
+                        </td>
+                        <td style="padding:12px;">
+                            <div style="font-weight:600;">${dateStr}</div>
+                            <div style="font-size:13px;color:#6b7280;">${timeStr} Uhr</div>
+                        </td>
+                        <td style="padding:12px;">${ride.from || '-'}</td>
+                        <td style="padding:12px;">${ride.to || '-'}</td>
+                        <td style="padding:12px;">${ride.guest || '-'}</td>
+                        <td style="padding:12px;">${ride.passengers} Pers.</td>
+                        <td style="padding:12px;font-weight:600;">${ride.price.toFixed(2)}€</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            table.innerHTML = html;
+        }
+        
+        // Toggle einzelne CSV Fahrt
+        function toggleCsvRide(index, checked) {
+            currentCsvRides[index].selected = checked;
+            renderCsvReviewTable();
+        }
+        
+        // Toggle alle CSV Fahrten
+        function toggleAllCsvRides(checked) {
+            currentCsvRides.forEach(r => r.selected = checked);
+            renderCsvReviewTable();
+        }
+        
+        // Schließe CSV Review
+        function closeCsvReview() {
+            const confirmed = confirm('Import abbrechen?\n\nAlle Änderungen gehen verloren.');
+            if (!confirmed) return;
+            
+            currentCsvRides = [];
+            currentCsvHotelName = '';
+            currentCsvCalendarId = '';
+            document.getElementById('ics-review-container').style.display = 'none';
+        }
+        
+        // Bestätige CSV Import & Erstelle Rechnung
+        async function confirmCsvImport() {
+            const selected = currentCsvRides.filter(r => r.selected);
+            
+            if (selected.length === 0) {
+                alert('❌ Bitte wähle mindestens eine Fahrt aus!');
+                return;
+            }
+            
+            console.log(`✅ Importiere ${selected.length} Fahrten aus CSV...`);
+            
+            try {
+                // Speichere in Firebase
+                const rideRefs = [];
+                
+                for (const ride of selected) {
+                    const rideData = {
+                        // Hotel-Kalender ID
+                        hotelCalendarId: currentCsvCalendarId,
+                        hotelCalendarName: currentCsvHotelName,
+                        customerId: `csv_import_${Date.now()}`,
+                        
+                        // Zeit
+                        pickupTime: ride.date.toISOString(),
+                        createdAt: Date.now(),
+                        
+                        // Kunde
+                        customerName: currentCsvHotelName,
+                        customerPhone: 'CSV-Import',
+                        
+                        // Gast
+                        guestName: ride.guest,
+                        
+                        // Locations
+                        pickup: ride.from || currentCsvHotelName,
+                        destination: ride.to || 'Bahnhof Heringsdorf',
+                        
+                        // Details
+                        passengers: ride.passengers,
+                        price: ride.price,
+                        
+                        // Status
+                        status: 'completed',
+                        preBooked: true,
+                        
+                        // Meta
+                        notes: `📊 Importiert aus CSV\nHotel: ${currentCsvHotelName}\nOriginal: ${ride.originalTitle}`,
+                        source: 'csv-import'
+                    };
+                    
+                    const ref = db.ref('rides').push();
+                    await ref.set(rideData);
+                    rideRefs.push(ref.key);
+                    
+                    console.log('✅ Fahrt importiert:', ref.key);
+                }
+                
+                // Erstelle Rechnung
+                const invoiceNr = `CSV-${Date.now()}`;
+                const invoiceData = {
+                    invoiceNr: invoiceNr,
+                    hotelName: currentCsvHotelName,
+                    hotelCalendarId: currentCsvCalendarId,
+                    rides: rideRefs,
+                    createdAt: Date.now(),
+                    status: 'draft',
+                    source: 'csv-import'
+                };
+                
+                await db.ref('hotelInvoices').push(invoiceData);
+                console.log('✅ Rechnung erstellt:', invoiceNr);
+                
+                // Schließe Review
+                document.getElementById('ics-review-container').style.display = 'none';
+                currentCsvRides = [];
+                currentCsvHotelName = '';
+                currentCsvCalendarId = '';
+                
+                // Reload Hotel-Liste
+                await initHotelInvoices();
+                
+                // Success
+                alert(`✅ CSV Import erfolgreich!\n\n${selected.length} Fahrten importiert\nRechnung ${invoiceNr} erstellt\n\nDu kannst jetzt die PDF erstellen!`);
+                
+            } catch (error) {
+                console.error('❌ Import-Fehler:', error);
+                alert('❌ Fehler beim CSV Import:\n\n' + error.message);
             }
         }
         

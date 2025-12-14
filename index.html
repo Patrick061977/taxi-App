@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.10 - SCHNELLBUCHUNG-FIX! 🐛 (Build 20251214-2240)');
+        console.log('🚕 Funk Taxi App v5.86.11 - TELEGRAM+FAVORITEN-FIX! 📱⭐ (Build 20251214-2250)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +709,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.10 - SCHNELLBUCHUNG-FIX! 🐛✅ (Build 20251214-2240)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.11 - TELEGRAM+FAVORITEN-FIX! 📱⭐ (Build 20251214-2250)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4626,7 +4626,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.10';
+        const APP_VERSION = '5.86.11';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -12530,6 +12530,15 @@
                 
                 console.log('✅ Input Event Listener wird registriert für:', id);
                 
+                // 🆕 v5.86.11: FOCUS EVENT - Zeige Favoriten beim Klick!
+                input.addEventListener('focus', () => {
+                    const value = input.value.trim();
+                    if (!value || value.length < 3) {
+                        // Zeige Favoriten sofort!
+                        searchAddresses('', id);
+                    }
+                });
+                
                 input.addEventListener('input', (e) => {
                     console.log('⌨️ INPUT EVENT!', id, 'Wert:', e.target.value);
                     
@@ -12555,10 +12564,21 @@
                     clearTimeout(autocompleteTimeout);
                     const value = e.target.value.trim();
                     
+                    // 🆕 v5.86.11: AUCH BEI < 3 ZEICHEN FAVORITEN ZEIGEN!
+                    if (value.length === 0) {
+                        // Leer? Zeige Favoriten!
+                        searchAddresses('', id);
+                        return;
+                    }
+                    
                     if (value.length < 3) {
-                        console.log('⚠️ Zu kurz (<3 Zeichen):', value.length);
+                        // 1-2 Zeichen? Zeige Favoriten!
+                        console.log('⚠️ Kurz (<3 Zeichen) - zeige Favoriten:', value.length);
                         const dropdown = document.getElementById(id + '-dropdown');
-                        if (dropdown) dropdown.style.display = 'none';
+                        if (dropdown) {
+                            dropdown.innerHTML = '<div style="padding:10px;color:#999;">Mindestens 3 Zeichen für Suche...</div>';
+                            dropdown.style.display = 'block';
+                        }
                         return;
                     }
                     
@@ -24015,6 +24035,15 @@
                 
                 if (!input || !dropdown) return;
                 
+                // 🆕 v5.86.11: FOCUS EVENT - Zeige Favoriten beim Klick!
+                input.addEventListener('focus', () => {
+                    const value = input.value.trim();
+                    if (!value || value.length < 3) {
+                        // Zeige Favoriten sofort!
+                        searchQuickBookingAddresses('', fieldId);
+                    }
+                });
+                
                 input.addEventListener('input', (e) => {
                     // Reset coords
                     if (fieldId === 'quick-booking-pickup') quickBookingPickupCoords = null;
@@ -24023,8 +24052,17 @@
                     clearTimeout(quickBookingAutocompleteTimeout);
                     const value = e.target.value.trim();
                     
+                    // 🆕 v5.86.11: AUCH BEI < 3 ZEICHEN SUCHEN (für Favoriten!)
+                    if (value.length === 0) {
+                        // Leer? Zeige Favoriten!
+                        searchQuickBookingAddresses('', fieldId);
+                        return;
+                    }
+                    
                     if (value.length < 3) {
-                        dropdown.style.display = 'none';
+                        // 1-2 Zeichen? Zeige Favoriten!
+                        dropdown.innerHTML = '<div style="padding:10px;color:#999;">Mindestens 3 Zeichen für Suche...</div>';
+                        dropdown.style.display = 'block';
                         return;
                     }
                     
@@ -27199,6 +27237,25 @@
                     const rideRef = await db.ref('rides').push(ride);
                     const rideId = rideRef.key;
                     console.log('✅ Schnellbuchung erstellt:', rideId);
+                    
+                    // 🆕 v5.86.11: TELEGRAM AN ADMIN (wie im Panel!)
+                    console.log('═══════════════════════════════════════');
+                    console.log('📱 TELEGRAM: Sende Benachrichtigung für Schnellbuchung...');
+                    
+                    try {
+                        // Baue ride-Objekt für Telegram
+                        const rideForTelegram = {
+                            firebaseId: rideId,
+                            id: rideId,
+                            ...ride
+                        };
+                    
+                        await sendTelegramForNewRide(rideForTelegram);
+                        console.log('✅ TELEGRAM: Benachrichtigung an Admin gesendet!');
+                    } catch (error) {
+                        console.error('❌ TELEGRAM: Fehler beim Senden:', error);
+                    }
+                    console.log('═══════════════════════════════════════');
                     
                     // 🆕 v5.57.0: TELEGRAM AN FAHRER SENDEN (wenn Fahrzeug zugewiesen!)
                     if (vehicle && ride.status === 'accepted') {

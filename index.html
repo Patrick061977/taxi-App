@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.82.1 - FILTER FIX! 📅 (Build 20251214-1015)');
+        console.log('🚕 Funk Taxi App v5.82.2 - ALLE MONATE! 📅 (Build 20251214-1025)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -706,7 +706,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.82.1 - FILTER FIX! 📅 (Build 20251214-1015)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.82.2 - ALLE MONATE! 📅 (Build 20251214-1025)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -36399,26 +36399,19 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     yearSelect.appendChild(option);
                 });
                 
-                // v5.82.1: Setze NEUESTES Jahr aus Fahrten als Default
+                // v5.82.2: Setze NEUESTES Jahr aus Fahrten als Default
                 if (sortedYears.length > 0) {
                     const newestYear = sortedYears[0]; // Bereits absteigend sortiert
                     yearSelect.value = newestYear;
                     
-                    // v5.82.1: Finde neuesten Monat in diesem Jahr
-                    const monthsInYear = new Set();
-                    icsAllRides.forEach(ride => {
-                        if (ride.date.getFullYear() === newestYear) {
-                            monthsInYear.add(ride.date.getMonth() + 1);
-                        }
-                    });
-                    
-                    // Setze neuesten Monat als Default
+                    // v5.82.2: Monat auf "Alle Monate" lassen!
+                    // (Statt neuesten Monat zu suchen, zeigen wir ALLE Fahrten vom neuesten Jahr)
                     const monthSelect = document.getElementById('ics-filter-month');
-                    if (monthSelect && monthsInYear.size > 0) {
-                        const newestMonth = Math.max(...Array.from(monthsInYear));
-                        monthSelect.value = newestMonth;
-                        console.log(`✅ Filter-Default: ${newestYear}-${newestMonth}`);
+                    if (monthSelect) {
+                        monthSelect.value = ""; // ALLE Monate
                     }
+                    
+                    console.log(`✅ Filter-Default: ${newestYear} (alle Monate)`);
                 }
             }
             

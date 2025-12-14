@@ -2679,29 +2679,29 @@
     <div id="admin-view" class="view">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
-        <!-- 🆕 v5.31.3: RIDE-ID SUCHE -->
+        <!-- 🆕 v5.86.0: INTELLIGENTE SUCHE -->
         <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #667eea;box-shadow:0 4px 12px rgba(102,126,234,0.15);">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                 <div style="font-size:24px;">🔍</div>
                 <div style="flex:1;">
                     <label style="display:block;font-weight:600;font-size:14px;color:#1f2937;margin-bottom:8px;">
-                        Suche nach Fahrt-ID
+                        Intelligente Suche
                     </label>
                     <input 
                         type="text" 
                         id="ride-id-search" 
-                        placeholder="ride_1733047234567_k3n9x2m4p" 
-                        style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;font-family:monospace;box-sizing:border-box;"
-                        onkeypress="if(event.key==='Enter') searchRideById()">
+                        placeholder="Fahrt-ID, Kundenname oder Telefonnummer..." 
+                        style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;"
+                        onkeypress="if(event.key==='Enter') intelligentSearch()">
                 </div>
                 <button 
-                    onclick="searchRideById()" 
+                    onclick="intelligentSearch()" 
                     style="padding:12px 20px;background:#667eea;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;white-space:nowrap;font-size:14px;">
                     🔍 Suchen
                 </button>
             </div>
             <div style="font-size:12px;color:#6b7280;">
-                💡 Tipp: ID aus Telegram kopieren und hier einfügen
+                💡 Sucht automatisch: Fahrt-ID (ride_...), Kunde (Name) oder Telefon (0151...)
             </div>
         </div>
         
@@ -9036,6 +9036,266 @@
         // DATABASE FUNCTIONS
         
         // 🔍 v5.31.3: RIDE-ID SUCHE
+        // 🆕 v5.86.0: INTELLIGENTE SUCHE
+        async function intelligentSearch() {
+            const input = document.getElementById('ride-id-search');
+            const searchTerm = input.value.trim();
+            
+            if (!searchTerm) {
+                showToast('❌ Bitte Suchbegriff eingeben!', 'error');
+                return;
+            }
+            
+            console.log('🔍 Intelligente Suche:', searchTerm);
+            
+            // ERKENNE SUCHTYP
+            let searchType = 'unknown';
+            let normalizedSearch = searchTerm;
+            
+            if (searchTerm.startsWith('ride_')) {
+                searchType = 'ride_id';
+                console.log('🎯 Erkannt als: Fahrt-ID');
+            } else if (/^\+?\d[\d\s\-\/()]{7,}$/.test(searchTerm)) {
+                searchType = 'phone';
+                normalizedSearch = searchTerm.replace(/\D/g, '').slice(-10); // Letzte 10 Ziffern
+                console.log('🎯 Erkannt als: Telefonnummer ->', normalizedSearch);
+            } else {
+                searchType = 'name';
+                normalizedSearch = searchTerm.toLowerCase();
+                console.log('🎯 Erkannt als: Kundenname');
+            }
+            
+            // SUCHE DURCHFÜHREN
+            let results = [];
+            
+            if (searchType === 'ride_id') {
+                // FAHRT-ID SUCHE (wie vorher)
+                let foundRide = null;
+                
+                // 1. Suche in rides Array
+                foundRide = rides.find(r => 
+                    r.id === searchTerm || 
+                    r.firebaseId === searchTerm ||
+                    (r.id && r.id.toString() === searchTerm) ||
+                    (r.firebaseId && r.firebaseId.toString() === searchTerm)
+                );
+                
+                // 2. Suche in Firebase
+                if (!foundRide && isFirebaseReady) {
+                    try {
+                        const snapshot = await db.ref('rides/' + searchTerm).once('value');
+                        if (snapshot.exists()) {
+                            foundRide = snapshot.val();
+                            foundRide.firebaseId = searchTerm;
+                            console.log('✅ Fahrt in Firebase gefunden');
+                        }
+                    } catch (error) {
+                        console.error('❌ Firebase Suche Fehler:', error);
+                    }
+                }
+                
+                // 3. Suche in localStorage
+                if (!foundRide) {
+                    const localHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                    foundRide = localHistory.find(r => 
+                        r.id === searchTerm || 
+                        r.firebaseId === searchTerm
+                    );
+                }
+                
+                if (foundRide) {
+                    showRideDetailsModal(foundRide);
+                    input.value = '';
+                    return;
+                } else {
+                    showToast(`❌ Keine Fahrt gefunden mit ID: ${searchTerm}`, 'error');
+                    return;
+                }
+                
+            } else if (searchType === 'phone' || searchType === 'name') {
+                // KUNDEN/TELEFON SUCHE - Suche alle Fahrten
+                if (!isFirebaseReady) {
+                    showToast('❌ Firebase nicht verbunden!', 'error');
+                    return;
+                }
+                
+                showToast('🔍 Suche läuft...', 'info');
+                
+                try {
+                    const snapshot = await db.ref('rides').orderByChild('createdAt').once('value');
+                    
+                    snapshot.forEach(child => {
+                        const ride = child.val();
+                        ride.firebaseId = child.key;
+                        
+                        let isMatch = false;
+                        
+                        if (searchType === 'phone') {
+                            // Telefon-Match
+                            if (ride.customerPhone) {
+                                const ridePhone = ride.customerPhone.replace(/\D/g, '').slice(-10);
+                                if (ridePhone === normalizedSearch || ridePhone.includes(normalizedSearch)) {
+                                    isMatch = true;
+                                }
+                            }
+                        } else if (searchType === 'name') {
+                            // Namen-Match (FUZZY!)
+                            if (ride.customerName) {
+                                const rideName = ride.customerName.toLowerCase();
+                                // Exakter Match oder Teil-Match
+                                if (rideName === normalizedSearch || 
+                                    rideName.includes(normalizedSearch) ||
+                                    normalizedSearch.includes(rideName)) {
+                                    isMatch = true;
+                                }
+                            }
+                        }
+                        
+                        if (isMatch) {
+                            results.push(ride);
+                        }
+                    });
+                    
+                    console.log(`📊 ${results.length} Fahrten gefunden`);
+                    
+                    if (results.length === 0) {
+                        showToast(`❌ Keine Fahrten gefunden für: ${searchTerm}`, 'error');
+                        return;
+                    }
+                    
+                    // Sortiere nach Datum (neueste zuerst)
+                    results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                    
+                    // ZEIGE ERGEBNISSE
+                    showSearchResultsModal(results, searchTerm, searchType);
+                    input.value = '';
+                    
+                } catch (error) {
+                    console.error('❌ Suchfehler:', error);
+                    showToast('❌ Fehler bei der Suche!', 'error');
+                }
+            }
+        }
+        
+        // 🆕 v5.86.0: SUCH-ERGEBNISSE MODAL
+        function showSearchResultsModal(results, searchTerm, searchType) {
+            // Entferne altes Modal
+            const oldModal = document.getElementById('search-results-modal');
+            if (oldModal) oldModal.remove();
+            
+            // Berechne Statistiken
+            let totalRevenue = 0;
+            let completedCount = 0;
+            let cancelledCount = 0;
+            
+            results.forEach(r => {
+                if (r.status === 'completed') {
+                    completedCount++;
+                    totalRevenue += parseFloat(r.price) || 0;
+                } else if (r.status === 'storniert' || r.status === 'cancelled') {
+                    cancelledCount++;
+                }
+            });
+            
+            const searchTypeLabel = {
+                'phone': '📞 Telefon',
+                'name': '👤 Kunde'
+            };
+            
+            // Modal HTML
+            const modal = document.createElement('div');
+            modal.id = 'search-results-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <h3 style="margin:0;font-size:20px;">🔍 Suchergebnisse</h3>
+                            <button onclick="document.getElementById('search-results-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">×</button>
+                        </div>
+                        <div style="font-size:14px;opacity:0.95;">
+                            ${searchTypeLabel[searchType]} • <strong>${searchTerm}</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Statistiken -->
+                    <div style="background:#f0fdf4;padding:15px;border-bottom:1px solid #e5e7eb;">
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center;">
+                            <div>
+                                <div style="font-size:24px;font-weight:bold;color:#16a34a;">${results.length}</div>
+                                <div style="font-size:12px;color:#666;">Gesamt</div>
+                            </div>
+                            <div>
+                                <div style="font-size:24px;font-weight:bold;color:#2563eb;">${completedCount}</div>
+                                <div style="font-size:12px;color:#666;">Abgeschlossen</div>
+                            </div>
+                            <div>
+                                <div style="font-size:24px;font-weight:bold;color:#16a34a;">${totalRevenue.toFixed(2)}€</div>
+                                <div style="font-size:12px;color:#666;">Umsatz</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fahrten Liste -->
+                    <div style="flex:1;overflow-y:auto;padding:15px;">
+                        ${results.map(ride => {
+                            const date = ride.createdAt ? new Date(ride.createdAt).toLocaleDateString('de-DE', {
+                                day: '2-digit', month: '2-digit', year: '2-digit'
+                            }) : '?';
+                            const time = ride.createdAt ? new Date(ride.createdAt).toLocaleTimeString('de-DE', {
+                                hour: '2-digit', minute: '2-digit'
+                            }) : '';
+                            
+                            let statusColor = '#666';
+                            let statusIcon = '⏳';
+                            if (ride.status === 'completed') {
+                                statusColor = '#16a34a';
+                                statusIcon = '✅';
+                            } else if (ride.status === 'storniert' || ride.status === 'cancelled') {
+                                statusColor = '#dc2626';
+                                statusIcon = '❌';
+                            } else if (ride.status === 'accepted' || ride.status === 'picked_up') {
+                                statusColor = '#2563eb';
+                                statusIcon = '🚗';
+                            }
+                            
+                            return `
+                                <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:10px;">
+                                    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                                        <div>
+                                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                                <span style="color:${statusColor};font-weight:600;">${statusIcon}</span>
+                                                <span style="font-size:13px;color:#666;">${date} ${time}</span>
+                                            </div>
+                                            <div style="font-weight:600;font-size:15px;color:#1f2937;">
+                                                ${ride.customerName || 'Unbekannt'}
+                                            </div>
+                                            ${ride.customerPhone ? `<div style="font-size:13px;color:#6b7280;">📞 ${ride.customerPhone}</div>` : ''}
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <div style="font-weight:700;font-size:18px;color:#16a34a;">${ride.price || '?'}€</div>
+                                            <button onclick="document.getElementById('search-results-modal').remove(); showRideDetailsModal(${JSON.stringify(ride).replace(/"/g, '&quot;')})" style="margin-top:4px;padding:6px 12px;background:#667eea;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
+                                                📋 Details
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:13px;color:#333;padding:8px;background:#f9fafb;border-radius:6px;">
+                                        📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
+                                    </div>
+                                    ${ride.vehicle ? `<div style="font-size:12px;color:#888;margin-top:6px;">🚗 ${ride.vehicle}</div>` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            console.log(`✅ ${results.length} Ergebnisse angezeigt`);
+        }
+        
         async function searchRideById() {
             const input = document.getElementById('ride-id-search');
             const searchId = input.value.trim();
@@ -19725,7 +19985,7 @@
         let phoneCheckTimeout = null;
         let lastCheckedPhone = '';
         
-        // 📋 KUNDEN-FAHRTVERLAUF ANZEIGEN
+        // 📋 KUNDEN-FAHRTVERLAUF ANZEIGEN - v5.86.0 VERBESSERT!
         async function showCustomerHistory(customerId, customerName, customerPhone) {
             const historyDiv = document.getElementById('customer-history-' + customerId);
             if (!historyDiv) return;
@@ -19744,51 +20004,88 @@
                 return;
             }
             
+            console.log(`🔍 Suche Fahrten für: ${customerName} / ${customerPhone}`);
+            
             try {
                 const snapshot = await db.ref('rides').orderByChild('createdAt').once('value');
                 const customerRides = [];
                 
-                // Normalisiere Telefonnummer für Vergleich
+                // Normalisiere für Vergleich
                 const normalizedPhone = customerPhone ? customerPhone.replace(/\D/g, '').slice(-10) : '';
                 const normalizedName = customerName ? customerName.toLowerCase().trim() : '';
+                
+                console.log(`📊 Suche mit: Name="${normalizedName}", Tel="${normalizedPhone}"`);
+                
+                let phoneMatches = 0;
+                let nameMatches = 0;
+                let fuzzyMatches = 0;
                 
                 snapshot.forEach(child => {
                     const ride = child.val();
                     ride.firebaseId = child.key;
                     
-                    // Prüfe ob Fahrt zu diesem Kunden gehört
                     let isMatch = false;
+                    let matchReason = '';
                     
-                    // Match über Telefonnummer
+                    // 1. TELEFON-MATCH (beste Methode)
                     if (normalizedPhone && ride.customerPhone) {
                         const ridePhone = ride.customerPhone.replace(/\D/g, '').slice(-10);
                         if (ridePhone === normalizedPhone) {
                             isMatch = true;
+                            matchReason = 'phone-exact';
+                            phoneMatches++;
+                        } else if (ridePhone.includes(normalizedPhone) || normalizedPhone.includes(ridePhone)) {
+                            isMatch = true;
+                            matchReason = 'phone-partial';
+                            phoneMatches++;
                         }
                     }
                     
-                    // Match über Name (falls Telefon nicht passt)
+                    // 2. NAMEN-MATCH (exakt)
                     if (!isMatch && normalizedName && ride.customerName) {
-                        if (ride.customerName.toLowerCase().trim() === normalizedName) {
+                        const rideName = ride.customerName.toLowerCase().trim();
+                        if (rideName === normalizedName) {
                             isMatch = true;
+                            matchReason = 'name-exact';
+                            nameMatches++;
+                        }
+                    }
+                    
+                    // 3. FUZZY NAMEN-MATCH (Teil-String)
+                    if (!isMatch && normalizedName && ride.customerName) {
+                        const rideName = ride.customerName.toLowerCase().trim();
+                        // Beide Richtungen prüfen
+                        if (rideName.includes(normalizedName) || normalizedName.includes(rideName)) {
+                            isMatch = true;
+                            matchReason = 'name-fuzzy';
+                            fuzzyMatches++;
                         }
                     }
                     
                     if (isMatch) {
+                        ride.matchReason = matchReason; // Für Debug
                         customerRides.push(ride);
                     }
                 });
+                
+                console.log(`✅ Matches: ${customerRides.length} (📞 Phone: ${phoneMatches}, 👤 Exakt: ${nameMatches}, 🔍 Fuzzy: ${fuzzyMatches})`);
                 
                 // Sortiere nach Datum (neueste zuerst)
                 customerRides.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 
                 if (customerRides.length === 0) {
                     historyDiv.innerHTML = `
-                        <div style="background:#f9fafb;border-radius:6px;padding:15px;text-align:center;">
-                            <div style="font-size:24px;margin-bottom:5px;">📭</div>
-                            <div style="color:#666;">Keine Fahrten gefunden</div>
+                        <div style="background:#fef3c7;border:2px dashed #f59e0b;border-radius:8px;padding:15px;text-align:center;">
+                            <div style="font-size:32px;margin-bottom:8px;">📭</div>
+                            <div style="font-weight:600;color:#92400e;margin-bottom:4px;">Keine Fahrten gefunden</div>
+                            <div style="font-size:12px;color:#92400e;">
+                                Suchte nach:<br>
+                                👤 Name: "${customerName}"<br>
+                                📞 Telefon: "${customerPhone}"
+                            </div>
                         </div>
                     `;
+                    showToast(`⚠️ Keine Fahrten für ${customerName} gefunden`, 'warning');
                     return;
                 }
                 
@@ -19798,6 +20095,111 @@
                 let cancelledRides = 0;
                 
                 customerRides.forEach(r => {
+                    if (r.status === 'completed') {
+                        completedRides++;
+                        totalRevenue += parseFloat(r.price) || 0;
+                    } else if (r.status === 'storniert' || r.status === 'cancelled') {
+                        cancelledRides++;
+                    }
+                });
+                
+                // HTML erstellen
+                let html = `
+                    <div style="background:#f0fdf4;border-radius:6px;padding:12px;margin-bottom:12px;border:2px solid #10b981;">
+                        <div style="font-weight:600;margin-bottom:8px;color:#1f2937;">📊 Statistik für ${customerName}</div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;">
+                            <div style="text-align:center;background:white;padding:8px;border-radius:6px;">
+                                <div style="font-size:20px;font-weight:bold;color:#16a34a;">${completedRides}</div>
+                                <div style="color:#666;">Abgeschlossen</div>
+                            </div>
+                            <div style="text-align:center;background:white;padding:8px;border-radius:6px;">
+                                <div style="font-size:20px;font-weight:bold;color:#dc2626;">${cancelledRides}</div>
+                                <div style="color:#666;">Storniert</div>
+                            </div>
+                            <div style="text-align:center;background:white;padding:8px;border-radius:6px;">
+                                <div style="font-size:20px;font-weight:bold;color:#2563eb;">${totalRevenue.toFixed(2)}€</div>
+                                <div style="color:#666;">Umsatz</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="font-weight:600;margin-bottom:8px;color:#1f2937;">📋 Letzte ${Math.min(customerRides.length, 10)} Fahrten:</div>
+                `;
+                
+                // Zeige max 10 Fahrten
+                const displayRides = customerRides.slice(0, 10);
+                
+                displayRides.forEach(ride => {
+                    const date = ride.createdAt ? new Date(ride.createdAt).toLocaleDateString('de-DE', {
+                        day: '2-digit', month: '2-digit', year: '2-digit'
+                    }) : '?';
+                    const time = ride.createdAt ? new Date(ride.createdAt).toLocaleTimeString('de-DE', {
+                        hour: '2-digit', minute: '2-digit'
+                    }) : '';
+                    
+                    let statusColor = '#666';
+                    let statusIcon = '⏳';
+                    if (ride.status === 'completed') {
+                        statusColor = '#16a34a';
+                        statusIcon = '✅';
+                    } else if (ride.status === 'storniert' || ride.status === 'cancelled') {
+                        statusColor = '#dc2626';
+                        statusIcon = '❌';
+                    } else if (ride.status === 'accepted' || ride.status === 'picked_up') {
+                        statusColor = '#2563eb';
+                        statusIcon = '🚗';
+                    }
+                    
+                    // Escape für onclick
+                    const pickupEsc = (ride.pickup || '').replace(/'/g, "\\'");
+                    const destEsc = (ride.destination || '').replace(/'/g, "\\'");
+                    const nameEsc = (ride.customerName || customerName || '').replace(/'/g, "\\'");
+                    const phoneEsc = (ride.customerPhone || customerPhone || '').replace(/'/g, "\\'");
+                    
+                    html += `
+                        <div style="background:white;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:8px;font-size:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div style="flex:1;">
+                                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                        <span style="color:${statusColor};font-weight:600;font-size:14px;">${statusIcon}</span>
+                                        <span style="color:#666;">${date} ${time}</span>
+                                    </div>
+                                    <div style="color:#333;margin-top:4px;font-size:13px;">
+                                        📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
+                                    </div>
+                                    ${ride.vehicle ? `<div style="color:#888;font-size:11px;margin-top:2px;">🚗 ${ride.vehicle}</div>` : ''}
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div style="text-align:right;">
+                                        <div style="font-weight:700;font-size:16px;color:#16a34a;">${ride.price || '?'}€</div>
+                                    </div>
+                                    ${ride.status === 'cancelled' || ride.status === 'storniert' ? `
+                                        <button onclick="showCancelledRideDetails('${ride.firebaseId}')" style="padding:6px 10px;background:#ef4444;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">
+                                            📝 Details
+                                        </button>
+                                    ` : `
+                                        <button onclick="rebookFromHistory('${pickupEsc}', '${destEsc}', '${nameEsc}', '${phoneEsc}')" style="padding:6px 10px;background:#10b981;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">
+                                            🔁 Buchen
+                                        </button>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                if (customerRides.length > 10) {
+                    html += `<div style="text-align:center;color:#666;font-size:11px;padding:8px;background:#f9fafb;border-radius:6px;">... und ${customerRides.length - 10} weitere Fahrten</div>`;
+                }
+                
+                historyDiv.innerHTML = html;
+                showToast(`✅ ${customerRides.length} Fahrten geladen`, 'success');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden des Verlaufs:', error);
+                historyDiv.innerHTML = '<div style="color:red;padding:10px;">❌ Fehler beim Laden</div>';
+                showToast('❌ Fehler beim Laden des Verlaufs', 'error');
+            }
+        }
                     if (r.status === 'completed') {
                         completedRides++;
                         totalRevenue += parseFloat(r.price) || 0;

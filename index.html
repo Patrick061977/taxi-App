@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.8 - ALERT-FIX! 🔔 (Build 20251214-2200)');
+        console.log('🚕 Funk Taxi App v5.86.10 - SCHNELLBUCHUNG-FIX! 🐛 (Build 20251214-2240)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +709,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.8 - ALERT-FIX! 🔔✅ (Build 20251214-2200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.10 - SCHNELLBUCHUNG-FIX! 🐛✅ (Build 20251214-2240)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4626,7 +4626,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.8';
+        const APP_VERSION = '5.86.10';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -6002,7 +6002,7 @@
                 localStorage.setItem('rideHistory', JSON.stringify(history));
             }
             
-            // 🆕 v5.64.42: Bessere Erfolgs-Meldung - VOR closeEditModal!
+            // 🆕 v5.64.42: Bessere Erfolgs-Meldung - SOFORT zeigen!
             if (newVehicleId && updates.vehicle) {
                 let message = `✅ Fahrt aktualisiert!\n\n🚗 Zugewiesen an: ${updates.vehicle}${updates.vehiclePlate ? ' (' + updates.vehiclePlate + ')' : ''}`;
                 if (telegramSent) {
@@ -6010,9 +6010,10 @@
                 } else {
                     message += `\n⚠️ Telegram konnte nicht gesendet werden\n(Fahrer hat keine Telegram-ID hinterlegt)`;
                 }
-                alert(message);
+                // SOFORT zeigen, nicht warten auf async calls!
+                setTimeout(() => alert(message), 0);
             } else {
-                alert('✅ Fahrt wurde aktualisiert!');
+                setTimeout(() => alert('✅ Fahrt wurde aktualisiert!'), 0);
             }
             
             closeEditModal();
@@ -27231,9 +27232,9 @@
                     }
                     
                     // CRM aktualisieren
-                    await db.ref('customers/' + customerId).update({
+                    await db.ref('customers/' + finalCustomerId).update({
                         lastRide: Date.now(),
-                        totalRides: (customer.totalRides || 0) + 1
+                        totalRides: (finalCustomer.totalRides || 0) + 1
                     });
                     
                     // Schließe Modal
@@ -27241,7 +27242,7 @@
                     
                     // 🆕 v5.57.0: Erfolgs-Meldung MIT Fahrzeug-Info!
                     let successMessage = '✅ Fahrt erfolgreich gebucht!\n\n' +
-                          '👤 ' + customer.name + '\n';
+                          '👤 ' + finalCustomer.name + '\n';
                     
                     // 🆕 v5.75.0: Gast-Name anzeigen wenn vorhanden!
                     if (ride.guestName) {

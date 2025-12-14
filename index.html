@@ -35819,62 +35819,30 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('🔄 Synchronisiere Hotel-Kalender:', calendar.name);
             
             try {
-                // 🆕 v5.77.1: MULTI-PROXY FALLBACK!
-                // Versuche verschiedene CORS-Proxies
-                const proxies = [
-                    { name: 'AllOrigins', url: (icalUrl) => `https://api.allorigins.win/raw?url=${encodeURIComponent(icalUrl)}` },
-                    { name: 'CORS-Anywhere', url: (icalUrl) => `https://cors-anywhere.herokuapp.com/${icalUrl}` },
-                    { name: 'Direkt (kein Proxy)', url: (icalUrl) => icalUrl }
-                ];
+                // 🆕 v5.85.0: FIREBASE CLOUD FUNCTION (kein CORS Problem!)
+                console.log('📥 Rufe Cloud Function auf...');
                 
-                let icsText = null;
-                let usedProxy = null;
+                const cloudFunctionUrl = 'https://europe-west1-funk-taxi-heringsdorf.cloudfunctions.net/fetchIcal';
                 
-                console.log('📥 Lade iCal von:', calendar.icalUrl);
-                
-                // Versuche alle Proxies nacheinander
-                for (const proxy of proxies) {
-                    try {
-                        console.log(`🔄 Versuche mit ${proxy.name}...`);
-                        const url = proxy.url(calendar.icalUrl);
-                        
-                        const response = await fetch(url, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'text/calendar, text/plain, */*'
-                            }
-                        });
-                        
-                        if (!response.ok) {
-                            console.warn(`⚠️ ${proxy.name} fehlgeschlagen: HTTP ${response.status}`);
-                            continue; // Nächster Proxy
-                        }
-                        
-                        icsText = await response.text();
-                        
-                        // Prüfe ob valide iCal Daten
-                        if (icsText && (icsText.includes('BEGIN:VCALENDAR') || icsText.includes('BEGIN:VEVENT'))) {
-                            usedProxy = proxy.name;
-                            console.log(`✅ ${icsText.length} Zeichen geladen mit ${proxy.name}`);
-                            break; // Erfolgreich!
-                        } else {
-                            console.warn(`⚠️ ${proxy.name}: Keine validen iCal Daten`);
-                            icsText = null;
-                            continue;
-                        }
-                        
-                    } catch (proxyError) {
-                        console.warn(`⚠️ ${proxy.name} Error:`, proxyError.message);
-                        continue; // Nächster Proxy
+                const response = await fetch(`${cloudFunctionUrl}?url=${encodeURIComponent(calendar.icalUrl)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
                     }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Cloud Function Fehler: HTTP ${response.status}`);
                 }
                 
-                // Alle Proxies fehlgeschlagen?
-                if (!icsText) {
-                    throw new Error(`Alle CORS-Proxies fehlgeschlagen!\n\nMögliche Gründe:\n- iCal URL ist nicht öffentlich\n- Rate-Limit der Proxies erreicht\n- Netzwerkproblem\n\nVersuche es später nochmal.`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Unbekannter Fehler');
                 }
                 
-                console.log(`📦 Verwende ${usedProxy} für Import`);
+                const icsText = data.icsText;
+                console.log(`✅ ${icsText.length} Zeichen von Cloud Function geladen`);
                 
                 // Parse iCal
                 const events = parseICalendar(icsText);

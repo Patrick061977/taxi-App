@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.75.2 - ALLE MODALS EINHEITLICH! ✅ (Build 20251213-2130)');
+        console.log('🚕 Funk Taxi App v5.76.1 - CALENDAR PICKER LAYOUT FIX! ✅ (Build 20251214-0740)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.74.0 - FRITZBOX INTEGRATION! 📞🎉 (Build 20251213-1345)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.76.1 - CALENDAR PICKER! 📅✨ (Build 20251214-0740)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -793,14 +793,14 @@
                 <div style="margin-bottom: 15px;">
                     <label style="display: block; font-size: 13px; color: #666; margin-bottom: 5px;">Deine Handynummer</label>
                     <div style="display: flex; gap: 8px;">
-                        <select id="phone-country-code" style="padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; width: 90px;">
+                        <select id="phone-country-code" style="padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; width: 90px; box-sizing: border-box;">
                             <option value="+49">🇩🇪 +49</option>
                             <option value="+43">🇦🇹 +43</option>
                             <option value="+41">🇨🇭 +41</option>
                             <option value="+48">🇵🇱 +48</option>
                         </select>
                         <input type="tel" id="phone-number-input" placeholder="173 1234567" 
-                            style="flex: 1; padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px;"
+                            style="flex: 1; padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; box-sizing: border-box; min-width: 0;"
                             oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>
                 </div>
@@ -21935,44 +21935,18 @@
                                 <div>
                                     <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
                                     
-                                    <!-- 🆕 v5.76.0: CUSTOM CALENDAR PICKER -->
+                                    <!-- 🆕 v5.76.1: CUSTOM CALENDAR PICKER - Als Button statt Input -->
                                     <div style="position:relative;">
-                                        <!-- Anzeige-Feld (klickbar) -->
-                                        <input type="text" 
+                                        <!-- Anzeige-Button (klickbar) -->
+                                        <button type="button"
                                             id="quick-booking-date-display" 
-                                            readonly 
                                             onclick="toggleQuickBookingCalendar()" 
-                                            placeholder="Datum wählen"
-                                            style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;background:white;">
+                                            style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;cursor:pointer;background:white;text-align:left;font-weight:500;color:#1f2937;">
+                                            Datum wählen
+                                        </button>
                                         
                                         <!-- Hidden Feld für Wert -->
                                         <input type="hidden" id="quick-booking-date" value="${defaultDate.split('T')[0]}">
-                                        
-                                        <!-- Calendar Dropdown -->
-                                        <div id="quick-booking-calendar" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #667eea;border-radius:12px;padding:15px;z-index:1001;margin-top:4px;box-shadow:0 10px 40px rgba(102, 126, 234, 0.3);">
-                                            <!-- Header mit Monat/Jahr Navigation -->
-                                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                                                <button onclick="changeQuickBookingMonth(-1);event.stopPropagation();" style="background:none;border:none;font-size:20px;cursor:pointer;padding:5px 10px;color:#667eea;">◄</button>
-                                                <div id="quick-booking-cal-month" style="font-weight:700;font-size:15px;color:#1f2937;"></div>
-                                                <button onclick="changeQuickBookingMonth(1);event.stopPropagation();" style="background:none;border:none;font-size:20px;cursor:pointer;padding:5px 10px;color:#667eea;">►</button>
-                                            </div>
-                                            
-                                            <!-- Wochentage -->
-                                            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
-                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Mo</div>
-                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Di</div>
-                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Mi</div>
-                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Do</div>
-                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#9ca3af;padding:4px;">Fr</div>
-                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#10b981;padding:4px;">Sa</div>
-                                                <div style="text-align:center;font-size:11px;font-weight:600;color:#10b981;padding:4px;">So</div>
-                                            </div>
-                                            
-                                            <!-- Tage (wird mit JS gefüllt) -->
-                                            <div id="quick-booking-cal-days" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
-                                                <!-- Wird dynamisch gefüllt -->
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                                 <div>
@@ -22481,19 +22455,61 @@
             console.log('📅 Wochentag aktualisiert:', weekday);
         }
         
-        // 🆕 v5.76.0: CUSTOM CALENDAR PICKER FÜR SCHNELLBUCHUNG
+        // 🆕 v5.76.1: CUSTOM CALENDAR PICKER FÜR SCHNELLBUCHUNG - ALS OVERLAY!
         let quickBookingCalendarCurrentMonth = new Date();
         let quickBookingCalendarSelectedDate = null;
         
         function toggleQuickBookingCalendar() {
-            const calendar = document.getElementById('quick-booking-calendar');
-            if (calendar.style.display === 'none') {
-                // Öffnen
-                calendar.style.display = 'block';
-                renderQuickBookingCalendar();
-            } else {
+            let calendarOverlay = document.getElementById('quick-booking-calendar-overlay');
+            
+            if (calendarOverlay) {
                 // Schließen
-                calendar.style.display = 'none';
+                calendarOverlay.remove();
+            } else {
+                // Öffnen - als FIXED OVERLAY
+                calendarOverlay = document.createElement('div');
+                calendarOverlay.id = 'quick-booking-calendar-overlay';
+                calendarOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:20000;display:flex;align-items:center;justify-content:center;padding:20px;';
+                
+                calendarOverlay.innerHTML = `
+                    <div onclick="event.stopPropagation()" style="background:white;border-radius:16px;padding:20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                        <!-- Header mit Monat/Jahr Navigation -->
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                            <button onclick="changeQuickBookingMonth(-1);event.stopPropagation();" style="background:none;border:none;font-size:24px;cursor:pointer;padding:8px 12px;color:#667eea;font-weight:700;">◄</button>
+                            <div id="quick-booking-cal-month" style="font-weight:700;font-size:17px;color:#1f2937;"></div>
+                            <button onclick="changeQuickBookingMonth(1);event.stopPropagation();" style="background:none;border:none;font-size:24px;cursor:pointer;padding:8px 12px;color:#667eea;font-weight:700;">►</button>
+                        </div>
+                        
+                        <!-- Wochentage -->
+                        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px;">
+                            <div style="text-align:center;font-size:12px;font-weight:700;color:#9ca3af;padding:8px 0;">Mo</div>
+                            <div style="text-align:center;font-size:12px;font-weight:700;color:#9ca3af;padding:8px 0;">Di</div>
+                            <div style="text-align:center;font-size:12px;font-weight:700;color:#9ca3af;padding:8px 0;">Mi</div>
+                            <div style="text-align:center;font-size:12px;font-weight:700;color:#9ca3af;padding:8px 0;">Do</div>
+                            <div style="text-align:center;font-size:12px;font-weight:700;color:#9ca3af;padding:8px 0;">Fr</div>
+                            <div style="text-align:center;font-size:12px;font-weight:700;color:#10b981;padding:8px 0;">Sa</div>
+                            <div style="text-align:center;font-size:12px;font-weight:700;color:#10b981;padding:8px 0;">So</div>
+                        </div>
+                        
+                        <!-- Tage (wird mit JS gefüllt) -->
+                        <div id="quick-booking-cal-days" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:15px;">
+                            <!-- Wird dynamisch gefüllt -->
+                        </div>
+                        
+                        <!-- Abbrechen Button -->
+                        <button onclick="document.getElementById('quick-booking-calendar-overlay').remove()" style="width:100%;padding:12px;background:#f3f4f6;border:none;border-radius:8px;font-weight:600;cursor:pointer;color:#6b7280;font-size:14px;">
+                            Abbrechen
+                        </button>
+                    </div>
+                `;
+                
+                // Klick auf Overlay (außerhalb) schließt Calendar
+                calendarOverlay.onclick = function() {
+                    this.remove();
+                };
+                
+                document.body.appendChild(calendarOverlay);
+                renderQuickBookingCalendar();
             }
         }
         
@@ -22503,10 +22519,15 @@
             
             // Monat/Jahr Header
             const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            document.getElementById('quick-booking-cal-month').textContent = `${months[month]} ${year}`;
+            const monthHeader = document.getElementById('quick-booking-cal-month');
+            if (monthHeader) {
+                monthHeader.textContent = `${months[month]} ${year}`;
+            }
             
             // Tage rendern
             const daysContainer = document.getElementById('quick-booking-cal-days');
+            if (!daysContainer) return;
+            
             daysContainer.innerHTML = '';
             
             // Erster Tag des Monats
@@ -22539,7 +22560,7 @@
                 
                 const dayCell = document.createElement('div');
                 dayCell.textContent = day;
-                dayCell.style.cssText = 'text-align:center;padding:8px 4px;cursor:pointer;border-radius:6px;font-size:13px;transition:all 0.2s;';
+                dayCell.style.cssText = 'text-align:center;padding:12px 8px;cursor:pointer;border-radius:8px;font-size:15px;transition:all 0.2s;font-weight:500;';
                 
                 // Styling
                 const isToday = date.getTime() === today.getTime();
@@ -22560,7 +22581,7 @@
                     dayCell.style.fontWeight = '600';
                 } else if (isWeekend) {
                     dayCell.style.color = '#10b981';
-                    dayCell.style.fontWeight = '500';
+                    dayCell.style.fontWeight = '600';
                 } else {
                     dayCell.style.color = '#374151';
                 }
@@ -22611,13 +22632,19 @@
             const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
             const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
             const displayText = `${weekdays[date.getDay()]}, ${day}. ${months[date.getMonth()]} ${year}`;
-            document.getElementById('quick-booking-date-display').value = displayText;
+            const displayButton = document.getElementById('quick-booking-date-display');
+            if (displayButton) {
+                displayButton.textContent = displayText;
+            }
             
             // Wochentag-Anzeige aktualisieren
             updateQuickBookingWeekday();
             
             // Calendar schließen
-            document.getElementById('quick-booking-calendar').style.display = 'none';
+            const overlay = document.getElementById('quick-booking-calendar-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
             
             console.log('📅 Datum gewählt:', dateString, displayText);
         }
@@ -22625,7 +22652,9 @@
         // Initialisierung: Setze initiales Datum im Display
         function initQuickBookingCalendar() {
             const dateInput = document.getElementById('quick-booking-date');
-            if (dateInput && dateInput.value) {
+            const displayButton = document.getElementById('quick-booking-date-display');
+            
+            if (dateInput && dateInput.value && displayButton) {
                 const date = new Date(dateInput.value + 'T12:00:00');
                 quickBookingCalendarCurrentMonth = new Date(date.getFullYear(), date.getMonth(), 1);
                 
@@ -22633,20 +22662,9 @@
                 const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
                 const day = String(date.getDate()).padStart(2, '0');
                 const displayText = `${weekdays[date.getDay()]}, ${day}. ${months[date.getMonth()]} ${date.getFullYear()}`;
-                document.getElementById('quick-booking-date-display').value = displayText;
+                displayButton.textContent = displayText;
             }
         }
-        
-        // Calendar schließen wenn außerhalb geklickt
-        document.addEventListener('click', function(e) {
-            const calendar = document.getElementById('quick-booking-calendar');
-            const display = document.getElementById('quick-booking-date-display');
-            if (calendar && display && calendar.style.display === 'block') {
-                if (!calendar.contains(e.target) && e.target !== display) {
-                    calendar.style.display = 'none';
-                }
-            }
-        });
         
         // 🆕 v5.52.9: SPEICHERE NEUEN KUNDEN AUS SCHNELLBUCHUNG
         async function saveNewQuickBookingCustomer() {

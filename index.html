@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.3 - TOAST-FIX! 🔔 (Build 20251214-2000)');
+        console.log('🚕 Funk Taxi App v5.86.4 - KALENDER-FIX! 📅 (Build 20251214-2030)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +709,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.3 - TOAST-FIX! 🔔✅ (Build 20251214-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.4 - KALENDER-FIX! 📅✅ (Build 20251214-2030)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4626,7 +4626,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.3';
+        const APP_VERSION = '5.86.4';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -16219,7 +16219,6 @@
                     
                     // Views aktualisieren
                     updateAdminView();
-                    loadRidesForCalendar();
                 }
             } catch (error) {
                 console.error('❌ Fehler beim Wiederherstellen:', error);
@@ -25685,7 +25684,6 @@
                 
                 // Views aktualisieren
                 updateAdminView();
-                loadRidesForCalendar();
                 
             } catch (error) {
                 console.error('❌ Fehler beim Stornieren:', error);

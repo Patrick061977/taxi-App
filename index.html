@@ -26128,11 +26128,49 @@
                 const vehicle = document.getElementById('quick-booking-vehicle').value;
                 const notes = document.getElementById('quick-booking-notes').value;
                 
-                // Validierung
-                if (!customerId) {
-                    alert('❌ Bitte Kunde auswählen!');
+                // 🆕 v5.84.1: ERWEITERTE KUNDEN-VALIDIERUNG
+                // Hole Suchfeld-Wert (könnte Name oder Telefonnummer sein)
+                const searchField = document.getElementById('quick-booking-customer-search');
+                const searchValue = searchField ? searchField.value.trim() : '';
+                
+                // Fall 1: Kein Kunde ausgewählt UND Suchfeld leer
+                if (!customerId && !searchValue) {
+                    alert('❌ Bitte Kunde auswählen oder Telefonnummer/Name eingeben!');
                     return;
                 }
+                
+                // Fall 2: Kein Kunde ausgewählt ABER Suchfeld hat Wert
+                // → Prüfe ob es eine Telefonnummer ist
+                let isNewPhoneCustomer = false;
+                let newCustomerPhone = '';
+                let newCustomerName = '';
+                
+                if (!customerId && searchValue) {
+                    // Prüfe ob Suchfeld eine Telefonnummer ist (nur Zahlen/+/Leerzeichen)
+                    const phonePattern = /^[\d\s\+\-\(\)]+$/;
+                    
+                    if (phonePattern.test(searchValue)) {
+                        // Nur Telefonnummer → Frage nach Name!
+                        alert('⚠️ Bitte Namen eingeben!\n\nGebe statt der Telefonnummer den Namen des Kunden ein.\nDie Telefonnummer wird automatisch gespeichert.');
+                        searchField.focus();
+                        return;
+                    } else {
+                        // Text (Name) → Erstelle neuen Kunden
+                        // Prüfe ob es einen versteckten Phone-Wert gibt
+                        const hiddenCustomer = allCustomers.find(c => c.id === 'new');
+                        if (hiddenCustomer && hiddenCustomer.phone) {
+                            isNewPhoneCustomer = true;
+                            newCustomerPhone = hiddenCustomer.phone;
+                            newCustomerName = searchValue;
+                            console.log('🆕 Neuer Kunde aus Telefon:', newCustomerPhone, '→', newCustomerName);
+                        } else {
+                            alert('❌ Kunde nicht gefunden!\n\nBitte wähle einen Kunden aus der Liste oder gebe eine Telefonnummer ein.');
+                            return;
+                        }
+                    }
+                }
+                
+                // Validierung - Rest
                 if (!datetime) {
                     alert('❌ Bitte Datum & Zeit eingeben!');
                     return;
@@ -26146,17 +26184,77 @@
                     return;
                 }
                 
-                const customer = allCustomers.find(c => c.id === customerId);
-                if (!customer) {
-                    alert('❌ Kunde nicht gefunden!');
-                    return;
+                // 🆕 v5.84.1: NEUER KUNDE AUS TELEFON → SPEICHERN!
+                let finalCustomerId = customerId;
+                let finalCustomer = null;
+                
+                if (isNewPhoneCustomer) {
+                    console.log('🆕 Neuer Kunde aus Telefon - speichere ins CRM...');
+                    console.log('📞 Telefon:', newCustomerPhone);
+                    console.log('👤 Name:', newCustomerName);
+                    
+                    try {
+                        // Speichere Kunde in Firebase CRM
+                        const newCustomerRef = db.ref('customers').push();
+                        await newCustomerRef.set({
+                            name: newCustomerName,
+                            phone: newCustomerPhone,
+                            address: '',
+                            email: '',
+                            createdAt: firebase.database.ServerValue.TIMESTAMP,
+                            createdBy: 'quick-booking-phone',
+                            source: 'phone-number'
+                        });
+                        
+                        finalCustomerId = newCustomerRef.key;
+                        console.log('✅ Neuer Kunde gespeichert:', finalCustomerId, '-', newCustomerName);
+                        
+                        // Create finalCustomer
+                        finalCustomer = {
+                            id: finalCustomerId,
+                            name: newCustomerName,
+                            phone: newCustomerPhone,
+                            address: '',
+                            email: ''
+                        };
+                        
+                        // Update allCustomers Array
+                        allCustomers.push(finalCustomer);
+                        
+                        // Update Anrufhistorie falls vorhanden
+                        const callHistorySnapshot = await db.ref('callHistory')
+                            .orderByChild('caller')
+                            .equalTo(newCustomerPhone)
+                            .once('value');
+                        
+                        if (callHistorySnapshot.exists()) {
+                            const updates = {};
+                            callHistorySnapshot.forEach(child => {
+                                updates[child.key + '/customerId'] = finalCustomerId;
+                                updates[child.key + '/customerName'] = newCustomerName;
+                            });
+                            await db.ref('callHistory').update(updates);
+                            console.log('✅ Anrufhistorie aktualisiert mit neuem Kunden');
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Fehler beim Speichern:', error);
+                        alert('❌ Fehler beim Speichern des Kunden:\n\n' + error.message);
+                        return;
+                    }
+                } else {
+                    // Normaler Flow: Kunde aus customerId laden
+                    const customer = allCustomers.find(c => c.id === customerId);
+                    if (!customer) {
+                        alert('❌ Kunde nicht gefunden!');
+                        return;
+                    }
+                    
+                    finalCustomer = customer;
                 }
                 
-                // 🆕 v5.73.0: NEUER KUNDE → INS CRM SPEICHERN!
-                let finalCustomerId = customerId;
-                let finalCustomer = customer;
-                
-                if (customer.isNew) {
+                // 🆕 v5.73.0: NEUER KUNDE (isNew) → INS CRM SPEICHERN!
+                if (finalCustomer && finalCustomer.isNew) {
                     console.log('🆕 Neuer Kunde erkannt - speichere ins CRM...');
                     
                     // Hole Name aus dem Suchfeld
@@ -26165,7 +26263,7 @@
                     
                     // Wenn leer → Frage nach!
                     if (!customerName) {
-                        customerName = prompt('👤 Wie heißt der Kunde?\n\n📞 Telefon: ' + customer.phone);
+                        customerName = prompt('👤 Wie heißt der Kunde?\n\n📞 Telefon: ' + finalCustomer.phone);
                         if (!customerName || !customerName.trim()) {
                             alert('❌ Name ist erforderlich!');
                             return;
@@ -26178,7 +26276,7 @@
                         const newCustomerRef = db.ref('customers').push();
                         await newCustomerRef.set({
                             name: customerName,
-                            phone: customer.phone,
+                            phone: finalCustomer.phone,
                             address: '',
                             email: '',
                             createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -26193,7 +26291,7 @@
                         finalCustomer = {
                             id: finalCustomerId,
                             name: customerName,
-                            phone: customer.phone,
+                            phone: finalCustomer.phone,
                             address: '',
                             email: ''
                         };
@@ -26204,7 +26302,7 @@
                         // 🆕 v5.73.0: UPDATE ANRUFHISTORIE!
                         const callHistorySnapshot = await db.ref('callHistory')
                             .orderByChild('caller')
-                            .equalTo(customer.phone)
+                            .equalTo(finalCustomer.phone)
                             .once('value');
                         
                         if (callHistorySnapshot.exists()) {

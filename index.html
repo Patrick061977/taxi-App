@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.78.1 - 30-TAGE-LIMIT! 🛡️ (Build 20251214-0930)');
+        console.log('🚕 Funk Taxi App v5.79.0 - ICS UPLOAD & REVIEW! 📤✅ (Build 20251214-1000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.78.1 - 30-TAGE-LIMIT! 🛡️ (Build 20251214-0930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.79.0 - ICS UPLOAD & REVIEW! 📤✅ (Build 20251214-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2748,6 +2748,96 @@
             <span id="hotel-invoices-toggle" style="font-size:20px;">▼</span>
         </div>
         <div id="hotel-invoices-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
+            
+            <!-- 🆕 v5.79.0: .ICS DATEI UPLOAD -->
+            <div style="background:linear-gradient(135deg,#f97316,#ea580c);color:white;border-radius:8px;padding:15px;margin-bottom:20px;">
+                <div style="font-weight:700;font-size:16px;margin-bottom:10px;">📤 Hotel-Kalender importieren</div>
+                <div style="font-size:13px;margin-bottom:15px;opacity:0.95;">
+                    Lade eine .ics Datei vom Hotel hoch → Prüfe alle Fahrten → Erstelle Rechnung
+                </div>
+                
+                <input type="file" id="ics-file-input" accept=".ics" style="display:none;" onchange="handleIcsFileUpload(event)">
+                
+                <button onclick="document.getElementById('ics-file-input').click()" style="width:100%;padding:14px;background:white;color:#ea580c;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                    📤 .ics Datei hochladen
+                </button>
+                
+                <div style="font-size:11px;margin-top:10px;opacity:0.9;">
+                    💡 Das Hotel kann die .ics Datei in Google Calendar exportieren und dir schicken
+                </div>
+            </div>
+            
+            <!-- 🆕 v5.79.0: ICS REVIEW TABELLE -->
+            <div id="ics-review-container" style="display:none;margin-bottom:20px;">
+                <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <div style="font-weight:700;font-size:15px;color:#1f2937;">
+                            📋 Importierte Fahrten prüfen
+                        </div>
+                        <button onclick="closeIcsReview()" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                            ❌ Abbrechen
+                        </button>
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;margin-bottom:12px;">
+                        <button onclick="selectAllIcsRides()" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                            ✅ Alle auswählen
+                        </button>
+                        <button onclick="deselectAllIcsRides()" style="flex:1;padding:10px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                            ☐ Alle abwählen
+                        </button>
+                    </div>
+                    
+                    <div id="ics-selection-info" style="padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;margin-bottom:12px;">
+                        Ausgewählt: 0 von 0 | Summe: 0,00€
+                    </div>
+                </div>
+                
+                <!-- Tabelle -->
+                <div id="ics-rides-table" style="overflow-x:auto;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:15px;">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+                
+                <button onclick="confirmIcsImport()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                    ✅ Ausgewählte Fahrten importieren & Rechnung erstellen
+                </button>
+            </div>
+            
+            <!-- Bearbeiten-Modal -->
+            <div id="edit-ics-ride-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;padding:20px;overflow-y:auto;">
+                <div style="max-width:500px;margin:50px auto;background:white;border-radius:12px;padding:20px;">
+                    <h3 style="margin:0 0 20px 0;font-size:18px;">✏️ Fahrt bearbeiten</h3>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Gast</label>
+                        <input type="text" id="edit-ics-guest" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Von</label>
+                        <input type="text" id="edit-ics-from" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Nach</label>
+                        <input type="text" id="edit-ics-to" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Preis (€)</label>
+                        <input type="number" id="edit-ics-price" step="0.01" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="saveIcsRideEdit()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                            💾 Speichern
+                        </button>
+                        <button onclick="closeEditIcsRideModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                    </div>
+                </div>
+            </div>
             
             <!-- Filter -->
             <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
@@ -35993,6 +36083,397 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             } catch (error) {
                 console.error('❌ Fehler:', error);
                 alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.79.0: .ICS DATEI UPLOAD & REVIEW
+        
+        let currentIcsRides = [];
+        let currentIcsHotelName = '';
+        let currentEditingIcsIndex = -1;
+        
+        // Upload .ics Datei
+        async function handleIcsFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            console.log('📤 Lade .ics Datei:', file.name);
+            
+            try {
+                // Datei lesen
+                const text = await file.text();
+                console.log(`✅ ${text.length} Zeichen geladen`);
+                
+                // Parse iCal
+                const events = parseICalendar(text);
+                console.log(`📅 ${events.length} Events gefunden`);
+                
+                if (events.length === 0) {
+                    alert('❌ Keine Events in der .ics Datei gefunden!');
+                    return;
+                }
+                
+                // Konvertiere zu Fahrten
+                const rides = [];
+                let skippedPast = 0;
+                let skippedFuture = 0;
+                
+                const now = new Date();
+                const maxDate = new Date();
+                maxDate.setDate(maxDate.getDate() + 30);
+                
+                for (const event of events) {
+                    const startTime = icalDateToISO(event.DTSTART);
+                    if (!startTime) continue;
+                    
+                    const eventDate = new Date(startTime);
+                    
+                    // Filter: Vergangenheit
+                    if (eventDate < now) {
+                        skippedPast++;
+                        continue;
+                    }
+                    
+                    // Filter: Mehr als 30 Tage
+                    if (eventDate > maxDate) {
+                        skippedFuture++;
+                        continue;
+                    }
+                    
+                    // Fahrt erstellen
+                    const ride = {
+                        date: eventDate,
+                        time: eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                        guest: event.SUMMARY || 'Unbekannt',
+                        from: event.LOCATION || '',
+                        to: event.DESCRIPTION ? event.DESCRIPTION.substring(0, 50) : '',
+                        price: 8.00, // Standard-Preis
+                        selected: true,
+                        uid: event.UID || `event_${Date.now()}_${Math.random()}`
+                    };
+                    
+                    // Prüfe Sonntag/Feiertag
+                    const dayOfWeek = eventDate.getDay();
+                    ride.isSunday = (dayOfWeek === 0);
+                    ride.isSaturday = (dayOfWeek === 6);
+                    
+                    // Feiertag prüfen (einfache Liste)
+                    ride.isHoliday = isGermanHoliday(eventDate);
+                    
+                    // Sonntag/Feiertag → 9€
+                    if (ride.isSunday || ride.isHoliday) {
+                        ride.price = 9.00;
+                    }
+                    
+                    rides.push(ride);
+                }
+                
+                currentIcsRides = rides;
+                
+                // Hotel-Name aus Dateinamen extrahieren
+                currentIcsHotelName = file.name.replace('.ics', '').replace(/_/g, ' ');
+                
+                console.log(`✅ ${rides.length} Fahrten vorbereitet (${skippedPast} vergangen, ${skippedFuture} zu weit)`);
+                
+                // Zeige Review-Tabelle
+                renderIcsReviewTable();
+                
+                // Zeige Review-Container
+                document.getElementById('ics-review-container').style.display = 'block';
+                
+                // Scroll zu Review
+                document.getElementById('ics-review-container').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der .ics Datei:', error);
+                alert('❌ Fehler beim Lesen der Datei:\n\n' + error.message);
+            }
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        // Prüfe ob Feiertag (Deutschland, einfache Version)
+        function isGermanHoliday(date) {
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            
+            // Feste Feiertage
+            const holidays = [
+                [1, 1],   // Neujahr
+                [5, 1],   // Tag der Arbeit
+                [10, 3],  // Tag der Deutschen Einheit
+                [12, 25], // 1. Weihnachtstag
+                [12, 26]  // 2. Weihnachtstag
+            ];
+            
+            for (const [m, d] of holidays) {
+                if (month === m && day === d) return true;
+            }
+            
+            return false;
+        }
+        
+        // Render Review-Tabelle
+        function renderIcsReviewTable() {
+            const container = document.getElementById('ics-rides-table');
+            if (!container) return;
+            
+            let html = `
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#f9fafb;">
+                            <th style="padding:10px;text-align:center;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;width:40px;">✓</th>
+                            <th style="padding:10px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Datum</th>
+                            <th style="padding:10px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Zeit</th>
+                            <th style="padding:10px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Gast</th>
+                            <th style="padding:10px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Von</th>
+                            <th style="padding:10px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Nach</th>
+                            <th style="padding:10px;text-align:right;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Preis</th>
+                            <th style="padding:10px;text-align:center;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            currentIcsRides.forEach((ride, index) => {
+                const dateStr = ride.date.toLocaleDateString('de-DE');
+                const dayOfWeek = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][ride.date.getDay()];
+                
+                let dateLabel = `${dateStr} (${dayOfWeek})`;
+                let dateStyle = '';
+                
+                if (ride.isSunday) {
+                    dateLabel += ' 🔴';
+                    dateStyle = 'background:#fef2f2;';
+                } else if (ride.isSaturday) {
+                    dateStyle = 'background:#fffbeb;';
+                }
+                
+                if (ride.isHoliday) {
+                    dateLabel += ' 🎄';
+                    dateStyle = 'background:#fef2f2;';
+                }
+                
+                const rowBg = index % 2 === 0 ? 'background:white;' : 'background:#f9fafb;';
+                
+                html += `
+                    <tr style="border-bottom:1px solid #e5e7eb;${rowBg}${dateStyle}">
+                        <td style="padding:10px;text-align:center;">
+                            <input type="checkbox" ${ride.selected ? 'checked' : ''} onchange="toggleIcsRideSelection(${index})" style="width:18px;height:18px;cursor:pointer;">
+                        </td>
+                        <td style="padding:10px;color:#1f2937;font-weight:600;font-size:12px;">${dateLabel}</td>
+                        <td style="padding:10px;color:#6b7280;">${ride.time}</td>
+                        <td style="padding:10px;color:#1f2937;">${ride.guest}</td>
+                        <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.from || '-'}</td>
+                        <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.to || '-'}</td>
+                        <td style="padding:10px;text-align:right;font-weight:700;color:#10b981;">${ride.price.toFixed(2)}€</td>
+                        <td style="padding:10px;text-align:center;">
+                            <button onclick="editIcsRide(${index})" style="padding:4px 8px;background:#3b82f6;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:4px;font-size:11px;">
+                                ✏️
+                            </button>
+                            <button onclick="deleteIcsRide(${index})" style="padding:4px 8px;background:#ef4444;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;">
+                                🗑️
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+            updateIcsSelectionInfo();
+        }
+        
+        // Toggle Auswahl
+        function toggleIcsRideSelection(index) {
+            currentIcsRides[index].selected = !currentIcsRides[index].selected;
+            updateIcsSelectionInfo();
+        }
+        
+        // Alle auswählen
+        function selectAllIcsRides() {
+            currentIcsRides.forEach(ride => ride.selected = true);
+            renderIcsReviewTable();
+        }
+        
+        // Alle abwählen
+        function deselectAllIcsRides() {
+            currentIcsRides.forEach(ride => ride.selected = false);
+            renderIcsReviewTable();
+        }
+        
+        // Update Selection Info
+        function updateIcsSelectionInfo() {
+            const selected = currentIcsRides.filter(r => r.selected);
+            const total = selected.reduce((sum, r) => sum + r.price, 0);
+            
+            const info = document.getElementById('ics-selection-info');
+            if (info) {
+                info.innerHTML = `
+                    Ausgewählt: <strong>${selected.length} von ${currentIcsRides.length}</strong> | 
+                    Summe: <strong>${total.toFixed(2)}€</strong>
+                `;
+            }
+        }
+        
+        // Bearbeiten
+        function editIcsRide(index) {
+            currentEditingIcsIndex = index;
+            const ride = currentIcsRides[index];
+            
+            document.getElementById('edit-ics-guest').value = ride.guest;
+            document.getElementById('edit-ics-from').value = ride.from;
+            document.getElementById('edit-ics-to').value = ride.to;
+            document.getElementById('edit-ics-price').value = ride.price.toFixed(2);
+            
+            document.getElementById('edit-ics-ride-modal').style.display = 'block';
+        }
+        
+        // Speichere Edit
+        function saveIcsRideEdit() {
+            if (currentEditingIcsIndex === -1) return;
+            
+            const ride = currentIcsRides[currentEditingIcsIndex];
+            ride.guest = document.getElementById('edit-ics-guest').value;
+            ride.from = document.getElementById('edit-ics-from').value;
+            ride.to = document.getElementById('edit-ics-to').value;
+            ride.price = parseFloat(document.getElementById('edit-ics-price').value);
+            
+            closeEditIcsRideModal();
+            renderIcsReviewTable();
+        }
+        
+        // Schließe Edit-Modal
+        function closeEditIcsRideModal() {
+            document.getElementById('edit-ics-ride-modal').style.display = 'none';
+            currentEditingIcsIndex = -1;
+        }
+        
+        // Löschen
+        function deleteIcsRide(index) {
+            const confirmed = confirm('Fahrt wirklich löschen?');
+            if (!confirmed) return;
+            
+            currentIcsRides.splice(index, 1);
+            renderIcsReviewTable();
+        }
+        
+        // Schließe Review
+        function closeIcsReview() {
+            const confirmed = confirm('Import abbrechen?\n\nAlle Änderungen gehen verloren.');
+            if (!confirmed) return;
+            
+            currentIcsRides = [];
+            currentIcsHotelName = '';
+            document.getElementById('ics-review-container').style.display = 'none';
+        }
+        
+        // Bestätige Import & Erstelle Rechnung
+        async function confirmIcsImport() {
+            const selected = currentIcsRides.filter(r => r.selected);
+            
+            if (selected.length === 0) {
+                alert('❌ Bitte wähle mindestens eine Fahrt aus!');
+                return;
+            }
+            
+            console.log(`✅ Importiere ${selected.length} Fahrten...`);
+            
+            try {
+                // Speichere in Firebase
+                const rideRefs = [];
+                
+                for (const ride of selected) {
+                    const rideData = {
+                        // Hotel-Infos
+                        hotelCalendarName: currentIcsHotelName,
+                        customerId: `ics_import_${Date.now()}`,
+                        
+                        // Zeit
+                        pickupTime: ride.date.toISOString(),
+                        createdAt: Date.now(),
+                        
+                        // Kunde
+                        customerName: currentIcsHotelName,
+                        customerPhone: 'ICS-Import',
+                        
+                        // Gast
+                        guestName: ride.guest,
+                        
+                        // Locations
+                        pickup: ride.from || currentIcsHotelName,
+                        destination: ride.to || '',
+                        
+                        // Preis
+                        price: ride.price,
+                        
+                        // Status
+                        status: 'open',
+                        preBooked: true,
+                        
+                        // Meta
+                        notes: `📤 Importiert aus .ics Datei\nHotel: ${currentIcsHotelName}`,
+                        source: 'ics_file_import'
+                    };
+                    
+                    const ref = await db.ref('rides').push(rideData);
+                    rideRefs.push(ref.key);
+                }
+                
+                console.log(`✅ ${selected.length} Fahrten in Firebase gespeichert`);
+                
+                // Log
+                logActivity('admin', 'ics_import', `${selected.length} Fahrten aus .ics importiert`, {
+                    hotel: currentIcsHotelName,
+                    count: selected.length
+                });
+                
+                // Berechne Summen für Rechnung
+                const netto = selected.reduce((sum, r) => sum + r.price, 0);
+                const mwst = netto * 0.19;
+                const brutto = netto + mwst;
+                
+                // Erstelle Rechnung
+                const monthYear = selected[0].date.toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit' }).replace('.', '');
+                const invoiceNr = `${monthYear}-${currentIcsHotelName.replace(/\s+/g, '-').toUpperCase()}`;
+                
+                const invoiceData = {
+                    invoiceNr: invoiceNr,
+                    hotelName: currentIcsHotelName,
+                    month: `${selected[0].date.getFullYear()}-${String(selected[0].date.getMonth() + 1).padStart(2, '0')}`,
+                    ridesCount: selected.length,
+                    netto: netto,
+                    mwst: mwst,
+                    brutto: brutto,
+                    status: 'open',
+                    createdAt: Date.now(),
+                    rideIds: rideRefs,
+                    source: 'ics_import'
+                };
+                
+                await db.ref('hotelInvoices').push(invoiceData);
+                console.log('✅ Rechnung erstellt:', invoiceNr);
+                
+                // Schließe Review
+                document.getElementById('ics-review-container').style.display = 'none';
+                currentIcsRides = [];
+                currentIcsHotelName = '';
+                
+                // Reload Historie
+                await loadInvoiceHistory();
+                
+                // Success
+                alert(`✅ Import erfolgreich!\n\n${selected.length} Fahrten importiert\nRechnung ${invoiceNr} erstellt\n\nDu kannst jetzt die PDF erstellen!`);
+                
+            } catch (error) {
+                console.error('❌ Import-Fehler:', error);
+                alert('❌ Fehler beim Import:\n\n' + error.message);
             }
         }
         

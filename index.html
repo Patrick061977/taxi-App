@@ -2898,7 +2898,7 @@
                     <!-- Monat auswählen -->
                     <div>
                         <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📅 Monat</label>
-                        <input type="month" id="invoice-month-select" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                        <input type="month" id="invoice-month-select" min="2020-01" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
                     </div>
                 </div>
                 
@@ -37289,27 +37289,28 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     let from = '';
                     let to = '';
                     
+                    // 🆕 v5.84.2: NUR aus Title extrahieren, NICHT currentCsvHotelName verwenden!
                     if (titleLower.includes('vom hotel') || titleLower.includes('hotel -') || titleLower.includes('hotel zum')) {
-                        from = currentCsvHotelName || 'Hotel';
+                        from = 'Hotel';  // Generisch
                         if (titleLower.includes('bhf') || titleLower.includes('bahnhof')) {
                             to = 'Bahnhof Heringsdorf';
+                        } else {
+                            to = 'Ziel';  // Generisch
                         }
                     } else if (titleLower.includes('vom bhf') || titleLower.includes('bahnhof') || titleLower.includes('bhf -') || titleLower.includes('bhf.')) {
                         from = 'Bahnhof Heringsdorf';
                         if (titleLower.includes('hotel')) {
-                            to = currentCsvHotelName || 'Hotel';
+                            to = 'Hotel';  // Generisch
+                        } else {
+                            to = 'Ziel';  // Generisch
                         }
                     }
                     
-                    // Fallback wenn nicht erkannt
+                    // Fallback wenn nicht erkannt - kompletten Title nehmen
                     if (!from && !to) {
-                        if (titleLower.includes('hotel')) {
-                            from = currentCsvHotelName || 'Hotel';
-                            to = 'Bahnhof Heringsdorf';
-                        } else {
-                            from = 'Bahnhof Heringsdorf';
-                            to = currentCsvHotelName || 'Hotel';
-                        }
+                        // Speichere kompletten Title für manuelle Bearbeitung
+                        from = title;
+                        to = '';
                     }
                     
                     // Gast-Name extrahieren (letzter Teil nach Komma)
@@ -37417,6 +37418,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Gast</th>
                                 <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Personen</th>
                                 <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;">Preis</th>
+                                <th style="padding:12px;text-align:left;border-bottom:2px solid #e5e7eb;min-width:200px;">📝 Original Title</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -37440,6 +37442,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         <td style="padding:12px;">${ride.guest || '-'}</td>
                         <td style="padding:12px;">${ride.passengers} Pers.</td>
                         <td style="padding:12px;font-weight:600;">${ride.price.toFixed(2)}€</td>
+                        <td style="padding:12px;font-size:12px;color:#6b7280;font-family:monospace;">${ride.originalTitle || '-'}</td>
                     </tr>
                 `;
             });

@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.77.1 - MULTI-PROXY FALLBACK! 🔄 (Build 20251214-0850)');
+        console.log('🚕 Funk Taxi App v5.78.1 - 30-TAGE-LIMIT! 🛡️ (Build 20251214-0930)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.77.1 - MULTI-PROXY FALLBACK! 🔄 (Build 20251214-0850)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.78.1 - 30-TAGE-LIMIT! 🛡️ (Build 20251214-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2680,6 +2680,13 @@
                     <li>Automatische Synchronisation alle 15min</li>
                     <li>Termine erscheinen farbcodiert im Kalender</li>
                 </ol>
+                <div style="margin-top:10px;padding:8px;background:#fff;border-radius:6px;border:2px solid #fbbf24;">
+                    <div style="font-weight:700;font-size:12px;color:#92400e;margin-bottom:4px;">🛡️ Sicherheits-Filter:</div>
+                    <div style="font-size:12px;color:#92400e;">
+                        Es werden nur die <strong>nächsten 30 Tage</strong> importiert.<br>
+                        Vergangene Events und Events die mehr als 30 Tage in der Zukunft liegen werden ignoriert.
+                    </div>
+                </div>
             </div>
             
             <!-- Add Button -->
@@ -2731,6 +2738,75 @@
             <div id="hotel-calendar-list">
                 <div style="text-align:center;padding:40px;color:#6b7280;">
                     Lade Hotel-Kalender...
+                </div>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.78.0: HOTEL-RECHNUNGEN -->
+        <div onclick="toggleAdminSection('hotel-invoices')" style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📄 Hotel-Rechnungen <span id="hotel-invoices-count" style="background:white;color:#059669;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+            <span id="hotel-invoices-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="hotel-invoices-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
+            
+            <!-- Filter -->
+            <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <div style="font-weight:700;margin-bottom:12px;color:#1f2937;">🔍 Filter</div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                    <!-- Hotel auswählen -->
+                    <div>
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">🏨 Hotel</label>
+                        <select id="invoice-hotel-select" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;background:white;">
+                            <option value="">Alle Hotels</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Monat auswählen -->
+                    <div>
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📅 Monat</label>
+                        <input type="month" id="invoice-month-select" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                    </div>
+                </div>
+                
+                <button onclick="loadInvoiceRides()" style="width:100%;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                    🔄 Fahrten laden
+                </button>
+            </div>
+            
+            <!-- Statistik -->
+            <div id="invoice-stats" style="display:none;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <!-- Fahrten-Tabelle -->
+            <div id="invoice-rides-container" style="margin-bottom:15px;">
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    <div style="font-size:48px;margin-bottom:10px;">📄</div>
+                    <div style="font-weight:600;margin-bottom:6px;">Wähle Hotel und Monat</div>
+                    <div style="font-size:13px;">Dann werden alle Fahrten angezeigt</div>
+                </div>
+            </div>
+            
+            <!-- Rechnung erstellen Button -->
+            <div id="invoice-create-button" style="display:none;">
+                <button onclick="createHotelInvoicePDF()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                    📄 Rechnung als PDF erstellen
+                </button>
+            </div>
+            
+            <!-- Rechnungs-Historie -->
+            <div style="margin-top:30px;padding-top:20px;border-top:2px solid #e5e7eb;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                    <h4 style="margin:0;font-size:15px;color:#1f2937;">📋 Rechnungs-Historie</h4>
+                    <button onclick="loadInvoiceHistory()" style="padding:8px 12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                        🔄 Aktualisieren
+                    </button>
+                </div>
+                <div id="invoice-history-list">
+                    <div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">
+                        Lade Historie...
+                    </div>
                 </div>
             </div>
         </div>
@@ -6585,6 +6661,9 @@
                     
                     // 🏨 v5.77.0: Hotel-Kalender laden
                     initHotelCalendars();
+                    
+                    // 📄 v5.78.0: Hotel-Rechnungen laden
+                    initHotelInvoices();
                     
                     // 🔄 LADE GESPEICHERTE FAHRT (falls vorhanden)
                     const savedRideId = localStorage.getItem('myCurrentRideId');
@@ -35268,7 +35347,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 let skippedCount = 0;
                 
                 for (const event of events) {
-                    // Nur zukünftige Events
+                    // 🆕 v5.78.1: NUR NÄCHSTE 30 TAGE!
                     const startTime = icalDateToISO(event.DTSTART);
                     if (!startTime) {
                         skippedCount++;
@@ -35278,9 +35357,19 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     const eventDate = new Date(startTime);
                     const now = new Date();
                     
-                    // Nur Events ab heute
+                    // 🛡️ FILTER 1: Nur Events ab heute
                     if (eventDate < now) {
                         skippedCount++;
+                        continue;
+                    }
+                    
+                    // 🛡️ FILTER 2: Nur nächste 30 Tage!
+                    const maxDate = new Date();
+                    maxDate.setDate(maxDate.getDate() + 30);
+                    
+                    if (eventDate > maxDate) {
+                        skippedCount++;
+                        console.log(`⏭️ Event übersprungen (zu weit in Zukunft): ${event.SUMMARY || 'Unbekannt'} am ${startTime}`);
                         continue;
                     }
                     
@@ -35375,6 +35464,536 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // Auto-Sync beim Init
         async function initHotelCalendars() {
             await loadHotelCalendars();
+        }
+        
+        // 🆕 v5.78.0: HOTEL-RECHNUNGEN
+        
+        let currentInvoiceRides = [];
+        let currentInvoiceHotel = null;
+        let currentInvoiceMonth = null;
+        
+        // Init Hotel-Rechnungen
+        async function initHotelInvoices() {
+            console.log('📄 Initialisiere Hotel-Rechnungen...');
+            
+            // Lade Hotels für Dropdown
+            await loadHotelCalendars();
+            
+            // Fülle Hotel-Dropdown
+            const hotelSelect = document.getElementById('invoice-hotel-select');
+            if (hotelSelect && hotelCalendars) {
+                hotelSelect.innerHTML = '<option value="">Alle Hotels</option>';
+                Object.entries(hotelCalendars).forEach(([id, hotel]) => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = hotel.name;
+                    hotelSelect.appendChild(option);
+                });
+            }
+            
+            // Setze aktuellen Monat als Default
+            const monthInput = document.getElementById('invoice-month-select');
+            if (monthInput) {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                monthInput.value = `${year}-${month}`;
+            }
+            
+            // Lade Historie
+            await loadInvoiceHistory();
+        }
+        
+        // Lade Fahrten für gewähltes Hotel + Monat
+        async function loadInvoiceRides() {
+            const hotelId = document.getElementById('invoice-hotel-select').value;
+            const monthValue = document.getElementById('invoice-month-select').value;
+            
+            if (!monthValue) {
+                alert('⚠️ Bitte wähle einen Monat!');
+                return;
+            }
+            
+            console.log('🔄 Lade Rechnungs-Fahrten:', hotelId || 'Alle Hotels', monthValue);
+            
+            // Parse Monat
+            const [year, month] = monthValue.split('-');
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 0, 23, 59, 59);
+            
+            currentInvoiceMonth = monthValue;
+            currentInvoiceHotel = hotelId ? hotelCalendars[hotelId] : null;
+            
+            try {
+                // Lade alle Fahrten aus Firebase
+                const snapshot = await db.ref('rides').once('value');
+                const allRides = [];
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    ride.id = child.key;
+                    
+                    // Filter: Hotel-Import Fahrten
+                    if (!ride.hotelCalendarId) return;
+                    
+                    // Filter: Gewähltes Hotel (wenn ausgewählt)
+                    if (hotelId && ride.hotelCalendarId !== hotelId) return;
+                    
+                    // Filter: Monat
+                    const rideDate = new Date(ride.pickupTime || ride.createdAt);
+                    if (rideDate < startDate || rideDate > endDate) return;
+                    
+                    allRides.push(ride);
+                });
+                
+                // Sortiere nach Datum
+                allRides.sort((a, b) => {
+                    const dateA = new Date(a.pickupTime || a.createdAt);
+                    const dateB = new Date(b.pickupTime || b.createdAt);
+                    return dateA - dateB;
+                });
+                
+                currentInvoiceRides = allRides;
+                
+                console.log(`✅ ${allRides.length} Fahrten gefunden`);
+                
+                // Render
+                renderInvoiceRides();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Render Fahrten-Tabelle
+        function renderInvoiceRides() {
+            const container = document.getElementById('invoice-rides-container');
+            const statsDiv = document.getElementById('invoice-stats');
+            const createBtn = document.getElementById('invoice-create-button');
+            
+            if (!container) return;
+            
+            if (currentInvoiceRides.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">📭</div>
+                        <div style="font-weight:600;margin-bottom:6px;">Keine Fahrten gefunden</div>
+                        <div style="font-size:13px;">Für diesen Zeitraum gibt es keine Hotel-Fahrten</div>
+                    </div>
+                `;
+                statsDiv.style.display = 'none';
+                createBtn.style.display = 'none';
+                return;
+            }
+            
+            // Berechne Summe
+            let totalAmount = 0;
+            currentInvoiceRides.forEach(ride => {
+                totalAmount += parseFloat(ride.price || 0);
+            });
+            
+            // Stats
+            const hotelName = currentInvoiceHotel ? currentInvoiceHotel.name : 'Alle Hotels';
+            const monthName = new Date(currentInvoiceMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+            
+            statsDiv.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;">
+                    <div>
+                        <div style="font-size:13px;opacity:0.9;margin-bottom:4px;">🏨 ${hotelName}</div>
+                        <div style="font-size:20px;font-weight:700;">${monthName}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:13px;opacity:0.9;margin-bottom:4px;">Fahrten</div>
+                        <div style="font-size:24px;font-weight:700;">${currentInvoiceRides.length}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:13px;opacity:0.9;margin-bottom:4px;">Gesamt (Netto)</div>
+                        <div style="font-size:28px;font-weight:700;">${totalAmount.toFixed(2)}€</div>
+                    </div>
+                </div>
+            `;
+            statsDiv.style.display = 'block';
+            
+            // Tabelle
+            let html = `
+                <div style="overflow-x:auto;border:2px solid #e5e7eb;border-radius:8px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f9fafb;">
+                                <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Nr</th>
+                                <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Datum</th>
+                                <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Zeit</th>
+                                <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Gast</th>
+                                <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Von</th>
+                                <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Nach</th>
+                                <th style="padding:12px;text-align:right;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Preis</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            currentInvoiceRides.forEach((ride, index) => {
+                const date = new Date(ride.pickupTime || ride.createdAt);
+                const dateStr = date.toLocaleDateString('de-DE');
+                const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const price = parseFloat(ride.price || 0).toFixed(2);
+                
+                html += `
+                    <tr style="border-bottom:1px solid #e5e7eb;${index % 2 === 0 ? 'background:white;' : 'background:#f9fafb;'}">
+                        <td style="padding:10px;color:#6b7280;">${index + 1}</td>
+                        <td style="padding:10px;color:#1f2937;font-weight:600;">${dateStr}</td>
+                        <td style="padding:10px;color:#6b7280;">${timeStr}</td>
+                        <td style="padding:10px;color:#1f2937;">${ride.guestName || ride.customerName || '-'}</td>
+                        <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.pickup || '-'}</td>
+                        <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.destination || '-'}</td>
+                        <td style="padding:10px;text-align:right;font-weight:700;color:#10b981;">${price}€</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                        <tfoot>
+                            <tr style="background:#10b981;color:white;">
+                                <td colspan="6" style="padding:12px;font-weight:700;font-size:14px;">GESAMT (Netto)</td>
+                                <td style="padding:12px;text-align:right;font-weight:700;font-size:16px;">${totalAmount.toFixed(2)}€</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+            createBtn.style.display = 'block';
+        }
+        
+        // Erstelle PDF-Rechnung
+        async function createHotelInvoicePDF() {
+            if (currentInvoiceRides.length === 0) {
+                alert('❌ Keine Fahrten zum Abrechnen!');
+                return;
+            }
+            
+            if (!currentInvoiceHotel) {
+                alert('❌ Bitte wähle ein spezifisches Hotel aus (nicht "Alle Hotels")!');
+                return;
+            }
+            
+            console.log('📄 Erstelle PDF-Rechnung...');
+            
+            try {
+                // Berechne Summen
+                let nettoTotal = 0;
+                currentInvoiceRides.forEach(ride => {
+                    nettoTotal += parseFloat(ride.price || 0);
+                });
+                
+                const mwst = nettoTotal * 0.19;
+                const bruttoTotal = nettoTotal + mwst;
+                
+                // Rechnungsnummer generieren
+                const monthName = new Date(currentInvoiceMonth + '-01').toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit' });
+                const invoiceNr = `${monthName.replace('-', '')}-${currentInvoiceHotel.name.replace(/\s+/g, '-').toUpperCase()}`;
+                
+                // Erstelle PDF mit jsPDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Header
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.text('RECHNUNG', 105, 20, { align: 'center' });
+                
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Rechnungsnummer: ${invoiceNr}`, 105, 28, { align: 'center' });
+                
+                // Absender
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Funk Taxi Heringsdorf', 20, 45);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.text('Inhabername', 20, 50);
+                doc.text('Adresse', 20, 55);
+                doc.text('PLZ Ort', 20, 60);
+                
+                // Empfänger
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.text('Rechnungsempfänger:', 20, 75);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.text(currentInvoiceHotel.name, 20, 82);
+                doc.text('[Hotel Adresse]', 20, 87);
+                doc.text('[PLZ Ort]', 20, 92);
+                
+                // Rechnungsdatum
+                const today = new Date().toLocaleDateString('de-DE');
+                const monthFull = new Date(currentInvoiceMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+                
+                doc.text(`Rechnungsdatum: ${today}`, 20, 105);
+                doc.text(`Leistungszeitraum: ${monthFull}`, 20, 110);
+                
+                // Tabelle Header
+                let y = 125;
+                doc.setFont('helvetica', 'bold');
+                doc.text('Nr', 15, y);
+                doc.text('Datum', 25, y);
+                doc.text('Zeit', 50, y);
+                doc.text('Gast', 65, y);
+                doc.text('Von', 100, y);
+                doc.text('Nach', 130, y);
+                doc.text('Preis', 190, y, { align: 'right' });
+                
+                // Linie unter Header
+                doc.line(15, y + 2, 195, y + 2);
+                y += 7;
+                
+                // Fahrten (max 20 pro Seite)
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                
+                currentInvoiceRides.forEach((ride, index) => {
+                    if (y > 270) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                    
+                    const date = new Date(ride.pickupTime || ride.createdAt);
+                    const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                    const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const price = parseFloat(ride.price || 0).toFixed(2);
+                    
+                    const guestName = (ride.guestName || ride.customerName || '-').substring(0, 15);
+                    const pickup = (ride.pickup || '-').substring(0, 12);
+                    const destination = (ride.destination || '-').substring(0, 12);
+                    
+                    doc.text(`${index + 1}`, 15, y);
+                    doc.text(dateStr, 25, y);
+                    doc.text(timeStr, 50, y);
+                    doc.text(guestName, 65, y);
+                    doc.text(pickup, 100, y);
+                    doc.text(destination, 130, y);
+                    doc.text(`${price}€`, 190, y, { align: 'right' });
+                    
+                    y += 5;
+                });
+                
+                // Summen
+                y += 5;
+                doc.line(15, y, 195, y);
+                y += 7;
+                
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.text('Netto:', 140, y);
+                doc.text(`${nettoTotal.toFixed(2)}€`, 190, y, { align: 'right' });
+                y += 6;
+                
+                doc.setFont('helvetica', 'normal');
+                doc.text('MwSt 19%:', 140, y);
+                doc.text(`${mwst.toFixed(2)}€`, 190, y, { align: 'right' });
+                y += 6;
+                
+                doc.line(140, y, 195, y);
+                y += 7;
+                
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.text('GESAMT:', 140, y);
+                doc.text(`${bruttoTotal.toFixed(2)}€`, 190, y, { align: 'right' });
+                
+                // Status
+                y += 10;
+                doc.setFontSize(10);
+                doc.setTextColor(220, 38, 38);
+                doc.text('Status: OFFEN', 20, y);
+                doc.setTextColor(0, 0, 0);
+                
+                // Zahlungsziel
+                const paymentDue = new Date();
+                paymentDue.setDate(paymentDue.getDate() + 14);
+                doc.text(`Zahlbar bis: ${paymentDue.toLocaleDateString('de-DE')}`, 20, y + 6);
+                
+                // Footer
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Vielen Dank für Ihr Vertrauen!', 105, 285, { align: 'center' });
+                
+                // Speichere PDF
+                const filename = `Rechnung_${invoiceNr}.pdf`;
+                doc.save(filename);
+                
+                console.log('✅ PDF erstellt:', filename);
+                
+                // Speichere Rechnung in Firebase
+                const invoiceData = {
+                    invoiceNr: invoiceNr,
+                    hotelId: currentInvoiceHotel ? Object.keys(hotelCalendars).find(k => hotelCalendars[k] === currentInvoiceHotel) : null,
+                    hotelName: currentInvoiceHotel.name,
+                    month: currentInvoiceMonth,
+                    ridesCount: currentInvoiceRides.length,
+                    netto: nettoTotal,
+                    mwst: mwst,
+                    brutto: bruttoTotal,
+                    status: 'open',
+                    createdAt: Date.now(),
+                    rideIds: currentInvoiceRides.map(r => r.id)
+                };
+                
+                await db.ref('hotelInvoices').push(invoiceData);
+                console.log('✅ Rechnung in Firebase gespeichert');
+                
+                // Log
+                logActivity('admin', 'hotel_invoice_created', `Rechnung erstellt: ${invoiceNr}`, {
+                    hotel: currentInvoiceHotel.name,
+                    rides: currentInvoiceRides.length,
+                    total: bruttoTotal
+                });
+                
+                // Reload Historie
+                await loadInvoiceHistory();
+                
+                alert(`✅ Rechnung erstellt!\n\n${invoiceNr}\n${currentInvoiceRides.length} Fahrten\n${bruttoTotal.toFixed(2)}€\n\nPDF wurde heruntergeladen.`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim PDF-Erstellen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Lade Rechnungs-Historie
+        async function loadInvoiceHistory() {
+            console.log('📋 Lade Rechnungs-Historie...');
+            
+            const container = document.getElementById('invoice-history-list');
+            if (!container) return;
+            
+            try {
+                const snapshot = await db.ref('hotelInvoices').orderByChild('createdAt').once('value');
+                const invoices = [];
+                
+                snapshot.forEach(child => {
+                    const invoice = child.val();
+                    invoice.id = child.key;
+                    invoices.push(invoice);
+                });
+                
+                // Neueste zuerst
+                invoices.reverse();
+                
+                // Update Badge
+                const badge = document.getElementById('hotel-invoices-count');
+                if (badge) badge.textContent = invoices.length;
+                
+                if (invoices.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">
+                            Noch keine Rechnungen erstellt
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
+                
+                invoices.forEach(invoice => {
+                    const createdDate = new Date(invoice.createdAt).toLocaleDateString('de-DE');
+                    const statusColor = invoice.status === 'paid' ? '#10b981' : '#ef4444';
+                    const statusText = invoice.status === 'paid' ? '✅ Bezahlt' : '⏳ Offen';
+                    
+                    html += `
+                        <div style="background:white;border:2px solid #e5e7eb;border-radius:8px;padding:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                                <div>
+                                    <div style="font-weight:700;font-size:14px;color:#1f2937;margin-bottom:4px;">
+                                        ${invoice.invoiceNr}
+                                    </div>
+                                    <div style="font-size:12px;color:#6b7280;">
+                                        🏨 ${invoice.hotelName} • ${invoice.ridesCount} Fahrten
+                                    </div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-weight:700;font-size:16px;color:#10b981;margin-bottom:4px;">
+                                        ${invoice.brutto.toFixed(2)}€
+                                    </div>
+                                    <div style="font-size:11px;padding:3px 8px;background:${statusColor};color:white;border-radius:4px;font-weight:600;">
+                                        ${statusText}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">
+                                Erstellt: ${createdDate}
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                ${invoice.status === 'open' ? `
+                                    <button onclick="markInvoicePaid('${invoice.id}')" style="flex:1;padding:8px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                        ✅ Als bezahlt markieren
+                                    </button>
+                                ` : `
+                                    <button onclick="markInvoiceOpen('${invoice.id}')" style="flex:1;padding:8px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                        ↩️ Wieder öffnen
+                                    </button>
+                                `}
+                                <button onclick="deleteInvoice('${invoice.id}')" style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+                console.log(`✅ ${invoices.length} Rechnungen geladen`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Historie:', error);
+            }
+        }
+        
+        // Markiere Rechnung als bezahlt
+        async function markInvoicePaid(invoiceId) {
+            try {
+                await db.ref(`hotelInvoices/${invoiceId}/status`).set('paid');
+                await db.ref(`hotelInvoices/${invoiceId}/paidAt`).set(Date.now());
+                console.log('✅ Rechnung als bezahlt markiert');
+                await loadInvoiceHistory();
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Markiere Rechnung als offen
+        async function markInvoiceOpen(invoiceId) {
+            try {
+                await db.ref(`hotelInvoices/${invoiceId}/status`).set('open');
+                await db.ref(`hotelInvoices/${invoiceId}/paidAt`).remove();
+                console.log('✅ Rechnung wieder geöffnet');
+                await loadInvoiceHistory();
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Lösche Rechnung
+        async function deleteInvoice(invoiceId) {
+            const confirmed = confirm('Rechnung wirklich löschen?\n\nDie Fahrten bleiben erhalten.');
+            if (!confirmed) return;
+            
+            try {
+                await db.ref(`hotelInvoices/${invoiceId}`).remove();
+                console.log('✅ Rechnung gelöscht');
+                await loadInvoiceHistory();
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
         }
         
     </script>

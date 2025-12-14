@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.83.1 - AUTO-INIT! 🤖 (Build 20251214-1055)');
+        console.log('🚕 Funk Taxi App v5.86.0 - AUTO-INIT! 🤖 (Build 20251214-1655)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +709,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.83.1 - AUTO-INIT! 🤖 (Build 20251214-1055)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.0 - HOTEL-KALENDER & LÖSCHSCHUTZ! 🏨🛡️ (Build 20251214-1700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -800,6 +800,20 @@
                 transition: all 0.2s;
             ">
                 📖 Verlauf
+            </button>
+            <button onclick="switchView('hotel-calendar')" class="admin-tab-btn admin-only" data-view="hotel-calendar" style="
+                padding: 10px 16px;
+                border: 2px solid #f59e0b;
+                background: white;
+                color: #f59e0b;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🏨 Hotel-Kalender
             </button>
             <button onclick="switchView('driver')" class="admin-tab-btn driver-visible" data-view="driver" style="
                 padding: 10px 16px;
@@ -1579,6 +1593,17 @@
             <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🧹 Cache leeren & App neu laden
             </button>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.86.0: HOTEL-KALENDER VIEW -->
+    <div id="hotel-calendar-view" class="view">
+        <div id="hotel-list-container" style="display:block;">
+            <!-- Hotel-Liste wird hier geladen -->
+        </div>
+        
+        <div id="hotel-single-calendar-container" style="display:none;">
+            <!-- Einzelkalender wird hier geladen -->
         </div>
     </div>
 
@@ -4601,7 +4626,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.64.36';
+        const APP_VERSION = '5.86.0';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -6715,6 +6740,18 @@
                 
                 for (const rideId in newRides) {
                     const ride = newRides[rideId];
+                    
+                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
+                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                        console.log('🛡️ Hotel-Fahrt geschützt:', rideId);
+                        continue; // Überspringen!
+                    }
+                    
+                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für completed/cancelled!
+                    if (ride.status === 'completed' || ride.status === 'cancelled') {
+                        continue; // Überspringen!
+                    }
+                    
                     const createdAt = ride.createdAt || ride.timestamp || 0;
                     const pickupTime = ride.pickupTimestamp || 0;
                     const relevantTime = pickupTime || createdAt;
@@ -6745,8 +6782,22 @@
                 
                 for (const rideId in vorbestelltRides) {
                     const ride = vorbestelltRides[rideId];
+                    
+                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
+                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                        console.log('🛡️ Hotel-Vorbestellung geschützt:', rideId);
+                        continue; // Überspringen!
+                    }
+                    
                     const pickupTime = ride.pickupTimestamp || 0;
                     const timeSincePickup = now - pickupTime;
+                    
+                    // 🛡️ v5.86.0: NUR wenn Abholzeit in VERGANGENHEIT + 2h!
+                    // Wenn in Zukunft → NICHT stornieren!
+                    if (pickupTime > now) {
+                        console.log('🛡️ Zukünftige Vorbestellung geschützt:', rideId);
+                        continue; // Überspringen!
+                    }
                     
                     // Wenn Abholzeit mehr als 2 Stunden vorbei ist
                     if (pickupTime > 0 && timeSincePickup > 2 * 60 * 60 * 1000) {
@@ -6769,6 +6820,13 @@
                 
                 for (const rideId in acceptedRides) {
                     const ride = acceptedRides[rideId];
+                    
+                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
+                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                        console.log('🛡️ Hotel-Fahrt (accepted) geschützt:', rideId);
+                        continue;
+                    }
+                    
                     const acceptedAt = ride.acceptedAt || ride.createdAt || 0;
                     const age = now - acceptedAt;
                     
@@ -6792,6 +6850,13 @@
                 
                 for (const rideId in pickedUpRides) {
                     const ride = pickedUpRides[rideId];
+                    
+                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
+                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                        console.log('🛡️ Hotel-Fahrt (picked_up) geschützt:', rideId);
+                        continue;
+                    }
+                    
                     const pickedUpAt = ride.pickedUpAt || ride.acceptedAt || ride.createdAt || 0;
                     const age = now - pickedUpAt;
                     
@@ -7658,7 +7723,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -7761,6 +7826,11 @@
             }
             
             if (view === 'history') loadHistory();
+            
+            // 🆕 v5.86.0: Hotel-Kalender laden
+            if (view === 'hotel-calendar') {
+                setTimeout(() => loadHotelCalendarList(), 100);
+            }
             
             updateViews();
         }
@@ -19797,9 +19867,15 @@
                                 </div>
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <span style="font-weight:600;color:#16a34a;">${ride.price || '?'}€</span>
-                                    <button onclick="rebookFromHistory('${pickupEsc}', '${destEsc}', '${nameEsc}', '${phoneEsc}')" style="padding:4px 8px;background:#10b981;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
-                                        🔁 Buchen
-                                    </button>
+                                    ${ride.status === 'cancelled' || ride.status === 'storniert' ? `
+                                        <button onclick="showCancelledRideDetails('${ride.firebaseId}')" style="padding:4px 8px;background:#ef4444;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
+                                            📝 Details
+                                        </button>
+                                    ` : `
+                                        <button onclick="rebookFromHistory('${pickupEsc}', '${destEsc}', '${nameEsc}', '${phoneEsc}')" style="padding:4px 8px;background:#10b981;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
+                                            🔁 Buchen
+                                        </button>
+                                    `}
                                 </div>
                             </div>
                             <div style="color:#333;margin-top:4px;">
@@ -19851,6 +19927,224 @@
             
             // Bestätigung
             alert('✅ Daten übernommen!\n\n📍 ' + pickup + ' → ' + destination + '\n👤 ' + customerName + '\n\nBitte Abholzeit wählen und buchen.');
+        }
+        
+        // 🆕 v5.86.0: DETAILS FÜR STORNIERTE FAHRTEN
+        async function showCancelledRideDetails(rideId) {
+            if (!rideId) {
+                alert('❌ Fahrt-ID fehlt!');
+                return;
+            }
+            
+            console.log('📝 Zeige Details für stornierte Fahrt:', rideId);
+            
+            try {
+                // Lade Fahrt aus Firebase
+                const snapshot = await db.ref('rides/' + rideId).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Formatiere Zeiten
+                const createdDate = ride.createdAt ? new Date(ride.createdAt).toLocaleString('de-DE') : 'Unbekannt';
+                const pickupDate = ride.pickupTime ? new Date(ride.pickupTime).toLocaleString('de-DE') : 
+                                   ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleString('de-DE') : 'Unbekannt';
+                const cancelledDate = ride.cancelledAt ? new Date(ride.cancelledAt).toLocaleString('de-DE') : 'Unbekannt';
+                
+                // Modal erstellen
+                const modal = document.createElement('div');
+                modal.id = 'cancelled-ride-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+                
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                        
+                        <!-- Header -->
+                        <div style="padding:20px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <h3 style="margin:0;font-size:18px;font-weight:700;">❌ STORNIERTE FAHRT</h3>
+                                <div style="font-size:13px;opacity:0.9;margin-top:4px;">Details & Wiederherstellung</div>
+                            </div>
+                            <button onclick="document.getElementById('cancelled-ride-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:20px;">×</button>
+                        </div>
+                        
+                        <!-- Content -->
+                        <div style="padding:20px;">
+                            
+                            <!-- Originaldetails -->
+                            <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:15px;margin-bottom:15px;">
+                                <div style="font-weight:700;color:#065f46;margin-bottom:10px;font-size:15px;">🎯 ORIGINALDETAILS:</div>
+                                <div style="display:grid;gap:8px;font-size:13px;">
+                                    <div><strong>📅 Erstellt:</strong> ${createdDate}</div>
+                                    <div><strong>⏰ Abholzeit:</strong> ${pickupDate}</div>
+                                    <div><strong>📍 Von:</strong> ${ride.pickup || 'Unbekannt'}</div>
+                                    <div><strong>📍 Nach:</strong> ${ride.destination || 'Unbekannt'}</div>
+                                    <div><strong>👤 Kunde:</strong> ${ride.customerName || 'Unbekannt'}</div>
+                                    <div><strong>📞 Telefon:</strong> ${ride.customerPhone || 'Unbekannt'}</div>
+                                    ${ride.guestName ? `<div><strong>🧳 Gast:</strong> ${ride.guestName}</div>` : ''}
+                                    ${ride.passengers ? `<div><strong>👥 Personen:</strong> ${ride.passengers}</div>` : ''}
+                                    <div><strong>💰 Preis:</strong> ${ride.price || '0'}€</div>
+                                    ${ride.vehicle ? `<div><strong>🚗 Fahrzeug:</strong> ${ride.vehicle}</div>` : ''}
+                                    ${ride.notes ? `<div><strong>📝 Notizen:</strong> ${ride.notes}</div>` : ''}
+                                </div>
+                            </div>
+                            
+                            <!-- Stornierungsdetails -->
+                            <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:8px;padding:15px;margin-bottom:15px;">
+                                <div style="font-weight:700;color:#991b1b;margin-bottom:10px;font-size:15px;">⚠️ STORNIERUNG:</div>
+                                <div style="display:grid;gap:8px;font-size:13px;">
+                                    <div><strong>❌ Grund:</strong> ${ride.cancelledReason || ride.cancellationReason || 'Unbekannt'}</div>
+                                    <div><strong>🕐 Storniert am:</strong> ${cancelledDate}</div>
+                                    <div><strong>👤 Von:</strong> ${ride.autoCleanup ? '🤖 System (Automatisch)' : '👨‍💼 Admin (Manuell)'}</div>
+                                    ${ride.source ? `<div><strong>📥 Quelle:</strong> ${ride.source === 'csv-import' ? '📊 CSV Import' : ride.source === 'hotel_calendar_cloud_sync' ? '☁️ Hotel-Kalender' : ride.source}</div>` : ''}
+                                    ${ride.hotelCalendarName ? `<div><strong>🏨 Hotel:</strong> ${ride.hotelCalendarName}</div>` : ''}
+                                </div>
+                            </div>
+                            
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div style="padding:20px;border-top:2px solid #e5e7eb;display:grid;gap:10px;">
+                            <button onclick="restoreCancelledRide('${rideId}')" style="padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                                ♻️ Fahrt wiederherstellen
+                            </button>
+                            <button onclick="rebookCancelledRide('${rideId}')" style="padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                                📝 Als neue Fahrt buchen
+                            </button>
+                            <button onclick="deleteCancelledRide('${rideId}')" style="padding:12px;background:#f3f4f6;color:#dc2626;border:2px solid #dc2626;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                                🗑️ Endgültig löschen
+                            </button>
+                            <button onclick="document.getElementById('cancelled-ride-modal').remove()" style="padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                                ❌ Schließen
+                            </button>
+                        </div>
+                        
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Fahrt:', error);
+                alert('❌ Fehler beim Laden der Fahrt:\n\n' + error.message);
+            }
+        }
+        
+        // 🆕 v5.86.0: STORNIERTE FAHRT WIEDERHERSTELLEN
+        async function restoreCancelledRide(rideId) {
+            if (!confirm('♻️ Fahrt wiederherstellen?\n\nDie Fahrt wird wieder auf "vorbestellt" gesetzt und erscheint im Kalender.')) {
+                return;
+            }
+            
+            try {
+                await db.ref('rides/' + rideId).update({
+                    status: 'vorbestellt',
+                    cancelledAt: null,
+                    cancelledReason: null,
+                    cancellationReason: null,
+                    autoCleanup: null,
+                    restoredAt: Date.now()
+                });
+                
+                logActivity('admin', 'ride_restored', 'Stornierte Fahrt wiederhergestellt', { rideId });
+                
+                alert('✅ Fahrt wiederhergestellt!\n\nDie Fahrt erscheint jetzt wieder im Kalender.');
+                
+                // Modal schließen
+                document.getElementById('cancelled-ride-modal').remove();
+                
+                // Reload Kundendetails
+                if (typeof loadCustomerHistory === 'function') {
+                    const customerId = document.querySelector('[data-customer-id]')?.dataset.customerId;
+                    if (customerId) loadCustomerHistory(customerId);
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Wiederherstellen:', error);
+                alert('❌ Fehler:\n\n' + error.message);
+            }
+        }
+        
+        // 🆕 v5.86.0: STORNIERTE FAHRT ALS NEUE FAHRT BUCHEN
+        async function rebookCancelledRide(rideId) {
+            try {
+                const snapshot = await db.ref('rides/' + rideId).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Schließe Modal
+                document.getElementById('cancelled-ride-modal').remove();
+                
+                // Wechsle zum Fahrgast-Tab
+                switchView('passenger');
+                
+                // Fülle Formular
+                const pickupField = document.getElementById('pickup');
+                const destField = document.getElementById('destination');
+                const nameField = document.getElementById('customer-name');
+                const phoneField = document.getElementById('customer-phone');
+                
+                if (pickupField) pickupField.value = ride.pickup || '';
+                if (destField) destField.value = ride.destination || '';
+                if (nameField) nameField.value = ride.customerName || '';
+                if (phoneField) phoneField.value = ride.customerPhone || '';
+                
+                // Berechne Route
+                if (ride.pickup && ride.destination) {
+                    calculateRoute();
+                }
+                
+                // Scroll zum Formular
+                setTimeout(() => {
+                    const form = document.getElementById('booking-form');
+                    if (form) form.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+                
+                alert('✅ Daten übernommen!\n\n📍 ' + (ride.pickup || '?') + ' → ' + (ride.destination || '?') + '\n👤 ' + (ride.customerName || '?') + '\n\nBitte Abholzeit wählen und buchen.');
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler:\n\n' + error.message);
+            }
+        }
+        
+        // 🆕 v5.86.0: STORNIERTE FAHRT ENDGÜLTIG LÖSCHEN
+        async function deleteCancelledRide(rideId) {
+            if (!confirm('🗑️ ENDGÜLTIG LÖSCHEN?\n\n⚠️ ACHTUNG:\nDie Fahrt wird unwiderruflich aus der Datenbank gelöscht!\n\nDiese Aktion kann NICHT rückgängig gemacht werden!')) {
+                return;
+            }
+            
+            if (!confirm('⚠️⚠️⚠️ LETZTE WARNUNG! ⚠️⚠️⚠️\n\nWirklich ENDGÜLTIG löschen?\n\nDie Fahrt ist danach FÜR IMMER WEG!')) {
+                return;
+            }
+            
+            try {
+                await db.ref('rides/' + rideId).remove();
+                
+                logActivity('admin', 'ride_deleted', 'Fahrt endgültig gelöscht', { rideId });
+                
+                alert('🗑️ Fahrt endgültig gelöscht!');
+                
+                // Modal schließen
+                document.getElementById('cancelled-ride-modal').remove();
+                
+                // Reload Kundendetails
+                if (typeof loadCustomerHistory === 'function') {
+                    const customerId = document.querySelector('[data-customer-id]')?.dataset.customerId;
+                    if (customerId) loadCustomerHistory(customerId);
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler:\n\n' + error.message);
+            }
         }
         
         async function checkPhoneInCRM() {
@@ -37147,10 +37441,18 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     return;
                 }
                 
+                // ⚠️ v5.85.3: WARNUNG - Zeige Kalender-Namen!
+                const confirmed = confirm(`📊 CSV Import starten?\n\n🎯 Kalender: ${calendar.name}\n\n⚠️ WICHTIG:\n- Alle Fahrten werden diesem Kalender zugeordnet!\n- Bitte prüfe den Kalender-Namen!\n\nFortfahren?`);
+                
+                if (!confirmed) {
+                    console.log('❌ CSV Import abgebrochen');
+                    return;
+                }
+                
                 currentCsvCalendarId = calendarId;
                 currentCsvHotelName = calendar.name;
                 
-                console.log('✅ Hotel geladen:', currentCsvHotelName);
+                console.log('✅ Hotel geladen:', currentCsvHotelName, '(ID:', calendarId, ')');
                 
                 // Trigger File Input
                 const input = document.getElementById('csv-file-input');
@@ -37240,6 +37542,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     
                     // Erstelle Date Objekt
                     const date = new Date(year, month, day, hours, minutes);
+                    
+                    // 🐛 v5.85.3: DEBUG LOGGING
+                    console.log('📅 Datum geparst:', {
+                        original: startDate,
+                        parsed: {year, month: month+1, day, hours, minutes},
+                        date: date.toISOString(),
+                        display: date.toLocaleDateString('de-DE')
+                    });
                     
                     // Parse Title - Extrahiere Infos
                     // Format: "11.00 Uhr , 2 PAx vom Hotel zum BHF, Fam Eichberg"
@@ -37496,6 +37806,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         source: 'csv-import'
                     };
                     
+                    // 🐛 v5.85.3: DEBUG LOGGING
+                    console.log('💾 Speichere Fahrt:', {
+                        date: ride.date.toLocaleDateString('de-DE'),
+                        time: ride.date.toLocaleTimeString('de-DE'),
+                        pickupTime: rideData.pickupTime,
+                        guest: rideData.guestName,
+                        hotel: rideData.hotelCalendarName
+                    });
+                    
                     const ref = db.ref('rides').push();
                     await ref.set(rideData);
                     rideRefs.push(ref.key);
@@ -37534,6 +37853,367 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 console.error('❌ Import-Fehler:', error);
                 alert('❌ Fehler beim CSV Import:\n\n' + error.message);
             }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.86.0: HOTEL-KALENDER VIEWS
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        // Globale Variable für aktuellen Hotel-Kalender
+        let currentHotelCalendarId = null;
+        let currentHotelCalendarName = null;
+        
+        // 🏨 LADE HOTEL-KALENDER LISTE
+        async function loadHotelCalendarList() {
+            console.log('🏨 Lade Hotel-Kalender Liste...');
+            
+            const container = document.getElementById('hotel-list-container');
+            if (!container) {
+                console.error('❌ Hotel-Liste Container nicht gefunden!');
+                return;
+            }
+            
+            // Verstecke Einzelkalender
+            document.getElementById('hotel-single-calendar-container').style.display = 'none';
+            container.style.display = 'block';
+            
+            try {
+                // Lade Hotel-Kalender aus Firebase
+                const snapshot = await db.ref('hotelCalendars').once('value');
+                const hotels = snapshot.val() || {};
+                
+                const hotelList = Object.entries(hotels).map(([id, data]) => ({
+                    id,
+                    ...data
+                }));
+                
+                console.log('✅ Hotels geladen:', hotelList.length);
+                
+                // Zähle Fahrten pro Hotel
+                const ridesSnapshot = await db.ref('rides').once('value');
+                const rides = ridesSnapshot.val() || {};
+                
+                const hotelRideCounts = {};
+                Object.values(rides).forEach(ride => {
+                    if (ride.hotelCalendarId) {
+                        hotelRideCounts[ride.hotelCalendarId] = (hotelRideCounts[ride.hotelCalendarId] || 0) + 1;
+                    }
+                });
+                
+                // Rendere Liste
+                if (hotelList.length === 0) {
+                    container.innerHTML = `
+                        <div style="padding:40px;text-align:center;">
+                            <div style="font-size:48px;margin-bottom:20px;">🏨</div>
+                            <h2 style="color:#6b7280;margin-bottom:10px;">Keine Hotel-Kalender</h2>
+                            <p style="color:#9ca3af;margin-bottom:30px;">Es wurden noch keine Hotel-Kalender angelegt.</p>
+                            <button onclick="alert('Hotel-Kalender können im Admin-Tab angelegt werden.')" style="padding:12px 24px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                ➕ Neuen Hotel-Kalender anlegen
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                    <div style="padding:20px;">
+                        <h2 style="margin:0 0 20px 0;display:flex;align-items:center;gap:10px;">
+                            <span>🏨</span>
+                            <span>Hotel-Kalender</span>
+                        </h2>
+                        
+                        <div style="display:grid;gap:15px;">
+                `;
+                
+                hotelList.forEach(hotel => {
+                    const rideCount = hotelRideCounts[hotel.id] || 0;
+                    const lastSync = hotel.lastSync ? new Date(hotel.lastSync).toLocaleString('de-DE') : 'Nie';
+                    const isActive = hotel.active !== false;
+                    
+                    html += `
+                        <div style="background:white;border:2px solid ${isActive ? '#f59e0b' : '#e5e7eb'};border-radius:12px;padding:20px;cursor:pointer;transition:all 0.2s;" 
+                             onclick="showHotelCalendar('${hotel.id}')"
+                             onmouseover="this.style.borderColor='#f59e0b';this.style.background='#fffbeb';"
+                             onmouseout="this.style.borderColor='${isActive ? '#f59e0b' : '#e5e7eb'}';this.style.background='white';">
+                            
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                                <div>
+                                    <h3 style="margin:0 0 8px 0;font-size:18px;font-weight:700;color:#1f2937;">
+                                        🏨 ${hotel.name || 'Unbenannt'}
+                                    </h3>
+                                    <div style="font-size:13px;color:#6b7280;">
+                                        ${isActive ? '✅ Aktiv' : '⏸️ Pausiert'} • Letzte Sync: ${lastSync}
+                                    </div>
+                                </div>
+                                <div style="background:#f59e0b;color:white;padding:8px 16px;border-radius:20px;font-weight:700;font-size:14px;">
+                                    ${rideCount} Fahrten
+                                </div>
+                            </div>
+                            
+                            ${hotel.googleCalendarUrl ? `
+                                <div style="font-size:12px;color:#9ca3af;margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
+                                    📅 Google Calendar verbunden
+                                </div>
+                            ` : ''}
+                            
+                            <div style="margin-top:15px;display:flex;gap:8px;">
+                                <button onclick="event.stopPropagation();showHotelCalendar('${hotel.id}')" style="flex:1;padding:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
+                                    📅 Kalender öffnen
+                                </button>
+                                <button onclick="event.stopPropagation();uploadCsvForHotel('${hotel.id}')" style="flex:1;padding:10px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
+                                    📊 CSV importieren
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                        
+                        <div style="margin-top:30px;padding:20px;background:#f0fdf4;border:2px solid #10b981;border-radius:12px;">
+                            <div style="font-weight:700;color:#065f46;margin-bottom:8px;">💡 Tipp:</div>
+                            <div style="font-size:13px;color:#065f46;">
+                                Klicke auf einen Hotel-Kalender, um alle Fahrten von diesem Hotel anzuzeigen. 
+                                Hotel-Fahrten sind durch den Löschschutz vor automatischer Stornierung geschützt.
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Hotel-Liste:', error);
+                container.innerHTML = `
+                    <div style="padding:40px;text-align:center;">
+                        <div style="font-size:48px;margin-bottom:20px;">❌</div>
+                        <h2 style="color:#dc2626;margin-bottom:10px;">Fehler</h2>
+                        <p style="color:#6b7280;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // 📅 ZEIGE EINZELNEN HOTEL-KALENDER
+        async function showHotelCalendar(hotelId) {
+            console.log('📅 Öffne Hotel-Kalender:', hotelId);
+            
+            const container = document.getElementById('hotel-single-calendar-container');
+            if (!container) {
+                console.error('❌ Hotel-Kalender Container nicht gefunden!');
+                return;
+            }
+            
+            // Verstecke Liste, zeige Einzelkalender
+            document.getElementById('hotel-list-container').style.display = 'none';
+            container.style.display = 'block';
+            
+            try {
+                // Lade Hotel-Infos
+                const hotelSnapshot = await db.ref('hotelCalendars/' + hotelId).once('value');
+                const hotel = hotelSnapshot.val();
+                
+                if (!hotel) {
+                    alert('❌ Hotel nicht gefunden!');
+                    backToHotelList();
+                    return;
+                }
+                
+                currentHotelCalendarId = hotelId;
+                currentHotelCalendarName = hotel.name;
+                
+                // Lade Fahrten für dieses Hotel
+                const ridesSnapshot = await db.ref('rides').once('value');
+                const allRides = ridesSnapshot.val() || {};
+                
+                const hotelRides = Object.entries(allRides)
+                    .filter(([id, ride]) => ride.hotelCalendarId === hotelId)
+                    .map(([id, ride]) => ({ firebaseId: id, ...ride }))
+                    .sort((a, b) => {
+                        const timeA = a.pickupTimestamp || new Date(a.pickupTime).getTime() || 0;
+                        const timeB = b.pickupTimestamp || new Date(b.pickupTime).getTime() || 0;
+                        return timeA - timeB;
+                    });
+                
+                console.log('✅ Hotel-Fahrten geladen:', hotelRides.length);
+                
+                // Gruppiere nach Datum
+                const ridesByDate = {};
+                hotelRides.forEach(ride => {
+                    const pickupTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : 
+                                       ride.pickupTime ? new Date(ride.pickupTime) : new Date();
+                    const dateKey = pickupTime.toLocaleDateString('de-DE');
+                    
+                    if (!ridesByDate[dateKey]) {
+                        ridesByDate[dateKey] = [];
+                    }
+                    ridesByDate[dateKey].push(ride);
+                });
+                
+                // Rendere Kalender
+                let html = `
+                    <div style="padding:20px;">
+                        <!-- Header -->
+                        <div style="display:flex;align-items:center;gap:15px;margin-bottom:20px;">
+                            <button onclick="backToHotelList()" style="background:white;border:2px solid #e5e7eb;padding:10px 15px;border-radius:8px;cursor:pointer;font-weight:600;color:#6b7280;">
+                                ← Zurück
+                            </button>
+                            <div style="flex:1;">
+                                <h2 style="margin:0;font-size:20px;font-weight:700;color:#1f2937;">
+                                    🏨 ${hotel.name}
+                                </h2>
+                                <div style="font-size:13px;color:#6b7280;margin-top:4px;">
+                                    ${hotelRides.length} Fahrten insgesamt
+                                </div>
+                            </div>
+                            <button onclick="createHotelInvoice('${hotelId}')" style="padding:12px 20px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                📊 Rechnung erstellen
+                            </button>
+                        </div>
+                        
+                        <!-- Fahrten nach Datum -->
+                        <div style="display:grid;gap:20px;">
+                `;
+                
+                const sortedDates = Object.keys(ridesByDate).sort((a, b) => {
+                    return new Date(a.split('.').reverse().join('-')) - new Date(b.split('.').reverse().join('-'));
+                });
+                
+                if (sortedDates.length === 0) {
+                    html += `
+                        <div style="padding:40px;text-align:center;background:#f9fafb;border-radius:12px;">
+                            <div style="font-size:48px;margin-bottom:15px;">📅</div>
+                            <h3 style="color:#6b7280;margin:0 0 10px 0;">Keine Fahrten</h3>
+                            <p style="color:#9ca3af;font-size:14px;">Es gibt noch keine Fahrten für diesen Hotel-Kalender.</p>
+                        </div>
+                    `;
+                } else {
+                    sortedDates.forEach(dateKey => {
+                        const rides = ridesByDate[dateKey];
+                        const totalPrice = rides.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0);
+                        
+                        html += `
+                            <div style="background:white;border:2px solid #f59e0b;border-radius:12px;overflow:hidden;">
+                                <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:15px;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                                        <div>
+                                            <div style="font-weight:700;font-size:16px;">${dateKey}</div>
+                                            <div style="font-size:13px;opacity:0.9;">${rides.length} Fahrt${rides.length !== 1 ? 'en' : ''}</div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <div style="font-size:20px;font-weight:700;">${totalPrice.toFixed(2)}€</div>
+                                            <div style="font-size:12px;opacity:0.9;">Gesamt</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="padding:15px;">
+                                    <div style="display:grid;gap:10px;">
+                        `;
+                        
+                        rides.forEach(ride => {
+                            const pickupTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : 
+                                               ride.pickupTime ? new Date(ride.pickupTime) : new Date();
+                            const timeStr = pickupTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+                            
+                            let statusColor = '#6b7280';
+                            let statusIcon = '⏳';
+                            let statusText = 'Offen';
+                            
+                            if (ride.status === 'completed') {
+                                statusColor = '#10b981';
+                                statusIcon = '✅';
+                                statusText = 'Abgeschlossen';
+                            } else if (ride.status === 'cancelled') {
+                                statusColor = '#ef4444';
+                                statusIcon = '❌';
+                                statusText = 'Storniert';
+                            } else if (ride.status === 'accepted' || ride.status === 'picked_up') {
+                                statusColor = '#3b82f6';
+                                statusIcon = '🚗';
+                                statusText = 'Unterwegs';
+                            }
+                            
+                            html += `
+                                <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;">
+                                    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                                        <div>
+                                            <div style="font-weight:700;font-size:15px;color:#1f2937;">
+                                                ${timeStr} Uhr
+                                            </div>
+                                            <div style="font-size:13px;color:${statusColor};margin-top:4px;">
+                                                ${statusIcon} ${statusText}
+                                            </div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <div style="font-weight:700;font-size:16px;color:#1f2937;">
+                                                ${(ride.price || 0).toFixed(2)}€
+                                            </div>
+                                            ${ride.passengers ? `<div style="font-size:12px;color:#6b7280;">${ride.passengers} Pers.</div>` : ''}
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="font-size:13px;color:#6b7280;margin-top:8px;">
+                                        📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
+                                    </div>
+                                    
+                                    ${ride.guestName ? `
+                                        <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+                                            🧳 ${ride.guestName}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${ride.vehicle ? `
+                                        <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+                                            🚗 ${ride.vehicle}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        });
+                        
+                        html += `
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden des Hotel-Kalenders:', error);
+                container.innerHTML = `
+                    <div style="padding:40px;text-align:center;">
+                        <div style="font-size:48px;margin-bottom:20px;">❌</div>
+                        <h2 style="color:#dc2626;margin-bottom:10px;">Fehler</h2>
+                        <p style="color:#6b7280;">${error.message}</p>
+                        <button onclick="backToHotelList()" style="margin-top:20px;padding:12px 24px;background:#f3f4f6;border:none;border-radius:8px;cursor:pointer;font-weight:600;">
+                            ← Zurück zur Liste
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // ← ZURÜCK ZUR HOTEL-LISTE
+        function backToHotelList() {
+            console.log('← Zurück zur Hotel-Liste');
+            currentHotelCalendarId = null;
+            currentHotelCalendarName = null;
+            loadHotelCalendarList();
+        }
+        
+        // 📊 RECHNUNG FÜR HOTEL ERSTELLEN
+        async function createHotelInvoice(hotelId) {
+            alert('📊 Rechnung erstellen\n\nDiese Funktion ist bereits im Admin-Tab verfügbar unter "Hotel-Rechnungen".');
         }
         
     </script>

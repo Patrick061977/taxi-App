@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.79.0 - ICS UPLOAD & REVIEW! 📤✅ (Build 20251214-1000)');
+        console.log('🚕 Funk Taxi App v5.81.0 - .ICS PRO HOTEL! 🏨📤 (Build 20251214-1115)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -443,6 +443,90 @@
 </head>
 <body>
     
+    <!-- 🆕 v5.81.0: GLOBALE .ICS REVIEW COMPONENTS -->
+    
+    <!-- ICS File Input (hidden) -->
+    <input type="file" id="ics-file-input" accept=".ics" style="display:none;" onchange="handleIcsFileUpload(event)">
+    
+    <!-- ICS Review Container -->
+    <div id="ics-review-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100000;padding:20px;overflow-y:auto;">
+        <div style="max-width:1200px;margin:50px auto;background:white;border-radius:12px;padding:20px;">
+            <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div>
+                        <div style="font-weight:700;font-size:16px;color:#1f2937;">
+                            📋 <span id="ics-hotel-name"></span> - Fahrten prüfen
+                        </div>
+                        <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+                            Datei: <span id="ics-file-name"></span>
+                        </div>
+                    </div>
+                    <button onclick="closeIcsReview()" style="padding:8px 16px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                        ❌ Abbrechen
+                    </button>
+                </div>
+                
+                <div style="display:flex;gap:10px;margin-bottom:12px;">
+                    <button onclick="selectAllIcsRides()" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                        ✅ Alle auswählen
+                    </button>
+                    <button onclick="deselectAllIcsRides()" style="flex:1;padding:10px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                        ☐ Alle abwählen
+                    </button>
+                </div>
+                
+                <div id="ics-selection-info" style="padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;margin-bottom:12px;">
+                    Ausgewählt: 0 von 0 | Summe: 0,00€
+                </div>
+            </div>
+            
+            <!-- Tabelle -->
+            <div id="ics-rides-table" style="overflow-x:auto;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:15px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <button onclick="confirmIcsImport()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                ✅ Ausgewählte Fahrten importieren
+            </button>
+        </div>
+    </div>
+    
+    <!-- Bearbeiten-Modal -->
+    <div id="edit-ics-ride-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;padding:20px;overflow-y:auto;">
+        <div style="max-width:500px;margin:50px auto;background:white;border-radius:12px;padding:20px;">
+            <h3 style="margin:0 0 20px 0;font-size:18px;">✏️ Fahrt bearbeiten</h3>
+            
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Gast</label>
+                <input type="text" id="edit-ics-guest" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+            </div>
+            
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Von</label>
+                <input type="text" id="edit-ics-from" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+            </div>
+            
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Nach</label>
+                <input type="text" id="edit-ics-to" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+            </div>
+            
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Preis (€)</label>
+                <input type="number" id="edit-ics-price" step="0.01" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+            </div>
+            
+            <div style="display:flex;gap:10px;">
+                <button onclick="saveIcsRideEdit()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                    💾 Speichern
+                </button>
+                <button onclick="closeEditIcsRideModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                    Abbrechen
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- 🐛 v5.46.4: FLOATING DEBUG PANEL (NUR ADMIN!) -->
     <div id="debug-panel" style="
         display: none;
@@ -581,7 +665,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.79.0 - ICS UPLOAD & REVIEW! 📤✅ (Build 20251214-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.81.0 - .ICS PRO HOTEL! 🏨📤 (Build 20251214-1115)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2748,96 +2832,6 @@
             <span id="hotel-invoices-toggle" style="font-size:20px;">▼</span>
         </div>
         <div id="hotel-invoices-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
-            
-            <!-- 🆕 v5.79.0: .ICS DATEI UPLOAD -->
-            <div style="background:linear-gradient(135deg,#f97316,#ea580c);color:white;border-radius:8px;padding:15px;margin-bottom:20px;">
-                <div style="font-weight:700;font-size:16px;margin-bottom:10px;">📤 Hotel-Kalender importieren</div>
-                <div style="font-size:13px;margin-bottom:15px;opacity:0.95;">
-                    Lade eine .ics Datei vom Hotel hoch → Prüfe alle Fahrten → Erstelle Rechnung
-                </div>
-                
-                <input type="file" id="ics-file-input" accept=".ics" style="display:none;" onchange="handleIcsFileUpload(event)">
-                
-                <button onclick="document.getElementById('ics-file-input').click()" style="width:100%;padding:14px;background:white;color:#ea580c;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
-                    📤 .ics Datei hochladen
-                </button>
-                
-                <div style="font-size:11px;margin-top:10px;opacity:0.9;">
-                    💡 Das Hotel kann die .ics Datei in Google Calendar exportieren und dir schicken
-                </div>
-            </div>
-            
-            <!-- 🆕 v5.79.0: ICS REVIEW TABELLE -->
-            <div id="ics-review-container" style="display:none;margin-bottom:20px;">
-                <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <div style="font-weight:700;font-size:15px;color:#1f2937;">
-                            📋 Importierte Fahrten prüfen
-                        </div>
-                        <button onclick="closeIcsReview()" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
-                            ❌ Abbrechen
-                        </button>
-                    </div>
-                    
-                    <div style="display:flex;gap:10px;margin-bottom:12px;">
-                        <button onclick="selectAllIcsRides()" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
-                            ✅ Alle auswählen
-                        </button>
-                        <button onclick="deselectAllIcsRides()" style="flex:1;padding:10px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
-                            ☐ Alle abwählen
-                        </button>
-                    </div>
-                    
-                    <div id="ics-selection-info" style="padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;margin-bottom:12px;">
-                        Ausgewählt: 0 von 0 | Summe: 0,00€
-                    </div>
-                </div>
-                
-                <!-- Tabelle -->
-                <div id="ics-rides-table" style="overflow-x:auto;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:15px;">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-                
-                <button onclick="confirmIcsImport()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
-                    ✅ Ausgewählte Fahrten importieren & Rechnung erstellen
-                </button>
-            </div>
-            
-            <!-- Bearbeiten-Modal -->
-            <div id="edit-ics-ride-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;padding:20px;overflow-y:auto;">
-                <div style="max-width:500px;margin:50px auto;background:white;border-radius:12px;padding:20px;">
-                    <h3 style="margin:0 0 20px 0;font-size:18px;">✏️ Fahrt bearbeiten</h3>
-                    
-                    <div style="margin-bottom:12px;">
-                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Gast</label>
-                        <input type="text" id="edit-ics-guest" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    
-                    <div style="margin-bottom:12px;">
-                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Von</label>
-                        <input type="text" id="edit-ics-from" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    
-                    <div style="margin-bottom:12px;">
-                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Nach</label>
-                        <input type="text" id="edit-ics-to" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    
-                    <div style="margin-bottom:20px;">
-                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Preis (€)</label>
-                        <input type="number" id="edit-ics-price" step="0.01" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    
-                    <div style="display:flex;gap:10px;">
-                        <button onclick="saveIcsRideEdit()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
-                            💾 Speichern
-                        </button>
-                        <button onclick="closeEditIcsRideModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
-                            Abbrechen
-                        </button>
-                    </div>
-                </div>
-            </div>
             
             <!-- Filter -->
             <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
@@ -35116,12 +35110,21 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             ${cal.icalUrl}
                         </div>
                         
-                        <div style="display:flex;gap:8px;">
-                            <button onclick="toggleHotelCalendarEnabled('${id}')" style="flex:1;padding:10px;background:${cal.enabled ? '#f59e0b' : '#10b981'};color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                            <button onclick="toggleHotelCalendarEnabled('${id}')" style="padding:10px;background:${cal.enabled ? '#f59e0b' : '#10b981'};color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
                                 ${cal.enabled ? '⏸️ Pausieren' : '▶️ Aktivieren'}
                             </button>
-                            <button onclick="syncHotelCalendar('${id}')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
-                                🔄 Jetzt syncen
+                            <button onclick="syncHotelCalendar('${id}')" style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                🔄 Browser-Sync
+                            </button>
+                        </div>
+                        
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <button onclick="cloudSyncHotelCalendar('${id}')" style="padding:10px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
+                                ☁️ Cloud-Sync
+                            </button>
+                            <button onclick="uploadIcsForHotel('${id}')" style="padding:10px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(249,115,22,0.3);">
+                                📤 .ics Upload
                             </button>
                         </div>
                     </div>
@@ -35551,6 +35554,64 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
         }
         
+        // 🆕 v5.80.0: CLOUD-SYNC (via Firebase Cloud Function)
+        
+        // Cloud Function URL (Nach Deploy eintragen!)
+        const CLOUD_FUNCTION_URL = 'NACH_DEPLOY_EINTRAGEN';
+        // Beispiel: 'https://europe-west1-funk-taxi-heringsdorf.cloudfunctions.net/syncHotelCalendarsManual'
+        
+        async function cloudSyncHotelCalendar(calendarId) {
+            const calendar = hotelCalendars[calendarId];
+            if (!calendar) return;
+            
+            if (CLOUD_FUNCTION_URL === 'NACH_DEPLOY_EINTRAGEN') {
+                alert('⚠️ Cloud Function noch nicht deployt!\n\nBitte erst Cloud Function deployen und URL hier eintragen.\n\nSiehe DEPLOY_ANLEITUNG.md');
+                return;
+            }
+            
+            console.log('☁️ Starte Cloud-Sync:', calendar.name);
+            
+            const confirmed = confirm(`☁️ Cloud-Sync starten?\n\n${calendar.name}\n\nDie Cloud Function lädt den Kalender direkt auf dem Server (kein CORS-Problem!)`);
+            if (!confirmed) return;
+            
+            try {
+                // Zeige Loading
+                alert('☁️ Cloud-Sync läuft...\n\nBitte warten (kann 10-30 Sek dauern)');
+                
+                // Rufe Cloud Function auf
+                const response = await fetch(CLOUD_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                console.log('✅ Cloud-Sync Result:', result);
+                
+                if (result.success) {
+                    const totalImported = result.totalImported || 0;
+                    const totalSkipped = result.totalSkipped || 0;
+                    
+                    alert(`✅ Cloud-Sync erfolgreich!\n\n${totalImported} Fahrten importiert\n${totalSkipped} übersprungen`);
+                    
+                    // Reload Kalender
+                    await loadHotelCalendars();
+                } else {
+                    throw new Error(result.error || 'Unbekannter Fehler');
+                }
+                
+            } catch (error) {
+                console.error('❌ Cloud-Sync Fehler:', error);
+                alert('❌ Cloud-Sync fehlgeschlagen!\n\n' + error.message + '\n\nPrüfe:\n- Ist Cloud Function deployt?\n- Ist URL korrekt?\n- Siehe Browser Console (F12)');
+            }
+        }
+        
         // Auto-Sync beim Init
         async function initHotelCalendars() {
             await loadHotelCalendars();
@@ -35571,14 +35632,18 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             // Fülle Hotel-Dropdown
             const hotelSelect = document.getElementById('invoice-hotel-select');
-            if (hotelSelect && hotelCalendars) {
+            if (hotelSelect) {
                 hotelSelect.innerHTML = '<option value="">Alle Hotels</option>';
-                Object.entries(hotelCalendars).forEach(([id, hotel]) => {
-                    const option = document.createElement('option');
-                    option.value = id;
-                    option.textContent = hotel.name;
-                    hotelSelect.appendChild(option);
-                });
+                
+                // Hotels aus hotelCalendars
+                if (hotelCalendars) {
+                    Object.entries(hotelCalendars).forEach(([id, hotel]) => {
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = hotel.name;
+                        hotelSelect.appendChild(option);
+                    });
+                }
             }
             
             // Setze aktuellen Monat als Default
@@ -35623,7 +35688,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     const ride = child.val();
                     ride.id = child.key;
                     
-                    // Filter: Hotel-Import Fahrten
+                    // Filter: Nur Hotel-Fahrten (haben hotelCalendarId)
                     if (!ride.hotelCalendarId) return;
                     
                     // Filter: Gewähltes Hotel (wenn ausgewählt)
@@ -36090,7 +36155,26 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         let currentIcsRides = [];
         let currentIcsHotelName = '';
+        let currentIcsCalendarId = '';  // v5.81.0: Hotel-Kalender ID
         let currentEditingIcsIndex = -1;
+        
+        // 🆕 v5.81.0: .ics Upload für spezifisches Hotel
+        function uploadIcsForHotel(calendarId) {
+            const calendar = hotelCalendars[calendarId];
+            if (!calendar) {
+                alert('❌ Hotel nicht gefunden!');
+                return;
+            }
+            
+            console.log('📤 .ics Upload für:', calendar.name);
+            
+            // Speichere Kalender-ID
+            currentIcsCalendarId = calendarId;
+            currentIcsHotelName = calendar.name;
+            
+            // Öffne File-Dialog
+            document.getElementById('ics-file-input').click();
+        }
         
         // Upload .ics Datei
         async function handleIcsFileUpload(event) {
@@ -36170,19 +36254,20 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 currentIcsRides = rides;
                 
-                // Hotel-Name aus Dateinamen extrahieren
-                currentIcsHotelName = file.name.replace('.ics', '').replace(/_/g, ' ');
+                // v5.81.0: Hotel-Name kommt jetzt von uploadIcsForHotel()
+                // (currentIcsHotelName und currentIcsCalendarId sind schon gesetzt)
                 
                 console.log(`✅ ${rides.length} Fahrten vorbereitet (${skippedPast} vergangen, ${skippedFuture} zu weit)`);
+                
+                // Zeige Hotel-Name und Datei in UI
+                document.getElementById('ics-hotel-name').textContent = currentIcsHotelName;
+                document.getElementById('ics-file-name').textContent = file.name;
                 
                 // Zeige Review-Tabelle
                 renderIcsReviewTable();
                 
                 // Zeige Review-Container
                 document.getElementById('ics-review-container').style.display = 'block';
-                
-                // Scroll zu Review
-                document.getElementById('ics-review-container').scrollIntoView({ behavior: 'smooth' });
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der .ics Datei:', error);
@@ -36371,6 +36456,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             currentIcsRides = [];
             currentIcsHotelName = '';
+            currentIcsCalendarId = '';
             document.getElementById('ics-review-container').style.display = 'none';
         }
         
@@ -36391,7 +36477,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 for (const ride of selected) {
                     const rideData = {
-                        // Hotel-Infos
+                        // v5.81.0: Hotel-Kalender ID (WICHTIG!)
+                        hotelCalendarId: currentIcsCalendarId,
                         hotelCalendarName: currentIcsHotelName,
                         customerId: `ics_import_${Date.now()}`,
                         
@@ -36464,9 +36551,10 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 document.getElementById('ics-review-container').style.display = 'none';
                 currentIcsRides = [];
                 currentIcsHotelName = '';
+                currentIcsCalendarId = '';
                 
-                // Reload Historie
-                await loadInvoiceHistory();
+                // Reload Hotel-Liste
+                await initHotelInvoices();
                 
                 // Success
                 alert(`✅ Import erfolgreich!\n\n${selected.length} Fahrten importiert\nRechnung ${invoiceNr} erstellt\n\nDu kannst jetzt die PDF erstellen!`);

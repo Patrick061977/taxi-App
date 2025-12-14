@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.81.0 - .ICS PRO HOTEL! 🏨📤 (Build 20251214-1115)');
+        console.log('🚕 Funk Taxi App v5.81.1 - KEIN ZEITFILTER! ⏰❌ (Build 20251214-0947)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -665,7 +665,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.81.0 - .ICS PRO HOTEL! 🏨📤 (Build 20251214-1115)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.81.1 - KEIN ZEITFILTER! ⏰❌ (Build 20251214-0947)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -36199,12 +36199,6 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 // Konvertiere zu Fahrten
                 const rides = [];
-                let skippedPast = 0;
-                let skippedFuture = 0;
-                
-                const now = new Date();
-                const maxDate = new Date();
-                maxDate.setDate(maxDate.getDate() + 30);
                 
                 for (const event of events) {
                     const startTime = icalDateToISO(event.DTSTART);
@@ -36212,17 +36206,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     
                     const eventDate = new Date(startTime);
                     
-                    // Filter: Vergangenheit
-                    if (eventDate < now) {
-                        skippedPast++;
-                        continue;
-                    }
-                    
-                    // Filter: Mehr als 30 Tage
-                    if (eventDate > maxDate) {
-                        skippedFuture++;
-                        continue;
-                    }
+                    // v5.81.1: KEIN Zeitfilter mehr! Alle Events werden importiert!
+                    // Der Benutzer kann in der Review-Tabelle selbst auswählen welche er will.
                     
                     // Fahrt erstellen
                     const ride = {
@@ -36257,7 +36242,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // v5.81.0: Hotel-Name kommt jetzt von uploadIcsForHotel()
                 // (currentIcsHotelName und currentIcsCalendarId sind schon gesetzt)
                 
-                console.log(`✅ ${rides.length} Fahrten vorbereitet (${skippedPast} vergangen, ${skippedFuture} zu weit)`);
+                console.log(`✅ ${rides.length} Fahrten vorbereitet`);
                 
                 // Zeige Hotel-Name und Datei in UI
                 document.getElementById('ics-hotel-name').textContent = currentIcsHotelName;

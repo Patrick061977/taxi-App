@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.2 - DUPLIKAT-FIX #2! 🐛 (Build 20251214-1930)');
+        console.log('🚕 Funk Taxi App v5.86.3 - TOAST-FIX! 🔔 (Build 20251214-2000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +709,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.2 - DUPLIKAT-FIX #2! 🐛🔧 (Build 20251214-1930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.3 - TOAST-FIX! 🔔✅ (Build 20251214-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4626,7 +4626,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.2';
+        const APP_VERSION = '5.86.3';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -9034,6 +9034,46 @@
         }
 
         // DATABASE FUNCTIONS
+        
+        // 🔔 TOAST-BENACHRICHTIGUNGEN
+        function showToast(message, type = 'info') {
+            // Erstelle Toast-Element
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                font-size: 14px;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease;
+                max-width: 400px;
+            `;
+            
+            // Farbe je nach Typ
+            if (type === 'success') {
+                toast.style.background = '#10b981';
+            } else if (type === 'error') {
+                toast.style.background = '#ef4444';
+            } else if (type === 'warning') {
+                toast.style.background = '#f59e0b';
+            } else {
+                toast.style.background = '#667eea';
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            // Nach 3 Sekunden entfernen
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
         
         // 🔍 v5.31.3: RIDE-ID SUCHE
         // 🆕 v5.86.0: INTELLIGENTE SUCHE
@@ -35593,6 +35633,16 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     @keyframes slideUp {
                         from { transform: translateY(50px); opacity: 0; }
                         to { transform: translateY(0); opacity: 1; }
+                    }
+                    
+                    @keyframes slideIn {
+                        from { transform: translateX(400px); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                    
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(400px); opacity: 0; }
                     }
                 </style>
             `;

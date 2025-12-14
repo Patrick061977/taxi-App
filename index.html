@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.82.2 - ALLE MONATE! 📅 (Build 20251214-1025)');
+        console.log('🚕 Funk Taxi App v5.83.1 - AUTO-INIT! 🤖 (Build 20251214-1055)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -706,7 +706,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.82.2 - ALLE MONATE! 📅 (Build 20251214-1025)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.83.1 - AUTO-INIT! 🤖 (Build 20251214-1055)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3974,6 +3974,70 @@
                 Grundpreis × (100% + Auto-Surge + Manuell) = Endpreis<br>
                 <span id="pricing-example" style="color:#666;">Beispiel: 14.60€ × 100% = 14.60€</span>
             </div>
+        </div>
+        
+        <!-- 🆕 v5.83.0: ADMIN-EINSTELLUNGEN -->
+        <div onclick="toggleAdminSection('settings')" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">⚙️ Einstellungen</span>
+            <span id="settings-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="settings-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
+            
+            <!-- Info-Box -->
+            <div style="background:#eff6ff;border:2px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:20px;font-size:13px;">
+                <div style="font-weight:700;margin-bottom:6px;color:#1e40af;">ℹ️ Hinweis:</div>
+                <div style="color:#1e40af;">
+                    Einstellungen werden in Firebase gespeichert und bleiben auch nach App-Updates erhalten.
+                </div>
+            </div>
+            
+            <!-- FritzBox Click-to-Call -->
+            <div style="background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                    <div style="font-size:24px;">📞</div>
+                    <div style="font-weight:700;font-size:16px;color:#1f2937;">FritzBox Click-to-Call</div>
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="fritzbox-enabled" onchange="saveFritzBoxSettings()" style="width:20px;height:20px;cursor:pointer;">
+                        <span style="font-weight:600;font-size:14px;color:#374151;">Aktiviert</span>
+                    </label>
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Host</label>
+                    <input type="text" id="fritzbox-host" placeholder="fritz.box" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Port</label>
+                    <input type="number" id="fritzbox-port" placeholder="49000" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Benutzername</label>
+                    <input type="text" id="fritzbox-username" placeholder="admin" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Passwort</label>
+                    <input type="password" id="fritzbox-password" placeholder="••••••••" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Telefon (DECT)</label>
+                    <input type="text" id="fritzbox-phone" placeholder="**610" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                    <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                        💡 Deine DECT-Telefon Nummer (z.B. **610)
+                    </div>
+                </div>
+                
+                <button onclick="saveFritzBoxSettings()" style="width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(99,102,241,0.3);">
+                    💾 Speichern
+                </button>
+            </div>
+            
         </div>
     </div>
 
@@ -17402,6 +17466,9 @@
                     updateBookingSystemUI();
                 } else if (section === 'oepnv') {
                     loadOEPNVSettings();
+                } else if (section === 'settings') {
+                    // 🆕 v5.83.0: Einstellungen UI updaten
+                    updateFritzBoxSettingsUI();
                 } else if (section === 'calendar') {
                     // 🆕 v5.27.1: Kalender rendern
                     setTimeout(() => renderCalendar(), 100);
@@ -29261,6 +29328,9 @@ Stack: ${err.stack}
                 
                 // 🆕 Starte Vorbestellungs-Aktivierer (aktiviert 15 Min vor Abholung)
                 startPrebookingActivator();
+                
+                // 🆕 v5.83.0: Lade FritzBox Settings
+                loadFritzBoxSettings();
             } else {
                 // 🆕 v5.26.14d: Nicht eingeloggt: Fahrgast + Verlauf BEIDE anzeigen!
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
@@ -34840,23 +34910,125 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             if (popup) popup.remove();
         }
         
-        // 🆕 v5.82.0: FRITZBOX CLICK-TO-CALL
+        // 🆕 v5.83.0: FRITZBOX CLICK-TO-CALL (aus Firebase Settings)
         
-        // FritzBox Config (Default)
-        const FRITZBOX_CONFIG = {
-            enabled: true,
+        // FritzBox Config (wird aus Firebase geladen)
+        let FRITZBOX_CONFIG = {
+            enabled: false,
             host: 'fritz.box',
             port: 49000,
-            username: 'admin',  // WICHTIG: In Produktion ändern!
-            password: '',       // WICHTIG: In Produktion ändern!
-            phone: '**610',     // DECT Telefon
+            username: '',
+            password: '',
+            phone: '**610',
             protocol: 'http'
         };
+        
+        // Lade FritzBox Settings aus Firebase
+        async function loadFritzBoxSettings() {
+            try {
+                const snapshot = await db.ref('settings/fritzbox').once('value');
+                
+                if (!snapshot.exists()) {
+                    // 🆕 v5.83.1: ERSTES MAL! Auto-Init mit Patricks Daten!
+                    console.log('📝 Keine Settings gefunden → Auto-Init!');
+                    
+                    const defaultSettings = {
+                        enabled: true,
+                        host: 'fritz.box',
+                        port: 49000,
+                        username: 'fritz8845',
+                        password: '1vo@12052010',
+                        phone: '**610',
+                        protocol: 'http'
+                    };
+                    
+                    // Speichere in Firebase
+                    await db.ref('settings/fritzbox').set(defaultSettings);
+                    console.log('✅ FritzBox Settings automatisch initialisiert!');
+                    
+                    FRITZBOX_CONFIG = defaultSettings;
+                    updateFritzBoxSettingsUI();
+                    
+                    return;
+                }
+                
+                // Lade existierende Settings
+                const settings = snapshot.val();
+                
+                if (settings) {
+                    FRITZBOX_CONFIG = {
+                        enabled: settings.enabled || false,
+                        host: settings.host || 'fritz.box',
+                        port: settings.port || 49000,
+                        username: settings.username || '',
+                        password: settings.password || '',
+                        phone: settings.phone || '**610',
+                        protocol: settings.protocol || 'http'
+                    };
+                    
+                    console.log('✅ FritzBox Settings geladen:', {
+                        ...FRITZBOX_CONFIG,
+                        password: '***'  // Passwort nicht loggen
+                    });
+                    
+                    // Update UI (falls Settings-Tab geöffnet)
+                    updateFritzBoxSettingsUI();
+                }
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der FritzBox Settings:', error);
+            }
+        }
+        
+        // Speichere FritzBox Settings in Firebase
+        async function saveFritzBoxSettings() {
+            try {
+                const settings = {
+                    enabled: document.getElementById('fritzbox-enabled').checked,
+                    host: document.getElementById('fritzbox-host').value || 'fritz.box',
+                    port: parseInt(document.getElementById('fritzbox-port').value) || 49000,
+                    username: document.getElementById('fritzbox-username').value || '',
+                    password: document.getElementById('fritzbox-password').value || '',
+                    phone: document.getElementById('fritzbox-phone').value || '**610',
+                    protocol: 'http'
+                };
+                
+                // Speichere in Firebase
+                await db.ref('settings/fritzbox').set(settings);
+                
+                // Update lokale Config
+                FRITZBOX_CONFIG = settings;
+                
+                console.log('✅ FritzBox Settings gespeichert!');
+                alert('✅ Einstellungen gespeichert!\n\nClick-to-Call ist jetzt ' + 
+                      (settings.enabled ? 'aktiviert' : 'deaktiviert') + '.');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern:\n\n' + error.message);
+            }
+        }
+        
+        // Update UI mit aktuellen Settings
+        function updateFritzBoxSettingsUI() {
+            const enabled = document.getElementById('fritzbox-enabled');
+            const host = document.getElementById('fritzbox-host');
+            const port = document.getElementById('fritzbox-port');
+            const username = document.getElementById('fritzbox-username');
+            const password = document.getElementById('fritzbox-password');
+            const phone = document.getElementById('fritzbox-phone');
+            
+            if (enabled) enabled.checked = FRITZBOX_CONFIG.enabled;
+            if (host) host.value = FRITZBOX_CONFIG.host;
+            if (port) port.value = FRITZBOX_CONFIG.port;
+            if (username) username.value = FRITZBOX_CONFIG.username;
+            if (password) password.value = FRITZBOX_CONFIG.password;
+            if (phone) phone.value = FRITZBOX_CONFIG.phone;
+        }
         
         // Rufe Kunde an (Click-to-Call)
         async function callCustomer(phoneNumber) {
             if (!FRITZBOX_CONFIG.enabled) {
-                alert('⚠️ Click-to-Call ist deaktiviert!\n\nAktiviere es in den Einstellungen.');
+                alert('⚠️ Click-to-Call ist deaktiviert!\n\nAktiviere es in Admin → Einstellungen.');
                 return;
             }
             

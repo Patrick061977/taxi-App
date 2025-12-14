@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.6 - WIEDERHERSTELLEN-FIX! ♻️ (Build 20251214-2130)');
+        console.log('🚕 Funk Taxi App v5.86.7 - CSV-KALENDER-FIX! 📅 (Build 20251214-2145)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +709,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.6 - WIEDERHERSTELLEN-FIX! ♻️✅ (Build 20251214-2130)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.7 - CSV-KALENDER-FIX! 📅🐛 (Build 20251214-2145)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4626,7 +4626,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.6';
+        const APP_VERSION = '5.86.7';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -38210,8 +38210,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         hotelCalendarName: currentCsvHotelName,
                         customerId: `csv_import_${Date.now()}`,
                         
-                        // Zeit
-                        pickupTime: ride.date.toISOString(),
+                        // Zeit - BEIDE FELDER!
+                        pickupTimestamp: ride.date.getTime(), // ✅ FÜR KALENDER (Zahl!)
+                        pickupTime: ride.date.toISOString(),  // ✅ FÜR ANZEIGE (String)
                         createdAt: Date.now(),
                         
                         // Kunde
@@ -38242,6 +38243,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     console.log('💾 Speichere Fahrt:', {
                         date: ride.date.toLocaleDateString('de-DE'),
                         time: ride.date.toLocaleTimeString('de-DE'),
+                        pickupTimestamp: rideData.pickupTimestamp,
                         pickupTime: rideData.pickupTime,
                         guest: rideData.guestName,
                         hotel: rideData.hotelCalendarName

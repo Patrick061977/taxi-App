@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.7 - CSV-KALENDER-FIX! 📅 (Build 20251214-2145)');
+        console.log('🚕 Funk Taxi App v5.86.8 - ALERT-FIX! 🔔 (Build 20251214-2200)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +709,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.7 - CSV-KALENDER-FIX! 📅🐛 (Build 20251214-2145)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.8 - ALERT-FIX! 🔔✅ (Build 20251214-2200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4626,7 +4626,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.7';
+        const APP_VERSION = '5.86.8';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -6002,9 +6002,7 @@
                 localStorage.setItem('rideHistory', JSON.stringify(history));
             }
             
-            closeEditModal();
-            
-            // 🆕 v5.64.42: Bessere Erfolgs-Meldung
+            // 🆕 v5.64.42: Bessere Erfolgs-Meldung - VOR closeEditModal!
             if (newVehicleId && updates.vehicle) {
                 let message = `✅ Fahrt aktualisiert!\n\n🚗 Zugewiesen an: ${updates.vehicle}${updates.vehiclePlate ? ' (' + updates.vehiclePlate + ')' : ''}`;
                 if (telegramSent) {
@@ -6016,6 +6014,8 @@
             } else {
                 alert('✅ Fahrt wurde aktualisiert!');
             }
+            
+            closeEditModal();
             
             // Aktualisiere Views
             updateHistoryView();

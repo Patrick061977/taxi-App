@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.77.0 - HOTEL-KALENDER IMPORT! 🏨📅 (Build 20251214-0800)');
+        console.log('🚕 Funk Taxi App v5.77.1 - MULTI-PROXY FALLBACK! 🔄 (Build 20251214-0850)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.77.0 - HOTEL-KALENDER IMPORT! 🏨📅 (Build 20251214-0800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.77.1 - MULTI-PROXY FALLBACK! 🔄 (Build 20251214-0850)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -35202,20 +35202,62 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('🔄 Synchronisiere Hotel-Kalender:', calendar.name);
             
             try {
-                // ⚠️ CORS-Proxy nutzen um .ics zu laden
-                // Für Produktion: Firebase Cloud Function!
-                const corsProxy = 'https://corsproxy.io/?';
-                const url = corsProxy + encodeURIComponent(calendar.icalUrl);
+                // 🆕 v5.77.1: MULTI-PROXY FALLBACK!
+                // Versuche verschiedene CORS-Proxies
+                const proxies = [
+                    { name: 'AllOrigins', url: (icalUrl) => `https://api.allorigins.win/raw?url=${encodeURIComponent(icalUrl)}` },
+                    { name: 'CORS-Anywhere', url: (icalUrl) => `https://cors-anywhere.herokuapp.com/${icalUrl}` },
+                    { name: 'Direkt (kein Proxy)', url: (icalUrl) => icalUrl }
+                ];
+                
+                let icsText = null;
+                let usedProxy = null;
                 
                 console.log('📥 Lade iCal von:', calendar.icalUrl);
                 
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                // Versuche alle Proxies nacheinander
+                for (const proxy of proxies) {
+                    try {
+                        console.log(`🔄 Versuche mit ${proxy.name}...`);
+                        const url = proxy.url(calendar.icalUrl);
+                        
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'text/calendar, text/plain, */*'
+                            }
+                        });
+                        
+                        if (!response.ok) {
+                            console.warn(`⚠️ ${proxy.name} fehlgeschlagen: HTTP ${response.status}`);
+                            continue; // Nächster Proxy
+                        }
+                        
+                        icsText = await response.text();
+                        
+                        // Prüfe ob valide iCal Daten
+                        if (icsText && (icsText.includes('BEGIN:VCALENDAR') || icsText.includes('BEGIN:VEVENT'))) {
+                            usedProxy = proxy.name;
+                            console.log(`✅ ${icsText.length} Zeichen geladen mit ${proxy.name}`);
+                            break; // Erfolgreich!
+                        } else {
+                            console.warn(`⚠️ ${proxy.name}: Keine validen iCal Daten`);
+                            icsText = null;
+                            continue;
+                        }
+                        
+                    } catch (proxyError) {
+                        console.warn(`⚠️ ${proxy.name} Error:`, proxyError.message);
+                        continue; // Nächster Proxy
+                    }
                 }
                 
-                const icsText = await response.text();
-                console.log(`✅ ${icsText.length} Zeichen geladen`);
+                // Alle Proxies fehlgeschlagen?
+                if (!icsText) {
+                    throw new Error(`Alle CORS-Proxies fehlgeschlagen!\n\nMögliche Gründe:\n- iCal URL ist nicht öffentlich\n- Rate-Limit der Proxies erreicht\n- Netzwerkproblem\n\nVersuche es später nochmal.`);
+                }
+                
+                console.log(`📦 Verwende ${usedProxy} für Import`);
                 
                 // Parse iCal
                 const events = parseICalendar(icsText);

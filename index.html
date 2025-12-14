@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.81.1 - KEIN ZEITFILTER! ⏰❌ (Build 20251214-0947)');
+        console.log('🚕 Funk Taxi App v5.82.0 - FILTER & CLICK-TO-CALL! 📞🔍 (Build 20251214-0955)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -466,6 +466,47 @@
                     </button>
                 </div>
                 
+                <!-- 🆕 v5.82.0: FILTER -->
+                <div style="background:#fff;border:2px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;font-size:14px;color:#1f2937;margin-bottom:10px;">🔍 Filter</div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+                        <div>
+                            <label style="display:block;font-weight:600;font-size:12px;color:#6b7280;margin-bottom:4px;">Jahr</label>
+                            <select id="ics-filter-year" onchange="applyIcsFilter()" style="width:100%;padding:8px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;">
+                                <option value="">Alle Jahre</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="display:block;font-weight:600;font-size:12px;color:#6b7280;margin-bottom:4px;">Monat</label>
+                            <select id="ics-filter-month" onchange="applyIcsFilter()" style="width:100%;padding:8px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;">
+                                <option value="">Alle Monate</option>
+                                <option value="1">Januar</option>
+                                <option value="2">Februar</option>
+                                <option value="3">März</option>
+                                <option value="4">April</option>
+                                <option value="5">Mai</option>
+                                <option value="6">Juni</option>
+                                <option value="7">Juli</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">Oktober</option>
+                                <option value="11">November</option>
+                                <option value="12">Dezember</option>
+                            </select>
+                        </div>
+                        
+                        <button onclick="resetIcsFilter()" style="padding:8px 16px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                            🔄 Alle
+                        </button>
+                    </div>
+                    
+                    <div id="ics-filter-stats" style="margin-top:10px;padding:8px;background:#f3f4f6;border-radius:4px;font-size:12px;color:#6b7280;">
+                        Gesamt: 0 Fahrten | Angezeigt: 0 Fahrten
+                    </div>
+                </div>
+                
                 <div style="display:flex;gap:10px;margin-bottom:12px;">
                     <button onclick="selectAllIcsRides()" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
                         ✅ Alle auswählen
@@ -665,7 +706,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.81.1 - KEIN ZEITFILTER! ⏰❌ (Build 20251214-0947)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.82.0 - FILTER & CLICK-TO-CALL! 📞🔍 (Build 20251214-0955)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -34706,14 +34747,17 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     </div>
                     
                     <!-- Buttons -->
-                    <div style="display:flex;gap:12px;">
-                        <button onclick="openQuickBookingWithCustomer('${customer.id}')" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <button onclick="callCustomer('${caller}')" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);">
+                            📞 Zurückrufen
+                        </button>
+                        <button onclick="openQuickBookingWithCustomer('${customer.id}')" style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
                             🚕 Neue Fahrt buchen
                         </button>
-                        <button onclick="closeCallPopup()" style="flex:1;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">
-                            Schließen
-                        </button>
                     </div>
+                    <button onclick="closeCallPopup()" style="width:100%;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">
+                        Schließen
+                    </button>
                 `;
             } else {
                 // NEUER KUNDE
@@ -34794,6 +34838,117 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         function closeCallPopup() {
             const popup = document.getElementById('call-popup');
             if (popup) popup.remove();
+        }
+        
+        // 🆕 v5.82.0: FRITZBOX CLICK-TO-CALL
+        
+        // FritzBox Config (Default)
+        const FRITZBOX_CONFIG = {
+            enabled: true,
+            host: 'fritz.box',
+            port: 49000,
+            username: 'admin',  // WICHTIG: In Produktion ändern!
+            password: '',       // WICHTIG: In Produktion ändern!
+            phone: '**610',     // DECT Telefon
+            protocol: 'http'
+        };
+        
+        // Rufe Kunde an (Click-to-Call)
+        async function callCustomer(phoneNumber) {
+            if (!FRITZBOX_CONFIG.enabled) {
+                alert('⚠️ Click-to-Call ist deaktiviert!\n\nAktiviere es in den Einstellungen.');
+                return;
+            }
+            
+            if (!FRITZBOX_CONFIG.password) {
+                alert('⚠️ FritzBox Passwort fehlt!\n\nBitte in den Einstellungen konfigurieren.');
+                return;
+            }
+            
+            console.log('📞 Rufe an:', phoneNumber);
+            
+            try {
+                // Zeige Loading
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '📞 Wähle...';
+                btn.disabled = true;
+                
+                // FritzBox API Call
+                const success = await fritzboxDialNumber(phoneNumber);
+                
+                if (success) {
+                    alert(`✅ Anruf wird hergestellt!\n\n${FRITZBOX_CONFIG.phone} klingelt gleich.\nBitte abheben, dann wird ${phoneNumber} angerufen.`);
+                } else {
+                    alert('❌ Fehler beim Anrufen!\n\nBitte FritzBox-Verbindung prüfen.');
+                }
+                
+                // Reset Button
+                btn.textContent = originalText;
+                btn.disabled = false;
+                
+            } catch (error) {
+                console.error('❌ Click-to-Call Fehler:', error);
+                alert('❌ Fehler beim Anrufen:\n\n' + error.message);
+            }
+        }
+        
+        // FritzBox TR-064 API: Nummer wählen
+        async function fritzboxDialNumber(phoneNumber) {
+            const config = FRITZBOX_CONFIG;
+            
+            // Bereinige Telefonnummer (entferne Leerzeichen, +, -, etc.)
+            const cleanNumber = phoneNumber.replace(/[\s\-\+\(\)]/g, '');
+            
+            console.log('📞 FritzBox wählt:', cleanNumber, 'von', config.phone);
+            
+            // TR-064 SOAP Request
+            const soapAction = 'urn:dslforum-org:service:X_VoIP:1#X_AVM-DE_DialNumber';
+            const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+    <s:Body>
+        <u:X_AVM-DE_DialNumber xmlns:u="urn:dslforum-org:service:X_VoIP:1">
+            <NewX_AVM-DE_PhoneNumber>${cleanNumber}</NewX_AVM-DE_PhoneNumber>
+        </u:X_AVM-DE_DialNumber>
+    </s:Body>
+</s:Envelope>`;
+            
+            try {
+                // WICHTIG: Da wir Cross-Origin Requests machen müssen,
+                // funktioniert das nur wenn die FritzBox CORS erlaubt
+                // oder wenn wir einen Proxy verwenden.
+                
+                // OPTION 1: Direct (nur wenn CORS aktiviert)
+                const url = `${config.protocol}://${config.host}:${config.port}/upnp/control/x_voip`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/xml; charset=utf-8',
+                        'SOAPAction': soapAction
+                    },
+                    body: soapBody,
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    console.log('✅ FritzBox Anruf erfolgreich!');
+                    return true;
+                } else {
+                    console.error('❌ FritzBox Response:', response.status, response.statusText);
+                    return false;
+                }
+                
+            } catch (error) {
+                console.error('❌ FritzBox API Fehler:', error);
+                
+                // Fallback: Öffne tel: Link (funktioniert auf Smartphone)
+                if (confirm('❌ FritzBox nicht erreichbar.\n\nTelefon-App öffnen stattdessen?')) {
+                    window.location.href = `tel:${cleanNumber}`;
+                }
+                
+                return false;
+            }
         }
         
         function openQuickBookingWithCustomer(customerId) {
@@ -36158,6 +36313,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let currentIcsCalendarId = '';  // v5.81.0: Hotel-Kalender ID
         let currentEditingIcsIndex = -1;
         
+        // 🆕 v5.82.0: Filter-State
+        let icsFilterYear = '';
+        let icsFilterMonth = '';
+        let icsAllRides = [];  // Alle Fahrten (ungefiltert)
+        let icsFilteredRides = [];  // Gefilterte Fahrten
+        
         // 🆕 v5.81.0: .ics Upload für spezifisches Hotel
         function uploadIcsForHotel(calendarId) {
             const calendar = hotelCalendars[calendarId];
@@ -36174,6 +36335,86 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             // Öffne File-Dialog
             document.getElementById('ics-file-input').click();
+        }
+        
+        // 🆕 v5.82.0: Filter anwenden
+        function applyIcsFilter() {
+            icsFilterYear = document.getElementById('ics-filter-year').value;
+            icsFilterMonth = document.getElementById('ics-filter-month').value;
+            
+            console.log('🔍 Filter:', icsFilterYear || 'Alle Jahre', icsFilterMonth || 'Alle Monate');
+            
+            // Filtere Fahrten
+            icsFilteredRides = icsAllRides.filter(ride => {
+                const rideYear = ride.date.getFullYear().toString();
+                const rideMonth = (ride.date.getMonth() + 1).toString();
+                
+                if (icsFilterYear && rideYear !== icsFilterYear) return false;
+                if (icsFilterMonth && rideMonth !== icsFilterMonth) return false;
+                
+                return true;
+            });
+            
+            // Aktualisiere currentIcsRides für die Tabelle
+            currentIcsRides = icsFilteredRides;
+            
+            // Update Stats
+            const stats = document.getElementById('ics-filter-stats');
+            if (stats) {
+                stats.textContent = `Gesamt: ${icsAllRides.length} Fahrten | Angezeigt: ${icsFilteredRides.length} Fahrten`;
+            }
+            
+            // Render Tabelle
+            renderIcsReviewTable();
+            
+            console.log(`✅ ${icsFilteredRides.length} von ${icsAllRides.length} Fahrten angezeigt`);
+        }
+        
+        // 🆕 v5.82.0: Filter zurücksetzen
+        function resetIcsFilter() {
+            document.getElementById('ics-filter-year').value = '';
+            document.getElementById('ics-filter-month').value = '';
+            applyIcsFilter();
+        }
+        
+        // 🆕 v5.82.0: Initialisiere Filter-Dropdowns
+        function initIcsFilter() {
+            // Ermittle Jahre aus Fahrten
+            const years = new Set();
+            icsAllRides.forEach(ride => {
+                years.add(ride.date.getFullYear());
+            });
+            
+            // Sortiere Jahre absteigend
+            const sortedYears = Array.from(years).sort((a, b) => b - a);
+            
+            // Fülle Jahr-Dropdown
+            const yearSelect = document.getElementById('ics-filter-year');
+            if (yearSelect) {
+                yearSelect.innerHTML = '<option value="">Alle Jahre</option>';
+                sortedYears.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearSelect.appendChild(option);
+                });
+                
+                // Setze aktuelles Jahr als default
+                const currentYear = new Date().getFullYear();
+                if (sortedYears.includes(currentYear)) {
+                    yearSelect.value = currentYear;
+                }
+            }
+            
+            // Setze aktuellen Monat als default
+            const monthSelect = document.getElementById('ics-filter-month');
+            if (monthSelect) {
+                const currentMonth = new Date().getMonth() + 1;
+                monthSelect.value = currentMonth;
+            }
+            
+            // Wende Filter an
+            applyIcsFilter();
         }
         
         // Upload .ics Datei
@@ -36237,6 +36478,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     rides.push(ride);
                 }
                 
+                // v5.82.0: Speichere ALLE Fahrten (ungefiltert)
+                icsAllRides = rides;
                 currentIcsRides = rides;
                 
                 // v5.81.0: Hotel-Name kommt jetzt von uploadIcsForHotel()
@@ -36248,8 +36491,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 document.getElementById('ics-hotel-name').textContent = currentIcsHotelName;
                 document.getElementById('ics-file-name').textContent = file.name;
                 
-                // Zeige Review-Tabelle
-                renderIcsReviewTable();
+                // v5.82.0: Initialisiere Filter (setzt Default: aktuelles Jahr + Monat)
+                initIcsFilter();
                 
                 // Zeige Review-Container
                 document.getElementById('ics-review-container').style.display = 'block';
@@ -36442,6 +36685,10 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             currentIcsRides = [];
             currentIcsHotelName = '';
             currentIcsCalendarId = '';
+            icsAllRides = [];  // v5.82.0
+            icsFilteredRides = [];  // v5.82.0
+            icsFilterYear = '';  // v5.82.0
+            icsFilterMonth = '';  // v5.82.0
             document.getElementById('ics-review-container').style.display = 'none';
         }
         

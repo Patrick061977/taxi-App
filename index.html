@@ -78,7 +78,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.76.1 - CALENDAR PICKER LAYOUT FIX! ✅ (Build 20251214-0740)');
+        console.log('🚕 Funk Taxi App v5.77.0 - HOTEL-KALENDER IMPORT! 🏨📅 (Build 20251214-0800)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -581,7 +581,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.76.1 - CALENDAR PICKER! 📅✨ (Build 20251214-0740)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.77.0 - HOTEL-KALENDER IMPORT! 🏨📅 (Build 20251214-0800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2661,6 +2661,77 @@
             <!-- Statistik -->
             <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
                 <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.77.0: HOTEL-KALENDER VERWALTUNG -->
+        <div onclick="toggleAdminSection('hotel-calendars')" style="background:linear-gradient(135deg,#f97316,#ea580c);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">🏨 Hotel-Kalender <span id="hotel-calendar-count" style="background:white;color:#ea580c;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+            <span id="hotel-calendars-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="hotel-calendars-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
+            
+            <!-- Info-Box -->
+            <div style="background:#fef3c7;border:2px solid #fcd34d;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;">
+                <div style="font-weight:700;margin-bottom:6px;color:#92400e;">📖 So funktioniert's:</div>
+                <ol style="margin:0;padding-left:20px;color:#92400e;">
+                    <li>Hotel teilt Google Calendar iCal-Link</li>
+                    <li>Link hier einfügen</li>
+                    <li>Automatische Synchronisation alle 15min</li>
+                    <li>Termine erscheinen farbcodiert im Kalender</li>
+                </ol>
+            </div>
+            
+            <!-- Add Button -->
+            <button onclick="showAddHotelCalendarForm()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:15px;font-size:15px;box-shadow:0 4px 12px rgba(249,115,22,0.3);">
+                ➕ Neuen Hotel-Kalender hinzufügen
+            </button>
+            
+            <!-- Add Form (versteckt) -->
+            <div id="add-hotel-calendar-form" style="display:none;background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <h4 style="margin:0 0 15px 0;font-size:15px;color:#1f2937;">➕ Hotel-Kalender hinzufügen</h4>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">🏨 Hotel-Name</label>
+                    <input type="text" id="new-hotel-name" placeholder="z.B. Hotel Seebrücke" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📅 Google Calendar iCal URL</label>
+                    <input type="url" id="new-hotel-ical-url" placeholder="https://calendar.google.com/calendar/ical/..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;box-sizing:border-box;font-family:monospace;">
+                    <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                        💡 Im Google Calendar: Einstellungen → Kalender integrieren → iCal-URL kopieren
+                    </div>
+                </div>
+                
+                <div style="margin-bottom:12px;">
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">🎨 Farbe im Kalender</label>
+                    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;">
+                        <button onclick="selectHotelColor('#f97316')" class="color-btn" data-color="#f97316" style="width:100%;aspect-ratio:1;border:3px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#f97316;"></button>
+                        <button onclick="selectHotelColor('#3b82f6')" class="color-btn" data-color="#3b82f6" style="width:100%;aspect-ratio:1;border:3px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#3b82f6;"></button>
+                        <button onclick="selectHotelColor('#10b981')" class="color-btn" data-color="#10b981" style="width:100%;aspect-ratio:1;border:3px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#10b981;"></button>
+                        <button onclick="selectHotelColor('#f59e0b')" class="color-btn" data-color="#f59e0b" style="width:100%;aspect-ratio:1;border:3px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#f59e0b;"></button>
+                        <button onclick="selectHotelColor('#ef4444')" class="color-btn" data-color="#ef4444" style="width:100%;aspect-ratio:1;border:3px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#ef4444;"></button>
+                        <button onclick="selectHotelColor('#8b5cf6')" class="color-btn" data-color="#8b5cf6" style="width:100%;aspect-ratio:1;border:3px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#8b5cf6;"></button>
+                    </div>
+                    <input type="hidden" id="new-hotel-color" value="#f97316">
+                </div>
+                
+                <div style="display:flex;gap:10px;">
+                    <button onclick="saveHotelCalendar()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                        💾 Speichern
+                    </button>
+                    <button onclick="cancelAddHotelCalendar()" style="flex:1;padding:12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                        ❌ Abbrechen
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Hotel Calendar List -->
+            <div id="hotel-calendar-list">
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    Lade Hotel-Kalender...
+                </div>
             </div>
         </div>
         
@@ -6511,6 +6582,9 @@
                     
                     // 🚗 Fahrzeuge aus Firebase laden
                     loadVehiclesFromFirebase();
+                    
+                    // 🏨 v5.77.0: Hotel-Kalender laden
+                    initHotelCalendars();
                     
                     // 🔄 LADE GESPEICHERTE FAHRT (falls vorhanden)
                     const savedRideId = localStorage.getItem('myCurrentRideId');
@@ -30500,7 +30574,12 @@ Stack: ${err.stack}
             renderCalendar();
         }
         
-        function getRideColor(status) {
+        function getRideColor(status, ride = null) {
+            // 🆕 v5.77.0: Hotel-Kalender Farbe hat Priorität!
+            if (ride && ride.hotelCalendarColor) {
+                return ride.hotelCalendarColor;
+            }
+            
             const statusMap = {
                 'completed': '#10b981',      // Grün
                 'abgeschlossen': '#10b981',
@@ -30702,7 +30781,7 @@ Stack: ${err.stack}
                 let statusDots = '';
                 const statusCounts = {};
                 rides.forEach(r => {
-                    const color = getRideColor(r.status);
+                    const color = getRideColor(r.status, r);
                     statusCounts[color] = (statusCounts[color] || 0) + 1;
                 });
                 
@@ -30822,8 +30901,8 @@ Stack: ${err.stack}
                         ${rides.length > 0 ? `
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 ${rides.map(r => `
-                                    <div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: ${getRideColor(r.status)}20; border-radius: 4px;">
-                                        <div style="width: 8px; height: 8px; background: ${getRideColor(r.status)}; border-radius: 50%;"></div>
+                                    <div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: ${getRideColor(r.status, r)}20; border-radius: 4px;">
+                                        <div style="width: 8px; height: 8px; background: ${getRideColor(r.status, r)}; border-radius: 50%;"></div>
                                         <span style="font-size: 12px; color: #374151;">${r.price || 0}€</span>
                                     </div>
                                 `).join('')}
@@ -30988,7 +31067,7 @@ Stack: ${err.stack}
                     // 🔧 v5.29.1: FÜR KALENDER: Zeige Abholzeit, nicht Buchungszeit!
                     const time = new Date(ride.pickupTimestamp || ride.createdAt || 0);
                     const timeStr = time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    const color = getRideColor(ride.status);
+                    const color = getRideColor(ride.status, ride);
                     
                     const statusText = {
                         'completed': 'Abgeschlossen',
@@ -34791,6 +34870,469 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 console.error('❌ Fehler beim Speichern:', err);
                 alert('❌ Fehler: ' + err.message);
             }
+        }
+        
+        // 🆕 v5.77.0: HOTEL-KALENDER VERWALTUNG
+        
+        let selectedHotelColor = '#f97316';
+        let hotelCalendars = {};
+        
+        // Lade Hotel-Kalender aus Firebase
+        async function loadHotelCalendars() {
+            console.log('🏨 Lade Hotel-Kalender...');
+            
+            try {
+                const snapshot = await db.ref('hotelCalendars').once('value');
+                hotelCalendars = snapshot.val() || {};
+                
+                const count = Object.keys(hotelCalendars).length;
+                console.log(`✅ ${count} Hotel-Kalender geladen`);
+                
+                // Update Badge
+                const badge = document.getElementById('hotel-calendar-count');
+                if (badge) badge.textContent = count;
+                
+                // Render Liste
+                renderHotelCalendarList();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Hotel-Kalender:', error);
+            }
+        }
+        
+        // Zeige Hotel-Kalender Liste
+        function renderHotelCalendarList() {
+            const container = document.getElementById('hotel-calendar-list');
+            if (!container) return;
+            
+            const calendars = Object.entries(hotelCalendars);
+            
+            if (calendars.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">📅</div>
+                        <div style="font-weight:600;margin-bottom:6px;">Noch keine Hotel-Kalender</div>
+                        <div style="font-size:13px;">Klicke auf "Hinzufügen" um einen Hotel-Kalender zu verbinden</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+            
+            calendars.forEach(([id, cal]) => {
+                const lastSyncText = cal.lastSync 
+                    ? new Date(cal.lastSync).toLocaleString('de-DE')
+                    : 'Noch nie';
+                const statusText = cal.enabled ? '✅ Aktiv' : '⏸️ Pausiert';
+                
+                html += `
+                    <div style="background:white;border:2px solid ${cal.color};border-radius:12px;padding:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                            <div style="flex:1;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                    <div style="width:16px;height:16px;background:${cal.color};border-radius:4px;"></div>
+                                    <h4 style="margin:0;font-size:16px;font-weight:700;color:#1f2937;">${cal.name}</h4>
+                                </div>
+                                <div style="font-size:12px;color:#6b7280;">
+                                    ${statusText} • Letzte Sync: ${lastSyncText}
+                                </div>
+                            </div>
+                            <button onclick="deleteHotelCalendar('${id}')" style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                🗑️ Löschen
+                            </button>
+                        </div>
+                        
+                        <div style="background:#f9fafb;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;color:#6b7280;word-break:break-all;margin-bottom:12px;">
+                            ${cal.icalUrl}
+                        </div>
+                        
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="toggleHotelCalendarEnabled('${id}')" style="flex:1;padding:10px;background:${cal.enabled ? '#f59e0b' : '#10b981'};color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                ${cal.enabled ? '⏸️ Pausieren' : '▶️ Aktivieren'}
+                            </button>
+                            <button onclick="syncHotelCalendar('${id}')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                🔄 Jetzt syncen
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // Zeige Add-Form
+        function showAddHotelCalendarForm() {
+            const form = document.getElementById('add-hotel-calendar-form');
+            if (form) {
+                form.style.display = 'block';
+                // Reset
+                document.getElementById('new-hotel-name').value = '';
+                document.getElementById('new-hotel-ical-url').value = '';
+                selectedHotelColor = '#f97316';
+                updateColorButtonSelection();
+            }
+        }
+        
+        // Cancel Add
+        function cancelAddHotelCalendar() {
+            const form = document.getElementById('add-hotel-calendar-form');
+            if (form) form.style.display = 'none';
+        }
+        
+        // Farbe auswählen
+        function selectHotelColor(color) {
+            selectedHotelColor = color;
+            document.getElementById('new-hotel-color').value = color;
+            updateColorButtonSelection();
+        }
+        
+        function updateColorButtonSelection() {
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                const btnColor = btn.getAttribute('data-color');
+                if (btnColor === selectedHotelColor) {
+                    btn.style.border = '3px solid #1f2937';
+                    btn.style.transform = 'scale(1.1)';
+                } else {
+                    btn.style.border = '3px solid #e5e7eb';
+                    btn.style.transform = 'scale(1)';
+                }
+            });
+        }
+        
+        // Speichere neuen Hotel-Kalender
+        async function saveHotelCalendar() {
+            const name = document.getElementById('new-hotel-name').value.trim();
+            const icalUrl = document.getElementById('new-hotel-ical-url').value.trim();
+            const color = selectedHotelColor;
+            
+            // Validierung
+            if (!name) {
+                alert('❌ Bitte Hotel-Namen eingeben!');
+                return;
+            }
+            
+            if (!icalUrl || !icalUrl.startsWith('http')) {
+                alert('❌ Bitte gültige iCal URL eingeben!');
+                return;
+            }
+            
+            console.log('💾 Speichere Hotel-Kalender:', name);
+            
+            try {
+                const calendarData = {
+                    name: name,
+                    icalUrl: icalUrl,
+                    color: color,
+                    enabled: true,
+                    createdAt: Date.now(),
+                    lastSync: null
+                };
+                
+                // Speichere in Firebase
+                const newRef = await db.ref('hotelCalendars').push(calendarData);
+                console.log('✅ Hotel-Kalender gespeichert:', newRef.key);
+                
+                // Log
+                logActivity('admin', 'hotel_calendar_added', `Hotel-Kalender hinzugefügt: ${name}`, {
+                    calendarId: newRef.key,
+                    name: name
+                });
+                
+                // Form schließen
+                cancelAddHotelCalendar();
+                
+                // Neu laden
+                await loadHotelCalendars();
+                
+                // Sofort syncen
+                alert('✅ Hotel-Kalender hinzugefügt!\n\nSynchronisation startet...');
+                await syncHotelCalendar(newRef.key);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Lösche Hotel-Kalender
+        async function deleteHotelCalendar(calendarId) {
+            const calendar = hotelCalendars[calendarId];
+            if (!calendar) return;
+            
+            const confirmed = confirm(`Hotel-Kalender löschen?\n\n${calendar.name}\n\nAlle importierten Fahrten bleiben erhalten.`);
+            if (!confirmed) return;
+            
+            console.log('🗑️ Lösche Hotel-Kalender:', calendarId);
+            
+            try {
+                await db.ref(`hotelCalendars/${calendarId}`).remove();
+                console.log('✅ Gelöscht');
+                
+                logActivity('admin', 'hotel_calendar_deleted', `Hotel-Kalender gelöscht: ${calendar.name}`, {
+                    calendarId: calendarId
+                });
+                
+                await loadHotelCalendars();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Toggle Enable/Disable
+        async function toggleHotelCalendarEnabled(calendarId) {
+            const calendar = hotelCalendars[calendarId];
+            if (!calendar) return;
+            
+            const newState = !calendar.enabled;
+            console.log(`${newState ? '▶️' : '⏸️'} ${newState ? 'Aktiviere' : 'Pausiere'} Hotel-Kalender:`, calendarId);
+            
+            try {
+                await db.ref(`hotelCalendars/${calendarId}/enabled`).set(newState);
+                console.log('✅ Status geändert');
+                
+                await loadHotelCalendars();
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 ICAL PARSER - Parst Google Calendar .ics Dateien
+        function parseICalendar(icsText) {
+            console.log('📄 Parse iCal Daten...');
+            
+            const events = [];
+            const lines = icsText.split('\n').map(line => line.trim());
+            
+            let currentEvent = null;
+            let currentField = null;
+            let currentValue = '';
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // Zeilen-Fortsetzung (startet mit Leerzeichen)
+                if (line.startsWith(' ') && currentField) {
+                    currentValue += line.substring(1);
+                    continue;
+                }
+                
+                // Speichere vorheriges Feld
+                if (currentField && currentEvent) {
+                    currentEvent[currentField] = currentValue;
+                }
+                
+                currentField = null;
+                currentValue = '';
+                
+                // Neues Event beginnt
+                if (line === 'BEGIN:VEVENT') {
+                    currentEvent = {};
+                    continue;
+                }
+                
+                // Event endet
+                if (line === 'END:VEVENT') {
+                    if (currentEvent) {
+                        events.push(currentEvent);
+                    }
+                    currentEvent = null;
+                    continue;
+                }
+                
+                // Feld parsen
+                if (currentEvent && line.includes(':')) {
+                    const colonIndex = line.indexOf(':');
+                    const field = line.substring(0, colonIndex);
+                    const value = line.substring(colonIndex + 1);
+                    
+                    // Feld-Namen normalisieren (ohne Parameter)
+                    const fieldName = field.split(';')[0];
+                    
+                    currentField = fieldName;
+                    currentValue = value;
+                }
+            }
+            
+            console.log(`✅ ${events.length} Events geparst`);
+            return events;
+        }
+        
+        // Konvertiere iCal DateTime zu ISO
+        function icalDateToISO(icalDate) {
+            // Format: 20241220T140000Z oder 20241220T140000
+            if (!icalDate) return null;
+            
+            const cleanDate = icalDate.replace(/[^0-9TZ]/g, '');
+            
+            // YYYYMMDDTHHMMSS
+            if (cleanDate.length >= 15) {
+                const year = cleanDate.substring(0, 4);
+                const month = cleanDate.substring(4, 6);
+                const day = cleanDate.substring(6, 8);
+                const hour = cleanDate.substring(9, 11);
+                const minute = cleanDate.substring(11, 13);
+                const second = cleanDate.substring(13, 15) || '00';
+                
+                return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+            }
+            
+            return null;
+        }
+        
+        // 🔄 SYNC HOTEL CALENDAR - Lädt .ics und erstellt Fahrten
+        async function syncHotelCalendar(calendarId) {
+            const calendar = hotelCalendars[calendarId];
+            if (!calendar) {
+                console.error('❌ Kalender nicht gefunden:', calendarId);
+                return;
+            }
+            
+            if (!calendar.enabled) {
+                console.log('⏸️ Kalender pausiert:', calendar.name);
+                return;
+            }
+            
+            console.log('🔄 Synchronisiere Hotel-Kalender:', calendar.name);
+            
+            try {
+                // ⚠️ CORS-Proxy nutzen um .ics zu laden
+                // Für Produktion: Firebase Cloud Function!
+                const corsProxy = 'https://corsproxy.io/?';
+                const url = corsProxy + encodeURIComponent(calendar.icalUrl);
+                
+                console.log('📥 Lade iCal von:', calendar.icalUrl);
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const icsText = await response.text();
+                console.log(`✅ ${icsText.length} Zeichen geladen`);
+                
+                // Parse iCal
+                const events = parseICalendar(icsText);
+                console.log(`📅 ${events.length} Events gefunden`);
+                
+                // Konvertiere zu Fahrten
+                let importedCount = 0;
+                let skippedCount = 0;
+                
+                for (const event of events) {
+                    // Nur zukünftige Events
+                    const startTime = icalDateToISO(event.DTSTART);
+                    if (!startTime) {
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    const eventDate = new Date(startTime);
+                    const now = new Date();
+                    
+                    // Nur Events ab heute
+                    if (eventDate < now) {
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    // Prüfe ob schon importiert (anhand UID + Kalender)
+                    const eventUID = event.UID || '';
+                    const existingCheck = await db.ref('rides')
+                        .orderByChild('hotelCalendarEventUID')
+                        .equalTo(`${calendarId}_${eventUID}`)
+                        .once('value');
+                    
+                    if (existingCheck.exists()) {
+                        // Schon importiert
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    // Erstelle Fahrt
+                    const summary = event.SUMMARY || 'Hotel-Buchung';
+                    const description = event.DESCRIPTION || '';
+                    const location = event.LOCATION || '';
+                    
+                    const endTime = icalDateToISO(event.DTEND) || startTime;
+                    
+                    // Fahrt-Daten
+                    const rideData = {
+                        // Quelle
+                        hotelCalendarId: calendarId,
+                        hotelCalendarName: calendar.name,
+                        hotelCalendarEventUID: `${calendarId}_${eventUID}`,
+                        hotelCalendarColor: calendar.color,
+                        
+                        // Zeit
+                        pickupTime: startTime,
+                        createdAt: Date.now(),
+                        
+                        // Kunde (Hotel)
+                        customerName: calendar.name,
+                        customerPhone: 'Hotel-Import',
+                        customerId: `hotel_${calendarId}`,
+                        
+                        // Gast
+                        guestName: summary,
+                        
+                        // Locations
+                        pickup: location || calendar.name,
+                        destination: description.substring(0, 100) || 'Siehe Event-Details',
+                        
+                        // Status
+                        status: 'open',
+                        preBooked: true,
+                        
+                        // Meta
+                        notes: `📅 Importiert aus ${calendar.name}\n\n${description}`,
+                        source: 'hotel_calendar_import'
+                    };
+                    
+                    // Speichere in Firebase
+                    await db.ref('rides').push(rideData);
+                    importedCount++;
+                    
+                    console.log(`✅ Importiert: ${summary} am ${startTime}`);
+                }
+                
+                // Update lastSync
+                await db.ref(`hotelCalendars/${calendarId}/lastSync`).set(Date.now());
+                
+                console.log(`✅ Sync abgeschlossen: ${importedCount} neu, ${skippedCount} übersprungen`);
+                
+                // Log
+                logActivity('system', 'hotel_calendar_synced', `Hotel-Kalender synchronisiert: ${calendar.name}`, {
+                    calendarId: calendarId,
+                    imported: importedCount,
+                    skipped: skippedCount
+                });
+                
+                // Reload Liste
+                await loadHotelCalendars();
+                
+                // Reload Kalender falls sichtbar
+                if (currentView === 'admin' && document.getElementById('calendar-content').style.display !== 'none') {
+                    await loadCalendarRides(currentCalendarYear, currentCalendarMonth);
+                }
+                
+                alert(`✅ Synchronisation abgeschlossen!\n\n${importedCount} neue Fahrten importiert\n${skippedCount} übersprungen`);
+                
+            } catch (error) {
+                console.error('❌ Sync-Fehler:', error);
+                alert(`❌ Synchronisation fehlgeschlagen!\n\n${error.message}\n\nPrüfe die iCal URL.`);
+            }
+        }
+        
+        // Auto-Sync beim Init
+        async function initHotelCalendars() {
+            await loadHotelCalendars();
         }
         
     </script>

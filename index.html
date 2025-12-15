@@ -7,10 +7,33 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Taxi HGW">
-    <!-- 🔄 Cache-Control für Updates -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
+    
+    <!-- 🆕 v5.86.13: ADMIN DEV MODE -->
+    <script>
+        // URL-Parameter prüfen
+        const urlParams = new URLSearchParams(window.location.search);
+        const isNoCacheMode = urlParams.has('nocache');
+        const isTestMode = urlParams.has('test');
+        
+        if (isNoCacheMode) {
+            console.log('🔧 ADMIN DEV MODE: Cache deaktiviert!');
+            // Cache komplett aus!
+            document.write('<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">');
+            document.write('<meta http-equiv="Pragma" content="no-cache">');
+            document.write('<meta http-equiv="Expires" content="0">');
+        } else {
+            // Normal: 1 Stunde Cache
+            document.write('<meta http-equiv="Cache-Control" content="max-age=3600, must-revalidate">');
+            document.write('<meta http-equiv="Pragma" content="max-age=3600">');
+        }
+        
+        if (isTestMode) {
+            console.log('🧪 TEST MODE: Nutze TEST-Datenbank!');
+            window.isTestMode = true;
+        }
+    </script>
+    
+    <!-- 🔄 Cache-Control (wird dynamisch gesetzt) -->
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
     <title>Funk Taxi Heringsdorf</title>
@@ -78,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.11 - TELEGRAM+FAVORITEN-FIX! 📱⭐ (Build 20251214-2250)');
+        console.log('🚕 Funk Taxi App v5.86.14 - AUTO-BACKUP! 🔽💾 (Build 20251215-1100)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -709,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.11 - TELEGRAM+FAVORITEN-FIX! 📱⭐ (Build 20251214-2250)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.14 - AUTO-BACKUP! 🔽💾 (Build 20251215-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -901,6 +924,21 @@
                 box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
             ">
                 📬 Anfragen
+            </button>
+            <button onclick="switchView('backup')" class="admin-tab-btn admin-only" data-view="backup" style="
+                padding: 10px 16px;
+                border: 2px solid #8b5cf6;
+                background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+            ">
+                🔽 Backup
             </button>
         </div>
     </div>
@@ -2391,10 +2429,40 @@
                 let cleared = [];
                 
                 try {
-                    // 1. LocalStorage leeren
+                    // 🆕 v5.86.12: SELECTIVE CLEAR - Behalte wichtige App-Config!
+                    console.log('🔄 LocalStorage wird selektiv geleert...');
+                    
+                    // ✅ DIESE KEYS BLEIBEN ERHALTEN (App-Config):
+                    const keysToKeep = [
+                        'anthropic_api_key',           // AI-Assistent API Key
+                        'telegram_bot_token',          // Telegram Bot Token
+                        'telegram_admin_chat_id',      // Admin Telegram Chat ID
+                        'google_calendar_id',          // Google Calendar ID
+                        'fritzbox_config',             // FritzBox Config
+                        'app_settings'                 // App-Einstellungen
+                    ];
+                    
+                    // Speichere wichtige Keys temporär
+                    const savedData = {};
+                    keysToKeep.forEach(key => {
+                        const value = localStorage.getItem(key);
+                        if (value) {
+                            savedData[key] = value;
+                            console.log('💾 Behalte:', key);
+                        }
+                    });
+                    
+                    // Lösche ALLES
                     localStorage.clear();
-                    console.log('✅ LocalStorage gelöscht');
-                    cleared.push('LocalStorage');
+                    
+                    // Stelle wichtige Keys wieder her
+                    Object.keys(savedData).forEach(key => {
+                        localStorage.setItem(key, savedData[key]);
+                        console.log('✅ Wiederhergestellt:', key);
+                    });
+                    
+                    console.log('✅ LocalStorage selektiv gelöscht (Config behalten)');
+                    cleared.push('LocalStorage (User-Daten)');
                 } catch (e) {
                     console.error('❌ LocalStorage Fehler:', e);
                 }
@@ -4564,6 +4632,105 @@
         </div>
     </div>
 
+    <!-- 🆕 v5.86.14: BACKUP VIEW -->
+    <div id="backup-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+        <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">🔽</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">DATENBANK-BACKUP</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">Automatisches Backup alle 4 Stunden • Letzte 5 Backups gespeichert</p>
+            </div>
+
+            <!-- Status -->
+            <div style="padding: 20px; background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                    <div style="font-size: 24px;">⏰</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 16px; font-weight: 700; color: #374151; margin-bottom: 4px;">
+                            Auto-Backup Status
+                        </div>
+                        <div id="backup-status" style="font-size: 13px; color: #10b981; font-weight: 600;">
+                            ✅ Aktiv (alle 4 Stunden)
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <button onclick="createAutoBackup()" style="
+                        flex: 1;
+                        padding: 14px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    ">
+                        🔽 JETZT BACKUP ERSTELLEN
+                    </button>
+                    
+                    <button onclick="uploadBackupFile()" style="
+                        flex: 1;
+                        padding: 14px;
+                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    ">
+                        🔼 BACKUP HOCHLADEN
+                    </button>
+                </div>
+                
+                <div style="font-size: 12px; color: #6b7280; padding: 10px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                    ⚠️ <strong>Hinweis:</strong> Backups werden im Browser gespeichert (IndexedDB). Für Multi-Device-Nutzung: Backup downloaden und auf anderem Gerät hochladen.
+                </div>
+            </div>
+
+            <!-- Backup-Liste -->
+            <div style="padding: 20px;">
+                <h3 style="font-size: 18px; font-weight: 700; color: #374151; margin: 0 0 15px 0;">
+                    📦 Verfügbare Backups
+                </h3>
+                
+                <div id="backup-list">
+                    <div style="padding:40px;text-align:center;color:#999;">
+                        <div style="font-size:48px;margin-bottom:10px;">⏳</div>
+                        <div>Lade Backups...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div style="padding: 20px; background: #f9fafb; border-top: 2px solid #e5e7eb;">
+                <h3 style="font-size: 16px; font-weight: 700; color: #374151; margin: 0 0 12px 0;">
+                    ℹ️ So funktioniert's
+                </h3>
+                <div style="font-size: 13px; color: #6b7280; line-height: 1.6;">
+                    <p style="margin: 0 0 8px 0;">
+                        <strong>Automatisch:</strong> Alle 4 Stunden wird automatisch ein Backup erstellt (erstes nach 5 Minuten).
+                    </p>
+                    <p style="margin: 0 0 8px 0;">
+                        <strong>Speicherung:</strong> Backups werden im Browser (IndexedDB) gespeichert und bleiben auch nach Neustart erhalten.
+                    </p>
+                    <p style="margin: 0 0 8px 0;">
+                        <strong>Anzahl:</strong> Nur die letzten 5 Backups werden behalten, ältere werden automatisch gelöscht.
+                    </p>
+                    <p style="margin: 0 0 8px 0;">
+                        <strong>Download:</strong> Du kannst Backups herunterladen und lokal/in der Cloud speichern.
+                    </p>
+                    <p style="margin: 0;">
+                        <strong>Restore:</strong> Mit einem Klick kannst du ein Backup wiederherstellen (überschreibt aktuelle Daten!).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -4626,7 +4793,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.11';
+        const APP_VERSION = '5.86.14';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -6894,6 +7061,339 @@
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.86.14: AUTOMATISCHES BACKUP-SYSTEM (alle 4 Stunden)
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let backupDB = null;
+        let backupTimer = null;
+        const BACKUP_INTERVAL = 4 * 60 * 60 * 1000; // 4 Stunden
+        const MAX_BACKUPS = 5; // Behalte letzte 5
+        
+        // IndexedDB für Backups initialisieren
+        function initBackupDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('TaxiAppBackups', 1);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    backupDB = request.result;
+                    console.log('✅ Backup-DB initialisiert');
+                    resolve(backupDB);
+                };
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('backups')) {
+                        const store = db.createObjectStore('backups', { keyPath: 'id' });
+                        store.createIndex('timestamp', 'timestamp', { unique: false });
+                        console.log('✅ Backup-Store erstellt');
+                    }
+                };
+            });
+        }
+        
+        // Automatisches Backup erstellen
+        async function createAutoBackup() {
+            try {
+                console.log('🔽 Erstelle automatisches Backup...');
+                
+                if (!isFirebaseReady || !db) {
+                    console.warn('⚠️ Firebase nicht bereit, Backup übersprungen');
+                    return;
+                }
+                
+                // Lade komplette Datenbank
+                const ridesSnap = await db.ref(window.dbPrefix + 'rides').once('value');
+                const customersSnap = await db.ref(window.dbPrefix + 'customers').once('value');
+                const driversSnap = await db.ref(window.dbPrefix + 'drivers').once('value');
+                const vehiclesSnap = await db.ref(window.dbPrefix + 'vehicles').once('value');
+                const usersSnap = await db.ref(window.dbPrefix + 'users').once('value');
+                const settingsSnap = await db.ref(window.dbPrefix + 'settings').once('value');
+                
+                const backup = {
+                    id: Date.now(),
+                    timestamp: Date.now(),
+                    date: new Date().toISOString(),
+                    data: {
+                        rides: ridesSnap.val() || {},
+                        customers: customersSnap.val() || {},
+                        drivers: driversSnap.val() || {},
+                        vehicles: vehiclesSnap.val() || {},
+                        users: usersSnap.val() || {},
+                        settings: settingsSnap.val() || {}
+                    },
+                    dbPrefix: window.dbPrefix || '',
+                    version: APP_VERSION
+                };
+                
+                // Speichere in IndexedDB
+                await saveBackupToIndexedDB(backup);
+                
+                // Alte Backups löschen (behalte nur letzte 5)
+                await cleanOldBackups();
+                
+                const size = (JSON.stringify(backup).length / 1024 / 1024).toFixed(2);
+                console.log(`✅ Backup erstellt: ${size} MB`);
+                
+                // Browser-Notification
+                if (Notification.permission === 'granted') {
+                    new Notification('✅ Backup erstellt', {
+                        body: `Automatisches Backup (${size} MB) gespeichert`,
+                        icon: '/icon-192.png'
+                    });
+                }
+                
+                // Update UI wenn Admin-Tab offen
+                if (typeof updateBackupList === 'function') {
+                    updateBackupList();
+                }
+                
+            } catch (error) {
+                console.error('❌ Backup-Fehler:', error);
+                if (Notification.permission === 'granted') {
+                    new Notification('❌ Backup fehlgeschlagen', {
+                        body: error.message
+                    });
+                }
+            }
+        }
+        
+        // Backup in IndexedDB speichern
+        function saveBackupToIndexedDB(backup) {
+            return new Promise((resolve, reject) => {
+                const transaction = backupDB.transaction(['backups'], 'readwrite');
+                const store = transaction.objectStore('backups');
+                const request = store.put(backup);
+                
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+        
+        // Alte Backups löschen (behalte nur letzte 5)
+        async function cleanOldBackups() {
+            return new Promise((resolve, reject) => {
+                const transaction = backupDB.transaction(['backups'], 'readwrite');
+                const store = transaction.objectStore('backups');
+                const index = store.index('timestamp');
+                const request = index.openCursor(null, 'prev'); // Neueste zuerst
+                
+                let count = 0;
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        count++;
+                        if (count > MAX_BACKUPS) {
+                            // Lösche alte Backups
+                            store.delete(cursor.primaryKey);
+                            console.log('🗑️ Altes Backup gelöscht:', new Date(cursor.value.timestamp).toLocaleString());
+                        }
+                        cursor.continue();
+                    } else {
+                        resolve();
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+        
+        // Alle Backups laden
+        function loadAllBackups() {
+            return new Promise((resolve, reject) => {
+                const transaction = backupDB.transaction(['backups'], 'readonly');
+                const store = transaction.objectStore('backups');
+                const index = store.index('timestamp');
+                const request = index.openCursor(null, 'prev'); // Neueste zuerst
+                
+                const backups = [];
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        backups.push(cursor.value);
+                        cursor.continue();
+                    } else {
+                        resolve(backups);
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+        
+        // Backup downloaden
+        async function downloadBackup(backupId) {
+            try {
+                const backups = await loadAllBackups();
+                const backup = backups.find(b => b.id === backupId);
+                
+                if (!backup) {
+                    alert('❌ Backup nicht gefunden!');
+                    return;
+                }
+                
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `taxi-backup-${new Date(backup.timestamp).toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                console.log('✅ Backup heruntergeladen');
+            } catch (error) {
+                console.error('❌ Download-Fehler:', error);
+                alert('❌ Download fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        // Backup wiederherstellen
+        async function restoreBackup(backupId) {
+            try {
+                const backups = await loadAllBackups();
+                const backup = backups.find(b => b.id === backupId);
+                
+                if (!backup) {
+                    alert('❌ Backup nicht gefunden!');
+                    return;
+                }
+                
+                const confirmed = confirm(
+                    '⚠️ ACHTUNG!\n\n' +
+                    'Dies überschreibt ALLE aktuellen Daten!\n\n' +
+                    'Backup vom: ' + new Date(backup.timestamp).toLocaleString() + '\n' +
+                    'Version: ' + backup.version + '\n\n' +
+                    'Fortfahren?'
+                );
+                
+                if (!confirmed) return;
+                
+                console.log('🔼 Stelle Backup wieder her...');
+                
+                const prefix = window.dbPrefix || '';
+                
+                // Restore alle Daten
+                await db.ref(prefix + 'rides').set(backup.data.rides);
+                await db.ref(prefix + 'customers').set(backup.data.customers);
+                await db.ref(prefix + 'drivers').set(backup.data.drivers);
+                await db.ref(prefix + 'vehicles').set(backup.data.vehicles);
+                await db.ref(prefix + 'users').set(backup.data.users);
+                await db.ref(prefix + 'settings').set(backup.data.settings);
+                
+                console.log('✅ Backup wiederhergestellt!');
+                alert('✅ Backup erfolgreich wiederhergestellt!\n\nSeite wird neu geladen...');
+                
+                // Reload
+                setTimeout(() => location.reload(), 1000);
+                
+            } catch (error) {
+                console.error('❌ Restore-Fehler:', error);
+                alert('❌ Wiederherstellung fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        // Backup löschen
+        async function deleteBackup(backupId) {
+            try {
+                if (!confirm('Backup wirklich löschen?')) return;
+                
+                return new Promise((resolve, reject) => {
+                    const transaction = backupDB.transaction(['backups'], 'readwrite');
+                    const store = transaction.objectStore('backups');
+                    const request = store.delete(backupId);
+                    
+                    request.onsuccess = () => {
+                        console.log('✅ Backup gelöscht');
+                        updateBackupList();
+                        resolve();
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('❌ Lösch-Fehler:', error);
+                alert('❌ Löschen fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        // Backup-Liste im UI aktualisieren
+        async function updateBackupList() {
+            const container = document.getElementById('backup-list');
+            if (!container) return;
+            
+            try {
+                const backups = await loadAllBackups();
+                
+                if (backups.length === 0) {
+                    container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Noch keine Backups vorhanden</div>';
+                    return;
+                }
+                
+                container.innerHTML = backups.map(backup => {
+                    const date = new Date(backup.timestamp);
+                    const size = (JSON.stringify(backup).length / 1024 / 1024).toFixed(2);
+                    
+                    return `
+                        <div style="background:white;border-radius:12px;padding:15px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <div style="font-weight:600;font-size:15px;">📦 ${date.toLocaleDateString('de-DE')} ${date.toLocaleTimeString('de-DE')}</div>
+                                    <div style="font-size:13px;color:#666;margin-top:4px;">
+                                        ${size} MB • Version ${backup.version}
+                                        ${backup.dbPrefix ? ' • Test-DB' : ' • Live-DB'}
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button onclick="downloadBackup(${backup.id})" style="background:#10b981;color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">
+                                        ⬇️ Download
+                                    </button>
+                                    <button onclick="restoreBackup(${backup.id})" style="background:#3b82f6;color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">
+                                        ↻ Restore
+                                    </button>
+                                    <button onclick="deleteBackup(${backup.id})" style="background:#ef4444;color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Backup-Liste:', error);
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">❌ Fehler beim Laden</div>';
+            }
+        }
+        
+        // Backup-Upload (aus Datei)
+        function uploadBackupFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const text = await file.text();
+                    const backup = JSON.parse(text);
+                    
+                    // Validiere Backup
+                    if (!backup.data || !backup.timestamp) {
+                        throw new Error('Ungültiges Backup-Format!');
+                    }
+                    
+                    // Restore
+                    await restoreBackup(backup.id);
+                    
+                } catch (error) {
+                    console.error('❌ Upload-Fehler:', error);
+                    alert('❌ Ungültige Backup-Datei: ' + error.message);
+                }
+            };
+            
+            input.click();
+        }
+
         // INIT
         function initApp(hasFirebase) {
             clearTimeout(firebaseLoadTimeout);
@@ -6901,18 +7401,50 @@
             
             if (hasFirebase && typeof firebase !== 'undefined') {
                 try {
-                    firebase.initializeApp({
-                        apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
-                        authDomain: "taxi-heringsdorf.firebaseapp.com",
-                        databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
-                        projectId: "taxi-heringsdorf",
-                        storageBucket: "taxi-heringsdorf.firebasestorage.app",
-                        messagingSenderId: "886448081276",
-                        appId: "1:886448081276:web:1b54875801c5d89f8efcf9"
-                    });
+                    // 🆕 v5.86.13: TEST MODE - Separate Test-Datenbank!
+                    const isTestMode = window.isTestMode || false;
+                    
+                    let firebaseConfig;
+                    
+                    if (isTestMode) {
+                        // 🧪 TEST-DATENBANK (wenn vorhanden, sonst Live mit Prefix)
+                        console.log('🧪 TEST MODE: Verwende Test-Datenbank');
+                        firebaseConfig = {
+                            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+                            authDomain: "taxi-heringsdorf.firebaseapp.com",
+                            // 🧪 Option 1: Separate Test-DB (wenn eingerichtet)
+                            // databaseURL: "https://taxi-heringsdorf-test.europe-west1.firebasedatabase.app",
+                            // 🧪 Option 2: Gleiche DB, aber mit Prefix "test_" 
+                            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+                            projectId: "taxi-heringsdorf",
+                            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+                            messagingSenderId: "886448081276",
+                            appId: "1:886448081276:web:1b54875801c5d89f8efcf9"
+                        };
+                        window.dbPrefix = 'test_'; // Prefix für Tabellen: test_rides, test_customers, etc.
+                    } else {
+                        // 🟢 LIVE-DATENBANK
+                        firebaseConfig = {
+                            apiKey: "AIzaSyD2eHFuplImxBCijd3MWlKyCwXUZHLmhhE",
+                            authDomain: "taxi-heringsdorf.firebaseapp.com",
+                            databaseURL: "https://taxi-heringsdorf-default-rtdb.europe-west1.firebasedatabase.app",
+                            projectId: "taxi-heringsdorf",
+                            storageBucket: "taxi-heringsdorf.firebasestorage.app",
+                            messagingSenderId: "886448081276",
+                            appId: "1:886448081276:web:1b54875801c5d89f8efcf9"
+                        };
+                        window.dbPrefix = ''; // Kein Prefix
+                    }
+                    
+                    firebase.initializeApp(firebaseConfig);
                     db = firebase.database();
                     isFirebaseReady = true;
-                    console.log('✅ Firebase verbunden');
+                    
+                    if (isTestMode) {
+                        console.log('✅ Firebase TEST-DB verbunden (Prefix: test_)');
+                    } else {
+                        console.log('✅ Firebase LIVE-DB verbunden');
+                    }
                     
                     // 📜 PROTOKOLL: App gestartet & Firebase verbunden
                     setTimeout(() => {
@@ -7736,7 +8268,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -7843,6 +8375,11 @@
             // 🆕 v5.86.0: Hotel-Kalender laden
             if (view === 'hotel-calendar') {
                 setTimeout(() => loadHotelCalendarList(), 100);
+            }
+            
+            // 🆕 v5.86.14: Backup-Liste laden
+            if (view === 'backup') {
+                setTimeout(() => updateBackupList(), 100);
             }
             
             updateViews();
@@ -33236,6 +33773,20 @@ Stack: ${err.stack}
                     updateViews(); // Aktualisiert Countdown-Timer
                 }
             }, 1000);
+            
+            // 🆕 v5.86.14: BACKUP-SYSTEM initialisieren
+            initBackupDB().then(() => {
+                console.log('🔽 Backup-System bereit');
+                
+                // Erstes Backup nach 5 Minuten
+                setTimeout(createAutoBackup, 5 * 60 * 1000);
+                
+                // Dann alle 4 Stunden
+                backupTimer = setInterval(createAutoBackup, BACKUP_INTERVAL);
+                console.log('⏰ Auto-Backup alle 4h aktiviert');
+            }).catch(error => {
+                console.error('❌ Backup-System Fehler:', error);
+            });
             
             // 📱 PAGE VISIBILITY: GPS stoppen wenn App geschlossen/im Hintergrund
             document.addEventListener('visibilitychange', () => {

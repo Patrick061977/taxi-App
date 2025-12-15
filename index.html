@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.15 - AI→SCHNELLBUCHUNG! 🤖⚡ (Build 20251215-1600)');
+        console.log('🚕 Funk Taxi App v5.86.16 - AI→MODAL! 🤖📋 (Build 20251215-2000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.15 - AI→SCHNELLBUCHUNG! 🤖⚡ (Build 20251215-1600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.16 - AI→MODAL! 🤖📋 (Build 20251215-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4793,7 +4793,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.15';
+        const APP_VERSION = '5.86.16';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -35315,11 +35315,75 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
         }
         
         function displayAIResults(data) {
+            // 🆕 v5.86.16: WENN ALLE PFLICHTFELDER DA → ÖFFNE SCHNELLBUCHUNGS-MODAL!
+            const hasMissing = data.missing && data.missing.length > 0;
+            
+            if (!hasMissing && data.pickup && data.destination && data.datetime) {
+                // Alle Pflichtfelder vorhanden → Öffne Modal sofort!
+                console.log('✅ Alle Daten vollständig → Öffne Schnellbuchungs-Modal!');
+                
+                // Splitte datetime in date und time
+                const [date, time] = data.datetime.split('T');
+                
+                // Fülle Quick-Booking Modal Felder aus
+                document.getElementById('quick-booking-date').value = date;
+                document.getElementById('quick-booking-time').value = time;
+                document.getElementById('quick-booking-pickup').value = data.pickup;
+                document.getElementById('quick-booking-destination').value = data.destination;
+                document.getElementById('quick-booking-passengers').value = data.passengers || 1;
+                document.getElementById('quick-booking-notes').value = data.notes && data.notes !== 'null' ? data.notes : '';
+                document.getElementById('quick-booking-vehicle').value = ''; // Kein Fahrzeug vorgewählt
+                
+                // Kunde: Setze Suchfeld mit Name (wenn vorhanden)
+                const searchField = document.getElementById('quick-booking-customer-search');
+                if (searchField && data.name) {
+                    searchField.value = data.name;
+                }
+                
+                // customerId leer lassen, damit neuer Kunde erstellt wird (wenn noch nicht vorhanden)
+                document.getElementById('quick-booking-customer').value = '';
+                
+                // Telefonnummer für später speichern
+                if (data.phone) {
+                    window.aiBookingPhone = data.phone;
+                }
+                
+                // Geocode Adressen und speichere Koordinaten
+                (async () => {
+                    try {
+                        console.log('🔍 Geocode Adressen...');
+                        
+                        // Geocode Pickup
+                        const pickupCoords = await geocode(data.pickup);
+                        if (pickupCoords) {
+                            window.qbPickupCoords = pickupCoords;
+                            console.log('✅ Pickup-Coords:', pickupCoords);
+                        }
+                        
+                        // Geocode Destination
+                        const destCoords = await geocode(data.destination);
+                        if (destCoords) {
+                            window.qbDestCoords = destCoords;
+                            console.log('✅ Dest-Coords:', destCoords);
+                        }
+                        
+                    } catch (error) {
+                        console.warn('⚠️ Geocoding-Fehler:', error);
+                    }
+                })();
+                
+                // Öffne Schnellbuchungs-Modal!
+                openQuickBookingModal();
+                
+                // Verstecke AI-Results
+                document.getElementById('ai-results').style.display = 'none';
+                
+                return; // Fertig!
+            }
+            
+            // FALLBACK: Fehlende Daten → Zeige alte Anzeige
             // Zeige Results-Section
             document.getElementById('ai-results').style.display = 'block';
-            
-            // Prüfe ob wichtige Daten fehlen
-            const hasMissing = data.missing && data.missing.length > 0;
             
             let resultHTML = '';
             
@@ -35399,7 +35463,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             
             document.getElementById('ai-analysis-result').innerHTML = resultHTML;
             
-            // Fülle Formular
+            // Fülle Formular (Fallback für unvollständige Daten)
             document.getElementById('ai-booking-datetime').value = data.datetime || '';
             document.getElementById('ai-booking-pickup').value = data.pickup || '';
             document.getElementById('ai-booking-destination').value = data.destination || '';

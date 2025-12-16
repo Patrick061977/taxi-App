@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.31 - DUPLIKATE FIX! ✅🔧 (Build 20251216-1830)');
+        console.log('🚕 Funk Taxi App v5.86.34 - COMPLETE AUTO-STORNO FIX! 🛡️🔒 (Build 20251216-2000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.31 - DUPLIKATE FIX! ✅🔧 (Build 20251216-1830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.34 - COMPLETE FIX! 🛡️🔒 (Build 20251216-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4902,7 +4902,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.31';
+        const APP_VERSION = '5.86.34';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -7053,6 +7053,13 @@
                     
                     const createdAt = ride.createdAt || ride.timestamp || 0;
                     const pickupTime = ride.pickupTimestamp || 0;
+                    
+                    // 🆕 v5.86.33: WICHTIG! Vorbestellte Fahrten mit Zukunfts-Abholzeit NICHT stornieren!
+                    if (pickupTime > now) {
+                        console.log(`🛡️ Zukünftige Fahrt geschützt: ${rideId} - Abholung in ${Math.round((pickupTime - now)/3600000)}h`);
+                        continue; // Überspringen!
+                    }
+                    
                     const relevantTime = pickupTime || createdAt;
                     const age = now - relevantTime;
                     
@@ -7126,6 +7133,13 @@
                         continue;
                     }
                     
+                    // 🆕 v5.86.34: WICHTIG! Auch accepted Fahrten mit Zukunfts-Abholzeit schützen!
+                    const pickupTime = ride.pickupTimestamp || 0;
+                    if (pickupTime > now) {
+                        console.log(`🛡️ Zukünftige accepted Fahrt geschützt: ${rideId} - Abholung in ${Math.round((pickupTime - now)/3600000)}h`);
+                        continue; // Überspringen!
+                    }
+                    
                     const acceptedAt = ride.acceptedAt || ride.createdAt || 0;
                     const age = now - acceptedAt;
                     
@@ -7154,6 +7168,13 @@
                     if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
                         console.log('🛡️ Hotel-Fahrt (picked_up) geschützt:', rideId);
                         continue;
+                    }
+                    
+                    // 🆕 v5.86.34: WICHTIG! Auch picked_up mit Zukunfts-Abholzeit schützen (selten, aber möglich)
+                    const pickupTime = ride.pickupTimestamp || 0;
+                    if (pickupTime > now) {
+                        console.log(`🛡️ Zukünftige picked_up Fahrt geschützt: ${rideId} - Abholung in ${Math.round((pickupTime - now)/3600000)}h`);
+                        continue; // Überspringen!
                     }
                     
                     const pickedUpAt = ride.pickedUpAt || ride.acceptedAt || ride.createdAt || 0;
@@ -37644,10 +37665,48 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         function selectPOIAddress(address, lat, lon) {
-            document.getElementById('poi-address').value = address;
+            // 🆕 v5.86.32: Kürze lange Adressen!
+            const shortAddress = shortenAddress(address);
+            
+            document.getElementById('poi-address').value = shortAddress;
             document.getElementById('poi-lat').value = lat;
             document.getElementById('poi-lon').value = lon;
             document.getElementById('poi-address-dropdown').style.display = 'none';
+        }
+        
+        // 🆕 v5.86.32: Kürze Nominatim-Adressen für bessere Lesbarkeit
+        function shortenAddress(fullAddress) {
+            // Nominatim Format: "Gebäude, Ort1, Ort2, Stadt, Landkreis, Bundesland, PLZ, Land"
+            const parts = fullAddress.split(',').map(p => p.trim());
+            
+            if (parts.length <= 2) {
+                // Schon kurz genug
+                return fullAddress;
+            }
+            
+            // Finde PLZ (5 Ziffern)
+            let plz = '';
+            let plzIndex = -1;
+            for (let i = 0; i < parts.length; i++) {
+                if (/^\d{5}$/.test(parts[i])) {
+                    plz = parts[i];
+                    plzIndex = i;
+                    break;
+                }
+            }
+            
+            // Nimm erstes Teil (Gebäude/Straße) und Stadt mit PLZ
+            const firstPart = parts[0]; // Gebäude/Straße
+            
+            if (plz && plzIndex > 0) {
+                // Finde Hauptstadt (meist vor PLZ)
+                const cityIndex = Math.max(0, plzIndex - 3); // 3 Teile vor PLZ
+                const city = parts[cityIndex];
+                return `${firstPart}, ${plz} ${city}`;
+            }
+            
+            // Fallback: Nimm erste 3 Teile
+            return parts.slice(0, 3).join(', ');
         }
         
         async function savePOI() {
@@ -37839,7 +37898,10 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         function selectEditPOIAddress(address, lat, lon) {
-            document.getElementById('edit-poi-address').value = address;
+            // 🆕 v5.86.32: Kürze lange Adressen!
+            const shortAddress = shortenAddress(address);
+            
+            document.getElementById('edit-poi-address').value = shortAddress;
             document.getElementById('edit-poi-lat').value = lat;
             document.getElementById('edit-poi-lon').value = lon;
             document.getElementById('edit-poi-address-dropdown').style.display = 'none';

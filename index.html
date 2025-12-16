@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.26 - ROLE CHECKS! 🔒✅ (Build 20251216-1220)');
+        console.log('🚕 Funk Taxi App v5.86.27 - CUSTOMER SEARCH! 🔍👤 (Build 20251216-1245)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.26 - ROLE CHECKS! 🔒✅ (Build 20251216-1220)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.27 - CUSTOMER SEARCH! 🔍👤 (Build 20251216-1245)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4814,7 +4814,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.26';
+        const APP_VERSION = '5.86.27';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -9934,9 +9934,10 @@
                 showToast('🔍 Suche läuft...', 'info');
                 
                 try {
-                    const snapshot = await db.ref('rides').orderByChild('createdAt').once('value');
+                    // 1️⃣ SUCHE IN RIDES
+                    const ridesSnapshot = await db.ref('rides').orderByChild('createdAt').once('value');
                     
-                    snapshot.forEach(child => {
+                    ridesSnapshot.forEach(child => {
                         const ride = child.val();
                         ride.firebaseId = child.key;
                         
@@ -9969,6 +9970,33 @@
                     });
                     
                     console.log(`📊 ${results.length} Fahrten gefunden`);
+                    
+                    // 2️⃣ WENN KEINE FAHRTEN: SUCHE IN CUSTOMERS!
+                    if (results.length === 0 && searchType === 'name') {
+                        console.log('🔍 Keine Fahrten gefunden - suche in Kunden-DB...');
+                        
+                        const customersSnapshot = await db.ref('customers').once('value');
+                        const customerMatches = [];
+                        
+                        customersSnapshot.forEach(child => {
+                            const customer = child.val();
+                            const customerName = (customer.name || '').toLowerCase();
+                            
+                            if (customerName.includes(normalizedSearch)) {
+                                customerMatches.push({
+                                    id: child.key,
+                                    ...customer
+                                });
+                            }
+                        });
+                        
+                        if (customerMatches.length > 0) {
+                            console.log(`✅ ${customerMatches.length} Kunde(n) gefunden in CRM!`);
+                            showCustomerMatchModal(customerMatches, searchTerm);
+                            input.value = '';
+                            return;
+                        }
+                    }
                     
                     if (results.length === 0) {
                         showToast(`❌ Keine Fahrten gefunden für: ${searchTerm}`, 'error');
@@ -10277,6 +10305,102 @@
         }
         
         // 🆕 v5.31.3: FAHRT-DETAILS MODAL
+        
+        // 🆕 v5.86.27: KUNDEN-MATCH MODAL (wenn keine Fahrten aber Kunde gefunden)
+        function showCustomerMatchModal(customers, searchTerm) {
+            // Entferne altes Modal
+            const oldModal = document.getElementById('customer-match-modal');
+            if (oldModal) oldModal.remove();
+            
+            // Modal HTML
+            const modal = document.createElement('div');
+            modal.id = 'customer-match-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <h3 style="margin:0;font-size:20px;">👤 Kunde gefunden im CRM</h3>
+                            <button onclick="document.getElementById('customer-match-modal').remove()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;">
+                                ✕
+                            </button>
+                        </div>
+                        <div style="font-size:14px;opacity:0.95;">
+                            🔍 Suche nach: <strong>${searchTerm}</strong>
+                        </div>
+                        <div style="font-size:13px;opacity:0.9;margin-top:8px;">
+                            ℹ️ Keine Fahrten gefunden, aber ${customers.length} Kunde(n) im CRM
+                        </div>
+                    </div>
+                    
+                    <!-- Kunden-Liste -->
+                    <div style="flex:1;overflow-y:auto;padding:16px;">
+                        ${customers.map(c => `
+                            <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:12px;padding:16px;margin-bottom:12px;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                                    <div style="flex:1;">
+                                        <div style="font-size:18px;font-weight:700;color:#065f46;margin-bottom:4px;">${c.name || 'Unbekannt'}</div>
+                                        ${c.phone ? `<div style="font-size:14px;color:#047857;margin-bottom:2px;">📞 ${c.phone}</div>` : ''}
+                                        ${c.email ? `<div style="font-size:13px;color:#059669;margin-bottom:2px;">📧 ${c.email}</div>` : ''}
+                                        ${c.address ? `<div style="font-size:13px;color:#059669;">📍 ${c.address}</div>` : ''}
+                                    </div>
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px;background:white;border-radius:8px;margin-bottom:12px;">
+                                    <div style="text-align:center;">
+                                        <div style="font-size:20px;font-weight:700;color:#10b981;">${c.totalRides || 0}</div>
+                                        <div style="font-size:11px;color:#6b7280;">Fahrten</div>
+                                    </div>
+                                    <div style="text-align:center;">
+                                        <div style="font-size:20px;font-weight:700;color:#10b981;">${(c.totalRevenue || 0).toFixed(0)}€</div>
+                                        <div style="font-size:11px;color:#6b7280;">Umsatz</div>
+                                    </div>
+                                    <div style="text-align:center;">
+                                        <div style="font-size:20px;font-weight:700;color:#10b981;">${c.lastRide ? new Date(c.lastRide).toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit'}) : 'Nie'}</div>
+                                        <div style="font-size:11px;color:#6b7280;">Letzte Fahrt</div>
+                                    </div>
+                                </div>
+                                
+                                ${c.notes ? `
+                                <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:10px;border-radius:6px;margin-bottom:12px;">
+                                    <div style="font-size:11px;color:#92400e;font-weight:600;margin-bottom:4px;">📝 NOTIZEN:</div>
+                                    <div style="font-size:12px;color:#78350f;">${c.notes}</div>
+                                </div>
+                                ` : ''}
+                                
+                                <div style="display:flex;gap:8px;">
+                                    <button onclick="bookForCustomer('${c.id}')" 
+                                            style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.3s;"
+                                            onmouseover="this.style.background='#059669'"
+                                            onmouseout="this.style.background='#10b981'">
+                                        🚕 Fahrt buchen
+                                    </button>
+                                    <button onclick="showCustomerHistory('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}'); document.getElementById('customer-match-modal').remove();" 
+                                            style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.3s;"
+                                            onmouseover="this.style.background='#2563eb'"
+                                            onmouseout="this.style.background='#3b82f6'">
+                                        📋 Fahrt-Historie
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="padding:16px;background:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 16px 16px;">
+                        <div style="font-size:12px;color:#6b7280;text-align:center;">
+                            💡 Klicke auf "Fahrt buchen" um direkt eine neue Fahrt für den Kunden anzulegen
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
         function showRideDetailsModal(ride) {
             // Entferne altes Modal falls vorhanden
             const oldModal = document.getElementById('ride-details-modal');

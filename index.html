@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.16 - AI→MODAL! 🤖📋 (Build 20251215-2000)');
+        console.log('🚕 Funk Taxi App v5.86.17 - SUCHE FIX! 🔍✏️ (Build 20251215-2100)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.16 - AI→MODAL! 🤖📋 (Build 20251215-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.17 - SUCHE FIX! 🔍✏️ (Build 20251215-2100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4793,7 +4793,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.16';
+        const APP_VERSION = '5.86.17';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -5788,6 +5788,16 @@
         
         // ✏️ FAHRT BEARBEITEN
         async function editRide(rideId) {
+            // 🆕 v5.86.17: ENTFERNE ALTE MODALS ZUERST!
+            const oldModals = document.querySelectorAll('[id*="edit-modal"], [style*="position:fixed"][style*="z-index:9999"]');
+            oldModals.forEach(modal => {
+                // Nur entfernen wenn es wirklich ein Edit-Modal ist
+                if (modal.innerHTML && (modal.innerHTML.includes('Fahrt bearbeiten') || modal.innerHTML.includes('edit-pickup'))) {
+                    console.log('🗑️ Entferne altes Edit-Modal');
+                    modal.remove();
+                }
+            });
+            
             // Lade Fahrt aus Firebase
             let ride = null;
             
@@ -9869,9 +9879,17 @@
                                         </div>
                                         <div style="text-align:right;">
                                             <div style="font-weight:700;font-size:18px;color:#16a34a;">${ride.price || '?'}€</div>
-                                            <button onclick="document.getElementById('search-results-modal').remove(); showRideDetailsModal(window.searchResults[${index}])" style="margin-top:4px;padding:6px 12px;background:#667eea;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
-                                                📋 Details
-                                            </button>
+                                            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;justify-content:flex-end;">
+                                                <button onclick="document.getElementById('search-results-modal').remove(); showRideDetailsModal(window.searchResults[${index}])" style="padding:6px 12px;background:#667eea;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
+                                                    📋 Details
+                                                </button>
+                                                <button onclick="document.getElementById('search-results-modal').remove(); editRide(window.searchResults[${index}].firebaseId || window.searchResults[${index}].id)" style="padding:6px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
+                                                    ✏️ Bearbeiten
+                                                </button>
+                                                <button onclick="document.getElementById('search-results-modal').remove(); copyRideFromSearch(${index})" style="padding:6px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
+                                                    📋 Kopieren
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div style="font-size:13px;color:#333;padding:8px;background:#f9fafb;border-radius:6px;">
@@ -9947,6 +9965,79 @@
             } else {
                 alert(`❌ Keine Fahrt gefunden mit ID:\n\n${searchId}\n\n💡 Prüfe ob die ID korrekt ist.`);
             }
+        }
+        
+        // 🆕 v5.86.17: FAHRT KOPIEREN AUS SUCHERGEBNISSEN
+        async function copyRideFromSearch(index) {
+            const ride = window.searchResults[index];
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            console.log('📋 Kopiere Fahrt:', ride);
+            
+            // Öffne Schnellbuchungs-Modal mit Daten aus der Fahrt
+            const pickupDate = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : new Date();
+            const year = pickupDate.getFullYear();
+            const month = String(pickupDate.getMonth() + 1).padStart(2, '0');
+            const day = String(pickupDate.getDate()).padStart(2, '0');
+            const hours = String(pickupDate.getHours()).padStart(2, '0');
+            const minutes = String(pickupDate.getMinutes()).padStart(2, '0');
+            
+            // Setze aktuelle Zeit + 1 Stunde als Standard
+            const now = new Date();
+            now.setHours(now.getHours() + 1);
+            const nowYear = now.getFullYear();
+            const nowMonth = String(now.getMonth() + 1).padStart(2, '0');
+            const nowDay = String(now.getDate()).padStart(2, '0');
+            const nowHours = String(now.getHours()).padStart(2, '0');
+            const nowMinutes = String(now.getMinutes()).padStart(2, '0');
+            
+            // Fülle Quick-Booking Modal
+            document.getElementById('quick-booking-date').value = `${nowYear}-${nowMonth}-${nowDay}`;
+            document.getElementById('quick-booking-time').value = `${nowHours}:${nowMinutes}`;
+            document.getElementById('quick-booking-pickup').value = ride.pickup || '';
+            document.getElementById('quick-booking-destination').value = ride.destination || '';
+            document.getElementById('quick-booking-passengers').value = ride.passengers || 1;
+            document.getElementById('quick-booking-notes').value = ride.notes || '';
+            document.getElementById('quick-booking-vehicle').value = ''; // Kein Fahrzeug vorgewählt
+            
+            // Kunde suchen und vorauswählen
+            const customerSearch = document.getElementById('quick-booking-customer-search');
+            const customerSelect = document.getElementById('quick-booking-customer');
+            
+            if (ride.customerId) {
+                // Suche Kunde in allCustomers
+                const customer = allCustomers.find(c => c.id === ride.customerId);
+                if (customer) {
+                    customerSelect.value = customer.id;
+                    if (customerSearch) {
+                        customerSearch.value = customer.name;
+                    }
+                } else if (ride.customerName) {
+                    if (customerSearch) {
+                        customerSearch.value = ride.customerName;
+                    }
+                }
+            } else if (ride.customerName) {
+                if (customerSearch) {
+                    customerSearch.value = ride.customerName;
+                }
+            }
+            
+            // Koordinaten übertragen (falls vorhanden)
+            if (ride.pickupCoords) {
+                window.qbPickupCoords = ride.pickupCoords;
+            }
+            if (ride.destCoords) {
+                window.qbDestCoords = ride.destCoords;
+            }
+            
+            // Öffne Modal
+            openQuickBookingModal();
+            
+            showToast('📋 Fahrt zum Kopieren geladen!', 'success');
         }
         
         // 🆕 v5.31.3: FAHRT-DETAILS MODAL

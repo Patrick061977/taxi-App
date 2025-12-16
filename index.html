@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.27 - CUSTOMER SEARCH! 🔍👤 (Build 20251216-1245)');
+        console.log('🚕 Funk Taxi App v5.86.29 - VARIABLE CHECK! 🔧✅ (Build 20251216-1630)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.27 - CUSTOMER SEARCH! 🔍👤 (Build 20251216-1245)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.29 - VARIABLE CHECK! 🔧✅ (Build 20251216-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4814,7 +4814,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.27';
+        const APP_VERSION = '5.86.29';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -24279,6 +24279,18 @@
                 </div>
             `).join('');
             
+            // 🆕 v5.86.28: NEUER KUNDE BUTTON IMMER ANZEIGEN!
+            dropdown.innerHTML += `
+                <div style="padding:8px;background:#f9fafb;border-top:2px solid #e5e7eb;position:sticky;bottom:0;">
+                    <button onclick="createNewCustomerFromQuickBooking()" 
+                            style="width:100%;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.3s;"
+                            onmouseover="this.style.background='#2563eb'"
+                            onmouseout="this.style.background='#3b82f6'">
+                        ➕ Stattdessen neuen Kunden anlegen
+                    </button>
+                </div>
+            `;
+            
             dropdown.style.display = 'block';
         }
         
@@ -36717,8 +36729,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         function initCallPopupListener() {
             // ⚠️ NUR FÜR ADMINS!
-            if (!currentUserRole || currentUserRole === 'passenger') {
-                console.log('⏭️ CallPopup übersprungen (kein Admin)');
+            // Prüfe erst ob Variable existiert, dann Wert
+            if (typeof currentUserRole === 'undefined' || !currentUserRole || currentUserRole === 'passenger') {
+                console.log('⏭️ CallPopup übersprungen (kein Admin oder nicht eingeloggt)');
                 return;
             }
             
@@ -37219,8 +37232,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         function initCallHistory() {
             // ⚠️ NUR FÜR ADMINS!
-            if (!currentUserRole || currentUserRole === 'passenger') {
-                console.log('⏭️ Anrufhistorie übersprungen (kein Admin)');
+            if (typeof currentUserRole === 'undefined' || !currentUserRole || currentUserRole === 'passenger') {
+                console.log('⏭️ Anrufhistorie übersprungen (kein Admin oder nicht eingeloggt)');
                 const container = document.getElementById('call-history-container');
                 if (container) {
                     container.innerHTML = `

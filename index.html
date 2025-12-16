@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.29 - VARIABLE CHECK! 🔧✅ (Build 20251216-1630)');
+        console.log('🚕 Funk Taxi App v5.86.30 - POI MANAGEMENT! ⭐🟡 (Build 20251216-1800)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.29 - VARIABLE CHECK! 🔧✅ (Build 20251216-1630)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.30 - POI MANAGEMENT! ⭐🟡 (Build 20251216-1800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -924,6 +924,21 @@
                 box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
             ">
                 📬 Anfragen
+            </button>
+            <button onclick="switchView('poi-management')" class="admin-tab-btn admin-only" data-view="poi-management" style="
+                padding: 10px 16px;
+                border: 2px solid #f59e0b;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+            ">
+                ⭐ Favoriten-Ziele
             </button>
             <button onclick="switchView('backup')" class="admin-tab-btn admin-only" data-view="backup" style="
                 padding: 10px 16px;
@@ -2813,6 +2828,31 @@
             </div>
         </div>
         
+        <!-- 🆕 v5.86.30: POI-VERWALTUNG (FAVORITEN-ZIELE) -->
+        <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #f59e0b;box-shadow:0 4px 12px rgba(245,158,11,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="font-size:24px;">⭐</div>
+                    <div style="font-weight:700;font-size:16px;color:#92400e;">POI-Verwaltung (Favoriten-Ziele)</div>
+                </div>
+                <button onclick="openAddPOIModal()" style="padding:8px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    ➕ Neues Ziel
+                </button>
+            </div>
+            
+            <div style="background:#fef3c7;padding:12px;border-radius:8px;margin-bottom:15px;border-left:4px solid #f59e0b;">
+                <div style="font-size:13px;color:#78350f;">
+                    <strong>💡 Info:</strong> Diese Favoriten-Ziele erscheinen mit gelbem Stern ⭐ in der Schnellbuchung!
+                </div>
+            </div>
+            
+            <div id="poi-list-container" style="max-height:400px;overflow-y:auto;">
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    Lade POIs...
+                </div>
+            </div>
+        </div>
+        
         <!-- 🆕 v5.27.1: KALENDER (NUR FÜR ADMIN!) -->
         <div onclick="toggleAdminSection('calendar')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">📅 Fahrten-Kalender</span>
@@ -4653,6 +4693,54 @@
         </div>
     </div>
 
+    <!-- 🆕 v5.86.30: POI-MANAGEMENT VIEW -->
+    <div id="poi-management-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+        <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">⭐</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">FAVORITEN-ZIELE VERWALTEN</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">Häufig genutzte Ziele für schnellere Buchungen</p>
+            </div>
+
+            <!-- Aktionen -->
+            <div style="padding: 20px; background: #fef3c7; border-bottom: 2px solid #fde68a; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="font-size: 24px;">📍</div>
+                    <div>
+                        <div style="font-weight: 700; color: #92400e; font-size: 15px;">Favoriten-Ziele</div>
+                        <div style="font-size: 13px; color: #78350f;">Werden mit ⭐ in der Schnellbuchung angezeigt</div>
+                    </div>
+                </div>
+                <button onclick="openAddPOIModal()" style="
+                    padding: 12px 20px;
+                    background: #f59e0b;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    font-size: 14px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+                    transition: all 0.3s;
+                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.3)'">
+                    ➕ Neues Ziel hinzufügen
+                </button>
+            </div>
+
+            <!-- POI-Liste -->
+            <div id="poi-list-container" style="padding: 20px;">
+                <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
+                    <div style="font-size: 64px; margin-bottom: 16px; opacity: 0.5;">⏳</div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Lade Favoriten-Ziele...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 🆕 v5.86.14: BACKUP VIEW -->
     <div id="backup-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
@@ -4814,7 +4902,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.29';
+        const APP_VERSION = '5.86.30';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -7497,6 +7585,9 @@
                     // 🚗 Fahrzeuge aus Firebase laden
                     loadVehiclesFromFirebase();
                     
+                    // ⭐ v5.86.30: POIs aus Firebase laden
+                    loadPOIs();
+                    
                     // 🏨 v5.77.0: Hotel-Kalender laden
                     initHotelCalendars();
                     
@@ -8299,7 +8390,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -8411,6 +8502,11 @@
             // 🆕 v5.86.14: Backup-Liste laden
             if (view === 'backup') {
                 setTimeout(() => updateBackupList(), 100);
+            }
+            
+            // 🆕 v5.86.30: POI-Management laden
+            if (view === 'poi-management') {
+                setTimeout(() => loadPOIs(), 100);
             }
             
             updateViews();
@@ -13599,30 +13695,18 @@
             console.log('   Dropdown gefunden:', dropdown.id);
             
             // 🆕 v5.64.46: HÄUFIGE ZIELE (Favoriten)
-            const frequentDestinations = [
-                {
-                    name: 'Universitätsklinikum Greifswald',
-                    address: 'Sauerbruchstraße, 17475 Greifswald',
-                    lat: 54.08930769201436,
-                    lon: 13.404924882332695
-                },
-                {
-                    name: 'Bahnhof Heringsdorf',
-                    address: 'Bahnhofsplatz 1, 17424 Heringsdorf',
-                    lat: 53.9544,
-                    lon: 14.1614
-                },
-                {
-                    name: 'Seebrücke Ahlbeck',
-                    address: 'Dünenstraße, 17419 Seebad Ahlbeck',
-                    lat: 53.9425,
-                    lon: 14.1956
-                }
-            ];
+            // 🆕 v5.86.30: POIs aus Firebase laden (statt hardcoded)
+            const frequentDestinations = allPOIs.length > 0 ? allPOIs : [];
             
             // Zeige Favoriten wenn Suche sehr kurz ist (< 3 Zeichen) ODER wenn Query leer
             if (!query || query.length < 3) {
                 dropdown.style.display = 'block';
+                
+                if (frequentDestinations.length === 0) {
+                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">💡 Tipp: Admin kann Favoriten-Ziele hinzufügen!</div>';
+                    return;
+                }
+                
                 dropdown.innerHTML = frequentDestinations.map(dest => {
                     const addressString = `${dest.name}, ${dest.address}`;
                     return `
@@ -25087,30 +25171,16 @@
         async function searchQuickBookingAddresses(query, fieldId) {
             const dropdown = document.getElementById(fieldId + '-dropdown');
             
-            // 🆕 v5.64.46: HÄUFIGE ZIELE (Favoriten)
-            const frequentDestinations = [
-                {
-                    name: 'Universitätsklinikum Greifswald',
-                    address: 'Sauerbruchstraße, 17475 Greifswald',
-                    lat: 54.08930769201436,
-                    lon: 13.404924882332695
-                },
-                {
-                    name: 'Bahnhof Heringsdorf',
-                    address: 'Bahnhofsplatz 1, 17424 Heringsdorf',
-                    lat: 53.9544,
-                    lon: 14.1614
-                },
-                {
-                    name: 'Seebrücke Ahlbeck',
-                    address: 'Dünenstraße, 17419 Seebad Ahlbeck',
-                    lat: 53.9425,
-                    lon: 14.1956
-                }
-            ];
+            // 🆕 v5.86.30: POIs aus Firebase laden (statt hardcoded)
+            const frequentDestinations = allPOIs.length > 0 ? allPOIs : [];
             
             // Zeige Favoriten wenn Suche sehr kurz ist (< 3 Zeichen) ODER wenn Query leer
             if (!query || query.length < 3) {
+                if (frequentDestinations.length === 0) {
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">💡 Tipp: Admin kann Favoriten-Ziele hinzufügen!</div>';
+                    return;
+                }
+                
                 dropdown.innerHTML = frequentDestinations.map(dest => {
                     const addressString = `${dest.name}, ${dest.address}`;
                     return `
@@ -37359,6 +37429,455 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             initCallHistory();
         }
         
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐ POI-VERWALTUNG (FAVORITEN-ZIELE)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        let allPOIs = [];
+        
+        async function loadPOIs() {
+            console.log('⭐ Lade POIs aus Firebase...');
+            
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase nicht bereit!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('pois').once('value');
+                allPOIs = [];
+                
+                snapshot.forEach(child => {
+                    allPOIs.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                console.log(`✅ ${allPOIs.length} POIs geladen`);
+                renderPOIList();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der POIs:', error);
+            }
+        }
+        
+        function renderPOIList() {
+            const container = document.getElementById('poi-list-container');
+            if (!container) return;
+            
+            if (allPOIs.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">⭐</div>
+                        <div style="font-weight:600;margin-bottom:5px;">Noch keine Favoriten-Ziele</div>
+                        <div style="font-size:13px;">Klicke auf "➕ Neues Ziel" um ein Favoriten-Ziel hinzuzufügen</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="display:grid;gap:10px;">
+                    ${allPOIs.map(poi => `
+                        <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:14px;transition:all 0.3s;" 
+                             onmouseover="this.style.boxShadow='0 4px 12px rgba(245,158,11,0.3)'"
+                             onmouseout="this.style.boxShadow='none'">
+                            <div style="display:flex;justify-content:space-between;align-items:start;">
+                                <div style="flex:1;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                        <div style="font-size:20px;">⭐</div>
+                                        <div style="font-weight:700;font-size:16px;color:#92400e;">${poi.name}</div>
+                                    </div>
+                                    <div style="font-size:13px;color:#78350f;margin-left:28px;">
+                                        📍 ${poi.address}
+                                    </div>
+                                    <div style="font-size:11px;color:#a16207;margin-left:28px;margin-top:4px;">
+                                        📐 ${poi.lat.toFixed(6)}, ${poi.lon.toFixed(6)}
+                                    </div>
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:6px;">
+                                    <button onclick="editPOI('${poi.id}')" 
+                                            style="padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                        ✏️ Bearbeiten
+                                    </button>
+                                    <button onclick="deletePOI('${poi.id}', '${poi.name.replace(/'/g, "\\'")}')" 
+                                            style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                        🗑️ Löschen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        function openAddPOIModal() {
+            const modal = document.createElement('div');
+            modal.id = 'add-poi-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="font-size:32px;">⭐</div>
+                                <h3 style="margin:0;font-size:20px;">Neues Favoriten-Ziel</h3>
+                            </div>
+                            <button onclick="document.getElementById('add-poi-modal').remove()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="padding:20px;">
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">⭐ Name des Ziels</label>
+                            <input type="text" id="poi-name" placeholder="z.B. Bahnhof Heringsdorf"
+                                   style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        </div>
+                        
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
+                            <div style="position:relative;">
+                                <input type="text" id="poi-address" placeholder="Adresse eingeben..."
+                                       oninput="searchPOIAddress()"
+                                       style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                <div id="poi-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #fbbf24;border-radius:8px;margin-top:4px;max-height:300px;overflow-y:auto;z-index:10000;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
+                            </div>
+                            <div style="font-size:12px;color:#6b7280;margin-top:6px;">
+                                💡 Tippe die Adresse, wähle aus dem Dropdown
+                            </div>
+                        </div>
+                        
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+                            <div>
+                                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📐 Latitude</label>
+                                <input type="text" id="poi-lat" readonly
+                                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;background:#f9fafb;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📐 Longitude</label>
+                                <input type="text" id="poi-lon" readonly
+                                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;background:#f9fafb;box-sizing:border-box;">
+                            </div>
+                        </div>
+                        
+                        <div style="background:#fef3c7;padding:12px;border-radius:8px;margin-bottom:15px;border-left:4px solid #f59e0b;">
+                            <div style="font-size:12px;color:#78350f;">
+                                <strong>ℹ️ Hinweis:</strong> Koordinaten werden automatisch gesetzt wenn du eine Adresse aus dem Dropdown wählst
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex;gap:10px;">
+                            <button onclick="document.getElementById('add-poi-modal').remove()" 
+                                    style="flex:1;padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                Abbrechen
+                            </button>
+                            <button onclick="savePOI()" 
+                                    style="flex:1;padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                ⭐ Speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        let poiAddressTimeout = null;
+        async function searchPOIAddress() {
+            const input = document.getElementById('poi-address');
+            const dropdown = document.getElementById('poi-address-dropdown');
+            const query = input.value.trim();
+            
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            clearTimeout(poiAddressTimeout);
+            poiAddressTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?` +
+                        `format=json&` +
+                        `q=${encodeURIComponent(query)}&` +
+                        `countrycodes=de,pl&` +
+                        `limit=10&` +
+                        `addressdetails=1`
+                    );
+                    
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">Keine Ergebnisse</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    
+                    dropdown.innerHTML = results.map(r => {
+                        const displayName = r.display_name;
+                        return `
+                            <div onclick="selectPOIAddress('${displayName.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" 
+                                 style="padding:12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.2s;"
+                                 onmouseover="this.style.background='#fef3c7'"
+                                 onmouseout="this.style.background='white'">
+                                <div style="font-weight:600;color:#92400e;font-size:14px;">${displayName}</div>
+                                <div style="font-size:11px;color:#a16207;margin-top:2px;">📐 ${parseFloat(r.lat).toFixed(6)}, ${parseFloat(r.lon).toFixed(6)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    dropdown.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('❌ Adresssuche Fehler:', error);
+                }
+            }, 300);
+        }
+        
+        function selectPOIAddress(address, lat, lon) {
+            document.getElementById('poi-address').value = address;
+            document.getElementById('poi-lat').value = lat;
+            document.getElementById('poi-lon').value = lon;
+            document.getElementById('poi-address-dropdown').style.display = 'none';
+        }
+        
+        async function savePOI() {
+            const name = document.getElementById('poi-name').value.trim();
+            const address = document.getElementById('poi-address').value.trim();
+            const lat = parseFloat(document.getElementById('poi-lat').value);
+            const lon = parseFloat(document.getElementById('poi-lon').value);
+            
+            if (!name) {
+                alert('❌ Bitte Name eingeben!');
+                return;
+            }
+            
+            if (!address) {
+                alert('❌ Bitte Adresse eingeben!');
+                return;
+            }
+            
+            if (!lat || !lon) {
+                alert('❌ Bitte Adresse aus Dropdown wählen (für Koordinaten)!');
+                return;
+            }
+            
+            try {
+                console.log('💾 Speichere POI...');
+                
+                await db.ref('pois').push({
+                    name,
+                    address,
+                    lat,
+                    lon,
+                    created: Date.now()
+                });
+                
+                console.log('✅ POI gespeichert!');
+                
+                // Modal schließen
+                document.getElementById('add-poi-modal').remove();
+                
+                // Liste neu laden
+                await loadPOIs();
+                
+                showToast('⭐ Favoriten-Ziel gespeichert!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern: ' + error.message);
+            }
+        }
+        
+        async function deletePOI(id, name) {
+            if (!confirm(`🗑️ Favoriten-Ziel "${name}" wirklich löschen?`)) {
+                return;
+            }
+            
+            try {
+                await db.ref('pois/' + id).remove();
+                console.log('✅ POI gelöscht!');
+                
+                await loadPOIs();
+                showToast('🗑️ Favoriten-Ziel gelöscht!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler beim Löschen: ' + error.message);
+            }
+        }
+        
+        function editPOI(id) {
+            const poi = allPOIs.find(p => p.id === id);
+            if (!poi) return;
+            
+            const modal = document.createElement('div');
+            modal.id = 'edit-poi-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="font-size:32px;">✏️</div>
+                                <h3 style="margin:0;font-size:20px;">Favoriten-Ziel bearbeiten</h3>
+                            </div>
+                            <button onclick="document.getElementById('edit-poi-modal').remove()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="padding:20px;">
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">⭐ Name</label>
+                            <input type="text" id="edit-poi-name" value="${poi.name.replace(/"/g, '&quot;')}"
+                                   style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        </div>
+                        
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Adresse</label>
+                            <div style="position:relative;">
+                                <input type="text" id="edit-poi-address" value="${poi.address.replace(/"/g, '&quot;')}"
+                                       oninput="searchEditPOIAddress()"
+                                       style="width:100%;padding:12px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                <div id="edit-poi-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #3b82f6;border-radius:8px;margin-top:4px;max-height:300px;overflow-y:auto;z-index:10000;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
+                            </div>
+                        </div>
+                        
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+                            <div>
+                                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📐 Latitude</label>
+                                <input type="text" id="edit-poi-lat" value="${poi.lat}" readonly
+                                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;background:#f9fafb;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📐 Longitude</label>
+                                <input type="text" id="edit-poi-lon" value="${poi.lon}" readonly
+                                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;background:#f9fafb;box-sizing:border-box;">
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex;gap:10px;">
+                            <button onclick="document.getElementById('edit-poi-modal').remove()" 
+                                    style="flex:1;padding:12px;background:#e5e7eb;color:#1f2937;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                Abbrechen
+                            </button>
+                            <button onclick="updatePOI('${id}')" 
+                                    style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                💾 Speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        let editPoiAddressTimeout = null;
+        async function searchEditPOIAddress() {
+            const input = document.getElementById('edit-poi-address');
+            const dropdown = document.getElementById('edit-poi-address-dropdown');
+            const query = input.value.trim();
+            
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            clearTimeout(editPoiAddressTimeout);
+            editPoiAddressTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?` +
+                        `format=json&` +
+                        `q=${encodeURIComponent(query)}&` +
+                        `countrycodes=de,pl&` +
+                        `limit=10&` +
+                        `addressdetails=1`
+                    );
+                    
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">Keine Ergebnisse</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    
+                    dropdown.innerHTML = results.map(r => {
+                        const displayName = r.display_name;
+                        return `
+                            <div onclick="selectEditPOIAddress('${displayName.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" 
+                                 style="padding:12px;cursor:pointer;border-bottom:1px solid #f3f4f6;"
+                                 onmouseover="this.style.background='#dbeafe'"
+                                 onmouseout="this.style.background='white'">
+                                <div style="font-weight:600;color:#1e40af;font-size:14px;">${displayName}</div>
+                                <div style="font-size:11px;color:#3b82f6;margin-top:2px;">📐 ${parseFloat(r.lat).toFixed(6)}, ${parseFloat(r.lon).toFixed(6)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    dropdown.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('❌ Adresssuche Fehler:', error);
+                }
+            }, 300);
+        }
+        
+        function selectEditPOIAddress(address, lat, lon) {
+            document.getElementById('edit-poi-address').value = address;
+            document.getElementById('edit-poi-lat').value = lat;
+            document.getElementById('edit-poi-lon').value = lon;
+            document.getElementById('edit-poi-address-dropdown').style.display = 'none';
+        }
+        
+        async function updatePOI(id) {
+            const name = document.getElementById('edit-poi-name').value.trim();
+            const address = document.getElementById('edit-poi-address').value.trim();
+            const lat = parseFloat(document.getElementById('edit-poi-lat').value);
+            const lon = parseFloat(document.getElementById('edit-poi-lon').value);
+            
+            if (!name || !address || !lat || !lon) {
+                alert('❌ Bitte alle Felder ausfüllen!');
+                return;
+            }
+            
+            try {
+                await db.ref('pois/' + id).update({
+                    name,
+                    address,
+                    lat,
+                    lon,
+                    updated: Date.now()
+                });
+                
+                console.log('✅ POI aktualisiert!');
+                
+                document.getElementById('edit-poi-modal').remove();
+                await loadPOIs();
+                
+                showToast('✅ Favoriten-Ziel aktualisiert!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Aktualisieren:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         async function saveNewCustomerAndBook(phone) {
             const name = document.getElementById('new-customer-name').value.trim();
             const address = document.getElementById('new-customer-address').value.trim();
@@ -39847,6 +40366,483 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // 📊 RECHNUNG FÜR HOTEL ERSTELLEN
         async function createHotelInvoice(hotelId) {
             alert('📊 Rechnung erstellen\n\nDiese Funktion ist bereits im Admin-Tab verfügbar unter "Hotel-Rechnungen".');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐ POI-MANAGEMENT (v5.86.30)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        let allPOIs = [];
+        
+        // Lade POIs aus Firebase
+        async function loadPOIs() {
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase nicht bereit!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('pois').once('value');
+                allPOIs = [];
+                
+                snapshot.forEach(child => {
+                    allPOIs.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                console.log('✅ POIs geladen:', allPOIs.length);
+                
+                // Wenn in POI-View, zeige Liste
+                if (document.getElementById('poi-management-view').style.display !== 'none') {
+                    displayPOIList();
+                }
+                
+                return allPOIs;
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der POIs:', error);
+                return [];
+            }
+        }
+        
+        // Zeige POI-Liste an
+        function displayPOIList() {
+            const container = document.getElementById('poi-list-container');
+            
+            if (allPOIs.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
+                        <div style="font-size: 64px; margin-bottom: 16px; opacity: 0.5;">📍</div>
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #6b7280;">Noch keine Favoriten-Ziele</div>
+                        <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">Füge häufig genutzte Ziele hinzu für schnellere Buchungen</div>
+                        <button onclick="openAddPOIModal()" style="
+                            padding: 12px 24px;
+                            background: #f59e0b;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-weight: 700;
+                            cursor: pointer;
+                            font-size: 14px;
+                        ">
+                            ➕ Erstes Ziel hinzufügen
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = `
+                <div style="display: grid; gap: 12px;">
+                    ${allPOIs.map((poi, index) => `
+                        <div style="
+                            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                            border: 2px solid #fbbf24;
+                            border-radius: 12px;
+                            padding: 16px;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: start;
+                            transition: all 0.3s;
+                            box-shadow: 0 2px 4px rgba(251, 191, 36, 0.1);
+                        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 8px rgba(251, 191, 36, 0.2)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 4px rgba(251, 191, 36, 0.1)'">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <div style="font-size: 24px;">⭐</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #92400e;">${poi.name}</div>
+                                </div>
+                                <div style="font-size: 14px; color: #78350f; margin-left: 32px; margin-bottom: 6px;">
+                                    📍 ${poi.address}
+                                </div>
+                                <div style="font-size: 12px; color: #92400e; margin-left: 32px; opacity: 0.8;">
+                                    🗺️ Koordinaten: ${poi.lat.toFixed(5)}, ${poi.lon.toFixed(5)}
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-left: 16px;">
+                                <button onclick="editPOI('${poi.id}')" style="
+                                    padding: 8px 16px;
+                                    background: white;
+                                    color: #f59e0b;
+                                    border: 2px solid #f59e0b;
+                                    border-radius: 6px;
+                                    font-weight: 600;
+                                    cursor: pointer;
+                                    font-size: 13px;
+                                    white-space: nowrap;
+                                    transition: all 0.3s;
+                                " onmouseover="this.style.background='#f59e0b'; this.style.color='white'" onmouseout="this.style.background='white'; this.style.color='#f59e0b'">
+                                    ✏️ Bearbeiten
+                                </button>
+                                <button onclick="deletePOI('${poi.id}', '${poi.name.replace(/'/g, "\\'")}' )" style="
+                                    padding: 8px 16px;
+                                    background: white;
+                                    color: #ef4444;
+                                    border: 2px solid #ef4444;
+                                    border-radius: 6px;
+                                    font-weight: 600;
+                                    cursor: pointer;
+                                    font-size: 13px;
+                                    white-space: nowrap;
+                                    transition: all 0.3s;
+                                " onmouseover="this.style.background='#ef4444'; this.style.color='white'" onmouseout="this.style.background='white'; this.style.color='#ef4444'">
+                                    🗑️ Löschen
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        // Öffne Modal zum Hinzufügen
+        function openAddPOIModal() {
+            const modal = document.createElement('div');
+            modal.id = 'poi-modal';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px;';
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 20px; border-radius: 16px 16px 0 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="font-size: 32px;">⭐</div>
+                                <h3 style="margin: 0; font-size: 20px;">Neues Favoriten-Ziel</h3>
+                            </div>
+                            <button onclick="document.getElementById('poi-modal').remove()" style="
+                                background: rgba(255,255,255,0.2);
+                                border: none;
+                                color: white;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 50%;
+                                cursor: pointer;
+                                font-size: 20px;
+                            ">✕</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Formular -->
+                    <div style="padding: 24px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">📍 Name des Ziels</label>
+                            <input type="text" id="poi-name" placeholder="z.B. Flughafen Heringsdorf" style="
+                                width: 100%;
+                                padding: 12px;
+                                border: 2px solid #e5e7eb;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            ">
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Kurzer, prägnanter Name</div>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">🗺️ Adresse</label>
+                            <input type="text" id="poi-address" placeholder="Adresse eingeben..." style="
+                                width: 100%;
+                                padding: 12px;
+                                border: 2px solid #e5e7eb;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            " oninput="searchPOIAddress()">
+                            <div id="poi-address-dropdown" style="
+                                display: none;
+                                position: relative;
+                                background: white;
+                                border: 2px solid #f59e0b;
+                                border-radius: 8px;
+                                margin-top: 4px;
+                                max-height: 200px;
+                                overflow-y: auto;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            "></div>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Tippe min. 3 Zeichen - Koordinaten werden automatisch ermittelt</div>
+                        </div>
+                        
+                        <div style="display: none;" id="poi-coords-display">
+                            <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+                                <div style="font-size: 12px; font-weight: 600; color: #92400e; margin-bottom: 4px;">✅ Koordinaten gefunden:</div>
+                                <div style="font-size: 13px; color: #78350f;" id="poi-coords-text"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden Fields -->
+                        <input type="hidden" id="poi-lat">
+                        <input type="hidden" id="poi-lon">
+                        
+                        <!-- Buttons -->
+                        <div style="display: flex; gap: 12px; margin-top: 24px;">
+                            <button onclick="document.getElementById('poi-modal').remove()" style="
+                                flex: 1;
+                                padding: 14px;
+                                background: #e5e7eb;
+                                color: #374151;
+                                border: none;
+                                border-radius: 8px;
+                                font-weight: 700;
+                                cursor: pointer;
+                                font-size: 14px;
+                            ">Abbrechen</button>
+                            <button onclick="savePOI()" style="
+                                flex: 1;
+                                padding: 14px;
+                                background: linear-gradient(135deg, #f59e0b, #d97706);
+                                color: white;
+                                border: none;
+                                border-radius: 8px;
+                                font-weight: 700;
+                                cursor: pointer;
+                                font-size: 14px;
+                                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+                            ">⭐ Speichern</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // Adress-Autocomplete für POI
+        let poiAddressTimeout = null;
+        async function searchPOIAddress() {
+            const input = document.getElementById('poi-address');
+            const dropdown = document.getElementById('poi-address-dropdown');
+            const query = input.value.trim();
+            
+            clearTimeout(poiAddressTimeout);
+            
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            poiAddressTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?` +
+                        `format=json&` +
+                        `q=${encodeURIComponent(query)}&` +
+                        `countrycodes=de,pl&` +
+                        `limit=10&` +
+                        `addressdetails=1`
+                    );
+                    
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #9ca3af;">Keine Ergebnisse gefunden</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    
+                    dropdown.innerHTML = results.map(r => `
+                        <div onclick="selectPOIAddress('${r.display_name.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" style="
+                            padding: 12px;
+                            cursor: pointer;
+                            border-bottom: 1px solid #f3f4f6;
+                            transition: background 0.2s;
+                        " onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">
+                            <div style="font-weight: 600; color: #374151;">${r.display_name}</div>
+                        </div>
+                    `).join('');
+                    
+                    dropdown.style.display = 'block';
+                } catch (error) {
+                    console.error('❌ Adress-Suche Fehler:', error);
+                }
+            }, 500);
+        }
+        
+        function selectPOIAddress(address, lat, lon) {
+            document.getElementById('poi-address').value = address;
+            document.getElementById('poi-lat').value = lat;
+            document.getElementById('poi-lon').value = lon;
+            document.getElementById('poi-address-dropdown').style.display = 'none';
+            
+            // Zeige Koordinaten
+            const coordsDisplay = document.getElementById('poi-coords-display');
+            const coordsText = document.getElementById('poi-coords-text');
+            coordsDisplay.style.display = 'block';
+            coordsText.textContent = `Lat: ${parseFloat(lat).toFixed(5)}, Lon: ${parseFloat(lon).toFixed(5)}`;
+        }
+        
+        // POI speichern
+        async function savePOI(poiId = null) {
+            const name = document.getElementById('poi-name').value.trim();
+            const address = document.getElementById('poi-address').value.trim();
+            const lat = parseFloat(document.getElementById('poi-lat').value);
+            const lon = parseFloat(document.getElementById('poi-lon').value);
+            
+            if (!name) {
+                alert('❌ Bitte Name eingeben!');
+                return;
+            }
+            
+            if (!address || !lat || !lon) {
+                alert('❌ Bitte Adresse auswählen aus dem Dropdown!');
+                return;
+            }
+            
+            try {
+                const poiData = {
+                    name,
+                    address,
+                    lat,
+                    lon,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                
+                if (poiId) {
+                    // Update
+                    await db.ref('pois/' + poiId).update(poiData);
+                    showToast('✅ Ziel aktualisiert!', 'success');
+                } else {
+                    // Neu
+                    await db.ref('pois').push(poiData);
+                    showToast('⭐ Neues Ziel gespeichert!', 'success');
+                }
+                
+                // Modal schließen
+                document.getElementById('poi-modal').remove();
+                
+                // Liste neu laden
+                await loadPOIs();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // POI bearbeiten
+        function editPOI(poiId) {
+            const poi = allPOIs.find(p => p.id === poiId);
+            if (!poi) return;
+            
+            const modal = document.createElement('div');
+            modal.id = 'poi-modal';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px;';
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 20px; border-radius: 16px 16px 0 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="font-size: 32px;">✏️</div>
+                                <h3 style="margin: 0; font-size: 20px;">Ziel bearbeiten</h3>
+                            </div>
+                            <button onclick="document.getElementById('poi-modal').remove()" style="
+                                background: rgba(255,255,255,0.2);
+                                border: none;
+                                color: white;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 50%;
+                                cursor: pointer;
+                                font-size: 20px;
+                            ">✕</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Formular -->
+                    <div style="padding: 24px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">📍 Name des Ziels</label>
+                            <input type="text" id="poi-name" value="${poi.name.replace(/"/g, '&quot;')}" style="
+                                width: 100%;
+                                padding: 12px;
+                                border: 2px solid #e5e7eb;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            ">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">🗺️ Adresse</label>
+                            <input type="text" id="poi-address" value="${poi.address.replace(/"/g, '&quot;')}" style="
+                                width: 100%;
+                                padding: 12px;
+                                border: 2px solid #e5e7eb;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            " oninput="searchPOIAddress()">
+                            <div id="poi-address-dropdown" style="
+                                display: none;
+                                position: relative;
+                                background: white;
+                                border: 2px solid #f59e0b;
+                                border-radius: 8px;
+                                margin-top: 4px;
+                                max-height: 200px;
+                                overflow-y: auto;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            "></div>
+                        </div>
+                        
+                        <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #92400e; margin-bottom: 4px;">Koordinaten:</div>
+                            <div style="font-size: 13px; color: #78350f;">Lat: ${poi.lat.toFixed(5)}, Lon: ${poi.lon.toFixed(5)}</div>
+                        </div>
+                        
+                        <!-- Hidden Fields -->
+                        <input type="hidden" id="poi-lat" value="${poi.lat}">
+                        <input type="hidden" id="poi-lon" value="${poi.lon}">
+                        
+                        <!-- Buttons -->
+                        <div style="display: flex; gap: 12px; margin-top: 24px;">
+                            <button onclick="document.getElementById('poi-modal').remove()" style="
+                                flex: 1;
+                                padding: 14px;
+                                background: #e5e7eb;
+                                color: #374151;
+                                border: none;
+                                border-radius: 8px;
+                                font-weight: 700;
+                                cursor: pointer;
+                                font-size: 14px;
+                            ">Abbrechen</button>
+                            <button onclick="savePOI('${poiId}')" style="
+                                flex: 1;
+                                padding: 14px;
+                                background: linear-gradient(135deg, #f59e0b, #d97706);
+                                color: white;
+                                border: none;
+                                border-radius: 8px;
+                                font-weight: 700;
+                                cursor: pointer;
+                                font-size: 14px;
+                                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+                            ">💾 Speichern</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // POI löschen
+        async function deletePOI(poiId, poiName) {
+            if (!confirm(`⚠️ Ziel wirklich löschen?\n\n⭐ ${poiName}\n\nDiese Aktion kann nicht rückgängig gemacht werden!`)) {
+                return;
+            }
+            
+            try {
+                await db.ref('pois/' + poiId).remove();
+                showToast('🗑️ Ziel gelöscht!', 'success');
+                await loadPOIs();
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
         }
         
     </script>

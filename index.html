@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.23 - AI MODAL! 📋✨ (Build 20251216-1000)');
+        console.log('🚕 Funk Taxi App v5.86.25 - SYNTAX FIX! 🔧✅ (Build 20251216-1210)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.23 - AI MODAL! 📋✨ (Build 20251216-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.25 - SYNTAX FIX! 🔧✅ (Build 20251216-1210)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4814,7 +4814,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.23';
+        const APP_VERSION = '5.86.25';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -9833,16 +9833,18 @@
             intelligentSearch();
         }
         
-        // Click außerhalb schließt Dropdown
-        document.addEventListener('click', (event) => {
-            const dropdown = document.getElementById('live-search-dropdown');
-            const searchInput = document.getElementById('ride-id-search');
-            
-            if (dropdown && searchInput && 
-                !dropdown.contains(event.target) && 
-                event.target !== searchInput) {
-                dropdown.style.display = 'none';
-            }
+        // Click außerhalb schließt Dropdown - in DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('click', (event) => {
+                const dropdown = document.getElementById('live-search-dropdown');
+                const searchInput = document.getElementById('ride-id-search');
+                
+                if (dropdown && searchInput && 
+                    !dropdown.contains(event.target) && 
+                    event.target !== searchInput) {
+                    dropdown.style.display = 'none';
+                }
+            });
         });
         
         // 🔍 v5.31.3: RIDE-ID SUCHE
@@ -36033,17 +36035,6 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             } catch (error) {
                 console.error('❌ Fehler beim Öffnen des Modals:', error);
                 alert('❌ Fehler: ' + error.message);
-            }
-        }
-                
-                // Cleanup
-                window.aiBookingPhone = null;
-                
-                console.log('✅ AI-Buchung über submitQuickBooking() erfolgreich!');
-                
-            } catch (error) {
-                console.error('❌ Buchung fehlgeschlagen:', error);
-                alert('❌ Fehler beim Erstellen der Buchung: ' + error.message);
             }
         }
         

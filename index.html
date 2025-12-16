@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.18 - KOPIEREN + ENTER FIX! ⚡🔍 (Build 20251216-0900)');
+        console.log('🚕 Funk Taxi App v5.86.20 - KOPIEREN POLLING FIX! 📋⏳ (Build 20251216-0920)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.18 - KOPIEREN + ENTER FIX! ⚡🔍 (Build 20251216-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.20 - KOPIEREN POLLING FIX! 📋⏳ (Build 20251216-0920)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4793,7 +4793,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.18';
+        const APP_VERSION = '5.86.20';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -9967,6 +9967,24 @@
             }
         }
         
+        // 🆕 v5.86.20: HELPER - WARTE BIS ELEMENT EXISTIERT
+        async function waitForElement(elementId, maxWaitMs = 3000) {
+            const startTime = Date.now();
+            
+            while (Date.now() - startTime < maxWaitMs) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    return element; // Element gefunden!
+                }
+                // Warte 50ms und versuche nochmal
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+            
+            // Timeout - Element nicht gefunden
+            console.error(`⏱️ Timeout: Element '${elementId}' nicht gefunden nach ${maxWaitMs}ms`);
+            return null;
+        }
+        
         // 🆕 v5.86.17: FAHRT KOPIEREN AUS SUCHERGEBNISSEN
         async function copyRideFromSearch(index) {
             const ride = window.searchResults[index];
@@ -9986,58 +10004,64 @@
             const nowHours = String(now.getHours()).padStart(2, '0');
             const nowMinutes = String(now.getMinutes()).padStart(2, '0');
             
-            // 🆕 v5.86.18: ERST Modal öffnen, DANN Felder füllen!
+            // 🆕 v5.86.20: ERST Modal öffnen
             await openQuickBookingModal();
             
-            // Warte kurz bis Modal existiert
-            setTimeout(() => {
-                // Fülle Quick-Booking Modal Felder
-                const dateField = document.getElementById('quick-booking-date');
-                const timeField = document.getElementById('quick-booking-time');
-                const pickupField = document.getElementById('quick-booking-pickup');
-                const destField = document.getElementById('quick-booking-destination');
-                const passengersField = document.getElementById('quick-booking-passengers');
-                const notesField = document.getElementById('quick-booking-notes');
-                const vehicleField = document.getElementById('quick-booking-vehicle');
-                
-                if (dateField) dateField.value = `${nowYear}-${nowMonth}-${nowDay}`;
-                if (timeField) timeField.value = `${nowHours}:${nowMinutes}`;
-                if (pickupField) pickupField.value = ride.pickup || '';
-                if (destField) destField.value = ride.destination || '';
-                if (passengersField) passengersField.value = ride.passengers || 1;
-                if (notesField) notesField.value = ride.notes || '';
-                if (vehicleField) vehicleField.value = ''; // Kein Fahrzeug vorgewählt
-                
-                // Kunde suchen und vorauswählen
-                const customerSearch = document.getElementById('quick-booking-customer-search');
-                const customerSelect = document.getElementById('quick-booking-customer');
-                
-                if (ride.customerId && customerSelect) {
-                    // Suche Kunde in allCustomers
-                    const customer = allCustomers.find(c => c.id === ride.customerId);
-                    if (customer) {
-                        customerSelect.value = customer.id;
-                        if (customerSearch) {
-                            customerSearch.value = customer.name;
-                        }
-                    } else if (ride.customerName && customerSearch) {
-                        customerSearch.value = ride.customerName;
+            // 🆕 v5.86.20: WARTE bis Felder existieren!
+            console.log('⏳ Warte auf Quick-Booking Felder...');
+            
+            const dateField = await waitForElement('quick-booking-date');
+            
+            if (!dateField) {
+                alert('❌ Fehler: Schnellbuchungs-Modal konnte nicht geladen werden! Bitte erneut versuchen.');
+                return;
+            }
+            
+            // Jetzt alle Felder füllen (Element existiert garantiert!)
+            const timeField = document.getElementById('quick-booking-time');
+            const pickupField = document.getElementById('quick-booking-pickup');
+            const destField = document.getElementById('quick-booking-destination');
+            const passengersField = document.getElementById('quick-booking-passengers');
+            const notesField = document.getElementById('quick-booking-notes');
+            const vehicleField = document.getElementById('quick-booking-vehicle');
+            
+            if (dateField) dateField.value = `${nowYear}-${nowMonth}-${nowDay}`;
+            if (timeField) timeField.value = `${nowHours}:${nowMinutes}`;
+            if (pickupField) pickupField.value = ride.pickup || '';
+            if (destField) destField.value = ride.destination || '';
+            if (passengersField) passengersField.value = ride.passengers || 1;
+            if (notesField) notesField.value = ride.notes || '';
+            if (vehicleField) vehicleField.value = ''; // Kein Fahrzeug vorgewählt
+            
+            // Kunde suchen und vorauswählen
+            const customerSearch = document.getElementById('quick-booking-customer-search');
+            const customerSelect = document.getElementById('quick-booking-customer');
+            
+            if (ride.customerId && customerSelect) {
+                // Suche Kunde in allCustomers
+                const customer = allCustomers.find(c => c.id === ride.customerId);
+                if (customer) {
+                    customerSelect.value = customer.id;
+                    if (customerSearch) {
+                        customerSearch.value = customer.name;
                     }
                 } else if (ride.customerName && customerSearch) {
                     customerSearch.value = ride.customerName;
                 }
-                
-                // Koordinaten übertragen (falls vorhanden)
-                if (ride.pickupCoords) {
-                    window.qbPickupCoords = ride.pickupCoords;
-                }
-                if (ride.destCoords) {
-                    window.qbDestCoords = ride.destCoords;
-                }
-                
-                showToast('📋 Fahrt zum Kopieren geladen!', 'success');
-                console.log('✅ Felder gefüllt!');
-            }, 300); // 300ms warten bis Modal fertig ist
+            } else if (ride.customerName && customerSearch) {
+                customerSearch.value = ride.customerName;
+            }
+            
+            // Koordinaten übertragen (falls vorhanden)
+            if (ride.pickupCoords) {
+                window.qbPickupCoords = ride.pickupCoords;
+            }
+            if (ride.destCoords) {
+                window.qbDestCoords = ride.destCoords;
+            }
+            
+            showToast('📋 Fahrt zum Kopieren geladen!', 'success');
+            console.log('✅ Felder gefüllt!');
         }
         
         // 🆕 v5.31.3: FAHRT-DETAILS MODAL
@@ -35178,7 +35202,16 @@ Stack: ${err.stack}
         // ═══════════════════════════════════════════════════════════════════════════
         
         async function analyzeBookingRequest() {
-            const inputText = document.getElementById('ai-input-text').value.trim();
+            // 🆕 v5.86.19: NULL-CHECK!
+            const inputElement = document.getElementById('ai-input-text');
+            
+            if (!inputElement) {
+                console.error('❌ AI-Input-Text Element nicht gefunden!');
+                alert('❌ Fehler: Textarea nicht gefunden! Bitte Seite neu laden.');
+                return;
+            }
+            
+            const inputText = inputElement.value.trim();
             
             if (!inputText) {
                 alert('❌ Bitte Text eingeben!');
@@ -35186,10 +35219,16 @@ Stack: ${err.stack}
             }
             
             // Zeige Loading
-            document.getElementById('ai-loading').style.display = 'block';
-            document.getElementById('ai-results').style.display = 'none';
-            document.getElementById('ai-analyze-btn').disabled = true;
-            document.getElementById('ai-analyze-btn').style.opacity = '0.5';
+            const loadingEl = document.getElementById('ai-loading');
+            const resultsEl = document.getElementById('ai-results');
+            const analyzeBtn = document.getElementById('ai-analyze-btn');
+            
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (resultsEl) resultsEl.style.display = 'none';
+            if (analyzeBtn) {
+                analyzeBtn.disabled = true;
+                analyzeBtn.style.opacity = '0.5';
+            }
             
             console.log('🤖 Starte AI-Analyse...');
             
@@ -35281,16 +35320,30 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 console.error('❌ AI-Analyse Fehler:', error);
                 alert('❌ Fehler bei der Analyse: ' + error.message);
             } finally {
-                // Verstecke Loading
-                document.getElementById('ai-loading').style.display = 'none';
-                document.getElementById('ai-analyze-btn').disabled = false;
-                document.getElementById('ai-analyze-btn').style.opacity = '1';
+                // Verstecke Loading - mit null-checks!
+                const loadingEl = document.getElementById('ai-loading');
+                const analyzeBtn = document.getElementById('ai-analyze-btn');
+                
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (analyzeBtn) {
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.style.opacity = '1';
+                }
             }
         }
         
         // 🆕 v5.64.4: NACHFRAGE BEANTWORTEN
         async function analyzeFollowUpAnswer() {
-            const followUpText = document.getElementById('ai-followup-answer').value.trim();
+            // 🆕 v5.86.19: NULL-CHECKS!
+            const followUpEl = document.getElementById('ai-followup-answer');
+            const originalEl = document.getElementById('ai-input-text');
+            
+            if (!followUpEl) {
+                alert('❌ Fehler: Antwort-Feld nicht gefunden! Bitte Seite neu laden.');
+                return;
+            }
+            
+            const followUpText = followUpEl.value.trim();
             
             if (!followUpText) {
                 alert('❌ Bitte Antwort eingeben!');
@@ -35298,16 +35351,16 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             // Hole ursprüngliche Nachricht
-            const originalText = document.getElementById('ai-input-text').value.trim();
+            const originalText = originalEl ? originalEl.value.trim() : '';
             
-            // Hole aktuelle Formular-Daten (was schon erkannt wurde)
+            // Hole aktuelle Formular-Daten (was schon erkannt wurde) - mit null-checks!
             const currentData = {
-                datetime: document.getElementById('ai-booking-datetime').value || null,
-                pickup: document.getElementById('ai-booking-pickup').value || null,
-                destination: document.getElementById('ai-booking-destination').value || null,
-                passengers: document.getElementById('ai-booking-passengers').value || 1,
-                name: document.getElementById('ai-booking-name').value || null,
-                phone: document.getElementById('ai-booking-phone').value || null
+                datetime: document.getElementById('ai-booking-datetime')?.value || null,
+                pickup: document.getElementById('ai-booking-pickup')?.value || null,
+                destination: document.getElementById('ai-booking-destination')?.value || null,
+                passengers: document.getElementById('ai-booking-passengers')?.value || 1,
+                name: document.getElementById('ai-booking-name')?.value || null,
+                phone: document.getElementById('ai-booking-phone')?.value || null
             };
             
             console.log('🔄 Analysiere Nachfrage-Antwort...');
@@ -35316,10 +35369,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('📊 Aktuelle Daten:', currentData);
             
             // Zeige Loading
-            document.getElementById('ai-loading').style.display = 'block';
+            const loadingEl = document.getElementById('ai-loading');
+            if (loadingEl) loadingEl.style.display = 'block';
+            
             const answerBtn = event.target;
-            answerBtn.disabled = true;
-            answerBtn.style.opacity = '0.5';
+            if (answerBtn) {
+                answerBtn.disabled = true;
+                answerBtn.style.opacity = '0.5';
+            }
             
             try {
                 const apiKey = localStorage.getItem('anthropic_api_key');

@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.25 - SYNTAX FIX! 🔧✅ (Build 20251216-1210)');
+        console.log('🚕 Funk Taxi App v5.86.26 - ROLE CHECKS! 🔒✅ (Build 20251216-1220)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.25 - SYNTAX FIX! 🔧✅ (Build 20251216-1210)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.26 - ROLE CHECKS! 🔒✅ (Build 20251216-1220)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4814,7 +4814,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.25';
+        const APP_VERSION = '5.86.26';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -36592,6 +36592,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // ═══════════════════════════════════════════════════════════════════
         
         function initCallPopupListener() {
+            // ⚠️ NUR FÜR ADMINS!
+            if (!currentUserRole || currentUserRole === 'passenger') {
+                console.log('⏭️ CallPopup übersprungen (kein Admin)');
+                return;
+            }
+            
             if (!isFirebaseReady) {
                 console.error('❌ Firebase not ready for CallPopup listener');
                 return;
@@ -37088,6 +37094,22 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let callHistoryListener = null;
         
         function initCallHistory() {
+            // ⚠️ NUR FÜR ADMINS!
+            if (!currentUserRole || currentUserRole === 'passenger') {
+                console.log('⏭️ Anrufhistorie übersprungen (kein Admin)');
+                const container = document.getElementById('call-history-container');
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align:center;padding:40px;color:#6b7280;">
+                            <div style="font-size:48px;margin-bottom:10px;">🔒</div>
+                            <div style="font-weight:600;margin-bottom:5px;">Nur für Admins</div>
+                            <div style="font-size:13px;">Diese Funktion ist nur für Disponenten verfügbar</div>
+                        </div>
+                    `;
+                }
+                return;
+            }
+            
             console.log('📞 Initialisiere Anrufhistorie Listener...');
             
             // Lösche alten Listener falls vorhanden

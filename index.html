@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.17 - SUCHE FIX! 🔍✏️ (Build 20251215-2100)');
+        console.log('🚕 Funk Taxi App v5.86.18 - KOPIEREN + ENTER FIX! ⚡🔍 (Build 20251216-0900)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.17 - SUCHE FIX! 🔍✏️ (Build 20251215-2100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.18 - KOPIEREN + ENTER FIX! ⚡🔍 (Build 20251216-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4793,7 +4793,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.17';
+        const APP_VERSION = '5.86.18';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -9977,14 +9977,6 @@
             
             console.log('📋 Kopiere Fahrt:', ride);
             
-            // Öffne Schnellbuchungs-Modal mit Daten aus der Fahrt
-            const pickupDate = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : new Date();
-            const year = pickupDate.getFullYear();
-            const month = String(pickupDate.getMonth() + 1).padStart(2, '0');
-            const day = String(pickupDate.getDate()).padStart(2, '0');
-            const hours = String(pickupDate.getHours()).padStart(2, '0');
-            const minutes = String(pickupDate.getMinutes()).padStart(2, '0');
-            
             // Setze aktuelle Zeit + 1 Stunde als Standard
             const now = new Date();
             now.setHours(now.getHours() + 1);
@@ -9994,50 +9986,58 @@
             const nowHours = String(now.getHours()).padStart(2, '0');
             const nowMinutes = String(now.getMinutes()).padStart(2, '0');
             
-            // Fülle Quick-Booking Modal
-            document.getElementById('quick-booking-date').value = `${nowYear}-${nowMonth}-${nowDay}`;
-            document.getElementById('quick-booking-time').value = `${nowHours}:${nowMinutes}`;
-            document.getElementById('quick-booking-pickup').value = ride.pickup || '';
-            document.getElementById('quick-booking-destination').value = ride.destination || '';
-            document.getElementById('quick-booking-passengers').value = ride.passengers || 1;
-            document.getElementById('quick-booking-notes').value = ride.notes || '';
-            document.getElementById('quick-booking-vehicle').value = ''; // Kein Fahrzeug vorgewählt
+            // 🆕 v5.86.18: ERST Modal öffnen, DANN Felder füllen!
+            await openQuickBookingModal();
             
-            // Kunde suchen und vorauswählen
-            const customerSearch = document.getElementById('quick-booking-customer-search');
-            const customerSelect = document.getElementById('quick-booking-customer');
-            
-            if (ride.customerId) {
-                // Suche Kunde in allCustomers
-                const customer = allCustomers.find(c => c.id === ride.customerId);
-                if (customer) {
-                    customerSelect.value = customer.id;
-                    if (customerSearch) {
-                        customerSearch.value = customer.name;
-                    }
-                } else if (ride.customerName) {
-                    if (customerSearch) {
+            // Warte kurz bis Modal existiert
+            setTimeout(() => {
+                // Fülle Quick-Booking Modal Felder
+                const dateField = document.getElementById('quick-booking-date');
+                const timeField = document.getElementById('quick-booking-time');
+                const pickupField = document.getElementById('quick-booking-pickup');
+                const destField = document.getElementById('quick-booking-destination');
+                const passengersField = document.getElementById('quick-booking-passengers');
+                const notesField = document.getElementById('quick-booking-notes');
+                const vehicleField = document.getElementById('quick-booking-vehicle');
+                
+                if (dateField) dateField.value = `${nowYear}-${nowMonth}-${nowDay}`;
+                if (timeField) timeField.value = `${nowHours}:${nowMinutes}`;
+                if (pickupField) pickupField.value = ride.pickup || '';
+                if (destField) destField.value = ride.destination || '';
+                if (passengersField) passengersField.value = ride.passengers || 1;
+                if (notesField) notesField.value = ride.notes || '';
+                if (vehicleField) vehicleField.value = ''; // Kein Fahrzeug vorgewählt
+                
+                // Kunde suchen und vorauswählen
+                const customerSearch = document.getElementById('quick-booking-customer-search');
+                const customerSelect = document.getElementById('quick-booking-customer');
+                
+                if (ride.customerId && customerSelect) {
+                    // Suche Kunde in allCustomers
+                    const customer = allCustomers.find(c => c.id === ride.customerId);
+                    if (customer) {
+                        customerSelect.value = customer.id;
+                        if (customerSearch) {
+                            customerSearch.value = customer.name;
+                        }
+                    } else if (ride.customerName && customerSearch) {
                         customerSearch.value = ride.customerName;
                     }
-                }
-            } else if (ride.customerName) {
-                if (customerSearch) {
+                } else if (ride.customerName && customerSearch) {
                     customerSearch.value = ride.customerName;
                 }
-            }
-            
-            // Koordinaten übertragen (falls vorhanden)
-            if (ride.pickupCoords) {
-                window.qbPickupCoords = ride.pickupCoords;
-            }
-            if (ride.destCoords) {
-                window.qbDestCoords = ride.destCoords;
-            }
-            
-            // Öffne Modal
-            openQuickBookingModal();
-            
-            showToast('📋 Fahrt zum Kopieren geladen!', 'success');
+                
+                // Koordinaten übertragen (falls vorhanden)
+                if (ride.pickupCoords) {
+                    window.qbPickupCoords = ride.pickupCoords;
+                }
+                if (ride.destCoords) {
+                    window.qbDestCoords = ride.destCoords;
+                }
+                
+                showToast('📋 Fahrt zum Kopieren geladen!', 'success');
+                console.log('✅ Felder gefüllt!');
+            }, 300); // 300ms warten bis Modal fertig ist
         }
         
         // 🆕 v5.31.3: FAHRT-DETAILS MODAL
@@ -10136,9 +10136,10 @@
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
                             <div>
                                 <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">PREIS</div>
-                                <div style="font-size:18px;font-weight:700;color:#10b981;">
-                                    ${ride.price ? ride.price + '€' : 'N/A'}
+                                <div style="font-size:18px;font-weight:700;color:${ride.price ? '#10b981' : '#ef4444'};">
+                                    ${ride.price ? ride.price + '€' : '❌ Nicht berechnet'}
                                 </div>
+                                ${!ride.price ? '<div style="font-size:11px;color:#6b7280;margin-top:2px;">Fahrt ohne Preisberechnung erstellt</div>' : ''}
                             </div>
                             <div>
                                 <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">DISTANZ</div>
@@ -36307,6 +36308,20 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     updateAPIKeyStatus();
                 }
             };
+        });
+        
+        // 🆕 v5.86.18: ENTER-KEY FÜR SUCHE
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('ride-id-search');
+            if (searchInput) {
+                searchInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault(); // Verhindere Form-Submit
+                        intelligentSearch();
+                    }
+                });
+                console.log('✅ Enter-Key für Suche aktiviert');
+            }
         });
         
         // ═══════════════════════════════════════════════════════════════════

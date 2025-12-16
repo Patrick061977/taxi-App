@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.22 - AI COORDS FIX! 🤖📍 (Build 20251216-0945)');
+        console.log('🚕 Funk Taxi App v5.86.23 - AI MODAL! 📋✨ (Build 20251216-1000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.22 - AI COORDS FIX! 🤖📍 (Build 20251216-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.23 - AI MODAL! 📋✨ (Build 20251216-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4450,7 +4450,7 @@
                                 cursor: pointer;
                                 box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
                             ">
-                                ✅ Buchung erstellen
+                                📋 In Schnellbuchung öffnen
                             </button>
                             <button onclick="calculateAIPrice()" style="
                                 padding: 16px 24px;
@@ -4814,7 +4814,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.22';
+        const APP_VERSION = '5.86.23';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -35971,35 +35971,23 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 return;
             }
             
-            const price = parseFloat(priceText.replace(' €', ''));
-            
-            if (isNaN(price)) {
-                alert('❌ Ungültiger Preis!');
-                return;
-            }
-            
-            // Bestätigung
-            let confirmMsg = 'Buchung erstellen?\n\n';
-            confirmMsg += '📅 ' + formatDateTimeForDisplay(datetime) + '\n';
-            confirmMsg += '📍 ' + pickup + '\n';
-            confirmMsg += '🎯 ' + destination + '\n';
-            confirmMsg += '👥 ' + passengers + ' Person(en)\n';
-            confirmMsg += '💰 ' + parseFloat(price).toFixed(2) + ' €\n';
-            if (notes) {
-                confirmMsg += '📝 ' + notes + '\n';
-            }
-            confirmMsg += '\n👤 ' + name + '\n';
-            confirmMsg += '📞 ' + phone;
-            
-            if (!confirm(confirmMsg)) {
-                return;
-            }
+            console.log('🤖 AI-Buchung öffnet Schnellbuchungs-Modal...');
             
             try {
-                console.log('🤖 AI-Buchung nutzt jetzt submitQuickBooking()');
+                // 🆕 v5.86.23: ÖFFNE MODAL STATT DIREKT ZU BUCHEN!
                 
-                // 🆕 v5.86.15: NUTZE SCHNELLBUCHUNGS-FUNKTION!
-                // Fülle Quick-Booking Modal Felder aus
+                // 1. Öffne Schnellbuchungs-Modal
+                await openQuickBookingModal();
+                
+                // 2. Warte bis Modal existiert
+                const dateField = await waitForElement('quick-booking-date');
+                
+                if (!dateField) {
+                    alert('❌ Fehler: Schnellbuchungs-Modal konnte nicht geladen werden!');
+                    return;
+                }
+                
+                // 3. Fülle alle Felder aus
                 
                 // Splitte datetime in date und time
                 const [date, time] = datetime.split('T');
@@ -36037,11 +36025,16 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 // Speichere Telefonnummer für später (submitQuickBooking wird sie nutzen)
                 window.aiBookingPhone = phone;
                 
-                // Rufe submitQuickBooking auf!
-                await submitQuickBooking();
+                // 4. Zeige Success-Message
+                showToast('📋 Daten übernommen! Prüfe und klicke "Buchen"', 'success');
                 
-                // Erfolg - Clear Form
-                clearAIAssistant();
+                console.log('✅ Schnellbuchungs-Modal mit AI-Daten gefüllt!');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Öffnen des Modals:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
                 
                 // Cleanup
                 window.aiBookingPhone = null;

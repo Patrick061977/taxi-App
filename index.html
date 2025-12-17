@@ -101,7 +101,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.11 - ADMIN FIX!FIXES! (Build 20251217-2000)');
+        console.log('🚕 Funk Taxi App v5.87.13 - VORBESTELLUNG + TELEGRAM FIX! (Build 20251217-2300)');
+        console.log('📲 v5.87.13: TELEGRAM-NACHRICHT WIEDER AKTIV!');
+        console.log('🧹 v5.87.13: FORMULAR-CLEANUP FUNKTIONIERT!');
+        console.log('📊 v5.87.13: STATUS-LOGIK KORREKT (new vs vorbestellt)!');
+        console.log('✨ v5.87.12: VERSION UNTEN IM BOTTOM SHEET!');
+        console.log('🐛 v5.87.12: isFirebaseReady VARIABLE-BUG BEHOBEN!');
+        console.log('👤 v5.87.11: ADMIN BRAUCHT KEINE TELEFON-VERIFIKATION!');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -1564,7 +1570,7 @@
                 color:#999;
                 font-weight:600;
             ">
-                📦 v5.87.12 (20251217-2015)
+                📦 v5.87.13 (20251217-2300)
             </div>
         </div>
         
@@ -2660,7 +2666,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG!');
+                    console.log('🚕 Funk Taxi App v5.87.13 - VORBESTELLUNG + TELEGRAM FIX!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5001,8 +5007,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.12';
-        const APP_BUILD = '20251217-2015';
+        const APP_VERSION = '5.87.13';
+        const APP_BUILD = '20251217-2300';
         
         // 🆕 v5.87.12: GLOBALE VARIABLEN GANZ OBEN (vor updateHeaderInfo!)
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
@@ -5844,10 +5850,13 @@
                 console.log('✅ Telefon-Verifikation OK:', currentUser.phoneNumber);
             }
             
-            // Timestamp berechnen
+            // Timestamp + Status berechnen
             let pickupTimestamp;
+            let rideStatus;
+            
             if (currentRideType === 'sofort') {
                 pickupTimestamp = Date.now() + 5 * 60000; // +5 Min
+                rideStatus = 'new';
                 console.log('⚡ SOFORT Buchung → Timestamp:', pickupTimestamp, '=', new Date(pickupTimestamp));
             } else {
                 // Vorbestellung
@@ -5868,6 +5877,12 @@
                 console.log('📅 pickupTimestamp:', pickupTimestamp);
                 console.log('📅 als Date:', new Date(pickupTimestamp));
                 console.log('📅 Zeitdifferenz zu jetzt:', Math.round((pickupTimestamp - Date.now()) / 60000), 'Minuten');
+                
+                // 🕐 Status: 'new' wenn ≤15 Min, sonst 'vorbestellt'
+                const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
+                rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
+                
+                console.log('📊 Status:', rideStatus, '(', minutesUntilPickup.toFixed(1), 'Min bis Abholung)');
             }
             
             // Fahrt-Objekt
@@ -5881,7 +5896,7 @@
                 duration: window.currentDuration || 0,
                 pickupTime: pickupTimestamp,
                 createdAt: Date.now(),
-                status: currentRideType === 'sofort' ? 'new' : 'vorbestellt',
+                status: rideStatus,
                 rideType: currentRideType,
                 passengers: document.getElementById('passengers')?.value || '1',
                 paymentMethod: document.getElementById('payment-method')?.value || 'bar',
@@ -5898,16 +5913,44 @@
             try {
                 // Speichere in Firebase
                 const rideRef = await db.ref('rides').push(ride);
-                console.log('✅ Fahrt gespeichert mit ID:', rideRef.key);
+                const firebaseId = rideRef.key;
+                console.log('✅ Fahrt gespeichert mit ID:', firebaseId);
+                
+                // 🆕 v5.87.13: Füge Firebase-ID zum Objekt hinzu
+                ride.firebaseId = firebaseId;
+                ride.id = firebaseId;
+                
+                // 📲 TELEGRAM-NACHRICHT SENDEN!
+                if (isFirebaseReady) {
+                    console.log('📲 Sende Telegram-Nachricht...');
+                    try {
+                        await sendTelegramForNewRide(ride);
+                        console.log('✅ Telegram-Nachricht gesendet!');
+                    } catch (telegramError) {
+                        console.error('❌ Telegram-Fehler:', telegramError);
+                        // Nicht abbrechen, Buchung ist trotzdem erfolgreich
+                    }
+                }
                 
                 // Zeige Erfolg
-                alert('✅ Taxi gebucht!\n\n' + 
-                      'Fahrt-ID: ' + rideRef.key + '\n' +
-                      'Status: ' + ride.status + '\n' +
-                      'Abholzeit: ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n\n' +
-                      'Du erhältst eine Benachrichtigung wenn ein Fahrer zugewiesen wird.');
+                if (rideStatus === 'vorbestellt') {
+                    alert('✅ Vorbestellung erfolgreich!\n\n' + 
+                          'Fahrt-ID: ' + firebaseId + '\n' +
+                          'Abholzeit: ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n\n' +
+                          '📲 Du erhältst eine Telegram-Nachricht zur Erinnerung!\n\n' +
+                          '🚕 Das Formular ist bereit für die nächste Buchung.');
+                } else {
+                    alert('✅ Taxi gebucht!\n\n' + 
+                          'Fahrt-ID: ' + firebaseId + '\n' +
+                          'Status: Suche Fahrer...\n' +
+                          'Abholzeit: ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n\n' +
+                          '📲 Du erhältst eine Benachrichtigung wenn ein Fahrer zugewiesen wird.');
+                }
                 
-                // Reset Form
+                // 🧹 CLEANUP: Formular zurücksetzen
+                console.log('🧹 Starte Formular-Cleanup...');
+                
+                // Reset Eingabefelder
                 document.getElementById('pickup').value = '';
                 document.getElementById('destination').value = '';
                 pickupCoords = null;
@@ -5915,20 +5958,60 @@
                 currentRideType = null;
                 window.selectedPreorderDate = null;
                 window.selectedPreorderTime = null;
+                window.currentPrice = null;
+                window.currentDistance = null;
+                window.currentDuration = null;
                 
-                // Verstecke Dropdown & Button
+                // Verstecke UI-Elemente
                 const rideTypeDropdown = document.getElementById('ride-type-dropdown-container');
-                if (rideTypeDropdown) rideTypeDropdown.style.display = 'none';
+                if (rideTypeDropdown) {
+                    rideTypeDropdown.style.display = 'none';
+                    console.log('✅ Dropdown versteckt');
+                }
                 
                 const bookBtn = document.getElementById('book-btn');
-                if (bookBtn) bookBtn.style.display = 'none';
+                if (bookBtn) {
+                    bookBtn.style.display = 'none';
+                    console.log('✅ Button versteckt');
+                }
                 
                 const mapBadge = document.getElementById('map-price-badge');
-                if (mapBadge) mapBadge.style.display = 'none';
+                if (mapBadge) {
+                    mapBadge.style.display = 'none';
+                    console.log('✅ Badge versteckt');
+                }
                 
-                // Reset Dropdown
+                // Reset Dropdown-Wert
                 const rideTypeSelect = document.getElementById('ride-type-select');
-                if (rideTypeSelect) rideTypeSelect.value = '';
+                if (rideTypeSelect) {
+                    rideTypeSelect.value = '';
+                    console.log('✅ Dropdown-Wert zurückgesetzt');
+                }
+                
+                // Entferne Marker von der Karte
+                if (window.pickupMarker) {
+                    window.pickupMarker.remove();
+                    window.pickupMarker = null;
+                }
+                if (window.destMarker) {
+                    window.destMarker.remove();
+                    window.destMarker = null;
+                }
+                if (window.routeLine) {
+                    window.routeLine.remove();
+                    window.routeLine = null;
+                }
+                
+                console.log('✅ Formular komplett zurückgesetzt!');
+                
+                // 🎯 AUTO-ZUWEISUNG für SOFORT-Fahrten
+                if (rideStatus === 'new' && isFirebaseReady) {
+                    console.log('🎯 Starte Auto-Zuweisung...');
+                    // startAutoAssignment() muss existieren
+                    if (typeof startAutoAssignment === 'function') {
+                        startAutoAssignment(firebaseId, ride);
+                    }
+                }
                 
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);
@@ -7134,11 +7217,11 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG! (Build 20251209-0935)');
-        console.log('🐛 v5.50.5: DEBUG-LOGS FÜR ALTERNATIVE ZEITSLOT TELEGRAM!');
-        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
-        console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
-        console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
+        console.log('🚕 Funk Taxi App v5.87.13 - VORBESTELLUNG + TELEGRAM FIX! (Build 20251217-2015)');
+        console.log('✨ v5.87.12: VERSION UNTEN IM BOTTOM SHEET SICHTBAR!');
+        console.log('🐛 v5.87.12: isFirebaseReady VARIABLE-BUG BEHOBEN!');
+        console.log('👤 v5.87.11: ADMIN BRAUCHT KEINE TELEFON-VERIFIKATION!');
+        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {

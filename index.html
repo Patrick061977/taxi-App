@@ -101,13 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.13 - VORBESTELLUNG + TELEGRAM FIX! (Build 20251217-2300)');
-        console.log('📲 v5.87.13: TELEGRAM-NACHRICHT WIEDER AKTIV!');
-        console.log('🧹 v5.87.13: FORMULAR-CLEANUP FUNKTIONIERT!');
-        console.log('📊 v5.87.13: STATUS-LOGIK KORREKT (new vs vorbestellt)!');
-        console.log('✨ v5.87.12: VERSION UNTEN IM BOTTOM SHEET!');
-        console.log('🐛 v5.87.12: isFirebaseReady VARIABLE-BUG BEHOBEN!');
-        console.log('👤 v5.87.11: ADMIN BRAUCHT KEINE TELEFON-VERIFIKATION!');
+        console.log('🚕 Funk Taxi App v5.86.34 - COMPLETE AUTO-STORNO FIX! 🛡️🔒 (Build 20251216-2000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -162,22 +156,6 @@
         .admin-tab-btn.active {
             background: #667eea !important;
             color: white !important;
-        }
-        
-        /* 🆕 v5.87.9: CUSTOM SCROLLBAR FÜR ADMIN-TABS */
-        #admin-tabs > div::-webkit-scrollbar {
-            height: 6px;
-        }
-        #admin-tabs > div::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-        #admin-tabs > div::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 3px;
-        }
-        #admin-tabs > div::-webkit-scrollbar-thumb:hover {
-            background: #5568d3;
         }
         .view { display: none; padding: 15px; }
         .view.active { display: block; }
@@ -754,8 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <!-- 🆕 v5.87.11: DYNAMISCHE VERSION ANZEIGE -->
-            <p id="version-display" style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Lädt...</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.34 - COMPLETE FIX! 🛡️🔒 (Build 20251216-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -801,21 +778,10 @@
         border-bottom: 2px solid #e5e7eb;
         position: sticky;
         top: 0;
-        z-index: 1100;
+        z-index: 999;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        pointer-events: auto;
     ">
-        <!-- 🆕 v5.87.9: BESSERES HORIZONTAL SCROLLING! -->
-        <div style="
-            display: flex; 
-            gap: 8px; 
-            overflow-x: auto; 
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-            scrollbar-color: #667eea #f1f1f1;
-            padding-bottom: 5px;
-        ">
+        <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
             <button onclick="switchView('passenger')" class="admin-tab-btn admin-only" data-view="passenger" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
@@ -1193,7 +1159,7 @@
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.5);
-        z-index: 2000;
+        z-index: 1000;
         animation: fadeIn 0.2s;
     " onclick="closeMenu()">
         <div id="menu-panel" style="
@@ -1207,7 +1173,6 @@
             box-shadow: -4px 0 20px rgba(0,0,0,0.3);
             overflow-y: auto;
             animation: slideInRight 0.3s;
-            z-index: 2001;
         " onclick="event.stopPropagation()">
             <!-- Menü Header -->
             <div style="
@@ -1388,292 +1353,243 @@
     </div>
 
     <div id="passenger-view" class="view active">
-        <!-- 🆕 v5.87.0: UBER-STYLE REDESIGN - FULLSCREEN KARTE! -->
+        <h3 style="margin:0 0 15px 0;">🚕 Taxi buchen</h3>
         
-        <!-- MINI HEADER - nur Icons -->
-        <div style="position:fixed;top:0;left:0;right:0;height:60px;background:transparent;z-index:1000;display:flex;justify-content:space-between;align-items:center;padding:0 16px;">
-            <button onclick="toggleMenu(event)" style="width:44px;height:44px;border-radius:50%;background:white;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">
-                ☰
-            </button>
-            <button onclick="showUserProfile()" style="width:44px;height:44px;border-radius:50%;background:white;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">
-                👤
+        <!-- 🗑️ v5.58.0: CRM-BUCHUNGS-BANNER ENTFERNT! -->
+        <!-- "Buchst für CRM-Kunde" ist Admin-Funktion! -->
+        <!-- Nur im Admin-Panel! -->
+        
+        <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
+        <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
+        <!-- 🆕 v5.42.1: Quick-Login Box DEAKTIVIERT - zu groß! -->
+        <!-- Stattdessen: Avatar-Icon im Header -->
+        <div id="quick-login-box" style="display:none !important;">
+            <!-- Nicht mehr verwendet -->
+        </div>
+        
+        <!-- 👤 ALTE MEIN KONTO BOX - DEAKTIVIERT in v5.42.0! -->
+        <!-- Jetzt im Hamburger-Menü integriert! -->
+        <div id="my-profile-box" style="display:none !important;">
+            <!-- Nicht mehr verwendet - siehe Menü -->
+        </div>
+        
+        <!-- 🌟 STAMMKUNDEN-SCHNELLBUCHUNG -->
+        <div id="regular-customer-box" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                <h4 style="margin: 0; font-size: 16px;">🌟 Willkommen zurück!</h4>
+                <button onclick="clearRegularCustomer()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600;">
+                    ✕ Löschen
+                </button>
+            </div>
+            <div id="regular-customer-info" style="font-size: 13px; line-height: 1.6; margin-bottom: 12px;"></div>
+            <button onclick="useRegularCustomerData()" style="width: 100%; background: white; color: #059669; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                ⚡ Daten übernehmen
             </button>
         </div>
         
-        <!-- FULLSCREEN KARTE -->
-        <div id="route-map-top" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;"></div>
+        <!-- 🆕 v5.49.2: ECHTES MODAL MIT OVERLAY -->
+        <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
         
-        <!-- PREIS-BADGE IN KARTE (v5.87.6: KOMPAKTER!) -->
-        <div id="map-price-badge" style="
-            display:none;
-            position:fixed;
-            top:68px;
-            left:50%;
-            transform:translateX(-50%);
-            background:white;
-            padding:8px 14px;
-            border-radius:18px;
-            box-shadow:0 2px 6px rgba(0,0,0,0.15);
-            z-index:1000;
-            font-size:13px;
-            font-weight:700;
-        ">
-            <span id="map-price-text">9.60€</span> • <span id="map-distance-text">1.7 km</span>
-        </div>
+        <!-- 🗑️ v5.58.0: ADMIN-BUTTONS ENTFERNT! -->
+        <!-- Kontakt auswählen & Zwischenablage sind ADMIN-Funktionen! -->
+        <!-- Nur im Admin-Panel verfügbar! -->
         
-        <!-- BOTTOM SHEET - v5.87.8: NUR VON/NACH/PREIS! KEIN SCROLLEN! -->
-        <div id="bottom-sheet" style="
-            position:fixed;
-            bottom:0;
-            left:0;
-            right:0;
-            background:white;
-            border-radius:12px 12px 0 0;
-            box-shadow:0 -2px 10px rgba(0,0,0,0.1);
-            z-index:1001;
-            padding:12px 16px;
-            max-height:auto;
-        ">
-            <!-- Drag Handle -->
-            <div style="width:36px;height:3px;background:#ddd;border-radius:2px;margin:0 auto 8px auto;"></div>
-            
-            <!-- Abholort -->
-            <div style="margin-bottom:6px;">
-                <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border-radius:8px;padding:1px 1px 1px 10px;">
-                    <span style="font-size:12px;">🔵</span>
-                    <input type="text" id="pickup" placeholder="Abholort" style="flex:1;border:none;background:transparent;padding:10px 4px;font-size:14px;outline:none;">
-                    <button onclick="useMyLocation()" style="width:32px;height:32px;border:none;background:transparent;cursor:pointer;font-size:16px;">📍</button>
+        <div id="booking-form">
+            <div class="input-group">
+                <label>📍 Abholort</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" style="flex:1;">
+                    <button onclick="saveLocationPOI('pickup')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
+                        ⭐
+                    </button>
                 </div>
-                <div id="pickup-confirmation" style="display:none;margin:3px 0 0 28px;font-size:11px;color:#666;"></div>
-                <div id="pickup-saved-locations" style="display:none;margin:3px 0 0 28px;"></div>
+                
+                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
+                <div id="pickup-confirmation" style="
+                    display: none;
+                    margin-top: 8px;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    font-size: 13px;
+                    font-weight: 600;
+                ">
+                    <!-- Wird dynamisch befüllt -->
+                </div>
+                
+                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
+                <div id="pickup-saved-locations" style="display:none;margin-top:8px;"></div>
+                
+                <button onclick="useMyLocation()" style="margin-top:8px;padding:8px 12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;font-size:14px;">📍 Meinen Standort</button>
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
             
-            <!-- Zielort -->
-            <div style="margin-bottom:8px;">
-                <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border-radius:8px;padding:1px 1px 1px 10px;">
-                    <span style="font-size:12px;">🔴</span>
-                    <input type="text" id="destination" placeholder="Wohin?" style="flex:1;border:none;background:transparent;padding:10px 4px;font-size:14px;outline:none;">
+            <div class="input-group">
+                <label>🎯 Zielort</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" style="flex:1;">
+                    <button onclick="saveLocationPOI('destination')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
+                        ⭐
+                    </button>
                 </div>
-                <div id="destination-confirmation" style="display:none;margin:3px 0 0 28px;font-size:11px;color:#666;"></div>
-                <div id="destination-saved-locations" style="display:none;margin:3px 0 0 28px;"></div>
+                
+                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
+                <div id="destination-confirmation" style="
+                    display: none;
+                    margin-top: 8px;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    font-size: 13px;
+                    font-weight: 600;
+                ">
+                    <!-- Wird dynamisch befüllt -->
+                </div>
+                
+                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
+                <div id="destination-saved-locations" style="display:none;margin-top:8px;"></div>
+                
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
             
-            <!-- Preis Berechnen Button -->
-            <button id="calculate-price-btn" onclick="calculatePriceAndShow()" style="
-                width:100%;
-                padding:12px;
-                background:#000;
-                color:white;
-                border:none;
-                border-radius:8px;
-                font-size:14px;
-                font-weight:700;
-                cursor:pointer;
-            ">
-                💰 Preis berechnen
-            </button>
+            <!-- 🆕 v5.30.0: WANN MÖCHTEN SIE FAHREN? -->
+            <div class="input-group" style="margin-top:25px;">
+                <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
+                
+                <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr;gap:12px;">
+                    <!-- SOFORT Button - 🆕 v5.32.5g: Initial versteckt, nur wenn Fahrer verfügbar -->
+                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                        <div style="font-size:32px;margin-bottom:8px;">⚡</div>
+                        <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:4px;">SOFORT</div>
+                        <div style="font-size:12px;color:#666;">Nächstes verfügbares Taxi</div>
+                    </button>
+                    
+                    <!-- VORBESTELLEN Button -->
+                    <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:20px 15px;border:3px solid #e5e7eb;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                        <div style="font-size:32px;margin-bottom:8px;">📅</div>
+                        <div style="font-weight:700;font-size:16px;color:#6b7280;margin-bottom:4px;">VORBESTELLEN</div>
+                        <div style="font-size:12px;color:#666;">Datum & Zeit wählen</div>
+                    </button>
+                </div>
+            </div>
             
-            <!-- 🆕 v5.87.10: RIDE TYPE DROPDOWN (erscheint nach Preis berechnen) -->
-            <div id="ride-type-dropdown-container" style="display:none;margin-top:8px;">
-                <label style="font-size:12px;color:#666;margin-bottom:4px;display:block;">⏰ Wann möchten Sie fahren?</label>
-                <select id="ride-type-select" onchange="handleRideTypeSelect()" style="
-                    width:100%;
-                    padding:12px;
-                    border:2px solid #e0e0e0;
-                    border-radius:8px;
-                    font-size:14px;
-                    font-weight:600;
-                    cursor:pointer;
-                    background:white;
-                ">
-                    <option value="">Bitte wählen...</option>
-                    <option value="sofort">⚡ SOFORT (in ca. 5 Min.)</option>
-                    <option value="vorbestellen">📅 Vorbestellung (Datum & Zeit wählen)</option>
+            <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
+            <div id="sofort-bereich" style="display:none;">
+                <div id="available-taxis-display"></div>
+            </div>
+            
+            <!-- 📅 VORBESTELLEN-BEREICH: Datum & Zeit direkt wählen -->
+            <div id="vorbestellen-bereich" style="display:none;">
+                <div class="input-group">
+                    <label>📅 Abholzeit wählen</label>
+                    
+                    <!-- Datum + Zeit direkt (ohne Dropdown!) -->
+                    <div id="custom-datetime-container" style="margin-top:0;">
+                        <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <select id="custom-hour" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
+                                <option value="00">00</option><option value="01">01</option><option value="02">02</option>
+                                <option value="03">03</option><option value="04">04</option><option value="05">05</option>
+                                <option value="06">06</option><option value="07">07</option><option value="08">08</option>
+                                <option value="09">09</option><option value="10">10</option><option value="11">11</option>
+                                <option value="12">12</option><option value="13">13</option><option value="14">14</option>
+                                <option value="15">15</option><option value="16">16</option><option value="17">17</option>
+                                <option value="18">18</option><option value="19">19</option><option value="20">20</option>
+                                <option value="21">21</option><option value="22">22</option><option value="23">23</option>
+                            </select>
+                            <span style="font-size:20px;font-weight:bold;">:</span>
+                            <select id="custom-minute" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
+                                <option value="00">00</option><option value="05">05</option><option value="10">10</option>
+                                <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+                                <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+                                <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+                            </select>
+                            <span style="font-size:14px;color:#666;">Uhr</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
+                    <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+                    
+                    <div id="datetime-help" style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
+                        💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label>👥 Personen</label>
+                <select id="passengers">
+                    <option value="1">1 Person</option>
+                    <option value="2">2 Personen</option>
+                    <option value="3">3 Personen</option>
+                    <option value="4">4 Personen</option>
                 </select>
             </div>
+            <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()">💰 Preis berechnen</button>
+            <div id="price-display" style="margin-top: 15px;"></div>
+            <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
             
-            <!-- 🆕 v5.87.10: BUCHEN BUTTON (erscheint nach Auswahl) -->
-            <button id="book-btn" onclick="bookRide()" style="
-                display:none;
-                width:100%;
-                padding:14px;
-                margin-top:8px;
-                background:#10b981;
-                color:white;
-                border:none;
-                border-radius:8px;
-                font-size:15px;
-                font-weight:700;
-                cursor:pointer;
-            ">
-                🚕 Taxi buchen
+            <!-- CRM Speicher-Option -->
+            <div id="crm-save-option" style="display:none;margin-top:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" id="save-to-crm" checked style="width:20px;height:20px;accent-color:#10b981;">
+                    <span style="font-size:14px;">
+                        <strong>📋 Kundendaten im CRM aktualisieren</strong><br>
+                        <span style="font-size:12px;color:#666;">Adresse und Telefon werden gespeichert</span>
+                    </span>
+                </label>
+            </div>
+            
+            <!-- 💳 ZAHLUNGSMETHODE -->
+            <div class="input-group" style="margin-top:15px;">
+                <label>💳 Zahlungsmethode</label>
+                <select id="payment-method" style="padding:14px;border:2px solid #10b981;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;width:100%;">
+                    <option value="bar">💶 Bar (Bargeld)</option>
+                    <option value="karte">💳 EC-Karte / Kreditkarte</option>
+                    <option value="paypal">📱 PayPal / Digitale Zahlung</option>
+                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
+                </select>
+                <div style="font-size:12px;color:#666;margin-top:5px;">
+                    ℹ️ Der Fahrer sieht Ihre Zahlungsmethode
+                </div>
+            </div>
+            
+            <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
+        </div>
+        
+        <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
+        <div id="offline-message" style="display:none;padding:25px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:12px;color:white;text-align:center;margin-bottom:20px;">
+            <div style="font-size:48px;margin-bottom:15px;">🔴</div>
+            <div style="font-size:20px;font-weight:700;margin-bottom:10px;">Buchungssystem offline</div>
+            <div style="font-size:14px;margin-bottom:20px;opacity:0.9;">
+                Aktuell können keine Online-Buchungen angenommen werden.
+            </div>
+            <div style="padding:20px;background:rgba(255,255,255,0.15);border-radius:10px;margin-bottom:20px;">
+                <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Bitte rufen Sie uns an:</div>
+                <a href="tel:+4915229117722" style="font-size:32px;font-weight:700;color:white;text-decoration:none;display:block;">
+                    📞 0152 29117722
+                </a>
+            </div>
+            <div style="font-size:12px;opacity:0.8;">
+                Wir sind gerne für Sie da und nehmen Ihre Buchung telefonisch entgegen!
+            </div>
+        </div>
+        
+        <div id="confirm"></div>
+        
+        <!-- 🧹 Cache-Button für ALLE sichtbar -->
+        <div style="margin-top:30px;padding:15px;background:#f0f9ff;border-radius:8px;text-align:center;">
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">
+                ⚠️ Probleme mit der App? Alte Version wird angezeigt?
+            </p>
+            <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                🧹 Cache leeren & App neu laden
             </button>
-            
-            <!-- Verfügbare Taxis (kompakt) -->
-            <div id="available-taxis-display"></div>
-            
-            <!-- Preis Display (versteckt - nur Badge in Karte!) -->
-            <div id="price-display" style="display:none;"></div>
-            
-            <!-- Preis Container (versteckt - nur Badge in Karte!) -->
-            <div id="price-container" style="display:none;"></div>
-            
-            <!-- Zusätzliche Optionen (versteckt bis expandiert) -->
-            <div id="additional-options" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
-                <!-- Passagiere -->
-                <div style="margin-bottom:8px;">
-                    <label style="font-size:13px;color:#666;margin-bottom:4px;display:block;">Passagiere:</label>
-                    <select id="passengers" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
-                        <option value="1">1 Person</option>
-                        <option value="2">2 Personen</option>
-                        <option value="3">3 Personen</option>
-                        <option value="4">4 Personen</option>
-                        <option value="5">5 Personen</option>
-                        <option value="6">6 Personen</option>
-                        <option value="7">7 Personen</option>
-                        <option value="8">8 Personen</option>
-                    </select>
-                </div>
-                
-                <!-- Vorbestellen -->
-                <div id="preorder-container" style="display:none;margin-bottom:8px;">
-                    <label style="font-size:13px;color:#666;margin-bottom:4px;display:block;">Abholzeit:</label>
-                    <input type="datetime-local" id="preorder-datetime" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
-                </div>
-                
-                <!-- Zahlungsmethode -->
-                <div style="margin-bottom:8px;">
-                    <label style="font-size:13px;color:#666;margin-bottom:4px;display:block;">Zahlungsart:</label>
-                    <select id="payment-method" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
-                        <option value="bar">💵 Barzahlung</option>
-                        <option value="karte">💳 EC-Karte</option>
-                        <option value="rechnung">📄 Rechnung</option>
-                    </select>
-                </div>
-            </div>
-            
-            <!-- Hidden Fields -->
-            <input type="hidden" id="customer-name">
-            <input type="hidden" id="customer-phone">
-            <div id="ride-type-container" style="display:none;"></div>
-            <div id="crm-save-option" style="display:none;"></div>
-            
-            <!-- 🆕 v5.87.12: VERSION UNTEN IM BOTTOM SHEET (immer sichtbar!) -->
-            <div id="bottom-version-display" style="
-                margin-top:12px;
-                padding-top:8px;
-                border-top:1px solid #eee;
-                text-align:center;
-                font-size:10px;
-                color:#999;
-                font-weight:600;
-            ">
-                📦 v5.87.13 (20251217-2300)
-            </div>
         </div>
-        
-        <!-- Modals & Overlays (bleiben gleich) -->
-        <div id="regular-customer-box" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);width:90%;max-width:400px;z-index:1002;background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:white;padding:20px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.2);"></div>
-        <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
-        <div id="quick-login-box" style="display:none !important;"></div>
-        <div id="my-profile-box" style="display:none !important;"></div>
-        
-        <!-- 🆕 v5.87.4: UBER-STYLE VORBESTELL-MODAL -->
-        <div id="preorder-modal" style="
-            display:none;
-            position:fixed;
-            top:0;
-            left:0;
-            right:0;
-            bottom:0;
-            background:rgba(0,0,0,0.5);
-            z-index:10000;
-            padding:20px;
-            overflow-y:auto;
-        ">
-            <div style="
-                background:white;
-                border-radius:16px;
-                max-width:500px;
-                margin:60px auto 0 auto;
-                padding:24px;
-            ">
-                <!-- Header -->
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-                    <button onclick="closePreorderModal()" style="
-                        background:transparent;
-                        border:none;
-                        font-size:24px;
-                        cursor:pointer;
-                        padding:0;
-                        width:32px;
-                        height:32px;
-                    ">←</button>
-                    <h2 style="margin:0;font-size:20px;font-weight:700;">Wann möchtest du abgeholt werden?</h2>
-                    <div style="width:32px;"></div>
-                </div>
-                
-                <!-- Datum -->
-                <div style="margin-bottom:16px;">
-                    <input type="date" id="preorder-date" style="
-                        width:100%;
-                        padding:16px;
-                        border:2px solid #e5e7eb;
-                        border-radius:12px;
-                        font-size:16px;
-                        font-weight:600;
-                    ">
-                </div>
-                
-                <!-- Uhrzeit -->
-                <div style="margin-bottom:24px;">
-                    <input type="time" id="preorder-time" style="
-                        width:100%;
-                        padding:16px;
-                        border:2px solid #e5e7eb;
-                        border-radius:12px;
-                        font-size:16px;
-                        font-weight:600;
-                    ">
-                </div>
-                
-                <!-- Infos -->
-                <div style="
-                    background:#f9fafb;
-                    padding:16px;
-                    border-radius:12px;
-                    margin-bottom:24px;
-                    font-size:14px;
-                    color:#666;
-                    line-height:1.6;
-                ">
-                    <div style="margin-bottom:8px;">📅 Du kannst deine Abholzeit bis zu 30 Tage im Voraus wählen.</div>
-                    <div style="margin-bottom:8px;">⏱️ Zusätzliche Wartezeit für die Fahrt inbegriffen</div>
-                    <div>🔄 Du kannst bis zu 60 Minuten im Voraus kostenlos stornieren</div>
-                </div>
-                
-                <!-- Weiter Button -->
-                <button onclick="confirmPreorderTime()" style="
-                    width:100%;
-                    padding:16px;
-                    background:#000;
-                    color:white;
-                    border:none;
-                    border-radius:12px;
-                    font-size:16px;
-                    font-weight:700;
-                    cursor:pointer;
-                ">
-                    Weiter
-                </button>
-            </div>
-        </div>
-        
-        <!-- Route-Map Fallback (hidden) -->
-        <div id="route-map" style="display:none;"></div>
     </div>
+
+    <!-- 🆕 v5.45.0: FAHRPLAN-VIEW - Abfahrtstafel + ÖPNV-Taxi -->
     <div id="schedule-view" class="view">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:8px;">
             <h3 style="margin:0;flex:1;">🚏 Abfahrtstafel</h3>
@@ -2483,27 +2399,6 @@
         </div>
         
         <script>
-            // 🆕 v5.87.12: UPDATE HEADER + BOTTOM MIT VERSION + FIREBASE STATUS
-            function updateHeaderInfo() {
-                const version = APP_VERSION || '5.87.12';
-                const build = APP_BUILD || '20251217-2015';
-                const firebaseStatus = isFirebaseReady ? '🟢 Online' : '🔴 Offline';
-                
-                // Header Version (oben im Menü)
-                const versionDisplay = document.getElementById('version-display');
-                if (versionDisplay) {
-                    versionDisplay.innerHTML = `📦 v${version} (${build}) • ${firebaseStatus}`;
-                }
-                
-                // Bottom Version (unten im Bottom Sheet - immer sichtbar!)
-                const bottomVersionDisplay = document.getElementById('bottom-version-display');
-                if (bottomVersionDisplay) {
-                    bottomVersionDisplay.innerHTML = `📦 v${version} (${build})`;
-                }
-                
-                console.log('📊 Header updated:', version, firebaseStatus);
-            }
-            
             // 📱 HEADER TOGGLE
             let headerCollapsed = false;
             function toggleHeader() {
@@ -2666,7 +2561,7 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.87.13 - VORBESTELLUNG + TELEGRAM FIX!');
+                    console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5007,32 +4902,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.13';
-        const APP_BUILD = '20251217-2300';
-        
-        // 🆕 v5.87.12: GLOBALE VARIABLEN GANZ OBEN (vor updateHeaderInfo!)
-        let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
-        let currentBookingCustomerId = null;
-        let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
-        let qbPanelPickupCoords = null, qbPanelDestCoords = null;
-        let pickupConfirmed = false;
-        let destinationConfirmed = false;
-        let currentAutocompleteField = null;
-        let isOPNVMode = false;
-        let currentTrackingRideId = null;
-        let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
-        let wakeLock = null;
-        let routeMapTopInstance = null;
-        let topMapTaxiMarkers = [];
-        let topMapUpdateInterval = null;
-        let cancellations = [];
-        let notifiedCancellations = new Set();
-        let bookingSystemOnline = true;
-        
-        // 🆕 v5.87.12: UPDATE HEADER SOFORT (jetzt NACH Variable-Deklaration!)
-        if (typeof updateHeaderInfo === 'function') {
-            updateHeaderInfo();
-        }
+        const APP_VERSION = '5.86.34';
+        const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -5062,8 +4933,27 @@
             'swinemünde': { lat: 53.9167, lon: 14.2500, name: 'Swinemünde' }
         };
 
-        // 🆕 v5.87.12: STATE-Variablen sind jetzt GANZ OBEN (Zeile ~4990)
-        // (siehe nach APP_VERSION/APP_BUILD)
+        // STATE
+        let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
+        let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
+        let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
+        let qbPanelPickupCoords = null, qbPanelDestCoords = null; // 🆕 v5.50.7: Admin-Panel Koordinaten
+        
+        // 🆕 v5.42.7: Adressen-Bestätigungs-Status
+        let pickupConfirmed = false;
+        let destinationConfirmed = false;
+        
+        // 🆕 v5.42.8: Aktuelles Autocomplete-Feld
+        let currentAutocompleteField = null;
+        
+        // 🆕 v5.44.0: ÖPNV-Taxi Modus
+        let isOPNVMode = false;
+        let currentTrackingRideId = null; // 🆕 Aktuelle Fahrt für GPS-Tracking
+        let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
+        let wakeLock = null;
+        let cancellations = []; // Neue Variable für Stornierungen
+        let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
+        let bookingSystemOnline = true; // 🆕 v5.38.2: Buchungssystem AN/AUS (Standard: AN)
         
         // 🆕 v5.38.5: DEBUG-MODUS (Legacy - umbenannt um Konflikt mit Floating Debug zu vermeiden)
         // debugMode ist bereits global definiert!
@@ -5677,345 +5567,67 @@
         function selectRideType(type) {
             currentRideType = type;
             
+            const btnSofort = document.getElementById('btn-sofort');
+            const btnVorbestellen = document.getElementById('btn-vorbestellen');
+            const sofortBereich = document.getElementById('sofort-bereich');
+            const vorbestellenBereich = document.getElementById('vorbestellen-bereich');
+            
             if (type === 'sofort') {
-                // SOFORT ausgewählt → Buchen-Button zeigen
-                const bookBtn = document.getElementById('book-btn');
-                if (bookBtn) bookBtn.style.display = 'block';
+                // ⚡ SOFORT Button aktiv
+                btnSofort.style.border = '3px solid #10b981';
+                btnSofort.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                btnSofort.querySelector('div:nth-child(2)').style.color = 'white';
+                btnSofort.querySelector('div:nth-child(3)').style.color = 'rgba(255,255,255,0.9)';
                 
-                // Vorbestell-Container verstecken
-                const preorderContainer = document.getElementById('preorder-container');
-                if (preorderContainer) preorderContainer.style.display = 'none';
+                // 📅 VORBESTELLEN Button inaktiv
+                btnVorbestellen.style.border = '3px solid #e5e7eb';
+                btnVorbestellen.style.background = 'white';
+                btnVorbestellen.querySelector('div:nth-child(2)').style.color = '#6b7280';
+                btnVorbestellen.querySelector('div:nth-child(3)').style.color = '#666';
+                
+                // Bereiche zeigen/verstecken
+                sofortBereich.style.display = 'block';
+                vorbestellenBereich.style.display = 'none';
+                
+                // ✅ WENN Abholadresse bereits eingegeben → Lade Taxis!
+                const pickupInput = document.getElementById('pickup');
+                if (pickupInput && pickupInput.value.trim()) {
+                    console.log('📍 Abholadresse vorhanden, lade Taxis...');
+                    
+                    // Zeige Loading
+                    const display = document.getElementById('available-taxis-display');
+                    display.innerHTML = `
+                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
+                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
+                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Suche verfügbare Taxis...</div>
+                            <div style="font-size:13px;opacity:0.9;">Bitte warten...</div>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        showAvailableTaxis();
+                    }, 500);
+                }
                 
             } else if (type === 'vorbestellen') {
-                // 🆕 v5.87.4: UBER-STYLE MODAL ÖFFNEN
-                openPreorderModal();
-            }
-        }
-        
-        // 🆕 v5.87.10: DROPDOWN HANDLER
-        function handleRideTypeSelect() {
-            const select = document.getElementById('ride-type-select');
-            const value = select.value;
-            
-            console.log('📋 Dropdown geändert:', value);
-            
-            if (value === '') {
-                // Nichts gewählt - Buchen-Button verstecken
-                const bookBtn = document.getElementById('book-btn');
-                if (bookBtn) bookBtn.style.display = 'none';
-                return;
-            }
-            
-            // Rufe existierende selectRideType Funktion auf
-            selectRideType(value);
-        }
-        
-        // 🆕 v5.87.4: UBER-STYLE VORBESTELL-MODAL
-        function openPreorderModal() {
-            console.log('🗓️ openPreorderModal() aufgerufen!');
-            
-            const modal = document.getElementById('preorder-modal');
-            if (!modal) {
-                console.error('❌ preorder-modal Element nicht gefunden!');
-                return;
-            }
-            
-            console.log('✅ Modal Element gefunden');
-            
-            // Setze Default-Werte
-            const dateInput = document.getElementById('preorder-date');
-            const timeInput = document.getElementById('preorder-time');
-            
-            if (!dateInput || !timeInput) {
-                console.error('❌ Datum/Zeit Inputs nicht gefunden!', {dateInput, timeInput});
-                return;
-            }
-            
-            console.log('✅ Inputs gefunden');
-            
-            // Default: Heute + 1 Stunde
-            const defaultTime = new Date();
-            defaultTime.setHours(defaultTime.getHours() + 1);
-            
-            // Datum
-            const year = defaultTime.getFullYear();
-            const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
-            const day = String(defaultTime.getDate()).padStart(2, '0');
-            dateInput.value = `${year}-${month}-${day}`;
-            
-            // Uhrzeit (gerundet auf 5 Min)
-            const hours = String(defaultTime.getHours()).padStart(2, '0');
-            const minutes = String(Math.ceil(defaultTime.getMinutes() / 5) * 5).padStart(2, '0');
-            timeInput.value = `${hours}:${minutes}`;
-            
-            console.log('✅ Datum/Zeit gesetzt:', dateInput.value, timeInput.value);
-            
-            // Modal anzeigen
-            modal.style.display = 'block';
-            console.log('✅ Modal geöffnet! display =', modal.style.display);
-        }
-        
-        function closePreorderModal() {
-            const modal = document.getElementById('preorder-modal');
-            if (modal) modal.style.display = 'none';
-        }
-        
-        function confirmPreorderTime() {
-            const dateInput = document.getElementById('preorder-date');
-            const timeInput = document.getElementById('preorder-time');
-            
-            if (!dateInput.value || !timeInput.value) {
-                alert('⚠️ Bitte Datum und Uhrzeit wählen!');
-                return;
-            }
-            
-            // Speichere gewählte Zeit
-            window.selectedPreorderDate = dateInput.value;
-            window.selectedPreorderTime = timeInput.value;
-            
-            // Formatiere für Anzeige
-            const dateObj = new Date(dateInput.value + 'T' + timeInput.value);
-            const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-            const timeStr = timeInput.value;
-            
-            // Update Button-Text
-            const btnVorbestellen = document.getElementById('btn-vorbestellen');
-            if (btnVorbestellen) {
-                btnVorbestellen.innerHTML = `📅 ${dateStr} • ⏰ ${timeStr}`;
-            }
-            
-            // Zeige Buchen-Button
-            const bookBtn = document.getElementById('book-btn');
-            if (bookBtn) bookBtn.style.display = 'block';
-            
-            // Schließe Modal
-            closePreorderModal();
-            
-            console.log('✅ Vorbestellung:', dateStr, timeStr);
-        }
-        
-        // 🆕 v5.87.5: TAXI BUCHEN (mit Debug Logging)
-        async function bookRide() {
-            console.log('═══════════════════════════════════════════');
-            console.log('🚕 bookRide() aufgerufen!');
-            console.log('   currentRideType:', currentRideType);
-            console.log('   selectedDate:', window.selectedPreorderDate);
-            console.log('   selectedTime:', window.selectedPreorderTime);
-            console.log('═══════════════════════════════════════════');
-            
-            // Validierung
-            const pickup = document.getElementById('pickup').value.trim();
-            const destination = document.getElementById('destination').value.trim();
-            
-            if (!pickup || !destination) {
-                alert('❌ Bitte Abholort und Zielort eingeben!');
-                return;
-            }
-            
-            if (!pickupCoords || !destCoords) {
-                alert('❌ Bitte wähle Orte aus der Autocomplete-Liste!');
-                return;
-            }
-            
-            if (!currentRideType) {
-                alert('❌ Bitte wähle SOFORT oder SPÄTER!');
-                return;
-            }
-            
-            // 🆕 v5.87.11: TELEFON-VERIFIKATION PRÜFEN (mit Admin-Exception!)
-            console.log('📱 Prüfe Telefon-Verifikation...');
-            console.log('   currentUser:', currentUser);
-            console.log('   phoneNumber:', currentUser?.phoneNumber);
-            console.log('   email:', currentUser?.email);
-            
-            if (!currentUser) {
-                alert('❌ Bitte melde dich zuerst an!');
-                return;
-            }
-            
-            // 🆕 v5.87.11: Admin-Exception (funktaxi.pw@gmail.com braucht keine Telefon-Verifikation)
-            const isAdminUser = currentUser.email === 'funktaxi.pw@gmail.com';
-            
-            if (!isAdminUser && (!currentUser.phoneNumber || currentUser.phoneNumber.trim() === '')) {
-                console.log('❌ Keine Telefonnummer! Zeige Verifikation...');
-                alert('📱 Telefon-Verifikation erforderlich!\n\n' +
-                      'Um ein Taxi zu buchen, musst du zuerst deine Telefonnummer verifizieren.\n\n' +
-                      'Klicke auf dein Profil-Icon (oben rechts) und verifiziere deine Nummer.');
-                return;
-            }
-            
-            if (isAdminUser) {
-                console.log('✅ Admin-User erkannt - Telefon-Verifikation übersprungen');
-            } else {
-                console.log('✅ Telefon-Verifikation OK:', currentUser.phoneNumber);
-            }
-            
-            // Timestamp + Status berechnen
-            let pickupTimestamp;
-            let rideStatus;
-            
-            if (currentRideType === 'sofort') {
-                pickupTimestamp = Date.now() + 5 * 60000; // +5 Min
-                rideStatus = 'new';
-                console.log('⚡ SOFORT Buchung → Timestamp:', pickupTimestamp, '=', new Date(pickupTimestamp));
-            } else {
-                // Vorbestellung
-                const date = window.selectedPreorderDate;
-                const time = window.selectedPreorderTime;
-                console.log('📅 VORBESTELLUNG Buchung → date:', date, 'time:', time);
+                // 📅 VORBESTELLEN Button aktiv
+                btnVorbestellen.style.border = '3px solid #667eea';
+                btnVorbestellen.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
+                btnVorbestellen.querySelector('div:nth-child(2)').style.color = 'white';
+                btnVorbestellen.querySelector('div:nth-child(3)').style.color = 'rgba(255,255,255,0.9)';
                 
-                if (!date || !time) {
-                    alert('❌ Bitte Zeit wählen!');
-                    return;
-                }
+                // ⚡ SOFORT Button inaktiv
+                btnSofort.style.border = '3px solid #e5e7eb';
+                btnSofort.style.background = 'white';
+                btnSofort.querySelector('div:nth-child(2)').style.color = '#6b7280';
+                btnSofort.querySelector('div:nth-child(3)').style.color = '#666';
                 
-                // 🔧 WICHTIG: Timezone explizit setzen!
-                const dateTimeStr = date + 'T' + time + ':00';
-                pickupTimestamp = new Date(dateTimeStr).getTime();
+                // Bereiche zeigen/verstecken
+                sofortBereich.style.display = 'none';
+                vorbestellenBereich.style.display = 'block';
                 
-                console.log('📅 dateTimeStr:', dateTimeStr);
-                console.log('📅 pickupTimestamp:', pickupTimestamp);
-                console.log('📅 als Date:', new Date(pickupTimestamp));
-                console.log('📅 Zeitdifferenz zu jetzt:', Math.round((pickupTimestamp - Date.now()) / 60000), 'Minuten');
-                
-                // 🕐 Status: 'new' wenn ≤15 Min, sonst 'vorbestellt'
-                const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
-                rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
-                
-                console.log('📊 Status:', rideStatus, '(', minutesUntilPickup.toFixed(1), 'Min bis Abholung)');
-            }
-            
-            // Fahrt-Objekt
-            const ride = {
-                pickup: pickup,
-                destination: destination,
-                pickupCoords: pickupCoords,
-                destCoords: destCoords,
-                price: window.currentPrice || 0,
-                distance: window.currentDistance || 0,
-                duration: window.currentDuration || 0,
-                pickupTime: pickupTimestamp,
-                createdAt: Date.now(),
-                status: rideStatus,
-                rideType: currentRideType,
-                passengers: document.getElementById('passengers')?.value || '1',
-                paymentMethod: document.getElementById('payment-method')?.value || 'bar',
-                userId: currentUser?.uid || 'anonymous',
-                userPhone: currentUser?.phoneNumber || '',
-                userName: currentUser?.displayName || 'Gast'
-            };
-            
-            console.log('═══════════════════════════════════════════');
-            console.log('📋 FAHRT-DATEN:');
-            console.log(JSON.stringify(ride, null, 2));
-            console.log('═══════════════════════════════════════════');
-            
-            try {
-                // Speichere in Firebase
-                const rideRef = await db.ref('rides').push(ride);
-                const firebaseId = rideRef.key;
-                console.log('✅ Fahrt gespeichert mit ID:', firebaseId);
-                
-                // 🆕 v5.87.13: Füge Firebase-ID zum Objekt hinzu
-                ride.firebaseId = firebaseId;
-                ride.id = firebaseId;
-                
-                // 📲 TELEGRAM-NACHRICHT SENDEN!
-                if (isFirebaseReady) {
-                    console.log('📲 Sende Telegram-Nachricht...');
-                    try {
-                        await sendTelegramForNewRide(ride);
-                        console.log('✅ Telegram-Nachricht gesendet!');
-                    } catch (telegramError) {
-                        console.error('❌ Telegram-Fehler:', telegramError);
-                        // Nicht abbrechen, Buchung ist trotzdem erfolgreich
-                    }
-                }
-                
-                // Zeige Erfolg
-                if (rideStatus === 'vorbestellt') {
-                    alert('✅ Vorbestellung erfolgreich!\n\n' + 
-                          'Fahrt-ID: ' + firebaseId + '\n' +
-                          'Abholzeit: ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n\n' +
-                          '📲 Du erhältst eine Telegram-Nachricht zur Erinnerung!\n\n' +
-                          '🚕 Das Formular ist bereit für die nächste Buchung.');
-                } else {
-                    alert('✅ Taxi gebucht!\n\n' + 
-                          'Fahrt-ID: ' + firebaseId + '\n' +
-                          'Status: Suche Fahrer...\n' +
-                          'Abholzeit: ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n\n' +
-                          '📲 Du erhältst eine Benachrichtigung wenn ein Fahrer zugewiesen wird.');
-                }
-                
-                // 🧹 CLEANUP: Formular zurücksetzen
-                console.log('🧹 Starte Formular-Cleanup...');
-                
-                // Reset Eingabefelder
-                document.getElementById('pickup').value = '';
-                document.getElementById('destination').value = '';
-                pickupCoords = null;
-                destCoords = null;
-                currentRideType = null;
-                window.selectedPreorderDate = null;
-                window.selectedPreorderTime = null;
-                window.currentPrice = null;
-                window.currentDistance = null;
-                window.currentDuration = null;
-                
-                // Verstecke UI-Elemente
-                const rideTypeDropdown = document.getElementById('ride-type-dropdown-container');
-                if (rideTypeDropdown) {
-                    rideTypeDropdown.style.display = 'none';
-                    console.log('✅ Dropdown versteckt');
-                }
-                
-                const bookBtn = document.getElementById('book-btn');
-                if (bookBtn) {
-                    bookBtn.style.display = 'none';
-                    console.log('✅ Button versteckt');
-                }
-                
-                const mapBadge = document.getElementById('map-price-badge');
-                if (mapBadge) {
-                    mapBadge.style.display = 'none';
-                    console.log('✅ Badge versteckt');
-                }
-                
-                // Reset Dropdown-Wert
-                const rideTypeSelect = document.getElementById('ride-type-select');
-                if (rideTypeSelect) {
-                    rideTypeSelect.value = '';
-                    console.log('✅ Dropdown-Wert zurückgesetzt');
-                }
-                
-                // Entferne Marker von der Karte
-                if (window.pickupMarker) {
-                    window.pickupMarker.remove();
-                    window.pickupMarker = null;
-                }
-                if (window.destMarker) {
-                    window.destMarker.remove();
-                    window.destMarker = null;
-                }
-                if (window.routeLine) {
-                    window.routeLine.remove();
-                    window.routeLine = null;
-                }
-                
-                console.log('✅ Formular komplett zurückgesetzt!');
-                
-                // 🎯 AUTO-ZUWEISUNG für SOFORT-Fahrten
-                if (rideStatus === 'new' && isFirebaseReady) {
-                    console.log('🎯 Starte Auto-Zuweisung...');
-                    // startAutoAssignment() muss existieren
-                    if (typeof startAutoAssignment === 'function') {
-                        startAutoAssignment(firebaseId, ride);
-                    }
-                }
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Buchen:', error);
-                alert('❌ Fehler beim Buchen!\n\n' + error.message);
+                // 📅 Initialisiere Datum/Zeit-Felder mit sinnvollen Defaults
+                initVorbestellenDefaults();
             }
         }
         
@@ -7217,11 +6829,11 @@
             // TODO: Favoriten-Anzeige implementieren
         }
 
-        console.log('🚕 Funk Taxi App v5.87.13 - VORBESTELLUNG + TELEGRAM FIX! (Build 20251217-2015)');
-        console.log('✨ v5.87.12: VERSION UNTEN IM BOTTOM SHEET SICHTBAR!');
-        console.log('🐛 v5.87.12: isFirebaseReady VARIABLE-BUG BEHOBEN!');
-        console.log('👤 v5.87.11: ADMIN BRAUCHT KEINE TELEFON-VERIFIKATION!');
-        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT!');
+        console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG! (Build 20251209-0935)');
+        console.log('🐛 v5.50.5: DEBUG-LOGS FÜR ALTERNATIVE ZEITSLOT TELEGRAM!');
+        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
+        console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
+        console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -7968,9 +7580,6 @@
                     db = firebase.database();
                     isFirebaseReady = true;
                     
-                    // 🆕 v5.87.11: UPDATE HEADER MIT VERSION + STATUS
-                    updateHeaderInfo();
-                    
                     if (isTestMode) {
                         console.log('✅ Firebase TEST-DB verbunden (Prefix: test_)');
                     } else {
@@ -8204,7 +7813,6 @@
                         showAvailableTaxis();
                         checkDriverAvailability(); // 🆕 v5.32.5g: SOFORT-Button nur wenn Fahrer verfügbar
                         if (currentView === 'admin') updateAdminView(); // ← Update Admin für Online-Fahrer
-                        if (currentView === 'passenger' && routeMapTopInstance) updateTopMapTaxis(); // 🆕 v5.86.39: Update Taxi-Marker
                     });
                     db.ref('cancellations').on('value', (s) => {
                         cancellations = [];
@@ -8218,13 +7826,6 @@
                     
                     // 🆕 v5.31.0: child_changed ENTFERNT - verursachte Race Conditions!
                     // Der 'value' Listener oben updated schon alles automatisch!
-                    
-                    // 🆕 v5.86.37: Große Karte oben initialisieren (nach Firebase Ready)
-                    setTimeout(() => {
-                        if (currentView === 'passenger') {
-                            initTopMap();
-                        }
-                    }, 1000);
                     
                 } catch (e) { 
                     console.error('❌ Firebase Fehler:', e); 
@@ -8854,29 +8455,11 @@
             
             currentView = view;
             
-            // 🆕 v5.87.0: UBER-STYLE - Verstecke Tabs/Header bei Passenger
-            const adminTabs = document.getElementById('admin-tabs');
-            const mainHeader = document.getElementById('main-header');
-            const appContainer = document.getElementById('app');
-            if (view === 'passenger') {
-                // Fullscreen Modus - alles weg!
-                if (adminTabs) adminTabs.style.display = 'none';
-                if (mainHeader) mainHeader.style.display = 'none';
-                if (appContainer) appContainer.style.padding = '0'; // Kein Padding!
-            } else {
-                // Normale Views - zeige Tabs/Header
-                if (adminTabs) adminTabs.style.display = 'block';
-                if (mainHeader) mainHeader.style.display = 'block';
-                if (appContainer) appContainer.style.padding = '20px'; // Standard-Padding zurück
-            }
-            
             console.log('🔄 View gewechselt zu:', view);
             
             // 🆕 v5.26.0: Telefon-Auth prüfen bei Fahrgast-Tab
             if (view === 'passenger') {
                 setTimeout(() => checkPassengerAuth(), 100);
-                // 🆕 v5.86.37: Große Karte oben initialisieren (Uber-Style)
-                setTimeout(() => initTopMap(), 200);
             } else {
                 // Login-Screen verstecken bei anderen Tabs
                 const authScreen = document.getElementById('phone-auth-screen');
@@ -8947,281 +8530,7 @@
                 setTimeout(() => loadPOIs(), 100);
             }
             
-            // 🆕 v5.86.39: Stoppe Taxi-Update-Interval wenn nicht mehr passenger-view
-            if (view !== 'passenger' && topMapUpdateInterval) {
-                clearInterval(topMapUpdateInterval);
-                topMapUpdateInterval = null;
-                console.log('🛑 Taxi-Update-Interval gestoppt (View-Wechsel)');
-            }
-            
             updateViews();
-        }
-
-        // 🆕 v5.86.37: Große Karte oben initialisieren (Uber-Style)
-        function initTopMap() {
-            console.log('🗺️ initTopMap() wird aufgerufen...');
-            console.log('   drivers verfügbar:', Object.keys(drivers).length, 'Fahrer');
-            console.log('   currentView:', currentView);
-            
-            const mapContainer = document.getElementById('route-map-top');
-            if (!mapContainer) {
-                console.error('❌ route-map-top Container nicht gefunden!');
-                return;
-            }
-            
-            console.log('✅ Map-Container gefunden!');
-            
-            // Entferne alte Karte falls vorhanden
-            if (routeMapTopInstance) {
-                try {
-                    console.log('🗑️ Entferne alte Karte...');
-                    routeMapTopInstance.remove();
-                } catch (e) {
-                    console.log('ℹ️ Alte Karte konnte nicht entfernt werden:', e);
-                }
-            }
-            
-            try {
-                console.log('🔨 Erstelle neue Leaflet Map...');
-                
-                // Neue Karte erstellen - 2-Finger Zoom, kein 1-Finger Drag!
-                routeMapTopInstance = L.map('route-map-top', {
-                    zoomControl: true,
-                    attributionControl: false,
-                    dragging: false,          // 🆕 v5.86.38: Kein 1-Finger Drag!
-                    tap: false,               // Kein Tap-Drag
-                    scrollWheelZoom: false,   // Kein Scroll-Zoom (wichtig fürs Scrollen!)
-                    touchZoom: true           // Nur 2-Finger Pinch-Zoom
-                }).setView([53.95, 14.15], 12); // Heringsdorf Center
-                
-                console.log('✅ Leaflet Map erstellt!');
-                
-                // OpenStreetMap Tiles laden
-                console.log('📡 Lade OpenStreetMap Tiles...');
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19
-                }).addTo(routeMapTopInstance);
-                
-                console.log('✅ Tiles geladen!');
-                
-                console.log('✅ Große Karte oben initialisiert!');
-                
-                // 🆕 v5.86.39: Zeige verfügbare Taxis auf Karte (wie Uber!)
-                console.log('🚕 Rufe updateTopMapTaxis() auf...');
-                updateTopMapTaxis();
-                
-                // 🆕 v5.86.39: Live-Update alle 10 Sekunden
-                console.log('⏰ Starte Update-Interval (alle 10s)...');
-                if (topMapUpdateInterval) clearInterval(topMapUpdateInterval);
-                topMapUpdateInterval = setInterval(() => {
-                    if (currentView === 'passenger' && !priceCalculated) {
-                        updateTopMapTaxis();
-                    }
-                }, 10000); // Alle 10s
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Initialisieren der Karte:', error);
-            }
-        }
-        
-        // 🆕 v5.86.39: Verfügbare Taxis auf großer Karte anzeigen (Uber-Style!)
-        function updateTopMapTaxis() {
-            console.log('🚕 updateTopMapTaxis() aufgerufen!');
-            
-            if (!routeMapTopInstance) {
-                console.log('❌ routeMapTopInstance ist NULL!');
-                return;
-            }
-            
-            console.log('✅ Karte ist initialisiert');
-            
-            try {
-                // Entferne alte Taxi-Marker
-                console.log(`🗑️ Entferne ${topMapTaxiMarkers.length} alte Taxi-Marker...`);
-                topMapTaxiMarkers.forEach(marker => {
-                    routeMapTopInstance.removeLayer(marker);
-                });
-                topMapTaxiMarkers = [];
-                
-                // Hole verfügbare Fahrer
-                console.log('🔍 Durchsuche drivers Array...');
-                console.log('drivers:', drivers);
-                console.log('Object.keys(drivers).length:', Object.keys(drivers).length);
-                
-                let availableDrivers = [];
-                Object.keys(drivers).forEach(driverId => {
-                    const driver = drivers[driverId];
-                    
-                    // 🆕 v5.86.41: Support für beide Strukturen!
-                    // Alte: isOnline, location.lat, location.lon
-                    // Neue: online, lat, lon
-                    const isOnline = driver.isOnline || driver.online;
-                    const lat = driver.location?.lat || driver.lat;
-                    const lon = driver.location?.lon || driver.lon;
-                    
-                    console.log(`   Prüfe Fahrer ${driverId}:`, {
-                        isOnline: isOnline,
-                        lat: lat,
-                        lon: lon,
-                        vehicleId: driver.vehicleId || driverId
-                    });
-                    
-                    // Nur echte Fahrzeug-IDs (beginnen mit tesla_ oder haben vehicle Property)
-                    const isVehicle = driverId.startsWith('tesla_') || driver.vehicle || driver.vehicleId;
-                    
-                    if (isOnline && lat && lon && isVehicle) {
-                        // Prüfe ob Fahrer verfügbar ist (nicht auf Fahrt)
-                        const hasActiveRide = rides.some(r => 
-                            (r.driverId === driverId || r.vehicle === driverId) && 
-                            (r.status === 'accepted' || r.status === 'picked_up')
-                        );
-                        
-                        console.log(`   → hasActiveRide: ${hasActiveRide}`);
-                        
-                        if (!hasActiveRide) {
-                            console.log(`   ✅ Fahrer ${driverId} ist verfügbar!`);
-                            availableDrivers.push({
-                                id: driverId,
-                                name: driver.vehicle || driver.name || driverId,
-                                lat: lat,
-                                lon: lon
-                            });
-                        } else {
-                            console.log(`   ❌ Fahrer ${driverId} ist auf Fahrt!`);
-                        }
-                    } else {
-                        if (!isVehicle) {
-                            console.log(`   ⏭️ Überspringe ${driverId} (kein Fahrzeug)`);
-                        } else {
-                            console.log(`   ❌ Fahrer ${driverId} ist offline oder hat keine GPS-Daten!`);
-                        }
-                    }
-                });
-                
-                console.log(`📊 ${availableDrivers.length} verfügbare Fahrer gefunden!`);
-                console.log('availableDrivers:', availableDrivers);
-                
-                // Zeige Taxi-Marker
-                availableDrivers.forEach(driver => {
-                    console.log(`🚕 Erstelle Marker für ${driver.name} bei [${driver.lat}, ${driver.lon}]`);
-                    
-                    const marker = L.marker([driver.lat, driver.lon], {
-                        icon: L.divIcon({
-                            className: 'taxi-marker',
-                            html: '<div style="font-size:20px;">🚕</div>',
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10]
-                        }),
-                        zIndexOffset: 1000 // Immer im Vordergrund
-                    }).addTo(routeMapTopInstance);
-                    
-                    marker.bindPopup(`<strong>🚕 ${driver.name}</strong><br><small>Verfügbar</small>`);
-                    topMapTaxiMarkers.push(marker);
-                    
-                    console.log(`   ✅ Marker erstellt und zur Karte hinzugefügt!`);
-                });
-                
-                // Update Text unter Karte
-                updateTopMapText(availableDrivers.length);
-                
-                console.log(`🚕 ${availableDrivers.length} Taxis auf Karte aktualisiert`);
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Aktualisieren der Taxi-Marker:', error);
-            }
-        }
-        
-        // 🆕 v5.86.39: Text unter Karte aktualisieren
-        function updateTopMapText(taxiCount) {
-            const mapContainer = document.getElementById('route-map-top');
-            if (!mapContainer) return;
-            
-            // Suche oder erstelle Text-Element
-            let textEl = document.getElementById('top-map-taxi-count');
-            if (!textEl) {
-                textEl = document.createElement('div');
-                textEl.id = 'top-map-taxi-count';
-                textEl.style.cssText = 'position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;z-index:1000;pointer-events:none;';
-                mapContainer.parentElement.style.position = 'relative';
-                mapContainer.parentElement.appendChild(textEl);
-            }
-            
-            if (taxiCount === 0) {
-                textEl.innerHTML = '⏳ Keine Taxis verfügbar';
-                textEl.style.background = 'rgba(239, 68, 68, 0.9)';
-            } else if (taxiCount === 1) {
-                textEl.innerHTML = '🚕 1 Taxi verfügbar';
-                textEl.style.background = 'rgba(0, 0, 0, 0.8)';
-            } else {
-                textEl.innerHTML = `🚕 ${taxiCount} Taxis verfügbar`;
-                textEl.style.background = 'rgba(0, 0, 0, 0.8)';
-            }
-        }
-        
-        // 🆕 v5.86.37: Große Karte oben mit Route aktualisieren
-        function updateTopMapWithRoute(route, pickupCoords, destCoords) {
-            if (!routeMapTopInstance) {
-                console.log('ℹ️ Große Karte nicht initialisiert, überspringe Update');
-                return;
-            }
-            
-            try {
-                // Entferne alte Route-Layer (aber NICHT Taxi-Marker!)
-                routeMapTopInstance.eachLayer((layer) => {
-                    // Nur Route-Polylines und Route-Marker entfernen, NICHT Taxi-Marker!
-                    if (layer instanceof L.Polyline) {
-                        routeMapTopInstance.removeLayer(layer);
-                    } else if (layer instanceof L.Marker && !topMapTaxiMarkers.includes(layer)) {
-                        // Nur Marker entfernen die KEINE Taxi-Marker sind
-                        routeMapTopInstance.removeLayer(layer);
-                    }
-                });
-                
-                // Start Marker (grün)
-                L.marker([pickupCoords.lat, pickupCoords.lon], {
-                    icon: L.divIcon({
-                        className: 'custom-marker',
-                        html: '<div style="background:#10b981;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.4);"></div>',
-                        iconSize: [28, 28],
-                        iconAnchor: [14, 14]
-                    })
-                }).addTo(routeMapTopInstance);
-                
-                // Ziel Marker (rot)
-                L.marker([destCoords.lat, destCoords.lon], {
-                    icon: L.divIcon({
-                        className: 'custom-marker',
-                        html: '<div style="background:#ef4444;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.4);"></div>',
-                        iconSize: [28, 28],
-                        iconAnchor: [14, 14]
-                    })
-                }).addTo(routeMapTopInstance);
-                
-                // Route-Linie zeichnen
-                if (route.geometry && route.geometry.length > 0) {
-                    const routeLine = L.polyline(
-                        route.geometry.map(coord => [coord[1], coord[0]]),
-                        {
-                            color: '#000',
-                            weight: 6,
-                            opacity: 0.8
-                        }
-                    ).addTo(routeMapTopInstance);
-                    
-                    // Zoom auf Route
-                    routeMapTopInstance.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
-                } else {
-                    // Fallback: Zoom auf Start und Ziel
-                    routeMapTopInstance.fitBounds([
-                        [pickupCoords.lat, pickupCoords.lon],
-                        [destCoords.lat, destCoords.lon]
-                    ], { padding: [50, 50] });
-                }
-                
-                console.log('✅ Große Karte oben mit Route aktualisiert!');
-            } catch (error) {
-                console.error('❌ Fehler beim Aktualisieren der großen Karte:', error);
-            }
         }
 
         // 📱 MENÜ FUNKTIONEN
@@ -9353,7 +8662,6 @@
         // Lade Abfahrten für gewählte Bushaltestelle
 
         // 🆕 v5.33.1: Admin-Tabs anzeigen/verstecken
-        let lastAdminTabsState = null; // 🆕 v5.87.6: Track State
         function updateAdminTabsVisibility() {
             const adminTabs = document.getElementById('admin-tabs');
             if (!adminTabs) return;
@@ -9371,18 +8679,11 @@
             const bookingForm = document.getElementById('booking-form');
             const bookingVisible = bookingForm && window.getComputedStyle(bookingForm).display !== 'none';
             
-            // 🔧 v5.87.6: BESSERE LOGIN-DETECTION!
-            // Prüfe auch currentUser, nicht nur sichtbare Elemente!
-            const isLoggedIn = (currentUser && currentUser.uid) || (!phoneAuthVisible && (hasName || bookingVisible));
+            const isLoggedIn = !phoneAuthVisible && (hasName || bookingVisible);
             
             // 2. Prüfe User-Rolle (global gesetzt durch applyRoleRestrictions)
             // Tabs ONLY für Fahrer & Admin!
             const showTabs = isLoggedIn && (userRole === 'admin' || userRole === 'fahrer');
-            
-            // 🆕 v5.87.6: Nur bei State-Änderung loggen!
-            const currentState = `${showTabs}:${userRole}:${isLoggedIn}`;
-            const stateChanged = lastAdminTabsState !== currentState;
-            lastAdminTabsState = currentState;
             
             if (showTabs) {
                 adminTabs.style.display = 'block';
@@ -9396,24 +8697,22 @@
                     document.querySelectorAll('.admin-tab-btn.driver-visible').forEach(btn => {
                         btn.style.display = 'inline-block';
                     });
-                    if (stateChanged) console.log('✅ Fahrer-Tabs gefiltert: Nur Fahrer-Tab sichtbar');
+                    console.log('✅ Fahrer-Tabs gefiltert: Nur Fahrer-Tab sichtbar');
                 } else if (userRole === 'admin') {
                     // ADMIN: Alle Tabs anzeigen!
                     document.querySelectorAll('.admin-tab-btn').forEach(btn => {
                         btn.style.display = 'inline-block';
                     });
-                    if (stateChanged) console.log('✅ Admin: Alle Tabs sichtbar');
+                    console.log('✅ Admin: Alle Tabs sichtbar');
                 }
                 
-                if (stateChanged) console.log('✅ Admin-Tabs angezeigt (User:', userRole, ')');
+                console.log('✅ Admin-Tabs angezeigt (User:', userRole, ')');
             } else {
                 adminTabs.style.display = 'none';
-                if (stateChanged) {
-                    if (isLoggedIn) {
-                        console.log('❌ Admin-Tabs versteckt (Fahrgast - nutzt Menü) - userRole:', userRole);
-                    } else {
-                        console.log('❌ Admin-Tabs versteckt (nicht eingeloggt)');
-                    }
+                if (isLoggedIn) {
+                    console.log('❌ Admin-Tabs versteckt (Fahrgast - nutzt Menü)');
+                } else {
+                    console.log('❌ Admin-Tabs versteckt (nicht eingeloggt)');
                 }
             }
         }
@@ -14872,6 +14171,12 @@
         function checkDriverAvailability() {
             console.log('🔍 Prüfe Fahrer-Verfügbarkeit...');
             
+            const sofortBtn = document.getElementById('btn-sofort');
+            if (!sofortBtn) {
+                console.log('⚠️ SOFORT-Button nicht gefunden');
+                return;
+            }
+            
             // Prüfe ob mindestens 1 Fahrer ONLINE oder BESETZT (busy)
             let hasAvailableDriver = false;
             
@@ -14897,29 +14202,21 @@
                 }
             }
             
-            // 🆕 v5.87.10: SOFORT-Option im Dropdown aktivieren/deaktivieren
-            const rideTypeSelect = document.getElementById('ride-type-select');
+            // SOFORT-Button zeigen/verstecken
+            const buttonsContainer = document.getElementById('ride-type-buttons-container');
             
             if (hasAvailableDriver) {
-                // SOFORT aktivieren
-                if (rideTypeSelect) {
-                    const sofortOption = rideTypeSelect.querySelector('option[value="sofort"]');
-                    if (sofortOption) {
-                        sofortOption.disabled = false;
-                        sofortOption.textContent = '⚡ SOFORT (in ca. 5 Min.)';
-                    }
+                sofortBtn.style.display = 'block';
+                if (buttonsContainer) {
+                    buttonsContainer.style.gridTemplateColumns = '1fr 1fr'; // 2 Spalten
                 }
-                console.log('✅ SOFORT-Option AKTIVIERT - Fahrer verfügbar!');
+                console.log('✅ SOFORT-Button ANGEZEIGT - Fahrer verfügbar!');
             } else {
-                // SOFORT deaktivieren
-                if (rideTypeSelect) {
-                    const sofortOption = rideTypeSelect.querySelector('option[value="sofort"]');
-                    if (sofortOption) {
-                        sofortOption.disabled = true;
-                        sofortOption.textContent = '⚡ SOFORT (aktuell nicht verfügbar)';
-                    }
+                sofortBtn.style.display = 'none';
+                if (buttonsContainer) {
+                    buttonsContainer.style.gridTemplateColumns = '1fr'; // 1 Spalte (VORBESTELLEN volle Breite)
                 }
-                console.log('❌ SOFORT-Option DEAKTIVIERT - Keine Fahrer verfügbar!');
+                console.log('❌ SOFORT-Button VERSTECKT - Keine Fahrer verfügbar!');
             }
         }
 
@@ -15351,31 +14648,15 @@
             
             const priceDisplay = document.getElementById('price-display');
             priceDisplay.innerHTML = priceHtml;
-            priceDisplay.style.display = 'none'; // 🆕 v5.87.3: Versteckt, nur Badge zeigen!
-            
-            // 🆕 v5.87.3: PREIS IN KARTE ANZEIGEN (Google Maps Style)
-            const mapPriceBadge = document.getElementById('map-price-badge');
-            const mapPriceText = document.getElementById('map-price-text');
-            const mapDistanceText = document.getElementById('map-distance-text');
-            if (mapPriceBadge && mapPriceText && mapDistanceText) {
-                mapPriceText.textContent = pricing.total + '€';
-                mapDistanceText.textContent = route.distance + ' km';
-                mapPriceBadge.style.display = 'block';
-            }
+            priceDisplay.style.display = 'block';
             
             // 🗺️ ROUTE-KARTE ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
             if (bookBtn) {
-                bookBtn.style.display = 'none'; // Erst nach Typ-Auswahl
+                bookBtn.style.display = 'block';
                 bookBtn.style.visibility = 'visible';
-            }
-            
-            // 🆕 v5.87.10: ZEIGE DROPDOWN IM BOTTOM SHEET
-            const rideTypeDropdown = document.getElementById('ride-type-dropdown-container');
-            if (rideTypeDropdown) {
-                rideTypeDropdown.style.display = 'block';
             }
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
@@ -15388,13 +14669,74 @@
             priceCalculated = true;
         }
 
-        // 🗺️ v5.86.38: NUR NOCH obere Karte updaten (Uber-Style - eine Karte!)
-        let routeMapInstance = null; // Legacy Variable (nicht mehr verwendet)
+        // 🗺️ ROUTE-KARTE ANZEIGEN
+        let routeMapInstance = null;
         function showRouteMap(route, pickupCoords, destCoords) {
-            console.log('🗺️ Update große Karte oben mit Route...');
+            const mapContainer = document.getElementById('route-map');
+            mapContainer.style.display = 'block';
             
-            // 🆕 v5.86.38: Nur noch obere große Karte aktualisieren!
-            updateTopMapWithRoute(route, pickupCoords, destCoords);
+            // Karte entfernen falls vorhanden
+            if (routeMapInstance) {
+                routeMapInstance.remove();
+            }
+            
+            // Neue Karte erstellen - 2-Finger-Zoom, 1-Finger scrollt Seite
+            routeMapInstance = L.map('route-map', {
+                zoomControl: false,
+                attributionControl: false,
+                dragging: false,           // Kein Drag mit 1 Finger
+                tap: false,                // Kein Tap-Drag
+                scrollWheelZoom: false,    // Kein Scroll-Zoom
+                touchZoom: true            // Pinch-Zoom mit 2 Fingern erlaubt
+            });
+            
+            // OpenStreetMap Tiles laden
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(routeMapInstance);
+            
+            // Start Marker (grün)
+            L.marker([pickupCoords.lat, pickupCoords.lon], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background:#10b981;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(routeMapInstance);
+            
+            // Ziel Marker (rot)
+            L.marker([destCoords.lat, destCoords.lon], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background:#ef4444;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(routeMapInstance);
+            
+            // Route-Linie zeichnen (aus geometry)
+            if (route.geometry && route.geometry.length > 0) {
+                const routeLine = L.polyline(
+                    route.geometry.map(coord => [coord[1], coord[0]]), // [lon, lat] → [lat, lon]
+                    {
+                        color: '#667eea',
+                        weight: 5,
+                        opacity: 0.8
+                    }
+                ).addTo(routeMapInstance);
+                
+                // Zoom auf Route
+                routeMapInstance.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+            } else {
+                // Fallback: Zoom auf Start und Ziel
+                routeMapInstance.fitBounds([
+                    [pickupCoords.lat, pickupCoords.lon],
+                    [destCoords.lat, destCoords.lon]
+                ], { padding: [30, 30] });
+            }
+            
+            console.log('🗺️ Route-Karte angezeigt');
         }
 
         // 🎯 INTELLIGENTE AUTO-ZUWEISUNG MIT 30-SEK-TIMER
@@ -16036,18 +15378,6 @@
             localStorage.removeItem('bookingFormData');
             localStorage.removeItem('lastPickup');
             localStorage.removeItem('lastDestination');
-            
-            // 🆕 v5.86.39: Taxis wieder anzeigen auf großer Karte
-            if (routeMapTopInstance) {
-                updateTopMapTaxis();
-                // Restart Update-Interval
-                if (topMapUpdateInterval) clearInterval(topMapUpdateInterval);
-                topMapUpdateInterval = setInterval(() => {
-                    if (currentView === 'passenger' && !priceCalculated) {
-                        updateTopMapTaxis();
-                    }
-                }, 10000);
-            }
             
             console.log('✅ Formular zurückgesetzt - bereit für nächste Buchung!');
         }

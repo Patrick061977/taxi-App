@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.37 - MAP FIX! 🗺️✨ (Build 20251217-0840)');
+        console.log('🚕 Funk Taxi App v5.86.39 - LIVE TAXIS! 🚕✨ (Build 20251217-0900)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.37 - MAP FIX! 🗺️✨ (Build 20251217-0840)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.39 - LIVE TAXIS! 🚕✨ (Build 20251217-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1542,7 +1542,7 @@
                 💰 Preis berechnen
             </button>
             <div id="price-display" style="margin-top: 15px;"></div>
-            <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
+            <!-- 🗑️ v5.86.38: Untere Karte entfernt - nur EINE große Karte oben (Uber-Style)! -->
             
             <!-- CRM Speicher-Option -->
             <div id="crm-save-option" style="display:none;margin-top:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
@@ -4919,7 +4919,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.37';
+        const APP_VERSION = '5.86.39';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -4969,6 +4969,8 @@
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
         let routeMapTopInstance = null; // 🆕 v5.86.37: Große Karte oben (Uber-Style)
+        let topMapTaxiMarkers = []; // 🆕 v5.86.39: Taxi-Marker auf großer Karte
+        let topMapUpdateInterval = null; // 🆕 v5.86.39: Update-Interval für Taxis
         let cancellations = []; // Neue Variable für Stornierungen
         let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
         let bookingSystemOnline = true; // 🆕 v5.38.2: Buchungssystem AN/AUS (Standard: AN)
@@ -7831,6 +7833,7 @@
                         showAvailableTaxis();
                         checkDriverAvailability(); // 🆕 v5.32.5g: SOFORT-Button nur wenn Fahrer verfügbar
                         if (currentView === 'admin') updateAdminView(); // ← Update Admin für Online-Fahrer
+                        if (currentView === 'passenger' && routeMapTopInstance) updateTopMapTaxis(); // 🆕 v5.86.39: Update Taxi-Marker
                     });
                     db.ref('cancellations').on('value', (s) => {
                         cancellations = [];
@@ -8557,6 +8560,13 @@
                 setTimeout(() => loadPOIs(), 100);
             }
             
+            // 🆕 v5.86.39: Stoppe Taxi-Update-Interval wenn nicht mehr passenger-view
+            if (view !== 'passenger' && topMapUpdateInterval) {
+                clearInterval(topMapUpdateInterval);
+                topMapUpdateInterval = null;
+                console.log('🛑 Taxi-Update-Interval gestoppt (View-Wechsel)');
+            }
+            
             updateViews();
         }
 
@@ -8580,13 +8590,14 @@
             }
             
             try {
-                // Neue Karte erstellen - Zentriert auf Usedom/Heringsdorf
+                // Neue Karte erstellen - 2-Finger Zoom, kein 1-Finger Drag!
                 routeMapTopInstance = L.map('route-map-top', {
                     zoomControl: true,
                     attributionControl: false,
-                    dragging: true,
-                    scrollWheelZoom: true,
-                    touchZoom: true
+                    dragging: false,          // 🆕 v5.86.38: Kein 1-Finger Drag!
+                    tap: false,               // Kein Tap-Drag
+                    scrollWheelZoom: false,   // Kein Scroll-Zoom (wichtig fürs Scrollen!)
+                    touchZoom: true           // Nur 2-Finger Pinch-Zoom
                 }).setView([53.95, 14.15], 12); // Heringsdorf Center
                 
                 // OpenStreetMap Tiles laden
@@ -8613,8 +8624,106 @@
                 });
                 
                 console.log('✅ Große Karte oben initialisiert!');
+                
+                // 🆕 v5.86.39: Zeige verfügbare Taxis auf Karte (wie Uber!)
+                updateTopMapTaxis();
+                
+                // 🆕 v5.86.39: Live-Update alle 10 Sekunden
+                if (topMapUpdateInterval) clearInterval(topMapUpdateInterval);
+                topMapUpdateInterval = setInterval(() => {
+                    if (currentView === 'passenger' && !priceCalculated) {
+                        updateTopMapTaxis();
+                    }
+                }, 10000); // Alle 10s
+                
             } catch (error) {
                 console.error('❌ Fehler beim Initialisieren der Karte:', error);
+            }
+        }
+        
+        // 🆕 v5.86.39: Verfügbare Taxis auf großer Karte anzeigen (Uber-Style!)
+        function updateTopMapTaxis() {
+            if (!routeMapTopInstance) return;
+            
+            try {
+                // Entferne alte Taxi-Marker
+                topMapTaxiMarkers.forEach(marker => {
+                    routeMapTopInstance.removeLayer(marker);
+                });
+                topMapTaxiMarkers = [];
+                
+                // Hole verfügbare Fahrer
+                let availableDrivers = [];
+                Object.keys(drivers).forEach(driverId => {
+                    const driver = drivers[driverId];
+                    if (driver.isOnline && driver.location && driver.location.lat && driver.location.lon) {
+                        // Prüfe ob Fahrer verfügbar ist (nicht auf Fahrt)
+                        const hasActiveRide = rides.some(r => 
+                            r.driverId === driverId && 
+                            (r.status === 'accepted' || r.status === 'picked_up')
+                        );
+                        
+                        if (!hasActiveRide) {
+                            availableDrivers.push({
+                                id: driverId,
+                                name: driver.name || 'Taxi',
+                                lat: driver.location.lat,
+                                lon: driver.location.lon
+                            });
+                        }
+                    }
+                });
+                
+                // Zeige Taxi-Marker
+                availableDrivers.forEach(driver => {
+                    const marker = L.marker([driver.lat, driver.lon], {
+                        icon: L.divIcon({
+                            className: 'taxi-marker',
+                            html: '<div style="font-size:20px;">🚕</div>',
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        }),
+                        zIndexOffset: 1000 // Immer im Vordergrund
+                    }).addTo(routeMapTopInstance);
+                    
+                    marker.bindPopup(`<strong>🚕 ${driver.name}</strong><br><small>Verfügbar</small>`);
+                    topMapTaxiMarkers.push(marker);
+                });
+                
+                // Update Text unter Karte
+                updateTopMapText(availableDrivers.length);
+                
+                console.log(`🚕 ${availableDrivers.length} Taxis auf Karte aktualisiert`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Aktualisieren der Taxi-Marker:', error);
+            }
+        }
+        
+        // 🆕 v5.86.39: Text unter Karte aktualisieren
+        function updateTopMapText(taxiCount) {
+            const mapContainer = document.getElementById('route-map-top');
+            if (!mapContainer) return;
+            
+            // Suche oder erstelle Text-Element
+            let textEl = document.getElementById('top-map-taxi-count');
+            if (!textEl) {
+                textEl = document.createElement('div');
+                textEl.id = 'top-map-taxi-count';
+                textEl.style.cssText = 'position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;z-index:1000;pointer-events:none;';
+                mapContainer.parentElement.style.position = 'relative';
+                mapContainer.parentElement.appendChild(textEl);
+            }
+            
+            if (taxiCount === 0) {
+                textEl.innerHTML = '⏳ Keine Taxis verfügbar';
+                textEl.style.background = 'rgba(239, 68, 68, 0.9)';
+            } else if (taxiCount === 1) {
+                textEl.innerHTML = '🚕 1 Taxi verfügbar';
+                textEl.style.background = 'rgba(0, 0, 0, 0.8)';
+            } else {
+                textEl.innerHTML = `🚕 ${taxiCount} Taxis verfügbar`;
+                textEl.style.background = 'rgba(0, 0, 0, 0.8)';
             }
         }
         
@@ -8626,9 +8735,13 @@
             }
             
             try {
-                // Entferne alte Layer (außer Base Layer)
+                // Entferne alte Route-Layer (aber NICHT Taxi-Marker!)
                 routeMapTopInstance.eachLayer((layer) => {
-                    if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+                    // Nur Route-Polylines und Route-Marker entfernen, NICHT Taxi-Marker!
+                    if (layer instanceof L.Polyline) {
+                        routeMapTopInstance.removeLayer(layer);
+                    } else if (layer instanceof L.Marker && !topMapTaxiMarkers.includes(layer)) {
+                        // Nur Marker entfernen die KEINE Taxi-Marker sind
                         routeMapTopInstance.removeLayer(layer);
                     }
                 });
@@ -14816,76 +14929,12 @@
             priceCalculated = true;
         }
 
-        // 🗺️ ROUTE-KARTE ANZEIGEN
-        let routeMapInstance = null;
+        // 🗺️ v5.86.38: NUR NOCH obere Karte updaten (Uber-Style - eine Karte!)
+        let routeMapInstance = null; // Legacy Variable (nicht mehr verwendet)
         function showRouteMap(route, pickupCoords, destCoords) {
-            const mapContainer = document.getElementById('route-map');
-            mapContainer.style.display = 'block';
+            console.log('🗺️ Update große Karte oben mit Route...');
             
-            // Karte entfernen falls vorhanden
-            if (routeMapInstance) {
-                routeMapInstance.remove();
-            }
-            
-            // Neue Karte erstellen - 2-Finger-Zoom, 1-Finger scrollt Seite
-            routeMapInstance = L.map('route-map', {
-                zoomControl: false,
-                attributionControl: false,
-                dragging: false,           // Kein Drag mit 1 Finger
-                tap: false,                // Kein Tap-Drag
-                scrollWheelZoom: false,    // Kein Scroll-Zoom
-                touchZoom: true            // Pinch-Zoom mit 2 Fingern erlaubt
-            });
-            
-            // OpenStreetMap Tiles laden
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19
-            }).addTo(routeMapInstance);
-            
-            // Start Marker (grün)
-            L.marker([pickupCoords.lat, pickupCoords.lon], {
-                icon: L.divIcon({
-                    className: 'custom-marker',
-                    html: '<div style="background:#10b981;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                })
-            }).addTo(routeMapInstance);
-            
-            // Ziel Marker (rot)
-            L.marker([destCoords.lat, destCoords.lon], {
-                icon: L.divIcon({
-                    className: 'custom-marker',
-                    html: '<div style="background:#ef4444;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                })
-            }).addTo(routeMapInstance);
-            
-            // Route-Linie zeichnen (aus geometry)
-            if (route.geometry && route.geometry.length > 0) {
-                const routeLine = L.polyline(
-                    route.geometry.map(coord => [coord[1], coord[0]]), // [lon, lat] → [lat, lon]
-                    {
-                        color: '#667eea',
-                        weight: 5,
-                        opacity: 0.8
-                    }
-                ).addTo(routeMapInstance);
-                
-                // Zoom auf Route
-                routeMapInstance.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
-            } else {
-                // Fallback: Zoom auf Start und Ziel
-                routeMapInstance.fitBounds([
-                    [pickupCoords.lat, pickupCoords.lon],
-                    [destCoords.lat, destCoords.lon]
-                ], { padding: [30, 30] });
-            }
-            
-            console.log('🗺️ Route-Karte angezeigt');
-            
-            // 🆕 v5.86.37: Auch große Karte oben aktualisieren (Uber-Style)
+            // 🆕 v5.86.38: Nur noch obere große Karte aktualisieren!
             updateTopMapWithRoute(route, pickupCoords, destCoords);
         }
 
@@ -15528,6 +15577,18 @@
             localStorage.removeItem('bookingFormData');
             localStorage.removeItem('lastPickup');
             localStorage.removeItem('lastDestination');
+            
+            // 🆕 v5.86.39: Taxis wieder anzeigen auf großer Karte
+            if (routeMapTopInstance) {
+                updateTopMapTaxis();
+                // Restart Update-Interval
+                if (topMapUpdateInterval) clearInterval(topMapUpdateInterval);
+                topMapUpdateInterval = setInterval(() => {
+                    if (currentView === 'passenger' && !priceCalculated) {
+                        updateTopMapTaxis();
+                    }
+                }, 10000);
+            }
             
             console.log('✅ Formular zurückgesetzt - bereit für nächste Buchung!');
         }

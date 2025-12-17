@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1330)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1400)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1368,6 +1368,24 @@
         <!-- FULLSCREEN KARTE -->
         <div id="route-map-top" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;"></div>
         
+        <!-- PREIS-BADGE IN KARTE (Google Maps Style) -->
+        <div id="map-price-badge" style="
+            display:none;
+            position:fixed;
+            top:70px;
+            left:50%;
+            transform:translateX(-50%);
+            background:white;
+            padding:10px 16px;
+            border-radius:20px;
+            box-shadow:0 2px 8px rgba(0,0,0,0.2);
+            z-index:1000;
+            font-size:14px;
+            font-weight:700;
+        ">
+            <span id="map-price-text">9.60€</span> • <span id="map-distance-text">1.7 km</span>
+        </div>
+        
         <!-- BOTTOM SHEET - schwebt über Karte -->
         <div id="bottom-sheet" style="
             position:fixed;
@@ -1428,52 +1446,37 @@
             <!-- Verfügbare Taxis (kompakt) -->
             <div id="available-taxis-display"></div>
             
-            <!-- Preis Display (kompakt) -->
+            <!-- Preis Display (versteckt - nur Badge in Karte!) -->
             <div id="price-display" style="display:none;"></div>
             
-            <!-- Preis Container -->
-            <div id="price-container" style="display:none;margin-bottom:8px;">
-                <div style="background:#f0fdf4;padding:12px;border-radius:10px;border:2px solid #10b981;">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;">
-                        <span style="color:#666;">Entfernung:</span>
-                        <span id="price-distance" style="font-weight:600;">-</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;">
-                        <span style="color:#666;">Fahrzeit:</span>
-                        <span id="price-duration" style="font-weight:600;">-</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;border-top:2px solid #10b981;padding-top:8px;margin-top:8px;">
-                        <span style="font-weight:700;font-size:16px;">Preis:</span>
-                        <span id="price-amount" style="font-weight:700;font-size:18px;color:#10b981;">-</span>
-                    </div>
-                </div>
-            </div>
+            <!-- Preis Container (versteckt - nur Badge in Karte!) -->
+            <div id="price-container" style="display:none;"></div>
             
             <!-- Ride Type Buttons (kompakt) -->
             <div id="ride-type-buttons-container" style="display:none;gap:8px;margin-bottom:8px;">
                 <button id="btn-sofort" onclick="selectRideType('sofort')" style="
                     flex:1;
-                    padding:12px;
-                    background:white;
-                    border:2px solid #10b981;
-                    color:#10b981;
+                    padding:14px;
+                    background:#10b981;
+                    border:none;
+                    color:white;
                     border-radius:10px;
                     font-weight:700;
                     cursor:pointer;
-                    font-size:13px;
+                    font-size:14px;
                 ">
                     ⚡ SOFORT
                 </button>
                 <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="
                     flex:1;
-                    padding:12px;
-                    background:white;
-                    border:2px solid #3b82f6;
-                    color:#3b82f6;
+                    padding:14px;
+                    background:#3b82f6;
+                    border:none;
+                    color:white;
                     border-radius:10px;
                     font-weight:700;
                     cursor:pointer;
-                    font-size:13px;
+                    font-size:14px;
                 ">
                     📅 Später
                 </button>
@@ -4857,7 +4860,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.2';
+        const APP_VERSION = '5.87.3';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -8423,7 +8426,7 @@
             
             // 🆕 v5.87.0: UBER-STYLE - Verstecke Tabs/Header bei Passenger
             const adminTabs = document.getElementById('admin-tabs');
-            const mainHeader = document.getElementById('header');
+            const mainHeader = document.getElementById('main-header');
             const appContainer = document.getElementById('app');
             if (view === 'passenger') {
                 // Fullscreen Modus - alles weg!
@@ -14906,15 +14909,31 @@
             
             const priceDisplay = document.getElementById('price-display');
             priceDisplay.innerHTML = priceHtml;
-            priceDisplay.style.display = 'block';
+            priceDisplay.style.display = 'none'; // 🆕 v5.87.3: Versteckt, nur Badge zeigen!
+            
+            // 🆕 v5.87.3: PREIS IN KARTE ANZEIGEN (Google Maps Style)
+            const mapPriceBadge = document.getElementById('map-price-badge');
+            const mapPriceText = document.getElementById('map-price-text');
+            const mapDistanceText = document.getElementById('map-distance-text');
+            if (mapPriceBadge && mapPriceText && mapDistanceText) {
+                mapPriceText.textContent = pricing.total + '€';
+                mapDistanceText.textContent = route.distance + ' km';
+                mapPriceBadge.style.display = 'block';
+            }
             
             // 🗺️ ROUTE-KARTE ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
             if (bookBtn) {
-                bookBtn.style.display = 'block';
+                bookBtn.style.display = 'none'; // Erst nach Typ-Auswahl
                 bookBtn.style.visibility = 'visible';
+            }
+            
+            // 🆕 v5.87.3: ZEIGE SOFORT/VORBESTELLEN BUTTONS
+            const rideTypeBtns = document.getElementById('ride-type-buttons-container');
+            if (rideTypeBtns) {
+                rideTypeBtns.style.display = 'flex';
             }
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN

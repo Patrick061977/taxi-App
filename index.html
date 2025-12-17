@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.36 - UBER-STYLE CLEAN! 🎨✨ (Build 20251217-0750)');
+        console.log('🚕 Funk Taxi App v5.86.37 - MAP FIX! 🗺️✨ (Build 20251217-0840)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.36 - UBER-STYLE! 🎨✨ (Build 20251217-0750)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.37 - MAP FIX! 🗺️✨ (Build 20251217-0840)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4919,7 +4919,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.36';
+        const APP_VERSION = '5.86.37';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -4968,6 +4968,7 @@
         let currentTrackingRideId = null; // 🆕 Aktuelle Fahrt für GPS-Tracking
         let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
         let wakeLock = null;
+        let routeMapTopInstance = null; // 🆕 v5.86.37: Große Karte oben (Uber-Style)
         let cancellations = []; // Neue Variable für Stornierungen
         let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
         let bookingSystemOnline = true; // 🆕 v5.38.2: Buchungssystem AN/AUS (Standard: AN)
@@ -7844,6 +7845,13 @@
                     // 🆕 v5.31.0: child_changed ENTFERNT - verursachte Race Conditions!
                     // Der 'value' Listener oben updated schon alles automatisch!
                     
+                    // 🆕 v5.86.37: Große Karte oben initialisieren (nach Firebase Ready)
+                    setTimeout(() => {
+                        if (currentView === 'passenger') {
+                            initTopMap();
+                        }
+                    }, 1000);
+                    
                 } catch (e) { 
                     console.error('❌ Firebase Fehler:', e); 
                 }
@@ -8477,6 +8485,8 @@
             // 🆕 v5.26.0: Telefon-Auth prüfen bei Fahrgast-Tab
             if (view === 'passenger') {
                 setTimeout(() => checkPassengerAuth(), 100);
+                // 🆕 v5.86.37: Große Karte oben initialisieren (Uber-Style)
+                setTimeout(() => initTopMap(), 200);
             } else {
                 // Login-Screen verstecken bei anderen Tabs
                 const authScreen = document.getElementById('phone-auth-screen');
@@ -8548,6 +8558,126 @@
             }
             
             updateViews();
+        }
+
+        // 🆕 v5.86.37: Große Karte oben initialisieren (Uber-Style)
+        function initTopMap() {
+            console.log('🗺️ Initialisiere große Karte oben...');
+            
+            const mapContainer = document.getElementById('route-map-top');
+            if (!mapContainer) {
+                console.error('❌ route-map-top Container nicht gefunden!');
+                return;
+            }
+            
+            // Entferne alte Karte falls vorhanden
+            if (routeMapTopInstance) {
+                try {
+                    routeMapTopInstance.remove();
+                } catch (e) {
+                    console.log('ℹ️ Alte Karte konnte nicht entfernt werden:', e);
+                }
+            }
+            
+            try {
+                // Neue Karte erstellen - Zentriert auf Usedom/Heringsdorf
+                routeMapTopInstance = L.map('route-map-top', {
+                    zoomControl: true,
+                    attributionControl: false,
+                    dragging: true,
+                    scrollWheelZoom: true,
+                    touchZoom: true
+                }).setView([53.95, 14.15], 12); // Heringsdorf Center
+                
+                // OpenStreetMap Tiles laden
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19
+                }).addTo(routeMapTopInstance);
+                
+                // Marker für wichtige Orte (optional - macht es lebendiger)
+                const markers = [
+                    { lat: 53.9533, lon: 14.1633, name: '🚉 Bahnhof Heringsdorf', color: '#3b82f6' },
+                    { lat: 53.9444, lon: 14.1933, name: '🌊 Seebrücke Ahlbeck', color: '#10b981' },
+                    { lat: 53.9633, lon: 14.1433, name: '🌊 Seebrücke Bansin', color: '#10b981' }
+                ];
+                
+                markers.forEach(m => {
+                    L.marker([m.lat, m.lon], {
+                        icon: L.divIcon({
+                            className: 'custom-marker',
+                            html: `<div style="background:${m.color};width:20px;height:20px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        })
+                    }).addTo(routeMapTopInstance).bindPopup(m.name);
+                });
+                
+                console.log('✅ Große Karte oben initialisiert!');
+            } catch (error) {
+                console.error('❌ Fehler beim Initialisieren der Karte:', error);
+            }
+        }
+        
+        // 🆕 v5.86.37: Große Karte oben mit Route aktualisieren
+        function updateTopMapWithRoute(route, pickupCoords, destCoords) {
+            if (!routeMapTopInstance) {
+                console.log('ℹ️ Große Karte nicht initialisiert, überspringe Update');
+                return;
+            }
+            
+            try {
+                // Entferne alte Layer (außer Base Layer)
+                routeMapTopInstance.eachLayer((layer) => {
+                    if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+                        routeMapTopInstance.removeLayer(layer);
+                    }
+                });
+                
+                // Start Marker (grün)
+                L.marker([pickupCoords.lat, pickupCoords.lon], {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: '<div style="background:#10b981;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.4);"></div>',
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    })
+                }).addTo(routeMapTopInstance);
+                
+                // Ziel Marker (rot)
+                L.marker([destCoords.lat, destCoords.lon], {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: '<div style="background:#ef4444;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.4);"></div>',
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    })
+                }).addTo(routeMapTopInstance);
+                
+                // Route-Linie zeichnen
+                if (route.geometry && route.geometry.length > 0) {
+                    const routeLine = L.polyline(
+                        route.geometry.map(coord => [coord[1], coord[0]]),
+                        {
+                            color: '#000',
+                            weight: 6,
+                            opacity: 0.8
+                        }
+                    ).addTo(routeMapTopInstance);
+                    
+                    // Zoom auf Route
+                    routeMapTopInstance.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+                } else {
+                    // Fallback: Zoom auf Start und Ziel
+                    routeMapTopInstance.fitBounds([
+                        [pickupCoords.lat, pickupCoords.lon],
+                        [destCoords.lat, destCoords.lon]
+                    ], { padding: [50, 50] });
+                }
+                
+                console.log('✅ Große Karte oben mit Route aktualisiert!');
+            } catch (error) {
+                console.error('❌ Fehler beim Aktualisieren der großen Karte:', error);
+            }
         }
 
         // 📱 MENÜ FUNKTIONEN
@@ -14754,6 +14884,9 @@
             }
             
             console.log('🗺️ Route-Karte angezeigt');
+            
+            // 🆕 v5.86.37: Auch große Karte oben aktualisieren (Uber-Style)
+            updateTopMapWithRoute(route, pickupCoords, destCoords);
         }
 
         // 🎯 INTELLIGENTE AUTO-ZUWEISUNG MIT 30-SEK-TIMER

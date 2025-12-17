@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1845)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1930)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -156,6 +156,22 @@
         .admin-tab-btn.active {
             background: #667eea !important;
             color: white !important;
+        }
+        
+        /* 🆕 v5.87.9: CUSTOM SCROLLBAR FÜR ADMIN-TABS */
+        #admin-tabs > div::-webkit-scrollbar {
+            height: 6px;
+        }
+        #admin-tabs > div::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        #admin-tabs > div::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
+        }
+        #admin-tabs > div::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
         }
         .view { display: none; padding: 15px; }
         .view.active { display: block; }
@@ -732,7 +748,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1845)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -781,7 +797,17 @@
         z-index: 999;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     ">
-        <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <!-- 🆕 v5.87.9: BESSERES HORIZONTAL SCROLLING! -->
+        <div style="
+            display: flex; 
+            gap: 8px; 
+            overflow-x: auto; 
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: #667eea #f1f1f1;
+            padding-bottom: 5px;
+        ">
             <button onclick="switchView('passenger')" class="admin-tab-btn admin-only" data-view="passenger" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
@@ -1386,7 +1412,7 @@
             <span id="map-price-text">9.60€</span> • <span id="map-distance-text">1.7 km</span>
         </div>
         
-        <!-- BOTTOM SHEET - schwebt über Karte (v5.87.6: KOMPAKTER!) -->
+        <!-- BOTTOM SHEET - v5.87.8: NUR VON/NACH/PREIS! KEIN SCROLLEN! -->
         <div id="bottom-sheet" style="
             position:fixed;
             bottom:0;
@@ -1397,9 +1423,7 @@
             box-shadow:0 -2px 10px rgba(0,0,0,0.1);
             z-index:1001;
             padding:12px 16px;
-            max-height:28vh;
-            overflow-y:auto;
-            transition:max-height 0.3s;
+            max-height:auto;
         ">
             <!-- Drag Handle -->
             <div style="width:36px;height:3px;background:#ddd;border-radius:2px;margin:0 auto 8px auto;"></div>
@@ -1427,7 +1451,7 @@
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
             
-            <!-- Preis Berechnen Button (v5.87.6: KOMPAKTER!) -->
+            <!-- Preis Berechnen Button -->
             <button id="calculate-price-btn" onclick="calculatePriceAndShow()" style="
                 width:100%;
                 padding:12px;
@@ -1438,9 +1462,44 @@
                 font-size:14px;
                 font-weight:700;
                 cursor:pointer;
-                margin-bottom:6px;
             ">
                 💰 Preis berechnen
+            </button>
+            
+            <!-- 🆕 v5.87.10: RIDE TYPE DROPDOWN (erscheint nach Preis berechnen) -->
+            <div id="ride-type-dropdown-container" style="display:none;margin-top:8px;">
+                <label style="font-size:12px;color:#666;margin-bottom:4px;display:block;">⏰ Wann möchten Sie fahren?</label>
+                <select id="ride-type-select" onchange="handleRideTypeSelect()" style="
+                    width:100%;
+                    padding:12px;
+                    border:2px solid #e0e0e0;
+                    border-radius:8px;
+                    font-size:14px;
+                    font-weight:600;
+                    cursor:pointer;
+                    background:white;
+                ">
+                    <option value="">Bitte wählen...</option>
+                    <option value="sofort">⚡ SOFORT (in ca. 5 Min.)</option>
+                    <option value="vorbestellen">📅 Vorbestellung (Datum & Zeit wählen)</option>
+                </select>
+            </div>
+            
+            <!-- 🆕 v5.87.10: BUCHEN BUTTON (erscheint nach Auswahl) -->
+            <button id="book-btn" onclick="bookRide()" style="
+                display:none;
+                width:100%;
+                padding:14px;
+                margin-top:8px;
+                background:#10b981;
+                color:white;
+                border:none;
+                border-radius:8px;
+                font-size:15px;
+                font-weight:700;
+                cursor:pointer;
+            ">
+                🚕 Taxi buchen
             </button>
             
             <!-- Verfügbare Taxis (kompakt) -->
@@ -1451,57 +1510,6 @@
             
             <!-- Preis Container (versteckt - nur Badge in Karte!) -->
             <div id="price-container" style="display:none;"></div>
-            
-            <!-- Ride Type Buttons (v5.87.6: KOMPAKTER!) -->
-            <div id="ride-type-buttons-container" style="
-                display:none;
-                flex-direction:row;
-                gap:6px;
-                margin-bottom:6px;
-            ">
-                <button id="btn-sofort" onclick="selectRideType('sofort')" style="
-                    flex:1;
-                    padding:11px;
-                    background:#10b981;
-                    border:none;
-                    color:white;
-                    border-radius:8px;
-                    font-weight:700;
-                    cursor:pointer;
-                    font-size:13px;
-                ">
-                    ⚡ SOFORT
-                </button>
-                <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="
-                    flex:1;
-                    padding:11px;
-                    background:# 3b82f6;
-                    border:none;
-                    color:white;
-                    border-radius:8px;
-                    font-weight:700;
-                    cursor:pointer;
-                    font-size:13px;
-                ">
-                    📅 Später
-                </button>
-            </div>
-            
-            <!-- Buchen Button (v5.87.6: KOMPAKTER!) -->
-            <button id="book-btn" onclick="bookRide()" style="
-                display:none;
-                width:100%;
-                padding:12px;
-                background:#10b981;
-                color:white;
-                border:none;
-                border-radius:8px;
-                font-size:14px;
-                font-weight:700;
-                cursor:pointer;
-            ">
-                🚕 Taxi buchen
-            </button>
             
             <!-- Zusätzliche Optionen (versteckt bis expandiert) -->
             <div id="additional-options" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
@@ -4956,7 +4964,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.7';
+        const APP_VERSION = '5.87.10';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -5639,6 +5647,24 @@
             }
         }
         
+        // 🆕 v5.87.10: DROPDOWN HANDLER
+        function handleRideTypeSelect() {
+            const select = document.getElementById('ride-type-select');
+            const value = select.value;
+            
+            console.log('📋 Dropdown geändert:', value);
+            
+            if (value === '') {
+                // Nichts gewählt - Buchen-Button verstecken
+                const bookBtn = document.getElementById('book-btn');
+                if (bookBtn) bookBtn.style.display = 'none';
+                return;
+            }
+            
+            // Rufe existierende selectRideType Funktion auf
+            selectRideType(value);
+        }
+        
         // 🆕 v5.87.4: UBER-STYLE VORBESTELL-MODAL
         function openPreorderModal() {
             const modal = document.getElementById('preorder-modal');
@@ -5826,9 +5852,9 @@
                 window.selectedPreorderDate = null;
                 window.selectedPreorderTime = null;
                 
-                // Verstecke Buttons
-                const rideTypeBtns = document.getElementById('ride-type-buttons-container');
-                if (rideTypeBtns) rideTypeBtns.style.display = 'none';
+                // Verstecke Dropdown & Button
+                const rideTypeDropdown = document.getElementById('ride-type-dropdown-container');
+                if (rideTypeDropdown) rideTypeDropdown.style.display = 'none';
                 
                 const bookBtn = document.getElementById('book-btn');
                 if (bookBtn) bookBtn.style.display = 'none';
@@ -5836,9 +5862,9 @@
                 const mapBadge = document.getElementById('map-price-badge');
                 if (mapBadge) mapBadge.style.display = 'none';
                 
-                // Reset Button-Text
-                const btnVorbestellen = document.getElementById('btn-vorbestellen');
-                if (btnVorbestellen) btnVorbestellen.innerHTML = '📅 Später';
+                // Reset Dropdown
+                const rideTypeSelect = document.getElementById('ride-type-select');
+                if (rideTypeSelect) rideTypeSelect.value = '';
                 
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);
@@ -14696,12 +14722,6 @@
         function checkDriverAvailability() {
             console.log('🔍 Prüfe Fahrer-Verfügbarkeit...');
             
-            const sofortBtn = document.getElementById('btn-sofort');
-            if (!sofortBtn) {
-                console.log('⚠️ SOFORT-Button nicht gefunden');
-                return;
-            }
-            
             // Prüfe ob mindestens 1 Fahrer ONLINE oder BESETZT (busy)
             let hasAvailableDriver = false;
             
@@ -14727,21 +14747,29 @@
                 }
             }
             
-            // SOFORT-Button zeigen/verstecken
-            const buttonsContainer = document.getElementById('ride-type-buttons-container');
+            // 🆕 v5.87.10: SOFORT-Option im Dropdown aktivieren/deaktivieren
+            const rideTypeSelect = document.getElementById('ride-type-select');
             
             if (hasAvailableDriver) {
-                sofortBtn.style.display = 'block';
-                if (buttonsContainer) {
-                    buttonsContainer.style.gridTemplateColumns = '1fr 1fr'; // 2 Spalten
+                // SOFORT aktivieren
+                if (rideTypeSelect) {
+                    const sofortOption = rideTypeSelect.querySelector('option[value="sofort"]');
+                    if (sofortOption) {
+                        sofortOption.disabled = false;
+                        sofortOption.textContent = '⚡ SOFORT (in ca. 5 Min.)';
+                    }
                 }
-                console.log('✅ SOFORT-Button ANGEZEIGT - Fahrer verfügbar!');
+                console.log('✅ SOFORT-Option AKTIVIERT - Fahrer verfügbar!');
             } else {
-                sofortBtn.style.display = 'none';
-                if (buttonsContainer) {
-                    buttonsContainer.style.gridTemplateColumns = '1fr'; // 1 Spalte (VORBESTELLEN volle Breite)
+                // SOFORT deaktivieren
+                if (rideTypeSelect) {
+                    const sofortOption = rideTypeSelect.querySelector('option[value="sofort"]');
+                    if (sofortOption) {
+                        sofortOption.disabled = true;
+                        sofortOption.textContent = '⚡ SOFORT (aktuell nicht verfügbar)';
+                    }
                 }
-                console.log('❌ SOFORT-Button VERSTECKT - Keine Fahrer verfügbar!');
+                console.log('❌ SOFORT-Option DEAKTIVIERT - Keine Fahrer verfügbar!');
             }
         }
 
@@ -15194,10 +15222,10 @@
                 bookBtn.style.visibility = 'visible';
             }
             
-            // 🆕 v5.87.3: ZEIGE SOFORT/VORBESTELLEN BUTTONS
-            const rideTypeBtns = document.getElementById('ride-type-buttons-container');
-            if (rideTypeBtns) {
-                rideTypeBtns.style.display = 'flex';
+            // 🆕 v5.87.10: ZEIGE DROPDOWN IM BOTTOM SHEET
+            const rideTypeDropdown = document.getElementById('ride-type-dropdown-container');
+            if (rideTypeDropdown) {
+                rideTypeDropdown.style.display = 'block';
             }
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN

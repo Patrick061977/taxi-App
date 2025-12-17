@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1400)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1430)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,6 +1544,97 @@
         <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
         <div id="quick-login-box" style="display:none !important;"></div>
         <div id="my-profile-box" style="display:none !important;"></div>
+        
+        <!-- 🆕 v5.87.4: UBER-STYLE VORBESTELL-MODAL -->
+        <div id="preorder-modal" style="
+            display:none;
+            position:fixed;
+            top:0;
+            left:0;
+            right:0;
+            bottom:0;
+            background:rgba(0,0,0,0.5);
+            z-index:10000;
+            padding:20px;
+            overflow-y:auto;
+        ">
+            <div style="
+                background:white;
+                border-radius:16px;
+                max-width:500px;
+                margin:60px auto 0 auto;
+                padding:24px;
+            ">
+                <!-- Header -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+                    <button onclick="closePreorderModal()" style="
+                        background:transparent;
+                        border:none;
+                        font-size:24px;
+                        cursor:pointer;
+                        padding:0;
+                        width:32px;
+                        height:32px;
+                    ">←</button>
+                    <h2 style="margin:0;font-size:20px;font-weight:700;">Wann möchtest du abgeholt werden?</h2>
+                    <div style="width:32px;"></div>
+                </div>
+                
+                <!-- Datum -->
+                <div style="margin-bottom:16px;">
+                    <input type="date" id="preorder-date" style="
+                        width:100%;
+                        padding:16px;
+                        border:2px solid #e5e7eb;
+                        border-radius:12px;
+                        font-size:16px;
+                        font-weight:600;
+                    ">
+                </div>
+                
+                <!-- Uhrzeit -->
+                <div style="margin-bottom:24px;">
+                    <input type="time" id="preorder-time" style="
+                        width:100%;
+                        padding:16px;
+                        border:2px solid #e5e7eb;
+                        border-radius:12px;
+                        font-size:16px;
+                        font-weight:600;
+                    ">
+                </div>
+                
+                <!-- Infos -->
+                <div style="
+                    background:#f9fafb;
+                    padding:16px;
+                    border-radius:12px;
+                    margin-bottom:24px;
+                    font-size:14px;
+                    color:#666;
+                    line-height:1.6;
+                ">
+                    <div style="margin-bottom:8px;">📅 Du kannst deine Abholzeit bis zu 30 Tage im Voraus wählen.</div>
+                    <div style="margin-bottom:8px;">⏱️ Zusätzliche Wartezeit für die Fahrt inbegriffen</div>
+                    <div>🔄 Du kannst bis zu 60 Minuten im Voraus kostenlos stornieren</div>
+                </div>
+                
+                <!-- Weiter Button -->
+                <button onclick="confirmPreorderTime()" style="
+                    width:100%;
+                    padding:16px;
+                    background:#000;
+                    color:white;
+                    border:none;
+                    border-radius:12px;
+                    font-size:16px;
+                    font-weight:700;
+                    cursor:pointer;
+                ">
+                    Weiter
+                </button>
+            </div>
+        </div>
         
         <!-- Route-Map Fallback (hidden) -->
         <div id="route-map" style="display:none;"></div>
@@ -4860,7 +4951,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.3';
+        const APP_VERSION = '5.87.4';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -5528,67 +5619,171 @@
         function selectRideType(type) {
             currentRideType = type;
             
-            const btnSofort = document.getElementById('btn-sofort');
-            const btnVorbestellen = document.getElementById('btn-vorbestellen');
-            const sofortBereich = document.getElementById('sofort-bereich');
-            const vorbestellenBereich = document.getElementById('vorbestellen-bereich');
-            
             if (type === 'sofort') {
-                // ⚡ SOFORT Button aktiv
-                btnSofort.style.border = '3px solid #10b981';
-                btnSofort.style.background = 'linear-gradient(135deg,#10b981,#059669)';
-                btnSofort.querySelector('div:nth-child(2)').style.color = 'white';
-                btnSofort.querySelector('div:nth-child(3)').style.color = 'rgba(255,255,255,0.9)';
+                // SOFORT ausgewählt → Buchen-Button zeigen
+                const bookBtn = document.getElementById('book-btn');
+                if (bookBtn) bookBtn.style.display = 'block';
                 
-                // 📅 VORBESTELLEN Button inaktiv
-                btnVorbestellen.style.border = '3px solid #e5e7eb';
-                btnVorbestellen.style.background = 'white';
-                btnVorbestellen.querySelector('div:nth-child(2)').style.color = '#6b7280';
-                btnVorbestellen.querySelector('div:nth-child(3)').style.color = '#666';
-                
-                // Bereiche zeigen/verstecken
-                sofortBereich.style.display = 'block';
-                vorbestellenBereich.style.display = 'none';
-                
-                // ✅ WENN Abholadresse bereits eingegeben → Lade Taxis!
-                const pickupInput = document.getElementById('pickup');
-                if (pickupInput && pickupInput.value.trim()) {
-                    console.log('📍 Abholadresse vorhanden, lade Taxis...');
-                    
-                    // Zeige Loading
-                    const display = document.getElementById('available-taxis-display');
-                    display.innerHTML = `
-                        <div style="padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;text-align:center;margin-top:10px;">
-                            <div style="font-size:20px;margin-bottom:10px;">📍</div>
-                            <div style="font-weight:600;font-size:16px;margin-bottom:5px;">Suche verfügbare Taxis...</div>
-                            <div style="font-size:13px;opacity:0.9;">Bitte warten...</div>
-                        </div>
-                    `;
-                    
-                    setTimeout(() => {
-                        showAvailableTaxis();
-                    }, 500);
-                }
+                // Vorbestell-Container verstecken
+                const preorderContainer = document.getElementById('preorder-container');
+                if (preorderContainer) preorderContainer.style.display = 'none';
                 
             } else if (type === 'vorbestellen') {
-                // 📅 VORBESTELLEN Button aktiv
-                btnVorbestellen.style.border = '3px solid #667eea';
-                btnVorbestellen.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
-                btnVorbestellen.querySelector('div:nth-child(2)').style.color = 'white';
-                btnVorbestellen.querySelector('div:nth-child(3)').style.color = 'rgba(255,255,255,0.9)';
+                // 🆕 v5.87.4: UBER-STYLE MODAL ÖFFNEN
+                openPreorderModal();
+            }
+        }
+        
+        // 🆕 v5.87.4: UBER-STYLE VORBESTELL-MODAL
+        function openPreorderModal() {
+            const modal = document.getElementById('preorder-modal');
+            if (!modal) return;
+            
+            // Setze Default-Werte
+            const dateInput = document.getElementById('preorder-date');
+            const timeInput = document.getElementById('preorder-time');
+            
+            // Default: Heute + 1 Stunde
+            const defaultTime = new Date();
+            defaultTime.setHours(defaultTime.getHours() + 1);
+            
+            // Datum
+            const year = defaultTime.getFullYear();
+            const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
+            const day = String(defaultTime.getDate()).padStart(2, '0');
+            dateInput.value = `${year}-${month}-${day}`;
+            
+            // Uhrzeit (gerundet auf 5 Min)
+            const hours = String(defaultTime.getHours()).padStart(2, '0');
+            const minutes = String(Math.ceil(defaultTime.getMinutes() / 5) * 5).padStart(2, '0');
+            timeInput.value = `${hours}:${minutes}`;
+            
+            // Modal anzeigen
+            modal.style.display = 'block';
+        }
+        
+        function closePreorderModal() {
+            const modal = document.getElementById('preorder-modal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        function confirmPreorderTime() {
+            const dateInput = document.getElementById('preorder-date');
+            const timeInput = document.getElementById('preorder-time');
+            
+            if (!dateInput.value || !timeInput.value) {
+                alert('⚠️ Bitte Datum und Uhrzeit wählen!');
+                return;
+            }
+            
+            // Speichere gewählte Zeit
+            window.selectedPreorderDate = dateInput.value;
+            window.selectedPreorderTime = timeInput.value;
+            
+            // Formatiere für Anzeige
+            const dateObj = new Date(dateInput.value + 'T' + timeInput.value);
+            const dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+            const timeStr = timeInput.value;
+            
+            // Update Button-Text
+            const btnVorbestellen = document.getElementById('btn-vorbestellen');
+            if (btnVorbestellen) {
+                btnVorbestellen.innerHTML = `📅 ${dateStr} • ⏰ ${timeStr}`;
+            }
+            
+            // Zeige Buchen-Button
+            const bookBtn = document.getElementById('book-btn');
+            if (bookBtn) bookBtn.style.display = 'block';
+            
+            // Schließe Modal
+            closePreorderModal();
+            
+            console.log('✅ Vorbestellung:', dateStr, timeStr);
+        }
+        
+        // 🆕 v5.87.4: TAXI BUCHEN
+        async function bookRide() {
+            console.log('🚕 bookRide() aufgerufen!');
+            
+            // Validierung
+            const pickup = document.getElementById('pickup').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+            
+            if (!pickup || !destination) {
+                alert('❌ Bitte Abholort und Zielort eingeben!');
+                return;
+            }
+            
+            if (!pickupCoords || !destCoords) {
+                alert('❌ Bitte wähle Orte aus der Autocomplete-Liste!');
+                return;
+            }
+            
+            if (!currentRideType) {
+                alert('❌ Bitte wähle SOFORT oder SPÄTER!');
+                return;
+            }
+            
+            // Timestamp berechnen
+            let pickupTimestamp;
+            if (currentRideType === 'sofort') {
+                pickupTimestamp = Date.now() + 5 * 60000; // +5 Min
+            } else {
+                // Vorbestellung
+                const date = window.selectedPreorderDate;
+                const time = window.selectedPreorderTime;
+                if (!date || !time) {
+                    alert('❌ Bitte Zeit wählen!');
+                    return;
+                }
+                pickupTimestamp = new Date(date + 'T' + time).getTime();
+            }
+            
+            // Fahrt-Objekt
+            const ride = {
+                pickup: pickup,
+                destination: destination,
+                pickupCoords: pickupCoords,
+                destCoords: destCoords,
+                price: window.currentPrice || 0,
+                distance: window.currentDistance || 0,
+                duration: window.currentDuration || 0,
+                pickupTime: pickupTimestamp,
+                createdAt: Date.now(),
+                status: currentRideType === 'sofort' ? 'new' : 'vorbestellt',
+                rideType: currentRideType,
+                passengers: document.getElementById('passengers')?.value || '1',
+                paymentMethod: document.getElementById('payment-method')?.value || 'bar',
+                userId: currentUser?.uid || 'anonymous',
+                userPhone: currentUser?.phoneNumber || '',
+                userName: currentUser?.displayName || 'Gast'
+            };
+            
+            console.log('📋 Fahrt-Daten:', ride);
+            
+            try {
+                // Speichere in Firebase
+                const rideRef = await db.ref('rides').push(ride);
+                console.log('✅ Fahrt gespeichert:', rideRef.key);
                 
-                // ⚡ SOFORT Button inaktiv
-                btnSofort.style.border = '3px solid #e5e7eb';
-                btnSofort.style.background = 'white';
-                btnSofort.querySelector('div:nth-child(2)').style.color = '#6b7280';
-                btnSofort.querySelector('div:nth-child(3)').style.color = '#666';
+                // Zeige Erfolg
+                alert('✅ Taxi gebucht!\n\nDu erhältst eine Benachrichtigung wenn ein Fahrer zugewiesen wird.');
                 
-                // Bereiche zeigen/verstecken
-                sofortBereich.style.display = 'none';
-                vorbestellenBereich.style.display = 'block';
+                // Reset Form
+                document.getElementById('pickup').value = '';
+                document.getElementById('destination').value = '';
+                pickupCoords = null;
+                destCoords = null;
+                currentRideType = null;
                 
-                // 📅 Initialisiere Datum/Zeit-Felder mit sinnvollen Defaults
-                initVorbestellenDefaults();
+                // Verstecke Buttons
+                document.getElementById('ride-type-buttons-container').style.display = 'none';
+                document.getElementById('book-btn').style.display = 'none';
+                document.getElementById('map-price-badge').style.display = 'none';
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Buchen:', error);
+                alert('❌ Fehler beim Buchen!\n\n' + error.message);
             }
         }
         

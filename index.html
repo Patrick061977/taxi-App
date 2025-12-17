@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1240)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1300)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1240)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1353,260 +1353,164 @@
     </div>
 
     <div id="passenger-view" class="view active">
-        <!-- 🆕 v5.86.35: UBER-STYLE HEADER -->
-        <div style="background:#000;color:#fff;padding:16px 20px;margin:-20px -20px 0 -20px;border-radius:0;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-            <h3 style="margin:0;font-size:20px;font-weight:700;">🚕 Taxi buchen</h3>
-        </div>
+        <!-- 🆕 v5.87.0: UBER-STYLE REDESIGN - FULLSCREEN KARTE! -->
         
-        <!-- 🆕 v5.86.35: KARTE OBEN UND GROSS (wie Uber) - Quick Win! -->
-        <div id="route-map-top" style="height:45vh;min-height:320px;width:calc(100% + 40px);margin:0 -20px 24px -20px;display:block;border-radius:0;background:#f5f5f5;"></div>
-        
-        <!-- 🗑️ v5.58.0: CRM-BUCHUNGS-BANNER ENTFERNT! -->
-        <!-- "Buchst für CRM-Kunde" ist Admin-Funktion! -->
-        <!-- Nur im Admin-Panel! -->
-        
-        <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
-        <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
-        <!-- 🆕 v5.42.1: Quick-Login Box DEAKTIVIERT - zu groß! -->
-        <!-- Stattdessen: Avatar-Icon im Header -->
-        <div id="quick-login-box" style="display:none !important;">
-            <!-- Nicht mehr verwendet -->
-        </div>
-        
-        <!-- 👤 ALTE MEIN KONTO BOX - DEAKTIVIERT in v5.42.0! -->
-        <!-- Jetzt im Hamburger-Menü integriert! -->
-        <div id="my-profile-box" style="display:none !important;">
-            <!-- Nicht mehr verwendet - siehe Menü -->
-        </div>
-        
-        <!-- 🌟 STAMMKUNDEN-SCHNELLBUCHUNG -->
-        <div id="regular-customer-box" style="display:none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
-                <h4 style="margin: 0; font-size: 16px;">🌟 Willkommen zurück!</h4>
-                <button onclick="clearRegularCustomer()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600;">
-                    ✕ Löschen
-                </button>
-            </div>
-            <div id="regular-customer-info" style="font-size: 13px; line-height: 1.6; margin-bottom: 12px;"></div>
-            <button onclick="useRegularCustomerData()" style="width: 100%; background: white; color: #059669; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                ⚡ Daten übernehmen
+        <!-- MINI HEADER - nur Icons -->
+        <div style="position:fixed;top:0;left:0;right:0;height:60px;background:transparent;z-index:1000;display:flex;justify-content:space-between;align-items:center;padding:0 16px;">
+            <button onclick="toggleMenu(event)" style="width:44px;height:44px;border-radius:50%;background:white;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">
+                ☰
+            </button>
+            <button onclick="showUserProfile()" style="width:44px;height:44px;border-radius:50%;background:white;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;">
+                👤
             </button>
         </div>
         
-        <!-- 🆕 v5.49.2: ECHTES MODAL MIT OVERLAY -->
-        <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
+        <!-- FULLSCREEN KARTE -->
+        <div id="route-map-top" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;"></div>
         
-        <!-- 🗑️ v5.58.0: ADMIN-BUTTONS ENTFERNT! -->
-        <!-- Kontakt auswählen & Zwischenablage sind ADMIN-Funktionen! -->
-        <!-- Nur im Admin-Panel verfügbar! -->
-        
-        <div id="booking-form" style="padding-top:10px;">
-            <!-- 🆕 v5.86.35: QUICK WIN - Mehr Weißraum, cleaner -->
-            <div class="input-group" style="margin-bottom:24px;">
-                <label style="font-size:16px;font-weight:700;margin-bottom:12px;display:block;color:#000;">📍 Abholort</label>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <input type="text" id="pickup" placeholder="Wo sollen wir Sie abholen?" style="flex:1;padding:18px 16px;font-size:17px;border:2px solid #e5e7eb;border-radius:14px;min-height:60px;background:white;">
-                    <button onclick="saveLocationPOI('pickup')" style="padding:18px 20px;min-height:60px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:14px;font-weight:700;cursor:pointer;font-size:20px;" title="Ort speichern">
-                        ⭐
-                    </button>
+        <!-- BOTTOM SHEET - schwebt über Karte -->
+        <div id="bottom-sheet" style="
+            position:fixed;
+            bottom:0;
+            left:0;
+            right:0;
+            background:white;
+            border-radius:20px 20px 0 0;
+            box-shadow:0 -4px 20px rgba(0,0,0,0.15);
+            z-index:1001;
+            padding:20px;
+            max-height:85vh;
+            overflow-y:auto;
+        ">
+            <!-- Drag Handle -->
+            <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 20px auto;"></div>
+            
+            <!-- Abholort -->
+            <div style="margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:12px;background:#f5f5f5;border-radius:12px;padding:4px 4px 4px 16px;">
+                    <span style="font-size:18px;">🔵</span>
+                    <input type="text" id="pickup" placeholder="Abholort" style="flex:1;border:none;background:transparent;padding:16px 8px;font-size:16px;outline:none;">
+                    <button onclick="useMyLocation()" style="width:44px;height:44px;border:none;background:transparent;cursor:pointer;font-size:20px;">📍</button>
                 </div>
-                
-                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
-                <div id="pickup-confirmation" style="
-                    display: none;
-                    margin-top: 8px;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    <!-- Wird dynamisch befüllt -->
-                </div>
-                
-                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
-                <div id="pickup-saved-locations" style="display:none;margin-top:10px;"></div>
-                
-                <button onclick="useMyLocation()" style="margin-top:14px;padding:16px 18px;border:2px solid #3b82f6;background:#eff6ff;color:#1e40af;border-radius:14px;font-weight:700;cursor:pointer;width:100%;font-size:16px;min-height:56px;">
-                    📍 Meinen Standort verwenden
-                </button>
+                <div id="pickup-confirmation" style="display:none;margin:8px 0 0 52px;font-size:13px;color:#666;"></div>
+                <div id="pickup-saved-locations" style="display:none;margin:8px 0 0 52px;"></div>
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
             
-            <!-- 🆕 v5.86.35: QUICK WIN - Zielort cleaner -->
-            <div class="input-group" style="margin-bottom:24px;">
-                <label style="font-size:16px;font-weight:700;margin-bottom:12px;display:block;color:#000;">🎯 Wohin möchten Sie?</label>
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <input type="text" id="destination" placeholder="Ihr Zielort..." style="flex:1;padding:18px 16px;font-size:17px;border:2px solid #e5e7eb;border-radius:14px;min-height:60px;background:white;">
-                    <button onclick="saveLocationPOI('destination')" style="padding:18px 20px;min-height:60px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:14px;font-weight:700;cursor:pointer;font-size:20px;" title="Ort speichern">
-                        ⭐
-                    </button>
+            <!-- Zielort -->
+            <div style="margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:12px;background:#f5f5f5;border-radius:12px;padding:4px 4px 4px 16px;">
+                    <span style="font-size:18px;">🔴</span>
+                    <input type="text" id="destination" placeholder="Wohin?" style="flex:1;border:none;background:transparent;padding:16px 8px;font-size:16px;outline:none;">
                 </div>
-                
-                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
-                <div id="destination-confirmation" style="
-                    display: none;
-                    margin-top: 8px;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    <!-- Wird dynamisch befüllt -->
-                </div>
-                
-                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
-                <div id="destination-saved-locations" style="display:none;margin-top:8px;"></div>
-                
+                <div id="destination-confirmation" style="display:none;margin:8px 0 0 52px;font-size:13px;color:#666;"></div>
+                <div id="destination-saved-locations" style="display:none;margin:8px 0 0 52px;"></div>
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
             
-            <!-- 🆕 v5.86.35: QUICK WIN - Wann fahren? Größer! -->
-            <div class="input-group" style="margin-top:32px;margin-bottom:32px;">
-                <label style="font-size:17px;font-weight:700;margin-bottom:20px;display:block;color:#000;">⏱️ Wann möchten Sie fahren?</label>
-                
-                <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr;gap:16px;">
-                    <!-- SOFORT Button - 🆕 v5.32.5g: Initial versteckt, nur wenn Fahrer verfügbar -->
-                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;padding:28px 24px;border:3px solid #10b981;background:white;border-radius:18px;cursor:pointer;transition:all 0.3s;min-height:120px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-                        <div style="font-size:40px;margin-bottom:12px;">⚡</div>
-                        <div style="font-weight:800;font-size:20px;color:#059669;margin-bottom:8px;">SOFORT</div>
-                        <div style="font-size:14px;color:#666;font-weight:500;">Nächstes verfügbares Taxi</div>
-                    </button>
-                    
-                    <!-- VORBESTELLEN Button -->
-                    <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:28px 24px;border:3px solid #e5e7eb;background:white;border-radius:18px;cursor:pointer;transition:all 0.3s;min-height:120px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-                        <div style="font-size:40px;margin-bottom:12px;">📅</div>
-                        <div style="font-weight:800;font-size:20px;color:#1f2937;margin-bottom:8px;">VORBESTELLEN</div>
-                        <div style="font-size:14px;color:#666;font-weight:500;">Datum & Zeit wählen</div>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
-            <div id="sofort-bereich" style="display:none;">
-                <div id="available-taxis-display"></div>
-            </div>
-            
-            <!-- 📅 VORBESTELLEN-BEREICH: Datum & Zeit direkt wählen -->
-            <div id="vorbestellen-bereich" style="display:none;">
-                <div class="input-group">
-                    <label>📅 Abholzeit wählen</label>
-                    
-                    <!-- Datum + Zeit direkt (ohne Dropdown!) -->
-                    <div id="custom-datetime-container" style="margin-top:0;">
-                        <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <select id="custom-hour" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
-                                <option value="00">00</option><option value="01">01</option><option value="02">02</option>
-                                <option value="03">03</option><option value="04">04</option><option value="05">05</option>
-                                <option value="06">06</option><option value="07">07</option><option value="08">08</option>
-                                <option value="09">09</option><option value="10">10</option><option value="11">11</option>
-                                <option value="12">12</option><option value="13">13</option><option value="14">14</option>
-                                <option value="15">15</option><option value="16">16</option><option value="17">17</option>
-                                <option value="18">18</option><option value="19">19</option><option value="20">20</option>
-                                <option value="21">21</option><option value="22">22</option><option value="23">23</option>
-                            </select>
-                            <span style="font-size:20px;font-weight:bold;">:</span>
-                            <select id="custom-minute" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
-                                <option value="00">00</option><option value="05">05</option><option value="10">10</option>
-                                <option value="15">15</option><option value="20">20</option><option value="25">25</option>
-                                <option value="30">30</option><option value="35">35</option><option value="40">40</option>
-                                <option value="45">45</option><option value="50">50</option><option value="55">55</option>
-                            </select>
-                            <span style="font-size:14px;color:#666;">Uhr</span>
-                        </div>
-                    </div>
-                    
-                    <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
-                    <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
-                        <!-- Wird dynamisch gefüllt -->
-                    </div>
-                    
-                    <div id="datetime-help" style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
-                        💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 🆕 v5.86.35: QUICK WIN - Personen größer -->
-            <div class="input-group" style="margin-bottom:24px;">
-                <label style="font-size:16px;font-weight:700;margin-bottom:12px;display:block;color:#000;">👥 Personen</label>
-                <select id="passengers" style="padding:18px 16px;font-size:17px;border:2px solid #e5e7eb;border-radius:14px;min-height:60px;width:100%;background:white;font-weight:600;color:#1f2937;">
-                    <option value="1">1 Person</option>
-                    <option value="2">2 Personen</option>
-                    <option value="3">3 Personen</option>
-                    <option value="4">4 Personen</option>
-                </select>
-            </div>
-            <!-- 🆕 v5.86.35: QUICK WIN - Preis-Button MEGA groß! -->
-            <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()" style="width:100%;padding:22px;font-size:19px;font-weight:700;border-radius:16px;min-height:70px;background:linear-gradient(135deg,#000,#333);border:none;color:white;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.2);margin-bottom:16px;">
+            <!-- Preis Berechnen Button -->
+            <button id="calculate-price-btn" onclick="calculatePrice()" style="
+                width:100%;
+                padding:18px;
+                background:#000;
+                color:white;
+                border:none;
+                border-radius:12px;
+                font-size:16px;
+                font-weight:700;
+                cursor:pointer;
+                margin-bottom:16px;
+            ">
                 💰 Preis berechnen
             </button>
-            <div id="price-display" style="margin-top: 15px;"></div>
-            <!-- 🗑️ v5.86.38: Untere Karte entfernt - nur EINE große Karte oben (Uber-Style)! -->
             
-            <!-- CRM Speicher-Option -->
-            <div id="crm-save-option" style="display:none;margin-top:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                    <input type="checkbox" id="save-to-crm" checked style="width:20px;height:20px;accent-color:#10b981;">
-                    <span style="font-size:14px;">
-                        <strong>📋 Kundendaten im CRM aktualisieren</strong><br>
-                        <span style="font-size:12px;color:#666;">Adresse und Telefon werden gespeichert</span>
-                    </span>
-                </label>
-            </div>
+            <!-- Preis Display -->
+            <div id="price-display" style="display:none;"></div>
             
-            <!-- 🆕 v5.86.35: QUICK WIN - Zahlungsmethode cleaner -->
-            <div class="input-group" style="margin-top:24px;margin-bottom:24px;">
-                <label style="font-size:16px;font-weight:700;margin-bottom:12px;display:block;color:#000;">💳 Zahlungsmethode</label>
-                <select id="payment-method" style="padding:18px 16px;border:2px solid #e5e7eb;border-radius:14px;font-size:17px;font-weight:600;background:white;color:#1f2937;cursor:pointer;width:100%;min-height:60px;">
-                    <option value="bar">💶 Bar (Bargeld)</option>
-                    <option value="karte">💳 EC-Karte / Kreditkarte</option>
-                    <option value="paypal">📱 PayPal / Digitale Zahlung</option>
-                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
-                </select>
-                <div style="font-size:14px;color:#6b7280;margin-top:10px;font-weight:500;">
-                    ℹ️ Der Fahrer sieht Ihre Zahlungsmethode
+            <!-- Preis Container (alte Route-Anzeige) -->
+            <div id="price-container" style="display:none;margin-bottom:16px;">
+                <div style="background:#f5f5f5;padding:16px;border-radius:12px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                        <span style="font-weight:600;">Entfernung:</span>
+                        <span id="price-distance">-</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                        <span style="font-weight:600;">Fahrzeit:</span>
+                        <span id="price-duration">-</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;border-top:2px solid #ddd;padding-top:12px;margin-top:12px;">
+                        <span style="font-weight:700;font-size:18px;">Preis:</span>
+                        <span id="price-amount" style="font-weight:700;font-size:20px;color:#10b981;">-</span>
+                    </div>
                 </div>
             </div>
             
-            <!-- 🆕 v5.86.35: QUICK WIN - TAXI BUCHEN Button MEGA (wie Uber)! -->
-            <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top:24px;display:none;width:100%;padding:26px;font-size:21px;font-weight:800;border-radius:18px;min-height:80px;background:#000;border:none;color:white;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.3);transition:all 0.2s;letter-spacing:0.5px;">
-                🚕 TAXI BUCHEN
+            <!-- Buchen Button -->
+            <button id="book-btn" onclick="bookRide()" style="
+                display:none;
+                width:100%;
+                padding:18px;
+                background:#10b981;
+                color:white;
+                border:none;
+                border-radius:12px;
+                font-size:16px;
+                font-weight:700;
+                cursor:pointer;
+            ">
+                🚕 Taxi buchen
             </button>
+            
+            <!-- Zusätzliche Optionen (ausklappbar) -->
+            <div id="additional-options" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #eee;">
+                <!-- Passagiere -->
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:14px;color:#666;margin-bottom:4px;display:block;">Passagiere:</label>
+                    <select id="passengers" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+                        <option value="1">1 Person</option>
+                        <option value="2">2 Personen</option>
+                        <option value="3">3 Personen</option>
+                        <option value="4">4 Personen</option>
+                        <option value="5">5 Personen</option>
+                        <option value="6">6 Personen</option>
+                        <option value="7">7 Personen</option>
+                        <option value="8">8 Personen</option>
+                    </select>
+                </div>
+                
+                <!-- Vorbestellen -->
+                <div id="preorder-container" style="display:none;margin-bottom:12px;">
+                    <label style="font-size:14px;color:#666;margin-bottom:4px;display:block;">Abholzeit:</label>
+                    <input type="datetime-local" id="preorder-datetime" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+                </div>
+                
+                <!-- Zahlungsmethode -->
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:14px;color:#666;margin-bottom:4px;display:block;">Zahlungsart:</label>
+                    <select id="payment-method" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+                        <option value="bar">💵 Barzahlung</option>
+                        <option value="karte">💳 EC-Karte</option>
+                        <option value="rechnung">📄 Rechnung</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Hidden Fields -->
+            <input type="hidden" id="customer-name">
+            <input type="hidden" id="customer-phone">
+            <div id="ride-type-container" style="display:none;"></div>
+            <div id="crm-save-option" style="display:none;"></div>
         </div>
         
-        <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
-        <div id="offline-message" style="display:none;padding:25px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:12px;color:white;text-align:center;margin-bottom:20px;">
-            <div style="font-size:48px;margin-bottom:15px;">🔴</div>
-            <div style="font-size:20px;font-weight:700;margin-bottom:10px;">Buchungssystem offline</div>
-            <div style="font-size:14px;margin-bottom:20px;opacity:0.9;">
-                Aktuell können keine Online-Buchungen angenommen werden.
-            </div>
-            <div style="padding:20px;background:rgba(255,255,255,0.15);border-radius:10px;margin-bottom:20px;">
-                <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Bitte rufen Sie uns an:</div>
-                <a href="tel:+4915229117722" style="font-size:32px;font-weight:700;color:white;text-decoration:none;display:block;">
-                    📞 0152 29117722
-                </a>
-            </div>
-            <div style="font-size:12px;opacity:0.8;">
-                Wir sind gerne für Sie da und nehmen Ihre Buchung telefonisch entgegen!
-            </div>
-        </div>
+        <!-- Modals & Overlays (bleiben gleich) -->
+        <div id="regular-customer-box" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);width:90%;max-width:400px;z-index:1002;background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:white;padding:20px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.2);"></div>
+        <div id="ride-status-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;padding:20px;overflow-y:auto;"></div>
+        <div id="quick-login-box" style="display:none !important;"></div>
+        <div id="my-profile-box" style="display:none !important;"></div>
         
-        <div id="confirm"></div>
-        
-        <!-- 🧹 Cache-Button für ALLE sichtbar -->
-        <div style="margin-top:30px;padding:15px;background:#f0f9ff;border-radius:8px;text-align:center;">
-            <p style="font-size:13px;color:#666;margin-bottom:10px;">
-                ⚠️ Probleme mit der App? Alte Version wird angezeigt?
-            </p>
-            <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                🧹 Cache leeren & App neu laden
-            </button>
-        </div>
+        <!-- Route-Map Fallback (hidden) -->
+        <div id="route-map" style="display:none;"></div>
     </div>
-
-    <!-- 🆕 v5.45.0: FAHRPLAN-VIEW - Abfahrtstafel + ÖPNV-Taxi -->
     <div id="schedule-view" class="view">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:8px;">
             <h3 style="margin:0;flex:1;">🚏 Abfahrtstafel</h3>
@@ -4919,7 +4823,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.43';
+        const APP_VERSION = '5.87.0';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -8482,6 +8386,22 @@
             }
             
             currentView = view;
+            
+            // 🆕 v5.87.0: UBER-STYLE - Verstecke Tabs/Header bei Passenger
+            const adminTabs = document.getElementById('admin-tabs');
+            const mainHeader = document.getElementById('header');
+            const appContainer = document.getElementById('app');
+            if (view === 'passenger') {
+                // Fullscreen Modus - alles weg!
+                if (adminTabs) adminTabs.style.display = 'none';
+                if (mainHeader) mainHeader.style.display = 'none';
+                if (appContainer) appContainer.style.padding = '0'; // Kein Padding!
+            } else {
+                // Normale Views - zeige Tabs/Header
+                if (adminTabs) adminTabs.style.display = 'block';
+                if (mainHeader) mainHeader.style.display = 'block';
+                if (appContainer) appContainer.style.padding = '20px'; // Standard-Padding zurück
+            }
             
             console.log('🔄 View gewechselt zu:', view);
             

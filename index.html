@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1430)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1745)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1745)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1453,7 +1453,12 @@
             <div id="price-container" style="display:none;"></div>
             
             <!-- Ride Type Buttons (kompakt) -->
-            <div id="ride-type-buttons-container" style="display:none;gap:8px;margin-bottom:8px;">
+            <div id="ride-type-buttons-container" style="
+                display:none;
+                flex-direction:row;
+                gap:8px;
+                margin-bottom:12px;
+            ">
                 <button id="btn-sofort" onclick="selectRideType('sofort')" style="
                     flex:1;
                     padding:14px;
@@ -4951,7 +4956,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.4';
+        const APP_VERSION = '5.87.5';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -5701,9 +5706,14 @@
             console.log('✅ Vorbestellung:', dateStr, timeStr);
         }
         
-        // 🆕 v5.87.4: TAXI BUCHEN
+        // 🆕 v5.87.5: TAXI BUCHEN (mit Debug Logging)
         async function bookRide() {
+            console.log('═══════════════════════════════════════════');
             console.log('🚕 bookRide() aufgerufen!');
+            console.log('   currentRideType:', currentRideType);
+            console.log('   selectedDate:', window.selectedPreorderDate);
+            console.log('   selectedTime:', window.selectedPreorderTime);
+            console.log('═══════════════════════════════════════════');
             
             // Validierung
             const pickup = document.getElementById('pickup').value.trim();
@@ -5728,15 +5738,26 @@
             let pickupTimestamp;
             if (currentRideType === 'sofort') {
                 pickupTimestamp = Date.now() + 5 * 60000; // +5 Min
+                console.log('⚡ SOFORT Buchung → Timestamp:', pickupTimestamp, '=', new Date(pickupTimestamp));
             } else {
                 // Vorbestellung
                 const date = window.selectedPreorderDate;
                 const time = window.selectedPreorderTime;
+                console.log('📅 VORBESTELLUNG Buchung → date:', date, 'time:', time);
+                
                 if (!date || !time) {
                     alert('❌ Bitte Zeit wählen!');
                     return;
                 }
-                pickupTimestamp = new Date(date + 'T' + time).getTime();
+                
+                // 🔧 WICHTIG: Timezone explizit setzen!
+                const dateTimeStr = date + 'T' + time + ':00';
+                pickupTimestamp = new Date(dateTimeStr).getTime();
+                
+                console.log('📅 dateTimeStr:', dateTimeStr);
+                console.log('📅 pickupTimestamp:', pickupTimestamp);
+                console.log('📅 als Date:', new Date(pickupTimestamp));
+                console.log('📅 Zeitdifferenz zu jetzt:', Math.round((pickupTimestamp - Date.now()) / 60000), 'Minuten');
             }
             
             // Fahrt-Objekt
@@ -5759,15 +5780,22 @@
                 userName: currentUser?.displayName || 'Gast'
             };
             
-            console.log('📋 Fahrt-Daten:', ride);
+            console.log('═══════════════════════════════════════════');
+            console.log('📋 FAHRT-DATEN:');
+            console.log(JSON.stringify(ride, null, 2));
+            console.log('═══════════════════════════════════════════');
             
             try {
                 // Speichere in Firebase
                 const rideRef = await db.ref('rides').push(ride);
-                console.log('✅ Fahrt gespeichert:', rideRef.key);
+                console.log('✅ Fahrt gespeichert mit ID:', rideRef.key);
                 
                 // Zeige Erfolg
-                alert('✅ Taxi gebucht!\n\nDu erhältst eine Benachrichtigung wenn ein Fahrer zugewiesen wird.');
+                alert('✅ Taxi gebucht!\n\n' + 
+                      'Fahrt-ID: ' + rideRef.key + '\n' +
+                      'Status: ' + ride.status + '\n' +
+                      'Abholzeit: ' + new Date(pickupTimestamp).toLocaleString('de-DE') + '\n\n' +
+                      'Du erhältst eine Benachrichtigung wenn ein Fahrer zugewiesen wird.');
                 
                 // Reset Form
                 document.getElementById('pickup').value = '';
@@ -5775,11 +5803,22 @@
                 pickupCoords = null;
                 destCoords = null;
                 currentRideType = null;
+                window.selectedPreorderDate = null;
+                window.selectedPreorderTime = null;
                 
                 // Verstecke Buttons
-                document.getElementById('ride-type-buttons-container').style.display = 'none';
-                document.getElementById('book-btn').style.display = 'none';
-                document.getElementById('map-price-badge').style.display = 'none';
+                const rideTypeBtns = document.getElementById('ride-type-buttons-container');
+                if (rideTypeBtns) rideTypeBtns.style.display = 'none';
+                
+                const bookBtn = document.getElementById('book-btn');
+                if (bookBtn) bookBtn.style.display = 'none';
+                
+                const mapBadge = document.getElementById('map-price-badge');
+                if (mapBadge) mapBadge.style.display = 'none';
+                
+                // Reset Button-Text
+                const btnVorbestellen = document.getElementById('btn-vorbestellen');
+                if (btnVorbestellen) btnVorbestellen.innerHTML = '📅 Später';
                 
             } catch (error) {
                 console.error('❌ Fehler beim Buchen:', error);

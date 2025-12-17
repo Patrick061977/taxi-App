@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1230)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1240)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1240)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4919,7 +4919,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.42';
+        const APP_VERSION = '5.86.43';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -8616,24 +8616,6 @@
                 }).addTo(routeMapTopInstance);
                 
                 console.log('✅ Tiles geladen!');
-                
-                // Marker für wichtige Orte (optional - macht es lebendiger)
-                const markers = [
-                    { lat: 53.9533, lon: 14.1633, name: '🚉 Bahnhof Heringsdorf', color: '#3b82f6' },
-                    { lat: 53.9444, lon: 14.1933, name: '🌊 Seebrücke Ahlbeck', color: '#10b981' },
-                    { lat: 53.9633, lon: 14.1433, name: '🌊 Seebrücke Bansin', color: '#10b981' }
-                ];
-                
-                markers.forEach(m => {
-                    L.marker([m.lat, m.lon], {
-                        icon: L.divIcon({
-                            className: 'custom-marker',
-                            html: `<div style="background:${m.color};width:20px;height:20px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10]
-                        })
-                    }).addTo(routeMapTopInstance).bindPopup(m.name);
-                });
                 
                 console.log('✅ Große Karte oben initialisiert!');
                 

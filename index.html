@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1945)');
+        console.log('🚕 Funk Taxi App v5.87.12 - FIXES! (Build 20251217-2000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -113,13 +113,6 @@
         console.log('');
         console.log('✅ ADMIN: Sieht alles inkl. CRM!');
         console.log('❌ FAHRER: Kein CRM-Zugriff!');
-        
-        // 🆕 v5.87.11: UPDATE HEADER BEIM START
-        window.addEventListener('DOMContentLoaded', () => {
-            if (typeof updateHeaderInfo === 'function') {
-                updateHeaderInfo();
-            }
-        });
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -1208,6 +1201,7 @@
             box-shadow: -4px 0 20px rgba(0,0,0,0.3);
             overflow-y: auto;
             animation: slideInRight 0.3s;
+            z-index: 2001;
         " onclick="event.stopPropagation()">
             <!-- Menü Header -->
             <div style="
@@ -4987,8 +4981,13 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.11';
-        const APP_BUILD = '20251127-BLACKLIST-FIX';
+        const APP_VERSION = '5.87.12';
+        const APP_BUILD = '20251217-1945';
+        
+        // 🆕 v5.87.12: UPDATE HEADER SOFORT
+        if (typeof updateHeaderInfo === 'function') {
+            updateHeaderInfo();
+        }
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -5690,12 +5689,26 @@
         
         // 🆕 v5.87.4: UBER-STYLE VORBESTELL-MODAL
         function openPreorderModal() {
+            console.log('🗓️ openPreorderModal() aufgerufen!');
+            
             const modal = document.getElementById('preorder-modal');
-            if (!modal) return;
+            if (!modal) {
+                console.error('❌ preorder-modal Element nicht gefunden!');
+                return;
+            }
+            
+            console.log('✅ Modal Element gefunden');
             
             // Setze Default-Werte
             const dateInput = document.getElementById('preorder-date');
             const timeInput = document.getElementById('preorder-time');
+            
+            if (!dateInput || !timeInput) {
+                console.error('❌ Datum/Zeit Inputs nicht gefunden!', {dateInput, timeInput});
+                return;
+            }
+            
+            console.log('✅ Inputs gefunden');
             
             // Default: Heute + 1 Stunde
             const defaultTime = new Date();
@@ -5712,8 +5725,11 @@
             const minutes = String(Math.ceil(defaultTime.getMinutes() / 5) * 5).padStart(2, '0');
             timeInput.value = `${hours}:${minutes}`;
             
+            console.log('✅ Datum/Zeit gesetzt:', dateInput.value, timeInput.value);
+            
             // Modal anzeigen
             modal.style.display = 'block';
+            console.log('✅ Modal geöffnet! display =', modal.style.display);
         }
         
         function closePreorderModal() {

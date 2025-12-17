@@ -101,7 +101,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.34 - COMPLETE AUTO-STORNO FIX! 🛡️🔒 (Build 20251216-2000)');
+        console.log('🚕 Funk Taxi App v5.87.14 - AUTO-STORNO DEAKTIVIERT! 🚫 (Build 20251217-2340)');
+        console.log('🚫 v5.87.14: AUTO-STORNO KOMPLETT DEAKTIVIERT!');
+        console.log('📦 v5.87.14: ALLE FAHRTEN BLEIBEN IM SYSTEM!');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -4902,8 +4904,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.86.34';
-        const APP_BUILD = '20251127-BLACKLIST-FIX';
+        const APP_VERSION = '5.87.14';
+        const APP_BUILD = '20251217-2340';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6994,7 +6996,11 @@
         
         // 🧹 v5.24.8: CLEANUP für hängende 'assigned' Fahrten
         // 🧹 v5.24.9: ERWEITERT - auch alte 'new' und 'vorbestellt' Fahrten (älter als 24h)
+        // 🚫 v5.87.14: DEAKTIVIERT - Fahrten bleiben im System!
         async function cleanupStuckAssignedRides() {
+            console.log('🚫 v5.87.14: AUTO-STORNO DEAKTIVIERT - Alle Fahrten bleiben im System!');
+            return; // ← FRÜHER RETURN = FUNKTION TUT NICHTS MEHR!
+            
             if (!db) return;
             
             try {
@@ -7591,8 +7597,8 @@
                         logActivity('system', 'app_start', 'App gestartet - Firebase verbunden', {});
                     }, 1000);
                     
-                    // 🧹 CLEANUP: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
-                    setTimeout(() => cleanupStuckAssignedRides(), 2000);
+                    // 🚫 v5.87.14: CLEANUP DEAKTIVIERT - Fahrten bleiben im System!
+                    // setTimeout(() => cleanupStuckAssignedRides(), 2000);
                     
                     // 💰 Preis-Einstellungen aus Firebase laden
                     loadPricingSettings();

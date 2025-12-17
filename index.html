@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1745)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1845)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -732,7 +732,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1745)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1845)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1368,77 +1368,77 @@
         <!-- FULLSCREEN KARTE -->
         <div id="route-map-top" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:1;"></div>
         
-        <!-- PREIS-BADGE IN KARTE (Google Maps Style) -->
+        <!-- PREIS-BADGE IN KARTE (v5.87.6: KOMPAKTER!) -->
         <div id="map-price-badge" style="
             display:none;
             position:fixed;
-            top:70px;
+            top:68px;
             left:50%;
             transform:translateX(-50%);
             background:white;
-            padding:10px 16px;
-            border-radius:20px;
-            box-shadow:0 2px 8px rgba(0,0,0,0.2);
+            padding:8px 14px;
+            border-radius:18px;
+            box-shadow:0 2px 6px rgba(0,0,0,0.15);
             z-index:1000;
-            font-size:14px;
+            font-size:13px;
             font-weight:700;
         ">
             <span id="map-price-text">9.60€</span> • <span id="map-distance-text">1.7 km</span>
         </div>
         
-        <!-- BOTTOM SHEET - schwebt über Karte -->
+        <!-- BOTTOM SHEET - schwebt über Karte (v5.87.6: KOMPAKTER!) -->
         <div id="bottom-sheet" style="
             position:fixed;
             bottom:0;
             left:0;
             right:0;
             background:white;
-            border-radius:16px 16px 0 0;
+            border-radius:12px 12px 0 0;
             box-shadow:0 -2px 10px rgba(0,0,0,0.1);
             z-index:1001;
-            padding:16px;
-            max-height:35vh;
+            padding:12px 16px;
+            max-height:28vh;
             overflow-y:auto;
             transition:max-height 0.3s;
         ">
             <!-- Drag Handle -->
-            <div style="width:36px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 12px auto;"></div>
+            <div style="width:36px;height:3px;background:#ddd;border-radius:2px;margin:0 auto 8px auto;"></div>
             
             <!-- Abholort -->
-            <div style="margin-bottom:8px;">
-                <div style="display:flex;align-items:center;gap:10px;background:#f5f5f5;border-radius:10px;padding:2px 2px 2px 12px;">
-                    <span style="font-size:14px;">🔵</span>
-                    <input type="text" id="pickup" placeholder="Abholort" style="flex:1;border:none;background:transparent;padding:12px 6px;font-size:15px;outline:none;">
-                    <button onclick="useMyLocation()" style="width:36px;height:36px;border:none;background:transparent;cursor:pointer;font-size:18px;">📍</button>
+            <div style="margin-bottom:6px;">
+                <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border-radius:8px;padding:1px 1px 1px 10px;">
+                    <span style="font-size:12px;">🔵</span>
+                    <input type="text" id="pickup" placeholder="Abholort" style="flex:1;border:none;background:transparent;padding:10px 4px;font-size:14px;outline:none;">
+                    <button onclick="useMyLocation()" style="width:32px;height:32px;border:none;background:transparent;cursor:pointer;font-size:16px;">📍</button>
                 </div>
-                <div id="pickup-confirmation" style="display:none;margin:4px 0 0 36px;font-size:12px;color:#666;"></div>
-                <div id="pickup-saved-locations" style="display:none;margin:4px 0 0 36px;"></div>
+                <div id="pickup-confirmation" style="display:none;margin:3px 0 0 28px;font-size:11px;color:#666;"></div>
+                <div id="pickup-saved-locations" style="display:none;margin:3px 0 0 28px;"></div>
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
             
             <!-- Zielort -->
-            <div style="margin-bottom:12px;">
-                <div style="display:flex;align-items:center;gap:10px;background:#f5f5f5;border-radius:10px;padding:2px 2px 2px 12px;">
-                    <span style="font-size:14px;">🔴</span>
-                    <input type="text" id="destination" placeholder="Wohin?" style="flex:1;border:none;background:transparent;padding:12px 6px;font-size:15px;outline:none;">
+            <div style="margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:8px;background:#f5f5f5;border-radius:8px;padding:1px 1px 1px 10px;">
+                    <span style="font-size:12px;">🔴</span>
+                    <input type="text" id="destination" placeholder="Wohin?" style="flex:1;border:none;background:transparent;padding:10px 4px;font-size:14px;outline:none;">
                 </div>
-                <div id="destination-confirmation" style="display:none;margin:4px 0 0 36px;font-size:12px;color:#666;"></div>
-                <div id="destination-saved-locations" style="display:none;margin:4px 0 0 36px;"></div>
+                <div id="destination-confirmation" style="display:none;margin:3px 0 0 28px;font-size:11px;color:#666;"></div>
+                <div id="destination-saved-locations" style="display:none;margin:3px 0 0 28px;"></div>
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
             
-            <!-- Preis Berechnen Button -->
+            <!-- Preis Berechnen Button (v5.87.6: KOMPAKTER!) -->
             <button id="calculate-price-btn" onclick="calculatePriceAndShow()" style="
                 width:100%;
-                padding:14px;
+                padding:12px;
                 background:#000;
                 color:white;
                 border:none;
-                border-radius:10px;
-                font-size:15px;
+                border-radius:8px;
+                font-size:14px;
                 font-weight:700;
                 cursor:pointer;
-                margin-bottom:8px;
+                margin-bottom:6px;
             ">
                 💰 Preis berechnen
             </button>
@@ -1452,51 +1452,51 @@
             <!-- Preis Container (versteckt - nur Badge in Karte!) -->
             <div id="price-container" style="display:none;"></div>
             
-            <!-- Ride Type Buttons (kompakt) -->
+            <!-- Ride Type Buttons (v5.87.6: KOMPAKTER!) -->
             <div id="ride-type-buttons-container" style="
                 display:none;
                 flex-direction:row;
-                gap:8px;
-                margin-bottom:12px;
+                gap:6px;
+                margin-bottom:6px;
             ">
                 <button id="btn-sofort" onclick="selectRideType('sofort')" style="
                     flex:1;
-                    padding:14px;
+                    padding:11px;
                     background:#10b981;
                     border:none;
                     color:white;
-                    border-radius:10px;
+                    border-radius:8px;
                     font-weight:700;
                     cursor:pointer;
-                    font-size:14px;
+                    font-size:13px;
                 ">
                     ⚡ SOFORT
                 </button>
                 <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="
                     flex:1;
-                    padding:14px;
-                    background:#3b82f6;
+                    padding:11px;
+                    background:# 3b82f6;
                     border:none;
                     color:white;
-                    border-radius:10px;
+                    border-radius:8px;
                     font-weight:700;
                     cursor:pointer;
-                    font-size:14px;
+                    font-size:13px;
                 ">
                     📅 Später
                 </button>
             </div>
             
-            <!-- Buchen Button -->
+            <!-- Buchen Button (v5.87.6: KOMPAKTER!) -->
             <button id="book-btn" onclick="bookRide()" style="
                 display:none;
                 width:100%;
-                padding:14px;
+                padding:12px;
                 background:#10b981;
                 color:white;
                 border:none;
-                border-radius:10px;
-                font-size:15px;
+                border-radius:8px;
+                font-size:14px;
                 font-weight:700;
                 cursor:pointer;
             ">
@@ -4956,7 +4956,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.5';
+        const APP_VERSION = '5.87.7';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -5733,6 +5733,26 @@
                 alert('❌ Bitte wähle SOFORT oder SPÄTER!');
                 return;
             }
+            
+            // 🆕 v5.87.7: TELEFON-VERIFIKATION PRÜFEN!
+            console.log('📱 Prüfe Telefon-Verifikation...');
+            console.log('   currentUser:', currentUser);
+            console.log('   phoneNumber:', currentUser?.phoneNumber);
+            
+            if (!currentUser) {
+                alert('❌ Bitte melde dich zuerst an!');
+                return;
+            }
+            
+            if (!currentUser.phoneNumber || currentUser.phoneNumber.trim() === '') {
+                console.log('❌ Keine Telefonnummer! Zeige Verifikation...');
+                alert('📱 Telefon-Verifikation erforderlich!\n\n' +
+                      'Um ein Taxi zu buchen, musst du zuerst deine Telefonnummer verifizieren.\n\n' +
+                      'Klicke auf dein Profil-Icon (oben rechts) und verifiziere deine Nummer.');
+                return;
+            }
+            
+            console.log('✅ Telefon-Verifikation OK:', currentUser.phoneNumber);
             
             // Timestamp berechnen
             let pickupTimestamp;
@@ -9157,6 +9177,7 @@
         // Lade Abfahrten für gewählte Bushaltestelle
 
         // 🆕 v5.33.1: Admin-Tabs anzeigen/verstecken
+        let lastAdminTabsState = null; // 🆕 v5.87.6: Track State
         function updateAdminTabsVisibility() {
             const adminTabs = document.getElementById('admin-tabs');
             if (!adminTabs) return;
@@ -9174,11 +9195,18 @@
             const bookingForm = document.getElementById('booking-form');
             const bookingVisible = bookingForm && window.getComputedStyle(bookingForm).display !== 'none';
             
-            const isLoggedIn = !phoneAuthVisible && (hasName || bookingVisible);
+            // 🔧 v5.87.6: BESSERE LOGIN-DETECTION!
+            // Prüfe auch currentUser, nicht nur sichtbare Elemente!
+            const isLoggedIn = (currentUser && currentUser.uid) || (!phoneAuthVisible && (hasName || bookingVisible));
             
             // 2. Prüfe User-Rolle (global gesetzt durch applyRoleRestrictions)
             // Tabs ONLY für Fahrer & Admin!
             const showTabs = isLoggedIn && (userRole === 'admin' || userRole === 'fahrer');
+            
+            // 🆕 v5.87.6: Nur bei State-Änderung loggen!
+            const currentState = `${showTabs}:${userRole}:${isLoggedIn}`;
+            const stateChanged = lastAdminTabsState !== currentState;
+            lastAdminTabsState = currentState;
             
             if (showTabs) {
                 adminTabs.style.display = 'block';
@@ -9192,22 +9220,24 @@
                     document.querySelectorAll('.admin-tab-btn.driver-visible').forEach(btn => {
                         btn.style.display = 'inline-block';
                     });
-                    console.log('✅ Fahrer-Tabs gefiltert: Nur Fahrer-Tab sichtbar');
+                    if (stateChanged) console.log('✅ Fahrer-Tabs gefiltert: Nur Fahrer-Tab sichtbar');
                 } else if (userRole === 'admin') {
                     // ADMIN: Alle Tabs anzeigen!
                     document.querySelectorAll('.admin-tab-btn').forEach(btn => {
                         btn.style.display = 'inline-block';
                     });
-                    console.log('✅ Admin: Alle Tabs sichtbar');
+                    if (stateChanged) console.log('✅ Admin: Alle Tabs sichtbar');
                 }
                 
-                console.log('✅ Admin-Tabs angezeigt (User:', userRole, ')');
+                if (stateChanged) console.log('✅ Admin-Tabs angezeigt (User:', userRole, ')');
             } else {
                 adminTabs.style.display = 'none';
-                if (isLoggedIn) {
-                    console.log('❌ Admin-Tabs versteckt (Fahrgast - nutzt Menü)');
-                } else {
-                    console.log('❌ Admin-Tabs versteckt (nicht eingeloggt)');
+                if (stateChanged) {
+                    if (isLoggedIn) {
+                        console.log('❌ Admin-Tabs versteckt (Fahrgast - nutzt Menü) - userRole:', userRole);
+                    } else {
+                        console.log('❌ Admin-Tabs versteckt (nicht eingeloggt)');
+                    }
                 }
             }
         }

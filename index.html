@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1930)');
+        console.log('🚕 Funk Taxi App v5.86.41 - SYNTAX FIX! ✅✨ (Build 20251217-1945)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -113,6 +113,13 @@
         console.log('');
         console.log('✅ ADMIN: Sieht alles inkl. CRM!');
         console.log('❌ FAHRER: Kein CRM-Zugriff!');
+        
+        // 🆕 v5.87.11: UPDATE HEADER BEIM START
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof updateHeaderInfo === 'function') {
+                updateHeaderInfo();
+            }
+        });
     </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -748,7 +755,8 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.40 - DEBUG! 🐛✨ (Build 20251217-1930)</p>
+            <!-- 🆕 v5.87.11: DYNAMISCHE VERSION ANZEIGE -->
+            <p id="version-display" style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Lädt...</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -794,8 +802,9 @@
         border-bottom: 2px solid #e5e7eb;
         position: sticky;
         top: 0;
-        z-index: 999;
+        z-index: 1100;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        pointer-events: auto;
     ">
         <!-- 🆕 v5.87.9: BESSERES HORIZONTAL SCROLLING! -->
         <div style="
@@ -1185,7 +1194,7 @@
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.5);
-        z-index: 1000;
+        z-index: 2000;
         animation: fadeIn 0.2s;
     " onclick="closeMenu()">
         <div id="menu-panel" style="
@@ -2461,6 +2470,20 @@
         </div>
         
         <script>
+            // 🆕 v5.87.11: UPDATE HEADER MIT VERSION + FIREBASE STATUS
+            function updateHeaderInfo() {
+                const versionDisplay = document.getElementById('version-display');
+                if (!versionDisplay) return;
+                
+                const version = APP_VERSION || '5.87.11';
+                const build = '20251217-1930';
+                const firebaseStatus = isFirebaseReady ? '🟢 Online' : '🔴 Offline';
+                
+                versionDisplay.innerHTML = `📦 v${version} (${build}) • ${firebaseStatus}`;
+                
+                console.log('📊 Header updated:', version, firebaseStatus);
+            }
+            
             // 📱 HEADER TOGGLE
             let headerCollapsed = false;
             function toggleHeader() {
@@ -4964,7 +4987,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.10';
+        const APP_VERSION = '5.87.11';
         const APP_BUILD = '20251127-BLACKLIST-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -7820,6 +7843,9 @@
                     firebase.initializeApp(firebaseConfig);
                     db = firebase.database();
                     isFirebaseReady = true;
+                    
+                    // 🆕 v5.87.11: UPDATE HEADER MIT VERSION + STATUS
+                    updateHeaderInfo();
                     
                     if (isTestMode) {
                         console.log('✅ Firebase TEST-DB verbunden (Prefix: test_)');

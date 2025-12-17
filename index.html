@@ -101,7 +101,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.12 - FIXES! (Build 20251217-2000)');
+        console.log('🚕 Funk Taxi App v5.87.11 - ADMIN FIX!FIXES! (Build 20251217-2000)');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -4981,10 +4981,10 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.12';
-        const APP_BUILD = '20251217-1945';
+        const APP_VERSION = '5.87.11';
+        const APP_BUILD = '20251217-2000';
         
-        // 🆕 v5.87.12: UPDATE HEADER SOFORT
+        // 🆕 v5.87.11: UPDATE HEADER SOFORT
         if (typeof updateHeaderInfo === 'function') {
             updateHeaderInfo();
         }
@@ -5799,17 +5799,21 @@
                 return;
             }
             
-            // 🆕 v5.87.7: TELEFON-VERIFIKATION PRÜFEN!
+            // 🆕 v5.87.11: TELEFON-VERIFIKATION PRÜFEN (mit Admin-Exception!)
             console.log('📱 Prüfe Telefon-Verifikation...');
             console.log('   currentUser:', currentUser);
             console.log('   phoneNumber:', currentUser?.phoneNumber);
+            console.log('   email:', currentUser?.email);
             
             if (!currentUser) {
                 alert('❌ Bitte melde dich zuerst an!');
                 return;
             }
             
-            if (!currentUser.phoneNumber || currentUser.phoneNumber.trim() === '') {
+            // 🆕 v5.87.11: Admin-Exception (funktaxi.pw@gmail.com braucht keine Telefon-Verifikation)
+            const isAdminUser = currentUser.email === 'funktaxi.pw@gmail.com';
+            
+            if (!isAdminUser && (!currentUser.phoneNumber || currentUser.phoneNumber.trim() === '')) {
                 console.log('❌ Keine Telefonnummer! Zeige Verifikation...');
                 alert('📱 Telefon-Verifikation erforderlich!\n\n' +
                       'Um ein Taxi zu buchen, musst du zuerst deine Telefonnummer verifizieren.\n\n' +
@@ -5817,7 +5821,11 @@
                 return;
             }
             
-            console.log('✅ Telefon-Verifikation OK:', currentUser.phoneNumber);
+            if (isAdminUser) {
+                console.log('✅ Admin-User erkannt - Telefon-Verifikation übersprungen');
+            } else {
+                console.log('✅ Telefon-Verifikation OK:', currentUser.phoneNumber);
+            }
             
             // Timestamp berechnen
             let pickupTimestamp;

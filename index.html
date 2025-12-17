@@ -1553,6 +1553,19 @@
             <input type="hidden" id="customer-phone">
             <div id="ride-type-container" style="display:none;"></div>
             <div id="crm-save-option" style="display:none;"></div>
+            
+            <!-- 🆕 v5.87.12: VERSION UNTEN IM BOTTOM SHEET (immer sichtbar!) -->
+            <div id="bottom-version-display" style="
+                margin-top:12px;
+                padding-top:8px;
+                border-top:1px solid #eee;
+                text-align:center;
+                font-size:10px;
+                color:#999;
+                font-weight:600;
+            ">
+                📦 v5.87.12 (20251217-2015)
+            </div>
         </div>
         
         <!-- Modals & Overlays (bleiben gleich) -->
@@ -2464,16 +2477,23 @@
         </div>
         
         <script>
-            // 🆕 v5.87.11: UPDATE HEADER MIT VERSION + FIREBASE STATUS
+            // 🆕 v5.87.12: UPDATE HEADER + BOTTOM MIT VERSION + FIREBASE STATUS
             function updateHeaderInfo() {
-                const versionDisplay = document.getElementById('version-display');
-                if (!versionDisplay) return;
-                
-                const version = APP_VERSION || '5.87.11';
-                const build = '20251217-1930';
+                const version = APP_VERSION || '5.87.12';
+                const build = APP_BUILD || '20251217-2015';
                 const firebaseStatus = isFirebaseReady ? '🟢 Online' : '🔴 Offline';
                 
-                versionDisplay.innerHTML = `📦 v${version} (${build}) • ${firebaseStatus}`;
+                // Header Version (oben im Menü)
+                const versionDisplay = document.getElementById('version-display');
+                if (versionDisplay) {
+                    versionDisplay.innerHTML = `📦 v${version} (${build}) • ${firebaseStatus}`;
+                }
+                
+                // Bottom Version (unten im Bottom Sheet - immer sichtbar!)
+                const bottomVersionDisplay = document.getElementById('bottom-version-display');
+                if (bottomVersionDisplay) {
+                    bottomVersionDisplay.innerHTML = `📦 v${version} (${build})`;
+                }
                 
                 console.log('📊 Header updated:', version, firebaseStatus);
             }
@@ -4981,10 +5001,29 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.11';
-        const APP_BUILD = '20251217-2000';
+        const APP_VERSION = '5.87.12';
+        const APP_BUILD = '20251217-2015';
         
-        // 🆕 v5.87.11: UPDATE HEADER SOFORT
+        // 🆕 v5.87.12: GLOBALE VARIABLEN GANZ OBEN (vor updateHeaderInfo!)
+        let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
+        let currentBookingCustomerId = null;
+        let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
+        let qbPanelPickupCoords = null, qbPanelDestCoords = null;
+        let pickupConfirmed = false;
+        let destinationConfirmed = false;
+        let currentAutocompleteField = null;
+        let isOPNVMode = false;
+        let currentTrackingRideId = null;
+        let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
+        let wakeLock = null;
+        let routeMapTopInstance = null;
+        let topMapTaxiMarkers = [];
+        let topMapUpdateInterval = null;
+        let cancellations = [];
+        let notifiedCancellations = new Set();
+        let bookingSystemOnline = true;
+        
+        // 🆕 v5.87.12: UPDATE HEADER SOFORT (jetzt NACH Variable-Deklaration!)
         if (typeof updateHeaderInfo === 'function') {
             updateHeaderInfo();
         }
@@ -5017,30 +5056,8 @@
             'swinemünde': { lat: 53.9167, lon: 14.2500, name: 'Swinemünde' }
         };
 
-        // STATE
-        let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
-        let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
-        let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
-        let qbPanelPickupCoords = null, qbPanelDestCoords = null; // 🆕 v5.50.7: Admin-Panel Koordinaten
-        
-        // 🆕 v5.42.7: Adressen-Bestätigungs-Status
-        let pickupConfirmed = false;
-        let destinationConfirmed = false;
-        
-        // 🆕 v5.42.8: Aktuelles Autocomplete-Feld
-        let currentAutocompleteField = null;
-        
-        // 🆕 v5.44.0: ÖPNV-Taxi Modus
-        let isOPNVMode = false;
-        let currentTrackingRideId = null; // 🆕 Aktuelle Fahrt für GPS-Tracking
-        let taxiMarker = null, pickupMarker = null, etaUpdateInterval = null, lastSoundDistance = 999;
-        let wakeLock = null;
-        let routeMapTopInstance = null; // 🆕 v5.86.37: Große Karte oben (Uber-Style)
-        let topMapTaxiMarkers = []; // 🆕 v5.86.39: Taxi-Marker auf großer Karte
-        let topMapUpdateInterval = null; // 🆕 v5.86.39: Update-Interval für Taxis
-        let cancellations = []; // Neue Variable für Stornierungen
-        let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
-        let bookingSystemOnline = true; // 🆕 v5.38.2: Buchungssystem AN/AUS (Standard: AN)
+        // 🆕 v5.87.12: STATE-Variablen sind jetzt GANZ OBEN (Zeile ~4990)
+        // (siehe nach APP_VERSION/APP_BUILD)
         
         // 🆕 v5.38.5: DEBUG-MODUS (Legacy - umbenannt um Konflikt mit Floating Debug zu vermeiden)
         // debugMode ist bereits global definiert!

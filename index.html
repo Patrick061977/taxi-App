@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- 🛡️ v5.87.21: SECURITY HEADERS -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="geolocation=(self), camera=(), microphone=()">
+    
     <meta name="theme-color" content="#667eea">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -101,9 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.14 - AUTO-STORNO DEAKTIVIERT! 🚫 (Build 20251217-2340)');
-        console.log('🚫 v5.87.14: AUTO-STORNO KOMPLETT DEAKTIVIERT!');
-        console.log('📦 v5.87.14: ALLE FAHRTEN BLEIBEN IM SYSTEM!');
+        console.log('🚕 Funk Taxi App v5.87.21 - SECURITY FIX! 🛡️✅ (Build 20251218-0200)');
+        console.log('🛡️ v5.87.21: SECURITY HEADERS HINZUGEFÜGT!');
+        console.log('🔧 v5.87.21: FEHLENDE JS-DATEIEN ENTFERNT!');
+        console.log('🐛 v5.87.21: DEBUG-TOOL NUR MIT ?debug!');
+        console.log('✅ v5.87.20: ADRESS-VALIDIERUNG BEIM KUNDEN ANLEGEN!');
+        console.log('🚫 v5.86.34: AUTO-STORNO KOMPLETT DEAKTIVIERT!');
         console.log('🤖 v5.62.0: AI-ASSISTENT FÜR E-MAIL/TELEGRAM BUCHUNGEN!');
         console.log('🚨 v5.61.0: GPS-WARNUNG BEI EINGEFRORENEM GPS!');
         console.log('   ✅ CRM-Panel nur für Admin sichtbar!');
@@ -119,16 +129,24 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <!-- 🐛 Eruda Debug-Panel für Mobile -->
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <!-- 🐛 v5.87.21: Eruda Debug-Panel NUR MIT ?debug URL-Parameter! -->
     <script>
-        // Nur auf Nicht-Desktop-Geräten aktivieren
-        if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            // Desktop - Eruda nicht laden
-        } else {
-            // Mobile - Eruda aktivieren
-            eruda.init();
-            console.log('🐛 Debug-Panel aktiviert! Button unten rechts öffnen.');
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('debug')) {
+            // Debug-Modus aktiv - lade Eruda
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+            script.onload = function() {
+                if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                    // Desktop - Eruda nicht aktivieren
+                } else {
+                    // Mobile - Eruda aktivieren
+                    eruda.init();
+                    console.log('🐛 Debug-Panel aktiviert! Button unten rechts öffnen.');
+                }
+            };
+            document.head.appendChild(script);
+            console.log('🔧 Debug-Modus: Eruda wird geladen...');
         }
     </script>
     
@@ -4904,8 +4922,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.14';
-        const APP_BUILD = '20251217-2340';
+        const APP_VERSION = '5.87.21';
+        const APP_BUILD = '20251218-0200-SECURITY';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -4940,6 +4958,7 @@
         let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
         let qbPanelPickupCoords = null, qbPanelDestCoords = null; // 🆕 v5.50.7: Admin-Panel Koordinaten
+        let newCustomerAddressCoords = null; // 🆕 v5.87.20: Koordinaten für neuen Kunden
         
         // 🆕 v5.42.7: Adressen-Bestätigungs-Status
         let pickupConfirmed = false;
@@ -6996,11 +7015,7 @@
         
         // 🧹 v5.24.8: CLEANUP für hängende 'assigned' Fahrten
         // 🧹 v5.24.9: ERWEITERT - auch alte 'new' und 'vorbestellt' Fahrten (älter als 24h)
-        // 🚫 v5.87.14: DEAKTIVIERT - Fahrten bleiben im System!
         async function cleanupStuckAssignedRides() {
-            console.log('🚫 v5.87.14: AUTO-STORNO DEAKTIVIERT - Alle Fahrten bleiben im System!');
-            return; // ← FRÜHER RETURN = FUNKTION TUT NICHTS MEHR!
-            
             if (!db) return;
             
             try {
@@ -7597,8 +7612,8 @@
                         logActivity('system', 'app_start', 'App gestartet - Firebase verbunden', {});
                     }, 1000);
                     
-                    // 🚫 v5.87.14: CLEANUP DEAKTIVIERT - Fahrten bleiben im System!
-                    // setTimeout(() => cleanupStuckAssignedRides(), 2000);
+                    // 🧹 CLEANUP: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
+                    setTimeout(() => cleanupStuckAssignedRides(), 2000);
                     
                     // 💰 Preis-Einstellungen aus Firebase laden
                     loadPricingSettings();
@@ -14007,6 +14022,10 @@
                 // 🆕 v5.64.34: AI-Buchungsmaske Zielort!
                 window.aiBookingDestCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 console.log('✅ AI-Maske Zielort gespeichert:', address, window.aiBookingDestCoords);
+            } else if (inputId === 'new-qb-customer-address') {
+                // 🆕 v5.87.20: Neuer Kunde Adresse!
+                newCustomerAddressCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                console.log('✅ Kunden-Adresse gespeichert:', address, newCustomerAddressCoords);
             }
         }
 
@@ -24594,9 +24613,10 @@
                         <input type="email" id="new-qb-customer-email" placeholder="Optional" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
                     
-                    <div style="margin-bottom:15px;">
+                    <div style="margin-bottom:15px;position:relative;">
                         <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">🏠 Adresse:</label>
-                        <input type="text" id="new-qb-customer-address" placeholder="Optional" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <input type="text" id="new-qb-customer-address" placeholder="Optional" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <div id="new-qb-customer-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10002;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
                     </div>
                     
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -24610,6 +24630,50 @@
                 </div>
             `;
             document.body.appendChild(miniModal);
+            
+            // 🆕 v5.87.20: AUTOCOMPLETE FÜR ADRESS-FELD!
+            const addressInput = document.getElementById('new-qb-customer-address');
+            const addressDropdown = document.getElementById('new-qb-customer-address-dropdown');
+            let addressAutocompleteTimeout = null;
+            
+            if (addressInput && addressDropdown) {
+                // Focus Event - Zeige Favoriten
+                addressInput.addEventListener('focus', () => {
+                    const value = addressInput.value.trim();
+                    if (!value || value.length < 3) {
+                        searchAddresses('', 'new-qb-customer-address');
+                    }
+                });
+                
+                // Input Event - Suche Adressen
+                addressInput.addEventListener('input', (e) => {
+                    clearTimeout(addressAutocompleteTimeout);
+                    const value = e.target.value.trim();
+                    
+                    if (value.length === 0) {
+                        searchAddresses('', 'new-qb-customer-address');
+                        return;
+                    }
+                    
+                    if (value.length < 3) {
+                        addressDropdown.style.display = 'none';
+                        return;
+                    }
+                    
+                    addressAutocompleteTimeout = setTimeout(() => {
+                        searchAddresses(value, 'new-qb-customer-address');
+                    }, 300);
+                });
+                
+                // Click außerhalb schließt Dropdown
+                document.addEventListener('click', (e) => {
+                    if (e.target !== addressInput && !addressDropdown.contains(e.target)) {
+                        addressDropdown.style.display = 'none';
+                    }
+                });
+                
+                console.log('✅ Autocomplete für Kunden-Adresse aktiviert!');
+            }
             
             // 🆕 v5.64.23: FOKUS AUF ERSTES LEERES FELD!
             setTimeout(() => {
@@ -34883,9 +34947,9 @@ Stack: ${err.stack}
         </div>
     </div>
 
-    <!-- 📱 v5.24.0: External JavaScript -->
-    <script src="improved-gps-tracking.js"></script>
-    <script src="driver-settings-manager.js"></script>
+    <!-- 📱 v5.87.21: External JavaScript ENTFERNT (Dateien fehlen!) -->
+    <!-- <script src="improved-gps-tracking.js"></script> -->
+    <!-- <script src="driver-settings-manager.js"></script> -->
 
     <!-- 📅 VORBESTELL-ÜBERSICHTS-MODAL -->
     <div id="preorder-summary-modal" class="modal">

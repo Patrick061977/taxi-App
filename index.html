@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.24 - MULTI-HOTEL OAUTH FIXED! 🏨🔐✅ (Build 20251218-1940)');
+        console.log('🚕 Funk Taxi App v5.87.24 - MULTI-HOTEL OAUTH + AUTO-SYNC! 🏨🔐🔄 (Build 20251218-2000)');
+        console.log('🔄 v5.87.24: AUTO-SYNC alle 15 Minuten!');
         console.log('✅ v5.87.24: Admin bleibt eingeloggt!');
         console.log('🔐 v5.87.24: Zweimal auf "Zulassen" klicken!');
         console.log('🏨 v5.87.24: Jedes Hotel = eigener OAuth Token!');
-        console.log('📅 v5.87.24: Unbegrenzt viele Hotels!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
         console.log('🛡️ v5.87.21: SECURITY HEADERS + NO 404!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.86.34 - COMPLETE FIX! 🛡️🔒 (Build 20251216-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏨 Version 5.87.24 - MULTI-HOTEL OAUTH + AUTO-SYNC! 🔐🔄 (Build 20251218-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4963,7 +4963,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '5.87.24';
-        const APP_BUILD = '20251218-1940-MULTI-HOTEL-OAUTH-FIXED';
+        const APP_BUILD = '20251218-2000-MULTI-HOTEL-OAUTH-AUTO-SYNC';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38116,9 +38116,59 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Render Liste
                 renderHotelCalendarList();
                 
+                // 🆕 v5.87.24: AUTO-SYNC STARTEN!
+                startHotelCalendarAutoSync();
+                
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Hotel-Kalender:', error);
             }
+        }
+        
+        // 🆕 v5.87.24: AUTO-SYNC TIMER
+        let hotelCalendarSyncInterval = null;
+        
+        function startHotelCalendarAutoSync() {
+            // Clear alter Timer
+            if (hotelCalendarSyncInterval) {
+                clearInterval(hotelCalendarSyncInterval);
+            }
+            
+            console.log('🔄 Starte Hotel-Kalender Auto-Sync (alle 15 Minuten)...');
+            
+            // Sofort einmal syncen
+            syncAllHotelCalendars();
+            
+            // Dann alle 15 Minuten
+            hotelCalendarSyncInterval = setInterval(() => {
+                console.log('⏰ Auto-Sync Timer ausgelöst...');
+                syncAllHotelCalendars();
+            }, 15 * 60 * 1000); // 15 Minuten
+        }
+        
+        async function syncAllHotelCalendars() {
+            console.log('🔄 Sync ALLE Hotel-Kalender...');
+            
+            const calendars = Object.entries(hotelCalendars);
+            if (calendars.length === 0) {
+                console.log('⏸️ Keine Hotel-Kalender zum Syncen');
+                return;
+            }
+            
+            for (const [id, cal] of calendars) {
+                if (!cal.enabled) {
+                    console.log(`⏸️ Überspringe ${cal.name} (pausiert)`);
+                    continue;
+                }
+                
+                // Unterscheide Type
+                if (cal.type === 'google_calendar_oauth') {
+                    await syncGoogleCalendarEvents(id);
+                } else {
+                    await syncHotelCalendar(id); // iCal
+                }
+            }
+            
+            console.log('✅ Sync aller Hotel-Kalender abgeschlossen');
         }
         
         // Zeige Hotel-Kalender Liste

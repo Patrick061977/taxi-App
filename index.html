@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.24 - MULTI-HOTEL OAUTH! 🏨🔐✅ (Build 20251218-1800)');
-        console.log('🏨 v5.87.24: MULTI-HOTEL OAUTH SYSTEM!');
-        console.log('🔐 v5.87.24: Jedes Hotel = eigener Google Login!');
-        console.log('📅 v5.87.24: Unbegrenzt viele Hotels verbinden!');
-        console.log('✅ v5.87.24: Login mit HOTEL-Account Daten!');
+        console.log('🚕 Funk Taxi App v5.87.24 - MULTI-HOTEL OAUTH FIXED! 🏨🔐✅ (Build 20251218-1940)');
+        console.log('✅ v5.87.24: Admin bleibt eingeloggt!');
+        console.log('🔐 v5.87.24: Zweimal auf "Zulassen" klicken!');
+        console.log('🏨 v5.87.24: Jedes Hotel = eigener OAuth Token!');
+        console.log('📅 v5.87.24: Unbegrenzt viele Hotels!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
         console.log('🛡️ v5.87.21: SECURITY HEADERS + NO 404!');
@@ -4963,7 +4963,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '5.87.24';
-        const APP_BUILD = '20251218-1800-MULTI-HOTEL-OAUTH';
+        const APP_BUILD = '20251218-1940-MULTI-HOTEL-OAUTH-FIXED';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38218,21 +38218,27 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             try {
                 console.log(`🔐 Starte Google Calendar OAuth für Hotel: ${hotelName}...`);
                 
-                // 🆕 WICHTIG: Separater OAuth Flow - NICHT Main-Auth verwenden!
-                // User loggt sich mit HOTEL-Account ein!
-                const provider = new firebase.auth.GoogleAuthProvider();
-                provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
-                provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
+                // 🆕 v5.87.24: ADMIN-USER SPEICHERN!
+                const savedAdminUser = currentUser;
+                const savedAdminEmail = savedAdminUser ? savedAdminUser.email : null;
+                
+                if (!savedAdminUser) {
+                    alert('❌ Fehler: Nicht eingeloggt!\n\nBitte logge dich zuerst ein.');
+                    return;
+                }
+                
+                console.log(`💾 Speichere Admin-User: ${savedAdminEmail}`);
                 
                 // Info für User
                 const confirmed = confirm(
                     `🔐 Google Login für Hotel: ${hotelName}\n\n` +
-                    `Im nächsten Schritt öffnet sich ein Google Login-Fenster.\n\n` +
-                    `⚠️ WICHTIG:\n` +
-                    `Melde dich mit dem HOTEL Google-Account an!\n` +
-                    `(Nicht mit deinem persönlichen Account!)\n\n` +
-                    `Beispiel:\n` +
-                    `hotel-seebruecke@gmail.com\n\n` +
+                    `Schritt 1: Hotel-Account Login\n` +
+                    `→ Melde dich mit HOTEL-Account an\n` +
+                    `   (z.B. hotel-seebruecke@gmail.com)\n\n` +
+                    `Schritt 2: Admin-Login wiederherstellen\n` +
+                    `→ Melde dich wieder mit DEINEM Account an\n` +
+                    `   (${savedAdminEmail})\n\n` +
+                    `⚠️ Du musst zweimal auf "Zulassen" klicken!\n\n` +
                     `Fortfahren?`
                 );
                 
@@ -38241,15 +38247,23 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     return;
                 }
                 
-                // Öffne OAuth Popup - User loggt sich mit HOTEL-Account ein
-                const result = await auth.signInWithPopup(provider);
+                // Firebase OAuth für Hotel-Account
+                const hotelProvider = new firebase.auth.GoogleAuthProvider();
+                hotelProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+                hotelProvider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
+                
+                console.log('🔐 Schritt 1/2: Hotel-Account Login...');
+                console.log('⚠️ WICHTIG: Wähle den HOTEL-Account aus!');
+                
+                // Temporärer Login mit Hotel-Account
+                const hotelResult = await auth.signInWithPopup(hotelProvider);
                 
                 // Access Token holen
-                const credential = result.credential;
+                const credential = hotelResult.credential;
                 const accessToken = credential.accessToken;
-                const hotelGoogleEmail = result.user.email;
+                const hotelGoogleEmail = hotelResult.user.email;
                 
-                console.log('✅ Google Calendar OAuth erfolgreich!');
+                console.log('✅ Hotel OAuth erfolgreich!');
                 console.log(`📧 Hotel-Account: ${hotelGoogleEmail}`);
                 console.log('🔑 Access Token erhalten');
                 
@@ -38261,7 +38275,37 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     refreshToken: credential.refreshToken || null
                 };
                 
-                // Lade Kalender-Liste VON DIESEM HOTEL-ACCOUNT
+                // Logout vom Hotel-Account
+                console.log('🔄 Logout vom Hotel-Account...');
+                await auth.signOut();
+                
+                // Re-Login als Admin
+                console.log(`🔐 Schritt 2/2: Admin-Login wiederherstellen...`);
+                console.log(`⚠️ WICHTIG: Wähle DEINEN Account aus: ${savedAdminEmail}`);
+                
+                const adminProvider = new firebase.auth.GoogleAuthProvider();
+                adminProvider.setCustomParameters({
+                    login_hint: savedAdminEmail,
+                    prompt: 'select_account' // Zeige Account-Auswahl
+                });
+                
+                try {
+                    const adminResult = await auth.signInWithPopup(adminProvider);
+                    console.log(`✅ Wieder eingeloggt als Admin: ${adminResult.user.email}`);
+                    
+                    // Prüfe ob richtiger Account
+                    if (adminResult.user.email !== savedAdminEmail) {
+                        console.warn(`⚠️ Falscher Account! Erwartet: ${savedAdminEmail}, Bekommen: ${adminResult.user.email}`);
+                        alert(`⚠️ Du hast dich mit einem anderen Account angemeldet!\n\nErwartet: ${savedAdminEmail}\nAngemeldet: ${adminResult.user.email}\n\nBitte logge dich manuell mit dem richtigen Admin-Account ein.`);
+                    }
+                    
+                } catch (reLoginError) {
+                    console.error('❌ Admin Re-Login fehlgeschlagen:', reLoginError);
+                    alert(`❌ Fehler beim Zurück-Einloggen!\n\nBitte logge dich manuell wieder als Admin ein:\n${savedAdminEmail}`);
+                    return;
+                }
+                
+                // Lade Kalender-Liste VON HOTEL-ACCOUNT (mit gespeichertem Token!)
                 await loadGoogleCalendarsForHotel(accessToken);
                 
                 // Zeige Kalender-Auswahl Modal

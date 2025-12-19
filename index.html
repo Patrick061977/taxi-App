@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.32 - HTML RENDER DEBUG! 🔍📋 (Build 20251219-0825)');
-        console.log('🔍 v5.87.32: HTML-Rendering Debug-Logs!');
-        console.log('🌍 v5.87.31: GLOBAL Log-Export Button!');
-        console.log('⌨️ v5.87.31: Strg+Shift+L Shortcut!');
+        console.log('🚕 Funk Taxi App v5.87.33 - DOM CHECK! 🔍📏 (Build 20251219-0835)');
+        console.log('🔍 v5.87.33: DOM-Check - wie viele Elemente sind wirklich da?');
+        console.log('📏 v5.87.33: Container Höhe & Overflow Check!');
+        console.log('🔍 v5.87.32: HTML-Rendering Debug!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.87.32 - HTML RENDER DEBUG! 📋🐛 (Build 20251219-0825)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.87.33 - DOM CHECK! 📏🐛 (Build 20251219-0835)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.32';
-        const APP_BUILD = '20251219-0825-HTML-RENDER-DEBUG';
+        const APP_VERSION = '5.87.33';
+        const APP_BUILD = '20251219-0835-DOM-CHECK';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -41304,6 +41304,30 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 container.innerHTML = html;
                 
                 console.log('✅ HTML ins DOM eingefügt!');
+                
+                // 🔍 v5.87.33: DOM-Check - wie viele Elemente sind wirklich da?
+                setTimeout(() => {
+                    const dateBlocks = container.querySelectorAll('div[style*="border:2px solid #f59e0b"]');
+                    console.log('🔍 DEBUG - DOM-Check: Gefundene Datum-Blöcke im DOM:', dateBlocks.length);
+                    console.log('🔍 DEBUG - Container Höhe:', container.offsetHeight, 'px');
+                    console.log('🔍 DEBUG - Container scrollHeight:', container.scrollHeight, 'px');
+                    console.log('🔍 DEBUG - Container overflow:', window.getComputedStyle(container).overflow);
+                    console.log('🔍 DEBUG - Container display:', window.getComputedStyle(container).display);
+                    
+                    if (dateBlocks.length !== sortedDates.length) {
+                        console.error('❌ PROBLEM: Sollte', sortedDates.length, 'Datum-Blöcke haben, aber nur', dateBlocks.length, 'im DOM gefunden!');
+                    }
+                    
+                    // Erste 3 Blöcke prüfen
+                    dateBlocks.forEach((block, i) => {
+                        if (i < 3) {
+                            const display = window.getComputedStyle(block).display;
+                            const visibility = window.getComputedStyle(block).visibility;
+                            const height = block.offsetHeight;
+                            console.log(`🔍 Block #${i+1}: display=${display}, visibility=${visibility}, height=${height}px`);
+                        }
+                    });
+                }, 100);
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden des Hotel-Kalenders:', error);

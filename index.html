@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.34 - PARENT CHECK! 👪🔍 (Build 20251219-0840)');
-        console.log('👪 v5.87.34: Parent-Container-Hierarchie Check!');
-        console.log('🔍 v5.87.34: overflow, max-height, display für alle Parents!');
-        console.log('📏 v5.87.33: Container DOM-Check!');
+        console.log('🚕 Funk Taxi App v5.87.36 - REIMPORT BUTTON! 🔄🗑️ (Build 20251219-1025)');
+        console.log('🔄 v5.87.36: NEU IMPORTIEREN Button - Löscht alte Events & importiert neu!');
+        console.log('📝 v5.87.35: Intelligenter Event-Parser eingebaut!');
+        console.log('🎯 v5.87.35: Namen, Personen, Von, Nach werden extrahiert!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👪 Version 5.87.34 - PARENT CHECK! 🔍📏 (Build 20251219-0840)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.87.36 - REIMPORT BUTTON! 🗑️📝 (Build 20251219-1025)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.34';
-        const APP_BUILD = '20251219-0840-PARENT-CHECK';
+        const APP_VERSION = '5.87.36';
+        const APP_BUILD = '20251219-1025-REIMPORT-BUTTON';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38423,6 +38423,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             </button>
                         </div>
                         
+                        <!-- 🆕 v5.87.36: NEU IMPORTIEREN Button -->
+                        <button onclick="reimportHotelCalendar('${id}')" style="padding:12px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-bottom:8px;width:100%;box-shadow:0 4px 8px rgba(220,38,38,0.3);">
+                            🔄 NEU IMPORTIEREN (Alte Events löschen)
+                        </button>
+                        
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
                             <button onclick="cloudSyncHotelCalendar('${id}')" style="padding:10px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
                                 ☁️ Cloud-Sync
@@ -38863,6 +38868,98 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         continue;
                     }
                     
+                    // 🆕 v5.87.35: Parse Event-Titel intelligent
+                    function parseEventTitle(title) {
+                        // Beispiele:
+                        // "Krause" 1pax BHF zum Hotel, 14:25"
+                        // "Hotel zum Bahnhof, 1 Pax, Fr. Nitschke, 10:00"
+                        
+                        const result = {
+                            customerName: '',
+                            persons: 1,
+                            pickup: '',
+                            destination: ''
+                        };
+                        
+                        // Entferne Zeit am Ende (HH:MM)
+                        let text = title.replace(/,?\s*\d{1,2}:\d{2}\s*$/, '').trim();
+                        
+                        // Extrahiere Namen in Anführungszeichen
+                        const nameMatch = text.match(/["']([^"']+)["']/);
+                        if (nameMatch) {
+                            result.customerName = nameMatch[1];
+                            text = text.replace(nameMatch[0], '').trim();
+                        }
+                        
+                        // Extrahiere Personen (1pax, 2 Pax, etc.)
+                        const paxMatch = text.match(/(\d+)\s*pax/i);
+                        if (paxMatch) {
+                            result.persons = parseInt(paxMatch[1]);
+                            text = text.replace(paxMatch[0], '').trim();
+                        }
+                        
+                        // Extrahiere Route: "X zum Y" oder "X nach Y" oder "X → Y"
+                        let routeMatch = text.match(/^(.*?)\s+(?:zum?|nach|→)\s+(.+?)(?:,|$)/i);
+                        
+                        if (routeMatch) {
+                            result.pickup = routeMatch[1].trim();
+                            result.destination = routeMatch[2].trim();
+                        } else {
+                            // Fallback: Alles was übrig ist als Pickup
+                            result.pickup = text.trim();
+                        }
+                        
+                        // Wenn noch kein Name: Suche nach "Fr.", "Hr.", Namen am Ende
+                        if (!result.customerName) {
+                            const namePatterns = [
+                                /(?:Fr\.|Frau|Hr\.|Herr)\s+([A-ZÄÖÜ][a-zäöüß]+)/,
+                                /,\s*([A-ZÄÖÜ][a-zäöüß]+)\s*$/
+                            ];
+                            
+                            for (const pattern of namePatterns) {
+                                const match = text.match(pattern);
+                                if (match) {
+                                    result.customerName = match[0].replace(/^,\s*/, '').trim();
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Fallback: Wenn immer noch kein Name, nimm ersten Teil
+                        if (!result.customerName && text) {
+                            result.customerName = text.split(/[,\-]/)[0].trim();
+                        }
+                        
+                        // Hotel-Mapping
+                        const hotelMappings = {
+                            'hotel': calendar.name,
+                            'kaiserhof': calendar.name
+                        };
+                        
+                        Object.keys(hotelMappings).forEach(key => {
+                            if (result.pickup.toLowerCase().includes(key)) {
+                                result.pickup = hotelMappings[key];
+                            }
+                            if (result.destination.toLowerCase().includes(key)) {
+                                result.destination = hotelMappings[key];
+                            }
+                        });
+                        
+                        // BHF → Bahnhof
+                        if (result.pickup.toUpperCase() === 'BHF') result.pickup = 'Bahnhof Heringsdorf';
+                        if (result.destination.toUpperCase() === 'BHF') result.destination = 'Bahnhof Heringsdorf';
+                        
+                        return result;
+                    }
+                    
+                    const parsed = parseEventTitle(summary);
+                    
+                    console.log('🔍 Parse Event:', summary);
+                    console.log('  → Name:', parsed.customerName);
+                    console.log('  → Personen:', parsed.persons);
+                    console.log('  → Von:', parsed.pickup);
+                    console.log('  → Nach:', parsed.destination);
+                    
                     // Erstelle Fahrt
                     const rideData = {
                         source: 'google_calendar',
@@ -38871,9 +38968,10 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         hotelCalendarColor: calendar.color,
                         hotelCalendarEventUID: `${calendarKey}_${eventUID}`,
                         
-                        customerName: summary,
-                        pickup: location || calendar.name,
-                        destination: '',
+                        customerName: parsed.customerName || summary,
+                        persons: parsed.persons,
+                        pickup: parsed.pickup || location || calendar.name,
+                        destination: parsed.destination || description || '',
                         pickupTime: startTime,
                         
                         status: 'pending',
@@ -39127,6 +39225,64 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // 🔄 SYNC HOTEL CALENDAR - Lädt .ics und erstellt Fahrten
+        // 🆕 v5.87.36: NEU IMPORTIEREN - Löscht alte Events und importiert neu
+        async function reimportHotelCalendar(calendarId) {
+            if (!confirm('⚠️ ACHTUNG!\n\nDies wird ALLE importierten Events für diesen Hotel-Kalender löschen und neu importieren.\n\nBist du sicher?')) {
+                return;
+            }
+            
+            try {
+                console.log('🔄 Starte Neu-Import für:', calendarId);
+                
+                // Lade Hotel-Info
+                const hotelSnap = await db.ref(`hotelCalendars/${calendarId}`).once('value');
+                const hotel = hotelSnap.val();
+                
+                if (!hotel) {
+                    alert('❌ Hotel nicht gefunden!');
+                    return;
+                }
+                
+                alert(`🔄 Schritt 1/2: Lösche alte Events von "${hotel.name}"...`);
+                
+                // 1. Lösche alle Events mit dieser hotelCalendarId
+                const ridesSnap = await db.ref('rides')
+                    .orderByChild('hotelCalendarId')
+                    .equalTo(calendarId)
+                    .once('value');
+                
+                const ridesToDelete = ridesSnap.val() || {};
+                const deleteCount = Object.keys(ridesToDelete).length;
+                
+                console.log(`🗑️ Lösche ${deleteCount} alte Events...`);
+                
+                // Lösche alle
+                const deletePromises = Object.keys(ridesToDelete).map(rideId => 
+                    db.ref(`rides/${rideId}`).remove()
+                );
+                
+                await Promise.all(deletePromises);
+                
+                console.log(`✅ ${deleteCount} Events gelöscht`);
+                
+                // 2. Sync neu
+                alert(`🔄 Schritt 2/2: Importiere Events neu mit verbessertem Parser...`);
+                
+                await syncHotelCalendar(calendarId);
+                
+                alert(`✅ Fertig!\n\n${deleteCount} alte Events gelöscht.\nNeue Events mit verbessertem Parser importiert!`);
+                
+                // Wenn Kalender gerade offen: Neu laden
+                if (currentHotelCalendarId === calendarId) {
+                    showHotelCalendar(calendarId);
+                }
+                
+            } catch (error) {
+                console.error('❌ Neu-Import Fehler:', error);
+                alert('❌ Fehler beim Neu-Import: ' + error.message);
+            }
+        }
+        
         async function syncHotelCalendar(calendarId) {
             const calendar = hotelCalendars[calendarId];
             if (!calendar) {
@@ -41053,6 +41209,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // Verstecke Liste, zeige Einzelkalender
             document.getElementById('hotel-list-container').style.display = 'none';
             container.style.display = 'block';
+            
+            console.log('🔍 DEBUG - Container-Visibility Check:');
+            console.log('  hotel-list-container display:', document.getElementById('hotel-list-container').style.display);
+            console.log('  hotel-single-calendar-container display:', container.style.display);
+            console.log('  hotel-calendar-view display:', document.getElementById('hotel-calendar-view').style.display);
             
             try {
                 // Lade Hotel-Infos

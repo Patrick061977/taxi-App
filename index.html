@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.38 - 3 MONATE! 📅⚡ (Build 20251219-1045)');
-        console.log('📅 v5.87.38: NUR 3 MONATE zurück statt 1 Jahr!');
-        console.log('⚡ v5.87.38: maxResults: 200 statt 500!');
-        console.log('💪 v5.87.38: Firefox bleibt GARANTIERT stabil!');
+        console.log('🚕 Funk Taxi App v5.87.39 - SHOW ALL! 👁️📋 (Build 20251219-1055)');
+        console.log('👁️ v5.87.39: CustomerName = Kompletter Titel + Description!');
+        console.log('📋 v5.87.39: Jetzt sehen wir ALLES - dann aufräumen!');
+        console.log('✂️ v5.87.39: Minimales Parsing - nur Von/Nach!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.87.38 - 3 MONATE! ⚡💪 (Build 20251219-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👁️ Version 5.87.39 - SHOW ALL! 📋✂️ (Build 20251219-1055)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.38';
-        const APP_BUILD = '20251219-1045-3MONTHS';
+        const APP_VERSION = '5.87.39';
+        const APP_BUILD = '20251219-1055-SHOW-ALL';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38874,11 +38874,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                     
                     // 🆕 v5.87.35: Parse Event-Titel intelligent
-                    function parseEventTitle(title) {
-                        // Beispiele:
-                        // "Krause" 1pax BHF zum Hotel, 14:25"
-                        // "Hotel zum Bahnhof, 1 Pax, Fr. Nitschke, 10:00"
-                        
+                    // 🆕 v5.87.39: EINFACHER Parser - zeige ALLES erstmal!
+                    function parseEventTitle(title, desc) {
                         const result = {
                             customerName: '',
                             persons: 1,
@@ -38886,81 +38883,56 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             destination: ''
                         };
                         
-                        // Entferne Zeit am Ende (HH:MM)
-                        let text = title.replace(/,?\s*\d{1,2}:\d{2}\s*$/, '').trim();
-                        
-                        // Extrahiere Namen in Anführungszeichen
-                        const nameMatch = text.match(/["']([^"']+)["']/);
-                        if (nameMatch) {
-                            result.customerName = nameMatch[1];
-                            text = text.replace(nameMatch[0], '').trim();
-                        }
-                        
                         // Extrahiere Personen (1pax, 2 Pax, etc.)
-                        const paxMatch = text.match(/(\d+)\s*pax/i);
+                        const paxMatch = title.match(/(\d+)\s*pax/i);
                         if (paxMatch) {
                             result.persons = parseInt(paxMatch[1]);
-                            text = text.replace(paxMatch[0], '').trim();
                         }
                         
-                        // Extrahiere Route: "X zum Y" oder "X nach Y" oder "X → Y"
-                        let routeMatch = text.match(/^(.*?)\s+(?:zum?|nach|→)\s+(.+?)(?:,|$)/i);
+                        // Extrahiere Route: "X zum Y" oder "X nach Y"
+                        let routeMatch = title.match(/^(.*?)\s+(?:zum?|nach)\s+(.+?)(?:\s+\d+pax|$)/i);
                         
                         if (routeMatch) {
-                            result.pickup = routeMatch[1].trim();
-                            result.destination = routeMatch[2].trim();
-                        } else {
-                            // Fallback: Alles was übrig ist als Pickup
-                            result.pickup = text.trim();
-                        }
-                        
-                        // Wenn noch kein Name: Suche nach "Fr.", "Hr.", Namen am Ende
-                        if (!result.customerName) {
-                            const namePatterns = [
-                                /(?:Fr\.|Frau|Hr\.|Herr)\s+([A-ZÄÖÜ][a-zäöüß]+)/,
-                                /,\s*([A-ZÄÖÜ][a-zäöüß]+)\s*$/
-                            ];
+                            let pickup = routeMatch[1].trim();
+                            let dest = routeMatch[2].trim();
                             
-                            for (const pattern of namePatterns) {
-                                const match = text.match(pattern);
-                                if (match) {
-                                    result.customerName = match[0].replace(/^,\s*/, '').trim();
-                                    break;
-                                }
+                            // Hotel-Mapping
+                            if (pickup.toLowerCase().includes('hotel')) {
+                                result.pickup = calendar.name;
+                            } else if (pickup.toUpperCase().includes('BHF') || pickup.toLowerCase().includes('bahnhof')) {
+                                result.pickup = 'Bahnhof Heringsdorf';
+                            } else if (pickup.toLowerCase().includes('flughafen')) {
+                                result.pickup = 'Flughafen';
+                            } else {
+                                result.pickup = pickup;
+                            }
+                            
+                            // Destination
+                            if (dest.toLowerCase().includes('hotel')) {
+                                result.destination = calendar.name;
+                            } else if (dest.toUpperCase().includes('BHF') || dest.toLowerCase().includes('bahnhof')) {
+                                result.destination = 'Bahnhof Heringsdorf';
+                            } else if (dest.toLowerCase().includes('flughafen')) {
+                                result.destination = 'Flughafen';
+                            } else {
+                                result.destination = dest;
                             }
                         }
                         
-                        // Fallback: Wenn immer noch kein Name, nimm ersten Teil
-                        if (!result.customerName && text) {
-                            result.customerName = text.split(/[,\-]/)[0].trim();
+                        // CUSTOMER NAME = KOMPLETTER TITEL + DESCRIPTION
+                        result.customerName = title;
+                        if (desc) {
+                            result.customerName += ' | ' + desc;
                         }
-                        
-                        // Hotel-Mapping
-                        const hotelMappings = {
-                            'hotel': calendar.name,
-                            'kaiserhof': calendar.name
-                        };
-                        
-                        Object.keys(hotelMappings).forEach(key => {
-                            if (result.pickup.toLowerCase().includes(key)) {
-                                result.pickup = hotelMappings[key];
-                            }
-                            if (result.destination.toLowerCase().includes(key)) {
-                                result.destination = hotelMappings[key];
-                            }
-                        });
-                        
-                        // BHF → Bahnhof
-                        if (result.pickup.toUpperCase() === 'BHF') result.pickup = 'Bahnhof Heringsdorf';
-                        if (result.destination.toUpperCase() === 'BHF') result.destination = 'Bahnhof Heringsdorf';
                         
                         return result;
                     }
                     
-                    const parsed = parseEventTitle(summary);
+                    const parsed = parseEventTitle(summary, description);
                     
                     console.log('🔍 Parse Event:', summary);
-                    console.log('  → Name:', parsed.customerName);
+                    if (description) console.log('  → Description:', description);
+                    console.log('  → Name (komplett):', parsed.customerName);
                     console.log('  → Personen:', parsed.persons);
                     console.log('  → Von:', parsed.pickup);
                     console.log('  → Nach:', parsed.destination);

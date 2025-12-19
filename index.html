@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.40 - SIMPLIFIED! 🎯✨ (Build 20251219-1115)');
-        console.log('🎯 v5.87.40: Nur noch 3 wichtige Buttons!');
-        console.log('🔄 v5.87.40: JETZT SYNCEN Button funktioniert!');
-        console.log('📅 v5.87.40: 6 Monate Zeitraum statt 3!');
+        console.log('🚕 Funk Taxi App v5.87.41 - ONE VIEW! 🎯📋 (Build 20251219-1120)');
+        console.log('🎯 v5.87.41: ALLES in EINER View - Kein Hin und Her mehr!');
+        console.log('📋 v5.87.41: Events direkt in der Liste sichtbar!');
+        console.log('🔄 v5.87.41: Sync lädt automatisch Events nach!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.87.40 - SIMPLIFIED! ✨📅 (Build 20251219-1115)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.87.41 - ONE VIEW! 📋🔄 (Build 20251219-1120)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.40';
-        const APP_BUILD = '20251219-1115-SIMPLIFIED';
+        const APP_VERSION = '5.87.41';
+        const APP_BUILD = '20251219-1120-ONE-VIEW';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38367,7 +38367,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('✅ Sync aller Hotel-Kalender abgeschlossen');
         }
         
-        // Zeige Hotel-Kalender Liste
+        // 🆕 v5.87.41: KOMPLETT NEUE VIEW - Alles in einem!
         function renderHotelCalendarList() {
             const container = document.getElementById('hotel-calendar-list');
             if (!container) return;
@@ -38385,9 +38385,204 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 return;
             }
             
-            let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+            let html = '<div style="display:flex;flex-direction:column;gap:16px;">';
             
             calendars.forEach(([id, cal]) => {
+                const isExpanded = currentHotelCalendarId === id;
+                
+                html += `
+                    <div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);padding:16px;border-left:4px solid ${cal.color || '#f59e0b'};">
+                        <!-- HEADER mit Expand-Button -->
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${isExpanded ? '16px' : '0'};">
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:18px;color:#1f2937;margin-bottom:4px;">
+                                    🏨 ${cal.name}
+                                </div>
+                                <div style="font-size:13px;color:#6b7280;">
+                                    ${cal.enabled ? '✅ Aktiv' : '⏸️ Pausiert'} • Letzte Sync: ${cal.lastSync ? new Date(cal.lastSync).toLocaleString('de-DE') : 'Nie'}
+                                </div>
+                            </div>
+                            <button onclick="toggleHotelExpand('${id}')" style="padding:10px 16px;background:${isExpanded ? '#3b82f6' : '#6b7280'};color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                ${isExpanded ? '▼ Zuklappen' : '▶ Öffnen'}
+                            </button>
+                        </div>
+                        
+                        <!-- EXPANDABLE CONTENT -->
+                        <div id="hotel-content-${id}" style="display:${isExpanded ? 'block' : 'none'};">
+                            <!-- BUTTONS -->
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+                                <button onclick="quickSyncHotel('${id}')" style="padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                    🔄 Jetzt Syncen
+                                </button>
+                                <button onclick="deleteOnlyHotelEvents('${id}')" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                    🗑️ Alle löschen
+                                </button>
+                            </div>
+                            
+                            <!-- EVENTS LISTE -->
+                            <div id="hotel-events-${id}" style="max-height:500px;overflow-y:auto;background:#f9fafb;border-radius:8px;padding:12px;">
+                                <div style="text-align:center;color:#9ca3af;padding:20px;">
+                                    Lade Events...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+            
+            // Lade Events für expandierte Hotels
+            if (currentHotelCalendarId) {
+                loadHotelEvents(currentHotelCalendarId);
+            }
+        }
+        
+        // 🆕 v5.87.41: Toggle Expand/Collapse
+        function toggleHotelExpand(calendarId) {
+            if (currentHotelCalendarId === calendarId) {
+                currentHotelCalendarId = null;
+            } else {
+                currentHotelCalendarId = calendarId;
+            }
+            renderHotelCalendarList();
+        }
+        
+        // 🆕 v5.87.41: Lade Events für ein Hotel
+        async function loadHotelEvents(calendarId) {
+            const container = document.getElementById(`hotel-events-${calendarId}`);
+            if (!container) return;
+            
+            container.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;">⏳ Lade Events...</div>';
+            
+            try {
+                // Lade Fahrten für dieses Hotel
+                const ridesSnap = await db.ref('rides')
+                    .orderByChild('hotelCalendarId')
+                    .equalTo(calendarId)
+                    .once('value');
+                
+                const rides = ridesSnap.val() || {};
+                const ridesList = Object.entries(rides)
+                    .map(([id, ride]) => ({ id, ...ride }))
+                    .sort((a, b) => new Date(a.pickupTime) - new Date(b.pickupTime));
+                
+                if (ridesList.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align:center;color:#9ca3af;padding:30px;">
+                            <div style="font-size:32px;margin-bottom:8px;">📅</div>
+                            <div style="font-weight:600;margin-bottom:4px;">Keine Events</div>
+                            <div style="font-size:13px;">Klicke auf "🔄 Jetzt Syncen"</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Gruppiere nach Datum
+                const groupedByDate = {};
+                ridesList.forEach(ride => {
+                    const date = new Date(ride.pickupTime).toLocaleDateString('de-DE', { 
+                        weekday: 'short', 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                    if (!groupedByDate[date]) groupedByDate[date] = [];
+                    groupedByDate[date].push(ride);
+                });
+                
+                // Render Events
+                let html = '';
+                Object.entries(groupedByDate).forEach(([date, rides]) => {
+                    html += `
+                        <div style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;">
+                            <div style="font-weight:700;color:#1f2937;margin-bottom:8px;font-size:14px;">
+                                📅 ${date}
+                            </div>
+                    `;
+                    
+                    rides.forEach(ride => {
+                        const time = new Date(ride.pickupTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        
+                        html += `
+                            <div style="background:#f9fafb;border-radius:6px;padding:10px;margin-bottom:6px;border-left:3px solid ${ride.hotelCalendarColor || '#f59e0b'};">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div style="flex:1;">
+                                        <div style="font-weight:600;color:#1f2937;font-size:14px;margin-bottom:4px;">
+                                            ${ride.customerName || 'Unbekannt'}
+                                        </div>
+                                        <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">
+                                            📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
+                                        </div>
+                                        <div style="font-size:12px;color:#6b7280;">
+                                            👥 ${ride.persons || 1} Person${ride.persons > 1 ? 'en' : ''}
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-weight:700;color:#1f2937;font-size:14px;">
+                                            🕐 ${time}
+                                        </div>
+                                        <div style="font-size:11px;color:${ride.status === 'confirmed' ? '#10b981' : '#f59e0b'};font-weight:600;margin-top:2px;">
+                                            ${ride.status === 'confirmed' ? '✓ Bestätigt' : '○ Offen'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                });
+                
+                container.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden:', error);
+                container.innerHTML = `
+                    <div style="text-align:center;color:#ef4444;padding:20px;">
+                        ❌ Fehler: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // 🆕 v5.87.41: Quick Sync mit Auto-Reload
+        async function quickSyncHotel(calendarId) {
+            const container = document.getElementById(`hotel-events-${calendarId}`);
+            if (container) {
+                container.innerHTML = '<div style="text-align:center;color:#3b82f6;padding:20px;">🔄 Sync läuft...</div>';
+            }
+            
+            try {
+                // Lade Hotel
+                const hotelSnap = await db.ref(`hotelCalendars/${calendarId}`).once('value');
+                const calendar = hotelSnap.val();
+                
+                if (!calendar) {
+                    alert('❌ Hotel nicht gefunden!');
+                    return;
+                }
+                
+                // Sync
+                console.log('🔄 Quick-Sync startet:', calendar.name);
+                await syncGoogleCalendarEvents(calendarId, calendar);
+                console.log('✅ Quick-Sync abgeschlossen');
+                
+                // Reload Events
+                await loadHotelEvents(calendarId);
+                
+            } catch (error) {
+                console.error('❌ Quick-Sync Fehler:', error);
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align:center;color:#ef4444;padding:20px;">
+                            ❌ Sync Fehler: ${error.message || 'Unbekannter Fehler'}
+                        </div>
+                    `;
+                }
+            }
+        }
                 const lastSyncText = cal.lastSync 
                     ? new Date(cal.lastSync).toLocaleString('de-DE')
                     : 'Noch nie';
@@ -38959,11 +39154,20 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
             } catch (error) {
                 console.error(`❌ Sync Fehler für ${calendar.name}:`, error);
+                console.error('❌ Error Details:', {
+                    message: error.message || 'Keine Message',
+                    stack: error.stack || 'Kein Stack',
+                    name: error.name || 'Kein Name',
+                    full: JSON.stringify(error, Object.getOwnPropertyNames(error))
+                });
                 
                 // Zeige Fehler wenn Token abgelaufen
-                if (error.message.includes('401') || error.message.includes('403')) {
+                if (error.message && (error.message.includes('401') || error.message.includes('403'))) {
                     console.error('❌ Token abgelaufen! Bitte neu verbinden.');
                 }
+                
+                // Throw error weiter damit quickSyncHotel es catchen kann
+                throw error;
             }
         }
         

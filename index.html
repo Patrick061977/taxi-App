@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.45 - TIME LEFT! 🕐📄 (Build 20251219-1235)');
-        console.log('🕐 v5.87.45: Uhrzeit jetzt LINKS bei Events!');
-        console.log('📄 v5.87.45: Rechnung-Button im Hotel-Kalender!');
-        console.log('✨ v5.87.45: Übersichtlicher & schneller!');
+        console.log('🚕 Funk Taxi App v5.87.46 - INVOICE HERE! 📄🏨 (Build 20251219-1330)');
+        console.log('📄 v5.87.46: Rechnung KOMPLETT im Hotel-Kalender Tab!');
+        console.log('📅 v5.87.46: Monat ändern → Daten automatisch laden!');
+        console.log('🏨 v5.87.46: Alles an einem Ort!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🕐 Version 5.87.45 - TIME LEFT! 📄✨ (Build 20251219-1235)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📄 Version 5.87.46 - INVOICE HERE! 🏨✨ (Build 20251219-1330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1729,6 +1729,74 @@
         <div id="hotel-calendar-list">
             <div style="text-align:center;padding:40px;color:#6b7280;">
                 Lade Hotel-Kalender...
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.87.46: HOTEL-RECHNUNGEN IM HOTEL-KALENDER TAB! -->
+        <div style="margin-top:30px;padding-top:20px;border-top:2px solid #e5e7eb;">
+            <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;margin-bottom:15px;">
+                <div style="font-weight:700;font-size:16px;">📄 Hotel-Rechnungen</div>
+            </div>
+            
+            <!-- Filter -->
+            <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <div style="font-weight:700;margin-bottom:12px;color:#1f2937;">🔍 Filter</div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                    <!-- Hotel auswählen -->
+                    <div>
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">🏨 Hotel</label>
+                        <select id="invoice-hotel-select" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;background:white;">
+                            <option value="">Alle Hotels</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Monat auswählen -->
+                    <div>
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📅 Monat</label>
+                        <input type="month" id="invoice-month-select" min="2020-01" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                    </div>
+                </div>
+                
+                <button onclick="loadInvoiceRides()" style="width:100%;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                    🔄 Fahrten laden
+                </button>
+            </div>
+            
+            <!-- Statistik -->
+            <div id="invoice-stats" style="display:none;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <!-- Fahrten-Tabelle -->
+            <div id="invoice-rides-container" style="margin-bottom:15px;">
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    <div style="font-size:48px;margin-bottom:10px;">📄</div>
+                    <div style="font-weight:600;margin-bottom:6px;">Wähle Hotel und Monat</div>
+                    <div style="font-size:13px;">Dann werden alle Fahrten angezeigt</div>
+                </div>
+            </div>
+            
+            <!-- Rechnung erstellen Button -->
+            <div id="invoice-create-button" style="display:none;">
+                <button onclick="createHotelInvoicePDF()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                    📄 Rechnung als PDF erstellen
+                </button>
+            </div>
+            
+            <!-- Rechnungs-Historie -->
+            <div style="margin-top:30px;padding-top:20px;border-top:2px solid #e5e7eb;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                    <h4 style="margin:0;font-size:15px;color:#1f2937;">📋 Rechnungs-Historie</h4>
+                    <button onclick="loadInvoiceHistory()" style="padding:8px 12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                        🔄 Aktualisieren
+                    </button>
+                </div>
+                <div id="invoice-history-list">
+                    <div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">
+                        Lade Historie...
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -5023,8 +5091,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.45';
-        const APP_BUILD = '20251219-1235-TIME-LEFT';
+        const APP_VERSION = '5.87.46';
+        const APP_BUILD = '20251219-1330-INVOICE-HERE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -8787,7 +8855,32 @@
             
             // 🆕 v5.86.0: Hotel-Kalender laden
             if (view === 'hotel-calendar') {
-                setTimeout(() => loadHotelCalendarList(), 100);
+                setTimeout(() => {
+                    loadHotelCalendarList();
+                    
+                    // 🆕 v5.87.46: Initialisiere Rechnung-Section
+                    const monthInput = document.getElementById('invoice-month-select');
+                    if (monthInput && !monthInput.value) {
+                        // Setze aktuellen Monat als Default
+                        const now = new Date();
+                        const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
+                        monthInput.value = currentMonth;
+                        console.log('📅 Monat-Feld initialisiert:', currentMonth);
+                    }
+                    
+                    // Befülle Hotel-Dropdown
+                    const hotelSelect = document.getElementById('invoice-hotel-select');
+                    if (hotelSelect) {
+                        hotelSelect.innerHTML = '<option value="">Alle Hotels</option>';
+                        Object.entries(hotelCalendars).forEach(([id, hotel]) => {
+                            const option = document.createElement('option');
+                            option.value = id;
+                            option.textContent = hotel.name;
+                            hotelSelect.appendChild(option);
+                        });
+                        console.log('🏨 Hotel-Dropdown befüllt:', Object.keys(hotelCalendars).length);
+                    }
+                }, 100);
             }
             
             // 🆕 v5.86.14: Backup-Liste laden
@@ -42004,7 +42097,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // 📊 RECHNUNG FÜR HOTEL ERSTELLEN
-        // 🆕 v5.87.45: Quick-Zugriff auf Rechnung-Erstellung
+        // 🆕 v5.87.46: Direct-Zugriff auf Rechnung im Hotel-Kalender Tab
         async function createHotelInvoice(hotelId) {
             // Hole Hotel-Daten
             const hotelSnap = await db.ref(`hotelCalendars/${hotelId}`).once('value');
@@ -42018,28 +42111,37 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const confirmed = confirm(
                 `📄 Rechnung erstellen\n\n` +
                 `Hotel: ${hotel.name}\n\n` +
-                `Ich öffne jetzt den Admin-Tab wo du die Rechnung erstellen kannst.\n\n` +
+                `Ich scrolle zur Rechnung-Section und wähle das Hotel aus.\n\n` +
                 `Fortfahren?`
             );
             
             if (!confirmed) return;
             
-            // Wechsle zu Admin Tab
-            switchView('admin');
+            // Wähle Hotel in Dropdown
+            const hotelSelect = document.getElementById('invoice-hotel-select');
+            if (hotelSelect) {
+                hotelSelect.value = hotelId;
+            }
             
-            // Warte kurz, dann öffne Hotel-Rechnungen Section
+            // Setze aktuellen Monat (falls noch nicht gesetzt)
+            const monthInput = document.getElementById('invoice-month-select');
+            if (monthInput && !monthInput.value) {
+                const now = new Date();
+                monthInput.value = now.toISOString().slice(0, 7);
+            }
+            
+            // Scrolle zur Rechnung-Section
             setTimeout(() => {
-                // Öffne Hotel-Rechnungen Section
-                const invoicesSection = document.getElementById('hotel-invoices-content');
-                if (invoicesSection) {
-                    invoicesSection.style.display = 'block';
-                    const toggle = document.getElementById('hotel-invoices-toggle');
-                    if (toggle) toggle.textContent = '▲';
+                const invoiceSection = document.getElementById('invoice-rides-container');
+                if (invoiceSection) {
+                    invoiceSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     
-                    // Scrolle zu Section
-                    invoicesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Lade Fahrten automatisch
+                    setTimeout(() => {
+                        loadInvoiceRides();
+                    }, 300);
                 }
-            }, 300);
+            }, 100);
         }
         
     </script>

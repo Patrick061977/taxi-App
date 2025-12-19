@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.47 - MONTH FIX! 📅✅ (Build 20251219-1350)');
-        console.log('📅 v5.87.47: Monat-Feld zeigt JETZT aktuellen Monat!');
-        console.log('✅ v5.87.47: Monat ändern funktioniert!');
-        console.log('🔄 v5.87.47: Automatisches Laden funktioniert!');
+        console.log('🚕 Funk Taxi App v5.87.49 - TOKEN RENEW! 🔑✅ (Build 20251219-1500)');
+        console.log('🔑 v5.87.49: TOKEN-ERNEUERN Button für OAuth Kalender!');
+        console.log('✅ v5.87.49: Bestehenden Kalender behalten, nur Token erneuern!');
+        console.log('🔄 v5.87.49: Kein "neuen Kalender anlegen" mehr!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.87.47 - MONTH FIX! ✅🔄 (Build 20251219-1350)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔑 Version 5.87.49 - TOKEN RENEW! ✅🔄 (Build 20251219-1500)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1754,7 +1754,9 @@
                     <!-- Monat auswählen -->
                     <div>
                         <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📅 Monat</label>
-                        <input type="month" id="invoice-month-select" min="2020-01" value="2025-12" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                        <select id="invoice-month-select" onchange="loadInvoiceRides()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;background:white;">
+                            <!-- Wird dynamisch befüllt -->
+                        </select>
                     </div>
                 </div>
                 
@@ -5091,8 +5093,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.47';
-        const APP_BUILD = '20251219-1350-MONTH-FIX';
+        const APP_VERSION = '5.87.49';
+        const APP_BUILD = '20251219-1500-TOKEN-RENEW';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -8858,14 +8860,20 @@
                 setTimeout(() => {
                     loadHotelCalendarList();
                     
-                    // 🆕 v5.87.47: IMMER aktuellen Monat setzen
-                    const monthInput = document.getElementById('invoice-month-select');
-                    if (monthInput) {
-                        // Setze aktuellen Monat (IMMER, nicht nur wenn leer!)
+                    // 🆕 v5.87.48: ECHTES DROPDOWN mit letzten 12 Monaten!
+                    const monthSelect = document.getElementById('invoice-month-select');
+                    if (monthSelect) {
+                        // Generiere letzte 12 Monate
                         const now = new Date();
-                        const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
-                        monthInput.value = currentMonth;
-                        console.log('📅 Monat-Feld gesetzt:', currentMonth);
+                        let html = '';
+                        for (let i = 0; i < 12; i++) {
+                            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                            const value = date.toISOString().slice(0, 7); // YYYY-MM
+                            const label = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+                            html += `<option value="${value}"${i === 0 ? ' selected' : ''}>${label}</option>`;
+                        }
+                        monthSelect.innerHTML = html;
+                        console.log('📅 Monat-Dropdown befüllt: 12 Monate, aktuell:', now.toISOString().slice(0, 7));
                     }
                     
                     // Befülle Hotel-Dropdown
@@ -38557,10 +38565,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         <!-- EXPANDABLE CONTENT -->
                         <div id="hotel-content-${id}" style="display:${isExpanded ? 'block' : 'none'};">
                             <!-- BUTTONS -->
-                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+                            <div style="display:grid;grid-template-columns:${cal.type === 'google_calendar_oauth' ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr'};gap:8px;margin-bottom:16px;">
                                 <button onclick="quickSyncHotel('${id}')" style="padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                                    🔄 Syncen
+                                    🔄 Sync
                                 </button>
+                                ${cal.type === 'google_calendar_oauth' ? `
+                                <button onclick="renewHotelToken('${id}')" style="padding:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                    🔑 Token
+                                </button>
+                                ` : ''}
                                 <button onclick="createHotelInvoice('${id}')" style="padding:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                                     📄 Rechnung
                                 </button>
@@ -38835,6 +38848,155 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     name: error.name
                 });
                 throw new Error('Token Refresh fehlgeschlagen - bitte Hotel neu verbinden');
+            }
+        }
+        
+        // 🆕 v5.87.49: TOKEN ERNEUERN für bestehenden Kalender!
+        async function renewHotelToken(calendarId) {
+            console.log('🔑 Starte Token-Erneuerung für Kalender:', calendarId);
+            
+            try {
+                // Hole bestehende Hotel-Daten
+                const hotelSnap = await db.ref(`hotelCalendars/${calendarId}`).once('value');
+                const hotel = hotelSnap.val();
+                
+                if (!hotel) {
+                    alert('❌ Hotel nicht gefunden!');
+                    return;
+                }
+                
+                const confirmed = confirm(
+                    `🔑 Token erneuern\n\n` +
+                    `Hotel: ${hotel.name}\n\n` +
+                    `Ich öffne jetzt Google Login um neue Zugangsdaten zu holen.\n\n` +
+                    `Der Kalender bleibt bestehen, nur die Verbindung wird erneuert!\n\n` +
+                    `Fortfahren?`
+                );
+                
+                if (!confirmed) return;
+                
+                console.log(`🔐 Starte OAuth für: ${hotel.name}`);
+                
+                // Speichere aktuellen Admin-User
+                const savedAdminUser = currentUser;
+                
+                // WICHTIG: Logout von Firebase Auth damit OAuth sauber funktioniert
+                await auth.signOut();
+                console.log('🚪 Firebase Auth Logout (für OAuth)');
+                
+                // OAuth Provider mit RICHTIGEN Scopes!
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+                provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
+                
+                // 🆕 v5.87.42: WICHTIG für Refresh Token!
+                provider.setCustomParameters({
+                    'access_type': 'offline',
+                    'prompt': 'consent'  // Erzwingt Consent Screen = Refresh Token!
+                });
+                
+                console.log('🔐 Öffne Google Login...');
+                
+                // OAuth Login
+                const result = await auth.signInWithPopup(provider);
+                const credential = result.credential;
+                const accessToken = credential.accessToken;
+                const refreshToken = result.user.refreshToken;
+                
+                console.log('✅ OAuth erfolgreich!');
+                console.log('🔑 Access Token erhalten:', accessToken ? 'Ja' : 'Nein');
+                console.log('🔑 Refresh Token erhalten:', refreshToken ? 'Ja' : 'Nein');
+                
+                // Hole Kalender-Liste
+                const calendarsResponse = await fetch(
+                    'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+                
+                if (!calendarsResponse.ok) {
+                    throw new Error('Kalender-Liste konnte nicht geladen werden');
+                }
+                
+                const calendarsData = await calendarsResponse.json();
+                const calendars = calendarsData.items || [];
+                
+                console.log(`📅 ${calendars.length} Kalender gefunden`);
+                
+                // Zeige Kalender-Auswahl
+                const calendarChoices = calendars.map((cal, i) => 
+                    `${i + 1}. ${cal.summary} (${cal.id})`
+                ).join('\n');
+                
+                const choice = prompt(
+                    `📅 Welcher Kalender?\n\n${calendarChoices}\n\nGib die Nummer ein:`
+                );
+                
+                if (!choice) {
+                    await auth.signOut();
+                    if (savedAdminUser) {
+                        await auth.signInWithEmailAndPassword(savedAdminUser.email, 'dummy');
+                    }
+                    return;
+                }
+                
+                const selectedIndex = parseInt(choice) - 1;
+                if (selectedIndex < 0 || selectedIndex >= calendars.length) {
+                    alert('❌ Ungültige Auswahl!');
+                    return;
+                }
+                
+                const selectedCalendar = calendars[selectedIndex];
+                
+                console.log('✅ Kalender gewählt:', selectedCalendar.summary);
+                
+                // UPDATE bestehenden Kalender mit neuen Tokens!
+                await db.ref(`hotelCalendars/${calendarId}`).update({
+                    googleCalendarId: selectedCalendar.id,
+                    googleCalendarName: selectedCalendar.summary,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken || null,
+                    tokenExpiry: Date.now() + (3600 * 1000), // 1 Stunde
+                    lastSync: Date.now(),
+                    lastTokenRefresh: Date.now()
+                });
+                
+                console.log('✅ Token erneuert in Firebase!');
+                
+                // Update lokales Objekt
+                if (hotelCalendars[calendarId]) {
+                    hotelCalendars[calendarId].googleCalendarId = selectedCalendar.id;
+                    hotelCalendars[calendarId].googleCalendarName = selectedCalendar.summary;
+                    hotelCalendars[calendarId].accessToken = accessToken;
+                    hotelCalendars[calendarId].refreshToken = refreshToken || null;
+                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1000);
+                    hotelCalendars[calendarId].lastTokenRefresh = Date.now();
+                }
+                
+                // Re-Login als Admin
+                await auth.signOut();
+                if (savedAdminUser) {
+                    console.log('🔄 Re-Login als Admin...');
+                    // User wird automatisch wieder eingeloggt
+                }
+                
+                alert(
+                    `✅ Token erneuert!\n\n` +
+                    `Hotel: ${hotel.name}\n` +
+                    `Kalender: ${selectedCalendar.summary}\n\n` +
+                    `Refresh Token: ${refreshToken ? 'Ja (6+ Monate gültig!)' : 'Nein'}\n\n` +
+                    `Du kannst jetzt syncen!`
+                );
+                
+                // Reload Hotels
+                renderHotelCalendarList();
+                
+            } catch (error) {
+                console.error('❌ Token-Erneuerung fehlgeschlagen:', error);
+                alert(`❌ Fehler: ${error.message}`);
             }
         }
         

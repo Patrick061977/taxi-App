@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.29 - FULL DEBUG! 📊🔍 (Build 20251219-0750)');
-        console.log('📊 v5.87.29: Vollständiges Debug-Logging für alle Rides!');
-        console.log('🔍 v5.87.28: Debug-Logging für Hotel-Events!');
-        console.log('📅 v5.87.28: Zeitfilter 1 Jahr zurück!');
+        console.log('🚕 Funk Taxi App v5.87.30 - INSTANT LOG STORAGE! ⚡📝 (Build 20251219-0755)');
+        console.log('⚡ v5.87.30: INSTANT Log-Speicherung - JEDER Log SOFORT in IndexedDB!');
+        console.log('📥 v5.87.30: [Storage Export] → ALLE Logs seit App-Start!');
+        console.log('📊 v5.87.29: Vollständiges Debug-Logging!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.87.29 - FULL DEBUG! 🔍📋 (Build 20251219-0750)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.87.30 - INSTANT LOG STORAGE! 📝💾 (Build 20251219-0755)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.29';
-        const APP_BUILD = '20251219-0750-FULL-DEBUG';
+        const APP_VERSION = '5.87.30';
+        const APP_BUILD = '20251219-0755-INSTANT-LOG-STORAGE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -7307,16 +7307,16 @@
         }
         
         // 🆕 v5.87.26: IndexedDB für Logs initialisieren
-        let logDB = null;
+        window.logDB = null;
         function initLogDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open('TaxiAppLogs', 1);
                 
                 request.onerror = () => reject(request.error);
                 request.onsuccess = () => {
-                    logDB = request.result;
-                    console.log('✅ Log-DB initialisiert');
-                    resolve(logDB);
+                    window.logDB = request.result;
+                    console.log('✅ Log-DB initialisiert - INSTANT LOGGING aktiv!');
+                    resolve(window.logDB);
                 };
                 
                 request.onupgradeneeded = (event) => {
@@ -7334,12 +7334,12 @@
         // 🆕 v5.87.26: Logs in IndexedDB speichern
         async function saveLogsToIndexedDB() {
             try {
-                if (!logDB || !window.debugLogs || window.debugLogs.length === 0) {
+                if (!window.logDB || !window.debugLogs || window.debugLogs.length === 0) {
                     console.log('⏸️ Keine Logs zum Speichern');
                     return;
                 }
                 
-                const transaction = logDB.transaction(['logs'], 'readwrite');
+                const transaction = window.logDB.transaction(['logs'], 'readwrite');
                 const store = transaction.objectStore('logs');
                 
                 // Speichere alle Logs
@@ -7361,12 +7361,12 @@
         // 🆕 v5.87.26: Alte Logs löschen (älter als 24h)
         async function cleanOldLogs() {
             return new Promise((resolve, reject) => {
-                if (!logDB) {
+                if (!window.logDB) {
                     resolve();
                     return;
                 }
                 
-                const transaction = logDB.transaction(['logs'], 'readwrite');
+                const transaction = window.logDB.transaction(['logs'], 'readwrite');
                 const store = transaction.objectStore('logs');
                 const index = store.index('timestamp');
                 
@@ -7400,12 +7400,12 @@
         // 🆕 v5.87.26: Logs aus IndexedDB exportieren
         async function exportStoredLogs() {
             try {
-                if (!logDB) {
+                if (!window.logDB) {
                     alert('❌ Log-DB nicht initialisiert!');
                     return;
                 }
                 
-                const transaction = logDB.transaction(['logs'], 'readonly');
+                const transaction = window.logDB.transaction(['logs'], 'readonly');
                 const store = transaction.objectStore('logs');
                 const request = store.getAll();
                 
@@ -34620,14 +34620,13 @@ Stack: ${err.stack}
             
             // 🆕 v5.87.26: LOG-STORAGE initialisieren
             initLogDB().then(() => {
-                console.log('📝 Log-Storage bereit');
+                console.log('📝 Log-Storage bereit - INSTANT LOGGING aktiv!');
                 
-                // Logs alle 5 Minuten speichern
+                // Cleanup alte Logs alle 5 Minuten
                 setInterval(() => {
-                    saveLogsToIndexedDB();
                     cleanOldLogs();
                 }, 5 * 60 * 1000);
-                console.log('⏰ Auto-Log-Save alle 5 Min aktiviert');
+                console.log('⏰ Auto-Cleanup alle 5 Min aktiviert (Logs älter als 24h)');
             }).catch(error => {
                 console.error('❌ Log-Storage Fehler:', error);
             });
@@ -35365,6 +35364,21 @@ Stack: ${err.stack}
                 window.debugLogs.push(logEntry);
                 window.debugCounts.total++;
                 window.debugCounts[type]++;
+                
+                // 🆕 v5.87.30: INSTANT Log-Speicherung in IndexedDB
+                if (window.logDB) {
+                    try {
+                        const transaction = window.logDB.transaction(['logs'], 'readwrite');
+                        const store = transaction.objectStore('logs');
+                        const logWithDate = {
+                            ...logEntry,
+                            date: new Date(logEntry.timestamp).toISOString().split('T')[0]
+                        };
+                        store.put(logWithDate);
+                    } catch (e) {
+                        // Stille Fehler - nicht in Console loggen (würde Loop erzeugen)
+                    }
+                }
                 
                 // 🆕 v5.39.9: Speichere in localStorage (max 500 Logs)
                 if (window.debugLogs.length > 500) {

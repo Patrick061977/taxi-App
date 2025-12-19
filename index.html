@@ -108,10 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.25 - SMART TIMEFILTER! 🕐⚡ (Build 20251218-2020)');
-        console.log('🕐 v5.87.25: Nur Events ab vor 7 Tagen!');
-        console.log('⚡ v5.87.25: Keine alten Events mehr!');
-        console.log('✅ v5.87.25: Schnell + Relevant!');
+        console.log('🚕 Funk Taxi App v5.87.26 - FINAL COMPLETE! 🎉✅ (Build 20251218-2050)');
+        console.log('✅ v5.87.26: Alles funktioniert!');
+        console.log('🔄 v5.87.26: Auto-Sync + Manueller Sync');
+        console.log('🕐 v5.87.26: Smart Zeitfilter (7 Tage)');
+        console.log('🔐 v5.87.26: Multi-Hotel OAuth');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
         console.log('🛡️ v5.87.21: SECURITY HEADERS + NO 404!');
@@ -755,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🕐 Version 5.87.25 - SMART TIMEFILTER! ⚡✅ (Build 20251218-2020)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.87.26 - FINAL COMPLETE! ✅🔄 (Build 20251218-2050)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4961,8 +4962,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.25';
-        const APP_BUILD = '20251218-2020-SMART-TIMEFILTER';
+        const APP_VERSION = '5.87.26';
+        const APP_BUILD = '20251218-2050-FINAL-COMPLETE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38700,8 +38701,17 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 console.log(`✅ ${importedCount} Events importiert, ${skippedCount} übersprungen`);
                 
+                // 🆕 v5.87.25: Update lastSync Timestamp
+                await db.ref(`hotelCalendars/${calendarKey}/lastSync`).set(Date.now());
+                console.log('✅ Sync-Timestamp aktualisiert');
+                
             } catch (error) {
                 console.error(`❌ Sync Fehler für ${calendar.name}:`, error);
+                
+                // Zeige Fehler wenn Token abgelaufen
+                if (error.message.includes('401') || error.message.includes('403')) {
+                    console.error('❌ Token abgelaufen! Bitte neu verbinden.');
+                }
             }
         }
         
@@ -40798,11 +40808,16 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 </div>
                             ` : ''}
                             
-                            <div style="margin-top:15px;display:flex;gap:8px;">
-                                <button onclick="event.stopPropagation();showHotelCalendar('${hotel.id}')" style="flex:1;padding:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
+                            <div style="margin-top:15px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <button onclick="event.stopPropagation();showHotelCalendar('${hotel.id}')" style="padding:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
                                     📅 Kalender öffnen
                                 </button>
-                                <button onclick="event.stopPropagation();uploadCsvForHotel('${hotel.id}')" style="flex:1;padding:10px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
+                                <button onclick="event.stopPropagation();syncGoogleCalendarEvents('${hotel.id}')" style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
+                                    🔄 Sync
+                                </button>
+                            </div>
+                            <div style="margin-top:8px;">
+                                <button onclick="event.stopPropagation();uploadCsvForHotel('${hotel.id}')" style="width:100%;padding:10px;background:white;color:#f59e0b;border:2px solid #f59e0b;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;">
                                     📊 CSV importieren
                                 </button>
                             </div>

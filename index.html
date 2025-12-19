@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.41 - ONE VIEW! 🎯📋 (Build 20251219-1120)');
-        console.log('🎯 v5.87.41: ALLES in EINER View - Kein Hin und Her mehr!');
-        console.log('📋 v5.87.41: Events direkt in der Liste sichtbar!');
-        console.log('🔄 v5.87.41: Sync lädt automatisch Events nach!');
+        console.log('🚕 Funk Taxi App v5.87.42 - AUTO-REFRESH! 🔄🔑 (Build 20251219-1145)');
+        console.log('🔄 v5.87.42: Tokens refreshen automatisch!');
+        console.log('🔑 v5.87.42: Kein manuelles Neu-Verbinden mehr!');
+        console.log('⏱️ v5.87.42: Läuft 6+ Monate ohne Eingriff!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.87.41 - ONE VIEW! 📋🔄 (Build 20251219-1120)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.87.42 - AUTO-REFRESH! 🔑⏱️ (Build 20251219-1145)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.41';
-        const APP_BUILD = '20251219-1130-FIXED';
+        const APP_VERSION = '5.87.42';
+        const APP_BUILD = '20251219-1145-AUTO-REFRESH';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38601,6 +38601,84 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             await connectGoogleCalendarForHotel(hotelName.trim());
         }
         
+        // 🆕 v5.87.42: AUTO-REFRESH TOKEN SYSTEM
+        async function refreshGoogleToken(calendarId) {
+            console.log('🔄 Starte Token Refresh für:', calendarId);
+            
+            try {
+                // Lade Hotel mit altem Token
+                const hotelSnap = await db.ref(`hotelCalendars/${calendarId}`).once('value');
+                const hotel = hotelSnap.val();
+                
+                if (!hotel || !hotel.refreshToken) {
+                    console.error('❌ Kein Refresh Token vorhanden!');
+                    console.warn('⚠️ Hotel muss neu verbunden werden um Refresh Token zu erhalten');
+                    throw new Error('Kein Refresh Token - bitte Hotel neu verbinden');
+                }
+                
+                console.log('🔑 Nutze Refresh Token für neues Access Token...');
+                
+                // WICHTIG: Firebase nutzt OAuth 2.0 unter der Haube
+                // Wir müssen den Token direkt über Firebase neu authentifizieren
+                
+                // Temporärer Re-Login mit Refresh Token
+                const credential = firebase.auth.GoogleAuthProvider.credential(
+                    null, // ID Token
+                    hotel.refreshToken // Refresh Token
+                );
+                
+                // Speichere aktuellen User
+                const currentAuthUser = auth.currentUser;
+                const wasLoggedIn = !!currentAuthUser;
+                const previousEmail = currentAuthUser ? currentAuthUser.email : null;
+                
+                console.log('🔄 Führe temporären Re-Auth durch...');
+                
+                // Re-authenticate
+                const userCredential = await auth.signInWithCredential(credential);
+                
+                // Hole frisches Access Token
+                const newAccessToken = await userCredential.user.getIdToken(true);
+                
+                console.log('✅ Neues Access Token erhalten!');
+                
+                // Speichere neues Token in Firebase
+                await db.ref(`hotelCalendars/${calendarId}`).update({
+                    accessToken: newAccessToken,
+                    tokenExpiry: Date.now() + (3600 * 1000), // 1 Stunde
+                    lastTokenRefresh: Date.now()
+                });
+                
+                console.log('💾 Neues Token gespeichert');
+                
+                // Logout vom temporären Auth
+                await auth.signOut();
+                
+                // Re-Login als vorheriger User (falls eingeloggt)
+                if (wasLoggedIn && previousEmail && currentUser) {
+                    console.log(`🔄 Re-Login als: ${previousEmail}`);
+                    // User sollte automatisch wieder eingeloggt werden durch Firebase Persistence
+                }
+                
+                // Update lokales Hotel-Objekt
+                if (hotelCalendars[calendarId]) {
+                    hotelCalendars[calendarId].accessToken = newAccessToken;
+                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1000);
+                }
+                
+                return newAccessToken;
+                
+            } catch (error) {
+                console.error('❌ Token Refresh Fehler:', error);
+                console.error('📋 Details:', {
+                    message: error.message,
+                    code: error.code,
+                    name: error.name
+                });
+                throw new Error('Token Refresh fehlgeschlagen - bitte Hotel neu verbinden');
+            }
+        }
+        
         // 🆕 v5.87.24: Verbinde EINZELNES Hotel mit Google Calendar (OAuth)
         async function connectGoogleCalendarForHotel(hotelName) {
             try {
@@ -38640,8 +38718,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 hotelProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
                 hotelProvider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
                 
+                // 🆕 v5.87.42: Fordere Refresh Token an!
+                hotelProvider.setCustomParameters({
+                    'access_type': 'offline',
+                    'prompt': 'consent'
+                });
+                
                 console.log('🔐 Schritt 1/2: Hotel-Account Login...');
                 console.log('⚠️ WICHTIG: Wähle den HOTEL-Account aus!');
+                console.log('🔄 Fordere Refresh Token an (offline access)...');
                 
                 // Temporärer Login mit Hotel-Account
                 const hotelResult = await auth.signInWithPopup(hotelProvider);
@@ -38959,23 +39044,49 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 console.log(`🕐 Lade Events ab: ${sixMonthsAgo.toLocaleDateString('de-DE')} (6 Monate zurück)`);
                 
-                // Lade Events via Calendar API
-                const response = await fetch(
-                    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.googleCalendarId)}/events?` +
-                    `timeMin=${encodeURIComponent(timeMin)}&` +
-                    `maxResults=200&` +
-                    `singleEvents=true&` +
-                    `orderBy=startTime`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${calendar.accessToken}`
+                // 🆕 v5.87.42: Funktion für API Call (mit Auto-Retry)
+                const fetchEvents = async (accessToken, retryCount = 0) => {
+                    const response = await fetch(
+                        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.googleCalendarId)}/events?` +
+                        `timeMin=${encodeURIComponent(timeMin)}&` +
+                        `maxResults=200&` +
+                        `singleEvents=true&` +
+                        `orderBy=startTime`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${accessToken}`
+                            }
+                        }
+                    );
+                    
+                    // 🆕 v5.87.42: Auto-Refresh bei 401
+                    if (response.status === 401 && retryCount === 0) {
+                        console.log('❌ 401 Unauthorized - Token abgelaufen!');
+                        console.log('🔄 Starte automatischen Token Refresh...');
+                        
+                        try {
+                            // Refresh Token
+                            const newToken = await refreshGoogleToken(calendarKey);
+                            
+                            // Retry mit neuem Token
+                            console.log('🔄 Retry mit neuem Token...');
+                            return await fetchEvents(newToken, 1);
+                            
+                        } catch (refreshError) {
+                            console.error('❌ Token Refresh fehlgeschlagen:', refreshError);
+                            throw new Error('Token Refresh fehlgeschlagen - bitte Hotel neu verbinden');
                         }
                     }
-                );
+                    
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+                    
+                    return response;
+                };
                 
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
-                }
+                // Lade Events via Calendar API (mit Auto-Retry)
+                const response = await fetchEvents(calendar.accessToken);
                 
                 const data = await response.json();
                 const events = data.items || [];

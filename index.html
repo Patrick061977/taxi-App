@@ -108,7 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.59 - AUTO-CLEANUP DEAKTIVIERT! 🛡️✅ (Build 20251219-1710)');
+        console.log('🚕 Funk Taxi App v5.87.60 - SYNTAX-FEHLER GEFIXT! 🐛✅ (Build 20251219-1815)');
+        console.log('🐛 v5.87.60: FIX urlParams doppelt deklariert!');
+        console.log('🐛 v5.87.60: FIX let ride doppelt deklariert!');
+        console.log('✅ v5.87.60: Alle JavaScript-Fehler behoben!');
         console.log('🛡️ v5.87.59: Auto-Cleanup KOMPLETT deaktiviert!');
         console.log('✅ v5.87.59: KEINE automatischen Stornierungen mehr!');
         console.log('📊 v5.87.59: Alle Stornierungen mit Zeitstempel + cancelledBy!');
@@ -136,7 +139,7 @@
     
     <!-- 🐛 v5.87.21: Eruda Debug-Panel NUR MIT ?debug URL-Parameter! -->
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
+        // Verwende urlParams von oben (bereits deklariert)
         if (urlParams.has('debug')) {
             // Debug-Modus aktiv - lade Eruda
             const script = document.createElement('script');
@@ -757,7 +760,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛡️ Version 5.87.59 - AUTO-CLEANUP DEAKTIVIERT! ✅ (Build 20251219-1710)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.87.60 - SYNTAX-FEHLER GEFIXT! ✅ (Build 20251219-1815)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5097,8 +5100,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.59';
-        const APP_BUILD = '20251219-1710-AUTO-CLEANUP-DEAKTIVIERT';
+        const APP_VERSION = '5.87.60';
+        const APP_BUILD = '20251219-1815-SYNTAX-FEHLER-GEFIXT';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -5922,10 +5925,10 @@
             
             // Update localStorage
             const history = JSON.parse(localStorage.getItem('rideHistory') || '[]');
-            const ride = history.find(r => r.firebaseId === rideId || r.id === rideId);
-            if (ride) {
-                ride.status = 'storniert';
-                ride.cancelledAt = Date.now();
+            const historyRide = history.find(r => r.firebaseId === rideId || r.id === rideId);
+            if (historyRide) {
+                historyRide.status = 'storniert';
+                historyRide.cancelledAt = Date.now();
                 localStorage.setItem('rideHistory', JSON.stringify(history));
                 console.log('✅ Fahrt in localStorage storniert');
             }

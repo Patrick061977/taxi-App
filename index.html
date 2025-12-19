@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.42 - AUTO-REFRESH! 🔄🔑 (Build 20251219-1145)');
-        console.log('🔄 v5.87.42: Tokens refreshen automatisch!');
-        console.log('🔑 v5.87.42: Kein manuelles Neu-Verbinden mehr!');
-        console.log('⏱️ v5.87.42: Läuft 6+ Monate ohne Eingriff!');
+        console.log('🚕 Funk Taxi App v5.87.43 - FULL DISPLAY! 📋✨ (Build 20251219-1200)');
+        console.log('📋 v5.87.43: Komplette Event-Namen mit word-wrap!');
+        console.log('✨ v5.87.43: Description separat angezeigt!');
+        console.log('🗑️ v5.87.43: Hotels können gelöscht werden!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.87.42 - AUTO-REFRESH! 🔑⏱️ (Build 20251219-1145)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📋 Version 5.87.43 - FULL DISPLAY! ✨🗑️ (Build 20251219-1200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.42';
-        const APP_BUILD = '20251219-1145-AUTO-REFRESH';
+        const APP_VERSION = '5.87.43';
+        const APP_BUILD = '20251219-1200-FULL-DISPLAY';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38402,9 +38402,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                     ${cal.enabled ? '✅ Aktiv' : '⏸️ Pausiert'} • Letzte Sync: ${cal.lastSync ? new Date(cal.lastSync).toLocaleString('de-DE') : 'Nie'}
                                 </div>
                             </div>
-                            <button onclick="toggleHotelExpand('${id}')" style="padding:10px 16px;background:${isExpanded ? '#3b82f6' : '#6b7280'};color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                                ${isExpanded ? '▼ Zuklappen' : '▶ Öffnen'}
-                            </button>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <button onclick="deleteHotelCalendar('${id}')" style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                    🗑️
+                                </button>
+                                <button onclick="toggleHotelExpand('${id}')" style="padding:10px 16px;background:${isExpanded ? '#3b82f6' : '#6b7280'};color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                    ${isExpanded ? '▼ Zuklappen' : '▶ Öffnen'}
+                                </button>
+                            </div>
                         </div>
                         
                         <!-- EXPANDABLE CONTENT -->
@@ -38504,12 +38509,13 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     
                     rides.forEach(ride => {
                         const time = new Date(ride.pickupTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        const hasNotes = ride.notes && ride.notes.trim().length > 0;
                         
                         html += `
                             <div style="background:#f9fafb;border-radius:6px;padding:10px;margin-bottom:6px;border-left:3px solid ${ride.hotelCalendarColor || '#f59e0b'};">
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <div style="flex:1;">
-                                        <div style="font-weight:600;color:#1f2937;font-size:14px;margin-bottom:4px;">
+                                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:${hasNotes ? '8px' : '0'};">
+                                    <div style="flex:1;min-width:0;">
+                                        <div style="font-weight:600;color:#1f2937;font-size:14px;margin-bottom:4px;word-wrap:break-word;overflow-wrap:break-word;">
                                             ${ride.customerName || 'Unbekannt'}
                                         </div>
                                         <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">
@@ -38519,7 +38525,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                             👥 ${ride.persons || 1} Person${ride.persons > 1 ? 'en' : ''}
                                         </div>
                                     </div>
-                                    <div style="text-align:right;">
+                                    <div style="text-align:right;margin-left:8px;flex-shrink:0;">
                                         <div style="font-weight:700;color:#1f2937;font-size:14px;">
                                             🕐 ${time}
                                         </div>
@@ -38528,6 +38534,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                         </div>
                                     </div>
                                 </div>
+                                ${hasNotes ? `
+                                    <div style="padding:8px;background:white;border-radius:4px;border-left:2px solid #3b82f6;font-size:12px;color:#4b5563;word-wrap:break-word;overflow-wrap:break-word;">
+                                        📝 ${ride.notes}
+                                    </div>
+                                ` : ''}
                             </div>
                         `;
                     });
@@ -39123,7 +39134,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             customerName: '',
                             persons: 1,
                             pickup: '',
-                            destination: ''
+                            destination: '',
+                            notes: ''
                         };
                         
                         // Extrahiere Personen (1pax, 2 Pax, etc.)
@@ -39162,10 +39174,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             }
                         }
                         
-                        // CUSTOMER NAME = KOMPLETTER TITEL + DESCRIPTION
+                        // 🆕 v5.87.43: CUSTOMER NAME = NUR TITEL (nicht mehr mit Description)
                         result.customerName = title;
-                        if (desc) {
-                            result.customerName += ' | ' + desc;
+                        
+                        // 🆕 v5.87.43: NOTES = DESCRIPTION SEPARAT
+                        if (desc && desc.trim()) {
+                            result.notes = desc.trim();
                         }
                         
                         return result;
@@ -39174,8 +39188,13 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     const parsed = parseEventTitle(summary, description);
                     
                     console.log('🔍 Parse Event:', summary);
-                    if (description) console.log('  → Description:', description);
-                    console.log('  → Name (komplett):', parsed.customerName);
+                    if (description && description.trim()) {
+                        console.log('  → Description:', description.trim());
+                    }
+                    console.log('  → Name:', parsed.customerName);
+                    if (parsed.notes) {
+                        console.log('  → Notes:', parsed.notes);
+                    }
                     console.log('  → Personen:', parsed.persons);
                     console.log('  → Von:', parsed.pickup);
                     console.log('  → Nach:', parsed.destination);
@@ -39197,7 +39216,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         status: 'pending',
                         timestamp: Date.now(),
                         createdBy: 'google_calendar_sync',
-                        notes: description
+                        notes: parsed.notes || description || ''
                     };
                     
                     // Speichere

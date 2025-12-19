@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.44 - ONE TAB! 🏨✨ (Build 20251219-1225)');
-        console.log('🏨 v5.87.44: Hotel-Kalender Tab funktioniert jetzt!');
-        console.log('✨ v5.87.44: Gleicher Content wie im Admin!');
-        console.log('📋 v5.87.44: Beide nutzen gleiche Funktion!');
+        console.log('🚕 Funk Taxi App v5.87.45 - TIME LEFT! 🕐📄 (Build 20251219-1235)');
+        console.log('🕐 v5.87.45: Uhrzeit jetzt LINKS bei Events!');
+        console.log('📄 v5.87.45: Rechnung-Button im Hotel-Kalender!');
+        console.log('✨ v5.87.45: Übersichtlicher & schneller!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏨 Version 5.87.44 - ONE TAB! ✨📋 (Build 20251219-1225)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🕐 Version 5.87.45 - TIME LEFT! 📄✨ (Build 20251219-1235)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5023,8 +5023,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.44';
-        const APP_BUILD = '20251219-1225-ONE-TAB';
+        const APP_VERSION = '5.87.45';
+        const APP_BUILD = '20251219-1235-TIME-LEFT';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38464,12 +38464,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         <!-- EXPANDABLE CONTENT -->
                         <div id="hotel-content-${id}" style="display:${isExpanded ? 'block' : 'none'};">
                             <!-- BUTTONS -->
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
                                 <button onclick="quickSyncHotel('${id}')" style="padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                                    🔄 Jetzt Syncen
+                                    🔄 Syncen
+                                </button>
+                                <button onclick="createHotelInvoice('${id}')" style="padding:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                    📄 Rechnung
                                 </button>
                                 <button onclick="deleteOnlyHotelEvents('${id}')" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                                    🗑️ Alle löschen
+                                    🗑️ Löschen
                                 </button>
                             </div>
                             
@@ -38562,7 +38565,18 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         
                         html += `
                             <div style="background:#f9fafb;border-radius:6px;padding:10px;margin-bottom:6px;border-left:3px solid ${ride.hotelCalendarColor || '#f59e0b'};">
-                                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:${hasNotes ? '8px' : '0'};">
+                                <div style="display:flex;align-items:start;gap:12px;margin-bottom:${hasNotes ? '8px' : '0'};">
+                                    <!-- 🆕 v5.87.45: UHRZEIT LINKS -->
+                                    <div style="flex-shrink:0;text-align:center;min-width:50px;">
+                                        <div style="font-weight:700;color:#1f2937;font-size:16px;">
+                                            ${time}
+                                        </div>
+                                        <div style="font-size:10px;color:${ride.status === 'confirmed' ? '#10b981' : '#f59e0b'};font-weight:600;margin-top:2px;">
+                                            ${ride.status === 'confirmed' ? '✓' : '○'}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- EVENT DETAILS -->
                                     <div style="flex:1;min-width:0;">
                                         <div style="font-weight:600;color:#1f2937;font-size:14px;margin-bottom:4px;word-wrap:break-word;overflow-wrap:break-word;">
                                             ${ride.customerName || 'Unbekannt'}
@@ -38574,17 +38588,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                             👥 ${ride.persons || 1} Person${ride.persons > 1 ? 'en' : ''}
                                         </div>
                                     </div>
-                                    <div style="text-align:right;margin-left:8px;flex-shrink:0;">
-                                        <div style="font-weight:700;color:#1f2937;font-size:14px;">
-                                            🕐 ${time}
-                                        </div>
-                                        <div style="font-size:11px;color:${ride.status === 'confirmed' ? '#10b981' : '#f59e0b'};font-weight:600;margin-top:2px;">
-                                            ${ride.status === 'confirmed' ? '✓ Bestätigt' : '○ Offen'}
-                                        </div>
-                                    </div>
                                 </div>
                                 ${hasNotes ? `
-                                    <div style="padding:8px;background:white;border-radius:4px;border-left:2px solid #3b82f6;font-size:12px;color:#4b5563;word-wrap:break-word;overflow-wrap:break-word;">
+                                    <div style="padding:8px;background:white;border-radius:4px;border-left:2px solid #3b82f6;font-size:12px;color:#4b5563;word-wrap:break-word;overflow-wrap:break-word;margin-left:62px;">
                                         📝 ${ride.notes}
                                     </div>
                                 ` : ''}
@@ -41998,8 +42004,42 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // 📊 RECHNUNG FÜR HOTEL ERSTELLEN
+        // 🆕 v5.87.45: Quick-Zugriff auf Rechnung-Erstellung
         async function createHotelInvoice(hotelId) {
-            alert('📊 Rechnung erstellen\n\nDiese Funktion ist bereits im Admin-Tab verfügbar unter "Hotel-Rechnungen".');
+            // Hole Hotel-Daten
+            const hotelSnap = await db.ref(`hotelCalendars/${hotelId}`).once('value');
+            const hotel = hotelSnap.val();
+            
+            if (!hotel) {
+                alert('❌ Hotel nicht gefunden!');
+                return;
+            }
+            
+            const confirmed = confirm(
+                `📄 Rechnung erstellen\n\n` +
+                `Hotel: ${hotel.name}\n\n` +
+                `Ich öffne jetzt den Admin-Tab wo du die Rechnung erstellen kannst.\n\n` +
+                `Fortfahren?`
+            );
+            
+            if (!confirmed) return;
+            
+            // Wechsle zu Admin Tab
+            switchView('admin');
+            
+            // Warte kurz, dann öffne Hotel-Rechnungen Section
+            setTimeout(() => {
+                // Öffne Hotel-Rechnungen Section
+                const invoicesSection = document.getElementById('hotel-invoices-content');
+                if (invoicesSection) {
+                    invoicesSection.style.display = 'block';
+                    const toggle = document.getElementById('hotel-invoices-toggle');
+                    if (toggle) toggle.textContent = '▲';
+                    
+                    // Scrolle zu Section
+                    invoicesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 300);
         }
         
     </script>

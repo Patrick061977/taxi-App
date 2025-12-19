@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.37 - BATCH DELETE! 📦🗑️ (Build 20251219-1035)');
-        console.log('📦 v5.87.37: Batch-Delete in 20er Paketen - Firefox bleibt stabil!');
-        console.log('📊 v5.87.37: Progress-Bar zeigt Fortschritt!');
-        console.log('🔄 v5.87.36: NEU IMPORTIEREN Button!');
+        console.log('🚕 Funk Taxi App v5.87.38 - 3 MONATE! 📅⚡ (Build 20251219-1045)');
+        console.log('📅 v5.87.38: NUR 3 MONATE zurück statt 1 Jahr!');
+        console.log('⚡ v5.87.38: maxResults: 200 statt 500!');
+        console.log('💪 v5.87.38: Firefox bleibt GARANTIERT stabil!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.87.37 - BATCH DELETE! 🗑️📊 (Build 20251219-1035)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.87.38 - 3 MONATE! ⚡💪 (Build 20251219-1045)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.37';
-        const APP_BUILD = '20251219-1035-BATCH-DELETE';
+        const APP_VERSION = '5.87.38';
+        const APP_BUILD = '20251219-1045-3MONTHS';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38425,7 +38425,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         
                         <!-- 🆕 v5.87.36: NEU IMPORTIEREN Button -->
                         <button onclick="reimportHotelCalendar('${id}')" style="padding:12px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-bottom:8px;width:100%;box-shadow:0 4px 8px rgba(220,38,38,0.3);">
-                            🔄 NEU IMPORTIEREN (Alte Events löschen)
+                            🔄 NEU IMPORTIEREN (Löschen + Import)
+                        </button>
+                        
+                        <!-- 🆕 v5.87.38: NOTFALL - NUR LÖSCHEN -->
+                        <button onclick="deleteOnlyHotelEvents('${id}')" style="padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;margin-bottom:8px;width:100%;">
+                            🗑️ NOTFALL: Nur alte Events löschen
                         </button>
                         
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
@@ -38815,18 +38820,18 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             try {
-                // 🆕 v5.87.28: Zeitfilter 1 Jahr zurück
-                const oneYearAgo = new Date();
-                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                const timeMin = oneYearAgo.toISOString();
+                // 🆕 v5.87.38: Zeitfilter 3 MONATE zurück (sonst Firefox-Crash!)
+                const threeMonthsAgo = new Date();
+                threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+                const timeMin = threeMonthsAgo.toISOString();
                 
-                console.log(`🕐 Lade Events ab: ${oneYearAgo.toLocaleDateString('de-DE')} (1 Jahr zurück)`);
+                console.log(`🕐 Lade Events ab: ${threeMonthsAgo.toLocaleDateString('de-DE')} (3 Monate zurück)`);
                 
                 // Lade Events via Calendar API
                 const response = await fetch(
                     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.googleCalendarId)}/events?` +
                     `timeMin=${encodeURIComponent(timeMin)}&` +
-                    `maxResults=500&` +
+                    `maxResults=200&` +
                     `singleEvents=true&` +
                     `orderBy=startTime`,
                     {
@@ -39225,6 +39230,105 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // 🔄 SYNC HOTEL CALENDAR - Lädt .ics und erstellt Fahrten
+        // 🆕 v5.87.38: NOTFALL - NUR LÖSCHEN (ohne Import)
+        async function deleteOnlyHotelEvents(calendarId) {
+            if (!confirm('⚠️ NOTFALL-OPTION!\n\nLöscht ALLE Hotel-Events OHNE neuen Import.\n\nNur für Notfall wenn Import crasht!\n\nBist du sicher?')) {
+                return;
+            }
+            
+            try {
+                // Lade Hotel-Info
+                const hotelSnap = await db.ref(`hotelCalendars/${calendarId}`).once('value');
+                const hotel = hotelSnap.val();
+                
+                if (!hotel) {
+                    alert('❌ Hotel nicht gefunden!');
+                    return;
+                }
+                
+                // Progress-Dialog
+                const progressDiv = document.createElement('div');
+                progressDiv.id = 'delete-progress';
+                progressDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:999999;min-width:400px;';
+                progressDiv.innerHTML = `
+                    <h3 style="margin:0 0 20px 0;font-size:20px;font-weight:700;">🗑️ Lösche Events...</h3>
+                    <div style="margin-bottom:20px;">
+                        <div style="font-size:14px;color:#6b7280;margin-bottom:8px;">
+                            <span id="del-status">Vorbereitung...</span>
+                        </div>
+                        <div style="background:#e5e7eb;border-radius:8px;height:24px;overflow:hidden;">
+                            <div id="del-bar" style="background:linear-gradient(90deg,#f59e0b,#d97706);height:100%;width:0%;transition:width 0.3s;"></div>
+                        </div>
+                        <div style="font-size:12px;color:#9ca3af;margin-top:8px;">
+                            <span id="del-detail"></span>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(progressDiv);
+                
+                function updateProgress(status, percent, detail = '') {
+                    document.getElementById('del-status').textContent = status;
+                    document.getElementById('del-bar').style.width = percent + '%';
+                    document.getElementById('del-detail').textContent = detail;
+                }
+                
+                updateProgress('Lade Events...', 5);
+                await new Promise(r => setTimeout(r, 100));
+                
+                // Lade alle Events
+                const ridesSnap = await db.ref('rides')
+                    .orderByChild('hotelCalendarId')
+                    .equalTo(calendarId)
+                    .once('value');
+                
+                const ridesToDelete = ridesSnap.val() || {};
+                const rideIds = Object.keys(ridesToDelete);
+                const deleteCount = rideIds.length;
+                
+                console.log(`🗑️ ${deleteCount} Events gefunden`);
+                updateProgress(`Lösche ${deleteCount} Events...`, 10);
+                await new Promise(r => setTimeout(r, 500));
+                
+                // Lösche in Batches
+                const BATCH_SIZE = 20;
+                const deleteBatches = [];
+                for (let i = 0; i < rideIds.length; i += BATCH_SIZE) {
+                    deleteBatches.push(rideIds.slice(i, i + BATCH_SIZE));
+                }
+                
+                let deletedSoFar = 0;
+                for (let i = 0; i < deleteBatches.length; i++) {
+                    const batch = deleteBatches[i];
+                    
+                    await Promise.all(batch.map(rideId => 
+                        db.ref(`rides/${rideId}`).remove()
+                    ));
+                    
+                    deletedSoFar += batch.length;
+                    const progress = 10 + (deletedSoFar / deleteCount * 80);
+                    
+                    updateProgress(
+                        `Lösche Events... ${deletedSoFar}/${deleteCount}`,
+                        progress,
+                        `Batch ${i+1}/${deleteBatches.length}`
+                    );
+                    
+                    console.log(`🗑️ Batch ${i+1}: ${batch.length} gelöscht`);
+                    await new Promise(r => setTimeout(r, 200));
+                }
+                
+                progressDiv.remove();
+                
+                alert(`✅ Fertig!\n\n${deleteCount} Events gelöscht.\n\nJetzt kannst du manuell neu importieren mit [🔄 Browser-Sync]`);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                const prog = document.getElementById('delete-progress');
+                if (prog) prog.remove();
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         // 🆕 v5.87.37: NEU IMPORTIEREN mit BATCH-Processing
         async function reimportHotelCalendar(calendarId) {
             if (!confirm('⚠️ ACHTUNG!\n\nDies wird ALLE importierten Events für diesen Hotel-Kalender löschen und neu importieren.\n\nBist du sicher?')) {

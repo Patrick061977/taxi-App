@@ -108,10 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.55 - PRICING (1/2)! 💰✅ (Build 20251219-1600)');
-        console.log('💰 v5.87.55: Preis-Regeln Dialog PRO HOTEL!');
-        console.log('✅ v5.87.55: [💰 Preise] Button im Hotel-Tab!');
-        console.log('🔄 v5.87.55: Speichert in Firebase pro Hotel!');
+        console.log('🚕 Funk Taxi App v5.87.56 - PRICING (2/2) KOMPLETT! 💰✅ (Build 20251219-1620)');
+        console.log('💰 v5.87.56: AUTO-FILL Preise beim Laden!');
+        console.log('🎨 v5.87.56: Farbcodierung (Werktag/Sa/So+Feiertag)!');
+        console.log('✅ v5.87.56: Checkbox + Toggle [💰]/[0] pro Zeile!');
+        console.log('🔄 v5.87.56: Multi-Select Button für mehrere Zeilen!');
+        console.log('💾 v5.87.56: Speichert in Firebase (priceOverride)!');
+        console.log('📄 v5.87.56: PDF mit allen Zeilen (auch 0€)!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +759,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💰 Version 5.87.55 - PRICING (1/2)! ✅🔄 (Build 20251219-1600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💰 Version 5.87.56 - PRICING (2/2) KOMPLETT! ✅🔄 (Build 20251219-1620)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5093,8 +5096,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.55';
-        const APP_BUILD = '20251219-1600-PRICING-1';
+        const APP_VERSION = '5.87.56';
+        const APP_BUILD = '20251219-1620-PRICING-2';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -40822,6 +40825,17 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             currentInvoiceHotel = hotelId ? hotelCalendars[hotelId] : null;
             
             try {
+                // Lade Hotel-Info und Preis-Regeln
+                let pricingRules = null;
+                if (hotelId && hotelCalendars[hotelId]) {
+                    pricingRules = hotelCalendars[hotelId].pricingRules || null;
+                    if (pricingRules) {
+                        console.log('💰 Preis-Regeln geladen:', pricingRules);
+                    } else {
+                        console.log('⚠️ Keine Preis-Regeln für dieses Hotel');
+                    }
+                }
+                
                 // Lade alle Fahrten aus Firebase
                 const snapshot = await db.ref('rides').once('value');
                 const allRides = [];
@@ -40839,6 +40853,27 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     // Filter: Monat
                     const rideDate = new Date(ride.pickupTime || ride.createdAt);
                     if (rideDate < startDate || rideDate > endDate) return;
+                    
+                    // 🆕 v5.87.56: AUTO-FILL PREISE!
+                    if (pricingRules && (ride.price === undefined || ride.price === 0 || ride.price === null)) {
+                        // Ermittle Tag-Typ
+                        const dayType = getDayType(rideDate);
+                        
+                        // Ermittle Ziel-Typ
+                        const destType = detectDestinationType(ride.destination);
+                        
+                        // Hole Preis aus Regeln
+                        if (pricingRules[destType] && pricingRules[destType][dayType] !== undefined) {
+                            ride.price = pricingRules[destType][dayType];
+                            ride.priceAutoFilled = true; // Markierung dass Auto-Fill
+                            console.log(`💰 Auto-Fill: ${ride.customerName} → ${destType} (${dayType}) = ${ride.price}€`);
+                        }
+                    }
+                    
+                    // Prüfe priceOverride (wenn manuell auf 0 gesetzt)
+                    if (ride.priceOverride !== undefined) {
+                        ride.price = ride.priceOverride;
+                    }
                     
                     allRides.push(ride);
                 });
@@ -40892,6 +40927,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
         }
         
+        // 🆕 v5.87.56: Tracking für ausgewählte Zeilen
+        let selectedInvoiceRides = new Set();
+        
         // Render Fahrten-Tabelle
         function renderInvoiceRides() {
             const container = document.getElementById('invoice-rides-container');
@@ -40941,12 +40979,53 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             `;
             statsDiv.style.display = 'block';
             
+            // 🆕 v5.87.56: Multi-Select Button (erscheint nur wenn Auswahl)
+            const selectedCount = selectedInvoiceRides.size;
+            let multiButtonHtml = '';
+            if (selectedCount > 0) {
+                multiButtonHtml = `
+                    <div id="multi-toggle-button" style="
+                        position: sticky;
+                        top: 0;
+                        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+                        color: white;
+                        padding: 12px 16px;
+                        border-radius: 8px;
+                        margin-bottom: 12px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        box-shadow: 0 4px 12px rgba(139,92,246,0.3);
+                        z-index: 10;
+                    ">
+                        <div style="font-weight: 600;">
+                            ${selectedCount} Fahrt${selectedCount !== 1 ? 'en' : ''} ausgewählt
+                        </div>
+                        <button onclick="toggleMultiplePrices()" style="
+                            padding: 8px 16px;
+                            background: white;
+                            color: #8b5cf6;
+                            border: none;
+                            border-radius: 6px;
+                            font-weight: 700;
+                            cursor: pointer;
+                            font-size: 13px;
+                        ">
+                            💰→0 Auf 0€ setzen
+                        </button>
+                    </div>
+                `;
+            }
+            
             // Tabelle
-            let html = `
+            let html = multiButtonHtml + `
                 <div style="overflow-x:auto;border:2px solid #e5e7eb;border-radius:8px;">
                     <table style="width:100%;border-collapse:collapse;font-size:13px;">
                         <thead>
                             <tr style="background:#f9fafb;">
+                                <th style="padding:12px;text-align:center;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;width:40px;">
+                                    <input type="checkbox" id="select-all-rides" onchange="toggleAllRides(this)" style="cursor:pointer;width:16px;height:16px;">
+                                </th>
                                 <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Nr</th>
                                 <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Datum</th>
                                 <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Zeit</th>
@@ -40954,6 +41033,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Von</th>
                                 <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Nach</th>
                                 <th style="padding:12px;text-align:right;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Preis</th>
+                                <th style="padding:12px;text-align:center;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;width:60px;">💰</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -40963,17 +41043,64 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 const date = new Date(ride.pickupTime || ride.createdAt);
                 const dateStr = date.toLocaleDateString('de-DE');
                 const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                const price = parseFloat(ride.price || 0).toFixed(2);
+                const price = parseFloat(ride.price || 0);
+                const priceStr = price.toFixed(2);
+                
+                // 🆕 v5.87.56: Ermittle Tag-Typ für Farbcodierung
+                const dayType = getDayType(date);
+                let rowBg = '#ffffff';
+                let dayIndicator = '';
+                
+                if (dayType === 'saturday') {
+                    rowBg = '#fef3c7'; // Gelb
+                    dayIndicator = '<span style="color:#f59e0b;font-weight:700;">Sa</span>';
+                } else if (dayType === 'sunday') {
+                    rowBg = '#fee2e2'; // Rot
+                    dayIndicator = '<span style="color:#ef4444;font-weight:700;">So</span>';
+                    if (isHoliday(date)) {
+                        dayIndicator = '<span style="color:#ef4444;font-weight:700;">Fei</span>';
+                    }
+                }
+                
+                // 🆕 v5.87.56: Wenn Preis = 0€, dann grau
+                const isZeroPrice = price === 0;
+                if (isZeroPrice) {
+                    rowBg = '#f3f4f6'; // Grau
+                }
+                
+                const isSelected = selectedInvoiceRides.has(ride.id);
                 
                 html += `
-                    <tr style="border-bottom:1px solid #e5e7eb;${index % 2 === 0 ? 'background:white;' : 'background:#f9fafb;'}">
+                    <tr style="border-bottom:1px solid #e5e7eb;background:${rowBg};${isZeroPrice ? 'opacity:0.7;' : ''}">
+                        <td style="padding:10px;text-align:center;">
+                            <input type="checkbox" 
+                                   class="ride-checkbox" 
+                                   data-ride-id="${ride.id}" 
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="toggleRideSelection('${ride.id}')" 
+                                   style="cursor:pointer;width:16px;height:16px;">
+                        </td>
                         <td style="padding:10px;color:#6b7280;">${index + 1}</td>
-                        <td style="padding:10px;color:#1f2937;font-weight:600;">${dateStr}</td>
+                        <td style="padding:10px;color:#1f2937;font-weight:600;">${dateStr} ${dayIndicator}</td>
                         <td style="padding:10px;color:#6b7280;">${timeStr}</td>
-                        <td style="padding:10px;color:#1f2937;">${ride.guestName || ride.customerName || '-'}</td>
+                        <td style="padding:10px;color:#1f2937;${isZeroPrice ? 'text-decoration:line-through;' : ''}">${ride.guestName || ride.customerName || '-'}</td>
                         <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.pickup || '-'}</td>
                         <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.destination || '-'}</td>
-                        <td style="padding:10px;text-align:right;font-weight:700;color:#10b981;">${price}€</td>
+                        <td style="padding:10px;text-align:right;font-weight:700;color:${isZeroPrice ? '#9ca3af' : '#10b981'};">${priceStr}€</td>
+                        <td style="padding:10px;text-align:center;">
+                            <button onclick="toggleSinglePrice('${ride.id}')" style="
+                                padding:6px 12px;
+                                background:${isZeroPrice ? '#e5e7eb' : 'linear-gradient(135deg,#10b981,#059669)'};
+                                color:${isZeroPrice ? '#6b7280' : 'white'};
+                                border:none;
+                                border-radius:6px;
+                                font-weight:700;
+                                cursor:pointer;
+                                font-size:12px;
+                            ">
+                                ${isZeroPrice ? '0' : '💰'}
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
@@ -40982,8 +41109,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         </tbody>
                         <tfoot>
                             <tr style="background:#10b981;color:white;">
-                                <td colspan="6" style="padding:12px;font-weight:700;font-size:14px;">GESAMT (Netto)</td>
+                                <td colspan="7" style="padding:12px;font-weight:700;font-size:14px;">GESAMT (Netto)</td>
                                 <td style="padding:12px;text-align:right;font-weight:700;font-size:16px;">${totalAmount.toFixed(2)}€</td>
+                                <td></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -40992,6 +41120,112 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             container.innerHTML = html;
             createBtn.style.display = 'block';
+        }
+        
+        // 🆕 v5.87.56: Toggle einzelne Zeile
+        function toggleRideSelection(rideId) {
+            if (selectedInvoiceRides.has(rideId)) {
+                selectedInvoiceRides.delete(rideId);
+            } else {
+                selectedInvoiceRides.add(rideId);
+            }
+            renderInvoiceRides();
+        }
+        
+        // 🆕 v5.87.56: Toggle alle Zeilen
+        function toggleAllRides(checkbox) {
+            if (checkbox.checked) {
+                currentInvoiceRides.forEach(ride => selectedInvoiceRides.add(ride.id));
+            } else {
+                selectedInvoiceRides.clear();
+            }
+            renderInvoiceRides();
+        }
+        
+        // 🆕 v5.87.56: Toggle Preis für einzelne Zeile
+        async function toggleSinglePrice(rideId) {
+            try {
+                const ride = currentInvoiceRides.find(r => r.id === rideId);
+                if (!ride) return;
+                
+                const currentPrice = parseFloat(ride.price || 0);
+                const newPrice = currentPrice === 0 ? (ride.originalPrice || 0) : 0;
+                
+                // Speichere Original-Preis beim ersten Mal
+                if (ride.originalPrice === undefined && currentPrice > 0) {
+                    ride.originalPrice = currentPrice;
+                }
+                
+                // Update in Firebase
+                await db.ref(`rides/${rideId}`).update({
+                    priceOverride: newPrice,
+                    originalPrice: ride.originalPrice || currentPrice
+                });
+                
+                // Update lokal
+                ride.price = newPrice;
+                ride.priceOverride = newPrice;
+                
+                console.log(`💰 Preis geändert: ${ride.customerName} → ${newPrice}€`);
+                
+                // Re-render
+                renderInvoiceRides();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Toggle:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.87.56: Toggle Preis für mehrere Zeilen
+        async function toggleMultiplePrices() {
+            if (selectedInvoiceRides.size === 0) return;
+            
+            const count = selectedInvoiceRides.size;
+            if (!confirm(`${count} Fahrt${count !== 1 ? 'en' : ''} auf 0€ setzen?`)) return;
+            
+            try {
+                const updates = [];
+                
+                for (const rideId of selectedInvoiceRides) {
+                    const ride = currentInvoiceRides.find(r => r.id === rideId);
+                    if (!ride) continue;
+                    
+                    const currentPrice = parseFloat(ride.price || 0);
+                    
+                    // Nur auf 0 setzen, nicht zurück
+                    if (currentPrice > 0) {
+                        // Speichere Original
+                        if (ride.originalPrice === undefined) {
+                            ride.originalPrice = currentPrice;
+                        }
+                        
+                        updates.push(
+                            db.ref(`rides/${rideId}`).update({
+                                priceOverride: 0,
+                                originalPrice: ride.originalPrice || currentPrice
+                            })
+                        );
+                        
+                        ride.price = 0;
+                        ride.priceOverride = 0;
+                    }
+                }
+                
+                await Promise.all(updates);
+                
+                console.log(`✅ ${updates.length} Preise auf 0€ gesetzt`);
+                
+                // Auswahl zurücksetzen
+                selectedInvoiceRides.clear();
+                
+                // Re-render
+                renderInvoiceRides();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Multi-Toggle:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
         }
         
         // Erstelle PDF-Rechnung

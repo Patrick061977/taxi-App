@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.39 - SHOW ALL! 👁️📋 (Build 20251219-1055)');
-        console.log('👁️ v5.87.39: CustomerName = Kompletter Titel + Description!');
-        console.log('📋 v5.87.39: Jetzt sehen wir ALLES - dann aufräumen!');
-        console.log('✂️ v5.87.39: Minimales Parsing - nur Von/Nach!');
+        console.log('🚕 Funk Taxi App v5.87.40 - SIMPLIFIED! 🎯✨ (Build 20251219-1115)');
+        console.log('🎯 v5.87.40: Nur noch 3 wichtige Buttons!');
+        console.log('🔄 v5.87.40: JETZT SYNCEN Button funktioniert!');
+        console.log('📅 v5.87.40: 6 Monate Zeitraum statt 3!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👁️ Version 5.87.39 - SHOW ALL! 📋✂️ (Build 20251219-1055)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.87.40 - SIMPLIFIED! ✨📅 (Build 20251219-1115)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.39';
-        const APP_BUILD = '20251219-1055-SHOW-ALL';
+        const APP_VERSION = '5.87.40';
+        const APP_BUILD = '20251219-1115-SIMPLIFIED';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38414,35 +38414,24 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             ${cal.icalUrl}
                         </div>
                         
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-                            <button onclick="toggleHotelCalendarEnabled('${id}')" style="padding:10px;background:${cal.enabled ? '#f59e0b' : '#10b981'};color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
-                                ${cal.enabled ? '⏸️ Pausieren' : '▶️ Aktivieren'}
+                        <!-- 🆕 v5.87.40: VEREINFACHTE BUTTONS - NUR DAS WICHTIGSTE! -->
+                        <div style="display:grid;gap:10px;">
+                            <button onclick="showHotelCalendar('${id}')" style="padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;box-shadow:0 4px 8px rgba(245,158,11,0.3);">
+                                📅 Kalender öffnen
                             </button>
-                            <button onclick="syncHotelCalendar('${id}')" style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
-                                🔄 Browser-Sync
+                            
+                            <button onclick="manualSyncHotel('${id}')" style="padding:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;box-shadow:0 3px 6px rgba(59,130,246,0.3);">
+                                🔄 JETZT SYNCEN
                             </button>
-                        </div>
-                        
-                        <!-- 🆕 v5.87.36: NEU IMPORTIEREN Button -->
-                        <button onclick="reimportHotelCalendar('${id}')" style="padding:12px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin-bottom:8px;width:100%;box-shadow:0 4px 8px rgba(220,38,38,0.3);">
-                            🔄 NEU IMPORTIEREN (Löschen + Import)
-                        </button>
-                        
-                        <!-- 🆕 v5.87.38: NOTFALL - NUR LÖSCHEN -->
-                        <button onclick="deleteOnlyHotelEvents('${id}')" style="padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;margin-bottom:8px;width:100%;">
-                            🗑️ NOTFALL: Nur alte Events löschen
-                        </button>
-                        
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-                            <button onclick="cloudSyncHotelCalendar('${id}')" style="padding:10px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
-                                ☁️ Cloud-Sync
-                            </button>
-                            <button onclick="uploadIcsForHotel('${id}')" style="padding:10px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(249,115,22,0.3);">
-                                📤 .ics Upload
-                            </button>
-                            <button onclick="uploadCsvForHotel('${id}')" style="padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
-                                📊 CSV Import
-                            </button>
+                            
+                            <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
+                                <button onclick="deleteOnlyHotelEvents('${id}')" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;">
+                                    🗑️ Alte Events löschen
+                                </button>
+                                <button onclick="toggleHotelCalendarEnabled('${id}')" style="padding:12px;background:${cal.enabled ? '#10b981' : '#6b7280'};color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;">
+                                    ${cal.enabled ? '✅' : '⏸️'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -38820,12 +38809,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             try {
-                // 🆕 v5.87.38: Zeitfilter 3 MONATE zurück (sonst Firefox-Crash!)
-                const threeMonthsAgo = new Date();
-                threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-                const timeMin = threeMonthsAgo.toISOString();
+                // 🆕 v5.87.40: Zeitfilter 6 MONATE zurück
+                const sixMonthsAgo = new Date();
+                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                const timeMin = sixMonthsAgo.toISOString();
                 
-                console.log(`🕐 Lade Events ab: ${threeMonthsAgo.toLocaleDateString('de-DE')} (3 Monate zurück)`);
+                console.log(`🕐 Lade Events ab: ${sixMonthsAgo.toLocaleDateString('de-DE')} (6 Monate zurück)`);
                 
                 // Lade Events via Calendar API
                 const response = await fetch(
@@ -39202,6 +39191,40 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // 🔄 SYNC HOTEL CALENDAR - Lädt .ics und erstellt Fahrten
+        // 🆕 v5.87.40: EINFACHER SYNC - ruft direkt die Auto-Sync Funktion auf
+        async function manualSyncHotel(calendarId) {
+            try {
+                console.log('🔄 Manueller Sync gestartet für:', calendarId);
+                
+                // Lade Hotel-Info
+                const hotelSnap = await db.ref(`hotelCalendars/${calendarId}`).once('value');
+                const calendar = hotelSnap.val();
+                
+                if (!calendar) {
+                    alert('❌ Hotel nicht gefunden!');
+                    return;
+                }
+                
+                // Zeige Loading
+                alert(`🔄 Sync startet für "${calendar.name}"...\n\nBitte warten!`);
+                
+                // Rufe die ECHTE Sync-Funktion auf (die auch Auto-Sync nutzt)
+                await syncGoogleCalendarEvents(calendarId, calendar);
+                
+                // Erfolg!
+                alert(`✅ Sync abgeschlossen!\n\nKalender "${calendar.name}" wurde aktualisiert.`);
+                
+                // Wenn Kalender gerade offen: Neu laden
+                if (currentHotelCalendarId === calendarId) {
+                    showHotelCalendar(calendarId);
+                }
+                
+            } catch (error) {
+                console.error('❌ Sync Fehler:', error);
+                alert('❌ Sync Fehler: ' + error.message);
+            }
+        }
+        
         // 🆕 v5.87.38: NOTFALL - NUR LÖSCHEN (ohne Import)
         async function deleteOnlyHotelEvents(calendarId) {
             if (!confirm('⚠️ NOTFALL-OPTION!\n\nLöscht ALLE Hotel-Events OHNE neuen Import.\n\nNur für Notfall wenn Import crasht!\n\nBist du sicher?')) {

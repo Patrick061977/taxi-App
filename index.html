@@ -108,10 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.57 - BUGFIX! 🐛✅ (Build 20251219-1640)');
-        console.log('🐛 v5.87.57: FIX Durchstreichen nur bei MANUELL 0€!');
-        console.log('🐛 v5.87.57: FIX iCal-Feld OPTIONAL → OAuth!');
-        console.log('✅ v5.87.57: Beide Bugs gefixt!');
+        console.log('🚕 Funk Taxi App v5.87.59 - AUTO-CLEANUP DEAKTIVIERT! 🛡️✅ (Build 20251219-1710)');
+        console.log('🛡️ v5.87.59: Auto-Cleanup KOMPLETT deaktiviert!');
+        console.log('✅ v5.87.59: KEINE automatischen Stornierungen mehr!');
+        console.log('📊 v5.87.59: Alle Stornierungen mit Zeitstempel + cancelledBy!');
+        console.log('🔒 v5.87.59: Hotel-Storno-Schutz aktiv!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +757,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.87.57 - BUGFIX! ✅ (Build 20251219-1640)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛡️ Version 5.87.59 - AUTO-CLEANUP DEAKTIVIERT! ✅ (Build 20251219-1710)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5096,8 +5097,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.57';
-        const APP_BUILD = '20251219-1640-BUGFIX';
+        const APP_VERSION = '5.87.59';
+        const APP_BUILD = '20251219-1710-AUTO-CLEANUP-DEAKTIVIERT';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -5875,6 +5876,32 @@
 
         // 🗑️ Fahrt aus Verlauf stornieren
         async function cancelRideFromHistory(rideId) {
+            // 🆕 v5.87.58: Lade Fahrt um Hotel-Status zu prüfen
+            let ride = null;
+            if (isFirebaseReady && rideId) {
+                try {
+                    const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                    ride = snapshot.val();
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden:', error);
+                }
+            }
+            
+            // 🆕 v5.87.58: STORNO-SCHUTZ für Hotel-Fahrten! 🔒
+            if (ride && ride.hotelCalendarId) {
+                const hotelName = ride.hotelName || 'Hotel';
+                alert(
+                    `🔒 HOTEL-FAHRT GESCHÜTZT!\n\n` +
+                    `🏨 Hotel: ${hotelName}\n` +
+                    `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n\n` +
+                    `⚠️ Diese Fahrt wurde vom Hotel-Kalender importiert\n` +
+                    `und kann NICHT storniert werden!\n\n` +
+                    `💡 Bitte kontaktiere das Hotel direkt.`
+                );
+                console.log('🔒 Hotel-Fahrt Stornierung BLOCKIERT!');
+                return;
+            }
+            
             const confirmCancel = confirm('🗑️ Fahrt wirklich stornieren?');
             if (!confirmCancel) return;
             
@@ -5883,7 +5910,9 @@
                 try {
                     await updateRide(rideId, { 
                         status: 'storniert',
-                        cancelledAt: Date.now()
+                        cancelledAt: Date.now(),
+                        cancelledBy: 'passenger',  // 🆕 v5.87.59: Tracking wer storniert hat
+                        cancelledReason: 'Storniert durch Fahrgast aus Verlauf'
                     });
                     console.log('✅ Fahrt in Firebase storniert');
                 } catch (error) {
@@ -7235,9 +7264,45 @@
                 for (const rideId in newRides) {
                     const ride = newRides[rideId];
                     
-                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
-                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
-                        console.log('🛡️ Hotel-Fahrt geschützt:', rideId);
+                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
+                    const isHotelRide = ride.hotelCalendarId || 
+                                       ride.source === 'hotel_calendar_cloud_sync' || 
+                                       ride.source === 'csv-import' ||
+                                       ride.hotelName ||
+                                       ride.guestName ||
+                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
+                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
+                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
+                    
+                    if (isHotelRide) {
+                        console.log('🛡️ Hotel-Fahrt geschützt:', rideId, {
+                            hotelCalendarId: ride.hotelCalendarId,
+                            source: ride.source,
+                            hotelName: ride.hotelName,
+                            guestName: ride.guestName,
+                            customer: ride.customerName
+                        });
+                        
+                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
+                        if (!ride.hotelCalendarId) {
+                            console.warn('⚠️ WARNUNG: Hotel-Fahrt OHNE hotelCalendarId!', {
+                                rideId: rideId,
+                                customer: ride.customerName,
+                                source: ride.source,
+                                pickup: ride.pickup,
+                                destination: ride.destination
+                            });
+                            
+                            // Setze hotelCalendarId nachträglich wenn möglich
+                            if (ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                                await db.ref(`rides/${rideId}`).update({
+                                    hotelCalendarId: 'RECOVERED_' + Date.now(),
+                                    recoveredProtection: true
+                                });
+                                console.log('✅ hotelCalendarId nachträglich gesetzt für:', rideId);
+                            }
+                        }
+                        
                         continue; // Überspringen!
                     }
                     
@@ -7260,6 +7325,15 @@
                     
                     if (age > MAX_NEW_AGE) {
                         console.log(`🧹 Cleanup: Alte Fahrt ${rideId} - ${Math.round(age/3600000)}h alt - wird storniert`);
+                        console.log('📊 Fahrt-Details:', {
+                            customer: ride.customerName,
+                            pickup: ride.pickup,
+                            destination: ride.destination,
+                            created: new Date(createdAt).toLocaleString('de-DE'),
+                            age: Math.round(age/3600000) + 'h',
+                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
+                            source: ride.source || 'KEINE'
+                        });
                         
                         await db.ref('rides/' + rideId).update({
                             status: 'cancelled',
@@ -7284,9 +7358,28 @@
                 for (const rideId in vorbestelltRides) {
                     const ride = vorbestelltRides[rideId];
                     
-                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
-                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
+                    const isHotelRide = ride.hotelCalendarId || 
+                                       ride.source === 'hotel_calendar_cloud_sync' || 
+                                       ride.source === 'csv-import' ||
+                                       ride.hotelName ||
+                                       ride.guestName ||
+                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
+                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
+                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
+                    
+                    if (isHotelRide) {
                         console.log('🛡️ Hotel-Vorbestellung geschützt:', rideId);
+                        
+                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
+                        if (!ride.hotelCalendarId) {
+                            console.warn('⚠️ WARNUNG: Hotel-Vorbestellung OHNE hotelCalendarId!', {
+                                rideId: rideId,
+                                customer: ride.customerName,
+                                source: ride.source
+                            });
+                        }
+                        
                         continue; // Überspringen!
                     }
                     
@@ -7303,6 +7396,14 @@
                     // Wenn Abholzeit mehr als 2 Stunden vorbei ist
                     if (pickupTime > 0 && timeSincePickup > 2 * 60 * 60 * 1000) {
                         console.log(`🧹 Cleanup: Verpasste Vorbestellung ${rideId} - Abholzeit war vor ${Math.round(timeSincePickup/3600000)}h`);
+                        console.log('📊 Vorbestellung-Details:', {
+                            customer: ride.customerName,
+                            pickup: ride.pickup,
+                            destination: ride.destination,
+                            pickupTime: new Date(pickupTime).toLocaleString('de-DE'),
+                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
+                            source: ride.source || 'KEINE'
+                        });
                         
                         await db.ref('rides/' + rideId).update({
                             status: 'cancelled',
@@ -7322,9 +7423,27 @@
                 for (const rideId in acceptedRides) {
                     const ride = acceptedRides[rideId];
                     
-                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
-                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
+                    const isHotelRide = ride.hotelCalendarId || 
+                                       ride.source === 'hotel_calendar_cloud_sync' || 
+                                       ride.source === 'csv-import' ||
+                                       ride.hotelName ||
+                                       ride.guestName ||
+                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
+                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
+                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
+                    
+                    if (isHotelRide) {
                         console.log('🛡️ Hotel-Fahrt (accepted) geschützt:', rideId);
+                        
+                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
+                        if (!ride.hotelCalendarId) {
+                            console.warn('⚠️ WARNUNG: Hotel-Fahrt (accepted) OHNE hotelCalendarId!', {
+                                rideId: rideId,
+                                customer: ride.customerName
+                            });
+                        }
+                        
                         continue;
                     }
                     
@@ -7340,6 +7459,14 @@
                     
                     if (age > MAX_NEW_AGE) { // 24h
                         console.log(`🧹 Cleanup: Alte accepted Fahrt ${rideId} - ${Math.round(age/3600000)}h alt`);
+                        console.log('📊 Accepted-Details:', {
+                            customer: ride.customerName,
+                            pickup: ride.pickup,
+                            destination: ride.destination,
+                            acceptedAt: new Date(acceptedAt).toLocaleString('de-DE'),
+                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
+                            source: ride.source || 'KEINE'
+                        });
                         
                         await db.ref('rides/' + rideId).update({
                             status: 'cancelled',
@@ -7359,9 +7486,27 @@
                 for (const rideId in pickedUpRides) {
                     const ride = pickedUpRides[rideId];
                     
-                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für Hotel-Fahrten!
-                    if (ride.hotelCalendarId || ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
+                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
+                    const isHotelRide = ride.hotelCalendarId || 
+                                       ride.source === 'hotel_calendar_cloud_sync' || 
+                                       ride.source === 'csv-import' ||
+                                       ride.hotelName ||
+                                       ride.guestName ||
+                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
+                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
+                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
+                    
+                    if (isHotelRide) {
                         console.log('🛡️ Hotel-Fahrt (picked_up) geschützt:', rideId);
+                        
+                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
+                        if (!ride.hotelCalendarId) {
+                            console.warn('⚠️ WARNUNG: Hotel-Fahrt (picked_up) OHNE hotelCalendarId!', {
+                                rideId: rideId,
+                                customer: ride.customerName
+                            });
+                        }
+                        
                         continue;
                     }
                     
@@ -7377,6 +7522,14 @@
                     
                     if (age > MAX_NEW_AGE) { // 24h
                         console.log(`🧹 Cleanup: Alte picked_up Fahrt ${rideId} - ${Math.round(age/3600000)}h alt`);
+                        console.log('📊 Picked_up-Details:', {
+                            customer: ride.customerName,
+                            pickup: ride.pickup,
+                            destination: ride.destination,
+                            pickedUpAt: new Date(pickedUpAt).toLocaleString('de-DE'),
+                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
+                            source: ride.source || 'KEINE'
+                        });
                         
                         await db.ref('rides/' + rideId).update({
                             status: 'completed',
@@ -7935,7 +8088,13 @@
                     }, 1000);
                     
                     // 🧹 CLEANUP: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
-                    setTimeout(() => cleanupStuckAssignedRides(), 2000);
+                    // 🆕 v5.87.59: AUTO-CLEANUP DEAKTIVIERT!
+                    // ⚠️ WICHTIG: Fahrten werden NICHT mehr automatisch storniert!
+                    // ✅ Admin-Fahrten sind geschützt
+                    // ✅ Vorbestellungen sind geschützt
+                    // ✅ NUR manuelle Stornierung erlaubt
+                    // setTimeout(() => cleanupStuckAssignedRides(), 2000); // ❌ DEAKTIVIERT!
+                    console.log('🛡️ v5.87.59: Auto-Cleanup DEAKTIVIERT - Keine automatischen Stornierungen!');
                     
                     // 💰 Preis-Einstellungen aus Firebase laden
                     loadPricingSettings();
@@ -11026,7 +11185,8 @@
                         ${(() => {
                             let buttonCount = 2; // Schließen + ID kopieren
                             if (ride.status === 'cancelled') buttonCount++; // Wiederherstellen
-                            if (ride.status !== 'cancelled' && ride.status !== 'completed') buttonCount++; // Stornieren
+                            // 🆕 v5.87.58: Stornieren NUR wenn KEINE Hotel-Fahrt!
+                            if (ride.status !== 'cancelled' && ride.status !== 'completed' && !ride.hotelCalendarId) buttonCount++;
                             const gridCols = 'repeat(' + buttonCount + ', 1fr)';
                             return `<div style="margin-top:25px;display:grid;grid-template-columns:${gridCols};gap:10px;">`;
                         })()}
@@ -11038,9 +11198,14 @@
                                 🔄 Wiederherstellen
                             </button>
                             ` : ''}
-                            ${ride.status !== 'cancelled' && ride.status !== 'completed' && ride.firebaseId ? `
+                            ${ride.status !== 'cancelled' && ride.status !== 'completed' && ride.firebaseId && !ride.hotelCalendarId ? `
                             <button onclick="cancelRideAsAdmin('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 🚫 Stornieren
+                            </button>
+                            ` : ''}
+                            ${ride.hotelCalendarId ? `
+                            <button disabled style="padding:12px;background:#9ca3af;color:white;border:none;border-radius:8px;font-weight:600;cursor:not-allowed;opacity:0.5;" title="Hotel-Fahrten können nicht storniert werden">
+                                🔒 Geschützt
                             </button>
                             ` : ''}
                             ${ride.firebaseId ? `
@@ -17516,6 +17681,22 @@
             cancelInProgress = true;
             
             const ride = myCurrentRide;
+            
+            // 🆕 v5.87.58: STORNO-SCHUTZ für Hotel-Fahrten! 🔒
+            if (ride && ride.hotelCalendarId) {
+                const hotelName = ride.hotelName || 'Hotel';
+                alert(
+                    `🔒 HOTEL-FAHRT GESCHÜTZT!\n\n` +
+                    `🏨 Diese Fahrt wurde vom ${hotelName} gebucht.\n\n` +
+                    `⚠️ Hotel-Fahrten können NICHT über die App\n` +
+                    `storniert werden!\n\n` +
+                    `💡 Bitte kontaktiere das Hotel direkt:\n` +
+                    `📞 ${ride.customerPhone || '(Telefonnummer nicht verfügbar)'}`
+                );
+                console.log('🔒 Hotel-Fahrt Stornierung BLOCKIERT!');
+                cancelInProgress = false;
+                return;
+            }
             
             let confirmMessage = '🗑️ Fahrt wirklich stornieren?\n\nDie Buchung wird gelöscht.';
             let hasCancellationFee = false;
@@ -27261,6 +27442,26 @@
             if (ride.status === 'cancelled') {
                 alert('⚠️ Fahrt ist bereits storniert!');
                 return;
+            }
+            
+            // 🆕 v5.87.58: STORNO-SCHUTZ für Hotel-Fahrten! 🔒
+            if (ride.hotelCalendarId) {
+                const hotelName = ride.hotelName || 'Hotel';
+                const extraConfirm = confirm(
+                    `⚠️ ACHTUNG: HOTEL-FAHRT!\n\n` +
+                    `🏨 Hotel: ${hotelName}\n` +
+                    `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n` +
+                    `📍 Von: ${ride.pickup || '?'}\n` +
+                    `🎯 Nach: ${ride.destination || '?'}\n\n` +
+                    `🔒 Diese Fahrt wurde vom Hotel-Kalender importiert!\n\n` +
+                    `❌ WIRKLICH STORNIEREN?\n` +
+                    `(Das Hotel wird NICHT automatisch informiert!)`
+                );
+                
+                if (!extraConfirm) {
+                    console.log('🔒 Hotel-Fahrt Stornierung abgebrochen');
+                    return;
+                }
             }
             
             const confirmMsg = `Fahrt wirklich stornieren?\n\n` +
@@ -41048,6 +41249,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 <th style="padding:12px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Nach</th>
                                 <th style="padding:12px;text-align:right;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;">Preis</th>
                                 <th style="padding:12px;text-align:center;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;width:60px;">💰</th>
+                                <th style="padding:12px;text-align:center;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;width:60px;">✏️</th>
+                                <th style="padding:12px;text-align:center;font-weight:700;color:#374151;border-bottom:2px solid #e5e7eb;width:60px;">🗑️</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -41115,6 +41318,34 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 ${isManuallyZero ? '0' : '💰'}
                             </button>
                         </td>
+                        <td style="padding:10px;text-align:center;">
+                            <button onclick="editInvoiceRide('${ride.id}')" style="
+                                padding:6px 12px;
+                                background:linear-gradient(135deg,#3b82f6,#2563eb);
+                                color:white;
+                                border:none;
+                                border-radius:6px;
+                                font-weight:700;
+                                cursor:pointer;
+                                font-size:12px;
+                            ">
+                                ✏️
+                            </button>
+                        </td>
+                        <td style="padding:10px;text-align:center;">
+                            <button onclick="deleteInvoiceRide('${ride.id}')" style="
+                                padding:6px 12px;
+                                background:linear-gradient(135deg,#ef4444,#dc2626);
+                                color:white;
+                                border:none;
+                                border-radius:6px;
+                                font-weight:700;
+                                cursor:pointer;
+                                font-size:12px;
+                            ">
+                                🗑️
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
@@ -41126,6 +41357,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 <td colspan="7" style="padding:12px;font-weight:700;font-size:14px;">GESAMT (Netto)</td>
                                 <td style="padding:12px;text-align:right;font-weight:700;font-size:16px;">${totalAmount.toFixed(2)}€</td>
                                 <td></td>
+                                <td></td>
+                                <td></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -41134,6 +41367,345 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             container.innerHTML = html;
             createBtn.style.display = 'block';
+        }
+        
+        // 🆕 v5.87.59: EDIT Fahrt im Dialog
+        async function editInvoiceRide(rideId) {
+            try {
+                const ride = currentInvoiceRides.find(r => r.id === rideId);
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Erstelle Edit-Dialog
+                const dialog = document.createElement('div');
+                dialog.id = 'edit-ride-dialog';
+                dialog.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 99999;
+                `;
+                
+                const date = new Date(ride.pickupTime || ride.createdAt);
+                const dateStr = date.toISOString().slice(0, 10);
+                const timeStr = date.toTimeString().slice(0, 5);
+                
+                dialog.innerHTML = `
+                    <div style="
+                        background: white;
+                        border-radius: 16px;
+                        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                        max-width: 600px;
+                        width: 90%;
+                        max-height: 90vh;
+                        overflow-y: auto;
+                    ">
+                        <!-- HEADER -->
+                        <div style="
+                            background: linear-gradient(135deg, #3b82f6, #2563eb);
+                            color: white;
+                            padding: 20px;
+                            border-radius: 16px 16px 0 0;
+                        ">
+                            <div style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">
+                                ✏️ Fahrt bearbeiten
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9;">
+                                ${ride.hotelName || 'Hotel-Fahrt'}
+                            </div>
+                        </div>
+                        
+                        <!-- CONTENT -->
+                        <div style="padding: 24px;">
+                            ${ride.hotelCalendarId ? `
+                            <div style="
+                                background: #fef3c7;
+                                border-left: 3px solid #f59e0b;
+                                padding: 12px;
+                                border-radius: 8px;
+                                margin-bottom: 20px;
+                            ">
+                                <div style="font-size: 12px; color: #92400e; line-height: 1.5;">
+                                    ⚠️ <strong>Hotel-Fahrt:</strong> Änderungen hier betreffen NUR die Rechnung,
+                                    nicht den Hotel-Kalender!
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <!-- DATUM -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px;">
+                                    📅 Datum
+                                </label>
+                                <input type="date" id="edit-date" value="${dateStr}" style="
+                                    width: 100%;
+                                    padding: 10px;
+                                    border: 2px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                ">
+                            </div>
+                            
+                            <!-- ZEIT -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px;">
+                                    🕐 Zeit
+                                </label>
+                                <input type="time" id="edit-time" value="${timeStr}" style="
+                                    width: 100%;
+                                    padding: 10px;
+                                    border: 2px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                ">
+                            </div>
+                            
+                            <!-- GAST -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px;">
+                                    👤 Gast / Kunde
+                                </label>
+                                <input type="text" id="edit-guest" value="${ride.guestName || ride.customerName || ''}" style="
+                                    width: 100%;
+                                    padding: 10px;
+                                    border: 2px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                ">
+                            </div>
+                            
+                            <!-- VON -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px;">
+                                    📍 Von
+                                </label>
+                                <input type="text" id="edit-pickup" value="${ride.pickup || ''}" style="
+                                    width: 100%;
+                                    padding: 10px;
+                                    border: 2px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                ">
+                            </div>
+                            
+                            <!-- NACH -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px;">
+                                    🎯 Nach
+                                </label>
+                                <input type="text" id="edit-destination" value="${ride.destination || ''}" style="
+                                    width: 100%;
+                                    padding: 10px;
+                                    border: 2px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                ">
+                            </div>
+                            
+                            <!-- PREIS -->
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px;">
+                                    💰 Preis (€)
+                                </label>
+                                <input type="number" id="edit-price" value="${ride.price || 0}" step="0.01" min="0" style="
+                                    width: 100%;
+                                    padding: 10px;
+                                    border: 2px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                    font-weight: 600;
+                                ">
+                            </div>
+                            
+                            <!-- BUTTONS -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px;">
+                                <button onclick="closeEditDialog()" style="
+                                    padding: 14px;
+                                    background: #e5e7eb;
+                                    color: #1f2937;
+                                    border: none;
+                                    border-radius: 8px;
+                                    font-weight: 600;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">
+                                    ❌ Abbrechen
+                                </button>
+                                <button onclick="saveEditedRide('${rideId}')" style="
+                                    padding: 14px;
+                                    background: linear-gradient(135deg, #10b981, #059669);
+                                    color: white;
+                                    border: none;
+                                    border-radius: 8px;
+                                    font-weight: 600;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">
+                                    ✅ Speichern
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(dialog);
+                
+                // Focus erstes Feld
+                setTimeout(() => document.getElementById('edit-guest')?.focus(), 100);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Edit-Dialog:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // Schließe Edit-Dialog
+        function closeEditDialog() {
+            const dialog = document.getElementById('edit-ride-dialog');
+            if (dialog) dialog.remove();
+        }
+        
+        // Speichere bearbeitete Fahrt
+        async function saveEditedRide(rideId) {
+            try {
+                // Lese Werte
+                const dateValue = document.getElementById('edit-date').value;
+                const timeValue = document.getElementById('edit-time').value;
+                const guest = document.getElementById('edit-guest').value.trim();
+                const pickup = document.getElementById('edit-pickup').value.trim();
+                const destination = document.getElementById('edit-destination').value.trim();
+                const price = parseFloat(document.getElementById('edit-price').value) || 0;
+                
+                // Validierung
+                if (!guest || !pickup || !destination) {
+                    alert('❌ Bitte alle Felder ausfüllen!');
+                    return;
+                }
+                
+                // Kombiniere Datum + Zeit
+                const pickupTime = new Date(`${dateValue}T${timeValue}`).getTime();
+                
+                // Update in Firebase
+                await db.ref(`rides/${rideId}`).update({
+                    guestName: guest,
+                    customerName: guest,
+                    pickup: pickup,
+                    destination: destination,
+                    price: price,
+                    pickupTime: pickupTime,
+                    updatedAt: Date.now()
+                });
+                
+                console.log('✅ Fahrt gespeichert!');
+                
+                // Schließe Dialog
+                closeEditDialog();
+                
+                // Neu laden
+                await loadInvoiceRides();
+                
+                // Success Message
+                const successMsg = document.createElement('div');
+                successMsg.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: linear-gradient(135deg, #10b981, #059669);
+                    color: white;
+                    padding: 16px 24px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    z-index: 999999;
+                    font-weight: 600;
+                `;
+                successMsg.textContent = '✅ Fahrt gespeichert!';
+                document.body.appendChild(successMsg);
+                
+                setTimeout(() => {
+                    successMsg.style.transition = 'opacity 0.5s';
+                    successMsg.style.opacity = '0';
+                    setTimeout(() => successMsg.remove(), 500);
+                }, 3000);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.87.59: DELETE Fahrt mit Warnung
+        async function deleteInvoiceRide(rideId) {
+            try {
+                const ride = currentInvoiceRides.find(r => r.id === rideId);
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // WARNUNG für Hotel-Fahrten
+                let confirmMsg = '🗑️ Fahrt wirklich löschen?\n\n' +
+                    `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n` +
+                    `📍 Von: ${ride.pickup || '?'}\n` +
+                    `🎯 Nach: ${ride.destination || '?'}\n` +
+                    `💰 Preis: ${ride.price || 0}€\n\n`;
+                
+                if (ride.hotelCalendarId) {
+                    confirmMsg += `⚠️ ACHTUNG: HOTEL-FAHRT!\n` +
+                        `🏨 Hotel: ${ride.hotelName || 'Unbekannt'}\n\n` +
+                        `Diese Fahrt wurde vom Hotel-Kalender importiert.\n` +
+                        `Das Hotel wird NICHT automatisch informiert!\n\n` +
+                        `Trotzdem löschen?`;
+                }
+                
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+                
+                // Lösche in Firebase
+                await db.ref(`rides/${rideId}`).remove();
+                
+                console.log('🗑️ Fahrt gelöscht:', rideId);
+                
+                // Neu laden
+                await loadInvoiceRides();
+                
+                // Success Message
+                const successMsg = document.createElement('div');
+                successMsg.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: linear-gradient(135deg, #ef4444, #dc2626);
+                    color: white;
+                    padding: 16px 24px;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    z-index: 999999;
+                    font-weight: 600;
+                `;
+                successMsg.textContent = '🗑️ Fahrt gelöscht!';
+                document.body.appendChild(successMsg);
+                
+                setTimeout(() => {
+                    successMsg.style.transition = 'opacity 0.5s';
+                    successMsg.style.opacity = '0';
+                    setTimeout(() => successMsg.remove(), 500);
+                }, 3000);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Löschen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
         }
         
         // 🆕 v5.87.56: Toggle einzelne Zeile

@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.36 - REIMPORT BUTTON! 🔄🗑️ (Build 20251219-1025)');
-        console.log('🔄 v5.87.36: NEU IMPORTIEREN Button - Löscht alte Events & importiert neu!');
-        console.log('📝 v5.87.35: Intelligenter Event-Parser eingebaut!');
-        console.log('🎯 v5.87.35: Namen, Personen, Von, Nach werden extrahiert!');
+        console.log('🚕 Funk Taxi App v5.87.37 - BATCH DELETE! 📦🗑️ (Build 20251219-1035)');
+        console.log('📦 v5.87.37: Batch-Delete in 20er Paketen - Firefox bleibt stabil!');
+        console.log('📊 v5.87.37: Progress-Bar zeigt Fortschritt!');
+        console.log('🔄 v5.87.36: NEU IMPORTIEREN Button!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.87.36 - REIMPORT BUTTON! 🗑️📝 (Build 20251219-1025)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.87.37 - BATCH DELETE! 🗑️📊 (Build 20251219-1035)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.36';
-        const APP_BUILD = '20251219-1025-REIMPORT-BUTTON';
+        const APP_VERSION = '5.87.37';
+        const APP_BUILD = '20251219-1035-BATCH-DELETE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -39225,7 +39225,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // 🔄 SYNC HOTEL CALENDAR - Lädt .ics und erstellt Fahrten
-        // 🆕 v5.87.36: NEU IMPORTIEREN - Löscht alte Events und importiert neu
+        // 🆕 v5.87.37: NEU IMPORTIEREN mit BATCH-Processing
         async function reimportHotelCalendar(calendarId) {
             if (!confirm('⚠️ ACHTUNG!\n\nDies wird ALLE importierten Events für diesen Hotel-Kalender löschen und neu importieren.\n\nBist du sicher?')) {
                 return;
@@ -39243,34 +39243,102 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     return;
                 }
                 
-                alert(`🔄 Schritt 1/2: Lösche alte Events von "${hotel.name}"...`);
+                // Erstelle Progress-Dialog
+                const progressDiv = document.createElement('div');
+                progressDiv.id = 'reimport-progress';
+                progressDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:999999;min-width:400px;';
+                progressDiv.innerHTML = `
+                    <h3 style="margin:0 0 20px 0;font-size:20px;font-weight:700;">🔄 Neu-Import läuft...</h3>
+                    <div style="margin-bottom:20px;">
+                        <div style="font-size:14px;color:#6b7280;margin-bottom:8px;">
+                            <span id="progress-status">Vorbereitung...</span>
+                        </div>
+                        <div style="background:#e5e7eb;border-radius:8px;height:24px;overflow:hidden;">
+                            <div id="progress-bar" style="background:linear-gradient(90deg,#3b82f6,#2563eb);height:100%;width:0%;transition:width 0.3s;"></div>
+                        </div>
+                        <div style="font-size:12px;color:#9ca3af;margin-top:8px;">
+                            <span id="progress-detail"></span>
+                        </div>
+                    </div>
+                    <div style="font-size:13px;color:#9ca3af;text-align:center;">
+                        ⏳ Bitte warten... Firefox bleibt stabil!
+                    </div>
+                `;
+                document.body.appendChild(progressDiv);
                 
-                // 1. Lösche alle Events mit dieser hotelCalendarId
+                function updateProgress(status, percent, detail = '') {
+                    document.getElementById('progress-status').textContent = status;
+                    document.getElementById('progress-bar').style.width = percent + '%';
+                    document.getElementById('progress-detail').textContent = detail;
+                }
+                
+                updateProgress('Lade alte Events...', 5);
+                await new Promise(r => setTimeout(r, 100));
+                
+                // 1. Lade alle Events mit dieser hotelCalendarId
                 const ridesSnap = await db.ref('rides')
                     .orderByChild('hotelCalendarId')
                     .equalTo(calendarId)
                     .once('value');
                 
                 const ridesToDelete = ridesSnap.val() || {};
-                const deleteCount = Object.keys(ridesToDelete).length;
+                const rideIds = Object.keys(ridesToDelete);
+                const deleteCount = rideIds.length;
                 
-                console.log(`🗑️ Lösche ${deleteCount} alte Events...`);
+                console.log(`🗑️ ${deleteCount} alte Events gefunden`);
+                updateProgress(`Lösche ${deleteCount} Events...`, 10, 'Batch-Delete startet...');
+                await new Promise(r => setTimeout(r, 500));
                 
-                // Lösche alle
-                const deletePromises = Object.keys(ridesToDelete).map(rideId => 
-                    db.ref(`rides/${rideId}`).remove()
-                );
+                // 2. Lösche in Batches von 20
+                const BATCH_SIZE = 20;
+                const deleteBatches = [];
+                for (let i = 0; i < rideIds.length; i += BATCH_SIZE) {
+                    deleteBatches.push(rideIds.slice(i, i + BATCH_SIZE));
+                }
                 
-                await Promise.all(deletePromises);
+                let deletedSoFar = 0;
+                for (let i = 0; i < deleteBatches.length; i++) {
+                    const batch = deleteBatches[i];
+                    
+                    // Lösche Batch
+                    await Promise.all(batch.map(rideId => 
+                        db.ref(`rides/${rideId}`).remove()
+                    ));
+                    
+                    deletedSoFar += batch.length;
+                    const deleteProgress = 10 + (deletedSoFar / deleteCount * 40); // 10-50%
+                    
+                    updateProgress(
+                        `Lösche Events... ${deletedSoFar}/${deleteCount}`,
+                        deleteProgress,
+                        `Batch ${i+1}/${deleteBatches.length} abgeschlossen`
+                    );
+                    
+                    console.log(`🗑️ Batch ${i+1}/${deleteBatches.length}: ${batch.length} Events gelöscht`);
+                    
+                    // Kleine Pause zwischen Batches
+                    await new Promise(r => setTimeout(r, 200));
+                }
                 
-                console.log(`✅ ${deleteCount} Events gelöscht`);
+                console.log(`✅ Alle ${deleteCount} Events gelöscht`);
+                updateProgress('Events gelöscht!', 50, `${deleteCount} alte Events entfernt`);
+                await new Promise(r => setTimeout(r, 800));
                 
-                // 2. Sync neu
-                alert(`🔄 Schritt 2/2: Importiere Events neu mit verbessertem Parser...`);
+                // 3. Sync neu (mit Original-Funktion aber ohne Alert)
+                updateProgress('Importiere neue Events...', 55, 'Verbinde mit Google Calendar...');
+                await new Promise(r => setTimeout(r, 500));
                 
+                // Rufe Original-Sync auf
+                console.log('🔄 Starte Neu-Import mit Parser...');
+                
+                // Entferne Progress temporär
+                progressDiv.remove();
+                
+                // Sync
                 await syncHotelCalendar(calendarId);
                 
-                alert(`✅ Fertig!\n\n${deleteCount} alte Events gelöscht.\nNeue Events mit verbessertem Parser importiert!`);
+                // Success!
+                alert(`✅ Neu-Import abgeschlossen!\n\n${deleteCount} alte Events gelöscht.\nNeue Events mit verbessertem Parser importiert!`);
                 
                 // Wenn Kalender gerade offen: Neu laden
                 if (currentHotelCalendarId === calendarId) {
@@ -39279,6 +39347,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
             } catch (error) {
                 console.error('❌ Neu-Import Fehler:', error);
+                
+                // Entferne Progress
+                const prog = document.getElementById('reimport-progress');
+                if (prog) prog.remove();
+                
                 alert('❌ Fehler beim Neu-Import: ' + error.message);
             }
         }

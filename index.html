@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.53 - STATUS! 📊✅ (Build 20251219-1545)');
-        console.log('📊 v5.87.53: LOADING-SPINNER überall!');
-        console.log('✅ v5.87.53: SUCCESS-MESSAGES nach Laden!');
-        console.log('🔄 v5.87.53: Buttons disabled während Laden!');
+        console.log('🚕 Funk Taxi App v5.87.54 - MONTH FIX! 📅✅ (Build 20251219-1550)');
+        console.log('📅 v5.87.54: Monat-Dropdown SYNC mit Stats!');
+        console.log('✅ v5.87.54: UTC-Problem gelöst!');
+        console.log('🔄 v5.87.54: Dropdown und Stats zeigen gleichen Monat!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.87.53 - STATUS! ✅🔄 (Build 20251219-1545)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.87.54 - MONTH FIX! ✅🔄 (Build 20251219-1550)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5093,8 +5093,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.53';
-        const APP_BUILD = '20251219-1545-STATUS';
+        const APP_VERSION = '5.87.54';
+        const APP_BUILD = '20251219-1550-MONTH-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -8868,12 +8868,15 @@
                         let html = '';
                         for (let i = 0; i < 12; i++) {
                             const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                            const value = date.toISOString().slice(0, 7); // YYYY-MM
+                            // 🆕 v5.87.54: LOKALE ZEIT statt UTC! (toISOString gibt UTC!)
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0'); // Monat 0-11 → 1-12
+                            const value = `${year}-${month}`; // z.B. "2025-07"
                             const label = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
                             html += `<option value="${value}"${i === 0 ? ' selected' : ''}>${label}</option>`;
                         }
                         monthSelect.innerHTML = html;
-                        console.log('📅 Monat-Dropdown befüllt: 12 Monate, aktuell:', now.toISOString().slice(0, 7));
+                        console.log('📅 Monat-Dropdown befüllt: 12 Monate, aktuell:', `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
                     }
                     
                     // Befülle Hotel-Dropdown

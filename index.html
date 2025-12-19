@@ -4975,7 +4975,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '5.87.41';
-        const APP_BUILD = '20251219-1120-ONE-VIEW';
+        const APP_BUILD = '20251219-1130-FIXED';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38583,58 +38583,6 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 }
             }
         }
-                const lastSyncText = cal.lastSync 
-                    ? new Date(cal.lastSync).toLocaleString('de-DE')
-                    : 'Noch nie';
-                const statusText = cal.enabled ? '✅ Aktiv' : '⏸️ Pausiert';
-                
-                html += `
-                    <div style="background:white;border:2px solid ${cal.color};border-radius:12px;padding:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
-                            <div style="flex:1;">
-                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                                    <div style="width:16px;height:16px;background:${cal.color};border-radius:4px;"></div>
-                                    <h4 style="margin:0;font-size:16px;font-weight:700;color:#1f2937;">${cal.name}</h4>
-                                </div>
-                                <div style="font-size:12px;color:#6b7280;">
-                                    ${statusText} • Letzte Sync: ${lastSyncText}
-                                </div>
-                            </div>
-                            <button onclick="deleteHotelCalendar('${id}')" style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
-                                🗑️ Löschen
-                            </button>
-                        </div>
-                        
-                        <div style="background:#f9fafb;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;color:#6b7280;word-break:break-all;margin-bottom:12px;">
-                            ${cal.icalUrl}
-                        </div>
-                        
-                        <!-- 🆕 v5.87.40: VEREINFACHTE BUTTONS - NUR DAS WICHTIGSTE! -->
-                        <div style="display:grid;gap:10px;">
-                            <button onclick="showHotelCalendar('${id}')" style="padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;box-shadow:0 4px 8px rgba(245,158,11,0.3);">
-                                📅 Kalender öffnen
-                            </button>
-                            
-                            <button onclick="manualSyncHotel('${id}')" style="padding:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;box-shadow:0 3px 6px rgba(59,130,246,0.3);">
-                                🔄 JETZT SYNCEN
-                            </button>
-                            
-                            <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
-                                <button onclick="deleteOnlyHotelEvents('${id}')" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;">
-                                    🗑️ Alte Events löschen
-                                </button>
-                                <button onclick="toggleHotelCalendarEnabled('${id}')" style="padding:12px;background:${cal.enabled ? '#10b981' : '#6b7280'};color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;">
-                                    ${cal.enabled ? '✅' : '⏸️'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            container.innerHTML = html;
-        }
         
         // 📅 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION
         
@@ -39396,39 +39344,6 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         // 🔄 SYNC HOTEL CALENDAR - Lädt .ics und erstellt Fahrten
         // 🆕 v5.87.40: EINFACHER SYNC - ruft direkt die Auto-Sync Funktion auf
-        async function manualSyncHotel(calendarId) {
-            try {
-                console.log('🔄 Manueller Sync gestartet für:', calendarId);
-                
-                // Lade Hotel-Info
-                const hotelSnap = await db.ref(`hotelCalendars/${calendarId}`).once('value');
-                const calendar = hotelSnap.val();
-                
-                if (!calendar) {
-                    alert('❌ Hotel nicht gefunden!');
-                    return;
-                }
-                
-                // Zeige Loading
-                alert(`🔄 Sync startet für "${calendar.name}"...\n\nBitte warten!`);
-                
-                // Rufe die ECHTE Sync-Funktion auf (die auch Auto-Sync nutzt)
-                await syncGoogleCalendarEvents(calendarId, calendar);
-                
-                // Erfolg!
-                alert(`✅ Sync abgeschlossen!\n\nKalender "${calendar.name}" wurde aktualisiert.`);
-                
-                // Wenn Kalender gerade offen: Neu laden
-                if (currentHotelCalendarId === calendarId) {
-                    showHotelCalendar(calendarId);
-                }
-                
-            } catch (error) {
-                console.error('❌ Sync Fehler:', error);
-                alert('❌ Sync Fehler: ' + error.message);
-            }
-        }
-        
         // 🆕 v5.87.38: NOTFALL - NUR LÖSCHEN (ohne Import)
         async function deleteOnlyHotelEvents(calendarId) {
             if (!confirm('⚠️ NOTFALL-OPTION!\n\nLöscht ALLE Hotel-Events OHNE neuen Import.\n\nNur für Notfall wenn Import crasht!\n\nBist du sicher?')) {

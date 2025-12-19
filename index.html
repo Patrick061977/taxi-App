@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.28 - DEBUG HOTEL-DISPLAY! 🔍📅 (Build 20251219-0732)');
-        console.log('🔍 v5.87.28: DEBUG-Logging für Hotel-Events!');
+        console.log('🚕 Funk Taxi App v5.87.29 - FULL DEBUG! 📊🔍 (Build 20251219-0750)');
+        console.log('📊 v5.87.29: Vollständiges Debug-Logging für alle Rides!');
+        console.log('🔍 v5.87.28: Debug-Logging für Hotel-Events!');
         console.log('📅 v5.87.28: Zeitfilter 1 Jahr zurück!');
-        console.log('📝 v5.87.27: Log-Storage (24h)!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.87.28 - DEBUG HOTEL-DISPLAY! 📅🔧 (Build 20251219-0732)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.87.29 - FULL DEBUG! 🔍📋 (Build 20251219-0750)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.28';
-        const APP_BUILD = '20251219-0732-DEBUG-HOTEL-DISPLAY';
+        const APP_VERSION = '5.87.29';
+        const APP_BUILD = '20251219-0750-FULL-DEBUG';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -41082,12 +41082,53 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     hotelId: r.hotelCalendarId
                 })));
                 
+                // 🆕 v5.87.29: VOLLSTÄNDIGES DEBUG-LOG
+                console.log('═══════════════════════════════════════════');
+                console.log('📊 HOTEL-KALENDER DEBUG REPORT');
+                console.log('═══════════════════════════════════════════');
+                console.log('Hotel ID:', hotelId);
+                console.log('Hotel Name:', hotel.name);
+                console.log('Total Rides gefunden:', hotelRides.length);
+                console.log('');
+                console.log('🔍 ALLE RIDES MIT DETAILS:');
+                hotelRides.forEach((ride, index) => {
+                    console.log(`\n--- Ride ${index + 1} ---`);
+                    console.log('Customer:', ride.customerName);
+                    console.log('Pickup:', ride.pickup);
+                    console.log('pickupTime (raw):', ride.pickupTime);
+                    console.log('pickupTimestamp:', ride.pickupTimestamp);
+                    
+                    // Versuche Date-Konvertierung
+                    const pickupTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : 
+                                       ride.pickupTime ? new Date(ride.pickupTime) : new Date();
+                    console.log('pickupTime (converted):', pickupTime);
+                    console.log('pickupTime (ISO):', pickupTime.toISOString());
+                    console.log('pickupTime (DE):', pickupTime.toLocaleDateString('de-DE'));
+                    console.log('Status:', ride.status);
+                    console.log('Price:', ride.price);
+                });
+                console.log('');
+                console.log('═══════════════════════════════════════════');
+                
                 // Gruppiere nach Datum
                 const ridesByDate = {};
                 hotelRides.forEach(ride => {
                     const pickupTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp) : 
                                        ride.pickupTime ? new Date(ride.pickupTime) : new Date();
                     const dateKey = pickupTime.toLocaleDateString('de-DE');
+                    
+                    if (!ridesByDate[dateKey]) {
+                        ridesByDate[dateKey] = [];
+                    }
+                    ridesByDate[dateKey].push(ride);
+                });
+                
+                console.log('📅 GRUPPIERUNG NACH DATUM:');
+                console.log('Unique Dates:', Object.keys(ridesByDate).length);
+                Object.keys(ridesByDate).forEach(dateKey => {
+                    console.log(`  ${dateKey}: ${ridesByDate[dateKey].length} Fahrten`);
+                });
+                console.log('═══════════════════════════════════════════');
                     
                     if (!ridesByDate[dateKey]) {
                         ridesByDate[dateKey] = [];

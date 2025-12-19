@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.43 - FULL DISPLAY! 📋✨ (Build 20251219-1200)');
-        console.log('📋 v5.87.43: Komplette Event-Namen mit word-wrap!');
-        console.log('✨ v5.87.43: Description separat angezeigt!');
-        console.log('🗑️ v5.87.43: Hotels können gelöscht werden!');
+        console.log('🚕 Funk Taxi App v5.87.44 - ONE TAB! 🏨✨ (Build 20251219-1225)');
+        console.log('🏨 v5.87.44: Hotel-Kalender Tab funktioniert jetzt!');
+        console.log('✨ v5.87.44: Gleicher Content wie im Admin!');
+        console.log('📋 v5.87.44: Beide nutzen gleiche Funktion!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📋 Version 5.87.43 - FULL DISPLAY! ✨🗑️ (Build 20251219-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏨 Version 5.87.44 - ONE TAB! ✨📋 (Build 20251219-1225)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1675,12 +1675,61 @@
 
     <!-- 🆕 v5.86.0: HOTEL-KALENDER VIEW -->
     <div id="hotel-calendar-view" class="view">
-        <div id="hotel-list-container" style="display:block;">
-            <!-- Hotel-Liste wird hier geladen -->
+        <!-- 🆕 v5.87.44: GLEICHER CONTENT WIE IM ADMIN (funktioniert gut!) -->
+        
+        <!-- Info-Box -->
+        <div style="background:#dbeafe;border:2px solid #3b82f6;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#1e40af;font-size:15px;">🔐 Google Calendar OAuth Integration!</div>
+            
+            <div style="background:#fff;border-radius:6px;padding:10px;margin-bottom:10px;border:2px solid #60a5fa;">
+                <div style="font-weight:700;margin-bottom:6px;color:#1e40af;">✨ Direkt mit Google verbinden</div>
+                <ol style="margin:0;padding-left:20px;color:#1e40af;line-height:1.6;">
+                    <li>Klicke "Mit Google Kalender verbinden"</li>
+                    <li>Melde dich mit deinem Google-Account an</li>
+                    <li>Wähle Hotel-Kalender aus</li>
+                    <li>Fertig! Automatischer Sync</li>
+                </ol>
+            </div>
         </div>
         
-        <div id="hotel-single-calendar-container" style="display:none;">
-            <!-- Einzelkalender wird hier geladen -->
+        <!-- Buttons -->
+        <button onclick="addNewHotelWithOAuth()" style="width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:10px;font-size:15px;box-shadow:0 4px 12px rgba(59,130,246,0.3);">
+            🔐 Mit Google Kalender verbinden (OAuth)
+        </button>
+        
+        <button onclick="showAddHotelCalendarForm()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:10px;font-size:15px;box-shadow:0 4px 12px rgba(249,115,22,0.3);">
+            📎 Neuen Hotel-Kalender hinzufügen
+        </button>
+        
+        <!-- Add Form (versteckt) -->
+        <div id="add-hotel-calendar-form" style="display:none;background:#f9fafb;padding:15px;border-radius:8px;margin-bottom:15px;border:2px solid #3b82f6;">
+            <h4 style="margin:0 0 15px 0;color:#1f2937;">Neuen Hotel-Kalender hinzufügen</h4>
+            
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">🏨 Hotel-Name</label>
+                <input type="text" id="hotel-name-input" placeholder="z.B. Hotel Seebrücke" style="width:100%;padding:10px;border:2px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box;">
+            </div>
+            
+            <div style="margin-bottom:12px;">
+                <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">🔗 iCal-Link</label>
+                <input type="text" id="hotel-ical-url-input" placeholder="https://calendar.google.com/..." style="width:100%;padding:10px;border:2px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box;">
+            </div>
+            
+            <div style="display:flex;gap:8px;">
+                <button onclick="saveHotelCalendar()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                    ✅ Speichern
+                </button>
+                <button onclick="cancelAddHotelCalendar()" style="flex:1;padding:12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                    ❌ Abbrechen
+                </button>
+            </div>
+        </div>
+        
+        <!-- Hotel Calendar List (hier wird die funktionierende View geladen!) -->
+        <div id="hotel-calendar-list">
+            <div style="text-align:center;padding:40px;color:#6b7280;">
+                Lade Hotel-Kalender...
+            </div>
         </div>
     </div>
 
@@ -4974,8 +5023,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.43';
-        const APP_BUILD = '20251219-1200-FULL-DISPLAY';
+        const APP_VERSION = '5.87.44';
+        const APP_BUILD = '20251219-1225-ONE-TAB';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.

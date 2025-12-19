@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.33 - DOM CHECK! 🔍📏 (Build 20251219-0835)');
-        console.log('🔍 v5.87.33: DOM-Check - wie viele Elemente sind wirklich da?');
-        console.log('📏 v5.87.33: Container Höhe & Overflow Check!');
-        console.log('🔍 v5.87.32: HTML-Rendering Debug!');
+        console.log('🚕 Funk Taxi App v5.87.34 - PARENT CHECK! 👪🔍 (Build 20251219-0840)');
+        console.log('👪 v5.87.34: Parent-Container-Hierarchie Check!');
+        console.log('🔍 v5.87.34: overflow, max-height, display für alle Parents!');
+        console.log('📏 v5.87.33: Container DOM-Check!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.87.33 - DOM CHECK! 📏🐛 (Build 20251219-0835)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👪 Version 5.87.34 - PARENT CHECK! 🔍📏 (Build 20251219-0840)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4974,8 +4974,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.33';
-        const APP_BUILD = '20251219-0835-DOM-CHECK';
+        const APP_VERSION = '5.87.34';
+        const APP_BUILD = '20251219-0840-PARENT-CHECK';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -41313,6 +41313,20 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     console.log('🔍 DEBUG - Container scrollHeight:', container.scrollHeight, 'px');
                     console.log('🔍 DEBUG - Container overflow:', window.getComputedStyle(container).overflow);
                     console.log('🔍 DEBUG - Container display:', window.getComputedStyle(container).display);
+                    
+                    // 🆕 v5.87.34: Check Parent-Container
+                    let parent = container.parentElement;
+                    let level = 1;
+                    console.log('🔍 DEBUG - Parent-Container-Hierarchie:');
+                    while (parent && level <= 5) {
+                        const styles = window.getComputedStyle(parent);
+                        console.log(`  Level ${level}: id="${parent.id}" class="${parent.className}"`);
+                        console.log(`    → overflow: ${styles.overflow}, overflow-y: ${styles.overflowY}`);
+                        console.log(`    → max-height: ${styles.maxHeight}, height: ${styles.height}`);
+                        console.log(`    → display: ${styles.display}, position: ${styles.position}`);
+                        parent = parent.parentElement;
+                        level++;
+                    }
                     
                     if (dateBlocks.length !== sortedDates.length) {
                         console.error('❌ PROBLEM: Sollte', sortedDates.length, 'Datum-Blöcke haben, aber nur', dateBlocks.length, 'im DOM gefunden!');

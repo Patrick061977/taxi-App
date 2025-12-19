@@ -108,13 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.56 - PRICING (2/2) KOMPLETT! 💰✅ (Build 20251219-1620)');
-        console.log('💰 v5.87.56: AUTO-FILL Preise beim Laden!');
-        console.log('🎨 v5.87.56: Farbcodierung (Werktag/Sa/So+Feiertag)!');
-        console.log('✅ v5.87.56: Checkbox + Toggle [💰]/[0] pro Zeile!');
-        console.log('🔄 v5.87.56: Multi-Select Button für mehrere Zeilen!');
-        console.log('💾 v5.87.56: Speichert in Firebase (priceOverride)!');
-        console.log('📄 v5.87.56: PDF mit allen Zeilen (auch 0€)!');
+        console.log('🚕 Funk Taxi App v5.87.57 - BUGFIX! 🐛✅ (Build 20251219-1640)');
+        console.log('🐛 v5.87.57: FIX Durchstreichen nur bei MANUELL 0€!');
+        console.log('🐛 v5.87.57: FIX iCal-Feld OPTIONAL → OAuth!');
+        console.log('✅ v5.87.57: Beide Bugs gefixt!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -759,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💰 Version 5.87.56 - PRICING (2/2) KOMPLETT! ✅🔄 (Build 20251219-1620)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.87.57 - BUGFIX! ✅ (Build 20251219-1640)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3170,10 +3167,13 @@
                 </div>
                 
                 <div style="margin-bottom:12px;">
-                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📅 Google Calendar iCal URL</label>
-                    <input type="url" id="new-hotel-ical-url" placeholder="https://calendar.google.com/calendar/ical/..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;box-sizing:border-box;font-family:monospace;">
-                    <div style="font-size:11px;color:#6b7280;margin-top:4px;">
-                        💡 Im Google Calendar: Einstellungen → Kalender integrieren → iCal-URL kopieren
+                    <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">
+                        📅 Google Calendar iCal URL <span style="color:#9ca3af;font-weight:400;">(optional)</span>
+                    </label>
+                    <input type="url" id="new-hotel-ical-url" placeholder="Leer lassen für OAuth-Verbindung (empfohlen!)" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;box-sizing:border-box;font-family:monospace;">
+                    <div style="font-size:11px;color:#6b7280;margin-top:4px;line-height:1.4;">
+                        💡 <strong>Empfohlen:</strong> Feld leer lassen → OAuth-Verbindung (sicherer, schneller)<br>
+                        📎 <strong>Alternative:</strong> iCal-URL eingeben (Google Calendar → Einstellungen → iCal-URL kopieren)
                     </div>
                 </div>
                 
@@ -5096,8 +5096,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.56';
-        const APP_BUILD = '20251219-1620-PRICING-2';
+        const APP_VERSION = '5.87.57';
+        const APP_BUILD = '20251219-1640-BUGFIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -40099,18 +40099,32 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const icalUrl = document.getElementById('new-hotel-ical-url').value.trim();
             const color = selectedHotelColor;
             
-            // Validierung
+            // Validierung Name
             if (!name) {
                 alert('❌ Bitte Hotel-Namen eingeben!');
                 return;
             }
             
-            if (!icalUrl || !icalUrl.startsWith('http')) {
-                alert('❌ Bitte gültige iCal URL eingeben!');
+            // 🆕 v5.87.57: Wenn KEIN iCal-URL → OAuth Flow starten!
+            if (!icalUrl) {
+                console.log('🔐 Kein iCal-URL → Starte OAuth Flow für:', name);
+                
+                // Schließe Dialog
+                const dialog = document.getElementById('add-hotel-dialog');
+                if (dialog) dialog.remove();
+                
+                // Starte OAuth für dieses Hotel
+                await connectGoogleCalendarForHotel(name);
                 return;
             }
             
-            console.log('💾 Speichere Hotel-Kalender:', name);
+            // Alt: Mit iCal-URL
+            if (!icalUrl.startsWith('http')) {
+                alert('❌ Bitte gültige iCal URL eingeben (oder leer lassen für OAuth)!');
+                return;
+            }
+            
+            console.log('💾 Speichere Hotel-Kalender (iCal):', name);
             
             try {
                 const calendarData = {
@@ -41062,16 +41076,16 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                 }
                 
-                // 🆕 v5.87.56: Wenn Preis = 0€, dann grau
-                const isZeroPrice = price === 0;
-                if (isZeroPrice) {
-                    rowBg = '#f3f4f6'; // Grau
+                // 🆕 v5.87.57: NUR durchstreichen wenn MANUELL auf 0€ gesetzt!
+                const isManuallyZero = (ride.priceOverride === 0 && ride.originalPrice !== undefined);
+                if (isManuallyZero) {
+                    rowBg = '#f3f4f6'; // Grau nur für manuell 0€
                 }
                 
                 const isSelected = selectedInvoiceRides.has(ride.id);
                 
                 html += `
-                    <tr style="border-bottom:1px solid #e5e7eb;background:${rowBg};${isZeroPrice ? 'opacity:0.7;' : ''}">
+                    <tr style="border-bottom:1px solid #e5e7eb;background:${rowBg};${isManuallyZero ? 'opacity:0.7;' : ''}">
                         <td style="padding:10px;text-align:center;">
                             <input type="checkbox" 
                                    class="ride-checkbox" 
@@ -41083,22 +41097,22 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         <td style="padding:10px;color:#6b7280;">${index + 1}</td>
                         <td style="padding:10px;color:#1f2937;font-weight:600;">${dateStr} ${dayIndicator}</td>
                         <td style="padding:10px;color:#6b7280;">${timeStr}</td>
-                        <td style="padding:10px;color:#1f2937;${isZeroPrice ? 'text-decoration:line-through;' : ''}">${ride.guestName || ride.customerName || '-'}</td>
+                        <td style="padding:10px;color:#1f2937;${isManuallyZero ? 'text-decoration:line-through;' : ''}">${ride.guestName || ride.customerName || '-'}</td>
                         <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.pickup || '-'}</td>
                         <td style="padding:10px;color:#6b7280;font-size:12px;">${ride.destination || '-'}</td>
-                        <td style="padding:10px;text-align:right;font-weight:700;color:${isZeroPrice ? '#9ca3af' : '#10b981'};">${priceStr}€</td>
+                        <td style="padding:10px;text-align:right;font-weight:700;color:${isManuallyZero ? '#9ca3af' : '#10b981'};">${priceStr}€</td>
                         <td style="padding:10px;text-align:center;">
                             <button onclick="toggleSinglePrice('${ride.id}')" style="
                                 padding:6px 12px;
-                                background:${isZeroPrice ? '#e5e7eb' : 'linear-gradient(135deg,#10b981,#059669)'};
-                                color:${isZeroPrice ? '#6b7280' : 'white'};
+                                background:${isManuallyZero ? '#e5e7eb' : 'linear-gradient(135deg,#10b981,#059669)'};
+                                color:${isManuallyZero ? '#6b7280' : 'white'};
                                 border:none;
                                 border-radius:6px;
                                 font-weight:700;
                                 cursor:pointer;
                                 font-size:12px;
                             ">
-                                ${isZeroPrice ? '0' : '💰'}
+                                ${isManuallyZero ? '0' : '💰'}
                             </button>
                         </td>
                     </tr>

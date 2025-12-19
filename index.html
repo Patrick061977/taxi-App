@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.51 - ACCOUNT SELECT! 👥✅ (Build 20251219-1520)');
-        console.log('👥 v5.87.51: Google Login ERZWINGT Account-Auswahl!');
-        console.log('✅ v5.87.51: Kein automatischer letzter Account mehr!');
-        console.log('🔄 v5.87.51: Du kannst IMMER wählen welchen Account!');
+        console.log('🚕 Funk Taxi App v5.87.53 - STATUS! 📊✅ (Build 20251219-1545)');
+        console.log('📊 v5.87.53: LOADING-SPINNER überall!');
+        console.log('✅ v5.87.53: SUCCESS-MESSAGES nach Laden!');
+        console.log('🔄 v5.87.53: Buttons disabled während Laden!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👥 Version 5.87.51 - ACCOUNT SELECT! ✅🔄 (Build 20251219-1520)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.87.53 - STATUS! ✅🔄 (Build 20251219-1545)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5093,8 +5093,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.51';
-        const APP_BUILD = '20251219-1520-ACCOUNT-SELECT';
+        const APP_VERSION = '5.87.53';
+        const APP_BUILD = '20251219-1545-STATUS';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -38572,7 +38572,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         <div id="hotel-content-${id}" style="display:${isExpanded ? 'block' : 'none'};">
                             <!-- BUTTONS -->
                             <div style="display:grid;grid-template-columns:${cal.type === 'google_calendar_oauth' ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr'};gap:8px;margin-bottom:16px;">
-                                <button onclick="quickSyncHotel('${id}')" style="padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                <button id="sync-btn-${id}" onclick="quickSyncHotel('${id}')" style="padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                                     🔄 Sync
                                 </button>
                                 ${cal.type === 'google_calendar_oauth' ? `
@@ -38728,8 +38728,18 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // 🆕 v5.87.41: Quick Sync mit Auto-Reload
         async function quickSyncHotel(calendarId) {
             const container = document.getElementById(`hotel-events-${calendarId}`);
+            const syncBtn = document.getElementById(`sync-btn-${calendarId}`);
+            
+            // 🆕 v5.87.53: LOADING STATE im Button!
+            if (syncBtn) {
+                syncBtn.disabled = true;
+                syncBtn.style.opacity = '0.6';
+                syncBtn.style.cursor = 'not-allowed';
+                syncBtn.innerHTML = '⏳ Lädt...';
+            }
+            
             if (container) {
-                container.innerHTML = '<div style="text-align:center;color:#3b82f6;padding:20px;">🔄 Sync läuft...</div>';
+                container.innerHTML = '<div style="text-align:center;color:#3b82f6;padding:20px;font-weight:600;">⏳ Synchronisiere mit Google Kalender...</div>';
             }
             
             try {
@@ -38750,14 +38760,46 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Reload Events
                 await loadHotelEvents(calendarId);
                 
+                // 🆕 v5.87.53: SUCCESS MESSAGE über Events!
+                const eventsContainer = document.getElementById(`hotel-events-${calendarId}`);
+                if (eventsContainer && !eventsContainer.innerHTML.includes('Keine Events')) {
+                    // Zähle Events
+                    const ridesSnap = await db.ref('rides')
+                        .orderByChild('hotelCalendarId')
+                        .equalTo(calendarId)
+                        .once('value');
+                    const count = ridesSnap.val() ? Object.keys(ridesSnap.val()).length : 0;
+                    
+                    // Success Message ÜBER Events
+                    const successMsg = document.createElement('div');
+                    successMsg.style.cssText = 'background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;margin-bottom:16px;text-align:center;font-weight:600;font-size:14px;';
+                    successMsg.innerHTML = `✅ ${count} Event${count !== 1 ? 's' : ''} geladen!`;
+                    eventsContainer.insertBefore(successMsg, eventsContainer.firstChild);
+                    
+                    // Nach 5 Sekunden ausblenden
+                    setTimeout(() => {
+                        successMsg.style.transition = 'opacity 0.5s';
+                        successMsg.style.opacity = '0';
+                        setTimeout(() => successMsg.remove(), 500);
+                    }, 5000);
+                }
+                
             } catch (error) {
                 console.error('❌ Quick-Sync Fehler:', error);
                 if (container) {
                     container.innerHTML = `
-                        <div style="text-align:center;color:#ef4444;padding:20px;">
+                        <div style="text-align:center;color:#ef4444;padding:20px;font-weight:600;">
                             ❌ Sync Fehler: ${error.message || 'Unbekannter Fehler'}
                         </div>
                     `;
+                }
+            } finally {
+                // 🆕 v5.87.53: Button wieder aktivieren!
+                if (syncBtn) {
+                    syncBtn.disabled = false;
+                    syncBtn.style.opacity = '1';
+                    syncBtn.style.cursor = 'pointer';
+                    syncBtn.innerHTML = '🔄 Sync';
                 }
             }
         }
@@ -39405,12 +39447,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             try {
-                // 🆕 v5.87.40: Zeitfilter 6 MONATE zurück
-                const sixMonthsAgo = new Date();
-                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-                const timeMin = sixMonthsAgo.toISOString();
+                // 🆕 v5.87.52: Zeitfilter 1 JAHR zurück (für alle Events!)
+                const oneYearAgo = new Date();
+                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                const timeMin = oneYearAgo.toISOString();
                 
-                console.log(`🕐 Lade Events ab: ${sixMonthsAgo.toLocaleDateString('de-DE')} (6 Monate zurück)`);
+                console.log(`🕐 Lade Events ab: ${oneYearAgo.toLocaleDateString('de-DE')} (1 Jahr zurück)`);
                 
                 // 🆕 v5.87.42: Funktion für API Call (mit Auto-Retry)
                 const fetchEvents = async (accessToken, retryCount = 0) => {
@@ -40341,6 +40383,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         async function loadInvoiceRides() {
             const hotelId = document.getElementById('invoice-hotel-select').value;
             const monthValue = document.getElementById('invoice-month-select').value;
+            const container = document.getElementById('invoice-rides-container');
+            const statsDiv = document.getElementById('invoice-stats');
+            const createBtn = document.getElementById('invoice-create-button');
             
             if (!monthValue) {
                 alert('⚠️ Bitte wähle einen Monat!');
@@ -40348,6 +40393,22 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             console.log('🔄 Lade Rechnungs-Fahrten:', hotelId || 'Alle Hotels', monthValue);
+            
+            // 🆕 v5.87.53: LOADING STATE!
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#3b82f6;">
+                        <div style="font-size:48px;margin-bottom:10px;">⏳</div>
+                        <div style="font-weight:600;margin-bottom:6px;font-size:16px;">Lade Fahrten...</div>
+                        <div style="font-size:13px;">Bitte warten...</div>
+                    </div>
+                `;
+            }
+            if (statsDiv) statsDiv.style.display = 'none';
+            if (createBtn) {
+                createBtn.disabled = true;
+                createBtn.style.opacity = '0.5';
+            }
             
             // Parse Monat
             const [year, month] = monthValue.split('-');
@@ -40393,9 +40454,38 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Render
                 renderInvoiceRides();
                 
+                // 🆕 v5.87.53: SUCCESS MESSAGE!
+                if (allRides.length > 0 && container) {
+                    const successMsg = document.createElement('div');
+                    successMsg.style.cssText = 'background:linear-gradient(135deg,#10b981,#059669);color:white;padding:12px;border-radius:8px;margin-bottom:16px;text-align:center;font-weight:600;font-size:14px;';
+                    successMsg.innerHTML = `✅ ${allRides.length} Fahrt${allRides.length !== 1 ? 'en' : ''} für ${new Date(monthValue + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })} geladen!`;
+                    container.insertBefore(successMsg, container.firstChild);
+                    
+                    // Nach 5 Sekunden ausblenden
+                    setTimeout(() => {
+                        successMsg.style.transition = 'opacity 0.5s';
+                        successMsg.style.opacity = '0';
+                        setTimeout(() => successMsg.remove(), 500);
+                    }, 5000);
+                }
+                
+                // Button wieder aktivieren
+                if (createBtn && allRides.length > 0) {
+                    createBtn.disabled = false;
+                    createBtn.style.opacity = '1';
+                }
+                
             } catch (error) {
                 console.error('❌ Fehler beim Laden:', error);
-                alert('❌ Fehler: ' + error.message);
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align:center;padding:40px;color:#ef4444;">
+                            <div style="font-size:48px;margin-bottom:10px;">❌</div>
+                            <div style="font-weight:600;margin-bottom:6px;">Fehler beim Laden</div>
+                            <div style="font-size:13px;">${error.message}</div>
+                        </div>
+                    `;
+                }
             }
         }
         

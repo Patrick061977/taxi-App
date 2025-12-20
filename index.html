@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.62 - DEINE POI-FAVORITEN! ⭐✅ (Build 20251219-1840)');
-        console.log('⭐ v5.87.62: DYNAMISCHE Favoriten aus POI-Verwaltung!');
-        console.log('✅ v5.87.62: DEINE eigenen Favoriten, nicht hart-codiert!');
-        console.log('🎯 v5.87.62: Beide Felder (Von + Nach) mit deinen POIs!');
-        console.log('🐛 v5.87.60: FIX urlParams + ride Konflikt!');
-        console.log('🛡️ v5.87.59: Auto-Cleanup KOMPLETT deaktiviert!');
+        console.log('🚕 Funk Taxi App v5.87.63 - POI-AUTOCOMPLETE + SCHNELLBUCHUNG + CALLMONITOR! 🎉✅ (Build 20251219-2000)');
+        console.log('⭐ v5.87.63: POI-AUTOCOMPLETE in Hotel-Event Edit!');
+        console.log('⚡ v5.87.63: SCHNELLBUCHUNGS-BUTTON in Tab-Leiste!');
+        console.log('📞 v5.87.63: CALL MONITOR REPARIERT!');
+        console.log('✅ v5.87.63: Popup geht wieder auf!');
+        console.log('✅ v5.87.63: Anruflisten werden geladen!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -758,7 +758,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.87.62 - DEINE POI-FAVORITEN! ✅ (Build 20251219-1840)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.87.63 - POI-AUTOCOMPLETE + SCHNELLBUCHUNG + CALLMONITOR! ✅ (Build 20251219-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -863,6 +863,24 @@
                 transition: all 0.2s;
             ">
                 🏨 Hotel-Kalender
+            </button>
+            <!-- 🆕 v5.87.63: SCHNELLBUCHUNGS-BUTTON IN TAB-LEISTE! -->
+            <button onclick="openQuickBookingModal()" class="admin-tab-btn admin-only" style="
+                padding: 10px 16px;
+                border: 2px solid #10b981;
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+            " 
+            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 8px rgba(16,185,129,0.4)'" 
+            onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 4px rgba(16,185,129,0.3)'">
+                ⚡ Schnellbuchung
             </button>
             <button onclick="switchView('driver')" class="admin-tab-btn driver-visible" data-view="driver" style="
                 padding: 10px 16px;
@@ -5098,8 +5116,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.62';
-        const APP_BUILD = '20251219-1840-DEINE-POI-FAVORITEN';
+        const APP_VERSION = '5.87.63';
+        const APP_BUILD = '20251219-2000-POI-AUTOCOMPLETE-SCHNELLBUCHUNG-CALLMONITOR';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6170,7 +6188,10 @@
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">📍 Abholort</label>
-                        <input type="text" id="edit-pickup" value="${ride.pickup}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                        <input type="text" id="edit-pickup" value="${ride.pickup}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;" autocomplete="off">
+                        
+                        <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
+                        <div class="autocomplete-dropdown" id="edit-pickup-dropdown" style="position:relative;z-index:10001;"></div>
                         
                         <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
                         <div id="edit-pickup-favorites" style="margin-top:8px;">
@@ -6183,7 +6204,10 @@
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">🎯 Zielort</label>
-                        <input type="text" id="edit-destination" value="${ride.destination}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                        <input type="text" id="edit-destination" value="${ride.destination}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;" autocomplete="off">
+                        
+                        <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
+                        <div class="autocomplete-dropdown" id="edit-destination-dropdown" style="position:relative;z-index:10001;"></div>
                         
                         <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
                         <div id="edit-destination-favorites" style="margin-top:8px;">
@@ -6355,6 +6379,9 @@
                     console.error('❌ Fehler beim Laden der POIs:', error);
                 }
             }
+            
+            // 🆕 v5.87.63: AUTOCOMPLETE FÜR EDIT-FELDER AKTIVIEREN!
+            setupEditAutocomplete();
         }
         
         function closeEditModal() {
@@ -6362,6 +6389,62 @@
                 window.currentEditModal.remove();
                 window.currentEditModal = null;
             }
+        }
+        
+        // 🆕 v5.87.63: AUTOCOMPLETE FÜR EDIT-MODAL
+        function setupEditAutocomplete() {
+            console.log('⭐ setupEditAutocomplete wird initialisiert...');
+            
+            ['edit-pickup', 'edit-destination'].forEach(id => {
+                const input = document.getElementById(id);
+                const dropdown = document.getElementById(id + '-dropdown');
+                
+                if (!input || !dropdown) {
+                    console.log(`ℹ️ ${id} nicht gefunden (normal wenn Modal geschlossen)`);
+                    return;
+                }
+                
+                console.log('✅ Autocomplete registriert für:', id);
+                
+                // FOCUS - Zeige Favoriten
+                input.addEventListener('focus', () => {
+                    const value = input.value.trim();
+                    if (!value || value.length < 3) {
+                        searchAddresses('', id);
+                    }
+                });
+                
+                // INPUT - Suche bei Tippen
+                let timeout = null;
+                input.addEventListener('input', (e) => {
+                    clearTimeout(timeout);
+                    const value = e.target.value.trim();
+                    
+                    if (value.length === 0) {
+                        searchAddresses('', id);
+                        return;
+                    }
+                    
+                    if (value.length < 3) {
+                        dropdown.innerHTML = '<div style="padding:10px;color:#999;">Mindestens 3 Zeichen...</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    
+                    timeout = setTimeout(() => {
+                        searchAddresses(value, id);
+                    }, 300);
+                });
+                
+                // BLUR - Schließe Dropdown nach kurzer Verzögerung
+                input.addEventListener('blur', () => {
+                    setTimeout(() => {
+                        if (dropdown) dropdown.style.display = 'none';
+                    }, 200);
+                });
+            });
+            
+            console.log('✅ setupEditAutocomplete abgeschlossen!');
         }
         
         async function saveEditedRide(rideId) {
@@ -37560,12 +37643,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // ═══════════════════════════════════════════════════════════════════
         
         function initCallPopupListener() {
-            // ⚠️ NUR FÜR ADMINS!
-            // Prüfe erst ob Variable existiert, dann Wert
-            if (typeof currentUserRole === 'undefined' || !currentUserRole || currentUserRole === 'passenger') {
-                console.log('⏭️ CallPopup übersprungen (kein Admin oder nicht eingeloggt)');
-                return;
-            }
+            // 🆕 v5.87.63: Check entfernt - wird sowieso nur im Admin-Bereich aufgerufen
             
             if (!isFirebaseReady) {
                 console.error('❌ Firebase not ready for CallPopup listener');
@@ -38063,21 +38141,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let callHistoryListener = null;
         
         function initCallHistory() {
-            // ⚠️ NUR FÜR ADMINS!
-            if (typeof currentUserRole === 'undefined' || !currentUserRole || currentUserRole === 'passenger') {
-                console.log('⏭️ Anrufhistorie übersprungen (kein Admin oder nicht eingeloggt)');
-                const container = document.getElementById('call-history-container');
-                if (container) {
-                    container.innerHTML = `
-                        <div style="text-align:center;padding:40px;color:#6b7280;">
-                            <div style="font-size:48px;margin-bottom:10px;">🔒</div>
-                            <div style="font-weight:600;margin-bottom:5px;">Nur für Admins</div>
-                            <div style="font-size:13px;">Diese Funktion ist nur für Disponenten verfügbar</div>
-                        </div>
-                    `;
-                }
-                return;
-            }
+            // 🆕 v5.87.63: Check entfernt - wird sowieso nur im Admin-Bereich aufgerufen
             
             console.log('📞 Initialisiere Anrufhistorie Listener...');
             

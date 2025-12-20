@@ -108,12 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.64 - CALL MONITOR WIRKLICH GEFIXT! 📞✅ (Build 20251220-0930)');
-        console.log('📞 v5.87.64: AUTO-DELETE nach 2 Sek (wie alte funktionierende Version!)');
-        console.log('📞 v5.87.64: Verhindert Popup-Spam bei Page-Reload!');
-        console.log('📜 v5.87.64: Anrufliste separat geladen!');
-        console.log('⭐ v5.87.63: POI-AUTOCOMPLETE in Hotel-Event Edit!');
-        console.log('⚡ v5.87.63: SCHNELLBUCHUNGS-BUTTON in Tab-Leiste!');
+        console.log('🚕 Funk Taxi App v5.87.65 - VEREINFACHTE PREISE! 💰✅ (Build 20251220-1000)');
+        console.log('💰 v5.87.65: Bahnhof nur 2 Felder (Mo-Sa + So/Feiertag)!');
+        console.log('✈️ v5.87.65: Flughafen nur 1 Feld (Alle Tage)!');
+        console.log('🗑️ v5.87.65: Sonstiges entfernt (nicht benötigt)!');
+        console.log('📞 v5.87.64: Call Monitor mit Auto-Delete (2 Sek)!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -758,7 +757,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.87.64 - CALL MONITOR WIRKLICH GEFIXT! ✅ (Build 20251220-0930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💰 Version 5.87.65 - VEREINFACHTE PREISE! ✅ (Build 20251220-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5116,8 +5115,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.64';
-        const APP_BUILD = '20251220-0930-CALLMONITOR-FIXED-AUTO-DELETE';
+        const APP_VERSION = '5.87.65';
+        const APP_BUILD = '20251220-1000-VEREINFACHTE-PREISE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -39567,15 +39566,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         
                         <!-- CONTENT -->
                         <div style="padding: 24px;">
-                            <!-- BAHNHOF -->
+                            <!-- 🆕 v5.87.65: BAHNHOF VEREINFACHT - NUR 2 FELDER -->
                             <div style="margin-bottom: 24px;">
                                 <div style="font-size: 16px; font-weight: 700; color: #1f2937; margin-bottom: 12px;">
-                                    🚂 Bahnhof Heringsdorf
+                                    🚂 Bahnhof (wird automatisch erkannt wenn "bahnhof" im Text)
                                 </div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                     <div>
                                         <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                            Mo-Fr
+                                            Mo-Sa
                                         </label>
                                         <input type="number" id="price-bahnhof-weekday" value="${pricing.bahnhof.weekday.toFixed(2)}" step="0.01" min="0" style="
                                             width: 100%;
@@ -39588,9 +39587,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                     </div>
                                     <div>
                                         <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                            Samstag
+                                            So/Feiertag
                                         </label>
-                                        <input type="number" id="price-bahnhof-saturday" value="${pricing.bahnhof.saturday.toFixed(2)}" step="0.01" min="0" style="
+                                        <input type="number" id="price-bahnhof-sunday" value="${pricing.bahnhof.sunday.toFixed(2)}" step="0.01" min="0" style="
                                             width: 100%;
                                             padding: 10px;
                                             border: 2px solid #e5e7eb;
@@ -39600,59 +39599,18 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                         ">
                                     </div>
                                 </div>
-                                <div style="margin-top: 12px;">
-                                    <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                        So/Feiertag
-                                    </label>
-                                    <input type="number" id="price-bahnhof-sunday" value="${pricing.bahnhof.sunday.toFixed(2)}" step="0.01" min="0" style="
-                                        width: 100%;
-                                        padding: 10px;
-                                        border: 2px solid #e5e7eb;
-                                        border-radius: 8px;
-                                        font-size: 16px;
-                                        font-weight: 600;
-                                    ">
-                                </div>
                             </div>
                             
-                            <!-- FLUGHAFEN -->
+                            <!-- 🆕 v5.87.65: FLUGHAFEN VEREINFACHT - NUR 1 FELD -->
                             <div style="margin-bottom: 24px;">
                                 <div style="font-size: 16px; font-weight: 700; color: #1f2937; margin-bottom: 12px;">
                                     ✈️ Flughafen
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                    <div>
-                                        <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                            Mo-Fr
-                                        </label>
-                                        <input type="number" id="price-flughafen-weekday" value="${pricing.flughafen.weekday.toFixed(2)}" step="0.01" min="0" style="
-                                            width: 100%;
-                                            padding: 10px;
-                                            border: 2px solid #e5e7eb;
-                                            border-radius: 8px;
-                                            font-size: 16px;
-                                            font-weight: 600;
-                                        ">
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                            Samstag
-                                        </label>
-                                        <input type="number" id="price-flughafen-saturday" value="${pricing.flughafen.saturday.toFixed(2)}" step="0.01" min="0" style="
-                                            width: 100%;
-                                            padding: 10px;
-                                            border: 2px solid #e5e7eb;
-                                            border-radius: 8px;
-                                            font-size: 16px;
-                                            font-weight: 600;
-                                        ">
-                                    </div>
-                                </div>
-                                <div style="margin-top: 12px;">
+                                <div>
                                     <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                        So/Feiertag
+                                        Alle Tage
                                     </label>
-                                    <input type="number" id="price-flughafen-sunday" value="${pricing.flughafen.sunday.toFixed(2)}" step="0.01" min="0" style="
+                                    <input type="number" id="price-flughafen-weekday" value="${pricing.flughafen.weekday.toFixed(2)}" step="0.01" min="0" style="
                                         width: 100%;
                                         padding: 10px;
                                         border: 2px solid #e5e7eb;
@@ -39663,53 +39621,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 </div>
                             </div>
                             
-                            <!-- SONSTIGES -->
-                            <div style="margin-bottom: 24px;">
-                                <div style="font-size: 16px; font-weight: 700; color: #1f2937; margin-bottom: 12px;">
-                                    🏖️ Sonstiges
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                    <div>
-                                        <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                            Mo-Fr
-                                        </label>
-                                        <input type="number" id="price-sonstiges-weekday" value="${pricing.sonstiges.weekday.toFixed(2)}" step="0.01" min="0" style="
-                                            width: 100%;
-                                            padding: 10px;
-                                            border: 2px solid #e5e7eb;
-                                            border-radius: 8px;
-                                            font-size: 16px;
-                                            font-weight: 600;
-                                        ">
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                            Samstag
-                                        </label>
-                                        <input type="number" id="price-sonstiges-saturday" value="${pricing.sonstiges.saturday.toFixed(2)}" step="0.01" min="0" style="
-                                            width: 100%;
-                                            padding: 10px;
-                                            border: 2px solid #e5e7eb;
-                                            border-radius: 8px;
-                                            font-size: 16px;
-                                            font-weight: 600;
-                                        ">
-                                    </div>
-                                </div>
-                                <div style="margin-top: 12px;">
-                                    <label style="font-size: 12px; color: #6b7280; font-weight: 600; display: block; margin-bottom: 4px;">
-                                        So/Feiertag
-                                    </label>
-                                    <input type="number" id="price-sonstiges-sunday" value="${pricing.sonstiges.sunday.toFixed(2)}" step="0.01" min="0" style="
-                                        width: 100%;
-                                        padding: 10px;
-                                        border: 2px solid #e5e7eb;
-                                        border-radius: 8px;
-                                        font-size: 16px;
-                                        font-weight: 600;
-                                    ">
-                                </div>
-                            </div>
+                            <!-- 🆕 v5.87.65: Sonstiges entfernt - nicht benötigt! -->
                             
                             <!-- INFO -->
                             <div style="
@@ -39775,20 +39687,33 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             if (dialog) dialog.remove();
         }
         
-        // Speichere Preis-Regeln
+        // 🆕 v5.87.65: Speichere vereinfachte Preis-Regeln
         async function saveHotelPricing(calendarId) {
             try {
-                // Lese Werte
+                // 🆕 v5.87.65: VEREINFACHT!
+                // Bahnhof: Mo-Sa + So/Feiertag
+                // Flughafen: Alle Tage gleich
+                const bahnhofWeekday = parseFloat(document.getElementById('price-bahnhof-weekday').value) || 0;
+                const bahnhofSunday = parseFloat(document.getElementById('price-bahnhof-sunday').value) || 0;
+                const flughafen = parseFloat(document.getElementById('price-flughafen-weekday').value) || 0;
+                
                 const pricingRules = {
                     bahnhof: {
-                        weekday: parseFloat(document.getElementById('price-bahnhof-weekday').value) || 0,
-                        saturday: parseFloat(document.getElementById('price-bahnhof-saturday').value) || 0,
-                        sunday: parseFloat(document.getElementById('price-bahnhof-sunday').value) || 0
+                        weekday: bahnhofWeekday,    // Mo-Sa
+                        saturday: bahnhofWeekday,   // Gleich wie Mo-Sa!
+                        sunday: bahnhofSunday       // So/Feiertag
                     },
                     flughafen: {
-                        weekday: parseFloat(document.getElementById('price-flughafen-weekday').value) || 0,
-                        saturday: parseFloat(document.getElementById('price-flughafen-saturday').value) || 0,
-                        sunday: parseFloat(document.getElementById('price-flughafen-sunday').value) || 0
+                        weekday: flughafen,   // Alle Tage gleich
+                        saturday: flughafen,  // Alle Tage gleich
+                        sunday: flughafen     // Alle Tage gleich
+                    },
+                    sonstiges: {
+                        weekday: 0,   // Nicht mehr verwendet
+                        saturday: 0,  // Nicht mehr verwendet
+                        sunday: 0     // Nicht mehr verwendet
+                    }
+                };
                     },
                     sonstiges: {
                         weekday: parseFloat(document.getElementById('price-sonstiges-weekday').value) || 0,

@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.68 - FUNKTIONEN NACH OBEN! 🔧✅ (Build 20251220-1215)');
-        console.log('🔧 v5.87.68: CallMonitor Funktionen OBEN im Script definiert!');
-        console.log('🔧 v5.87.68: initCallPopupListener() GARANTIERT vor Aufruf!');
-        console.log('📞 v5.87.66: FritzBox schreibt in callHistory!');
+        console.log('🚕 Funk Taxi App v5.87.69 - SETTIMEOUT FIX! 🔧✅ (Build 20251220-1230)');
+        console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
+        console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
+        console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.87.68 - FUNKTIONEN NACH OBEN! ✅ (Build 20251220-1215)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.87.69 - SETTIMEOUT FIX! ✅ (Build 20251220-1230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5114,8 +5114,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.68';
-        const APP_BUILD = '20251220-1215-FUNKTIONEN-NACH-OBEN';
+        const APP_VERSION = '5.87.69';
+        const APP_BUILD = '20251220-1230-SETTIMEOUT-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -8602,10 +8602,10 @@
                     console.log('🛡️ v5.87.59: Auto-Cleanup DEAKTIVIERT - Keine automatischen Stornierungen!');
                     
                     // 💰 Preis-Einstellungen aus Firebase laden
-                    loadPricingSettings();
+                    setTimeout(() => loadPricingSettings(), 0);
                     
                     // 🔴 Buchungssystem-Status aus Firebase laden
-                    loadBookingSystemStatus();
+                    setTimeout(() => loadBookingSystemStatus(), 0);
                     
                     // 📞 v5.65.3: FRITZBOX CALL POPUP LISTENER
                     initCallPopupListener();
@@ -8614,16 +8614,16 @@
                     initCallHistory();
                     
                     // 🚗 Fahrzeuge aus Firebase laden
-                    loadVehiclesFromFirebase();
+                    setTimeout(() => loadVehiclesFromFirebase(), 0);
                     
                     // ⭐ v5.86.30: POIs aus Firebase laden
-                    loadPOIs();
+                    setTimeout(() => loadPOIs(), 0);
                     
                     // 🏨 v5.77.0: Hotel-Kalender laden
-                    initHotelCalendars();
+                    setTimeout(() => initHotelCalendars(), 0);
                     
                     // 📄 v5.78.0: Hotel-Rechnungen laden
-                    initHotelInvoices();
+                    setTimeout(() => initHotelInvoices(), 0);
                     
                     // 🔄 LADE GESPEICHERTE FAHRT (falls vorhanden)
                     const savedRideId = localStorage.getItem('myCurrentRideId');

@@ -108,14 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.60 - SYNTAX-FEHLER GEFIXT! 🐛✅ (Build 20251219-1815)');
-        console.log('🐛 v5.87.60: FIX urlParams doppelt deklariert!');
-        console.log('🐛 v5.87.60: FIX let ride doppelt deklariert!');
-        console.log('✅ v5.87.60: Alle JavaScript-Fehler behoben!');
+        console.log('🚕 Funk Taxi App v5.87.62 - DEINE POI-FAVORITEN! ⭐✅ (Build 20251219-1840)');
+        console.log('⭐ v5.87.62: DYNAMISCHE Favoriten aus POI-Verwaltung!');
+        console.log('✅ v5.87.62: DEINE eigenen Favoriten, nicht hart-codiert!');
+        console.log('🎯 v5.87.62: Beide Felder (Von + Nach) mit deinen POIs!');
+        console.log('🐛 v5.87.60: FIX urlParams + ride Konflikt!');
         console.log('🛡️ v5.87.59: Auto-Cleanup KOMPLETT deaktiviert!');
-        console.log('✅ v5.87.59: KEINE automatischen Stornierungen mehr!');
-        console.log('📊 v5.87.59: Alle Stornierungen mit Zeitstempel + cancelledBy!');
-        console.log('🔒 v5.87.59: Hotel-Storno-Schutz aktiv!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -760,7 +758,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.87.60 - SYNTAX-FEHLER GEFIXT! ✅ (Build 20251219-1815)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.87.62 - DEINE POI-FAVORITEN! ✅ (Build 20251219-1840)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5100,8 +5098,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.60';
-        const APP_BUILD = '20251219-1815-SYNTAX-FEHLER-GEFIXT';
+        const APP_VERSION = '5.87.62';
+        const APP_BUILD = '20251219-1840-DEINE-POI-FAVORITEN';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6173,11 +6171,27 @@
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">📍 Abholort</label>
                         <input type="text" id="edit-pickup" value="${ride.pickup}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                        
+                        <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
+                        <div id="edit-pickup-favorites" style="margin-top:8px;">
+                            <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                <div style="font-size:12px;color:#9ca3af;padding:6px;">Lade Favoriten...</div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">🎯 Zielort</label>
                         <input type="text" id="edit-destination" value="${ride.destination}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                        
+                        <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
+                        <div id="edit-destination-favorites" style="margin-top:8px;">
+                            <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                <div style="font-size:12px;color:#9ca3af;padding:6px;">Lade Favoriten...</div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div style="margin-bottom:15px;">
@@ -6276,6 +6290,69 @@
                     });
                 } catch (error) {
                     console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
+                }
+            }
+            
+            // 🆕 v5.87.62: POIs laden und Favoriten-Buttons rendern
+            if (isFirebaseReady) {
+                try {
+                    const poisSnapshot = await db.ref('pois').once('value');
+                    const pois = [];
+                    poisSnapshot.forEach(child => {
+                        pois.push({
+                            id: child.key,
+                            ...child.val()
+                        });
+                    });
+                    
+                    console.log(`⭐ ${pois.length} POIs für Favoriten geladen`);
+                    
+                    // Render Buttons für "Von"
+                    const pickupFavContainer = document.getElementById('edit-pickup-favorites');
+                    if (pickupFavContainer && pois.length > 0) {
+                        pickupFavContainer.innerHTML = `
+                            <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                ${pois.map(poi => `
+                                    <button onclick="document.getElementById('edit-pickup').value='${poi.address.replace(/'/g, "\\'")}';document.getElementById('edit-pickup').focus();" 
+                                            style="padding:6px 12px;background:#fef3c7;color:#d97706;border:1px solid #f59e0b;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">
+                                        ⭐ ${poi.name}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else if (pickupFavContainer) {
+                        pickupFavContainer.innerHTML = `
+                            <div style="font-size:11px;color:#9ca3af;padding:6px;">
+                                💡 Noch keine Favoriten. Gehe zu POI-Verwaltung zum Hinzufügen.
+                            </div>
+                        `;
+                    }
+                    
+                    // Render Buttons für "Nach"
+                    const destFavContainer = document.getElementById('edit-destination-favorites');
+                    if (destFavContainer && pois.length > 0) {
+                        destFavContainer.innerHTML = `
+                            <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                ${pois.map(poi => `
+                                    <button onclick="document.getElementById('edit-destination').value='${poi.address.replace(/'/g, "\\'")}';document.getElementById('edit-destination').focus();" 
+                                            style="padding:6px 12px;background:#fef3c7;color:#d97706;border:1px solid #f59e0b;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">
+                                        ⭐ ${poi.name}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else if (destFavContainer) {
+                        destFavContainer.innerHTML = `
+                            <div style="font-size:11px;color:#9ca3af;padding:6px;">
+                                💡 Noch keine Favoriten. Gehe zu POI-Verwaltung zum Hinzufügen.
+                            </div>
+                        `;
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden der POIs:', error);
                 }
             }
         }

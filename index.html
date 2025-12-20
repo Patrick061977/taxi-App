@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.69 - SETTIMEOUT FIX! 🔧✅ (Build 20251220-1230)');
+        console.log('🚕 Funk Taxi App v5.87.70 - CALLMONITOR & LOGIN FIX! 📞👤✅ (Build 20251220-1430)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.87.69 - SETTIMEOUT FIX! ✅ (Build 20251220-1230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞👤 Version 5.87.70 - CALLMONITOR & LOGIN FIX! ✅ (Build 20251220-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -32446,8 +32446,12 @@ Stack: ${err.stack}
                 // 🆕 Starte Vorbestellungs-Aktivierer (aktiviert 15 Min vor Abholung)
                 startPrebookingActivator();
                 
-                // 🆕 v5.83.0: Lade FritzBox Settings
-                loadFritzBoxSettings();
+                // 🆕 v5.83.0: Lade FritzBox Settings (v5.87.70: mit Fehlerbehandlung)
+                if (typeof loadFritzBoxSettings === 'function') {
+                    loadFritzBoxSettings();
+                } else {
+                    console.warn('⚠️ loadFritzBoxSettings noch nicht verfügbar');
+                }
             } else {
                 // 🆕 v5.26.14d: Nicht eingeloggt: Fahrgast + Verlauf BEIDE anzeigen!
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
@@ -33452,6 +33456,9 @@ Stack: ${err.stack}
             
             // 🆕 v5.20.1: Lade gespeichertes Fahrzeug
             loadSavedVehicle();
+            
+            // 🆕 v5.87.70: Update Login-Button nach Login!
+            updateLoginButton();
         }
         
         function onUserLoggedOut() {

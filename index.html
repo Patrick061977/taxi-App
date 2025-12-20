@@ -108,11 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.67 - MASSIVE DEBUG-LOGGING! 🔍✅ (Build 20251220-1145)');
-        console.log('🔍 v5.87.67: Massives Debug-Logging in initCallPopupListener!');
-        console.log('🔍 v5.87.67: Jede Zeile wird geloggt!');
-        console.log('📞 v5.87.66: FritzBox schreibt jetzt auch in callHistory!');
-        console.log('💰 v5.87.65: Vereinfachte Preise!');
+        console.log('🚕 Funk Taxi App v5.87.68 - FUNKTIONEN NACH OBEN! 🔧✅ (Build 20251220-1215)');
+        console.log('🔧 v5.87.68: CallMonitor Funktionen OBEN im Script definiert!');
+        console.log('🔧 v5.87.68: initCallPopupListener() GARANTIERT vor Aufruf!');
+        console.log('📞 v5.87.66: FritzBox schreibt in callHistory!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -757,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.87.67 - MASSIVE DEBUG-LOGGING! ✅ (Build 20251220-1145)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.87.68 - FUNKTIONEN NACH OBEN! ✅ (Build 20251220-1215)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5115,8 +5114,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.67';
-        const APP_BUILD = '20251220-1145-MASSIVE-DEBUG-LOGGING';
+        const APP_VERSION = '5.87.68';
+        const APP_BUILD = '20251220-1215-FUNKTIONEN-NACH-OBEN';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -5258,6 +5257,350 @@
         // 🔐 AUTH STATE
         let auth = null;
         let currentUser = null;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 📞 v5.87.68: FRITZBOX CALL MONITOR - FUNKTIONEN NACH OBEN VERSCHOBEN!
+        // ═══════════════════════════════════════════════════════════════════
+        // WICHTIG: Funktionen müssen VOR dem Aufruf definiert sein!
+        // Daher jetzt hier oben statt unten bei Zeile 37000+
+        
+        function initCallPopupListener() {
+            console.log('🔍 initCallPopupListener() aufgerufen!');
+            console.log('🔍 isFirebaseReady:', isFirebaseReady);
+            console.log('🔍 db:', typeof db);
+            
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase not ready for CallPopup listener');
+                return;
+            }
+            
+            console.log('📞 Initialisiere CallPopup Listener...');
+            console.log('📞 Registriere Firebase Listener auf: callPopup');
+            
+            db.ref('callPopup').on('value', snapshot => {
+                console.log('🔥 FIREBASE EVENT GETRIGGERT!');
+                console.log('🔥 snapshot:', snapshot);
+                
+                const data = snapshot.val();
+                console.log('🔥 data:', data);
+                
+                if (!data) {
+                    console.log('⚠️ Keine Daten in callPopup (null)');
+                    return;
+                }
+                
+                console.log('📞 ANRUF EMPFANGEN!', data);
+                console.log('📞 Rufe showCallPopup() auf...');
+                
+                // Zeige Popup
+                try {
+                    showCallPopup(data);
+                    console.log('✅ showCallPopup() erfolgreich!');
+                } catch (err) {
+                    console.error('❌ Fehler in showCallPopup():', err);
+                }
+                
+                // Auto-Delete nach 2 Sekunden
+                console.log('⏱️ Auto-Delete in 2 Sekunden...');
+                setTimeout(() => {
+                    db.ref('callPopup').remove();
+                    console.log('🗑️ callPopup gelöscht!');
+                }, 2000);
+            });
+            
+            console.log('✅ CallPopup Listener aktiv');
+        }
+        
+        function showCallPopup(data) {
+            console.log('🎯 showCallPopup() gestartet!');
+            console.log('🎯 data:', data);
+            
+            const { type, caller, called, timestamp, customer, lastRides } = data;
+            console.log('🎯 type:', type);
+            console.log('🎯 caller:', caller);
+            console.log('🎯 customer:', customer);
+            
+            // Erstelle Popup HTML
+            let popupHTML = `
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;" id="call-popup">
+                    <div style="background:white;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:slideUp 0.3s;">
+                        
+                        <!-- Header -->
+                        <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div style="display:flex;align-items:center;gap:12px;">
+                                    <div style="font-size:40px;">📞</div>
+                                    <div>
+                                        <div style="font-size:24px;font-weight:700;">Eingehender Anruf</div>
+                                        <div style="font-size:14px;opacity:0.9;">${new Date(timestamp).toLocaleString('de-DE')}</div>
+                                    </div>
+                                </div>
+                                <button onclick="closeCallPopup()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;">×</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Body -->
+                        <div style="padding:24px;">
+                            <div style="margin-bottom:20px;padding:16px;background:#f3f4f6;border-radius:12px;">
+                                <div style="font-size:14px;color:#6b7280;margin-bottom:4px;">Anrufer</div>
+                                <div style="font-size:24px;font-weight:700;color:#1f2937;">${caller}</div>
+                            </div>
+            `;
+            
+            if (type === 'existing' && customer) {
+                // BEKANNTER KUNDE
+                popupHTML += `
+                    <div style="background:#d1fae5;padding:16px;border-radius:12px;margin-bottom:20px;border:2px solid #10b981;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                            <span style="font-size:24px;">✅</span>
+                            <span style="font-size:18px;font-weight:700;color:#065f46;">Bekannter Kunde</span>
+                        </div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <div style="font-size:24px;font-weight:700;color:#047857;">${customer.name || 'Kein Name'}</div>
+                            ${customer.address ? `<div style="font-size:14px;color:#065f46;margin-top:4px;">📍 ${customer.address}</div>` : ''}
+                            ${customer.email ? `<div style="font-size:14px;color:#065f46;margin-top:4px;">📧 ${customer.email}</div>` : ''}
+                        </div>
+                        
+                        ${lastRides && lastRides.length > 0 ? `
+                            <div style="margin-top:16px;padding-top:16px;border-top:2px solid #10b981;">
+                                <div style="font-weight:600;color:#065f46;margin-bottom:8px;">🚕 Letzte Fahrten:</div>
+                                ${lastRides.slice(0, 3).map(ride => `
+                                    <div style="background:white;padding:8px;border-radius:6px;margin-bottom:6px;font-size:13px;">
+                                        <div style="font-weight:600;">${ride.pickup || 'Unbekannt'} → ${ride.destination || 'Unbekannt'}</div>
+                                        <div style="color:#6b7280;font-size:12px;">${new Date(ride.timestamp).toLocaleDateString('de-DE')}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <button onclick="callCustomer('${caller}')" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);">
+                            📞 Zurückrufen
+                        </button>
+                        <button onclick="openQuickBookingWithCustomer('${customer.id}')" style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                            🚕 Neue Fahrt buchen
+                        </button>
+                    </div>
+                    <button onclick="closeCallPopup()" style="width:100%;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px;">
+                        Schließen
+                    </button>
+                `;
+            } else {
+                // NEUER KUNDE
+                popupHTML += `
+                    <div style="background:#fef3c7;padding:16px;border-radius:12px;margin-bottom:20px;border:2px solid #f59e0b;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                            <span style="font-size:24px;">⚠️</span>
+                            <span style="font-size:18px;font-weight:700;color:#92400e;">Neuer Kunde</span>
+                        </div>
+                        <div style="color:#92400e;">Diese Nummer ist noch nicht in der Datenbank.</div>
+                    </div>
+                    
+                    <!-- Kunde erfassen -->
+                    <div style="background:#f9fafb;padding:16px;border-radius:12px;margin-bottom:20px;">
+                        <div style="font-weight:600;margin-bottom:12px;color:#1f2937;">Kundendaten erfassen:</div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">Name</label>
+                            <input type="text" id="new-customer-name" placeholder="Max Mustermann" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">Adresse</label>
+                            <input type="text" id="new-customer-address" placeholder="Musterstraße 1, 17424 Heringsdorf" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">E-Mail (optional)</label>
+                            <input type="email" id="new-customer-email" placeholder="max@example.com" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="display:flex;gap:12px;">
+                        <button onclick="saveNewCustomerAndBook('${caller}')" style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                            💾 Speichern & Fahrt buchen
+                        </button>
+                        <button onclick="closeCallPopup()" style="flex:1;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">
+                            Später
+                        </button>
+                    </div>
+                `;
+            }
+            
+            popupHTML += `
+                        </div>
+                    </div>
+                </div>
+                
+                <style>
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideUp {
+                        from { transform: translateY(50px); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                    }
+                </style>
+            `;
+            
+            // Füge Popup ins DOM ein
+            const existingPopup = document.getElementById('call-popup');
+            if (existingPopup) existingPopup.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', popupHTML);
+            
+            // Sound abspielen
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS56+mcTgwOUKXh8LhlHAU5kdPyynkrBSR3yO/ekj8JFFyx6OmnUxMJQ5/e8rxrIAUrlM/y2Yg1Bxhju+rqm0wLDU+k4O+7aRsFOZDT8sp4KgUjdsju35NAChNYr+jprFQUCj+c3vC6aB8FKpHP8tmINQcXYrvo7aVPDAxPo+Duu2gaBTiPz/LKdyoEI3bI7+CSQAoTVq3n7axUFAk9mt7wuWgfBSmRz/HajDQHF2K7+eetShALPp/d8cxwJwUdhcXy146RQQoRUarnr6pTEQo7mN3wuGYeCCWPz/HajDQHFl+65+OkSxALO5zd8ctwJwUdhsTy156QQQoQT6nm8KlRFA');
+                audio.volume = 0.3;
+                audio.play().catch(() => {});
+            } catch (e) {}
+            
+            console.log('✅ CallPopup angezeigt!');
+        }
+        
+        function closeCallPopup() {
+            const popup = document.getElementById('call-popup');
+            if (popup) popup.remove();
+            
+            // Lösche Firebase Event
+            if (typeof db !== 'undefined') {
+                db.ref('callPopup').remove();
+                console.log('✅ CallPopup Event gelöscht');
+            }
+        }
+        
+        console.log('✅ v5.87.68: CallMonitor Funktionen definiert (OBEN im Script)!');
+        
+        //  ANRUFHISTORIE FUNKTIONEN
+        let callHistoryListener = null;
+        
+        function initCallHistory() {
+            console.log('📞 Initialisiere Anrufhistorie Listener...');
+            
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase not ready for CallHistory listener');
+                return;
+            }
+            
+            // Lösche alten Listener falls vorhanden
+            if (callHistoryListener) {
+                db.ref('callHistory').off('value', callHistoryListener);
+            }
+            
+            // Erstelle neuen Listener
+            callHistoryListener = db.ref('callHistory')
+                .orderByChild('timestamp')
+                .limitToLast(20)
+                .on('value', snapshot => {
+                    displayCallHistory(snapshot);
+                });
+            
+            console.log('✅ Anrufhistorie Listener aktiv');
+        }
+        
+        function displayCallHistory(snapshot) {
+            const container = document.getElementById('call-history-container');
+            if (!container) return;
+            
+            const calls = [];
+            snapshot.forEach(child => {
+                calls.push({
+                    id: child.key,
+                    ...child.val()
+                });
+            });
+            
+            // Sortiere nach Timestamp (neueste zuerst)
+            calls.sort((a, b) => b.timestamp - a.timestamp);
+            
+            if (calls.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">📞</div>
+                        <div style="font-weight:600;margin-bottom:5px;">Keine Anrufe</div>
+                        <div style="font-size:13px;">Anrufe erscheinen hier automatisch</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="display:grid;gap:8px;">';
+            
+            calls.forEach(call => {
+                const date = new Date(call.timestamp);
+                const timeStr = date.toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const bgColor = call.customerFound ? '#d1fae5' : '#fef3c7';
+                const borderColor = call.customerFound ? '#10b981' : '#f59e0b';
+                const icon = call.customerFound ? '✅' : '⚠️';
+                const statusText = call.customerFound ? 'Bekannter Kunde' : 'Neuer Kunde';
+                
+                html += `
+                    <div style="background:${bgColor};border:2px solid ${borderColor};border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;">
+                        <div style="font-size:32px;">${icon}</div>
+                        <div style="flex:1;">
+                            <div style="display:flex;justify-content:between;align-items:start;gap:10px;">
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:15px;color:#1f2937;margin-bottom:4px;">
+                                        ${call.customerName || call.caller}
+                                    </div>
+                                    ${call.customerFound && call.customerName ? `
+                                        <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">
+                                            📞 ${call.caller}
+                                        </div>
+                                    ` : ''}
+                                    <div style="font-size:12px;color:#6b7280;">
+                                        ${statusText} • ${timeStr}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ${call.customerFound ? `
+                            <button onclick="openQuickBookingWithCustomer('${call.customerId}')" 
+                                    style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                🚕 Buchen
+                            </button>
+                        ` : `
+                            <button onclick="openQuickBookingWithPhone('${call.caller}')" 
+                                    style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                🚕 Buchen
+                            </button>
+                        `}
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            html += `
+                <div style="text-align:center;margin-top:12px;font-size:12px;color:#6b7280;">
+                    Zeige letzte ${calls.length} Anrufe
+                </div>
+            `;
+            
+            container.innerHTML = html;
+            console.log(`📞 ${calls.length} Anrufe angezeigt`);
+        }
+        
+        function refreshCallHistory() {
+            console.log('🔄 Aktualisiere Anrufhistorie...');
+            initCallHistory();
+        }
+        
+        console.log('✅ v5.87.68: CallHistory Funktionen definiert (OBEN im Script)!');
+        
+        // ═══════════════════════════════════════════════════════════════════
 
         // 💾 SAVE RIDES TO LOCALSTORAGE
         function saveRides() {
@@ -37692,6 +38035,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             console.log('✅ CallPopup Listener aktiv');
         }
+        
+        // 🆕 v5.87.68: TEST-LOG - Funktion wurde definiert!
+        console.log('✅ initCallPopupListener() Funktion definiert! (v5.87.68)');
         
         function showCallPopup(data) {
             console.log('🎯 showCallPopup() gestartet!');

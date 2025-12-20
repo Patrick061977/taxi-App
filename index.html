@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.63 - POI-AUTOCOMPLETE + SCHNELLBUCHUNG + CALLMONITOR! 🎉✅ (Build 20251219-2000)');
+        console.log('🚕 Funk Taxi App v5.87.64 - CALL MONITOR WIRKLICH GEFIXT! 📞✅ (Build 20251220-0930)');
+        console.log('📞 v5.87.64: AUTO-DELETE nach 2 Sek (wie alte funktionierende Version!)');
+        console.log('📞 v5.87.64: Verhindert Popup-Spam bei Page-Reload!');
+        console.log('📜 v5.87.64: Anrufliste separat geladen!');
         console.log('⭐ v5.87.63: POI-AUTOCOMPLETE in Hotel-Event Edit!');
         console.log('⚡ v5.87.63: SCHNELLBUCHUNGS-BUTTON in Tab-Leiste!');
-        console.log('📞 v5.87.63: CALL MONITOR REPARIERT!');
-        console.log('✅ v5.87.63: Popup geht wieder auf!');
-        console.log('✅ v5.87.63: Anruflisten werden geladen!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
         console.log('📅 v5.87.22: HOTEL-KALENDER IMPORTIERT ALLES!');
@@ -758,7 +758,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.87.63 - POI-AUTOCOMPLETE + SCHNELLBUCHUNG + CALLMONITOR! ✅ (Build 20251219-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.87.64 - CALL MONITOR WIRKLICH GEFIXT! ✅ (Build 20251220-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5116,8 +5116,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.63';
-        const APP_BUILD = '20251219-2000-POI-AUTOCOMPLETE-SCHNELLBUCHUNG-CALLMONITOR';
+        const APP_VERSION = '5.87.64';
+        const APP_BUILD = '20251220-0930-CALLMONITOR-FIXED-AUTO-DELETE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -8267,6 +8267,9 @@
                     
                     // 📞 v5.65.3: FRITZBOX CALL POPUP LISTENER
                     initCallPopupListener();
+                    
+                    // 📞 v5.87.64: ANRUFHISTORIE LISTENER (separat!)
+                    initCallHistory();
                     
                     // 🚗 Fahrzeuge aus Firebase laden
                     loadVehiclesFromFirebase();
@@ -37643,8 +37646,6 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // ═══════════════════════════════════════════════════════════════════
         
         function initCallPopupListener() {
-            // 🆕 v5.87.63: Check entfernt - wird sowieso nur im Admin-Bereich aufgerufen
-            
             if (!isFirebaseReady) {
                 console.error('❌ Firebase not ready for CallPopup listener');
                 return;
@@ -37661,18 +37662,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Zeige Popup
                 showCallPopup(data);
                 
-                // ❌ NICHT automatisch löschen!
-                // User soll in Ruhe klicken können!
-                // Wird gelöscht wenn:
-                // 1. User auf "Neue Fahrt buchen" klickt
-                // 2. User auf "Schließen" klickt
-                // 3. User auf "Speichern & Fahrt buchen" klickt
+                // 🆕 v5.87.64: AUTO-DELETE nach 2 Sekunden (wie in alter funktionierender Version!)
+                // Damit wird verhindert dass beim Page-Reload alte Anrufe nochmal angezeigt werden
+                setTimeout(() => {
+                    db.ref('callPopup').remove();
+                }, 2000);
             });
             
             console.log('✅ CallPopup Listener aktiv');
-            
-            // 📞 Starte auch Call-Historie Listener
-            initCallHistory();
         }
         
         function showCallPopup(data) {

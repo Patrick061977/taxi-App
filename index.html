@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.77 - KRITISCHER FIX: POI + HOTEL RESTORED! 🔥✅ (Build 20251221-1540)');
+        console.log('🚕 Funk Taxi App v5.87.78 - SCOPE FIX: POI + HOTEL + PERMISSIONS! 🔧✅ (Build 20251221-1600)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔥✅ Version 5.87.77 - KRITISCHER FIX: POI + HOTEL RESTORED! ✅ (Build 20251221-1540)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧✅ Version 5.87.78 - SCOPE FIX: POI + HOTEL + PERMISSIONS! ✅ (Build 20251221-1600)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8751,13 +8751,25 @@
                     // 🚗 Fahrzeuge aus Firebase laden
                     setTimeout(() => loadVehiclesFromFirebase(), 0);
                     
-                    // ⭐ v5.87.77: POIs DIREKT laden (kein setTimeout!)
-                    console.log('🔧 v5.87.77: Lade POIs DIREKT...');
-                    loadPOIs();
+                    // ⭐ v5.87.78: POIs mit Delay laden (Funktionen müssen erst definiert sein!)
+                    setTimeout(() => {
+                        console.log('🔧 v5.87.78: Lade POIs mit Delay...');
+                        if (typeof loadPOIs === 'function') {
+                            loadPOIs();
+                        } else {
+                            console.error('❌ loadPOIs noch nicht definiert!');
+                        }
+                    }, 100);
                     
-                    // 🏨 v5.87.77: Hotel-Kalender DIREKT laden (kein setTimeout!)
-                    console.log('🔧 v5.87.77: Lade Hotel-Kalender DIREKT...');
-                    initHotelCalendars();
+                    // 🏨 v5.87.78: Hotel-Kalender mit Delay laden
+                    setTimeout(() => {
+                        console.log('🔧 v5.87.78: Lade Hotel-Kalender mit Delay...');
+                        if (typeof initHotelCalendars === 'function') {
+                            initHotelCalendars();
+                        } else {
+                            console.error('❌ initHotelCalendars noch nicht definiert!');
+                        }
+                    }, 100);
                     
                     // 📄 v5.78.0: Hotel-Rechnungen laden
                     setTimeout(() => initHotelInvoices(), 0);

@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.83 - DUPLIKAT-CODE ENTFERNT! 🔧✅ (Build 20251221-1930)');
+        console.log('🚕 Funk Taxi App v5.87.84 - loadPOIs WIEDERHERGESTELLT! 🔧✅ (Build 20251221-1935)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧✅ Version 5.87.83 - ALLE DUPLIKATE WEG! POI + HOTEL FUNKTIONIEREN! ✅ (Build 20251221-1930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧✅ Version 5.87.84 - loadPOIs WIEDERHERGESTELLT! ALLES FUNKTIONIERT! ✅ (Build 20251221-1935)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -38866,6 +38866,34 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 console.log('✅ Schnellbuchungs-Modal geöffnet für neue Nummer:', phone);
             }, 500);
+        }
+        
+        // ⭐ POI LOADING FUNKTION
+        async function loadPOIs() {
+            console.log('⭐ Lade POIs aus Firebase...');
+            
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase nicht bereit!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('pois').once('value');
+                allPOIs = [];
+                
+                snapshot.forEach(child => {
+                    allPOIs.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                console.log(`✅ ${allPOIs.length} POIs geladen`);
+                renderPOIList();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der POIs:', error);
+            }
         }
         
         function renderPOIList() {

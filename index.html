@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.80 - FIX: STORAGE LOG + POI BUTTON! 🔧✅ (Build 20251221-1845)');
+        console.log('🚕 Funk Taxi App v5.87.81 - FIX: 1000ms DELAY FÜR POI + HOTEL! 🔧✅ (Build 20251221-1900)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧✅ Version 5.87.80 - FIX: STORAGE LOG + POI BUTTON + DEBUG! ✅ (Build 20251221-1845)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧✅ Version 5.87.81 - 1000ms DELAY: POI + HOTEL LOADING! ✅ (Build 20251221-1900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8784,9 +8784,9 @@
                     // 🚗 Fahrzeuge aus Firebase laden
                     setTimeout(() => loadVehiclesFromFirebase(), 0);
                     
-                    // ⭐ v5.87.80: POIs aus Firebase laden + DEBUG LOGS!
+                    // ⭐ v5.87.81: POIs mit 1 SEKUNDE Delay laden (JavaScript braucht Zeit!)
                     setTimeout(() => {
-                        console.log('🔧 v5.87.80: Starte POI-Loading...');
+                        console.log('🔧 v5.87.81: Lade POIs nach 1 Sekunde...');
                         console.log('   isFirebaseReady:', isFirebaseReady);
                         console.log('   typeof loadPOIs:', typeof loadPOIs);
                         if (typeof loadPOIs === 'function') {
@@ -8794,11 +8794,11 @@
                         } else {
                             console.error('❌ loadPOIs Funktion nicht gefunden!');
                         }
-                    }, 100);
+                    }, 1000);
                     
-                    // 🏨 v5.87.80: Hotel-Kalender laden + DEBUG LOGS!
+                    // 🏨 v5.87.81: Hotel-Kalender mit 1 SEKUNDE Delay laden
                     setTimeout(() => {
-                        console.log('🔧 v5.87.80: Starte Hotel-Kalender-Loading...');
+                        console.log('🔧 v5.87.81: Lade Hotel-Kalender nach 1 Sekunde...');
                         console.log('   isFirebaseReady:', isFirebaseReady);
                         console.log('   typeof initHotelCalendars:', typeof initHotelCalendars);
                         if (typeof initHotelCalendars === 'function') {
@@ -8806,7 +8806,7 @@
                         } else {
                             console.error('❌ initHotelCalendars Funktion nicht gefunden!');
                         }
-                    }, 100);
+                    }, 1000);
                     
                     // 📄 v5.78.0: Hotel-Rechnungen laden
                     setTimeout(() => initHotelInvoices(), 0);

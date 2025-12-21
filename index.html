@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.74 - ANRUFLISTE ADRESSE + AUTOCOMPLETE! 🏠✅ (Build 20251221-1100)');
+        console.log('🚕 Funk Taxi App v5.87.75 - AUTOCOMPLETE FIX + TELEFON BEHALTEN! 📞✅ (Build 20251221-1420)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏠📍 Version 5.87.74 - ANRUFLISTE ADRESSE + AUTOCOMPLETE! ✅ (Build 20251221-1100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞✅ Version 5.87.75 - AUTOCOMPLETE FIX + TELEFON BEHALTEN! ✅ (Build 20251221-1420)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -22133,6 +22133,7 @@
         // 📋 STAMMKUNDEN-CRM FUNKTIONEN
         let allCustomers = [];
         let allAppUsers = [];
+        let allPOIs = []; // 🆕 v5.87.75: FRÜH initialisieren für Autocomplete!
         let currentCrmTab = 'customers';
         
         function switchCrmTab(tab) {
@@ -26424,12 +26425,23 @@
         
         function selectQuickBookingCustomer(id, name, phone, address, favoriteDestination) {
             console.log('✅ Kunde gewählt:', name);
+            console.log('   ID:', id, '| Phone:', phone); // 🆕 v5.87.75
             
             // Setze Hidden Field
             document.getElementById('quick-booking-customer').value = id;
             
-            // Zeige Namen im Suchfeld
-            document.getElementById('quick-booking-customer-search').value = name;
+            // 🆕 v5.87.75: BEI "UNBEKANNT" → TELEFON BEHALTEN!
+            const searchField = document.getElementById('quick-booking-customer-search');
+            if (id === 'new' || !name || name === 'Unbekannt') {
+                // Bei neuen/unbekannten Kunden: TELEFON im Suchfeld behalten!
+                if (phone) {
+                    searchField.value = phone;
+                    console.log('📞 Telefonnummer bleibt im Suchfeld:', phone);
+                }
+            } else {
+                // Bei bekannten Kunden: Namen anzeigen
+                searchField.value = name;
+            }
             
             // Schließe Dropdown
             document.getElementById('quick-booking-customer-dropdown').style.display = 'none';
@@ -38979,7 +38991,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // ⭐ POI-VERWALTUNG (FAVORITEN-ZIELE)
         // ═══════════════════════════════════════════════════════════════════
         
-        let allPOIs = [];
+        // 🆕 v5.87.75: allPOIs bereits oben initialisiert (Zeile ~22136)!
         
         async function loadPOIs() {
             console.log('⭐ Lade POIs aus Firebase...');

@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.70 - CALLMONITOR & LOGIN FIX! 📞👤✅ (Build 20251220-1430)');
+        console.log('🚕 Funk Taxi App v5.87.71 - CALLHISTORY LIVE FIX! 📞📡✅ (Build 20251220-1450)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞👤 Version 5.87.70 - CALLMONITOR & LOGIN FIX! ✅ (Build 20251220-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞📡 Version 5.87.71 - CALLHISTORY LIVE FIX! ✅ (Build 20251220-1450)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5481,27 +5481,40 @@
         let callHistoryListener = null;
         
         function initCallHistory() {
-            console.log('📞 Initialisiere Anrufhistorie Listener...');
+            console.log('📞 [CallHistory] Initialisiere Anrufhistorie Listener...');
             
             if (!isFirebaseReady) {
-                console.error('❌ Firebase not ready for CallHistory listener');
+                console.error('❌ [CallHistory] Firebase not ready for CallHistory listener');
                 return;
+            }
+            
+            // Prüfe ob Container existiert
+            const container = document.getElementById('call-history-container');
+            if (!container) {
+                console.warn('⚠️ [CallHistory] Container nicht gefunden - erstelle später wenn Admin-View geöffnet wird');
+                // Kein return - Listener trotzdem erstellen!
             }
             
             // Lösche alten Listener falls vorhanden
             if (callHistoryListener) {
+                console.log('🔄 [CallHistory] Lösche alten Listener...');
                 db.ref('callHistory').off('value', callHistoryListener);
             }
+            
+            console.log('📡 [CallHistory] Erstelle LIVE Listener auf callHistory...');
             
             // Erstelle neuen Listener
             callHistoryListener = db.ref('callHistory')
                 .orderByChild('timestamp')
                 .limitToLast(20)
                 .on('value', snapshot => {
+                    console.log('🔥 [CallHistory] FIREBASE EVENT! Neue Daten empfangen!');
+                    const count = snapshot.numChildren();
+                    console.log(`📊 [CallHistory] Anzahl Anrufe: ${count}`);
                     displayCallHistory(snapshot);
                 });
             
-            console.log('✅ Anrufhistorie Listener aktiv');
+            console.log('✅ [CallHistory] Anrufhistorie Listener AKTIV - wartet auf LIVE Updates!');
         }
         
         function displayCallHistory(snapshot) {

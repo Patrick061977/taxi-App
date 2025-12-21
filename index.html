@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.72 - CALLHISTORY DELETE! 🗑️✅ (Build 20251221-1010)');
+        console.log('🚕 Funk Taxi App v5.87.73 - AUTO-CRM + AUTOCOMPLETE! 👤📍✅ (Build 20251221-1045)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗑️ Version 5.87.72 - CALLHISTORY DELETE! ✅ (Build 20251221-1010)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👤📍 Version 5.87.73 - AUTO-CRM + AUTOCOMPLETE! ✅ (Build 20251221-1045)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -29293,6 +29293,7 @@
                     console.log('🆕 Neuer Kunde aus Telefon - speichere ins CRM...');
                     console.log('📞 Telefon:', newCustomerPhone);
                     console.log('👤 Name:', newCustomerName);
+                    console.log('📍 Adresse:', pickup); // 🆕 v5.87.73
                     
                     try {
                         // Speichere Kunde in Firebase CRM
@@ -29300,7 +29301,7 @@
                         await newCustomerRef.set({
                             name: newCustomerName,
                             phone: newCustomerPhone,
-                            address: '',
+                            address: pickup || '', // 🆕 v5.87.73: ADRESSE SPEICHERN!
                             email: '',
                             createdAt: firebase.database.ServerValue.TIMESTAMP,
                             createdBy: 'quick-booking-phone',
@@ -29308,14 +29309,14 @@
                         });
                         
                         finalCustomerId = newCustomerRef.key;
-                        console.log('✅ Neuer Kunde gespeichert:', finalCustomerId, '-', newCustomerName);
+                        console.log('✅ Neuer Kunde gespeichert:', finalCustomerId, '-', newCustomerName, '-', pickup);
                         
                         // Create finalCustomer
                         finalCustomer = {
                             id: finalCustomerId,
                             name: newCustomerName,
                             phone: newCustomerPhone,
-                            address: '',
+                            address: pickup || '', // 🆕 v5.87.73
                             email: ''
                         };
                         
@@ -29357,6 +29358,7 @@
                 // 🆕 v5.73.0: NEUER KUNDE (isNew) → INS CRM SPEICHERN!
                 if (finalCustomer && finalCustomer.isNew) {
                     console.log('🆕 Neuer Kunde erkannt - speichere ins CRM...');
+                    console.log('📍 Adresse:', pickup); // 🆕 v5.87.73
                     
                     // Hole Name aus dem Suchfeld
                     const searchField = document.getElementById('quick-booking-customer-search');
@@ -29378,7 +29380,7 @@
                         await newCustomerRef.set({
                             name: customerName,
                             phone: finalCustomer.phone,
-                            address: '',
+                            address: pickup || '', // 🆕 v5.87.73: ADRESSE SPEICHERN!
                             email: '',
                             createdAt: firebase.database.ServerValue.TIMESTAMP,
                             createdBy: 'quick-booking',
@@ -29386,14 +29388,14 @@
                         });
                         
                         finalCustomerId = newCustomerRef.key;
-                        console.log('✅ Neuer Kunde gespeichert:', finalCustomerId, '-', customerName);
+                        console.log('✅ Neuer Kunde gespeichert:', finalCustomerId, '-', customerName, '-', pickup);
                         
                         // Update finalCustomer
                         finalCustomer = {
                             id: finalCustomerId,
                             name: customerName,
                             phone: finalCustomer.phone,
-                            address: '',
+                            address: pickup || '', // 🆕 v5.87.73
                             email: ''
                         };
                         

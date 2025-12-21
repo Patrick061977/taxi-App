@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.79 - STABLE: v5.87.72 + NEUE FEATURES! ✅ (Build 20251221-1615)');
+        console.log('🚕 Funk Taxi App v5.87.80 - FIX: STORAGE LOG + POI BUTTON! 🔧✅ (Build 20251221-1845)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.87.79 - STABLE: v5.87.72 + NEUE FEATURES! ✅ (Build 20251221-1615)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧✅ Version 5.87.80 - FIX: STORAGE LOG + POI BUTTON + DEBUG! ✅ (Build 20251221-1845)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8315,8 +8315,41 @@
         // 🆕 v5.87.26: Logs aus IndexedDB exportieren
         async function exportStoredLogs() {
             try {
+                console.log('📥 Export Stored Logs gestartet...');
+                
+                // 🆕 v5.87.80: EXPORT AKTUELLER CONSOLE LOGS!
+                if (window.debugLogs && window.debugLogs.length > 0) {
+                    console.log('✅ Exportiere Debug Logs:', window.debugLogs.length);
+                    
+                    // Erstelle Text aus Debug Logs
+                    const text = window.debugLogs.map(log => {
+                        return `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`;
+                    }).join('\n');
+                    
+                    // Download
+                    const now = new Date();
+                    const dateStr = now.toISOString().slice(0,10);
+                    const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '-');
+                    const filename = `taxi-console-logs-${dateStr}_${timeStr}.txt`;
+                    
+                    const blob = new Blob([text], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    alert(`✅ ${window.debugLogs.length} Console Logs exportiert!`);
+                    return;
+                }
+                
+                // Fallback: Versuche IndexedDB
                 if (!window.logDB) {
-                    alert('❌ Log-DB nicht initialisiert!');
+                    alert('❌ Keine Logs verfügbar! Bitte Debug-View öffnen um Logs zu sammeln.');
+                    console.warn('⚠️ window.debugLogs leer und window.logDB nicht initialisiert');
                     return;
                 }
                 
@@ -8342,8 +8375,8 @@
                     
                     // Download
                     const now = new Date();
-                    const dateStr = now.toISOString().slice(0,10); // 2025-12-19
-                    const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '-'); // 08-25-30
+                    const dateStr = now.toISOString().slice(0,10);
+                    const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '-');
                     const filename = `taxi-logs-${dateStr}_${timeStr}.txt`;
                     
                     const blob = new Blob([text], { type: 'text/plain' });
@@ -8751,11 +8784,29 @@
                     // 🚗 Fahrzeuge aus Firebase laden
                     setTimeout(() => loadVehiclesFromFirebase(), 0);
                     
-                    // ⭐ v5.86.30: POIs aus Firebase laden (ORIGINAL v5.87.72 - FUNKTIONIERT!)
-                    setTimeout(() => loadPOIs(), 0);
+                    // ⭐ v5.87.80: POIs aus Firebase laden + DEBUG LOGS!
+                    setTimeout(() => {
+                        console.log('🔧 v5.87.80: Starte POI-Loading...');
+                        console.log('   isFirebaseReady:', isFirebaseReady);
+                        console.log('   typeof loadPOIs:', typeof loadPOIs);
+                        if (typeof loadPOIs === 'function') {
+                            loadPOIs();
+                        } else {
+                            console.error('❌ loadPOIs Funktion nicht gefunden!');
+                        }
+                    }, 100);
                     
-                    // 🏨 v5.77.0: Hotel-Kalender laden (ORIGINAL v5.87.72 - FUNKTIONIERT!)
-                    setTimeout(() => initHotelCalendars(), 0);
+                    // 🏨 v5.87.80: Hotel-Kalender laden + DEBUG LOGS!
+                    setTimeout(() => {
+                        console.log('🔧 v5.87.80: Starte Hotel-Kalender-Loading...');
+                        console.log('   isFirebaseReady:', isFirebaseReady);
+                        console.log('   typeof initHotelCalendars:', typeof initHotelCalendars);
+                        if (typeof initHotelCalendars === 'function') {
+                            initHotelCalendars();
+                        } else {
+                            console.error('❌ initHotelCalendars Funktion nicht gefunden!');
+                        }
+                    }, 100);
                     
                     // 📄 v5.78.0: Hotel-Rechnungen laden
                     setTimeout(() => initHotelInvoices(), 0);

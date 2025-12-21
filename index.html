@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.73 - AUTO-CRM + AUTOCOMPLETE! 👤📍✅ (Build 20251221-1045)');
+        console.log('🚕 Funk Taxi App v5.87.74 - ANRUFLISTE ADRESSE + AUTOCOMPLETE! 🏠✅ (Build 20251221-1100)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👤📍 Version 5.87.73 - AUTO-CRM + AUTOCOMPLETE! ✅ (Build 20251221-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏠📍 Version 5.87.74 - ANRUFLISTE ADRESSE + AUTOCOMPLETE! ✅ (Build 20251221-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5517,9 +5517,12 @@
             console.log('✅ [CallHistory] Anrufhistorie Listener AKTIV - wartet auf LIVE Updates!');
         }
         
-        function displayCallHistory(snapshot) {
+        async function displayCallHistory(snapshot) {
             const container = document.getElementById('call-history-container');
-            if (!container) return;
+            if (!container) {
+                console.warn('⚠️ [CallHistory] Container nicht gefunden');
+                return;
+            }
             
             const calls = [];
             snapshot.forEach(child => {
@@ -5528,7 +5531,24 @@
                     ...child.val()
                 });
             });
+            console.log(`📋 [CallHistory] ${calls.length} Anrufe aus Firebase geladen`);
             
+            // 🆕 v5.87.74: LADE ADRESSEN für bekannte Kunden!
+            for (const call of calls) {
+                if (call.customerFound && call.customerId && !call.customerAddress) {
+                    try {
+                        const customerSnapshot = await db.ref('customers/' + call.customerId).once('value');
+                        const customer = customerSnapshot.val();
+                        if (customer && customer.address) {
+                            call.customerAddress = customer.address;
+                        }
+                    } catch (err) {
+                        console.error('❌ [CallHistory] Fehler beim Laden der Kundenadresse:', err);
+                    }
+                }
+            }
+            console.log(`✅ [CallHistory] ${calls.length} Anrufe im UI angezeigt`);
+
             // Sortiere nach Timestamp (neueste zuerst)
             calls.sort((a, b) => b.timestamp - a.timestamp);
             
@@ -5569,6 +5589,11 @@
                                     <div style="font-weight:700;font-size:15px;color:#1f2937;margin-bottom:4px;">
                                         ${call.customerName || call.caller}
                                     </div>
+                                    ${call.customerFound && call.customerAddress ? `
+                                        <div style="font-size:13px;color:#059669;margin-bottom:2px;font-weight:600;">
+                                            🏠 ${call.customerAddress}
+                                        </div>
+                                    ` : ''}
                                     ${call.customerFound && call.customerName ? `
                                         <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">
                                             📞 ${call.caller}
@@ -25087,9 +25112,10 @@
                         <label style="display:block;font-weight:600;margin-bottom:5px;">Name:</label>
                         <input type="text" id="new-phone-customer-name" placeholder="Erforderlich" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
                     </div>
-                    <div style="margin-bottom:15px;">
+                    <div style="margin-bottom:15px;position:relative;">
                         <label style="display:block;font-weight:600;margin-bottom:5px;">Adresse:</label>
-                        <input type="text" id="new-phone-customer-address" placeholder="Optional" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;">
+                        <input type="text" id="new-phone-customer-address" placeholder="Optional - Tippe für Vorschläge..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;" autocomplete="off">
+                        <div id="new-customer-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                         <button onclick="this.closest('div').parentElement.remove()" style="padding:12px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
@@ -25102,6 +25128,52 @@
                 </div>
             `;
             document.body.appendChild(miniModal);
+            
+            // 🆕 v5.87.74: AUTOCOMPLETE FÜR ADRESS-FELD!
+            setTimeout(() => {
+                const addressInput = document.getElementById('new-phone-customer-address');
+                const dropdown = document.getElementById('new-customer-address-dropdown');
+                
+                let autocompleteTimeout = null;
+                
+                // Focus Event - Zeige Favoriten
+                addressInput.addEventListener('focus', () => {
+                    if (!addressInput.value || addressInput.value.length < 3) {
+                        searchNewCustomerAddress('');
+                    }
+                });
+                
+                // Input Event - Suche während Tippen
+                addressInput.addEventListener('input', (e) => {
+                    clearTimeout(autocompleteTimeout);
+                    const value = e.target.value.trim();
+                    
+                    if (value.length === 0) {
+                        searchNewCustomerAddress('');
+                        return;
+                    }
+                    
+                    if (value.length < 3) {
+                        dropdown.innerHTML = '<div style="padding:10px;color:#999;">Mindestens 3 Zeichen...</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;">Suche...</div>';
+                    dropdown.style.display = 'block';
+                    
+                    autocompleteTimeout = setTimeout(() => {
+                        searchNewCustomerAddress(value);
+                    }, 300);
+                });
+                
+                // Schließe Dropdown beim Klicken außerhalb
+                document.addEventListener('click', (e) => {
+                    if (e.target !== addressInput && !dropdown.contains(e.target)) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+            }, 100);
             
             // Focus auf Name
             setTimeout(() => {
@@ -25174,6 +25246,134 @@
                 toast.innerHTML = `❌ Fehler beim Speichern!`;
                 setTimeout(() => toast.remove(), 3000);
             }
+        }
+        
+        // 🆕 v5.87.74: AUTOCOMPLETE FÜR NEUER KUNDE ADRESSE
+        async function searchNewCustomerAddress(query) {
+            const dropdown = document.getElementById('new-customer-address-dropdown');
+            if (!dropdown) return;
+            
+            const frequentDestinations = allPOIs.length > 0 ? allPOIs : [];
+            
+            // Zeige Favoriten wenn Suche leer oder < 3 Zeichen
+            if (!query || query.length < 3) {
+                if (frequentDestinations.length === 0) {
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">💡 Tipp: Admin kann Favoriten hinzufügen!</div>';
+                    dropdown.style.display = 'block';
+                    return;
+                }
+                
+                dropdown.innerHTML = frequentDestinations.map(dest => {
+                    const addressString = `${dest.name}, ${dest.address}`;
+                    return `
+                        <div onclick="selectNewCustomerAddress('${addressString.replace(/'/g, "\\'")}');" style="
+                            padding: 12px;
+                            cursor: pointer;
+                            border-bottom: 1px solid #e5e7eb;
+                        " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                            <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
+                            <div style="font-size:13px;color:#666;margin-top:2px;">${dest.address}</div>
+                        </div>
+                    `;
+                }).join('');
+                dropdown.style.display = 'block';
+                return;
+            }
+            
+            try {
+                // Erst POIs durchsuchen
+                const lowerQuery = query.toLowerCase();
+                const matchingPOIs = frequentDestinations.filter(dest => 
+                    dest.name.toLowerCase().includes(lowerQuery) || 
+                    dest.address.toLowerCase().includes(lowerQuery)
+                );
+                
+                // Dann Nominatim
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?` +
+                    `format=json&` +
+                    `q=${encodeURIComponent(query)}&` +
+                    `countrycodes=de,pl&` +
+                    `limit=10&` +
+                    `addressdetails=1`
+                );
+                
+                const results = await response.json();
+                
+                if (matchingPOIs.length === 0 && results.length === 0) {
+                    dropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Ergebnisse</div>';
+                    dropdown.style.display = 'block';
+                    return;
+                }
+                
+                let html = '';
+                
+                // POIs zuerst
+                if (matchingPOIs.length > 0) {
+                    html += `<div style="padding:8px;background:#fef3c7;border-bottom:2px solid #f59e0b;font-weight:600;font-size:12px;color:#92400e;">
+                        🏥 BEKANNTE ORTE
+                    </div>`;
+                    html += matchingPOIs.map(dest => {
+                        const addressString = `${dest.name}, ${dest.address}`;
+                        return `
+                            <div onclick="selectNewCustomerAddress('${addressString.replace(/'/g, "\\'")}');" style="
+                                padding: 12px;
+                                cursor: pointer;
+                                border-bottom: 1px solid #e5e7eb;
+                                background:#fffbeb;
+                            " onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
+                                <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;">${dest.address}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                
+                // Nominatim Ergebnisse
+                if (results.length > 0) {
+                    if (matchingPOIs.length > 0) {
+                        html += `<div style="padding:8px;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:12px;color:#6b7280;">
+                            📍 SUCHERGEBNISSE
+                        </div>`;
+                    }
+                    
+                    html += results.map(r => {
+                        const address = r.address;
+                        let displayText = '';
+                        if (address.road) displayText += address.road + ' ';
+                        if (address.house_number) displayText += address.house_number + ', ';
+                        if (address.village || address.town || address.city) {
+                            displayText += (address.village || address.town || address.city);
+                        }
+                        
+                        return `
+                            <div onclick="selectNewCustomerAddress('${displayText.replace(/'/g, "\\'")}');" style="
+                                padding: 12px;
+                                cursor: pointer;
+                                border-bottom: 1px solid #e5e7eb;
+                            " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                                <div style="font-weight:600;font-size:14px;">${displayText}</div>
+                                <div style="font-size:11px;color:#999;">${r.display_name}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                
+                dropdown.innerHTML = html;
+                dropdown.style.display = 'block';
+                
+            } catch (error) {
+                console.error('❌ Autocomplete Fehler:', error);
+                dropdown.innerHTML = '<div style="padding:10px;color:#ef4444;">Fehler bei der Suche</div>';
+                dropdown.style.display = 'block';
+            }
+        }
+        
+        function selectNewCustomerAddress(address) {
+            const input = document.getElementById('new-phone-customer-address');
+            const dropdown = document.getElementById('new-customer-address-dropdown');
+            if (input) input.value = address;
+            if (dropdown) dropdown.style.display = 'none';
         }
         
         // 🆕 v5.52.9: CLEAR CRM BUCHUNG
@@ -38650,9 +38850,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('✅ Anrufhistorie Listener aktiv');
         }
         
-        function displayCallHistory(snapshot) {
+        async function displayCallHistory(snapshot) {
             const container = document.getElementById('call-history-container');
-            if (!container) return;
+            if (!container) {
+                console.warn('⚠️ [CallHistory] Container nicht gefunden');
+                return;
+            }
             
             const calls = [];
             snapshot.forEach(child => {
@@ -38661,7 +38864,24 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     ...child.val()
                 });
             });
+            console.log(`📋 [CallHistory] ${calls.length} Anrufe aus Firebase geladen`);
             
+            // 🆕 v5.87.74: LADE ADRESSEN für bekannte Kunden!
+            for (const call of calls) {
+                if (call.customerFound && call.customerId && !call.customerAddress) {
+                    try {
+                        const customerSnapshot = await db.ref('customers/' + call.customerId).once('value');
+                        const customer = customerSnapshot.val();
+                        if (customer && customer.address) {
+                            call.customerAddress = customer.address;
+                        }
+                    } catch (err) {
+                        console.error('❌ [CallHistory] Fehler beim Laden der Kundenadresse:', err);
+                    }
+                }
+            }
+            console.log(`✅ [CallHistory] ${calls.length} Anrufe im UI angezeigt`);
+
             // Sortiere nach Timestamp (neueste zuerst)
             calls.sort((a, b) => b.timestamp - a.timestamp);
             
@@ -38702,6 +38922,11 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                     <div style="font-weight:700;font-size:15px;color:#1f2937;margin-bottom:4px;">
                                         ${call.customerName || call.caller}
                                     </div>
+                                    ${call.customerFound && call.customerAddress ? `
+                                        <div style="font-size:13px;color:#059669;margin-bottom:2px;font-weight:600;">
+                                            🏠 ${call.customerAddress}
+                                        </div>
+                                    ` : ''}
                                     ${call.customerFound && call.customerName ? `
                                         <div style="font-size:13px;color:#6b7280;margin-bottom:2px;">
                                             📞 ${call.caller}

@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.84 - loadPOIs WIEDERHERGESTELLT! 🔧✅ (Build 20251221-1935)');
+        console.log('🚕 Funk Taxi App v5.87.86 - EINSTELLUNGEN: MWST + ZAHLUNGSARTEN! ⚙️✅ (Build 20251221-2000)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧✅ Version 5.87.84 - loadPOIs WIEDERHERGESTELLT! ALLES FUNKTIONIERT! ✅ (Build 20251221-1935)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚙️✅ Version 5.87.86 - EINSTELLUNGEN: MWST + ZAHLUNGSARTEN VERWALTEN! ✅ (Build 20251221-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2985,6 +2985,46 @@
             <div id="call-history-container" style="max-height:400px;overflow-y:auto;">
                 <div style="text-align:center;padding:40px;color:#6b7280;">
                     Lade Anrufhistorie...
+                </div>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.87.86: EINSTELLUNGEN (MWST + ZAHLUNGSARTEN) -->
+        <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #8b5cf6;box-shadow:0 4px 12px rgba(139,92,246,0.15);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                <div style="font-size:24px;">⚙️</div>
+                <div style="font-weight:700;font-size:16px;color:#6d28d9;">Einstellungen</div>
+            </div>
+            
+            <!-- MWST-SÄTZE -->
+            <div style="background:#f5f3ff;padding:15px;border-radius:8px;margin-bottom:15px;border-left:4px solid #8b5cf6;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div style="font-weight:600;color:#6d28d9;">💶 MwSt-Sätze</div>
+                    <button onclick="openAddVatRateModal()" style="padding:6px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                        ➕ Neuer Satz
+                    </button>
+                </div>
+                <div id="vat-rates-list" style="display:flex;flex-direction:column;gap:8px;">
+                    <!-- Wird dynamisch gefüllt -->
+                    <div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">
+                        Lade MwSt-Sätze...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ZAHLUNGSARTEN -->
+            <div style="background:#fef3c7;padding:15px;border-radius:8px;border-left:4px solid #f59e0b;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div style="font-weight:600;color:#92400e;">💳 Zahlungsarten</div>
+                    <button onclick="openAddPaymentMethodModal()" style="padding:6px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                        ➕ Neue Zahlungsart
+                    </button>
+                </div>
+                <div id="payment-methods-list" style="display:flex;flex-direction:column;gap:8px;">
+                    <!-- Wird dynamisch gefüllt -->
+                    <div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">
+                        Lade Zahlungsarten...
+                    </div>
                 </div>
             </div>
         </div>
@@ -5389,46 +5429,18 @@
                     </button>
                 `;
             } else {
-                // NEUER KUNDE
-                popupHTML += `
-                    <div style="background:#fef3c7;padding:16px;border-radius:12px;margin-bottom:20px;border:2px solid #f59e0b;">
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                            <span style="font-size:24px;">⚠️</span>
-                            <span style="font-size:18px;font-weight:700;color:#92400e;">Neuer Kunde</span>
-                        </div>
-                        <div style="color:#92400e;">Diese Nummer ist noch nicht in der Datenbank.</div>
-                    </div>
-                    
-                    <!-- Kunde erfassen -->
-                    <div style="background:#f9fafb;padding:16px;border-radius:12px;margin-bottom:20px;">
-                        <div style="font-weight:600;margin-bottom:12px;color:#1f2937;">Kundendaten erfassen:</div>
-                        
-                        <div style="margin-bottom:12px;">
-                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">Name</label>
-                            <input type="text" id="new-customer-name" placeholder="Max Mustermann" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                        </div>
-                        
-                        <div style="margin-bottom:12px;">
-                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">Adresse</label>
-                            <input type="text" id="new-customer-address" placeholder="Musterstraße 1, 17424 Heringsdorf" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                        </div>
-                        
-                        <div style="margin-bottom:12px;">
-                            <label style="display:block;font-size:14px;color:#6b7280;margin-bottom:4px;">E-Mail (optional)</label>
-                            <input type="email" id="new-customer-email" placeholder="max@example.com" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                        </div>
-                    </div>
-                    
-                    <!-- Buttons -->
-                    <div style="display:flex;gap:12px;">
-                        <button onclick="saveNewCustomerAndBook('${caller}')" style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
-                            💾 Speichern & Fahrt buchen
-                        </button>
-                        <button onclick="closeCallPopup()" style="flex:1;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">
-                            Später
-                        </button>
-                    </div>
-                `;
+                // 🆕 v5.87.85: NEUER KUNDE - AUTO-MODAL ÖFFNEN!
+                console.log('🆕 Unbekannter Anruf → Öffne automatisch Neuer-Kunde-Modal!');
+                
+                // Schließe Popup
+                closeCallPopup();
+                
+                // Öffne "Neuer Kunde" Modal mit Telefonnummer
+                setTimeout(() => {
+                    openNewCustomerModalWithPhone(caller);
+                }, 300);
+                
+                return; // Popup wird nicht angezeigt - direkt zum Modal!
             }
             
             popupHTML += `
@@ -8786,6 +8798,10 @@
                     
                     // ⭐ v5.87.82: POIs laden (ZURÜCK zu v5.87.72 Methode!)
                     setTimeout(() => loadPOIs(), 0);
+                    
+                    // 🆕 v5.87.86: EINSTELLUNGEN LADEN
+                    setTimeout(() => loadVatRates(), 0);
+                    setTimeout(() => loadPaymentMethods(), 0);
                     
                     // 🏨 v5.87.82: Hotel-Kalender laden (ZURÜCK zu v5.87.72 Methode!)
                     setTimeout(() => initHotelCalendars(), 0);
@@ -26079,6 +26095,106 @@
             const miniModal = document.getElementById('new-qb-customer-modal');
             if (miniModal) {
                 miniModal.remove();
+            }
+        }
+        
+        // 🆕 v5.87.85: ÖFFNE "NEUER KUNDE" MODAL MIT TELEFONNUMMER (für Anrufe!)
+        function openNewCustomerModalWithPhone(phone) {
+            console.log('📞 Öffne Neuer-Kunde-Modal mit Telefon:', phone);
+            
+            // Mini-Modal für zusätzliche Daten
+            const miniModal = document.createElement('div');
+            miniModal.id = 'new-qb-customer-modal';
+            miniModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            miniModal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
+                    <h3 style="margin:0 0 15px 0;color:#1f2937;">➕ Neuer Kunde</h3>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Telefon: <span style="color:#ef4444;">*</span></label>
+                        <input type="tel" id="new-qb-customer-phone" value="${phone}" placeholder="z.B. 0170 1234567" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">👤 Name: <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="new-qb-customer-name" value="" placeholder="z.B. Max Mustermann" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📧 Email:</label>
+                        <input type="email" id="new-qb-customer-email" placeholder="Optional" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;position:relative;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">🏠 Adresse:</label>
+                        <input type="text" id="new-qb-customer-address" placeholder="Optional" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <div id="new-qb-customer-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10002;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button onclick="closeMiniModal()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveNewQuickBookingCustomer()" style="padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(miniModal);
+            
+            // 🆕 v5.87.20: AUTOCOMPLETE FÜR ADRESS-FELD!
+            const addressInput = document.getElementById('new-qb-customer-address');
+            const addressDropdown = document.getElementById('new-qb-customer-address-dropdown');
+            let addressAutocompleteTimeout = null;
+            
+            if (addressInput && addressDropdown) {
+                // Focus Event - Zeige Favoriten
+                addressInput.addEventListener('focus', () => {
+                    const value = addressInput.value.trim();
+                    if (!value || value.length < 3) {
+                        searchAddresses('', 'new-qb-customer-address');
+                    }
+                });
+                
+                // Input Event - Suche Adressen
+                addressInput.addEventListener('input', (e) => {
+                    clearTimeout(addressAutocompleteTimeout);
+                    const value = e.target.value.trim();
+                    
+                    if (value.length === 0) {
+                        searchAddresses('', 'new-qb-customer-address');
+                        return;
+                    }
+                    
+                    if (value.length < 3) {
+                        addressDropdown.style.display = 'none';
+                        return;
+                    }
+                    
+                    addressAutocompleteTimeout = setTimeout(() => {
+                        searchAddresses(value, 'new-qb-customer-address');
+                    }, 300);
+                });
+                
+                // Click außerhalb schließt Dropdown
+                document.addEventListener('click', (e) => {
+                    if (e.target !== addressInput && !addressDropdown.contains(e.target)) {
+                        addressDropdown.style.display = 'none';
+                    }
+                });
+                
+                console.log('✅ Autocomplete für Kunden-Adresse aktiviert!');
+            }
+            
+            // ⭐ FOKUS AUF NAME (Telefon ist schon ausgefüllt!)
+            setTimeout(() => {
+                document.getElementById('new-qb-customer-name').focus();
+            }, 100);
+        }
+        
+        // 🔧 Helper: Schließe Mini-Modal sicher (ALTE FUNKTION BLEIBT)
+                miniModal.remove();
                 console.log('✅ Mini-Modal geschlossen');
             }
         }
@@ -38866,6 +38982,365 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 console.log('✅ Schnellbuchungs-Modal geöffnet für neue Nummer:', phone);
             }, 500);
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ⚙️ EINSTELLUNGEN: MWST-SÄTZE + ZAHLUNGSARTEN
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // 🆕 v5.87.86: LADE MWST-SÄTZE
+        async function loadVatRates() {
+            console.log('💶 Lade MwSt-Sätze...');
+            
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase nicht bereit!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('settings/vatRates').once('value');
+                const container = document.getElementById('vat-rates-list');
+                
+                if (!container) return;
+                
+                if (!snapshot.exists()) {
+                    // STANDARD-SÄTZE ANLEGEN
+                    await db.ref('settings/vatRates').set({
+                        vat_1: { rate: 7, name: 'Ermäßigt (Taxi)', default: true, order: 1 },
+                        vat_2: { rate: 19, name: 'Normal', default: false, order: 2 },
+                        vat_3: { rate: 0, name: 'Keine MwSt', default: false, order: 3 }
+                    });
+                    console.log('✅ Standard MwSt-Sätze angelegt!');
+                    loadVatRates(); // Neu laden
+                    return;
+                }
+                
+                const rates = [];
+                snapshot.forEach(child => {
+                    rates.push({ id: child.key, ...child.val() });
+                });
+                
+                // Sortieren nach Order
+                rates.sort((a, b) => (a.order || 0) - (b.order || 0));
+                
+                container.innerHTML = rates.map(rate => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:white;padding:10px;border-radius:6px;border:${rate.default ? '2px solid #8b5cf6' : '1px solid #e5e7eb'};">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            ${rate.default ? '<span style="color:#8b5cf6;font-weight:700;">⭐</span>' : ''}
+                            <div>
+                                <div style="font-weight:600;color:#1f2937;">${rate.rate}%</div>
+                                <div style="font-size:12px;color:#6b7280;">${rate.name}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            ${!rate.default ? `<button onclick="setDefaultVatRate('${rate.id}')" style="padding:6px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:4px;cursor:pointer;font-size:11px;" title="Als Standard markieren">⭐</button>` : ''}
+                            <button onclick="editVatRate('${rate.id}', ${rate.rate}, '${rate.name}')" style="padding:6px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:4px;cursor:pointer;font-size:11px;">✏️</button>
+                            <button onclick="deleteVatRate('${rate.id}')" style="padding:6px 10px;background:#fee;color:#ef4444;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🗑️</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                console.log(`✅ ${rates.length} MwSt-Sätze geladen`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der MwSt-Sätze:', error);
+            }
+        }
+        
+        // 🆕 v5.87.86: LADE ZAHLUNGSARTEN
+        async function loadPaymentMethods() {
+            console.log('💳 Lade Zahlungsarten...');
+            
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase nicht bereit!');
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('settings/paymentMethods').once('value');
+                const container = document.getElementById('payment-methods-list');
+                
+                if (!container) return;
+                
+                if (!snapshot.exists()) {
+                    // STANDARD-ZAHLUNGSARTEN ANLEGEN
+                    await db.ref('settings/paymentMethods').set({
+                        pm_1: { name: 'Bar', icon: '💵', order: 1 },
+                        pm_2: { name: 'Überweisung', icon: '🏦', order: 2 },
+                        pm_3: { name: 'Lastschrift', icon: '💳', order: 3 },
+                        pm_4: { name: 'PayPal', icon: '💰', order: 4 },
+                        pm_5: { name: 'Kreditkarte', icon: '💳', order: 5 },
+                        pm_6: { name: 'Rechnung', icon: '📄', order: 6 }
+                    });
+                    console.log('✅ Standard Zahlungsarten angelegt!');
+                    loadPaymentMethods(); // Neu laden
+                    return;
+                }
+                
+                const methods = [];
+                snapshot.forEach(child => {
+                    methods.push({ id: child.key, ...child.val() });
+                });
+                
+                // Sortieren nach Order
+                methods.sort((a, b) => (a.order || 0) - (b.order || 0));
+                
+                container.innerHTML = methods.map(method => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:white;padding:10px;border-radius:6px;border:1px solid #e5e7eb;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:20px;">${method.icon || '💳'}</span>
+                            <div style="font-weight:600;color:#1f2937;">${method.name}</div>
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            <button onclick="editPaymentMethod('${method.id}', '${method.name}', '${method.icon || ''}')" style="padding:6px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:4px;cursor:pointer;font-size:11px;">✏️</button>
+                            <button onclick="deletePaymentMethod('${method.id}')" style="padding:6px 10px;background:#fee;color:#ef4444;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🗑️</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                console.log(`✅ ${methods.length} Zahlungsarten geladen`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Zahlungsarten:', error);
+            }
+        }
+        
+        // 🆕 v5.87.86: ÖFFNE MWST-SATZ HINZUFÜGEN MODAL
+        function openAddVatRateModal() {
+            const modal = document.createElement('div');
+            modal.id = 'vat-rate-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
+                    <h3 style="margin:0 0 15px 0;color:#1f2937;">➕ Neuer MwSt-Satz</h3>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Prozentsatz: <span style="color:#ef4444;">*</span></label>
+                        <input type="number" id="vat-rate-value" step="0.01" min="0" max="100" placeholder="z.B. 7 oder 19" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Bezeichnung: <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="vat-rate-name" placeholder="z.B. Ermäßigt (Taxi)" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="vat-rate-default" style="width:18px;height:18px;cursor:pointer;">
+                            <span style="font-weight:600;color:#374151;">Als Standard markieren</span>
+                        </label>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button onclick="closeVatRateModal()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                            Abbrechen
+                        </button>
+                        <button onclick="saveVatRate()" style="padding:14px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            setTimeout(() => {
+                document.getElementById('vat-rate-value').focus();
+            }, 100);
+        }
+        
+        // 🆕 v5.87.86: SPEICHERE MWST-SATZ
+        async function saveVatRate(editId = null) {
+            const value = parseFloat(document.getElementById('vat-rate-value').value);
+            const name = document.getElementById('vat-rate-name').value.trim();
+            const isDefault = document.getElementById('vat-rate-default').checked;
+            
+            if (!value && value !== 0) {
+                alert('❌ Bitte Prozentsatz eingeben!');
+                return;
+            }
+            
+            if (!name) {
+                alert('❌ Bitte Bezeichnung eingeben!');
+                return;
+            }
+            
+            try {
+                const id = editId || 'vat_' + Date.now();
+                
+                // Wenn als Standard markiert, andere entfernen
+                if (isDefault) {
+                    const snapshot = await db.ref('settings/vatRates').once('value');
+                    snapshot.forEach(child => {
+                        db.ref(`settings/vatRates/${child.key}/default`).set(false);
+                    });
+                }
+                
+                // Speichere Satz
+                await db.ref(`settings/vatRates/${id}`).set({
+                    rate: value,
+                    name: name,
+                    default: isDefault,
+                    order: Date.now()
+                });
+                
+                console.log('✅ MwSt-Satz gespeichert!');
+                
+                closeVatRateModal();
+                loadVatRates();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern!');
+            }
+        }
+        
+        // 🆕 v5.87.86: SETZE STANDARD MWST-SATZ
+        async function setDefaultVatRate(id) {
+            try {
+                // Alle auf false setzen
+                const snapshot = await db.ref('settings/vatRates').once('value');
+                snapshot.forEach(child => {
+                    db.ref(`settings/vatRates/${child.key}/default`).set(false);
+                });
+                
+                // Diesen auf true
+                await db.ref(`settings/vatRates/${id}/default`).set(true);
+                
+                console.log('✅ Standard MwSt-Satz gesetzt!');
+                loadVatRates();
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+            }
+        }
+        
+        // 🆕 v5.87.86: BEARBEITE MWST-SATZ
+        function editVatRate(id, rate, name) {
+            openAddVatRateModal();
+            setTimeout(() => {
+                document.getElementById('vat-rate-value').value = rate;
+                document.getElementById('vat-rate-name').value = name;
+                
+                const saveBtn = document.querySelector('#vat-rate-modal button:last-child');
+                saveBtn.onclick = () => saveVatRate(id);
+            }, 100);
+        }
+        
+        // 🆕 v5.87.86: LÖSCHE MWST-SATZ
+        async function deleteVatRate(id) {
+            if (!confirm('MwSt-Satz wirklich löschen?')) return;
+            
+            try {
+                await db.ref(`settings/vatRates/${id}`).remove();
+                console.log('✅ MwSt-Satz gelöscht!');
+                loadVatRates();
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+            }
+        }
+        
+        // 🆕 v5.87.86: SCHLIEßE MWST-MODAL
+        function closeVatRateModal() {
+            const modal = document.getElementById('vat-rate-modal');
+            if (modal) modal.remove();
+        }
+        
+        // 🆕 v5.87.86: ÖFFNE ZAHLUNGSART HINZUFÜGEN MODAL
+        function openAddPaymentMethodModal() {
+            const modal = document.createElement('div');
+            modal.id = 'payment-method-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
+                    <h3 style="margin:0 0 15px 0;color:#1f2937;">➕ Neue Zahlungsart</h3>
+                    
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Name: <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="payment-method-name" placeholder="z.B. Bar, Überweisung" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Icon (Emoji):</label>
+                        <input type="text" id="payment-method-icon" placeholder="z.B. 💵 🏦 💳" maxlength="2" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:24px;box-sizing:border-box;text-align:center;">
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px;">Tipp: Kopiere ein Emoji von https://emojipedia.org</div>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <button onclick="closePaymentMethodModal()" style="padding:14px;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                            Abbrechen
+                        </button>
+                        <button onclick="savePaymentMethod()" style="padding:14px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                            💾 Speichern
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            setTimeout(() => {
+                document.getElementById('payment-method-name').focus();
+            }, 100);
+        }
+        
+        // 🆕 v5.87.86: SPEICHERE ZAHLUNGSART
+        async function savePaymentMethod(editId = null) {
+            const name = document.getElementById('payment-method-name').value.trim();
+            const icon = document.getElementById('payment-method-icon').value.trim();
+            
+            if (!name) {
+                alert('❌ Bitte Namen eingeben!');
+                return;
+            }
+            
+            try {
+                const id = editId || 'pm_' + Date.now();
+                
+                await db.ref(`settings/paymentMethods/${id}`).set({
+                    name: name,
+                    icon: icon || '💳',
+                    order: Date.now()
+                });
+                
+                console.log('✅ Zahlungsart gespeichert!');
+                
+                closePaymentMethodModal();
+                loadPaymentMethods();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern!');
+            }
+        }
+        
+        // 🆕 v5.87.86: BEARBEITE ZAHLUNGSART
+        function editPaymentMethod(id, name, icon) {
+            openAddPaymentMethodModal();
+            setTimeout(() => {
+                document.getElementById('payment-method-name').value = name;
+                document.getElementById('payment-method-icon').value = icon;
+                
+                const saveBtn = document.querySelector('#payment-method-modal button:last-child');
+                saveBtn.onclick = () => savePaymentMethod(id);
+            }, 100);
+        }
+        
+        // 🆕 v5.87.86: LÖSCHE ZAHLUNGSART
+        async function deletePaymentMethod(id) {
+            if (!confirm('Zahlungsart wirklich löschen?')) return;
+            
+            try {
+                await db.ref(`settings/paymentMethods/${id}`).remove();
+                console.log('✅ Zahlungsart gelöscht!');
+                loadPaymentMethods();
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+            }
+        }
+        
+        // 🆕 v5.87.86: SCHLIEßE ZAHLUNGSART-MODAL
+        function closePaymentMethodModal() {
+            const modal = document.getElementById('payment-method-modal');
+            if (modal) modal.remove();
         }
         
         // ⭐ POI LOADING FUNKTION

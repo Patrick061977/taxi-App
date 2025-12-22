@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.86 - EINSTELLUNGEN: MWST + ZAHLUNGSARTEN! ⚙️✅ (Build 20251221-2000)');
+        console.log('🚕 Funk Taxi App v5.87.87 - SYNTAX FIX: closeMiniModal! ⚙️✅ (Build 20251222-1045)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚙️✅ Version 5.87.86 - EINSTELLUNGEN: MWST + ZAHLUNGSARTEN VERWALTEN! ✅ (Build 20251221-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚙️✅ Version 5.87.87 - SYNTAX FIX + EINSTELLUNGEN FUNKTIONIEREN! ✅ (Build 20251222-1045)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -26193,7 +26193,10 @@
             }, 100);
         }
         
-        // 🔧 Helper: Schließe Mini-Modal sicher (ALTE FUNKTION BLEIBT)
+        // 🔧 Helper: Schließe Mini-Modal sicher
+        function closeMiniModal() {
+            const miniModal = document.getElementById('new-qb-customer-modal');
+            if (miniModal) {
                 miniModal.remove();
                 console.log('✅ Mini-Modal geschlossen');
             }

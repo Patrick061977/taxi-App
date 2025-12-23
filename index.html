@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.87 - SYNTAX FIX: closeMiniModal! ⚙️✅ (Build 20251222-1045)');
+        console.log('🚕 Funk Taxi App v5.87.88 - RECHNUNGS-LAYOUT NEU: GRUPPIERUNG + 7% MWST! 📄✅ (Build 20251222-1100)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚙️✅ Version 5.87.87 - SYNTAX FIX + EINSTELLUNGEN FUNKTIONIEREN! ✅ (Build 20251222-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📄✅ Version 5.87.88 - RECHNUNGEN WIE VORLAGE: GRUPPIERT + 7% MWST + BANK-DATEN! ✅ (Build 20251222-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -42964,6 +42964,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // Erstelle PDF-Rechnung
+        // 🆕 v5.87.88: NEUE RECHNUNGS-GENERIERUNG MIT GRUPPIERUNG!
         async function createHotelInvoicePDF() {
             if (currentInvoiceRides.length === 0) {
                 alert('❌ Keine Fahrten zum Abrechnen!');
@@ -42975,150 +42976,267 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 return;
             }
             
-            console.log('📄 Erstelle PDF-Rechnung...');
+            console.log('📄 Erstelle PDF-Rechnung (v5.87.88 - GRUPPIERT)...');
             
             try {
-                // Berechne Summen
-                let nettoTotal = 0;
+                // 🆕 LADE MWST-SATZ AUS EINSTELLUNGEN
+                let vatRate = 19; // Default
+                try {
+                    const vatSnapshot = await db.ref('settings/vatRates').orderByChild('default').equalTo(true).once('value');
+                    if (vatSnapshot.exists()) {
+                        vatSnapshot.forEach(child => {
+                            vatRate = child.val().rate;
+                        });
+                    }
+                    console.log(`📊 MwSt-Satz: ${vatRate}%`);
+                } catch (e) {
+                    console.warn('⚠️ Konnte MwSt-Satz nicht laden, verwende 19%');
+                }
+                
+                // 🆕 GRUPPIERE FAHRTEN NACH TARIF
+                const groups = {
+                    bahnhof_normal: { name: 'Kaiserhof zum Bahnhof Normal', rides: [], price: 8.00, description: 'Kaiserhof zum Bahnhof oder zurück' },
+                    bahnhof_sonntag: { name: 'Kaiserhof zum Bahnhof Feiertag/Sonntag', rides: [], price: 9.00, description: 'Kaiserhof zum Bahnhof oder zurück' },
+                    flughafen: { name: 'Kaiserhof zum Flughafen', rides: [], price: 35.00, description: 'Kaiserhof zum Flughafen Hin oder zurück' }
+                };
+                
+                // Sortiere Fahrten in Gruppen
                 currentInvoiceRides.forEach(ride => {
-                    nettoTotal += parseFloat(ride.price || 0);
+                    const price = parseFloat(ride.price || 0);
+                    const pickupDate = new Date(ride.pickupTime || ride.createdAt);
+                    const dayOfWeek = pickupDate.getDay(); // 0 = Sonntag
+                    
+                    // Prüfe ob Bahnhof-Fahrt
+                    const isBahnhof = (ride.pickup || '').toLowerCase().includes('bahnhof') || 
+                                      (ride.destination || '').toLowerCase().includes('bahnhof');
+                    
+                    // Prüfe ob Flughafen-Fahrt
+                    const isFlughafen = (ride.pickup || '').toLowerCase().includes('flughafen') || 
+                                        (ride.destination || '').toLowerCase().includes('flughafen');
+                    
+                    if (isFlughafen) {
+                        groups.flughafen.rides.push(ride);
+                    } else if (isBahnhof) {
+                        // Sonntag oder 9€ Preis = Sonntag-Tarif
+                        if (dayOfWeek === 0 || price >= 9) {
+                            groups.bahnhof_sonntag.rides.push(ride);
+                        } else {
+                            groups.bahnhof_normal.rides.push(ride);
+                        }
+                    } else {
+                        // Default: Bahnhof Normal
+                        groups.bahnhof_normal.rides.push(ride);
+                    }
                 });
                 
-                const mwst = nettoTotal * 0.19;
-                const bruttoTotal = nettoTotal + mwst;
+                // Berechne Summen
+                let nettoTotal = 0;
+                const positions = [];
+                let posNr = 1;
+                
+                Object.keys(groups).forEach(key => {
+                    const group = groups[key];
+                    if (group.rides.length > 0) {
+                        const amount = group.rides.length;
+                        const total = amount * group.price;
+                        nettoTotal += total;
+                        
+                        positions.push({
+                            nr: posNr++,
+                            name: group.name,
+                            description: group.description,
+                            amount: amount,
+                            unit: 'Transfer',
+                            price: group.price,
+                            vatRate: vatRate,
+                            total: total
+                        });
+                    }
+                });
+                
+                const mwstAmount = nettoTotal * (vatRate / 100);
+                const bruttoTotal = nettoTotal + mwstAmount;
                 
                 // Rechnungsnummer generieren
-                const monthName = new Date(currentInvoiceMonth + '-01').toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit' });
-                const invoiceNr = `${monthName.replace('-', '')}-${currentInvoiceHotel.name.replace(/\s+/g, '-').toUpperCase()}`;
+                const now = new Date();
+                const monthStr = String(now.getMonth() + 1).padStart(2, '0');
+                const yearStr = String(now.getFullYear());
+                const hotelShort = currentInvoiceHotel.name.replace(/\s+/g, '-').toUpperCase().substring(0, 20);
+                const invoiceNr = `RE${Math.floor(1000 + Math.random() * 9000)}`;
                 
                 // Erstelle PDF mit jsPDF
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 
-                // Header
-                doc.setFontSize(20);
-                doc.setFont('helvetica', 'bold');
-                doc.text('RECHNUNG', 105, 20, { align: 'center' });
+                // 📄 LAYOUT WIE VORLAGE RE1213
+                let y = 20;
                 
+                // HEADER RECHTS
                 doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Rechnungsnr.:', 140, y);
                 doc.setFont('helvetica', 'normal');
-                doc.text(`Rechnungsnummer: ${invoiceNr}`, 105, 28, { align: 'center' });
+                doc.text(invoiceNr, 175, y);
+                y += 5;
                 
-                // Absender
+                doc.setFont('helvetica', 'bold');
+                doc.text('Kundennr.:', 140, y);
+                doc.setFont('helvetica', 'normal');
+                doc.text('10008', 175, y);
+                y += 5;
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text('Datum:', 140, y);
+                doc.setFont('helvetica', 'normal');
+                doc.text(new Date().toLocaleDateString('de-DE'), 175, y);
+                y += 5;
+                
+                // Lieferzeitraum
+                const monthName = new Date(currentInvoiceMonth + '-01').toLocaleDateString('de-DE', { month: '2-digit', year: 'numeric' });
+                const firstDay = `01.${monthName}`;
+                const lastDay = new Date(new Date(currentInvoiceMonth + '-01').getFullYear(), 
+                                         new Date(currentInvoiceMonth + '-01').getMonth() + 1, 
+                                         0).toLocaleDateString('de-DE');
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text('Lieferzeitraum:', 140, y);
+                doc.setFont('helvetica', 'normal');
+                doc.text(firstDay, 175, y);
+                y += 5;
+                doc.text('bis ' + lastDay, 175, y);
+                
+                // TITEL
+                y = 40;
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Rechnung', 20, y);
+                
+                // ABSENDER (LINKS)
+                y = 55;
                 doc.setFontSize(11);
                 doc.setFont('helvetica', 'bold');
-                doc.text('Funk Taxi Heringsdorf', 20, 45);
+                doc.text('Taxiunternehmen Patrick Wydra', 20, y);
+                y += 5;
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(10);
-                doc.text('Inhabername', 20, 50);
-                doc.text('Adresse', 20, 55);
-                doc.text('PLZ Ort', 20, 60);
+                doc.text('Amselring 10', 20, y);
+                y += 5;
+                doc.text('17424 Ostseebad Heringsdorf', 20, y);
+                y += 5;
+                doc.text('Tel.: Festnetz: 038378/22022', 20, y);
                 
-                // Empfänger
+                // EMPFÄNGER
+                y = 90;
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(11);
-                doc.text('Rechnungsempfänger:', 20, 75);
+                doc.text(currentInvoiceHotel.name || 'Hotel', 20, y);
+                y += 5;
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(10);
-                doc.text(currentInvoiceHotel.name, 20, 82);
-                doc.text('[Hotel Adresse]', 20, 87);
-                doc.text('[PLZ Ort]', 20, 92);
+                // Hier könnten Hotel-Adressen aus Firebase kommen
+                doc.text('August-Bebel-Str. 55', 20, y);
+                y += 5;
+                doc.text('18055 Rostock', 20, y);
                 
-                // Rechnungsdatum
-                const today = new Date().toLocaleDateString('de-DE');
-                const monthFull = new Date(currentInvoiceMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+                // TEXT
+                y = 115;
+                doc.setFontSize(10);
+                doc.text('Unsere Lieferungen/Leistungen stellen wir Ihnen wie folgt in Rechnung.', 20, y);
                 
-                doc.text(`Rechnungsdatum: ${today}`, 20, 105);
-                doc.text(`Leistungszeitraum: ${monthFull}`, 20, 110);
-                
-                // Tabelle Header
-                let y = 125;
+                // TABELLE HEADER
+                y = 130;
                 doc.setFont('helvetica', 'bold');
-                doc.text('Nr', 15, y);
-                doc.text('Datum', 25, y);
-                doc.text('Zeit', 50, y);
-                doc.text('Gast', 65, y);
-                doc.text('Von', 100, y);
-                doc.text('Nach', 130, y);
-                doc.text('Preis', 190, y, { align: 'right' });
-                
-                // Linie unter Header
-                doc.line(15, y + 2, 195, y + 2);
-                y += 7;
-                
-                // Fahrten (max 20 pro Seite)
-                doc.setFont('helvetica', 'normal');
                 doc.setFontSize(9);
+                doc.text('Pos.', 20, y);
+                doc.text('Bezeichnung', 35, y);
+                doc.text('Menge', 120, y);
+                doc.text('Einheit', 140, y);
+                doc.text('Einzel €', 160, y);
+                doc.text('USt. %', 180, y);
+                doc.text('Gesamt €', 195, y, { align: 'right' });
                 
-                currentInvoiceRides.forEach((ride, index) => {
-                    if (y > 270) {
-                        doc.addPage();
-                        y = 20;
-                    }
+                // LINIE
+                doc.line(20, y + 2, 195, y + 2);
+                y += 8;
+                
+                // POSITIONEN
+                doc.setFont('helvetica', 'normal');
+                positions.forEach(pos => {
+                    // Position Nummer
+                    doc.text(String(pos.nr), 20, y);
                     
-                    const date = new Date(ride.pickupTime || ride.createdAt);
-                    const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                    const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    const price = parseFloat(ride.price || 0).toFixed(2);
+                    // Bezeichnung (Mehrzeilig)
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(pos.name, 35, y);
+                    y += 4;
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(8);
+                    doc.text(pos.description, 35, y);
+                    doc.setFontSize(9);
+                    y -= 4;
                     
-                    const guestName = (ride.guestName || ride.customerName || '-').substring(0, 15);
-                    const pickup = (ride.pickup || '-').substring(0, 12);
-                    const destination = (ride.destination || '-').substring(0, 12);
+                    // Menge, Einheit, Preis
+                    doc.text(String(pos.amount), 120, y);
+                    doc.text(pos.unit, 140, y);
+                    doc.text(pos.price.toFixed(2), 160, y);
+                    doc.text(pos.vatRate.toFixed(2), 180, y);
+                    doc.text(pos.total.toFixed(2), 195, y, { align: 'right' });
                     
-                    doc.text(`${index + 1}`, 15, y);
-                    doc.text(dateStr, 25, y);
-                    doc.text(timeStr, 50, y);
-                    doc.text(guestName, 65, y);
-                    doc.text(pickup, 100, y);
-                    doc.text(destination, 130, y);
-                    doc.text(`${price}€`, 190, y, { align: 'right' });
-                    
-                    y += 5;
+                    y += 8;
                 });
                 
-                // Summen
+                // GESAMTBETRAG
                 y += 5;
-                doc.line(15, y, 195, y);
+                doc.line(20, y, 195, y);
                 y += 7;
                 
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10);
-                doc.text('Netto:', 140, y);
-                doc.text(`${nettoTotal.toFixed(2)}€`, 190, y, { align: 'right' });
-                y += 6;
+                doc.text('Gesamtbetrag*', 140, y);
+                doc.text(bruttoTotal.toFixed(2), 195, y, { align: 'right' });
                 
-                doc.setFont('helvetica', 'normal');
-                doc.text('MwSt 19%:', 140, y);
-                doc.text(`${mwst.toFixed(2)}€`, 190, y, { align: 'right' });
-                y += 6;
-                
-                doc.line(140, y, 195, y);
-                y += 7;
-                
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(12);
-                doc.text('GESAMT:', 140, y);
-                doc.text(`${bruttoTotal.toFixed(2)}€`, 190, y, { align: 'right' });
-                
-                // Status
+                // MWST-TEXT
                 y += 10;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                const mwstText = `* Im Gesamtbetrag von ${bruttoTotal.toFixed(2)} € (Netto: ${nettoTotal.toFixed(2)} €) sind USt ${vatRate} % (${mwstAmount.toFixed(2)} €) enthalten.`;
+                doc.text(mwstText, 20, y);
+                
+                // ZAHLUNGSHINWEIS
+                y += 10;
+                doc.setFont('helvetica', 'bold');
                 doc.setFontSize(10);
-                doc.setTextColor(220, 38, 38);
-                doc.text('Status: OFFEN', 20, y);
-                doc.setTextColor(0, 0, 0);
+                doc.text('Zahlbar innerhalb 14 Tagen nach Rechnungserhalt', 20, y);
                 
-                // Zahlungsziel
-                const paymentDue = new Date();
-                paymentDue.setDate(paymentDue.getDate() + 14);
-                doc.text(`Zahlbar bis: ${paymentDue.toLocaleDateString('de-DE')}`, 20, y + 6);
+                // DANKESCHÖN
+                y += 8;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.text('Vielen Dank für die gute Zusammenarbeit.', 20, y);
                 
-                // Footer
+                // FOOTER (UNTEN)
+                y = 270;
                 doc.setFontSize(8);
                 doc.setFont('helvetica', 'normal');
-                doc.text('Vielen Dank für Ihr Vertrauen!', 105, 285, { align: 'center' });
+                
+                // Bank-Daten
+                doc.text('Taxiunternehmen Patrick Wydra', 20, y);
+                doc.text('Volksbank Vorpommern', 100, y);
+                y += 4;
+                doc.text('Amselring 10', 20, y);
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 100, y);
+                y += 4;
+                doc.text('17424 Ostseebad Heringsdorf', 20, y);
+                doc.text('BIC: GENODEF1HST', 100, y);
+                y += 4;
+                doc.text('Tel.: Festnetz: 038378/22022', 20, y);
+                doc.text('Steuernummer: 084 289/01178', 100, y);
+                y += 4;
+                doc.text('', 20, y);
+                doc.text('IK: 601318664', 100, y);
                 
                 // Speichere PDF
-                const filename = `Rechnung_${invoiceNr}.pdf`;
+                const filename = `Rechnung_${invoiceNr}_${monthStr}_${yearStr}.pdf`;
                 doc.save(filename);
                 
                 console.log('✅ PDF erstellt:', filename);
@@ -43130,8 +43248,10 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     hotelName: currentInvoiceHotel.name,
                     month: currentInvoiceMonth,
                     ridesCount: currentInvoiceRides.length,
+                    positions: positions,
                     netto: nettoTotal,
-                    mwst: mwst,
+                    mwst: mwstAmount,
+                    vatRate: vatRate,
                     brutto: bruttoTotal,
                     status: 'open',
                     createdAt: Date.now(),
@@ -43151,7 +43271,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Reload Historie
                 await loadInvoiceHistory();
                 
-                alert(`✅ Rechnung erstellt!\n\n${invoiceNr}\n${currentInvoiceRides.length} Fahrten\n${bruttoTotal.toFixed(2)}€\n\nPDF wurde heruntergeladen.`);
+                alert(`✅ Rechnung erstellt!\n\n${invoiceNr}\n${positions.length} Positionen\n${currentInvoiceRides.length} Fahrten\n${bruttoTotal.toFixed(2)}€\n\nPDF wurde heruntergeladen.`);
                 
             } catch (error) {
                 console.error('❌ Fehler beim PDF-Erstellen:', error);

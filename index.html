@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.94 - SMS SEPARAT: BUCHUNG + TRACKING! 📱✅ (Build 20251223-0850)');
+        console.log('🚕 Funk Taxi App v5.87.95 - SMS VIA GOOGLE APPS SCRIPT PROXY! 📱✅ (Build 20251223-0945)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱✅ Version 5.87.94 - SMS SEPARAT: BUCHUNG + TRACKING! (Build 20251223-0850)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱✅ Version 5.87.95 - SMS VIA GOOGLE APPS SCRIPT PROXY! (Build 20251223-0945)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -13614,7 +13614,8 @@
         // 🆕 v5.87.93: SMS BENACHRICHTIGUNGEN VIA SEVEN.IO
         // ═══════════════════════════════════════════════════════════════════════════
         
-        const SEVEN_API_KEY = 'qqZJ5u9mutCqW1ojrLtZQIlpQ72iigqS67TQh4RQy9bTe6d6PmhXv5aU14NJkSVU';
+        // 🆕 v5.87.95: SMS VIA GOOGLE APPS SCRIPT PROXY
+        const SMS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbxfpDB-2HgzQfc-LhFIGZ8Szz26kNTl5zVsWxrYOwhLZ978I15pXreEWIWI8w_By7Aa/exec';
         const SMS_SENDER = 'FunkTaxi';
         
         // SMS senden via seven.io
@@ -13648,12 +13649,10 @@
             console.log('📱 Sende SMS an:', formattedPhone);
             
             try {
-                const response = await fetch('https://gateway.seven.io/api/sms', {
+                const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
                     headers: {
-                        'X-Api-Key': SEVEN_API_KEY,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         to: formattedPhone,
@@ -13935,12 +13934,10 @@
             console.log('📱 Sende BUCHUNGS-SMS an:', formattedPhone);
             
             try {
-                const response = await fetch('https://gateway.seven.io/api/sms', {
+                const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
                     headers: {
-                        'X-Api-Key': SEVEN_API_KEY,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         to: formattedPhone,
@@ -14002,12 +13999,10 @@
             console.log('📱 Sende TRACKING-SMS an:', formattedPhone);
             
             try {
-                const response = await fetch('https://gateway.seven.io/api/sms', {
+                const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
                     headers: {
-                        'X-Api-Key': SEVEN_API_KEY,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         to: formattedPhone,
@@ -39996,12 +39991,10 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // Generische Test-SMS Funktion
         async function sendTestSMS(phone, message, type) {
             try {
-                const response = await fetch('https://gateway.seven.io/api/sms', {
+                const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
                     headers: {
-                        'X-Api-Key': SEVEN_API_KEY,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         to: phone,

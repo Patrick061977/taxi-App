@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.90 - FLEXIBLES RECHNUNGS-SYSTEM + VERWALTUNG! 📄✏️ (Build 20251223-0730)');
+        console.log('🚕 Funk Taxi App v5.87.92 - SPEICHER-BUG GEFIXT! 🐛✅ (Build 20251223-0820)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📄✏️ Version 5.87.90 - FLEXIBLES RECHNUNGS-SYSTEM + VERWALTUNG! ✅ (Build 20251223-0730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛✅ Version 5.87.92 - SPEICHER-BUG GEFIXT! (Build 20251223-0820)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -29134,23 +29134,28 @@
                 doc.setTextColor(80);
                 
                 // Wenn zu nah am Ende → neue Seite
-                if (yPos > 240) {
+                if (yPos > 260) {
                     doc.addPage();
                     yPos = 20;
                 }
                 
-                doc.text('Bankverbindung:', 20, yPos);
-                yPos += 4;
-                doc.text('Volksbank Vorpommern', 20, yPos);
-                yPos += 4;
-                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos);
-                yPos += 4;
-                doc.text('BIC: GENODEF1HST', 20, yPos);
+                // 🆕 v5.87.91: KOMPAKTES FOOTER-LAYOUT (nebeneinander)
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                yPos += 5;
                 
-                yPos += 8;
-                doc.text('Steuernummer: 084 289/01178', 20, yPos);
-                yPos += 4;
-                doc.text('IK: 601318664', 20, yPos);
+                doc.setFontSize(8);
+                // Linke Spalte: Bankverbindung
+                doc.text('Bankverbindung:', 20, yPos);
+                doc.text('Volksbank Vorpommern', 20, yPos + 4);
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos + 8);
+                doc.text('BIC: GENODEF1HST', 20, yPos + 12);
+                
+                // Rechte Spalte: Steuerdaten
+                doc.text('Steuernummer: 084 289/01178', 120, yPos);
+                doc.text('IK: 601318664', 120, yPos + 4);
+                
+                yPos += 16;
                 
                 // 🆕 v5.52.4: Speichere in Firebase mit Positionen
                 const invoiceData = {
@@ -29363,29 +29368,30 @@
                 doc.text('Gesamtbetrag:', 100, yPos);
                 doc.text(`${totalGross.toFixed(2)}€`, 160, yPos, { align: 'right' });
                 
-                // FOOTER - Bankdaten (IMMER)
-                yPos += 20;
-                doc.setFontSize(9);
+                // FOOTER - Bankdaten (IMMER) - 🆕 v5.87.91: KOMPAKT NEBENEINANDER
+                yPos += 15;
+                doc.setFontSize(8);
                 doc.setFont(undefined, 'normal');
                 doc.setTextColor(80);
                 
-                if (yPos > 240) {
+                if (yPos > 260) {
                     doc.addPage();
                     yPos = 20;
                 }
                 
-                doc.text('Bankverbindung:', 20, yPos);
-                yPos += 4;
-                doc.text('Volksbank Vorpommern', 20, yPos);
-                yPos += 4;
-                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos);
-                yPos += 4;
-                doc.text('BIC: GENODEF1HST', 20, yPos);
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                yPos += 5;
                 
-                yPos += 8;
-                doc.text('Steuernummer: 084 289/01178', 20, yPos);
-                yPos += 4;
-                doc.text('IK: 601318664', 20, yPos);
+                // Linke Spalte: Bankverbindung
+                doc.text('Bankverbindung:', 20, yPos);
+                doc.text('Volksbank Vorpommern', 20, yPos + 4);
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos + 8);
+                doc.text('BIC: GENODEF1HST', 20, yPos + 12);
+                
+                // Rechte Spalte: Steuerdaten
+                doc.text('Steuernummer: 084 289/01178', 120, yPos);
+                doc.text('IK: 601318664', 120, yPos + 4);
                 
                 // Speichere in Firebase
                 const invoiceData = {
@@ -29966,24 +29972,27 @@
                 doc.text('Gesamtbetrag:', 100, yPos);
                 doc.text(`${(inv.totalGross || 0).toFixed(2)}€`, 160, yPos, { align: 'right' });
                 
-                // FOOTER (IMMER)
-                yPos += 20;
-                if (yPos > 240) { doc.addPage(); yPos = 20; }
+                // FOOTER (IMMER) - 🆕 v5.87.91: KOMPAKT NEBENEINANDER
+                yPos += 15;
+                if (yPos > 260) { doc.addPage(); yPos = 20; }
                 
-                doc.setFontSize(9);
+                doc.setFontSize(8);
                 doc.setFont(undefined, 'normal');
                 doc.setTextColor(80);
+                
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                yPos += 5;
+                
+                // Linke Spalte: Bankverbindung
                 doc.text('Bankverbindung:', 20, yPos);
-                yPos += 4;
-                doc.text('Volksbank Vorpommern', 20, yPos);
-                yPos += 4;
-                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos);
-                yPos += 4;
-                doc.text('BIC: GENODEF1HST', 20, yPos);
-                yPos += 8;
-                doc.text('Steuernummer: 084 289/01178', 20, yPos);
-                yPos += 4;
-                doc.text('IK: 601318664', 20, yPos);
+                doc.text('Volksbank Vorpommern', 20, yPos + 4);
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos + 8);
+                doc.text('BIC: GENODEF1HST', 20, yPos + 12);
+                
+                // Rechte Spalte: Steuerdaten
+                doc.text('Steuernummer: 084 289/01178', 120, yPos);
+                doc.text('IK: 601318664', 120, yPos + 4);
                 
                 doc.save(`Rechnung_${inv.invoiceNumber || invoiceId}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
                 
@@ -43594,7 +43603,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 ">
                                     ❌ Abbrechen
                                 </button>
-                                <button onclick="saveEditedRide('${rideId}')" style="
+                                <button onclick="saveEditedInvoiceRide('${rideId}')" style="
                                     padding: 14px;
                                     background: linear-gradient(135deg, #10b981, #059669);
                                     color: white;
@@ -43628,8 +43637,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             if (dialog) dialog.remove();
         }
         
-        // Speichere bearbeitete Fahrt
-        async function saveEditedRide(rideId) {
+        // Speichere bearbeitete Fahrt (Hotel-Rechnungen)
+        // 🆕 v5.87.91: Umbenannt zu saveEditedInvoiceRide um Konflikt zu vermeiden!
+        async function saveEditedInvoiceRide(rideId) {
             try {
                 // Lese Werte
                 const dateValue = document.getElementById('edit-date').value;

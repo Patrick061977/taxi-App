@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.89 - GASTNAME IN EINZEL-RECHNUNG! 📝📄 (Build 20251223-0700)');
+        console.log('🚕 Funk Taxi App v5.87.90 - FLEXIBLES RECHNUNGS-SYSTEM + VERWALTUNG! 📄✏️ (Build 20251223-0730)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📝📄 Version 5.87.89 - GASTNAME IN EINZEL-RECHNUNG! ✅ (Build 20251223-0700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📄✏️ Version 5.87.90 - FLEXIBLES RECHNUNGS-SYSTEM + VERWALTUNG! ✅ (Build 20251223-0730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3330,6 +3330,62 @@
                 <div id="invoice-history-list">
                     <div style="text-align:center;padding:20px;color:#6b7280;font-size:13px;">
                         Lade Historie...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.87.90: EINZEL-RECHNUNGEN VERWALTUNG -->
+        <div onclick="toggleAdminSection('single-invoices')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;font-size:15px;">📄 Einzel-Rechnungen <span id="single-invoices-count" style="background:white;color:#7c3aed;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+            <span id="single-invoices-toggle" style="font-size:20px;">▼</span>
+        </div>
+        <div id="single-invoices-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
+            
+            <!-- Filter -->
+            <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <div>
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">🔍 Suche</label>
+                        <input type="text" id="invoice-search" placeholder="Kunde, RE-Nr..." oninput="filterInvoicesList()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📊 Status</label>
+                        <select id="invoice-status-filter" onchange="filterInvoicesList()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                            <option value="">Alle</option>
+                            <option value="offen">Offen</option>
+                            <option value="bezahlt">Bezahlt</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">📅 Zeitraum</label>
+                        <input type="month" id="invoice-month-filter" onchange="filterInvoicesList()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rechnungsliste -->
+            <div id="single-invoices-list" style="max-height:500px;overflow-y:auto;">
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    <div style="font-size:48px;margin-bottom:10px;">📄</div>
+                    <div style="font-weight:600;margin-bottom:6px;">Lade Rechnungen...</div>
+                </div>
+            </div>
+            
+            <!-- Zusammenfassung -->
+            <div id="invoices-summary" style="display:none;margin-top:15px;padding:15px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border-radius:8px;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;text-align:center;">
+                    <div>
+                        <div style="font-size:24px;font-weight:700;" id="invoices-total-count">0</div>
+                        <div style="font-size:12px;opacity:0.9;">Gesamt</div>
+                    </div>
+                    <div>
+                        <div style="font-size:24px;font-weight:700;" id="invoices-open-amount">0€</div>
+                        <div style="font-size:12px;opacity:0.9;">Offen</div>
+                    </div>
+                    <div>
+                        <div style="font-size:24px;font-weight:700;" id="invoices-paid-amount">0€</div>
+                        <div style="font-size:12px;opacity:0.9;">Bezahlt</div>
                     </div>
                 </div>
             </div>
@@ -20269,6 +20325,9 @@
                 } else if (section === 'antifraud') {
                     // 🆕 v5.28.0: Anti-Betrugs-Alarme laden
                     loadAntiFraudAlerts();
+                } else if (section === 'single-invoices') {
+                    // 🆕 v5.87.90: Einzel-Rechnungen laden
+                    loadInvoicesList();
                 }
             } else {
                 content.style.display = 'none';
@@ -28620,13 +28679,23 @@
                     }
                 ];
                 
-                // Erstelle Modal
+                // 🆕 v5.87.90: NEUES FLEXIBLES RECHNUNGS-MODAL
+                const customerName = ride.customerName || customer?.name || 'Unbekannt';
+                const customerAddress = invoiceSelectedBillingAddress || customer?.billingAddress || customer?.address || '';
+                const customerEmail = customer?.email || '';
+                const customerPhone = customer?.phone || ride.phone || '';
+                const guestName = ride.guestName || '';
+                const rideDate = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleDateString('de-DE');
+                const rideTime = new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+                const pickup = ride.pickup || '';
+                const destination = ride.destination || '';
+                
                 const modal = document.createElement('div');
                 modal.id = 'invoice-modal';
                 modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
                 
                 modal.innerHTML = `
-                    <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;">
+                    <div style="background:white;border-radius:16px;max-width:800px;width:100%;max-height:90vh;overflow-y:auto;">
                         <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:10;">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
                                 <h3 style="margin:0;font-size:20px;">📄 Rechnung erstellen</h3>
@@ -28636,79 +28705,98 @@
                         </div>
                         
                         <div style="padding:20px;">
-                            <!-- KUNDE -->
-                            <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
-                                <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">👤 Kunde</div>
-                                <div style="margin-bottom:5px;"><strong>Name:</strong> ${ride.customerName || customer?.name || 'Unbekannt'}</div>
-                                ${customer?.email ? `<div style="margin-bottom:5px;"><strong>Email:</strong> ${customer.email}</div>` : ''}
+                            <!-- 🆕 BEARBEITBARE FELDER -->
+                            <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#1e40af;">✏️ Rechnungsdaten (bearbeitbar)</div>
                                 
-                                ${(() => {
-                                    // 🆕 v5.52.5: Rechnungsadresse-Dropdown
-                                    if (customer?.billingAddresses && customer.billingAddresses.length > 0) {
-                                        const defaultAddr = customer.billingAddresses.find(a => a.isDefault) || customer.billingAddresses[0];
-                                        
-                                        if (customer.billingAddresses.length === 1) {
-                                            // Nur eine Adresse → direkt anzeigen
-                                            return `<div style="margin-bottom:5px;"><strong>Rechnungsadresse:</strong><br>${defaultAddr.address}</div>`;
-                                        } else {
-                                            // Mehrere Adressen → Dropdown
-                                            const options = customer.billingAddresses.map(addr => 
-                                                `<option value="${addr.id}" ${addr.isDefault ? 'selected' : ''}>${addr.label || 'Ohne Label'} - ${addr.address.substring(0, 50)}...</option>`
-                                            ).join('');
-                                            
-                                            return `
-                                                <div style="margin-bottom:5px;">
-                                                    <strong>Rechnungsadresse:</strong>
-                                                    <select id="invoice-billing-address-select" 
-                                                            onchange="updateInvoiceBillingAddress()"
-                                                            style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;margin-top:5px;font-size:13px;">
-                                                        ${options}
-                                                    </select>
-                                                </div>
-                                            `;
-                                        }
-                                    } else if (customer?.billingAddress) {
-                                        // 🔄 Migration: Alte einzelne Adresse
-                                        return `<div style="margin-bottom:5px;"><strong>Rechnungsadresse:</strong><br>${customer.billingAddress}</div>`;
-                                    } else if (customer?.address) {
-                                        return `<div style="margin-bottom:5px;"><strong>Adresse:</strong><br>${customer.address}</div>`;
-                                    }
-                                    return '';
-                                })()}
-                            </div>
-                            
-                            <!-- 🆕 v5.87.89: GASTNAME (optional) -->
-                            ${ride.guestName ? `
-                            <div style="background:#fef3c7;border:2px solid #f59e0b;padding:15px;border-radius:10px;margin-bottom:20px;">
-                                <div style="font-weight:700;margin-bottom:10px;color:#92400e;">📝 Gastname (für Hotel-Fahrten)</div>
-                                <div style="font-size:16px;font-weight:600;color:#1f2937;">${ride.guestName}</div>
-                                <div style="font-size:12px;color:#6b7280;margin-top:5px;">💡 Rechnung geht an ${ride.customerName || 'Kunde'}, Fahrt wurde für Gast durchgeführt</div>
-                            </div>
-                            ` : ''}
-                            
-                            <!-- FAHRT -->
-                            <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
-                                <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">🚕 Fahrtdetails</div>
-                                <div style="margin-bottom:5px;"><strong>Datum:</strong> ${new Date(ride.pickupTimestamp || ride.createdAt).toLocaleDateString('de-DE')}</div>
-                                <div style="margin-bottom:5px;"><strong>Uhrzeit:</strong> ${new Date(ride.pickupTimestamp || ride.createdAt).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}</div>
-                                <div style="margin-bottom:5px;"><strong>Von:</strong> ${ride.pickup || 'Unbekannt'}</div>
-                                <div style="margin-bottom:5px;"><strong>Nach:</strong> ${ride.destination || 'Unbekannt'}</div>
-                                
-                                <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
                                     <div>
-                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Distanz (km):</label>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Kundenname:</label>
+                                        <input type="text" id="inv-customer-name" value="${customerName}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Gastname (optional):</label>
+                                        <input type="text" id="inv-guest-name" value="${guestName}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-top:10px;">
+                                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Rechnungsadresse:</label>
+                                    <textarea id="inv-address" rows="2" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;">${customerAddress}</textarea>
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Von:</label>
+                                        <input type="text" id="inv-pickup" value="${pickup}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Nach:</label>
+                                        <input type="text" id="inv-destination" value="${destination}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-top:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Datum:</label>
+                                        <input type="text" id="inv-date" value="${rideDate}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Uhrzeit:</label>
+                                        <input type="text" id="inv-time" value="${rideTime}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Distanz (km):</label>
                                         <input type="number" id="invoice-distance" value="${distance.toFixed(1)}" step="0.1" min="0"
                                                onchange="updateInvoiceDistanceAndVat()"
-                                               style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
                                     </div>
-                                    <div>
-                                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">MwSt:</label>
-                                        <select id="invoice-vat-rate" onchange="updateInvoiceCalculation()"
-                                                style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
-                                            <option value="7" ${vatRate === 7 ? 'selected' : ''}>7% (ermäßigt)</option>
-                                            <option value="19" ${vatRate === 19 ? 'selected' : ''}>19% (normal)</option>
-                                        </select>
-                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 🆕 CHECKBOXEN: WAS SOLL AUF DIE RECHNUNG? -->
+                            <div style="background:#fefce8;border:2px solid #eab308;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#854d0e;">📋 Was soll auf die Rechnung?</div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-customer" checked style="width:18px;height:18px;">
+                                        <span>👤 Kundenname</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-address" checked style="width:18px;height:18px;">
+                                        <span>📍 Adresse</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-guest" ${guestName ? 'checked' : ''} style="width:18px;height:18px;">
+                                        <span>📝 Gastname</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-route" checked style="width:18px;height:18px;">
+                                        <span>🚕 Von/Nach</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-datetime" checked style="width:18px;height:18px;">
+                                        <span>📅 Datum/Uhrzeit</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-distance" style="width:18px;height:18px;">
+                                        <span>📏 Distanz (km)</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-vat" checked style="width:18px;height:18px;">
+                                        <span>💶 MwSt-Ausweis</span>
+                                    </label>
+                                </div>
+                                
+                                <div style="margin-top:15px;padding:10px;background:#dcfce7;border-radius:6px;font-size:13px;color:#166534;">
+                                    🔒 <strong>Immer dabei:</strong> Rechnungsnummer, Datum, Bankdaten, Steuernummer
                                 </div>
                             </div>
                             
@@ -28723,6 +28811,16 @@
                                         onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
                                     + Position hinzufügen
                                 </button>
+                                
+                                <!-- MwSt Auswahl -->
+                                <div style="margin-top:15px;display:flex;align-items:center;gap:10px;">
+                                    <label style="font-size:13px;color:#6b7280;">MwSt-Satz:</label>
+                                    <select id="invoice-vat-rate" onchange="updateInvoiceCalculation()"
+                                            style="padding:8px 15px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
+                                        <option value="7" ${vatRate === 7 ? 'selected' : ''}>7% (ermäßigt)</option>
+                                        <option value="19" ${vatRate === 19 ? 'selected' : ''}>19% (normal)</option>
+                                    </select>
+                                </div>
                                 
                                 <!-- BERECHNUNG -->
                                 <div style="border-top:2px solid #10b981;padding-top:15px;margin-top:15px;">
@@ -28745,9 +28843,9 @@
                             
                             <!-- BUTTONS -->
                             <div style="display:flex;gap:10px;">
-                                <button onclick="generateInvoicePDF()" 
+                                <button onclick="generateInvoicePDFv2()" 
                                         style="flex:1;padding:15px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;">
-                                    📥 PDF herunterladen
+                                    📥 PDF erstellen & speichern
                                 </button>
                                 <button onclick="closeInvoiceModal()" 
                                         style="flex:0.3;padding:15px;background:#6b7280;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;">
@@ -29087,6 +29185,262 @@
             }
         }
         
+        // 🆕 v5.87.90: NEUE FLEXIBLE PDF-GENERIERUNG MIT CHECKBOXEN
+        async function generateInvoicePDFv2() {
+            try {
+                const rideId = document.getElementById('invoice-ride-id').value;
+                const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 7;
+                
+                // Hole Werte aus bearbeitbaren Feldern
+                const customerName = document.getElementById('inv-customer-name').value.trim();
+                const guestName = document.getElementById('inv-guest-name').value.trim();
+                const address = document.getElementById('inv-address').value.trim();
+                const pickup = document.getElementById('inv-pickup').value.trim();
+                const destination = document.getElementById('inv-destination').value.trim();
+                const rideDate = document.getElementById('inv-date').value.trim();
+                const rideTime = document.getElementById('inv-time').value.trim();
+                const distance = parseFloat(document.getElementById('invoice-distance').value) || 0;
+                
+                // Hole Checkbox-Status
+                const showCustomer = document.getElementById('inv-show-customer').checked;
+                const showAddress = document.getElementById('inv-show-address').checked;
+                const showGuest = document.getElementById('inv-show-guest').checked;
+                const showRoute = document.getElementById('inv-show-route').checked;
+                const showDateTime = document.getElementById('inv-show-datetime').checked;
+                const showDistance = document.getElementById('inv-show-distance').checked;
+                const showVat = document.getElementById('inv-show-vat').checked;
+                
+                // Berechne aus Positionen
+                const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
+                const netPrice = totalGross / (1 + (vatRate / 100));
+                const vatAmount = totalGross - netPrice;
+                
+                // Hole nächste Rechnungsnummer
+                const invoiceNumber = await getNextInvoiceNumber();
+                
+                console.log('📄 Erstelle flexible PDF:', invoiceNumber);
+                
+                // Erstelle PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // HEADER - Firmendaten (IMMER)
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text('Taxiunternehmen Patrick Wydra', 20, 20);
+                doc.text('Amselring 10', 20, 25);
+                doc.text('17424 Ostseebad Heringsdorf', 20, 30);
+                doc.text('Tel.: 038378/22022', 20, 35);
+                
+                // TITEL (IMMER)
+                doc.setFontSize(20);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text('Rechnung', 20, 50);
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
+                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 63);
+                
+                let yPos = 75;
+                
+                // KUNDE (optional)
+                if (showCustomer && customerName) {
+                    doc.setFontSize(11);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Kunde:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(10);
+                    yPos += 6;
+                    doc.text(customerName, 20, yPos);
+                    yPos += 5;
+                }
+                
+                // ADRESSE (optional)
+                if (showAddress && address) {
+                    const addressLines = doc.splitTextToSize(address, 80);
+                    doc.text(addressLines, 20, yPos);
+                    yPos += addressLines.length * 5;
+                }
+                
+                // GASTNAME (optional)
+                if (showGuest && guestName) {
+                    yPos += 3;
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Gastname:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 5;
+                    doc.text(guestName, 20, yPos);
+                    yPos += 5;
+                }
+                
+                // FAHRTDETAILS
+                yPos += 5;
+                let hasDetails = false;
+                
+                if (showDateTime || showRoute || showDistance) {
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Fahrtdetails:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 6;
+                    hasDetails = true;
+                }
+                
+                if (showDateTime) {
+                    doc.text(`Datum: ${rideDate}`, 20, yPos);
+                    yPos += 5;
+                    doc.text(`Uhrzeit: ${rideTime}`, 20, yPos);
+                    yPos += 5;
+                }
+                
+                if (showRoute) {
+                    doc.text(`Von: ${pickup}`, 20, yPos);
+                    yPos += 5;
+                    doc.text(`Nach: ${destination}`, 20, yPos);
+                    yPos += 5;
+                }
+                
+                if (showDistance) {
+                    doc.text(`Distanz: ${distance.toFixed(1)} km`, 20, yPos);
+                    yPos += 5;
+                }
+                
+                // POSITIONEN (IMMER)
+                yPos += 10;
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 8;
+                doc.setFont(undefined, 'bold');
+                doc.text('Pos.', 20, yPos);
+                doc.text('Beschreibung', 40, yPos);
+                doc.text('Betrag', 160, yPos, { align: 'right' });
+                
+                yPos += 2;
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 6;
+                doc.setFont(undefined, 'normal');
+                
+                invoicePositions.forEach((pos, index) => {
+                    if (yPos > 250) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.text(`${index + 1}`, 20, yPos);
+                    const desc = pos.description || 'Position';
+                    const descLines = doc.splitTextToSize(desc, 115);
+                    doc.text(descLines, 40, yPos);
+                    doc.text(`${parseFloat(pos.amount).toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    
+                    yPos += Math.max(6, descLines.length * 5);
+                });
+                
+                yPos += 4;
+                doc.line(20, yPos, 190, yPos);
+                
+                // MWST (optional)
+                if (showVat) {
+                    yPos += 6;
+                    doc.text('Zwischensumme (netto):', 100, yPos);
+                    doc.text(`${netPrice.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    
+                    yPos += 6;
+                    doc.text(`Umsatzsteuer ${vatRate}%:`, 100, yPos);
+                    doc.text(`${vatAmount.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    
+                    yPos += 2;
+                    doc.setDrawColor(0);
+                    doc.line(100, yPos, 190, yPos);
+                }
+                
+                // GESAMTBETRAG (IMMER)
+                yPos += 6;
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.text('Gesamtbetrag:', 100, yPos);
+                doc.text(`${totalGross.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                
+                // FOOTER - Bankdaten (IMMER)
+                yPos += 20;
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(80);
+                
+                if (yPos > 240) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.text('Bankverbindung:', 20, yPos);
+                yPos += 4;
+                doc.text('Volksbank Vorpommern', 20, yPos);
+                yPos += 4;
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos);
+                yPos += 4;
+                doc.text('BIC: GENODEF1HST', 20, yPos);
+                
+                yPos += 8;
+                doc.text('Steuernummer: 084 289/01178', 20, yPos);
+                yPos += 4;
+                doc.text('IK: 601318664', 20, yPos);
+                
+                // Speichere in Firebase
+                const invoiceData = {
+                    invoiceNumber: invoiceNumber,
+                    rideId: rideId,
+                    customerName: customerName,
+                    guestName: guestName,
+                    address: address,
+                    pickup: pickup,
+                    destination: destination,
+                    rideDate: rideDate,
+                    rideTime: rideTime,
+                    distance: distance,
+                    positions: invoicePositions,
+                    totalGross: totalGross,
+                    netPrice: netPrice,
+                    vatRate: vatRate,
+                    vatAmount: vatAmount,
+                    // Speichere Checkbox-Status für spätere Bearbeitung
+                    displayOptions: {
+                        showCustomer, showAddress, showGuest,
+                        showRoute, showDateTime, showDistance, showVat
+                    },
+                    status: 'offen',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                
+                await db.ref(`invoices/${invoiceNumber}`).set(invoiceData);
+                console.log('✅ Rechnung in Firebase gespeichert:', invoiceNumber);
+                
+                // PDF herunterladen
+                doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                
+                // Log
+                logActivity('admin', 'invoice_created', `Rechnung ${invoiceNumber} erstellt`, {
+                    customer: customerName,
+                    total: totalGross
+                });
+                
+                alert(`✅ Rechnung ${invoiceNumber} erstellt!\n\n📥 PDF wurde heruntergeladen.\n💾 In Firebase gespeichert.`);
+                
+                closeInvoiceModal();
+                
+                // Lade Rechnungsliste neu (falls offen)
+                if (typeof loadInvoicesList === 'function') {
+                    loadInvoicesList();
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der Rechnung:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         async function getNextInvoiceNumber() {
             try {
                 // Lade letzte Rechnungsnummer
@@ -29105,6 +29459,539 @@
                 console.error('❌ Fehler beim Abrufen der Rechnungsnummer:', error);
                 // Fallback: Zeitstempel
                 return `RE${Date.now()}`;
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 🆕 v5.87.90: EINZEL-RECHNUNGEN VERWALTUNG
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        let allInvoices = [];
+        
+        async function loadInvoicesList() {
+            console.log('📄 Lade Einzel-Rechnungen...');
+            
+            const container = document.getElementById('single-invoices-list');
+            const countEl = document.getElementById('single-invoices-count');
+            
+            if (!container) return;
+            
+            try {
+                const snapshot = await db.ref('invoices').orderByChild('createdAt').once('value');
+                
+                allInvoices = [];
+                snapshot.forEach(child => {
+                    allInvoices.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                // Neueste zuerst
+                allInvoices.reverse();
+                
+                if (countEl) countEl.textContent = allInvoices.length;
+                
+                renderInvoicesList(allInvoices);
+                updateInvoicesSummary(allInvoices);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Rechnungen:', error);
+                container.innerHTML = `<div style="text-align:center;padding:20px;color:#ef4444;">❌ Fehler: ${error.message}</div>`;
+            }
+        }
+        
+        function renderInvoicesList(invoices) {
+            const container = document.getElementById('single-invoices-list');
+            if (!container) return;
+            
+            if (invoices.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">📄</div>
+                        <div style="font-weight:600;">Keine Rechnungen gefunden</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <thead>
+                        <tr style="background:#f3f4f6;border-bottom:2px solid #e5e7eb;">
+                            <th style="padding:12px;text-align:left;">RE-Nr.</th>
+                            <th style="padding:12px;text-align:left;">Kunde</th>
+                            <th style="padding:12px;text-align:left;">Betrag</th>
+                            <th style="padding:12px;text-align:left;">Datum</th>
+                            <th style="padding:12px;text-align:center;">Status</th>
+                            <th style="padding:12px;text-align:center;">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            invoices.forEach(inv => {
+                const statusColor = inv.status === 'bezahlt' ? '#10b981' : '#f59e0b';
+                const statusText = inv.status === 'bezahlt' ? '✅ Bezahlt' : '⏳ Offen';
+                const dateStr = inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('de-DE') : '-';
+                
+                html += `
+                    <tr style="border-bottom:1px solid #e5e7eb;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                        <td style="padding:12px;font-weight:600;color:#8b5cf6;">${inv.invoiceNumber || inv.id}</td>
+                        <td style="padding:12px;">
+                            <div style="font-weight:500;">${inv.customerName || 'Unbekannt'}</div>
+                            ${inv.guestName ? `<div style="font-size:12px;color:#6b7280;">📝 ${inv.guestName}</div>` : ''}
+                        </td>
+                        <td style="padding:12px;font-weight:600;">${(inv.totalGross || 0).toFixed(2)}€</td>
+                        <td style="padding:12px;color:#6b7280;">${dateStr}</td>
+                        <td style="padding:12px;text-align:center;">
+                            <span style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:${statusColor}20;color:${statusColor};">${statusText}</span>
+                        </td>
+                        <td style="padding:12px;text-align:center;">
+                            <div style="display:flex;gap:5px;justify-content:center;">
+                                <button onclick="editInvoice('${inv.id}')" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Bearbeiten">✏️</button>
+                                <button onclick="regenerateInvoicePDF('${inv.id}')" style="padding:6px 10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="PDF neu erstellen">📥</button>
+                                <button onclick="toggleInvoiceStatus('${inv.id}')" style="padding:6px 10px;background:${inv.status === 'bezahlt' ? '#f59e0b' : '#10b981'};color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="${inv.status === 'bezahlt' ? 'Als offen markieren' : 'Als bezahlt markieren'}">${inv.status === 'bezahlt' ? '↩️' : '✅'}</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        
+        function filterInvoicesList() {
+            const search = (document.getElementById('invoice-search')?.value || '').toLowerCase();
+            const statusFilter = document.getElementById('invoice-status-filter')?.value || '';
+            const monthFilter = document.getElementById('invoice-month-filter')?.value || '';
+            
+            let filtered = allInvoices.filter(inv => {
+                // Textsuche
+                if (search) {
+                    const searchText = `${inv.customerName || ''} ${inv.guestName || ''} ${inv.invoiceNumber || inv.id}`.toLowerCase();
+                    if (!searchText.includes(search)) return false;
+                }
+                
+                // Status
+                if (statusFilter && inv.status !== statusFilter) return false;
+                
+                // Monat
+                if (monthFilter && inv.createdAt) {
+                    const invDate = new Date(inv.createdAt);
+                    const invMonth = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`;
+                    if (invMonth !== monthFilter) return false;
+                }
+                
+                return true;
+            });
+            
+            renderInvoicesList(filtered);
+            updateInvoicesSummary(filtered);
+        }
+        
+        function updateInvoicesSummary(invoices) {
+            const summaryEl = document.getElementById('invoices-summary');
+            if (!summaryEl) return;
+            
+            const total = invoices.length;
+            const openAmount = invoices.filter(i => i.status !== 'bezahlt').reduce((sum, i) => sum + (i.totalGross || 0), 0);
+            const paidAmount = invoices.filter(i => i.status === 'bezahlt').reduce((sum, i) => sum + (i.totalGross || 0), 0);
+            
+            document.getElementById('invoices-total-count').textContent = total;
+            document.getElementById('invoices-open-amount').textContent = openAmount.toFixed(2) + '€';
+            document.getElementById('invoices-paid-amount').textContent = paidAmount.toFixed(2) + '€';
+            
+            summaryEl.style.display = 'block';
+        }
+        
+        async function toggleInvoiceStatus(invoiceId) {
+            try {
+                const inv = allInvoices.find(i => i.id === invoiceId);
+                if (!inv) return;
+                
+                const newStatus = inv.status === 'bezahlt' ? 'offen' : 'bezahlt';
+                
+                await db.ref(`invoices/${invoiceId}/status`).set(newStatus);
+                await db.ref(`invoices/${invoiceId}/updatedAt`).set(Date.now());
+                
+                if (newStatus === 'bezahlt') {
+                    await db.ref(`invoices/${invoiceId}/paidAt`).set(Date.now());
+                }
+                
+                console.log(`✅ Status geändert: ${invoiceId} → ${newStatus}`);
+                
+                loadInvoicesList();
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        async function editInvoice(invoiceId) {
+            console.log('✏️ Bearbeite Rechnung:', invoiceId);
+            
+            try {
+                const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
+                const inv = snapshot.val();
+                
+                if (!inv) {
+                    alert('❌ Rechnung nicht gefunden!');
+                    return;
+                }
+                
+                // Öffne Bearbeitungs-Modal
+                const modal = document.createElement('div');
+                modal.id = 'edit-invoice-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+                
+                const displayOpts = inv.displayOptions || {};
+                
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:16px;max-width:800px;width:100%;max-height:90vh;overflow-y:auto;">
+                        <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:20px;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:10;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <h3 style="margin:0;font-size:20px;">✏️ Rechnung ${inv.invoiceNumber || invoiceId} bearbeiten</h3>
+                                <button onclick="closeEditInvoiceModal()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+                            </div>
+                        </div>
+                        
+                        <div style="padding:20px;">
+                            <!-- FESTE DATEN -->
+                            <div style="background:#f3f4f6;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#6b7280;">🔒 Feste Daten (nicht änderbar)</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:14px;">
+                                    <div><strong>Rechnungsnr.:</strong> ${inv.invoiceNumber || invoiceId}</div>
+                                    <div><strong>Erstellt:</strong> ${inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('de-DE') : '-'}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- BEARBEITBARE FELDER -->
+                            <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#1e40af;">✏️ Bearbeitbare Daten</div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Kundenname:</label>
+                                        <input type="text" id="edit-inv-customer" value="${inv.customerName || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Gastname:</label>
+                                        <input type="text" id="edit-inv-guest" value="${inv.guestName || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-top:10px;">
+                                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Adresse:</label>
+                                    <textarea id="edit-inv-address" rows="2" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">${inv.address || ''}</textarea>
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Von:</label>
+                                        <input type="text" id="edit-inv-pickup" value="${inv.pickup || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Nach:</label>
+                                        <input type="text" id="edit-inv-destination" value="${inv.destination || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- POSITIONEN -->
+                            <div style="background:#f0fdf4;border:2px solid #10b981;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#047857;">💰 Positionen</div>
+                                <div id="edit-inv-positions"></div>
+                                <button onclick="addEditInvoicePosition()" style="width:100%;padding:10px;margin-top:10px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;">+ Position hinzufügen</button>
+                                
+                                <div style="margin-top:15px;padding-top:15px;border-top:2px solid #10b981;">
+                                    <div style="display:flex;justify-content:space-between;font-weight:600;font-size:16px;">
+                                        <span>Gesamtbetrag:</span>
+                                        <span id="edit-inv-total">${(inv.totalGross || 0).toFixed(2)}€</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- BUTTONS -->
+                            <div style="display:flex;gap:10px;">
+                                <button onclick="saveEditedInvoice('${invoiceId}')" style="flex:1;padding:15px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;">
+                                    💾 Speichern
+                                </button>
+                                <button onclick="regenerateInvoicePDF('${invoiceId}')" style="flex:1;padding:15px;background:#10b981;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;">
+                                    📥 Neue PDF erstellen
+                                </button>
+                                <button onclick="closeEditInvoiceModal()" style="flex:0.3;padding:15px;background:#6b7280;color:white;border:none;border-radius:10px;cursor:pointer;">
+                                    Abbrechen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Lade Positionen
+                editInvoicePositions = inv.positions || [{ description: 'Taxifahrt', amount: inv.totalGross || 0 }];
+                renderEditInvoicePositions();
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        let editInvoicePositions = [];
+        
+        function renderEditInvoicePositions() {
+            const container = document.getElementById('edit-inv-positions');
+            if (!container) return;
+            
+            let html = '';
+            editInvoicePositions.forEach((pos, index) => {
+                html += `
+                    <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center;">
+                        <input type="text" value="${pos.description || ''}" onchange="editInvoicePositions[${index}].description=this.value" style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;" placeholder="Beschreibung">
+                        <input type="number" value="${pos.amount || 0}" step="0.01" onchange="editInvoicePositions[${index}].amount=parseFloat(this.value);updateEditInvoiceTotal()" style="width:100px;padding:10px;border:2px solid #e0e0e0;border-radius:8px;text-align:right;" placeholder="0.00">
+                        <span style="color:#6b7280;">€</span>
+                        ${editInvoicePositions.length > 1 ? `<button onclick="removeEditInvoicePosition(${index})" style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;">🗑️</button>` : ''}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            updateEditInvoiceTotal();
+        }
+        
+        function addEditInvoicePosition() {
+            editInvoicePositions.push({ description: '', amount: 0 });
+            renderEditInvoicePositions();
+        }
+        
+        function removeEditInvoicePosition(index) {
+            editInvoicePositions.splice(index, 1);
+            renderEditInvoicePositions();
+        }
+        
+        function updateEditInvoiceTotal() {
+            const total = editInvoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
+            const el = document.getElementById('edit-inv-total');
+            if (el) el.textContent = total.toFixed(2) + '€';
+        }
+        
+        async function saveEditedInvoice(invoiceId) {
+            try {
+                const customerName = document.getElementById('edit-inv-customer').value.trim();
+                const guestName = document.getElementById('edit-inv-guest').value.trim();
+                const address = document.getElementById('edit-inv-address').value.trim();
+                const pickup = document.getElementById('edit-inv-pickup').value.trim();
+                const destination = document.getElementById('edit-inv-destination').value.trim();
+                
+                const totalGross = editInvoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
+                
+                // Hole alten Datensatz für vatRate
+                const oldSnap = await db.ref(`invoices/${invoiceId}`).once('value');
+                const oldData = oldSnap.val() || {};
+                const vatRate = oldData.vatRate || 7;
+                
+                const netPrice = totalGross / (1 + (vatRate / 100));
+                const vatAmount = totalGross - netPrice;
+                
+                const updates = {
+                    customerName,
+                    guestName,
+                    address,
+                    pickup,
+                    destination,
+                    positions: editInvoicePositions,
+                    totalGross,
+                    netPrice,
+                    vatAmount,
+                    updatedAt: Date.now()
+                };
+                
+                await db.ref(`invoices/${invoiceId}`).update(updates);
+                
+                console.log('✅ Rechnung aktualisiert:', invoiceId);
+                alert('✅ Rechnung gespeichert!');
+                
+                closeEditInvoiceModal();
+                loadInvoicesList();
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        function closeEditInvoiceModal() {
+            const modal = document.getElementById('edit-invoice-modal');
+            if (modal) modal.remove();
+        }
+        
+        async function regenerateInvoicePDF(invoiceId) {
+            try {
+                const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
+                const inv = snapshot.val();
+                
+                if (!inv) {
+                    alert('❌ Rechnung nicht gefunden!');
+                    return;
+                }
+                
+                console.log('📄 Regeneriere PDF für:', invoiceId);
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                const displayOpts = inv.displayOptions || {
+                    showCustomer: true, showAddress: true, showGuest: true,
+                    showRoute: true, showDateTime: true, showDistance: false, showVat: true
+                };
+                
+                // HEADER (IMMER)
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text('Taxiunternehmen Patrick Wydra', 20, 20);
+                doc.text('Amselring 10', 20, 25);
+                doc.text('17424 Ostseebad Heringsdorf', 20, 30);
+                doc.text('Tel.: 038378/22022', 20, 35);
+                
+                // TITEL (IMMER)
+                doc.setFontSize(20);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text('Rechnung', 20, 50);
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Rechnungsnr.: ${inv.invoiceNumber || invoiceId}`, 20, 58);
+                doc.text(`Datum: ${inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('de-DE') : new Date().toLocaleDateString('de-DE')}`, 20, 63);
+                
+                let yPos = 75;
+                
+                if (displayOpts.showCustomer && inv.customerName) {
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Kunde:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 6;
+                    doc.text(inv.customerName, 20, yPos);
+                    yPos += 5;
+                }
+                
+                if (displayOpts.showAddress && inv.address) {
+                    const lines = doc.splitTextToSize(inv.address, 80);
+                    doc.text(lines, 20, yPos);
+                    yPos += lines.length * 5;
+                }
+                
+                if (displayOpts.showGuest && inv.guestName) {
+                    yPos += 3;
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Gastname:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 5;
+                    doc.text(inv.guestName, 20, yPos);
+                    yPos += 5;
+                }
+                
+                if (displayOpts.showRoute || displayOpts.showDateTime || displayOpts.showDistance) {
+                    yPos += 5;
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Fahrtdetails:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 6;
+                    
+                    if (displayOpts.showDateTime) {
+                        doc.text(`Datum: ${inv.rideDate || '-'}`, 20, yPos);
+                        yPos += 5;
+                        doc.text(`Uhrzeit: ${inv.rideTime || '-'}`, 20, yPos);
+                        yPos += 5;
+                    }
+                    
+                    if (displayOpts.showRoute) {
+                        doc.text(`Von: ${inv.pickup || '-'}`, 20, yPos);
+                        yPos += 5;
+                        doc.text(`Nach: ${inv.destination || '-'}`, 20, yPos);
+                        yPos += 5;
+                    }
+                    
+                    if (displayOpts.showDistance) {
+                        doc.text(`Distanz: ${(inv.distance || 0).toFixed(1)} km`, 20, yPos);
+                        yPos += 5;
+                    }
+                }
+                
+                // POSITIONEN (IMMER)
+                yPos += 10;
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                
+                yPos += 8;
+                doc.setFont(undefined, 'bold');
+                doc.text('Pos.', 20, yPos);
+                doc.text('Beschreibung', 40, yPos);
+                doc.text('Betrag', 160, yPos, { align: 'right' });
+                
+                yPos += 2;
+                doc.line(20, yPos, 190, yPos);
+                yPos += 6;
+                doc.setFont(undefined, 'normal');
+                
+                const positions = inv.positions || [{ description: 'Taxifahrt', amount: inv.totalGross }];
+                positions.forEach((pos, index) => {
+                    doc.text(`${index + 1}`, 20, yPos);
+                    doc.text(pos.description || 'Position', 40, yPos);
+                    doc.text(`${parseFloat(pos.amount).toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    yPos += 6;
+                });
+                
+                yPos += 4;
+                doc.line(20, yPos, 190, yPos);
+                
+                if (displayOpts.showVat) {
+                    yPos += 6;
+                    doc.text('Netto:', 100, yPos);
+                    doc.text(`${(inv.netPrice || 0).toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    yPos += 6;
+                    doc.text(`MwSt ${inv.vatRate || 7}%:`, 100, yPos);
+                    doc.text(`${(inv.vatAmount || 0).toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    yPos += 2;
+                    doc.line(100, yPos, 190, yPos);
+                }
+                
+                yPos += 6;
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.text('Gesamtbetrag:', 100, yPos);
+                doc.text(`${(inv.totalGross || 0).toFixed(2)}€`, 160, yPos, { align: 'right' });
+                
+                // FOOTER (IMMER)
+                yPos += 20;
+                if (yPos > 240) { doc.addPage(); yPos = 20; }
+                
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(80);
+                doc.text('Bankverbindung:', 20, yPos);
+                yPos += 4;
+                doc.text('Volksbank Vorpommern', 20, yPos);
+                yPos += 4;
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos);
+                yPos += 4;
+                doc.text('BIC: GENODEF1HST', 20, yPos);
+                yPos += 8;
+                doc.text('Steuernummer: 084 289/01178', 20, yPos);
+                yPos += 4;
+                doc.text('IK: 601318664', 20, yPos);
+                
+                doc.save(`Rechnung_${inv.invoiceNumber || invoiceId}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                
+                alert('✅ PDF wurde erstellt!');
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
             }
         }
         

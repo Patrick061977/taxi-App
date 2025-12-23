@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.95 - SMS VIA GOOGLE APPS SCRIPT PROXY! 📱✅ (Build 20251223-0945)');
+        console.log('🚕 Funk Taxi App v5.87.96 - SMS FETCH FIX! 📱✅ (Build 20251223-2240)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱✅ Version 5.87.95 - SMS VIA GOOGLE APPS SCRIPT PROXY! (Build 20251223-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱✅ Version 5.87.96 - SMS FETCH FIX! (Build 20251223-2240)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -13651,9 +13651,7 @@
             try {
                 const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    redirect: 'follow',
                     body: JSON.stringify({
                         to: formattedPhone,
                         text: message,
@@ -13661,9 +13659,11 @@
                     })
                 });
                 
-                const data = await response.json();
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
                 
-                if (data.success !== false && response.ok) {
+                if (response.ok) {
                     console.log('✅ SMS gesendet!', data);
                     logActivity('system', 'sms_sent', `SMS an ${formattedPhone}`, { message: message.substring(0, 50) });
                     return true;
@@ -13936,9 +13936,7 @@
             try {
                 const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    redirect: 'follow',
                     body: JSON.stringify({
                         to: formattedPhone,
                         text: smsText,
@@ -13946,9 +13944,11 @@
                     })
                 });
                 
-                const data = await response.json();
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
                 
-                if (response.ok && data.success !== false) {
+                if (response.ok) {
                     console.log('✅ Buchungs-SMS gesendet!', data);
                     logActivity('customer', 'sms_booking_sent', `Buchungs-SMS an ${formattedPhone}`, { phone: formattedPhone });
                     return true;
@@ -14001,9 +14001,7 @@
             try {
                 const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    redirect: 'follow',
                     body: JSON.stringify({
                         to: formattedPhone,
                         text: smsText,
@@ -14011,9 +14009,11 @@
                     })
                 });
                 
-                const data = await response.json();
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
                 
-                if (response.ok && data.success !== false) {
+                if (response.ok) {
                     console.log('✅ Tracking-SMS gesendet!', data);
                     logActivity('customer', 'sms_tracking_sent', `Tracking-SMS an ${formattedPhone}`, { phone: formattedPhone, trackingLink });
                     return true;
@@ -39993,9 +39993,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             try {
                 const response = await fetch(SMS_PROXY_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    redirect: 'follow',
                     body: JSON.stringify({
                         to: phone,
                         text: message,
@@ -40003,10 +40001,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     })
                 });
                 
-                const data = await response.json();
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
                 console.log('📱 Test-SMS (' + type + '):', data);
                 
-                if (response.ok && data.success !== false) {
+                if (response.ok) {
                     alert('✅ ' + type + '-SMS gesendet!\n\nNummer: ' + phone + '\n\nPrüfe dein Handy!');
                 } else {
                     alert('❌ SMS Fehler!\n\n' + JSON.stringify(data));

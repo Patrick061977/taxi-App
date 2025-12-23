@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.88 - RECHNUNGS-LAYOUT NEU: GRUPPIERUNG + 7% MWST! 📄✅ (Build 20251222-1100)');
+        console.log('🚕 Funk Taxi App v5.87.89 - GASTNAME IN EINZEL-RECHNUNG! 📝📄 (Build 20251223-0700)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📄✅ Version 5.87.88 - RECHNUNGEN WIE VORLAGE: GRUPPIERT + 7% MWST + BANK-DATEN! ✅ (Build 20251222-1100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📝📄 Version 5.87.89 - GASTNAME IN EINZEL-RECHNUNG! ✅ (Build 20251223-0700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -28677,6 +28677,15 @@
                                 })()}
                             </div>
                             
+                            <!-- 🆕 v5.87.89: GASTNAME (optional) -->
+                            ${ride.guestName ? `
+                            <div style="background:#fef3c7;border:2px solid #f59e0b;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#92400e;">📝 Gastname (für Hotel-Fahrten)</div>
+                                <div style="font-size:16px;font-weight:600;color:#1f2937;">${ride.guestName}</div>
+                                <div style="font-size:12px;color:#6b7280;margin-top:5px;">💡 Rechnung geht an ${ride.customerName || 'Kunde'}, Fahrt wurde für Gast durchgeführt</div>
+                            </div>
+                            ` : ''}
+                            
                             <!-- FAHRT -->
                             <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
                                 <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">🚕 Fahrtdetails</div>
@@ -28937,6 +28946,16 @@
                     const addressLines = doc.splitTextToSize(customer.address, 80);
                     doc.text(addressLines, 20, yPos);
                     yPos += addressLines.length * 5;
+                }
+                
+                // 🆕 v5.87.89: GASTNAME (für Hotel-Fahrten)
+                if (ride.guestName) {
+                    yPos += 8;
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Gastname:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 5;
+                    doc.text(ride.guestName, 20, yPos);
                 }
                 
                 // FAHRTDETAILS

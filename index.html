@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.96 - SMS FETCH FIX! 📱✅ (Build 20251223-2240)');
+        console.log('🚕 Funk Taxi App v5.87.99 - SMS INTELLIGENTER TEST-BUTTON! 📱✅ (Build 20251224-1000)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱✅ Version 5.87.96 - SMS FETCH FIX! (Build 20251223-2240)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱✅ Version 5.87.99 - SMS INTELLIGENTER TEST-BUTTON! (Build 20251224-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4528,14 +4528,9 @@
                     <div>• Preis: ~0,075€ pro SMS</div>
                 </div>
                 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <button onclick="testSMSBooking()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-                        📱 Test: Buchung
-                    </button>
-                    <button onclick="testSMSTracking()" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-                        🚕 Test: Tracking
-                    </button>
-                </div>
+                <button onclick="testSMSActive()" style="width:100%;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                    📱 Test-SMS senden (aktive Optionen)
+                </button>
             </div>
             
         </div>
@@ -16499,8 +16494,11 @@
             // Der alte Check rief nicht-existierende Funktionen auf und blockierte ALLE Buchungen!
             
             // 🆕 v5.66.0: Hole Name + Telefon aus localStorage (nach Phone-Auth)
-            const customerName = localStorage.getItem('loggedInUserName') || '';
-            const customerPhone = localStorage.getItem('loggedInPhone') || '';
+            // 🆕 v5.87.97: AUCH aus Eingabefeld holen (für Stammkunden!)
+            const customerName = localStorage.getItem('loggedInUserName') || document.getElementById('customer-name')?.value || '';
+            const customerPhone = localStorage.getItem('loggedInPhone') || document.getElementById('customer-phone')?.value || '';
+            
+            console.log('📱 customerPhone:', customerPhone, '(localStorage:', localStorage.getItem('loggedInPhone'), ', Eingabefeld:', document.getElementById('customer-phone')?.value, ')');
             
             if (!customerName) {
                 alert('❌ Bitte erst anmelden!\n\nDu musst dich mit deiner Telefonnummer verifizieren.');
@@ -28412,6 +28410,18 @@
                             console.error('❌ TELEGRAM: Fehler beim Senden:', error);
                         }
                         console.log('═══════════════════════════════════════');
+                        
+                        // 🆕 v5.87.97: SMS AN KUNDEN SENDEN!
+                        try {
+                            const rideForSMS = {
+                                firebaseId: rideRef.key,
+                                ...rideData
+                            };
+                            await sendCustomerNotifications(rideForSMS);
+                            console.log('✅ Kunden-SMS gesendet (wenn aktiviert)');
+                        } catch (smsError) {
+                            console.error('❌ Fehler beim SMS-Versand:', smsError);
+                        }
                     }
                 
                     // 🆕 Speichere Adressen in CRM wenn Checkboxen aktiviert
@@ -31137,6 +31147,15 @@
                             console.error('❌ Fehler beim Telegram-Versand:', telegramError);
                             // Fahrt wurde trotzdem erstellt, nur Telegram fehlgeschlagen
                         }
+                    }
+                    
+                    // 🆕 v5.87.97: SMS AN KUNDEN SENDEN!
+                    try {
+                        ride.firebaseId = rideId;
+                        await sendCustomerNotifications(ride);
+                        console.log('✅ Kunden-SMS gesendet (wenn aktiviert)');
+                    } catch (smsError) {
+                        console.error('❌ Fehler beim SMS-Versand:', smsError);
                     }
                     
                     // CRM aktualisieren
@@ -39965,7 +39984,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 formattedPhone = formattedPhone.substring(1);
             }
             
-            const testMessage = '✅ Taxi bestätigt!\n23.12. 14:00\nStrandstr. 5 → Bahnhof\n15€\nFunk Taxi 038378/22022';
+            const testMessage = '✅ Taxi bestätigt!\n24.12. 14:00\nStrandstr. 5 → Bahnhof\n15€\nFunk Taxi 038378/22022';
             
             await sendTestSMS(formattedPhone, testMessage, 'Buchung');
         }
@@ -39988,7 +40007,74 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             await sendTestSMS(formattedPhone, testMessage, 'Tracking');
         }
         
-        // Generische Test-SMS Funktion
+        // 🆕 v5.87.99: INTELLIGENTER TEST - sendet was aktiviert ist!
+        async function testSMSActive() {
+            const bookingEnabled = document.getElementById('sms-booking-enabled')?.checked;
+            const trackingEnabled = document.getElementById('sms-tracking-enabled')?.checked;
+            
+            if (!bookingEnabled && !trackingEnabled) {
+                alert('⚠️ Keine SMS-Option aktiviert!\n\nBitte erst eine Option anhaken:\n• ✅ Buchungsbestätigung\n• 🚕 Fahrer unterwegs + Tracking');
+                return;
+            }
+            
+            // Frage nach Telefonnummer
+            const testPhone = prompt('📱 Test-SMS senden an:\n\n(Format: 0171xxxxxxx)');
+            if (!testPhone) return;
+            
+            let formattedPhone = testPhone.replace(/[\s\-\/\(\)]/g, '');
+            if (formattedPhone.startsWith('0')) {
+                formattedPhone = '49' + formattedPhone.substring(1);
+            } else if (formattedPhone.startsWith('+')) {
+                formattedPhone = formattedPhone.substring(1);
+            }
+            
+            let sentCount = 0;
+            let results = [];
+            
+            // Sende Buchungs-SMS wenn aktiviert
+            if (bookingEnabled) {
+                const bookingMessage = '✅ Taxi bestätigt!\n24.12. 14:00\nStrandstr. 5 → Bahnhof\n15€\nFunk Taxi 038378/22022';
+                const success = await sendTestSMSSilent(formattedPhone, bookingMessage);
+                results.push(success ? '✅ Buchungs-SMS gesendet' : '❌ Buchungs-SMS fehlgeschlagen');
+                if (success) sentCount++;
+            }
+            
+            // Sende Tracking-SMS wenn aktiviert
+            if (trackingEnabled) {
+                const trackingLink = window.location.origin + window.location.pathname + '?ride=TEST123';
+                const trackingMessage = '🚕 Ihr Taxi ist unterwegs!\nAnkunft in ca. 5 Min.\nLive verfolgen:\n' + trackingLink;
+                const success = await sendTestSMSSilent(formattedPhone, trackingMessage);
+                results.push(success ? '✅ Tracking-SMS gesendet' : '❌ Tracking-SMS fehlgeschlagen');
+                if (success) sentCount++;
+            }
+            
+            // Zeige Ergebnis
+            alert('📱 Test-Ergebnis:\n\n' + results.join('\n') + '\n\nNummer: ' + formattedPhone + '\n\nPrüfe dein Handy!');
+        }
+        
+        // Stille Test-SMS (ohne eigenes Alert)
+        async function sendTestSMSSilent(phone, message) {
+            try {
+                const response = await fetch(SMS_PROXY_URL, {
+                    method: 'POST',
+                    redirect: 'follow',
+                    body: JSON.stringify({
+                        to: phone,
+                        text: message,
+                        from: SMS_SENDER
+                    })
+                });
+                
+                const text = await response.text();
+                console.log('📱 Test-SMS:', text);
+                return response.ok;
+            } catch (error) {
+                console.error('❌ SMS Fehler:', error);
+                return false;
+            }
+        }
+        
+        // Generische Test-SMS Funktion (legacy, wird noch von altem Code verwendet)
         async function sendTestSMS(phone, message, type) {
             try {
                 const response = await fetch(SMS_PROXY_URL, {

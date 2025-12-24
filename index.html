@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.87.99 - SMS INTELLIGENTER TEST-BUTTON! 📱✅ (Build 20251224-1000)');
+        console.log('🚕 Funk Taxi App v5.88.3 - 50/50 MIT FRAUENTAG + ALLEN MV-FEIERTAGEN! 🎫✅ (Build 20251224-1130)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱✅ Version 5.87.99 - SMS INTELLIGENTER TEST-BUTTON! (Build 20251224-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.3 - 50/50 MIT FRAUENTAG + ALLEN MV-FEIERTAGEN! (Build 20251224-1130)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1594,6 +1594,34 @@
                 </select>
                 <div style="font-size:12px;color:#666;margin-top:5px;">
                     ℹ️ Der Fahrer sieht Ihre Zahlungsmethode
+                </div>
+            </div>
+            
+            <!-- 🆕 v5.88.0: 50/50 TICKET MV -->
+            <div id="fifty-fifty-section" class="input-group" style="margin-top:15px;display:none;">
+                <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:12px;padding:15px;color:#78350f;">
+                    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;">
+                        <input type="checkbox" id="fifty-fifty-enabled" onchange="toggleFiftyFifty()" style="width:24px;height:24px;margin-top:2px;cursor:pointer;flex-shrink:0;">
+                        <div style="flex:1;">
+                            <div style="font-weight:700;font-size:16px;margin-bottom:4px;">🎫 50/50 Taxi-Ticket nutzen</div>
+                            <div style="font-size:13px;opacity:0.9;">Bist du 16-25 Jahre? Zahle nur die Hälfte!</div>
+                        </div>
+                    </label>
+                    
+                    <div id="fifty-fifty-details" style="display:none;margin-top:12px;padding-top:12px;border-top:2px solid rgba(120,53,15,0.2);">
+                        <div style="font-size:13px;margin-bottom:10px;">
+                            <strong>📋 Für 50/50 benötigt:</strong>
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Geburtsdatum:</label>
+                            <input type="date" id="fifty-fifty-birthdate" style="width:100%;padding:12px;border:2px solid #78350f;border-radius:8px;font-size:15px;background:white;" onchange="validateFiftyFifty()">
+                        </div>
+                        <div id="fifty-fifty-status" style="padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;"></div>
+                        <div style="margin-top:10px;font-size:11px;opacity:0.8;text-align:center;">
+                            ℹ️ Gilt Fr/Sa + Feiertage, 20:00-08:00 Uhr<br>
+                            Das Land MV übernimmt 50% der Fahrtkosten!
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -4531,6 +4559,52 @@
                 <button onclick="testSMSActive()" style="width:100%;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
                     📱 Test-SMS senden (aktive Optionen)
                 </button>
+            </div>
+            
+            <!-- 🆕 v5.88.0: 50/50 TICKET ABRECHNUNG -->
+            <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:8px;padding:15px;margin-bottom:15px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                    <div style="font-size:24px;">🎫</div>
+                    <div style="font-weight:700;font-size:16px;color:#92400e;">50/50 Taxi-Ticket MV</div>
+                </div>
+                
+                <!-- EIN/AUS SCHALTER -->
+                <div style="background:white;border:2px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+                        <input type="checkbox" id="fifty-fifty-system-enabled" onchange="saveFiftyFiftySettings()" style="width:24px;height:24px;cursor:pointer;">
+                        <div>
+                            <div style="font-weight:700;font-size:15px;color:#374151;">50/50 Ticket aktivieren</div>
+                            <div style="font-size:12px;color:#6b7280;">Zeigt Option im Buchungsformular (Fr/Sa 20-08 Uhr)</div>
+                        </div>
+                    </label>
+                </div>
+                
+                <div style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-size:14px;color:#78350f;margin-bottom:8px;">
+                        <strong>Abrechnung für Landesverband:</strong>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                        <div>
+                            <label style="font-size:12px;color:#6b7280;">Von:</label>
+                            <input type="date" id="fifty-fifty-export-from" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;color:#6b7280;">Bis:</label>
+                            <input type="date" id="fifty-fifty-export-to" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;">
+                        </div>
+                    </div>
+                    <div id="fifty-fifty-stats" style="font-size:13px;color:#6b7280;margin-bottom:10px;padding:8px;background:#f9fafb;border-radius:6px;">
+                        📊 Lade Statistik...
+                    </div>
+                </div>
+                
+                <button onclick="exportFiftyFiftyReport()" style="width:100%;padding:14px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                    📄 50/50 Abrechnung exportieren (CSV)
+                </button>
+                
+                <div style="margin-top:10px;font-size:11px;color:#92400e;text-align:center;">
+                    ℹ️ Export für Erstattung beim Landesverband MV
+                </div>
             </div>
             
         </div>
@@ -16614,7 +16688,8 @@
                 pickup: document.getElementById('pickup').value,
                 destination: document.getElementById('destination').value,
                 passengers: document.getElementById('passengers').value,
-                price: window.currentPrice,
+                price: window.fiftyFiftyActive ? window.fiftyFiftyPrice : window.currentPrice,
+                originalPrice: window.fiftyFiftyActive ? window.currentPrice : null, // 🆕 v5.88.0: Originalpreis für 50/50
                 distance: window.currentDistance,
                 duration: window.currentDuration,
                 // 🆕 v5.41.5: Koordinaten sicher speichern (nur wenn vorhanden)
@@ -16624,7 +16699,15 @@
                 time: new Date().toLocaleString('de-DE'),
                 createdAt: Date.now(),
                 paymentMethod: document.getElementById('payment-method').value, // 💳 Zahlungsmethode
-                bookingSource: currentRideType || 'sofort' // 🆕 v5.48.1: 'sofort' oder 'vorbestellen'!
+                bookingSource: currentRideType || 'sofort', // 🆕 v5.48.1: 'sofort' oder 'vorbestellen'!
+                // 🆕 v5.88.0: 50/50 Ticket Daten
+                fiftyFifty: window.fiftyFiftyActive ? {
+                    enabled: true,
+                    birthdate: document.getElementById('fifty-fifty-birthdate')?.value || null,
+                    originalPrice: window.currentPrice,
+                    discountedPrice: window.fiftyFiftyPrice,
+                    landMVAnteil: window.fiftyFiftyPrice // Das was vom Land erstattet wird
+                } : null
             };
             
             console.log('📝 Ride-Objekt erstellt:', {
@@ -34085,6 +34168,18 @@ Stack: ${err.stack}
                 } else {
                     console.warn('⚠️ loadFritzBoxSettings noch nicht verfügbar');
                 }
+                
+                // 🆕 v5.88.0: Lade SMS Settings
+                if (typeof loadSMSSettings === 'function') {
+                    loadSMSSettings();
+                    console.log('✅ SMS-Einstellungen geladen');
+                }
+                
+                // 🆕 v5.88.1: Lade 50/50 Settings
+                if (typeof loadFiftyFiftySettings === 'function') {
+                    loadFiftyFiftySettings();
+                    console.log('✅ 50/50-Einstellungen geladen');
+                }
             } else {
                 // 🆕 v5.26.14d: Nicht eingeloggt: Fahrgast + Verlauf BEIDE anzeigen!
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
@@ -39945,6 +40040,394 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
             } catch (error) {
                 console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern der FritzBox-Einstellungen!');
+            }
+        }
+        
+        // 🆕 v5.88.0: 50/50 TAXI-TICKET MV FUNKTIONEN
+        
+        // Speichere 50/50 Einstellungen
+        function saveFiftyFiftySettings() {
+            const enabled = document.getElementById('fifty-fifty-system-enabled')?.checked || false;
+            localStorage.setItem('fiftyFiftyEnabled', enabled ? 'true' : 'false');
+            console.log('🎫 50/50 System:', enabled ? 'AKTIVIERT' : 'DEAKTIVIERT');
+            
+            // Sofort UI aktualisieren
+            checkFiftyFiftyAvailability();
+            
+            // Visuelles Feedback
+            const section = document.querySelector('[onclick="saveFiftyFiftySettings()"]')?.closest('div');
+            if (section) {
+                const origBg = section.style.background;
+                section.style.background = '#d1fae5';
+                setTimeout(() => { section.style.background = origBg || 'white'; }, 500);
+            }
+        }
+        
+        // Lade 50/50 Einstellungen
+        function loadFiftyFiftySettings() {
+            const checkbox = document.getElementById('fifty-fifty-system-enabled');
+            if (checkbox) {
+                checkbox.checked = localStorage.getItem('fiftyFiftyEnabled') === 'true';
+            }
+        }
+        
+        // Prüft ob 50/50 System aktiviert ist
+        function isFiftyFiftySystemEnabled() {
+            return localStorage.getItem('fiftyFiftyEnabled') === 'true';
+        }
+        
+        // Prüft ob 50/50 gerade gültig ist (Fr/Sa 20-08 Uhr + Feiertage)
+        function isFiftyFiftyTime() {
+            const now = new Date();
+            const day = now.getDay(); // 0=So, 5=Fr, 6=Sa
+            const hour = now.getHours();
+            
+            // Silvester Sonderregel: 31.12. 20:00 bis 01.01. 12:00
+            const month = now.getMonth(); // 0=Jan, 11=Dez
+            const date = now.getDate();
+            
+            // 31.12. ab 20 Uhr
+            if (month === 11 && date === 31 && hour >= 20) return true;
+            // 01.01. bis 12 Uhr
+            if (month === 0 && date === 1 && hour < 12) return true;
+            
+            // Freitag 20-24 Uhr
+            if (day === 5 && hour >= 20) return true;
+            // Samstag 0-8 Uhr
+            if (day === 6 && hour < 8) return true;
+            // Samstag 20-24 Uhr
+            if (day === 6 && hour >= 20) return true;
+            // Sonntag 0-8 Uhr
+            if (day === 0 && hour < 8) return true;
+            
+            // Feiertage prüfen
+            if (isFiftyFiftyHoliday(now, hour)) return true;
+            
+            return false;
+        }
+        
+        // Prüft ob Feiertag (Bund + MV) 
+        function isFiftyFiftyHoliday(date, hour) {
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const day = date.getDate();
+            
+            // Feste Feiertage (Monat 0-basiert)
+            const fixedHolidays = [
+                { m: 0, d: 1 },    // Neujahr
+                { m: 2, d: 8 },    // 🆕 Internationaler Frauentag (MV seit 2023!)
+                { m: 4, d: 1 },    // Tag der Arbeit
+                { m: 9, d: 3 },    // Tag der Deutschen Einheit
+                { m: 9, d: 31 },   // Reformationstag (MV!)
+                { m: 11, d: 25 },  // 1. Weihnachtstag
+                { m: 11, d: 26 },  // 2. Weihnachtstag
+            ];
+            
+            // Bewegliche Feiertage berechnen (Ostern-basiert)
+            const easter = calculateEaster(year);
+            const movingHolidays = [
+                addDays(easter, -2),   // Karfreitag
+                addDays(easter, 1),    // Ostermontag
+                addDays(easter, 39),   // Christi Himmelfahrt
+                addDays(easter, 50),   // Pfingstmontag
+            ];
+            
+            // Prüfe ob HEUTE ein Feiertag ist (dann gilt 20-08 Uhr)
+            const isHolidayToday = fixedHolidays.some(h => h.m === month && h.d === day) ||
+                                   movingHolidays.some(h => h.getMonth() === month && h.getDate() === day);
+            
+            if (isHolidayToday && hour >= 20) return true;
+            
+            // Prüfe ob GESTERN ein Feiertag war (dann gilt bis 08 Uhr)
+            const yesterday = new Date(date);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yMonth = yesterday.getMonth();
+            const yDay = yesterday.getDate();
+            
+            const wasHolidayYesterday = fixedHolidays.some(h => h.m === yMonth && h.d === yDay) ||
+                                        movingHolidays.some(h => h.getMonth() === yMonth && h.getDate() === yDay);
+            
+            if (wasHolidayYesterday && hour < 8) return true;
+            
+            // Prüfe ob MORGEN ein Feiertag ist (dann gilt Vorabend ab 20 Uhr)
+            const tomorrow = new Date(date);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tMonth = tomorrow.getMonth();
+            const tDay = tomorrow.getDate();
+            
+            const isHolidayTomorrow = fixedHolidays.some(h => h.m === tMonth && h.d === tDay) ||
+                                      movingHolidays.some(h => h.getMonth() === tMonth && h.getDate() === tDay);
+            
+            if (isHolidayTomorrow && hour >= 20) return true;
+            
+            return false;
+        }
+        
+        // Berechne Ostersonntag (Gauss-Algorithmus)
+        function calculateEaster(year) {
+            const a = year % 19;
+            const b = Math.floor(year / 100);
+            const c = year % 100;
+            const d = Math.floor(b / 4);
+            const e = b % 4;
+            const f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3);
+            const h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4);
+            const k = c % 4;
+            const l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+            const day = ((h + l - 7 * m + 114) % 31) + 1;
+            return new Date(year, month, day);
+        }
+        
+        // Hilfsfunktion: Tage addieren
+        function addDays(date, days) {
+            const result = new Date(date);
+            result.setDate(result.getDate() + days);
+            return result;
+        }
+        
+        // Zeigt 50/50 Section wenn Zeitfenster passt UND System aktiviert ist
+        function checkFiftyFiftyAvailability() {
+            const section = document.getElementById('fifty-fifty-section');
+            if (section) {
+                // Prüfe ob System aktiviert UND Zeitfenster passt
+                if (isFiftyFiftySystemEnabled() && isFiftyFiftyTime()) {
+                    section.style.display = 'block';
+                    console.log('🎫 50/50 Ticket verfügbar (System AN + Fr/Sa 20-08 Uhr)');
+                } else {
+                    section.style.display = 'none';
+                    // Reset wenn nicht verfügbar
+                    const checkbox = document.getElementById('fifty-fifty-enabled');
+                    if (checkbox) checkbox.checked = false;
+                    
+                    if (!isFiftyFiftySystemEnabled()) {
+                        console.log('🎫 50/50 Ticket: System DEAKTIVIERT');
+                    } else {
+                        console.log('🎫 50/50 Ticket: Außerhalb Zeitfenster');
+                    }
+                }
+            }
+        }
+        
+        // Toggle 50/50 Details
+        function toggleFiftyFifty() {
+            const checkbox = document.getElementById('fifty-fifty-enabled');
+            const details = document.getElementById('fifty-fifty-details');
+            
+            if (checkbox && details) {
+                details.style.display = checkbox.checked ? 'block' : 'none';
+                
+                if (checkbox.checked) {
+                    // Prüfe sofort wenn Geburtsdatum schon eingegeben
+                    validateFiftyFifty();
+                } else {
+                    // Reset Preis-Anzeige
+                    updatePriceWithFiftyFifty(false);
+                }
+            }
+        }
+        
+        // Validiert Alter für 50/50
+        function validateFiftyFifty() {
+            const birthdateInput = document.getElementById('fifty-fifty-birthdate');
+            const statusDiv = document.getElementById('fifty-fifty-status');
+            
+            if (!birthdateInput || !birthdateInput.value) {
+                statusDiv.innerHTML = '⚠️ Bitte Geburtsdatum eingeben';
+                statusDiv.style.background = '#fef3c7';
+                statusDiv.style.color = '#92400e';
+                updatePriceWithFiftyFifty(false);
+                return false;
+            }
+            
+            const birthdate = new Date(birthdateInput.value);
+            const today = new Date();
+            let age = today.getFullYear() - birthdate.getFullYear();
+            const monthDiff = today.getMonth() - birthdate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
+                age--;
+            }
+            
+            if (age >= 16 && age <= 25) {
+                statusDiv.innerHTML = '✅ Berechtigt! Du bist ' + age + ' Jahre alt - Preis wird halbiert!';
+                statusDiv.style.background = '#d1fae5';
+                statusDiv.style.color = '#065f46';
+                updatePriceWithFiftyFifty(true);
+                return true;
+            } else if (age < 16) {
+                statusDiv.innerHTML = '❌ Du bist ' + age + ' Jahre - Mindestalter ist 16 Jahre';
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.color = '#991b1b';
+                updatePriceWithFiftyFifty(false);
+                return false;
+            } else {
+                statusDiv.innerHTML = '❌ Du bist ' + age + ' Jahre - Höchstalter ist 25 Jahre';
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.color = '#991b1b';
+                updatePriceWithFiftyFifty(false);
+                return false;
+            }
+        }
+        
+        // Aktualisiert Preisanzeige mit 50/50
+        function updatePriceWithFiftyFifty(enabled) {
+            const priceDisplay = document.getElementById('calculated-price');
+            if (!priceDisplay) return;
+            
+            const originalPrice = window.currentPrice || 0;
+            
+            if (enabled && originalPrice > 0) {
+                const halfPrice = (originalPrice / 2).toFixed(2);
+                priceDisplay.innerHTML = `
+                    <span style="text-decoration:line-through;color:#9ca3af;font-size:16px;">${originalPrice.toFixed(2)}€</span>
+                    <span style="color:#059669;font-weight:700;font-size:24px;margin-left:10px;">${halfPrice}€</span>
+                    <span style="background:#fbbf24;color:#78350f;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:8px;">50/50 🎫</span>
+                `;
+                window.fiftyFiftyActive = true;
+                window.fiftyFiftyPrice = parseFloat(halfPrice);
+            } else {
+                if (originalPrice > 0) {
+                    priceDisplay.innerHTML = originalPrice.toFixed(2) + '€';
+                }
+                window.fiftyFiftyActive = false;
+                window.fiftyFiftyPrice = null;
+            }
+        }
+        
+        // Prüfe 50/50 alle 5 Minuten (falls sich Zeit ändert)
+        setInterval(checkFiftyFiftyAvailability, 5 * 60 * 1000);
+        
+        // Initial prüfen wenn Seite lädt
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(checkFiftyFiftyAvailability, 2000);
+            // Setze Default-Datumsbereich für Export (aktueller Monat)
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            
+            const fromInput = document.getElementById('fifty-fifty-export-from');
+            const toInput = document.getElementById('fifty-fifty-export-to');
+            if (fromInput) fromInput.value = firstDay.toISOString().split('T')[0];
+            if (toInput) toInput.value = lastDay.toISOString().split('T')[0];
+            
+            // Lade Stats nach kurzer Verzögerung
+            setTimeout(loadFiftyFiftyStats, 3000);
+        });
+        
+        // Lade 50/50 Statistik
+        async function loadFiftyFiftyStats() {
+            const statsDiv = document.getElementById('fifty-fifty-stats');
+            if (!statsDiv || !isFirebaseReady) return;
+            
+            try {
+                const snapshot = await db.ref('rides').orderByChild('fiftyFifty/enabled').equalTo(true).once('value');
+                const rides = snapshot.val() || {};
+                
+                let totalRides = 0;
+                let totalLandMV = 0;
+                
+                Object.values(rides).forEach(ride => {
+                    if (ride.fiftyFifty && ride.fiftyFifty.enabled) {
+                        totalRides++;
+                        totalLandMV += parseFloat(ride.fiftyFifty.landMVAnteil || 0);
+                    }
+                });
+                
+                statsDiv.innerHTML = `
+                    📊 <strong>${totalRides}</strong> Fahrten mit 50/50 Ticket<br>
+                    💰 <strong>${totalLandMV.toFixed(2)}€</strong> Erstattung vom Land MV
+                `;
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der 50/50 Stats:', error);
+                statsDiv.innerHTML = '❌ Fehler beim Laden';
+            }
+        }
+        
+        // Export 50/50 Abrechnung als CSV
+        async function exportFiftyFiftyReport() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            const fromDate = document.getElementById('fifty-fifty-export-from')?.value;
+            const toDate = document.getElementById('fifty-fifty-export-to')?.value;
+            
+            if (!fromDate || !toDate) {
+                alert('❌ Bitte Zeitraum auswählen!');
+                return;
+            }
+            
+            const fromTimestamp = new Date(fromDate).getTime();
+            const toTimestamp = new Date(toDate + 'T23:59:59').getTime();
+            
+            try {
+                const snapshot = await db.ref('rides').once('value');
+                const allRides = snapshot.val() || {};
+                
+                // Filtere 50/50 Fahrten im Zeitraum
+                const fiftyFiftyRides = [];
+                
+                Object.entries(allRides).forEach(([id, ride]) => {
+                    if (ride.fiftyFifty && ride.fiftyFifty.enabled) {
+                        const rideTime = ride.pickupTimestamp || ride.createdAt;
+                        if (rideTime >= fromTimestamp && rideTime <= toTimestamp) {
+                            fiftyFiftyRides.push({ id, ...ride });
+                        }
+                    }
+                });
+                
+                if (fiftyFiftyRides.length === 0) {
+                    alert('ℹ️ Keine 50/50 Fahrten im gewählten Zeitraum gefunden.');
+                    return;
+                }
+                
+                // Erstelle CSV
+                let csv = 'Datum;Uhrzeit;Kunde;Geburtsdatum;Von;Nach;Strecke (km);Gesamtpreis;Kunde zahlte;Erstattung Land MV\n';
+                
+                let totalErstattung = 0;
+                
+                fiftyFiftyRides.forEach(ride => {
+                    const date = new Date(ride.pickupTimestamp || ride.createdAt);
+                    const dateStr = date.toLocaleDateString('de-DE');
+                    const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const birthdate = ride.fiftyFifty.birthdate || '';
+                    const originalPrice = parseFloat(ride.fiftyFifty.originalPrice || 0).toFixed(2);
+                    const discountedPrice = parseFloat(ride.fiftyFifty.discountedPrice || 0).toFixed(2);
+                    const landMVAnteil = parseFloat(ride.fiftyFifty.landMVAnteil || 0).toFixed(2);
+                    
+                    totalErstattung += parseFloat(landMVAnteil);
+                    
+                    csv += `${dateStr};${timeStr};${ride.customerName || 'Unbekannt'};${birthdate};${ride.pickup || ''};${ride.destination || ''};${ride.distance || ''};${originalPrice}€;${discountedPrice}€;${landMVAnteil}€\n`;
+                });
+                
+                csv += '\n';
+                csv += `;;;;;;;;;SUMME ERSTATTUNG:;${totalErstattung.toFixed(2)}€\n`;
+                csv += '\n';
+                csv += `Funk Taxi Heringsdorf - 50/50 Abrechnung ${fromDate} bis ${toDate}\n`;
+                csv += `Erstellt am: ${new Date().toLocaleString('de-DE')}\n`;
+                
+                // Download
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `50-50-Abrechnung_${fromDate}_bis_${toDate}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+                
+                alert(`✅ Export erfolgreich!\n\n📊 ${fiftyFiftyRides.length} Fahrten\n💰 ${totalErstattung.toFixed(2)}€ Erstattung\n\nDatei wurde heruntergeladen.`);
+                
+            } catch (error) {
+                console.error('❌ Export-Fehler:', error);
+                alert('❌ Fehler beim Export: ' + error.message);
+            }
+        }
+                console.error('❌ Fehler beim Speichern:', error);
                 alert('❌ Fehler beim Speichern:\n\n' + error.message);
             }
         }
@@ -39957,7 +40440,19 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             localStorage.setItem('smsBookingEnabled', bookingEnabled ? 'true' : 'false');
             localStorage.setItem('smsTrackingEnabled', trackingEnabled ? 'true' : 'false');
             
-            console.log('📱 SMS Buchung:', bookingEnabled, '| Tracking:', trackingEnabled);
+            console.log('📱 SMS gespeichert - Buchung:', bookingEnabled, '| Tracking:', trackingEnabled);
+            
+            // 🆕 v5.88.0: Kurzes visuelles Feedback
+            const btn = document.querySelector('[onclick="testSMSActive()"]');
+            if (btn) {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Einstellungen gespeichert!';
+                btn.style.background = '#059669';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '#10b981';
+                }, 1500);
+            }
         }
         
         function loadSMSSettings() {

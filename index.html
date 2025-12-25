@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.8 - HALTESTELLE WECHSELN FIX! 🎫✅ (Build 20251225-1010)');
+        console.log('🚕 Funk Taxi App v5.88.9 - SMS-EINSTELLUNGEN IN FIREBASE! 📱🔥 (Build 20251225-1020)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.8 - HALTESTELLE WECHSELN FIX! (Build 20251225-1010)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱🔥 Version 5.88.9 - SMS-EINSTELLUNGEN IN FIREBASE! (Build 20251225-1020)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -13981,10 +13981,17 @@
                 return false;
             }
             
-            // Prüfe ob BUCHUNGS-SMS aktiviert ist
-            const bookingEnabled = localStorage.getItem('smsBookingEnabled') === 'true';
+            // 🆕 v5.88.9: Prüfe ob BUCHUNGS-SMS aktiviert ist (aus FIREBASE!)
+            let bookingEnabled = false;
+            try {
+                const snapshot = await db.ref('settings/sms/bookingEnabled').once('value');
+                bookingEnabled = snapshot.val() === true;
+            } catch (err) {
+                console.log('⚠️ Konnte SMS-Einstellung nicht laden:', err);
+            }
+            
             if (!bookingEnabled) {
-                console.log('⚠️ Buchungs-SMS ist deaktiviert');
+                console.log('⚠️ Buchungs-SMS ist deaktiviert (Firebase)');
                 return false;
             }
             
@@ -14056,10 +14063,17 @@
                 return false;
             }
             
-            // Prüfe ob TRACKING-SMS aktiviert ist
-            const trackingEnabled = localStorage.getItem('smsTrackingEnabled') === 'true';
+            // 🆕 v5.88.9: Prüfe ob TRACKING-SMS aktiviert ist (aus FIREBASE!)
+            let trackingEnabled = false;
+            try {
+                const snapshot = await db.ref('settings/sms/trackingEnabled').once('value');
+                trackingEnabled = snapshot.val() === true;
+            } catch (err) {
+                console.log('⚠️ Konnte SMS-Einstellung nicht laden:', err);
+            }
+            
             if (!trackingEnabled) {
-                console.log('⚠️ Tracking-SMS ist deaktiviert');
+                console.log('⚠️ Tracking-SMS ist deaktiviert (Firebase)');
                 return false;
             }
             
@@ -40446,25 +40460,47 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const bookingEnabled = document.getElementById('sms-booking-enabled')?.checked || false;
             const trackingEnabled = document.getElementById('sms-tracking-enabled')?.checked || false;
             
-            localStorage.setItem('smsBookingEnabled', bookingEnabled ? 'true' : 'false');
-            localStorage.setItem('smsTrackingEnabled', trackingEnabled ? 'true' : 'false');
-            
-            console.log('📱 SMS gespeichert - Buchung:', bookingEnabled, '| Tracking:', trackingEnabled);
-            
-            // 🆕 v5.88.5: Toast-Meldung wie bei CRM
-            showToast('✅ SMS-Einstellungen gespeichert!');
+            // 🆕 v5.88.9: Speichere in FIREBASE statt localStorage!
+            if (isFirebaseReady) {
+                db.ref('settings/sms').set({
+                    bookingEnabled: bookingEnabled,
+                    trackingEnabled: trackingEnabled,
+                    updatedAt: Date.now()
+                }).then(() => {
+                    console.log('📱 SMS in Firebase gespeichert - Buchung:', bookingEnabled, '| Tracking:', trackingEnabled);
+                    showToast('✅ SMS-Einstellungen gespeichert!');
+                }).catch(err => {
+                    console.error('❌ SMS-Speichern Fehler:', err);
+                    showToast('❌ Fehler beim Speichern!');
+                });
+            } else {
+                console.error('❌ Firebase nicht bereit');
+                showToast('❌ Firebase nicht verbunden!');
+            }
         }
         
+        // 🆕 v5.88.9: Lade SMS Settings aus FIREBASE
         function loadSMSSettings() {
-            const bookingCheckbox = document.getElementById('sms-booking-enabled');
-            const trackingCheckbox = document.getElementById('sms-tracking-enabled');
+            if (!isFirebaseReady) {
+                console.log('⚠️ Firebase nicht bereit für SMS-Settings');
+                return;
+            }
             
-            if (bookingCheckbox) {
-                bookingCheckbox.checked = localStorage.getItem('smsBookingEnabled') === 'true';
-            }
-            if (trackingCheckbox) {
-                trackingCheckbox.checked = localStorage.getItem('smsTrackingEnabled') === 'true';
-            }
+            db.ref('settings/sms').once('value').then(snapshot => {
+                const settings = snapshot.val() || {};
+                const bookingCheckbox = document.getElementById('sms-booking-enabled');
+                const trackingCheckbox = document.getElementById('sms-tracking-enabled');
+                
+                if (bookingCheckbox) {
+                    bookingCheckbox.checked = settings.bookingEnabled === true;
+                }
+                if (trackingCheckbox) {
+                    trackingCheckbox.checked = settings.trackingEnabled === true;
+                }
+                console.log('📱 SMS-Settings aus Firebase geladen:', settings);
+            }).catch(err => {
+                console.error('❌ SMS-Settings laden Fehler:', err);
+            });
         }
         
         // Test: Buchungsbestätigung

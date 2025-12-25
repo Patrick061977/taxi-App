@@ -5389,6 +5389,34 @@
             'kolobrzeg': { lat: 54.1756, lon: 15.5831, name: 'Kołobrzeg', fullAddress: 'Kołobrzeg, Polen' }
         };
 
+        // 🆕 v5.88.16: Deutsche → Polnische Ortsnamen Mapping (OBEN definiert für alle Funktionen!)
+        const GERMAN_TO_POLISH = {
+            'swinemünde': 'Świnoujście',
+            'swinemunde': 'Świnoujście',
+            'swinoujscie': 'Świnoujście',
+            'swine': 'Świnoujście',
+            'misdroy': 'Międzyzdroje',
+            'stettin': 'Szczecin',
+            'wollin': 'Wolin',
+            'kolberg': 'Kołobrzeg',
+            'danzig': 'Gdańsk',
+            'breslau': 'Wrocław',
+            'posen': 'Poznań',
+            'krakau': 'Kraków',
+            'warschau': 'Warszawa'
+        };
+        
+        // Konvertiere deutsche Ortsnamen zu polnischen für bessere Suche
+        function convertGermanToPolish(query) {
+            const lower = query.toLowerCase();
+            for (const [german, polish] of Object.entries(GERMAN_TO_POLISH)) {
+                if (lower.includes(german)) {
+                    return query.toLowerCase().replace(german, polish);
+                }
+            }
+            return query;
+        }
+
         // STATE
         let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
@@ -41708,32 +41736,6 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         let poiAddressTimeout = null;
-        // 🆕 v5.88.14: Deutsche → Polnische Ortsnamen Mapping
-        const GERMAN_TO_POLISH = {
-            'swinemünde': 'Świnoujście',
-            'swinemunde': 'Świnoujście',
-            'swinoujscie': 'Świnoujście',
-            'misdroy': 'Międzyzdroje',
-            'stettin': 'Szczecin',
-            'wollin': 'Wolin',
-            'kolberg': 'Kołobrzeg',
-            'danzig': 'Gdańsk',
-            'breslau': 'Wrocław',
-            'posen': 'Poznań',
-            'krakau': 'Kraków',
-            'warschau': 'Warszawa'
-        };
-        
-        // Konvertiere deutsche Ortsnamen zu polnischen für bessere Suche
-        function convertGermanToPolish(query) {
-            const lower = query.toLowerCase();
-            for (const [german, polish] of Object.entries(GERMAN_TO_POLISH)) {
-                if (lower.includes(german)) {
-                    return query.toLowerCase().replace(german, polish);
-                }
-            }
-            return query;
-        }
         
         async function searchPOIAddress() {
             const input = document.getElementById('poi-address');

@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.14 - POLEN-SUCHE VERBESSERT! 🇵🇱 (Build 20251225-1115)');
+        console.log('🚕 Funk Taxi App v5.88.15 - AI-RESET KOMPLETT! 🗑️ (Build 20251225-1140)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🇵🇱 Version 5.88.14 - POLEN-SUCHE VERBESSERT! (Build 20251225-1115)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗑️ Version 5.88.15 - AI-RESET KOMPLETT! (Build 20251225-1140)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31460,6 +31460,12 @@
                     // Schließe Modal
                     document.getElementById('quick-booking-modal').remove();
                     
+                    // 🆕 v5.88.15: AI-Assistent zurücksetzen wenn Buchung von dort kam!
+                    if (window.aiBookingPhone || document.getElementById('ai-input-text')?.value) {
+                        clearAIAssistant();
+                        console.log('🗑️ AI-Assistent nach erfolgreicher Buchung zurückgesetzt!');
+                    }
+                    
                     // 🆕 v5.57.0: Erfolgs-Meldung MIT Fahrzeug-Info!
                     let successMessage = '✅ Fahrt erfolgreich gebucht!\n\n' +
                           '👤 ' + finalCustomer.name + '\n';
@@ -39418,16 +39424,65 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
         }
         
         function clearAIAssistant() {
-            document.getElementById('ai-input-text').value = '';
-            document.getElementById('ai-results').style.display = 'none';
-            document.getElementById('ai-analysis-result').innerHTML = '';
-            document.getElementById('ai-booking-datetime').value = '';
-            document.getElementById('ai-booking-pickup').value = '';
-            document.getElementById('ai-booking-destination').value = '';
-            document.getElementById('ai-booking-passengers').value = '1';
-            document.getElementById('ai-booking-name').value = '';
-            document.getElementById('ai-booking-phone').value = '';
-            document.getElementById('ai-booking-price').textContent = '-- €';
+            // 🆕 v5.88.15: KOMPLETT RESET - alles löschen!
+            
+            // Textarea leeren
+            const inputText = document.getElementById('ai-input-text');
+            if (inputText) inputText.value = '';
+            
+            // Screenshot-Preview löschen
+            const screenshotPreview = document.getElementById('ai-screenshot-preview');
+            if (screenshotPreview) {
+                screenshotPreview.style.display = 'none';
+                screenshotPreview.innerHTML = '';
+            }
+            
+            // Screenshot-Input zurücksetzen
+            const screenshotInput = document.getElementById('ai-screenshot-input');
+            if (screenshotInput) screenshotInput.value = '';
+            
+            // Analyse-Ergebnisse verstecken
+            const results = document.getElementById('ai-results');
+            if (results) results.style.display = 'none';
+            
+            const analysisResult = document.getElementById('ai-analysis-result');
+            if (analysisResult) analysisResult.innerHTML = '';
+            
+            // Alle Formular-Felder leeren
+            const datetime = document.getElementById('ai-booking-datetime');
+            const pickup = document.getElementById('ai-booking-pickup');
+            const destination = document.getElementById('ai-booking-destination');
+            const passengers = document.getElementById('ai-booking-passengers');
+            const name = document.getElementById('ai-booking-name');
+            const phone = document.getElementById('ai-booking-phone');
+            const notes = document.getElementById('ai-booking-notes');
+            const price = document.getElementById('ai-booking-price');
+            
+            if (datetime) datetime.value = '';
+            if (pickup) pickup.value = '';
+            if (destination) destination.value = '';
+            if (passengers) passengers.value = '1';
+            if (name) name.value = '';
+            if (phone) phone.value = '';
+            if (notes) notes.value = '';
+            if (price) price.textContent = '-- €';
+            
+            // Globale AI-Variablen zurücksetzen
+            window.aiBookingPhone = null;
+            
+            // Loading-Anzeige verstecken
+            const loading = document.getElementById('ai-loading');
+            if (loading) loading.style.display = 'none';
+            
+            // Analyze-Button wieder aktivieren
+            const analyzeBtn = document.getElementById('ai-analyze-btn');
+            if (analyzeBtn) {
+                analyzeBtn.disabled = false;
+                analyzeBtn.style.opacity = '1';
+            }
+            
+            console.log('🗑️ AI-Assistent komplett zurückgesetzt!');
+            showToast('✅ AI-Assistent zurückgesetzt!');
         }
         
         function loadAIExample(exampleNum) {

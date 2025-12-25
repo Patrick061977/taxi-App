@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.12 - AI-ASSISTENT NULL-FIX! 📱📷 (Build 20251225-1105)');
+        console.log('🚕 Funk Taxi App v5.88.13 - SYNTAX-FIX! 📱📷 (Build 20251225-1110)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱📷 Version 5.88.12 - AI-ASSISTENT NULL-FIX! (Build 20251225-1105)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱📷 Version 5.88.13 - SYNTAX-FIX! (Build 20251225-1110)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5374,20 +5374,13 @@
             'usedom': { lat: 53.9533, lon: 14.1633, name: 'Usedom' },
             'swinemünde': { lat: 53.9108, lon: 14.2472, name: 'Swinemünde, Polen' },
             'świnoujście': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście, Polen' },
-            'swinoujscie': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście, Polen' }
-        };
-        
-        // 🆕 v5.88.11: Bekannte Orte für Autocomplete (mit Koordinaten!)
-        const KNOWN_PLACES = {
-            'swinemünde': { lat: 53.9108, lon: 14.2472, name: 'Swinemünde', fullAddress: 'Swinemünde, Polen' },
-            'świnoujście': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście', fullAddress: 'Świnoujście, Polen' },
-            'swinoujscie': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście', fullAddress: 'Świnoujście, Polen' },
-            'misdroy': { lat: 53.9283, lon: 14.4017, name: 'Misdroy', fullAddress: 'Misdroy (Międzyzdroje), Polen' },
-            'międzyzdroje': { lat: 53.9283, lon: 14.4017, name: 'Międzyzdroje', fullAddress: 'Międzyzdroje, Polen' },
-            'wollin': { lat: 53.8406, lon: 14.6175, name: 'Wollin', fullAddress: 'Wollin (Wolin), Polen' },
-            'wolin': { lat: 53.8406, lon: 14.6175, name: 'Wolin', fullAddress: 'Wolin, Polen' },
-            'stettin': { lat: 53.4285, lon: 14.5528, name: 'Stettin', fullAddress: 'Stettin (Szczecin), Polen' },
-            'szczecin': { lat: 53.4285, lon: 14.5528, name: 'Szczecin', fullAddress: 'Szczecin, Polen' }
+            'swinoujscie': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście, Polen' },
+            'misdroy': { lat: 53.9283, lon: 14.4017, name: 'Misdroy (Międzyzdroje), Polen' },
+            'międzyzdroje': { lat: 53.9283, lon: 14.4017, name: 'Międzyzdroje, Polen' },
+            'wollin': { lat: 53.8406, lon: 14.6175, name: 'Wollin (Wolin), Polen' },
+            'wolin': { lat: 53.8406, lon: 14.6175, name: 'Wolin, Polen' },
+            'stettin': { lat: 53.4285, lon: 14.5528, name: 'Stettin (Szczecin), Polen' },
+            'szczecin': { lat: 53.4285, lon: 14.5528, name: 'Szczecin, Polen' }
         };
 
         // STATE
@@ -39024,61 +39017,74 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 // Alle Pflichtfelder vorhanden → Öffne Modal sofort!
                 console.log('✅ Alle Daten vollständig → Öffne Schnellbuchungs-Modal!');
                 
-                // Splitte datetime in date und time
-                const [date, time] = data.datetime.split('T');
-                
-                // Fülle Quick-Booking Modal Felder aus
-                document.getElementById('quick-booking-date').value = date;
-                document.getElementById('quick-booking-time').value = time;
-                document.getElementById('quick-booking-pickup').value = data.pickup;
-                document.getElementById('quick-booking-destination').value = data.destination;
-                document.getElementById('quick-booking-passengers').value = data.passengers || 1;
-                document.getElementById('quick-booking-notes').value = data.notes && data.notes !== 'null' ? data.notes : '';
-                document.getElementById('quick-booking-vehicle').value = ''; // Kein Fahrzeug vorgewählt
-                
-                // Kunde: Setze Suchfeld mit Name (wenn vorhanden)
-                const searchField = document.getElementById('quick-booking-customer-search');
-                if (searchField && data.name) {
-                    searchField.value = data.name;
-                }
-                
-                // customerId leer lassen, damit neuer Kunde erstellt wird (wenn noch nicht vorhanden)
-                document.getElementById('quick-booking-customer').value = '';
-                
-                // Telefonnummer für später speichern
-                if (data.phone) {
-                    window.aiBookingPhone = data.phone;
-                }
-                
-                // Geocode Adressen und speichere Koordinaten
-                (async () => {
-                    try {
-                        console.log('🔍 Geocode Adressen...');
-                        
-                        // Geocode Pickup
-                        const pickupCoords = await geocode(data.pickup);
-                        if (pickupCoords) {
-                            window.qbPickupCoords = pickupCoords;
-                            console.log('✅ Pickup-Coords:', pickupCoords);
-                        }
-                        
-                        // Geocode Destination
-                        const destCoords = await geocode(data.destination);
-                        if (destCoords) {
-                            window.qbDestCoords = destCoords;
-                            console.log('✅ Dest-Coords:', destCoords);
-                        }
-                        
-                    } catch (error) {
-                        console.warn('⚠️ Geocoding-Fehler:', error);
-                    }
-                })();
-                
-                // Öffne Schnellbuchungs-Modal!
+                // 🆕 v5.88.12: ERST Modal öffnen, DANN Felder füllen!
                 openQuickBookingModal();
                 
+                // Kurz warten bis Modal gerendert ist
+                setTimeout(() => {
+                    // Splitte datetime in date und time
+                    const [date, time] = data.datetime.split('T');
+                    
+                    // Fülle Quick-Booking Modal Felder aus (mit NULL-Checks!)
+                    const dateEl = document.getElementById('quick-booking-date');
+                    const timeEl = document.getElementById('quick-booking-time');
+                    const pickupEl = document.getElementById('quick-booking-pickup');
+                    const destEl = document.getElementById('quick-booking-destination');
+                    const passengersEl = document.getElementById('quick-booking-passengers');
+                    const notesEl = document.getElementById('quick-booking-notes');
+                    const vehicleEl = document.getElementById('quick-booking-vehicle');
+                    const customerEl = document.getElementById('quick-booking-customer');
+                    const searchField = document.getElementById('quick-booking-customer-search');
+                    
+                    if (dateEl) dateEl.value = date;
+                    if (timeEl) timeEl.value = time;
+                    if (pickupEl) pickupEl.value = data.pickup;
+                    if (destEl) destEl.value = data.destination;
+                    if (passengersEl) passengersEl.value = data.passengers || 1;
+                    if (notesEl) notesEl.value = data.notes && data.notes !== 'null' ? data.notes : '';
+                    if (vehicleEl) vehicleEl.value = '';
+                    if (customerEl) customerEl.value = '';
+                    
+                    // Kunde: Setze Suchfeld mit Name (wenn vorhanden)
+                    if (searchField && data.name) {
+                        searchField.value = data.name;
+                    }
+                    
+                    // Telefonnummer für später speichern
+                    if (data.phone) {
+                        window.aiBookingPhone = data.phone;
+                    }
+                    
+                    // Geocode Adressen und speichere Koordinaten
+                    (async () => {
+                        try {
+                            console.log('🔍 Geocode Adressen...');
+                            
+                            // Geocode Pickup
+                            const pickupCoords = await geocode(data.pickup);
+                            if (pickupCoords) {
+                                window.qbPickupCoords = pickupCoords;
+                                console.log('✅ Pickup-Coords:', pickupCoords);
+                            }
+                            
+                            // Geocode Destination
+                            const destCoords = await geocode(data.destination);
+                            if (destCoords) {
+                                window.qbDestCoords = destCoords;
+                                console.log('✅ Dest-Coords:', destCoords);
+                            }
+                            
+                        } catch (error) {
+                            console.warn('⚠️ Geocoding-Fehler:', error);
+                        }
+                    })();
+                    
+                    console.log('✅ Quick-Booking Modal gefüllt!');
+                }, 100); // 100ms warten
+                
                 // Verstecke AI-Results
-                document.getElementById('ai-results').style.display = 'none';
+                const aiResults = document.getElementById('ai-results');
+                if (aiResults) aiResults.style.display = 'none';
                 
                 return; // Fertig!
             }

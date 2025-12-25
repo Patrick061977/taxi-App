@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.9 - SMS-EINSTELLUNGEN IN FIREBASE! 📱🔥 (Build 20251225-1020)');
+        console.log('🚕 Funk Taxi App v5.88.11 - WHATSAPP SCREENSHOT OCR! 📱📷 (Build 20251225-1100)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱🔥 Version 5.88.9 - SMS-EINSTELLUNGEN IN FIREBASE! (Build 20251225-1020)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱📷 Version 5.88.11 - WHATSAPP SCREENSHOT OCR! (Build 20251225-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3652,7 +3652,7 @@
         </div>
         <div id="users-content" style="display:none;margin-bottom:20px;">
             <div style="margin-bottom:15px;">
-                <input type="text" id="user-search" placeholder="🔍 Benutzer suchen..." oninput="searchUsers()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                <input type="text" id="user-search" placeholder="🔍 Benutzer suchen..." oninput="searchUsers()" onpaste="setTimeout(searchUsers, 100)" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
             </div>
             <div id="users-list" style="max-height:300px;overflow-y:auto;"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
@@ -3696,7 +3696,7 @@
             </div>
             
             <div style="margin-bottom:15px;">
-                <input type="text" id="customer-search" placeholder="🔍 Kunde suchen (Name, Email, Telefon)..." oninput="searchCustomers()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                <input type="text" id="customer-search" placeholder="🔍 Kunde suchen (Name, Email, Telefon)..." oninput="searchCustomers()" onpaste="setTimeout(searchCustomers, 100)" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
             </div>
             <div id="customers-list" style="max-height:400px;overflow-y:auto;"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
@@ -4789,11 +4789,31 @@
                 <!-- Input Area -->
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">
-                        📧 E-Mail oder Telegram-Nachricht einfügen:
+                        📧 E-Mail, Telegram oder WhatsApp-Nachricht:
                     </label>
                     <textarea id="ai-input-text" placeholder="Beispiel:&#10;&#10;Guten Tag,&#10;ich möchte ein Taxi für morgen 14:30 Uhr buchen.&#10;Abholung: Bahnhof Heringsdorf&#10;Ziel: Strandhotel Ahlbeck&#10;2 Personen&#10;&#10;Mit freundlichen Grüßen&#10;Maria Schmidt&#10;+49 170 1234567" 
                         style="width: 100%; height: 200px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: monospace; resize: vertical;">
                     </textarea>
+                    
+                    <!-- 🆕 v5.88.11: Screenshot-Upload für WhatsApp! -->
+                    <div style="margin-top: 12px; padding: 15px; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); border-radius: 8px;">
+                        <div style="color: white; font-weight: 600; margin-bottom: 10px; font-size: 14px;">
+                            📱 WhatsApp-Screenshot hochladen:
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <label style="flex: 1; min-width: 150px; padding: 12px; background: white; border-radius: 6px; cursor: pointer; text-align: center; font-weight: 600; color: #128C7E;">
+                                📷 Screenshot wählen
+                                <input type="file" id="ai-screenshot-input" accept="image/*" onchange="analyzeScreenshot(this)" style="display: none;">
+                            </label>
+                            <button onclick="pasteFromClipboard('ai-input-text')" style="flex: 1; min-width: 150px; padding: 12px; background: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; color: #128C7E;">
+                                📋 Text einfügen
+                            </button>
+                        </div>
+                        <div style="color: rgba(255,255,255,0.9); font-size: 12px; margin-top: 8px;">
+                            💡 Mach einen Screenshot von der WhatsApp-Nachricht - ich lese Name, Telefon & Buchungsdetails automatisch aus!
+                        </div>
+                        <div id="ai-screenshot-preview" style="display: none; margin-top: 10px;"></div>
+                    </div>
                 </div>
 
                 <!-- Action Buttons -->
@@ -11147,6 +11167,120 @@
         // DATABASE FUNCTIONS
         
         // 🔔 TOAST-BENACHRICHTIGUNGEN
+        // 🆕 v5.88.11: Screenshot-Analyse für WhatsApp (OCR mit Tesseract.js)
+        async function analyzeScreenshot(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const preview = document.getElementById('ai-screenshot-preview');
+            preview.style.display = 'block';
+            preview.innerHTML = `
+                <div style="background: white; border-radius: 6px; padding: 10px;">
+                    <div style="text-align: center; color: #128C7E; font-weight: 600;">
+                        ⏳ Analysiere Screenshot...
+                    </div>
+                </div>
+            `;
+            
+            try {
+                // Lade Tesseract.js falls nicht vorhanden
+                if (typeof Tesseract === 'undefined') {
+                    console.log('📦 Lade Tesseract.js...');
+                    await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js');
+                }
+                
+                // OCR durchführen
+                console.log('🔍 Starte OCR...');
+                const result = await Tesseract.recognize(file, 'deu', {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const percent = Math.round(m.progress * 100);
+                            preview.innerHTML = `
+                                <div style="background: white; border-radius: 6px; padding: 10px;">
+                                    <div style="text-align: center; color: #128C7E; font-weight: 600;">
+                                        🔍 Lese Text... ${percent}%
+                                    </div>
+                                    <div style="background: #e5e7eb; border-radius: 4px; height: 8px; margin-top: 8px;">
+                                        <div style="background: #25D366; height: 100%; border-radius: 4px; width: ${percent}%;"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+                
+                const text = result.data.text;
+                console.log('✅ OCR fertig:', text);
+                
+                // Text in Textarea einfügen
+                const textarea = document.getElementById('ai-input-text');
+                textarea.value = text;
+                
+                // Vorschau mit Bild
+                const imgUrl = URL.createObjectURL(file);
+                preview.innerHTML = `
+                    <div style="background: white; border-radius: 6px; padding: 10px;">
+                        <div style="color: #10b981; font-weight: 600; margin-bottom: 8px;">✅ Text erkannt!</div>
+                        <img src="${imgUrl}" style="max-width: 100%; max-height: 150px; border-radius: 4px; margin-bottom: 8px;">
+                        <div style="font-size: 12px; color: #6b7280;">Klicke jetzt auf "🔍 Analysieren"</div>
+                    </div>
+                `;
+                
+                showToast('✅ Screenshot ausgelesen! Klicke auf Analysieren.');
+                
+            } catch (err) {
+                console.error('❌ OCR Fehler:', err);
+                preview.innerHTML = `
+                    <div style="background: white; border-radius: 6px; padding: 10px; color: #ef4444;">
+                        ❌ Fehler beim Lesen: ${err.message}
+                    </div>
+                `;
+            }
+            
+            // Input zurücksetzen für erneutes Hochladen
+            input.value = '';
+        }
+        
+        // Hilfsfunktion: Script dynamisch laden
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector(`script[src="${src}"]`)) {
+                    resolve();
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        // 🆕 v5.88.10: Aus Zwischenablage einfügen (für WhatsApp Web etc.)
+        async function pasteFromClipboard(targetId) {
+            try {
+                const text = await navigator.clipboard.readText();
+                const target = document.getElementById(targetId);
+                if (target && text) {
+                    // Bei Textarea/Input: an Cursor-Position einfügen oder ersetzen
+                    if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+                        const start = target.selectionStart;
+                        const end = target.selectionEnd;
+                        const currentValue = target.value;
+                        target.value = currentValue.substring(0, start) + text + currentValue.substring(end);
+                        target.focus();
+                        // Cursor ans Ende des eingefügten Texts
+                        target.selectionStart = target.selectionEnd = start + text.length;
+                    }
+                    console.log('📋 Text eingefügt:', text.substring(0, 50) + '...');
+                    showToast('✅ Text eingefügt!');
+                }
+            } catch (err) {
+                console.error('❌ Zwischenablage-Fehler:', err);
+                showToast('❌ Zugriff auf Zwischenablage verweigert. Bitte Strg+V verwenden.');
+            }
+        }
+        
         function showToast(message, type = 'info') {
             // Erstelle Toast-Element
             const toast = document.createElement('div');
@@ -15236,7 +15370,7 @@
             console.log('🔧 setupAutocomplete wird initialisiert...');
             
             // 🆕 v5.64.34: Auch AI-Buchungsmaske Felder!
-            ['pickup', 'destination', 'qb-panel-pickup', 'qb-panel-destination', 'ai-booking-pickup', 'ai-booking-destination'].forEach(id => {
+            ['pickup', 'destination', 'quick-booking-pickup', 'quick-booking-destination', 'ai-booking-pickup', 'ai-booking-destination'].forEach(id => {
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
                 
@@ -25900,6 +26034,8 @@
                                 id="quick-booking-customer-search" 
                                 placeholder="Telefon oder Name eingeben..." 
                                 oninput="searchQuickBookingCustomer()"
+                                onpaste="setTimeout(searchQuickBookingCustomer, 100)"
+                                onchange="searchQuickBookingCustomer()"
                                 autocomplete="off"
                                 title="Tippe min. 3 Zeichen um zu suchen"
                                 style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">

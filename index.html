@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.25 - SCHNELLBUCHUNG VOM ANRUF! ⚡ (Build 20251225-1430)');
+        console.log('🚕 Funk Taxi App v5.88.26 - POI-LISTE FIX! ⭐ (Build 20251225-1435)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.88.25 - SCHNELLBUCHUNG VOM ANRUF! (Build 20251225-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.26 - POI-LISTE FIX! (Build 20251225-1435)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3074,7 +3074,7 @@
                 </div>
             </div>
             
-            <div id="poi-list-container" style="max-height:400px;overflow-y:auto;">
+            <div id="admin-poi-list-container" style="max-height:400px;overflow-y:auto;">
                 <div style="text-align:center;padding:40px;color:#6b7280;">
                     Lade POIs...
                 </div>
@@ -41749,7 +41749,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         function renderPOIList() {
             const container = document.getElementById('poi-list-container');
-            if (!container) return;
+            if (!container) {
+                console.log('❌ POI-Container nicht gefunden!');
+                return;
+            }
+            
+            console.log('🎨 Rendere POI-Liste mit', allPOIs.length, 'Einträgen');
             
             if (allPOIs.length === 0) {
                 container.innerHTML = `
@@ -41762,40 +41767,50 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 return;
             }
             
-            container.innerHTML = `
-                <div style="display:grid;gap:10px;">
-                    ${allPOIs.map(poi => `
-                        <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:14px;transition:all 0.3s;" 
-                             onmouseover="this.style.boxShadow='0 4px 12px rgba(245,158,11,0.3)'"
-                             onmouseout="this.style.boxShadow='none'">
-                            <div style="display:flex;justify-content:space-between;align-items:start;">
-                                <div style="flex:1;">
-                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                                        <div style="font-size:20px;">⭐</div>
-                                        <div style="font-weight:700;font-size:16px;color:#92400e;">${poi.name}</div>
+            try {
+                container.innerHTML = `
+                    <div style="display:grid;gap:10px;">
+                        ${allPOIs.map(poi => {
+                            const lat = poi.lat ? poi.lat.toFixed(6) : '?';
+                            const lon = poi.lon ? poi.lon.toFixed(6) : '?';
+                            const safeName = (poi.name || 'Unbenannt').replace(/'/g, "\\'");
+                            return `
+                            <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:14px;transition:all 0.3s;" 
+                                 onmouseover="this.style.boxShadow='0 4px 12px rgba(245,158,11,0.3)'"
+                                 onmouseout="this.style.boxShadow='none'">
+                                <div style="display:flex;justify-content:space-between;align-items:start;">
+                                    <div style="flex:1;">
+                                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                            <div style="font-size:20px;">⭐</div>
+                                            <div style="font-weight:700;font-size:16px;color:#92400e;">${poi.name || 'Unbenannt'}</div>
+                                        </div>
+                                        <div style="font-size:13px;color:#78350f;margin-left:28px;">
+                                            📍 ${poi.address || 'Keine Adresse'}
+                                        </div>
+                                        <div style="font-size:11px;color:#a16207;margin-left:28px;margin-top:4px;">
+                                            📐 ${lat}, ${lon}
+                                        </div>
                                     </div>
-                                    <div style="font-size:13px;color:#78350f;margin-left:28px;">
-                                        📍 ${poi.address}
+                                    <div style="display:flex;flex-direction:column;gap:6px;">
+                                        <button onclick="editPOI('${poi.id}')" 
+                                                style="padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                            ✏️ Bearbeiten
+                                        </button>
+                                        <button onclick="deletePOI('${poi.id}', '${safeName}')" 
+                                                style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                            🗑️ Löschen
+                                        </button>
                                     </div>
-                                    <div style="font-size:11px;color:#a16207;margin-left:28px;margin-top:4px;">
-                                        📐 ${poi.lat.toFixed(6)}, ${poi.lon.toFixed(6)}
-                                    </div>
-                                </div>
-                                <div style="display:flex;flex-direction:column;gap:6px;">
-                                    <button onclick="editPOI('${poi.id}')" 
-                                            style="padding:8px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
-                                        ✏️ Bearbeiten
-                                    </button>
-                                    <button onclick="deletePOI('${poi.id}', '${poi.name.replace(/'/g, "\\'")}')" 
-                                            style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
-                                        🗑️ Löschen
-                                    </button>
                                 </div>
                             </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+                        `}).join('')}
+                    </div>
+                `;
+                console.log('✅ POI-Liste gerendert!');
+            } catch (error) {
+                console.error('❌ Fehler beim Rendern der POI-Liste:', error);
+                container.innerHTML = `<div style="padding:20px;color:red;">Fehler: ${error.message}</div>`;
+            }
         }
         
         function openAddPOIModal() {

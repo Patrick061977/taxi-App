@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.7 - SMS AUTO-FILL VERBESSERT! 🎫✅ (Build 20251225-1005)');
+        console.log('🚕 Funk Taxi App v5.88.8 - HALTESTELLE WECHSELN FIX! 🎫✅ (Build 20251225-1010)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.7 - SMS AUTO-FILL VERBESSERT! (Build 20251225-1005)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.8 - HALTESTELLE WECHSELN FIX! (Build 20251225-1010)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9288,6 +9288,21 @@
         // Aktualisiert Fahrplan
         async function refreshSchedule() {
             scheduleLoaded = false;
+        
+        // 🆕 v5.88.8: Andere Haltestelle wählen
+        function changeStation() {
+            console.log('🔄 Haltestelle wechseln...');
+            scheduleLoaded = false;
+            
+            // Leere die Abfahrten-Anzeige
+            const trainList = document.getElementById('schedule-train-list');
+            const busList = document.getElementById('schedule-bus-list');
+            if (trainList) trainList.innerHTML = '<div style="text-align:center;padding:20px;color:#666;">Lade Haltestellen...</div>';
+            if (busList) busList.innerHTML = '';
+            
+            // Lade Fahrplan neu (zeigt Haltestellenauswahl)
+            loadSchedule();
+        }
             
             // 🆕 v5.49.3: NULL-CHECK!
             const trainsEl = document.getElementById('schedule-trains');
@@ -9461,7 +9476,7 @@
                 <div style="background:white;padding:15px;border-radius:12px;border:2px solid #3b82f6;margin-bottom:15px;">
                     <div style="font-size:14px;color:#3b82f6;margin-bottom:4px;font-weight:600;">✅ Gewählte Haltestelle:</div>
                     <div style="font-size:16px;font-weight:700;color:#1f2937;">${stopName}</div>
-                    <button onclick="loadSchedule()" style="margin-top:8px;padding:6px 12px;background:#f3f4f6;border:none;border-radius:6px;font-size:12px;color:#6b7280;cursor:pointer;">
+                    <button onclick="changeStation()" style="margin-top:8px;padding:6px 12px;background:#f3f4f6;border:none;border-radius:6px;font-size:12px;color:#6b7280;cursor:pointer;">
                         🔄 Andere Haltestelle wählen
                     </button>
                 </div>

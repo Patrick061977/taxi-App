@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.16 - ANRUFHISTORIE KUNDEN-ERKENNUNG! 📞 (Build 20251225-1210)');
+        console.log('🚕 Funk Taxi App v5.88.21 - FAHRGAST-TELEFON! 📱 (Build 20251225-1255)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -5914,21 +5914,46 @@
                     const callId = child.key;
                     const callerDigits = (call.caller || '').replace(/\D/g, '');
                     
-                    // Suche passenden Kunden
-                    const matchedCustomer = customers.find(c => {
+                    // 🆕 v5.88.18: Ignoriere ungültige Anrufer-Nummern
+                    if (callerDigits.length < 6) {
+                        console.log(`⚠️ Überspringe ungültige Anrufer-Nummer: ${call.caller}`);
+                        return;
+                    }
+                    
+                    // 🆕 v5.88.17: Finde ALLE passenden Kunden
+                    const matchingCustomers = customers.filter(c => {
                         if (!c.phone) return false;
                         // Prüfe alle Telefonnummern (getrennt durch /)
                         const phones = c.phone.split('/').map(p => p.replace(/\D/g, ''));
                         return phones.some(p => {
+                            // 🆕 v5.88.18: Ignoriere zu kurze Kunden-Nummern (min 6 Ziffern)
+                            if (p.length < 6) return false;
+                            
                             // Vergleiche letzte 8-10 Ziffern (ignoriert Vorwahl-Unterschiede)
                             const callerEnd = callerDigits.slice(-10);
                             const customerEnd = p.slice(-10);
                             return callerEnd === customerEnd || 
                                    callerDigits === p ||
-                                   callerDigits.endsWith(p) ||
-                                   p.endsWith(callerDigits);
+                                   (callerDigits.length >= 8 && p.length >= 8 && callerDigits.endsWith(p)) ||
+                                   (callerDigits.length >= 8 && p.length >= 8 && p.endsWith(callerDigits));
                         });
                     });
+                    
+                    // 🆕 v5.88.17: Wenn mehrere Kunden → bevorzuge Hotels/Firmen
+                    let matchedCustomer = null;
+                    if (matchingCustomers.length === 1) {
+                        matchedCustomer = matchingCustomers[0];
+                    } else if (matchingCustomers.length > 1) {
+                        console.log(`⚠️ ${matchingCustomers.length} Kunden mit gleicher Nummer:`, matchingCustomers.map(c => c.name));
+                        // Bevorzuge Hotels/Pensionen/Firmen
+                        const hotelKeywords = ['hotel', 'pension', 'resort', 'haus', 'hof', 'villa', 'residenz', 'quality', 'radisson', 'maritim', 'steigenberger'];
+                        const hotel = matchingCustomers.find(c => {
+                            const nameLower = (c.name || '').toLowerCase();
+                            return hotelKeywords.some(kw => nameLower.includes(kw));
+                        });
+                        matchedCustomer = hotel || matchingCustomers[0]; // Hotel oder erster
+                        console.log(`✅ Bevorzuge: ${matchedCustomer.name}`);
+                    }
                     
                     // Update wenn Kunde gefunden aber nicht markiert
                     if (matchedCustomer && !call.customerFound) {
@@ -10788,7 +10813,7 @@
                         
                         html += `<div class="ride-card" style="border-left:4px solid ${borderColor};background:${bgColor};">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <strong>${r.customerName || 'Unbekannt'}${r.guestName ? ' → 📝 ' + r.guestName : ''}</strong>
+                                <strong>${r.customerName || 'Unbekannt'}${r.guestName ? ' → 🧳 ' + r.guestName : ''}${r.guestPhone ? ' 📱' + r.guestPhone : ''}</strong>
                                 <div style="display:flex;gap:6px;align-items:center;">
                                     <span style="background:#0ea5e9;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;">${countdownText}</span>
                                     ${statusBadge}
@@ -14118,9 +14143,13 @@
                 const rideId = ride.firebaseId || ride.id || 'unbekannt';
                 
                 // 🆕 v5.75.0: Kunde + Gast-Name!
+                // 🆕 v5.88.21: + Gast-Telefon!
                 let customerInfo = `👤 <b>Kunde:</b> ${ride.customerName}`;
                 if (ride.guestName) {
-                    customerInfo += `\n📝 <b>Gast:</b> ${ride.guestName}`;
+                    customerInfo += `\n🧳 <b>Fahrgast:</b> ${ride.guestName}`;
+                }
+                if (ride.guestPhone) {
+                    customerInfo += `\n📱 <b>Fahrgast-Tel:</b> ${ride.guestPhone}`;
                 }
                 
                 const message = `🚨 <b>NEUER AUFTRAG FÜR DICH!</b> 🚨\n` +
@@ -26195,19 +26224,32 @@
                             </button>
                         </div>
                         
-                        <!-- 🆕 v5.75.0: GAST-NAME (optional) -->
+                        <!-- 🆕 v5.75.0: GAST-NAME (optional) - NUR INFO-FELD! -->
                         <div style="margin-bottom:15px;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Optional: Name des Gastes (z.B. bei Hotel-Buchungen)">
-                                📝 Gast-Name (optional)
-                                <span style="font-weight:400;font-size:12px;color:#6b7280;margin-left:4px;">für Hotels</span>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Optional: Name des Fahrgastes (z.B. bei Hotel-Buchungen). Wird NICHT als Kunde angelegt!">
+                                🧳 Fahrgast-Name (optional)
+                                <span style="font-weight:400;font-size:12px;color:#6b7280;margin-left:4px;">nur Info</span>
                             </label>
                             <input 
                                 type="text" 
                                 id="quick-booking-guest-name" 
                                 placeholder="z.B. Herr Müller" 
-                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;background:#f9fafb;">
+                        </div>
+                        
+                        <!-- 🆕 v5.88.21: FAHRGAST-TELEFON (optional) - NUR INFO-FELD! -->
+                        <div style="margin-bottom:15px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Optional: Telefon des Fahrgastes für Kontakt. Wird NICHT als Kunde angelegt!">
+                                📱 Fahrgast-Telefon (optional)
+                                <span style="font-weight:400;font-size:12px;color:#6b7280;margin-left:4px;">nur Info</span>
+                            </label>
+                            <input 
+                                type="tel" 
+                                id="quick-booking-guest-phone" 
+                                placeholder="z.B. 0170 1234567" 
+                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;background:#f9fafb;">
                             <div style="font-size:12px;color:#6b7280;margin-top:4px;">
-                                💡 Rechnung geht an Kunde, Fahrt wird für Gast durchgeführt
+                                ℹ️ Nur für Kontakt - wird NICHT als Kunde angelegt
                             </div>
                         </div>
                         
@@ -31282,17 +31324,26 @@
                 // 🆕 v5.73.0: NEUER KUNDE (isNew) → INS CRM SPEICHERN!
                 if (finalCustomer && finalCustomer.isNew) {
                     console.log('🆕 Neuer Kunde erkannt - speichere ins CRM...');
-                    console.log('📍 Adresse:', pickup); // 🆕 v5.87.73
+                    console.log('📍 Adresse:', pickup);
                     
                     // Hole Name aus dem Suchfeld
                     const searchField = document.getElementById('quick-booking-customer-search');
                     let customerName = searchField ? searchField.value.trim() : '';
                     
-                    // Wenn leer → Frage nach!
+                    // 🆕 v5.88.20: Gastname ist NUR ein Info-Feld - NICHT für Kunden-Anlage verwenden!
+                    // Der Gastname wird später nur in der Fahrt gespeichert, nicht als Kunde.
+                    
+                    // Wenn Kundenname leer → Frage nach dem AUFTRAGGEBER (nicht Fahrgast!)
                     if (!customerName) {
-                        customerName = prompt('👤 Wie heißt der Kunde?\n\n📞 Telefon: ' + finalCustomer.phone);
+                        customerName = prompt(
+                            '👤 Wer ist der AUFTRAGGEBER?\n\n' +
+                            '📞 Telefon: ' + finalCustomer.phone + '\n\n' +
+                            '💡 Das ist der Kunde der die Rechnung bekommt!\n' +
+                            '(z.B. Hotel-Name, Firmenname, oder Privatperson)\n\n' +
+                            '⚠️ NICHT den Fahrgast-Namen eingeben!'
+                        );
                         if (!customerName || !customerName.trim()) {
-                            alert('❌ Name ist erforderlich!');
+                            alert('❌ Kundenname ist erforderlich!');
                             return;
                         }
                         customerName = customerName.trim();
@@ -31456,6 +31507,8 @@
                     customerPhone: finalCustomer.phone || '',
                     // 🆕 v5.75.0: GAST-NAME (optional)
                     guestName: document.getElementById('quick-booking-guest-name')?.value?.trim() || '',
+                    // 🆕 v5.88.21: GAST-TELEFON (optional) - nur Info!
+                    guestPhone: document.getElementById('quick-booking-guest-phone')?.value?.trim() || '',
                     pickup: pickup,
                     destination: destination,
                     pickupTimestamp: pickupTimestamp,

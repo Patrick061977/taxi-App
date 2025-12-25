@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.4 - SYNTAX-FIX! 🎫✅ (Build 20251224-1200)');
+        console.log('🚕 Funk Taxi App v5.88.6 - NULL-FIX IM HEADER! 🎫✅ (Build 20251225-1000)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.4 - SYNTAX-FIX + 50/50 KOMPLETT! (Build 20251224-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.6 - NULL-FIX IM HEADER! (Build 20251225-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -35239,8 +35239,11 @@ Stack: ${err.stack}
             
             if (currentUser) {
                 // User ist eingeloggt - zeige Profil + Stammkunden-Info
-                const initial = (currentUser.displayName || currentUser.email).charAt(0).toUpperCase();
-                const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+                const initial = (currentUser.displayName || currentUser.email || currentUser.phoneNumber || '?').charAt(0).toUpperCase();
+                const displayName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : currentUser.phoneNumber) || 'Unbekannt';
+                
+                // 🆕 v5.88.6: Zeige Telefon ODER E-Mail (nicht "null"!)
+                const subInfo = currentUser.email || currentUser.phoneNumber;
                 
                 // Lade Stammkunden-Daten
                 const regularCustomer = JSON.parse(localStorage.getItem('regularCustomer') || 'null');
@@ -35262,7 +35265,7 @@ Stack: ${err.stack}
                     <div class="user-avatar">${initial}</div>
                     <div class="user-info">
                         <div style="font-weight: 600; font-size: 11px;">${displayName}</div>
-                        <div style="font-size: 9px; opacity: 0.75;">${currentUser.email}</div>
+                        <div style="font-size: 9px; opacity: 0.75;">${subInfo}</div>
                         ${customerStats}
                     </div>
                     <button class="btn-logout" onclick="logoutUser()">Aus</button>
@@ -40055,13 +40058,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // Sofort UI aktualisieren
             checkFiftyFiftyAvailability();
             
-            // Visuelles Feedback
-            const section = document.querySelector('[onclick="saveFiftyFiftySettings()"]')?.closest('div');
-            if (section) {
-                const origBg = section.style.background;
-                section.style.background = '#d1fae5';
-                setTimeout(() => { section.style.background = origBg || 'white'; }, 500);
-            }
+            // 🆕 v5.88.5: Toast-Meldung
+            showToast(enabled ? '✅ 50/50 Ticket aktiviert!' : '❌ 50/50 Ticket deaktiviert!');
         }
         
         // Lade 50/50 Einstellungen
@@ -40438,17 +40436,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             console.log('📱 SMS gespeichert - Buchung:', bookingEnabled, '| Tracking:', trackingEnabled);
             
-            // 🆕 v5.88.0: Kurzes visuelles Feedback
-            const btn = document.querySelector('[onclick="testSMSActive()"]');
-            if (btn) {
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '✅ Einstellungen gespeichert!';
-                btn.style.background = '#059669';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.style.background = '#10b981';
-                }, 1500);
-            }
+            // 🆕 v5.88.5: Toast-Meldung wie bei CRM
+            showToast('✅ SMS-Einstellungen gespeichert!');
         }
         
         function loadSMSSettings() {

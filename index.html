@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.11 - WHATSAPP SCREENSHOT OCR! 📱📷 (Build 20251225-1100)');
+        console.log('🚕 Funk Taxi App v5.88.12 - AI-ASSISTENT NULL-FIX! 📱📷 (Build 20251225-1105)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱📷 Version 5.88.11 - WHATSAPP SCREENSHOT OCR! (Build 20251225-1100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱📷 Version 5.88.12 - AI-ASSISTENT NULL-FIX! (Build 20251225-1105)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5372,7 +5372,22 @@
             'peenemünde': { lat: 54.1422, lon: 13.7753, name: 'Peenemünde' },
             'trassenheide': { lat: 54.0997, lon: 13.8875, name: 'Trassenheide' },
             'usedom': { lat: 53.9533, lon: 14.1633, name: 'Usedom' },
-            'swinemünde': { lat: 53.9167, lon: 14.2500, name: 'Swinemünde' }
+            'swinemünde': { lat: 53.9108, lon: 14.2472, name: 'Swinemünde, Polen' },
+            'świnoujście': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście, Polen' },
+            'swinoujscie': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście, Polen' }
+        };
+        
+        // 🆕 v5.88.11: Bekannte Orte für Autocomplete (mit Koordinaten!)
+        const KNOWN_PLACES = {
+            'swinemünde': { lat: 53.9108, lon: 14.2472, name: 'Swinemünde', fullAddress: 'Swinemünde, Polen' },
+            'świnoujście': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście', fullAddress: 'Świnoujście, Polen' },
+            'swinoujscie': { lat: 53.9108, lon: 14.2472, name: 'Świnoujście', fullAddress: 'Świnoujście, Polen' },
+            'misdroy': { lat: 53.9283, lon: 14.4017, name: 'Misdroy', fullAddress: 'Misdroy (Międzyzdroje), Polen' },
+            'międzyzdroje': { lat: 53.9283, lon: 14.4017, name: 'Międzyzdroje', fullAddress: 'Międzyzdroje, Polen' },
+            'wollin': { lat: 53.8406, lon: 14.6175, name: 'Wollin', fullAddress: 'Wollin (Wolin), Polen' },
+            'wolin': { lat: 53.8406, lon: 14.6175, name: 'Wolin', fullAddress: 'Wolin, Polen' },
+            'stettin': { lat: 53.4285, lon: 14.5528, name: 'Stettin', fullAddress: 'Stettin (Szczecin), Polen' },
+            'szczecin': { lat: 53.4285, lon: 14.5528, name: 'Szczecin', fullAddress: 'Szczecin, Polen' }
         };
 
         // STATE
@@ -15499,6 +15514,15 @@
                 );
                 console.log('🔍 POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
                 
+                // 🆕 v5.88.11: Bekannte Orte (Swinemünde, Misdroy, Stettin etc.) prüfen
+                const matchingKnownPlaces = [];
+                for (const [key, place] of Object.entries(KNOWN_PLACES)) {
+                    if (key.includes(lowerQuery) || place.name.toLowerCase().includes(lowerQuery)) {
+                        matchingKnownPlaces.push(place);
+                    }
+                }
+                console.log('🏙️ Bekannte Orte gefunden:', matchingKnownPlaces.length);
+                
                 // Suche mit Nominatim API
                 console.log('📡 Starte API-Request...');
                 const response = await fetch(
@@ -15515,10 +15539,28 @@
                 console.log('✅ JSON geparst, Anzahl Ergebnisse:', results.length);
                 
                 // 🆕 v5.64.48: Wenn BEIDE leer → Keine Ergebnisse
-                if (matchingPOIs.length === 0 && results.length === 0) {
+                if (matchingPOIs.length === 0 && matchingKnownPlaces.length === 0 && results.length === 0) {
                     dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">Keine Ergebnisse</div>';
                     console.log('⚠️ Keine Ergebnisse gefunden (POI + Nominatim)');
                     return;
+                }
+                
+                // 🆕 v5.88.11: BEKANNTE ORTE (Swinemünde etc.) ZUERST!
+                let knownPlacesHTML = '';
+                if (matchingKnownPlaces.length > 0) {
+                    knownPlacesHTML = `
+                        <div style="padding:8px;background:#dbeafe;border-bottom:2px solid #3b82f6;font-weight:600;font-size:12px;color:#1e40af;">
+                            🇵🇱 BEKANNTE ORTE
+                        </div>
+                    `;
+                    knownPlacesHTML += matchingKnownPlaces.map(place => {
+                        return `
+                            <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${place.fullAddress.replace(/'/g, "\\'")}', ${place.lat}, ${place.lon})" style="background:#eff6ff;">
+                                <div style="font-weight:600;color:#3b82f6;">🏙️ ${place.name}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${place.fullAddress}</div>
+                            </div>
+                        `;
+                    }).join('');
                 }
                 
                 // 🆕 v5.64.48: EIGENE POIs AM ANFANG!
@@ -39123,14 +39165,22 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             
             document.getElementById('ai-analysis-result').innerHTML = resultHTML;
             
-            // Fülle Formular (Fallback für unvollständige Daten)
-            document.getElementById('ai-booking-datetime').value = data.datetime || '';
-            document.getElementById('ai-booking-pickup').value = data.pickup || '';
-            document.getElementById('ai-booking-destination').value = data.destination || '';
-            document.getElementById('ai-booking-passengers').value = data.passengers || 1;
-            document.getElementById('ai-booking-name').value = data.name || '';
-            document.getElementById('ai-booking-phone').value = data.phone || '';
-            document.getElementById('ai-booking-notes').value = data.notes && data.notes !== 'null' ? data.notes : '';
+            // Fülle Formular (mit NULL-Check!)
+            const datetimeEl = document.getElementById('ai-booking-datetime');
+            const pickupEl = document.getElementById('ai-booking-pickup');
+            const destEl = document.getElementById('ai-booking-destination');
+            const passengersEl = document.getElementById('ai-booking-passengers');
+            const nameEl = document.getElementById('ai-booking-name');
+            const phoneEl = document.getElementById('ai-booking-phone');
+            const notesEl = document.getElementById('ai-booking-notes');
+            
+            if (datetimeEl) datetimeEl.value = data.datetime || '';
+            if (pickupEl) pickupEl.value = data.pickup || '';
+            if (destEl) destEl.value = data.destination || '';
+            if (passengersEl) passengersEl.value = data.passengers || 1;
+            if (nameEl) nameEl.value = data.name || '';
+            if (phoneEl) phoneEl.value = data.phone || '';
+            if (notesEl) notesEl.value = data.notes && data.notes !== 'null' ? data.notes : '';
             
             // Auto-Preis berechnen (nur wenn Orte vorhanden)
             if (data.pickup && data.destination) {
@@ -39246,15 +39296,29 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
         }
         
         async function createBookingFromAI() {
-            // Hole AI-Daten
-            const datetime = document.getElementById('ai-booking-datetime').value;
-            const pickup = document.getElementById('ai-booking-pickup').value.trim();
-            const destination = document.getElementById('ai-booking-destination').value.trim();
-            const passengers = parseInt(document.getElementById('ai-booking-passengers').value) || 1;
-            const name = document.getElementById('ai-booking-name').value.trim();
-            const phone = document.getElementById('ai-booking-phone').value.trim();
-            const notes = document.getElementById('ai-booking-notes').value.trim();
-            const priceText = document.getElementById('ai-booking-price').textContent;
+            // Hole AI-Daten (mit NULL-Checks!)
+            const datetimeEl = document.getElementById('ai-booking-datetime');
+            const pickupEl = document.getElementById('ai-booking-pickup');
+            const destEl = document.getElementById('ai-booking-destination');
+            const passengersEl = document.getElementById('ai-booking-passengers');
+            const nameEl = document.getElementById('ai-booking-name');
+            const phoneEl = document.getElementById('ai-booking-phone');
+            const notesEl = document.getElementById('ai-booking-notes');
+            const priceEl = document.getElementById('ai-booking-price');
+            
+            if (!datetimeEl || !pickupEl || !destEl) {
+                alert('❌ Fehler: Formular-Elemente nicht gefunden! Bitte Seite neu laden.');
+                return;
+            }
+            
+            const datetime = datetimeEl.value;
+            const pickup = pickupEl.value.trim();
+            const destination = destEl.value.trim();
+            const passengers = parseInt(passengersEl?.value) || 1;
+            const name = nameEl?.value.trim() || '';
+            const phone = phoneEl?.value.trim() || '';
+            const notes = notesEl?.value.trim() || '';
+            const priceText = priceEl?.textContent || '-- €';
             
             // Validierung
             if (!datetime || !pickup || !destination) {

@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.24 - PARALLELE SUCHE DE+PL! 🇩🇪🇵🇱 (Build 20251225-1425)');
+        console.log('🚕 Funk Taxi App v5.88.25 - SCHNELLBUCHUNG VOM ANRUF! ⚡ (Build 20251225-1430)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🇩🇪🇵🇱 Version 5.88.24 - PARALLELE SUCHE! (Build 20251225-1425)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.88.25 - SCHNELLBUCHUNG VOM ANRUF! (Build 20251225-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -40402,11 +40402,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     </div>
                     
                     <!-- Buttons -->
-                    <div style="display:flex;gap:12px;">
-                        <button onclick="saveNewCustomerAndBook('${caller}')" style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <button onclick="saveNewCustomerAndBook('${caller}')" style="flex:1;min-width:140px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
                             💾 Speichern & Fahrt buchen
                         </button>
-                        <button onclick="closeCallPopup()" style="flex:1;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">
+                        <button onclick="quickBookFromCall('${caller}')" style="flex:1;min-width:140px;background:linear-gradient(135deg,#10b981,#059669);color:white;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                            ⚡ Schnellbuchung
+                        </button>
+                        <button onclick="closeCallPopup()" style="flex:1;min-width:140px;background:#f3f4f6;color:#1f2937;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;">
                             Später
                         </button>
                     </div>
@@ -40463,6 +40466,47 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // ✅ v5.84.0: Lösche Firebase Event
             db.ref('callPopup').remove();
             console.log('✅ CallPopup Event gelöscht');
+        }
+        
+        // 🆕 v5.88.25: SCHNELLBUCHUNG DIREKT VOM ANRUF
+        async function quickBookFromCall(phone) {
+            console.log('⚡ Schnellbuchung von Anruf:', phone);
+            
+            // Popup schließen
+            closeCallPopup();
+            
+            // Hole Name aus Eingabefeld falls vorhanden
+            const nameInput = document.getElementById('new-customer-name');
+            const guestName = nameInput ? nameInput.value.trim() : '';
+            
+            // Erstelle temporären Kunden mit der Telefonnummer
+            const tempCustomer = {
+                name: guestName || 'Neuer Kunde',
+                phone: phone,
+                isNew: true
+            };
+            
+            // Öffne Schnellbuchung mit diesem Kunden
+            await openQuickBookingModal(tempCustomer);
+            
+            // Wenn Gastname eingegeben wurde, fülle es ins Gastname-Feld
+            setTimeout(() => {
+                if (guestName) {
+                    const guestNameField = document.getElementById('quick-booking-guest-name');
+                    if (guestNameField) {
+                        guestNameField.value = guestName;
+                        console.log('✅ Gastname übertragen:', guestName);
+                    }
+                }
+                
+                // Fokus auf Abholort setzen für schnelle Eingabe
+                const pickupField = document.getElementById('quick-booking-pickup');
+                if (pickupField) {
+                    pickupField.focus();
+                }
+            }, 300);
+            
+            console.log('✅ Schnellbuchung geöffnet mit Telefon:', phone);
         }
         
         // 🆕 v5.83.0: FRITZBOX CLICK-TO-CALL (aus Firebase Settings)

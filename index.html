@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.21 - FAHRGAST-TELEFON! 📱 (Build 20251225-1255)');
+        console.log('🚕 Funk Taxi App v5.88.24 - PARALLELE SUCHE DE+PL! 🇩🇪🇵🇱 (Build 20251225-1425)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.88.16 - ANRUFHISTORIE KUNDEN-ERKENNUNG! (Build 20251225-1210)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🇩🇪🇵🇱 Version 5.88.24 - PARALLELE SUCHE! (Build 20251225-1425)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2750,7 +2750,6 @@
                     console.log('═══════════════════════════════════════════════════════════════════');
                     console.log('✅ DEBUG-MODUS AKTIVIERT!');
                     console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG!');
                     console.log('═══════════════════════════════════════════════════════════════════');
                 } else {
                     console.log('═══════════════════════════════════════════════════════════════════');
@@ -5409,12 +5408,19 @@
         // Konvertiere deutsche Ortsnamen zu polnischen für bessere Suche
         function convertGermanToPolish(query) {
             const lower = query.toLowerCase();
-            for (const [german, polish] of Object.entries(GERMAN_TO_POLISH)) {
-                if (lower.includes(german)) {
-                    return query.toLowerCase().replace(german, polish);
+            // 🆕 v5.88.24: Sortiere nach Länge (längste zuerst) damit "swinemünde" vor "swine" geprüft wird
+            const sortedEntries = Object.entries(GERMAN_TO_POLISH).sort((a, b) => b[0].length - a[0].length);
+            
+            let result = query;
+            for (const [german, polish] of sortedEntries) {
+                // Prüfe ob das deutsche Wort enthalten ist (case-insensitive)
+                const regex = new RegExp(german.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                if (regex.test(result)) {
+                    result = result.replace(regex, polish);
+                    break; // Nur eine Ersetzung pro Aufruf
                 }
             }
-            return query;
+            return result;
         }
 
         // STATE
@@ -8035,12 +8041,6 @@
             
             // TODO: Favoriten-Anzeige implementieren
         }
-
-        console.log('🚕 Funk Taxi App v5.50.5 - TELEGRAM-DEBUG! (Build 20251209-0935)');
-        console.log('🐛 v5.50.5: DEBUG-LOGS FÜR ALTERNATIVE ZEITSLOT TELEGRAM!');
-        console.log('💰 v5.50.4: ADMIN-PANEL PREIS-BUG GEFIXT! KEIN "UNDEFINED" MEHR!');
-        console.log('🔧 v5.50.3: LIVE-CHECK BERECHNET PREIS NICHT MEHR AUTOMATISCH!');
-        console.log('🔍 v5.50.1: SLOT-CHECK ZEIGT JETZT OB OSRM BENUTZT WIRD!');
 
         // 🔔 SERVICE WORKER & PUSH NOTIFICATIONS
         async function initServiceWorker() {
@@ -15655,22 +15655,44 @@
                 
                 // Suche mit Nominatim API
                 console.log('📡 Starte API-Request...');
-                // 🆕 v5.88.14: Konvertiere deutsche Namen zu polnischen!
-                const searchQuery = typeof convertGermanToPolish === 'function' ? convertGermanToPolish(query) : query;
-                console.log('🔍 Suche:', query, '→', searchQuery);
                 
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?` +
-                    `format=json&` +
-                    `q=${encodeURIComponent(searchQuery)}&` +
-                    `countrycodes=de,pl&` +
-                    `limit=20&` +
-                    `addressdetails=1`
-                );
+                // 🆕 v5.88.24: PARALLELE SUCHE - deutsch UND polnisch gleichzeitig!
+                // So findet "Swinemünde Radisson" sofort das Hotel
+                const polishQuery = typeof convertGermanToPolish === 'function' ? convertGermanToPolish(query) : null;
+                const queriesAreDifferent = polishQuery && polishQuery.toLowerCase() !== query.toLowerCase();
                 
-                console.log('✅ API Response erhalten, Status:', response.status);
-                const results = await response.json();
-                console.log('✅ JSON geparst, Anzahl Ergebnisse:', results.length);
+                console.log('🔍 Suche deutsch:', query);
+                if (queriesAreDifferent) {
+                    console.log('🔍 Suche polnisch:', polishQuery);
+                }
+                
+                // Starte beide Suchen parallel
+                const searchPromises = [
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                ];
+                
+                if (queriesAreDifferent) {
+                    searchPromises.push(
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                    );
+                }
+                
+                const responses = await Promise.all(searchPromises);
+                const resultsArrays = await Promise.all(responses.map(r => r.json()));
+                
+                // Kombiniere Ergebnisse und entferne Duplikate (nach place_id)
+                const seenIds = new Set();
+                const results = [];
+                for (const arr of resultsArrays) {
+                    for (const item of arr) {
+                        if (!seenIds.has(item.place_id)) {
+                            seenIds.add(item.place_id);
+                            results.push(item);
+                        }
+                    }
+                }
+                
+                console.log('✅ Kombinierte Ergebnisse:', results.length);
                 
                 // 🆕 v5.64.48: Wenn BEIDE leer → Keine Ergebnisse
                 if (matchingPOIs.length === 0 && matchingKnownPlaces.length === 0 && results.length === 0) {
@@ -27533,20 +27555,42 @@
                 );
                 console.log('🔍 Admin POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
                 
-                // 🆕 v5.88.15: Konvertiere deutsche Namen zu polnischen!
-                const searchQuery = typeof convertGermanToPolish === 'function' ? convertGermanToPolish(query) : query;
-                console.log('🔍 Schnellbuchung Suche:', query, '→', searchQuery);
+                // 🆕 v5.88.24: PARALLELE SUCHE - deutsch UND polnisch gleichzeitig!
+                const polishQuery = typeof convertGermanToPolish === 'function' ? convertGermanToPolish(query) : null;
+                const queriesAreDifferent = polishQuery && polishQuery.toLowerCase() !== query.toLowerCase();
                 
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?` +
-                    `format=json&` +
-                    `q=${encodeURIComponent(searchQuery)}&` +
-                    `countrycodes=de,pl&` +
-                    `limit=20&` +  // 🆕 v5.64.44: 20 statt 8!
-                    `addressdetails=1`
-                );
+                console.log('🔍 Schnellbuchung Suche deutsch:', query);
+                if (queriesAreDifferent) {
+                    console.log('🔍 Schnellbuchung Suche polnisch:', polishQuery);
+                }
                 
-                const results = await response.json();
+                // Starte beide Suchen parallel
+                const searchPromises = [
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                ];
+                
+                if (queriesAreDifferent) {
+                    searchPromises.push(
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                    );
+                }
+                
+                const responses = await Promise.all(searchPromises);
+                const resultsArrays = await Promise.all(responses.map(r => r.json()));
+                
+                // Kombiniere Ergebnisse und entferne Duplikate (nach place_id)
+                const seenIds = new Set();
+                const results = [];
+                for (const arr of resultsArrays) {
+                    for (const item of arr) {
+                        if (!seenIds.has(item.place_id)) {
+                            seenIds.add(item.place_id);
+                            results.push(item);
+                        }
+                    }
+                }
+                
+                console.log('✅ Schnellbuchung kombinierte Ergebnisse:', results.length);
                 
                 // 🆕 v5.64.48: Wenn BEIDE leer → Keine Ergebnisse
                 if (matchingPOIs.length === 0 && results.length === 0) {

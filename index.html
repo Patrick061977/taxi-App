@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.15 - AI-RESET KOMPLETT! 🗑️ (Build 20251225-1140)');
+        console.log('🚕 Funk Taxi App v5.88.16 - ANRUFHISTORIE KUNDEN-ERKENNUNG! 📞 (Build 20251225-1210)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗑️ Version 5.88.15 - AI-RESET KOMPLETT! (Build 20251225-1140)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.88.16 - ANRUFHISTORIE KUNDEN-ERKENNUNG! (Build 20251225-1210)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5853,8 +5853,82 @@
             console.log(`📞 ${calls.length} Anrufe angezeigt`);
         }
         
-        function refreshCallHistory() {
+        async function refreshCallHistory() {
             console.log('🔄 Aktualisiere Anrufhistorie...');
+            
+            // 🆕 v5.88.16: KUNDEN NEU ERKENNEN!
+            try {
+                // Lade alle Anrufe
+                const callsSnapshot = await db.ref('callHistory').once('value');
+                if (!callsSnapshot.exists()) {
+                    console.log('📞 Keine Anrufe vorhanden');
+                    initCallHistory();
+                    return;
+                }
+                
+                // Lade alle Kunden
+                const customersSnapshot = await db.ref('customers').once('value');
+                const customers = [];
+                customersSnapshot.forEach(child => {
+                    customers.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                console.log(`👥 ${customers.length} Kunden geladen für Abgleich`);
+                
+                // Prüfe jeden Anruf
+                const updates = {};
+                let updatedCount = 0;
+                
+                callsSnapshot.forEach(child => {
+                    const call = child.val();
+                    const callId = child.key;
+                    const callerDigits = (call.caller || '').replace(/\D/g, '');
+                    
+                    // Suche passenden Kunden
+                    const matchedCustomer = customers.find(c => {
+                        if (!c.phone) return false;
+                        // Prüfe alle Telefonnummern (getrennt durch /)
+                        const phones = c.phone.split('/').map(p => p.replace(/\D/g, ''));
+                        return phones.some(p => {
+                            // Vergleiche letzte 8-10 Ziffern (ignoriert Vorwahl-Unterschiede)
+                            const callerEnd = callerDigits.slice(-10);
+                            const customerEnd = p.slice(-10);
+                            return callerEnd === customerEnd || 
+                                   callerDigits === p ||
+                                   callerDigits.endsWith(p) ||
+                                   p.endsWith(callerDigits);
+                        });
+                    });
+                    
+                    // Update wenn Kunde gefunden aber nicht markiert
+                    if (matchedCustomer && !call.customerFound) {
+                        console.log(`✅ Kunde erkannt: ${call.caller} → ${matchedCustomer.name}`);
+                        updates[`callHistory/${callId}/customerFound`] = true;
+                        updates[`callHistory/${callId}/customerName`] = matchedCustomer.name;
+                        updates[`callHistory/${callId}/customerId`] = matchedCustomer.id;
+                        if (matchedCustomer.address) {
+                            updates[`callHistory/${callId}/customerAddress`] = matchedCustomer.address;
+                        }
+                        updatedCount++;
+                    }
+                });
+                
+                // Updates anwenden
+                if (Object.keys(updates).length > 0) {
+                    await db.ref().update(updates);
+                    console.log(`✅ ${updatedCount} Anrufe aktualisiert!`);
+                    showToast(`✅ ${updatedCount} Kunden erkannt!`);
+                } else {
+                    console.log('ℹ️ Keine neuen Kunden zu erkennen');
+                }
+                
+            } catch (err) {
+                console.error('❌ Fehler beim Aktualisieren:', err);
+            }
+            
+            // Liste neu laden
             initCallHistory();
         }
         

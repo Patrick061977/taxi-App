@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.6 - NULL-FIX IM HEADER! 🎫✅ (Build 20251225-1000)');
+        console.log('🚕 Funk Taxi App v5.88.7 - SMS AUTO-FILL VERBESSERT! 🎫✅ (Build 20251225-1005)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.6 - NULL-FIX IM HEADER! (Build 20251225-1000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎫✅ Version 5.88.7 - SMS AUTO-FILL VERBESSERT! (Build 20251225-1005)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -37717,7 +37717,7 @@ Stack: ${err.stack}
                         <div style="font-weight:600;" id="phone-display"></div>
                     </div>
                     
-                    <input type="text" id="phone-code" class="modal-input" placeholder="6-stelliger Code" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:8px;">
+                    <input type="text" id="phone-code" class="modal-input" placeholder="6-stelliger Code" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:8px;" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*">
                     
                     <button class="modal-btn btn-primary-modal" onclick="verifyPhoneCode()" style="background:#10b981;">
                         ✅ Code bestätigen

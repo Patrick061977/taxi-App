@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.26 - POI-LISTE FIX! ⭐ (Build 20251225-1435)');
+        console.log('🚕 Funk Taxi App v5.88.27 - KALENDER SPRINGE-ZU-DATUM! 📅 (Build 20251226-1230)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -3107,12 +3107,22 @@
             </div>
             
             <!-- Monats-Navigation -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #f9fafb; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #f9fafb; border-radius: 8px; flex-wrap: wrap; gap: 10px;">
                 <button onclick="previousPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
                     ◀️ Zurück
                 </button>
-                <div style="font-weight: 700; font-size: 16px; color: #1f2937;" id="calendar-period-title">
-                    November 2025
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                    <div style="font-weight: 700; font-size: 16px; color: #1f2937;" id="calendar-period-title">
+                        November 2025
+                    </div>
+                    <!-- 🆕 v5.88.27: SPRINGE ZU DATUM -->
+                    <input type="date" id="calendar-jump-date" 
+                        style="padding: 8px 12px; border: 2px solid #667eea; border-radius: 6px; font-size: 14px; cursor: pointer;"
+                        onchange="jumpToDate(this.value)"
+                        title="Springe zu Datum">
+                    <button onclick="jumpToToday()" style="padding: 8px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                        📅 Heute
+                    </button>
                 </div>
                 <button onclick="nextPeriod()" style="padding: 8px 16px; background: white; border: 2px solid #e5e7eb; border-radius: 6px; font-weight: 600; cursor: pointer;">
                     Vor ▶️
@@ -36138,6 +36148,35 @@ Stack: ${err.stack}
             } else {
                 currentCalendarDate.setDate(currentCalendarDate.getDate() + 1);
             }
+            renderCalendar();
+        }
+        
+        // 🆕 v5.88.27: SPRINGE ZU DATUM
+        function jumpToDate(dateStr) {
+            if (!dateStr) return;
+            const newDate = new Date(dateStr + 'T12:00:00');
+            if (isNaN(newDate.getTime())) {
+                console.error('❌ Ungültiges Datum:', dateStr);
+                return;
+            }
+            currentCalendarDate = newDate;
+            console.log('📅 Springe zu Datum:', dateStr);
+            renderCalendar();
+            
+            // Öffne Kalender falls geschlossen
+            const content = document.getElementById('calendar-content');
+            if (content && content.style.display === 'none') {
+                toggleAdminSection('calendar');
+            }
+        }
+        
+        function jumpToToday() {
+            currentCalendarDate = new Date();
+            const dateInput = document.getElementById('calendar-jump-date');
+            if (dateInput) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+            console.log('📅 Springe zu Heute');
             renderCalendar();
         }
         

@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.31 - ADRESSSUCHE IN FAHRZEUG-KARTE! 🔍 (Build 20251227-1000)');
+        console.log('🚕 Funk Taxi App v5.88.32 - ADRESSE TEILEN ALS MAPS-LINK! 📤 (Build 20251227-1010)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -3460,9 +3460,10 @@
                         placeholder="🔍 Adresse suchen..." 
                         autocomplete="off"
                         style="flex:1;padding:12px;border:2px solid #0ea5e9;border-radius:8px;font-size:14px;">
+                    <button id="fleet-share-btn" onclick="shareFleetAddress()" style="display:none;padding:12px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">📤</button>
                     <button onclick="clearFleetSearch()" style="padding:12px 16px;background:#6b7280;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">✕</button>
                 </div>
-                <div id="fleet-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:50px;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:250px;overflow-y:auto;z-index:1000;box-shadow:0 4px 15px rgba(0,0,0,0.15);margin-top:4px;"></div>
+                <div id="fleet-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:100px;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:250px;overflow-y:auto;z-index:1000;box-shadow:0 4px 15px rgba(0,0,0,0.15);margin-top:4px;"></div>
             </div>
             
             <!-- Legende -->
@@ -21453,6 +21454,8 @@
         let fleetAutoRefresh = null;
         let fleetMapInitialized = false;
         let fleetSearchMarker = null; // 🆕 Marker für gesuchte Adresse
+        let fleetSearchCoords = null; // 🆕 Koordinaten der gesuchten Adresse
+        let fleetSearchName = null;   // 🆕 Name der gesuchten Adresse
         
         // 🆕 v5.88.31: Adresssuche in Fahrzeug-Übersicht
         function initFleetAddressSearch() {
@@ -21534,9 +21537,17 @@
         function selectFleetAddress(name, lat, lon) {
             const input = document.getElementById('fleet-address-search');
             const dropdown = document.getElementById('fleet-address-dropdown');
+            const shareBtn = document.getElementById('fleet-share-btn');
             
             input.value = name;
             dropdown.style.display = 'none';
+            
+            // Koordinaten speichern für Teilen-Funktion
+            fleetSearchCoords = { lat, lon };
+            fleetSearchName = name;
+            
+            // Teilen-Button anzeigen
+            if (shareBtn) shareBtn.style.display = 'block';
             
             // Marker auf Karte setzen
             if (fleetMap) {
@@ -21562,12 +21573,68 @@
             }
         }
         
+        // 🆕 v5.88.32: Adresse als Google Maps Link teilen
+        function shareFleetAddress() {
+            if (!fleetSearchCoords || !fleetSearchName) {
+                alert('Bitte erst eine Adresse suchen!');
+                return;
+            }
+            
+            const { lat, lon } = fleetSearchCoords;
+            const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+            const shortName = fleetSearchName.split(',')[0];
+            
+            // Text zum Teilen
+            const shareText = `📍 ${shortName}\n${googleMapsUrl}`;
+            
+            // Native Share API (Mobile) oder Clipboard
+            if (navigator.share) {
+                navigator.share({
+                    title: shortName,
+                    text: `📍 ${shortName}`,
+                    url: googleMapsUrl
+                }).then(() => {
+                    console.log('✅ Adresse geteilt');
+                }).catch(err => {
+                    // Fallback: In Zwischenablage kopieren
+                    copyToClipboard(shareText);
+                });
+            } else {
+                // Desktop: In Zwischenablage kopieren
+                copyToClipboard(shareText);
+            }
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Kurze Bestätigung
+                const shareBtn = document.getElementById('fleet-share-btn');
+                if (shareBtn) {
+                    const original = shareBtn.innerHTML;
+                    shareBtn.innerHTML = '✅';
+                    shareBtn.style.background = '#10b981';
+                    setTimeout(() => {
+                        shareBtn.innerHTML = original;
+                    }, 1500);
+                }
+                console.log('📋 Link kopiert:', text);
+            }).catch(err => {
+                alert('Link: ' + text);
+            });
+        }
+        
         function clearFleetSearch() {
             const input = document.getElementById('fleet-address-search');
             const dropdown = document.getElementById('fleet-address-dropdown');
+            const shareBtn = document.getElementById('fleet-share-btn');
             
             if (input) input.value = '';
             if (dropdown) dropdown.style.display = 'none';
+            if (shareBtn) shareBtn.style.display = 'none';
+            
+            // Koordinaten löschen
+            fleetSearchCoords = null;
+            fleetSearchName = null;
             
             // Marker entfernen
             if (fleetSearchMarker && fleetMap) {

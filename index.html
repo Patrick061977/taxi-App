@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.29 - HÄUFIGE ZIELE AUCH FÜR FAHRGÄSTE! 📊 (Build 20251226-1915)');
+        console.log('🚕 Funk Taxi App v5.88.30 - HÄUFIGE ZIELE GECACHED + LOGGING! 📊 (Build 20251226-1930)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -15602,6 +15602,71 @@
             console.log('✅ setupAutocomplete abgeschlossen!');
         }
 
+        // 🆕 v5.88.30: Häufige Ziele global cachen (einmalig laden!)
+        let cachedFrequentDestinations = null;
+        
+        async function loadFrequentDestinations() {
+            if (cachedFrequentDestinations !== null) {
+                return cachedFrequentDestinations;
+            }
+            
+            if (!isFirebaseReady) {
+                return [];
+            }
+            
+            try {
+                console.log('📊 Lade häufige Ziele aus Buchungen...');
+                const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(500).once('value');
+                const destinationCount = {};
+                
+                ridesSnap.forEach(child => {
+                    const ride = child.val();
+                    // Zähle Zielorte
+                    if (ride.destination && ride.destinationLat && ride.destinationLon) {
+                        const key = ride.destination.toLowerCase().trim();
+                        if (!destinationCount[key]) {
+                            destinationCount[key] = {
+                                name: ride.destination,
+                                lat: ride.destinationLat,
+                                lon: ride.destinationLon,
+                                count: 0
+                            };
+                        }
+                        destinationCount[key].count++;
+                    }
+                    // Zähle auch Abholorte
+                    if (ride.pickup && ride.pickupLat && ride.pickupLon) {
+                        const key = ride.pickup.toLowerCase().trim();
+                        if (!destinationCount[key]) {
+                            destinationCount[key] = {
+                                name: ride.pickup,
+                                lat: ride.pickupLat,
+                                lon: ride.pickupLon,
+                                count: 0
+                            };
+                        }
+                        destinationCount[key].count++;
+                    }
+                });
+                
+                // Sortiere nach Häufigkeit und nimm Top 20
+                cachedFrequentDestinations = Object.values(destinationCount)
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 20);
+                    
+                console.log('✅ Häufige Ziele geladen:', cachedFrequentDestinations.length);
+                cachedFrequentDestinations.forEach((d, i) => {
+                    console.log(`   ${i+1}. ${d.name} (${d.count}x)`);
+                });
+                
+                return cachedFrequentDestinations;
+            } catch (e) {
+                console.log('⚠️ Konnte häufige Orte nicht laden:', e.message);
+                cachedFrequentDestinations = [];
+                return [];
+            }
+        }
+        
         async function searchAddresses(query, inputId) {
             const dropdown = document.getElementById(inputId + '-dropdown');
             
@@ -15610,58 +15675,12 @@
                 return;
             }
             
-            console.log('🔍 searchAddresses GESTARTET - OLD DROPDOWN SYSTEM!');
-            console.log('   Query:', query);
-            console.log('   Input ID:', inputId);
-            console.log('   Dropdown gefunden:', dropdown.id);
+            console.log('🔍 searchAddresses für:', query);
             
-            // 🆕 v5.88.28: Häufige Ziele aus bisherigen Buchungen laden
-            let frequentFromBookings = [];
-            if (isFirebaseReady) {
-                try {
-                    const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(500).once('value');
-                    const destinationCount = {};
-                    
-                    ridesSnap.forEach(child => {
-                        const ride = child.val();
-                        // Zähle Zielorte
-                        if (ride.destination && ride.destinationLat && ride.destinationLon) {
-                            const key = ride.destination.toLowerCase().trim();
-                            if (!destinationCount[key]) {
-                                destinationCount[key] = {
-                                    name: ride.destination,
-                                    lat: ride.destinationLat,
-                                    lon: ride.destinationLon,
-                                    count: 0
-                                };
-                            }
-                            destinationCount[key].count++;
-                        }
-                        // Zähle auch Abholorte
-                        if (ride.pickup && ride.pickupLat && ride.pickupLon) {
-                            const key = ride.pickup.toLowerCase().trim();
-                            if (!destinationCount[key]) {
-                                destinationCount[key] = {
-                                    name: ride.pickup,
-                                    lat: ride.pickupLat,
-                                    lon: ride.pickupLon,
-                                    count: 0
-                                };
-                            }
-                            destinationCount[key].count++;
-                        }
-                    });
-                    
-                    // Sortiere nach Häufigkeit und nimm Top 15
-                    frequentFromBookings = Object.values(destinationCount)
-                        .sort((a, b) => b.count - a.count)
-                        .slice(0, 15);
-                } catch (e) {
-                    console.log('⚠️ Konnte häufige Orte nicht laden');
-                }
-            }
+            // 🆕 v5.88.30: Häufige Ziele aus Cache laden (schnell!)
+            const frequentFromBookings = await loadFrequentDestinations();
             
-            // 🆕 v5.86.30: POIs aus Firebase laden (statt hardcoded)
+            // POIs aus Firebase
             const savedPOIs = allPOIs.length > 0 ? allPOIs : [];
             
             // Kombiniere: Gespeicherte POIs + Häufige Orte aus Buchungen
@@ -15683,6 +15702,8 @@
                     });
                 }
             }
+            
+            console.log('📊 Verfügbare Vorschläge:', frequentDestinations.length, '(POIs:', savedPOIs.length, '+ Buchungen:', frequentFromBookings.length, ')');
             
             // Zeige Favoriten wenn Suche sehr kurz ist (< 3 Zeichen) ODER wenn Query leer
             if (!query || query.length < 3) {
@@ -27595,55 +27616,10 @@
         async function searchQuickBookingAddresses(query, fieldId) {
             const dropdown = document.getElementById(fieldId + '-dropdown');
             
-            // 🆕 v5.88.28: Häufige Ziele aus bisherigen Buchungen laden
-            let frequentFromBookings = [];
-            if (isFirebaseReady && currentUser) {
-                try {
-                    const ridesSnap = await db.ref('rides').orderByChild('createdAt').limitToLast(500).once('value');
-                    const destinationCount = {};
-                    
-                    ridesSnap.forEach(child => {
-                        const ride = child.val();
-                        // Zähle Zielorte
-                        if (ride.destination && ride.destinationLat && ride.destinationLon) {
-                            const key = ride.destination.toLowerCase().trim();
-                            if (!destinationCount[key]) {
-                                destinationCount[key] = {
-                                    name: ride.destination,
-                                    lat: ride.destinationLat,
-                                    lon: ride.destinationLon,
-                                    count: 0
-                                };
-                            }
-                            destinationCount[key].count++;
-                        }
-                        // Zähle auch Abholorte
-                        if (ride.pickup && ride.pickupLat && ride.pickupLon) {
-                            const key = ride.pickup.toLowerCase().trim();
-                            if (!destinationCount[key]) {
-                                destinationCount[key] = {
-                                    name: ride.pickup,
-                                    lat: ride.pickupLat,
-                                    lon: ride.pickupLon,
-                                    count: 0
-                                };
-                            }
-                            destinationCount[key].count++;
-                        }
-                    });
-                    
-                    // Sortiere nach Häufigkeit und nimm Top 20
-                    frequentFromBookings = Object.values(destinationCount)
-                        .sort((a, b) => b.count - a.count)
-                        .slice(0, 20);
-                        
-                    console.log('📊 Häufige Orte aus Buchungen:', frequentFromBookings.length);
-                } catch (e) {
-                    console.log('⚠️ Konnte häufige Orte nicht laden:', e.message);
-                }
-            }
+            // 🆕 v5.88.30: Häufige Ziele aus Cache laden (schnell!)
+            const frequentFromBookings = await loadFrequentDestinations();
             
-            // 🆕 v5.86.30: POIs aus Firebase laden (statt hardcoded)
+            // POIs aus Firebase
             const savedPOIs = allPOIs.length > 0 ? allPOIs : [];
             
             // Kombiniere: Gespeicherte POIs + Häufige Orte aus Buchungen

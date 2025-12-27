@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.32 - ADRESSE TEILEN ALS MAPS-LINK! 📤 (Build 20251227-1010)');
+        console.log('🚕 Funk Taxi App v5.88.33 - GASTNAME IM KALENDER-EXPORT! 🧳 (Build 20251227-1030)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -4048,6 +4048,11 @@
                 <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
                     <input type="checkbox" id="cal-setting-customer-name" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
                     <span style="font-size:14px;font-weight:600;">👤 Kundenname anzeigen</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;padding:12px;background:#e0f2fe;border-radius:8px;cursor:pointer;border:2px solid #0ea5e9;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
+                    <input type="checkbox" id="cal-setting-guest-name" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">🧳 Gastname anzeigen (Hotel-Buchungen)</span>
                 </label>
                 
                 <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
@@ -15272,6 +15277,8 @@
             let titleExtras = [];
             if (passengerText) titleExtras.push(passengerText);
             if (settings.showCustomerName) titleExtras.push(nameText);
+            // 🆕 v5.88.33: Gastname im Titel
+            if (settings.showGuestName && ride.guestName) titleExtras.push('🧳' + ride.guestName);
             if (phoneText) titleExtras.push(phoneText);
             
             const titleSummary = titleRoute + (titleExtras.length > 0 ? ' | ' + titleExtras.join(' | ') : '');
@@ -15288,6 +15295,10 @@
             // Kunde
             if (settings.showCustomerName) {
                 descriptionLines.push(`Kunde: ${ride.customerName}`);
+            }
+            // 🆕 v5.88.33: Gastname (bei Hotel-Buchungen)
+            if (settings.showGuestName && ride.guestName) {
+                descriptionLines.push(`🧳 Gast: ${ride.guestName}`);
             }
             if (settings.showPhone && ride.customerPhone) {
                 descriptionLines.push(`Telefon: ${ride.customerPhone}`);
@@ -21131,6 +21142,7 @@
         // Default Settings (ALLES AN!)
         const defaultCalendarSettings = {
             showCustomerName: true,
+            showGuestName: true,
             showPhone: true,
             showPickup: true,
             showDestination: true,
@@ -21159,6 +21171,7 @@
                 
                 // Checkboxen aktualisieren
                 document.getElementById('cal-setting-customer-name').checked = settings.showCustomerName !== false;
+                document.getElementById('cal-setting-guest-name').checked = settings.showGuestName !== false;
                 document.getElementById('cal-setting-phone').checked = settings.showPhone !== false;
                 document.getElementById('cal-setting-pickup').checked = settings.showPickup !== false;
                 document.getElementById('cal-setting-destination').checked = settings.showDestination !== false;
@@ -21185,6 +21198,7 @@
             // Lese Checkbox-Werte
             const settings = {
                 showCustomerName: document.getElementById('cal-setting-customer-name').checked,
+                showGuestName: document.getElementById('cal-setting-guest-name').checked,
                 showPhone: document.getElementById('cal-setting-phone').checked,
                 showPickup: document.getElementById('cal-setting-pickup').checked,
                 showDestination: document.getElementById('cal-setting-destination').checked,

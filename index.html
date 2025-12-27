@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.33 - GASTNAME IM KALENDER-EXPORT! 🧳 (Build 20251227-1030)');
+        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251227-1100)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.26 - POI-LISTE FIX! (Build 20251225-1435)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251227-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4055,6 +4055,11 @@
                     <span style="font-size:14px;font-weight:600;">🧳 Gastname anzeigen (Hotel-Buchungen)</span>
                 </label>
                 
+                <label style="display:flex;align-items:center;padding:12px;background:#e0f2fe;border-radius:8px;cursor:pointer;border:2px solid #0ea5e9;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
+                    <input type="checkbox" id="cal-setting-guest-phone" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
+                    <span style="font-size:14px;font-weight:600;">📱 Gast-Telefon anzeigen</span>
+                </label>
+                
                 <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
                     <input type="checkbox" id="cal-setting-phone" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
                     <span style="font-size:14px;font-weight:600;">📱 Telefonnummer anzeigen</span>
@@ -4111,6 +4116,14 @@
                     Diese Einstellungen werden in Firebase gespeichert und gelten für:<br>
                     • Manuellen Kalender-Export aus der App<br>
                     • Automatische Google Calendar Synchronisation
+                </div>
+            </div>
+            
+            <div style="margin-top:10px;padding:12px;background:#e0f2fe;border-radius:8px;border-left:4px solid #0ea5e9;">
+                <div style="font-size:13px;color:#0369a1;">
+                    <div style="font-weight:600;margin-bottom:4px;">📱 Telefon im Titel:</div>
+                    • <strong>Mobilnummern</strong> (015x, 016x, 017x) → Im Titel sichtbar<br>
+                    • <strong>Festnetz</strong> → Nur in der Beschreibung (keine SMS möglich)
                 </div>
             </div>
         </div>
@@ -15263,11 +15276,29 @@
             icsContent += `DTSTART:${formatDate(startDate)}\n`;
             icsContent += `DTEND:${formatDate(endDate)}\n`;
             
+            // 🆕 v5.88.34: Hilfsfunktion - Ist es eine Mobilnummer?
+            function isMobileNumber(phone) {
+                if (!phone) return false;
+                const cleaned = phone.replace(/[\s\-\/\(\)]/g, '');
+                // Deutsche Mobilnummern: 015x, 016x, 017x
+                // Oder internationale: +49 15x, +49 16x, +49 17x
+                return /^(\+49|0049|0)?1[567]\d/.test(cleaned);
+            }
+            
             // 🆕 v5.64.45: TITLE - Basierend auf Settings!
             const passengerCount = ride.passengers || 1;
             const passengerText = settings.showPassengers ? `${passengerCount} Pers.` : '';
-            const phoneText = settings.showPhone ? (ride.customerPhone || 'Keine Nr.') : '';
             const nameText = settings.showCustomerName ? ride.customerName : 'Kunde';
+            
+            // 🆕 v5.88.34: Telefon nur im Titel wenn MOBIL!
+            const customerPhone = ride.customerPhone || '';
+            const customerPhoneIsMobile = isMobileNumber(customerPhone);
+            const phoneTextForTitle = (settings.showPhone && customerPhoneIsMobile) ? customerPhone : '';
+            
+            // 🆕 v5.88.34: Gast-Telefon
+            const guestPhone = ride.guestPhone || '';
+            const guestPhoneIsMobile = isMobileNumber(guestPhone);
+            const guestPhoneForTitle = (settings.showGuestPhone && guestPhoneIsMobile) ? guestPhone : '';
             
             let titleParts = [];
             if (settings.showPickup) titleParts.push(ride.pickup);
@@ -15277,9 +15308,14 @@
             let titleExtras = [];
             if (passengerText) titleExtras.push(passengerText);
             if (settings.showCustomerName) titleExtras.push(nameText);
-            // 🆕 v5.88.33: Gastname im Titel
-            if (settings.showGuestName && ride.guestName) titleExtras.push('🧳' + ride.guestName);
-            if (phoneText) titleExtras.push(phoneText);
+            // 🆕 v5.88.34: Gastname + Gast-Telefon im Titel
+            if (settings.showGuestName && ride.guestName) {
+                let guestText = '🧳' + ride.guestName;
+                if (guestPhoneForTitle) guestText += ' 📱' + guestPhoneForTitle;
+                titleExtras.push(guestText);
+            }
+            // Nur Mobilnummern im Titel!
+            if (phoneTextForTitle) titleExtras.push('📱' + phoneTextForTitle);
             
             const titleSummary = titleRoute + (titleExtras.length > 0 ? ' | ' + titleExtras.join(' | ') : '');
             
@@ -15296,12 +15332,21 @@
             if (settings.showCustomerName) {
                 descriptionLines.push(`Kunde: ${ride.customerName}`);
             }
-            // 🆕 v5.88.33: Gastname (bei Hotel-Buchungen)
+            // 🆕 v5.88.34: Gastname + Gast-Telefon (bei Hotel-Buchungen)
             if (settings.showGuestName && ride.guestName) {
-                descriptionLines.push(`🧳 Gast: ${ride.guestName}`);
+                let guestLine = `🧳 Gast: ${ride.guestName}`;
+                if (settings.showGuestPhone && ride.guestPhone) {
+                    guestLine += ` (${ride.guestPhone})`;
+                }
+                descriptionLines.push(guestLine);
+            } else if (settings.showGuestPhone && ride.guestPhone) {
+                descriptionLines.push(`🧳 Gast-Tel: ${ride.guestPhone}`);
             }
+            // 🆕 v5.88.34: Telefon mit Festnetz/Mobil-Kennzeichnung
             if (settings.showPhone && ride.customerPhone) {
-                descriptionLines.push(`Telefon: ${ride.customerPhone}`);
+                const phoneIcon = customerPhoneIsMobile ? '📱' : '☎️';
+                const phoneHint = customerPhoneIsMobile ? '' : ' (Festnetz)';
+                descriptionLines.push(`${phoneIcon} Telefon: ${ride.customerPhone}${phoneHint}`);
             }
             if ((settings.showCustomerName || settings.showPhone) && 
                 (settings.showPickup || settings.showDestination)) {
@@ -21143,6 +21188,7 @@
         const defaultCalendarSettings = {
             showCustomerName: true,
             showGuestName: true,
+            showGuestPhone: true,
             showPhone: true,
             showPickup: true,
             showDestination: true,
@@ -21172,6 +21218,7 @@
                 // Checkboxen aktualisieren
                 document.getElementById('cal-setting-customer-name').checked = settings.showCustomerName !== false;
                 document.getElementById('cal-setting-guest-name').checked = settings.showGuestName !== false;
+                document.getElementById('cal-setting-guest-phone').checked = settings.showGuestPhone !== false;
                 document.getElementById('cal-setting-phone').checked = settings.showPhone !== false;
                 document.getElementById('cal-setting-pickup').checked = settings.showPickup !== false;
                 document.getElementById('cal-setting-destination').checked = settings.showDestination !== false;
@@ -21199,6 +21246,7 @@
             const settings = {
                 showCustomerName: document.getElementById('cal-setting-customer-name').checked,
                 showGuestName: document.getElementById('cal-setting-guest-name').checked,
+                showGuestPhone: document.getElementById('cal-setting-guest-phone').checked,
                 showPhone: document.getElementById('cal-setting-phone').checked,
                 showPickup: document.getElementById('cal-setting-pickup').checked,
                 showDestination: document.getElementById('cal-setting-destination').checked,

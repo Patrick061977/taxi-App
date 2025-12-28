@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251227-2000)');
+        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251228-0845)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251227-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251228-0845)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11536,8 +11536,8 @@
                 }
                 
                 try {
-                    // Suche in Firebase
-                    const snapshot = await db.ref('rides').orderByChild('createdAt').limitToLast(500).once('value');
+                    // 🆕 v5.88.38: Erhöhe Limit auf 2000 Fahrten (statt 500)
+                    const snapshot = await db.ref('rides').orderByChild('createdAt').limitToLast(2000).once('value');
                     
                     const customerMap = new Map(); // Gruppiere nach Kunde
                     const normalizedSearch = searchTerm.toLowerCase();
@@ -29170,6 +29170,7 @@
                         customerId: qbPanelCustomer.id,
                         customerName: qbPanelCustomer.name || 'Unbekannt',
                         customerPhone: qbPanelCustomer.phone || '',
+                        customerMobile: qbPanelCustomer.mobile || '', // 🆕 v5.88.39: Handynummer!
                         pickup,
                         destination,
                         pickupTime: startDate.toISOString(),
@@ -31949,6 +31950,7 @@
                 const ride = {
                     customerName: finalCustomer.name || 'Unbekannt',
                     customerPhone: finalCustomer.phone || '',
+                    customerMobile: finalCustomer.mobile || '', // 🆕 v5.88.39: Handynummer separat!
                     // 🆕 v5.75.0: GAST-NAME (optional)
                     guestName: document.getElementById('quick-booking-guest-name')?.value?.trim() || '',
                     // 🆕 v5.88.21: GAST-TELEFON (optional) - nur Info!

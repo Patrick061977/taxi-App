@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251227-1100)');
+        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251227-1155)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251227-1100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251227-1155)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -15690,27 +15690,35 @@
                 
                 ridesSnap.forEach(child => {
                     const ride = child.val();
+                    
+                    // 🆕 v5.88.36: Koordinaten aus BEIDEN Formaten lesen!
+                    // Alt: destinationLat/destinationLon, Neu: destCoords.lat/destCoords.lon
+                    const destLat = ride.destinationLat || (ride.destCoords && ride.destCoords.lat);
+                    const destLon = ride.destinationLon || (ride.destCoords && ride.destCoords.lon);
+                    const pickLat = ride.pickupLat || (ride.pickupCoords && ride.pickupCoords.lat);
+                    const pickLon = ride.pickupLon || (ride.pickupCoords && ride.pickupCoords.lon);
+                    
                     // Zähle Zielorte
-                    if (ride.destination && ride.destinationLat && ride.destinationLon) {
+                    if (ride.destination && destLat && destLon) {
                         const key = ride.destination.toLowerCase().trim();
                         if (!destinationCount[key]) {
                             destinationCount[key] = {
                                 name: ride.destination,
-                                lat: ride.destinationLat,
-                                lon: ride.destinationLon,
+                                lat: destLat,
+                                lon: destLon,
                                 count: 0
                             };
                         }
                         destinationCount[key].count++;
                     }
                     // Zähle auch Abholorte
-                    if (ride.pickup && ride.pickupLat && ride.pickupLon) {
+                    if (ride.pickup && pickLat && pickLon) {
                         const key = ride.pickup.toLowerCase().trim();
                         if (!destinationCount[key]) {
                             destinationCount[key] = {
                                 name: ride.pickup,
-                                lat: ride.pickupLat,
-                                lon: ride.pickupLon,
+                                lat: pickLat,
+                                lon: pickLon,
                                 count: 0
                             };
                         }

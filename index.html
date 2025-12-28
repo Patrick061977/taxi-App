@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251227-1155)');
+        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251227-2000)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251227-1155)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251227-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -23512,7 +23512,8 @@
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                             <div style="flex:1;">
                                 <div style="font-weight:600;font-size:15px;">${c.name || 'Unbekannt'}</div>
-                                ${c.phone ? `<div style="font-size:13px;color:#666;">📞 ${c.phone}</div>` : ''}
+                                ${c.phone ? `<div style="font-size:13px;color:#666;">☎️ ${c.phone}</div>` : ''}
+                                ${c.mobile ? `<div style="font-size:13px;color:#666;">📱 ${c.mobile}</div>` : ''}
                                 ${c.email ? `<div style="font-size:12px;color:#888;">📧 ${c.email}</div>` : ''}
                                 ${c.address ? `<div style="font-size:12px;color:#888;">📍 ${c.address}</div>` : ''}
                                 <div style="font-size:11px;color:#999;margin-top:4px;">
@@ -32158,7 +32159,11 @@
                     <h3 style="margin:0 0 15px 0;">✏️ Kunde bearbeiten</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="edit-customer-name" value="${customer.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
-                        <input type="text" id="edit-customer-phone" value="${customer.phone || ''}" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        
+                        <!-- 🆕 v5.88.37: Zwei separate Telefon-Felder -->
+                        <input type="tel" id="edit-customer-phone" value="${customer.phone || ''}" placeholder="☎️ Festnetz" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="tel" id="edit-customer-mobile" value="${customer.mobile || ''}" placeholder="📱 Handynummer" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;">
                             <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
@@ -32472,6 +32477,7 @@
             const updates = {
                 name: name,
                 phone: document.getElementById('edit-customer-phone').value.trim(),
+                mobile: document.getElementById('edit-customer-mobile').value.trim(), // 🆕 v5.88.37: Handynummer
                 email: document.getElementById('edit-customer-email').value.trim(),
                 address: address,
                 billingAddresses: currentCustomerBillingAddresses, // 🆕 v5.52.5: Array!

@@ -108,7 +108,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251228-0845)');
+        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251228-0930)');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
@@ -756,7 +756,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251228-0845)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251228-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -951,6 +951,21 @@
                 box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
             ">
                 🤖 AI-Assistent
+            </button>
+            <button onclick="switchView('telegram-bot-test')" class="admin-tab-btn" data-view="telegram-bot-test" style="
+                padding: 10px 16px;
+                border: 2px solid #0088cc;
+                background: linear-gradient(135deg, #0088cc 0%, #0077b5 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(0, 136, 204, 0.3);
+            ">
+                📱 Telegram-Bot Test
             </button>
             <button onclick="switchView('booking-requests')" class="admin-tab-btn" data-view="booking-requests" style="
                 padding: 10px 16px;
@@ -5016,6 +5031,128 @@
                             transition: all 0.2s;
                         " onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e5e7eb'">
                             💬 Telegram: "Brauche Taxi 15.12. 10:00 Uhr Flughafen abholen 4 Personen"
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.88.40: TELEGRAM-BOT TEST VIEW -->
+    <div id="telegram-bot-test-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+        <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #0088cc 0%, #0077b5 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">📱</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">TELEGRAM-BOT TESTER</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">Teste wie der Bot auf Fahrgast-Nachrichten reagiert</p>
+            </div>
+
+            <!-- Info Banner -->
+            <div style="padding: 15px; background: #e0f2fe; border-bottom: 2px solid #0088cc;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 24px;">ℹ️</div>
+                    <div style="flex: 1; font-size: 13px; color: #075985;">
+                        <strong>So funktioniert's:</strong> Schreibe eine Telegram-Nachricht wie sie ein Fahrgast schreiben würde.
+                        Der Bot analysiert automatisch und zeigt dir was passieren würde (OHNE es wirklich zu buchen).
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div style="padding: 20px;">
+                
+                <!-- Input Area -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">
+                        💬 Telegram-Nachricht vom Fahrgast:
+                    </label>
+                    <textarea id="telegram-test-input" placeholder="Beispiel:&#10;&#10;Hallo, ich brauche ein Taxi morgen um 15 Uhr.&#10;Abholung am Bahnhof Heringsdorf&#10;Ziel: Seebrücke Ahlbeck&#10;Wir sind 2 Personen&#10;&#10;Vielen Dank!" 
+                        style="width: 100%; height: 180px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: monospace; resize: vertical;">
+                    </textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button onclick="testTelegramBot()" id="telegram-test-btn" style="
+                        flex: 1;
+                        padding: 14px 24px;
+                        background: linear-gradient(135deg, #0088cc 0%, #0077b5 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 15px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 2px 8px rgba(0, 136, 204, 0.3);
+                    ">
+                        🤖 Bot Testen
+                    </button>
+                    <button onclick="clearTelegramTest()" style="
+                        padding: 14px 24px;
+                        background: #6b7280;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 15px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    ">
+                        🗑️ Löschen
+                    </button>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="telegram-test-loading" style="display: none; text-align: center; padding: 20px; background: #f9fafb; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="font-size: 32px; margin-bottom: 10px; animation: pulse 1.5s infinite;">🤖</div>
+                    <div style="font-size: 14px; color: #6b7280; font-weight: 600;">Bot analysiert Nachricht...</div>
+                </div>
+
+                <!-- Results Area -->
+                <div id="telegram-test-results" style="display: none;">
+                    <!-- Analysis Result -->
+                    <div style="background: #f0f9ff; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 2px solid #0088cc;">
+                        <div style="font-size: 16px; font-weight: 700; color: #075985; margin-bottom: 15px;">
+                            ✅ Bot-Analyse:
+                        </div>
+                        <div id="telegram-test-analysis" style="font-family: monospace; font-size: 13px; background: white; padding: 15px; border-radius: 6px; white-space: pre-wrap; border: 1px solid #bae6fd;">
+                        </div>
+                    </div>
+
+                    <!-- Bot Response -->
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 2px solid #d1d5db;">
+                        <div style="font-size: 16px; font-weight: 700; color: #374151; margin-bottom: 15px;">
+                            💬 Bot würde antworten:
+                        </div>
+                        <div id="telegram-test-response" style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #0088cc; font-size: 14px; line-height: 1.6;">
+                        </div>
+                    </div>
+
+                    <!-- Actions that would happen -->
+                    <div id="telegram-test-actions" style="background: #fef3c7; border-radius: 8px; padding: 20px; border: 2px solid #fbbf24;">
+                        <div style="font-size: 16px; font-weight: 700; color: #92400e; margin-bottom: 15px;">
+                            ⚡ Was würde passieren:
+                        </div>
+                        <div id="telegram-test-actions-list" style="font-size: 14px; color: #78350f; line-height: 1.8;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Example Messages -->
+                <div style="margin-top: 30px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+                    <div style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px;">
+                        💡 Beispiel-Nachrichten zum Testen:
+                    </div>
+                    <div style="display: grid; gap: 10px;">
+                        <button onclick="document.getElementById('telegram-test-input').value = 'Morgen 15 Uhr Bahnhof Heringsdorf nach Seebrücke Ahlbeck, 2 Personen'" style="padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; text-align: left; cursor: pointer; font-size: 13px;">
+                            ✅ <strong>Vollständig:</strong> "Morgen 15 Uhr Bahnhof nach Seebrücke, 2 Personen"
+                        </button>
+                        <button onclick="document.getElementById('telegram-test-input').value = 'Ich brauche ein Taxi morgen'" style="padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; text-align: left; cursor: pointer; font-size: 13px;">
+                            ⚠️ <strong>Unvollständig:</strong> "Ich brauche ein Taxi morgen"
+                        </button>
+                        <button onclick="document.getElementById('telegram-test-input').value = 'Heute in 2 Stunden vom Bahnhof zum Hotel'" style="padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; text-align: left; cursor: pointer; font-size: 13px;">
+                            ⏰ <strong>Kurzfristig:</strong> "Heute in 2 Stunden vom Bahnhof zum Hotel"
                         </button>
                     </div>
                 </div>
@@ -9992,7 +10129,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'telegram-bot-test-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -40135,6 +40272,267 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
             
             console.log('🗑️ AI-Assistent komplett zurückgesetzt!');
             showToast('✅ AI-Assistent zurückgesetzt!');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🆕 v5.88.40: TELEGRAM-BOT TEST FUNKTIONEN
+        // ═══════════════════════════════════════════════════════════════
+        
+        async function testTelegramBot() {
+            const inputElement = document.getElementById('telegram-test-input');
+            
+            if (!inputElement) {
+                console.error('❌ Telegram-Input Element nicht gefunden!');
+                alert('❌ Fehler: Textarea nicht gefunden! Bitte Seite neu laden.');
+                return;
+            }
+            
+            const inputText = inputElement.value.trim();
+            
+            if (!inputText) {
+                alert('❌ Bitte Nachricht eingeben!');
+                return;
+            }
+            
+            // Zeige Loading
+            const loadingEl = document.getElementById('telegram-test-loading');
+            const resultsEl = document.getElementById('telegram-test-results');
+            const testBtn = document.getElementById('telegram-test-btn');
+            
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (resultsEl) resultsEl.style.display = 'none';
+            if (testBtn) {
+                testBtn.disabled = true;
+                testBtn.style.opacity = '0.5';
+            }
+            
+            console.log('🤖 Teste Telegram-Bot mit:', inputText);
+            
+            try {
+                // Hole API-Key aus localStorage
+                const apiKey = localStorage.getItem('anthropic_api_key');
+                
+                if (!apiKey) {
+                    throw new Error('API-Key nicht konfiguriert! Bitte in Tab "📬 Anfragen" API-Key speichern.');
+                }
+                
+                // Analysiere mit Claude (GLEICHER PROMPT WIE IM SCRIPT!)
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const dayAfterTomorrow = new Date(today);
+                dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+                
+                const response = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 1000,
+                        messages: [{
+                            role: 'user',
+                            content: `Analysiere diese Taxi-Buchungsanfrage von einem Fahrgast:
+
+NACHRICHT:
+${inputText}
+
+AKTUELLE INFORMATIONEN:
+- Heute ist: ${today.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+- Aktuelles Jahr: ${today.getFullYear()}
+
+DATUM/ZEIT UMRECHNUNG:
+- "heute" = ${today.toISOString().split('T')[0]}
+- "morgen" = ${tomorrow.toISOString().split('T')[0]}
+- "übermorgen" = ${dayAfterTomorrow.toISOString().split('T')[0]}
+
+AUFGABE:
+Extrahiere Buchungsdaten und prüfe Vollständigkeit.
+
+Antworte NUR mit JSON (kein Markdown, kein Text drum herum):
+{
+  "datetime": "YYYY-MM-DDTHH:MM" oder null,
+  "pickup": "Genauer Abholort" oder null,
+  "destination": "Genaues Ziel" oder null,
+  "passengers": Anzahl oder 1,
+  "notes": "Zusatzinfos",
+  "missing": [] oder ["pickup", "destination", "datetime"],
+  "question": "Kurze Rückfrage" oder null
+}
+
+REGELN:
+- "Bahnhof" ohne weitere Angabe = "Bahnhof Heringsdorf"
+- Bei Flughafen ohne Angabe → in missing aufnehmen
+- Datum MUSS YYYY-MM-DD Format haben
+- Zeit MUSS HH:MM Format haben (24h)
+- missing = Liste der fehlenden Pflichtfelder
+- question = Kurze, freundliche Nachfrage wenn Daten fehlen`
+                        }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API Fehler: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const content = data.content[0].text;
+                
+                // Parse JSON
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) {
+                    throw new Error('Keine JSON-Antwort erhalten!');
+                }
+                
+                const analysis = JSON.parse(jsonMatch[0]);
+                
+                console.log('✅ Bot-Analyse:', analysis);
+                
+                // Zeige Ergebnisse
+                displayTelegramTestResults(analysis, inputText);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert(`❌ Fehler: ${error.message}`);
+            } finally {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (testBtn) {
+                    testBtn.disabled = false;
+                    testBtn.style.opacity = '1';
+                }
+            }
+        }
+        
+        function displayTelegramTestResults(analysis, originalMessage) {
+            // Zeige Results Container
+            const resultsEl = document.getElementById('telegram-test-results');
+            if (resultsEl) resultsEl.style.display = 'block';
+            
+            // 1. ANALYSE ANZEIGEN
+            const analysisEl = document.getElementById('telegram-test-analysis');
+            if (analysisEl) {
+                analysisEl.textContent = JSON.stringify(analysis, null, 2);
+            }
+            
+            // 2. BOT-ANTWORT GENERIEREN
+            const responseEl = document.getElementById('telegram-test-response');
+            let botResponse = '';
+            
+            // Prüfe Zeitpunkt
+            const now = new Date();
+            let hoursUntilPickup = null;
+            
+            if (analysis.datetime) {
+                const pickupTime = new Date(analysis.datetime);
+                hoursUntilPickup = (pickupTime - now) / (1000 * 60 * 60);
+            }
+            
+            if (analysis.missing && analysis.missing.length > 0) {
+                // UNVOLLSTÄNDIG
+                const missingLabels = {
+                    'pickup': '📍 Abholort',
+                    'destination': '🎯 Zielort',
+                    'datetime': '📅 Datum & Uhrzeit',
+                    'passengers': '👥 Personenzahl'
+                };
+                const missingList = analysis.missing.map(f => missingLabels[f] || f).join('<br>');
+                
+                botResponse = `<strong>⚠️ Fast geschafft!</strong><br><br>` +
+                              `<strong>Es fehlt noch:</strong><br>${missingList}<br><br>` +
+                              `💬 ${analysis.question || 'Bitte gib mir die fehlenden Informationen.'}`;
+                              
+            } else if (hoursUntilPickup !== null && hoursUntilPickup < 12 && hoursUntilPickup > -1) {
+                // KURZFRISTIG
+                botResponse = `<strong>⚠️ Kurzfristige Buchung!</strong><br><br>` +
+                              `Für Fahrten in weniger als 12 Stunden bitte direkt anrufen:<br><br>` +
+                              `<strong>📞 038378 28000</strong><br><br>` +
+                              `Wir sind rund um die Uhr erreichbar! 🚕`;
+                              
+            } else if (hoursUntilPickup !== null && hoursUntilPickup < -1) {
+                // VERGANGENHEIT
+                botResponse = `<strong>❌ Datum liegt in der Vergangenheit!</strong><br><br>` +
+                              `Die Fahrt kann nicht für ${formatDateTime(analysis.datetime)} gebucht werden.<br><br>` +
+                              `Bitte nenne ein aktuelles Datum oder rufe an:<br>` +
+                              `<strong>📞 038378 28000</strong>`;
+                              
+            } else {
+                // ALLES OK - BUCHUNG!
+                const price = 15.00; // Dummy-Preis
+                
+                botResponse = `<strong>✅ Buchung erfolgreich!</strong><br><br>` +
+                              `<strong>📅 Datum:</strong> ${formatDateTime(analysis.datetime)}<br>` +
+                              `<strong>📍 Abholort:</strong> ${analysis.pickup}<br>` +
+                              `<strong>🎯 Zielort:</strong> ${analysis.destination}<br>` +
+                              `<strong>👥 Personen:</strong> ${analysis.passengers || 1}<br>` +
+                              `<strong>💰 Preis:</strong> ca. ${price.toFixed(2)}€<br><br>` +
+                              `<strong>🔖 Buchungs-ID:</strong> #FT12345678<br><br>` +
+                              `Bei Fragen:<br>📞 038378 28000<br><br>` +
+                              `🚕 <em>Funk Taxi Heringsdorf</em>`;
+            }
+            
+            if (responseEl) responseEl.innerHTML = botResponse;
+            
+            // 3. AKTIONEN ANZEIGEN
+            const actionsEl = document.getElementById('telegram-test-actions-list');
+            let actions = '';
+            
+            if (analysis.missing && analysis.missing.length > 0) {
+                actions += '⏸️ <strong>Warten auf weitere Info vom Fahrgast</strong><br>';
+                actions += '📝 Keine Buchung erstellt<br>';
+                
+            } else if (hoursUntilPickup !== null && hoursUntilPickup < 12 && hoursUntilPickup > -1) {
+                actions += '📞 <strong>Admin-Benachrichtigung:</strong> "Kurzfristige Anfrage!"<br>';
+                actions += '⏸️ Fahrgast soll anrufen<br>';
+                actions += '📝 Keine automatische Buchung<br>';
+                
+            } else if (hoursUntilPickup !== null && hoursUntilPickup < -1) {
+                actions += '❌ <strong>Fehler:</strong> Datum in der Vergangenheit<br>';
+                actions += '📝 Keine Buchung erstellt<br>';
+                
+            } else {
+                actions += '✅ <strong>Buchung in Firebase erstellt</strong><br>';
+                actions += `📊 Status: "pending"<br>`;
+                actions += `📍 Route: ${analysis.pickup} → ${analysis.destination}<br>`;
+                actions += `⏰ Zeit: ${formatDateTime(analysis.datetime)}<br>`;
+                actions += `👥 Personen: ${analysis.passengers || 1}<br><br>`;
+                actions += `📱 <strong>Admin-Benachrichtigung gesendet</strong><br>`;
+                actions += `💬 Fahrgast-Bestätigung gesendet`;
+            }
+            
+            if (actionsEl) actionsEl.innerHTML = actions;
+        }
+        
+        function clearTelegramTest() {
+            const inputEl = document.getElementById('telegram-test-input');
+            if (inputEl) inputEl.value = '';
+            
+            const resultsEl = document.getElementById('telegram-test-results');
+            if (resultsEl) resultsEl.style.display = 'none';
+            
+            console.log('🗑️ Telegram-Test zurückgesetzt!');
+            showToast('✅ Test zurückgesetzt!');
+        }
+        
+        function formatDateTime(isoString) {
+            if (!isoString) return 'Nicht angegeben';
+            
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('de-DE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                }) + ' ' + date.toLocaleTimeString('de-DE', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) + ' Uhr';
+            } catch (e) {
+                return isoString;
+            }
         }
         
         function loadAIExample(exampleNum) {

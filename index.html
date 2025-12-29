@@ -108,7 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.89.1 - TAB MANAGER FIXED! 📑📱✨ (Build 20251229-1620)');
+        console.log('🚕 Funk Taxi App v5.89.2 - TAB BERECHTIGUNGEN! 🔐✨ (Build 20251229-1730)');
+        console.log('🔐 v5.89.2: TAB-BERECHTIGUNGEN GLOBAL!');
+        console.log('✅ v5.89.2: Firebase COMPAT Syntax gefixed!');
+        console.log('🎯 v5.89.2: Admin stellt ein wer was sieht!');
+        console.log('💾 v5.89.2: In Firebase gespeichert - gilt für ALLE Geräte!');
         console.log('📑 v5.89.1: BUGFIX - Firebase Auth Check hinzugefügt!');
         console.log('📑 v5.89.0: TAB MANAGER - Wähle deine Tabs!');
         console.log('📅 v5.89.0: NEUER KALENDER-TAB - Direkt zur Übersicht!');
@@ -3039,31 +3043,28 @@
             </div>
         </div>
         
-        <!-- 🆕 v5.89.0: TAB-VERWALTUNG -->
+        <!-- 🆕 v5.89.2: TAB-BERECHTIGUNGEN -->
         <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #3b82f6;box-shadow:0 4px 12px rgba(59,130,246,0.15);">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
-                <div style="font-size:24px;">📑</div>
+                <div style="font-size:24px;">🔐</div>
                 <div>
-                    <div style="font-weight:700;font-size:16px;color:#1e40af;">Tab-Verwaltung</div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">Wähle welche Tabs oben angezeigt werden sollen</div>
+                    <div style="font-weight:700;font-size:16px;color:#1e40af;">Tab-Berechtigungen</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">Stelle ein wer welche Tabs sehen darf</div>
                 </div>
             </div>
             
-            <div style="background:#eff6ff;padding:15px;border-radius:8px;border-left:4px solid #3b82f6;">
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;" id="tab-manager-checkboxes">
+            <div style="background:#eff6ff;padding:20px;border-radius:8px;border-left:4px solid#3b82f6;">
+                <div id="tab-permissions-container">
                     <!-- Wird dynamisch gefüllt -->
-                    <div style="text-align:center;padding:20px;color:#6b7280;grid-column:1/-1;">
-                        Lade Tab-Einstellungen...
+                    <div style="text-align:center;padding:20px;color:#6b7280;">
+                        Lade Tab-Berechtigungen...
                     </div>
                 </div>
                 
-                <div style="margin-top:15px;display:flex;justify-content:space-between;align-items:center;padding-top:15px;border-top:2px solid #dbeafe;">
+                <div style="margin-top:15px;padding-top:15px;border-top:2px solid #dbeafe;">
                     <div style="font-size:12px;color:#6b7280;">
-                        💡 Admin & Fahrer Tabs können nicht ausgeblendet werden
+                        💡 Änderungen werden automatisch gespeichert und gelten für ALLE Geräte!
                     </div>
-                    <button onclick="saveTabSettings()" style="padding:10px 20px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-                        💾 Speichern
-                    </button>
                 </div>
             </div>
         </div>
@@ -10397,164 +10398,168 @@
         // 🆕 v5.89.0: TAB-MANAGER
         
         // Tab-Definitionen (ID, Label, Icon, Required)
-        const TAB_DEFINITIONS = [
-            { id: 'passenger', label: 'Taxi buchen', icon: '🚕', required: false },
-            { id: 'schedule', label: 'Fahrplan', icon: '🚌🚂', required: false },
-            { id: 'history', label: 'Verlauf', icon: '📖', required: false },
-            { id: 'calendar', label: 'Kalender', icon: '📅', required: false },
-            { id: 'hotel-calendar', label: 'Hotel-Kalender', icon: '🏨', required: false },
-            { id: 'quick-booking', label: 'Schnellbuchung', icon: '⚡', required: false },
-            { id: 'driver', label: 'Fahrer', icon: '🚗', required: true },
-            { id: 'admin', label: 'Admin', icon: '⚙️', required: true },
-            { id: 'shift-plan', label: 'Schichtplan', icon: '📊', required: false },
-            { id: 'ai-assistant', label: 'AI-Assistent', icon: '🤖', required: false },
-            { id: 'booking-requests', label: 'Anfragen', icon: '📬', required: false },
-            { id: 'poi-management', label: 'Favoriten-Ziele', icon: '⭐', required: false },
-            { id: 'backup', label: 'Backups', icon: '💾', required: false }
-        ];
         
         // Lade Tab-Einstellungen
         async function loadTabSettings() {
-            console.log('📑 Lade Tab-Einstellungen...');
+            console.log('📑 Lade Tab-Berechtigungen aus Firebase...');
             
-            const user = auth.currentUser;
-            if (!user) {
-                console.log('⚠️ Kein User eingeloggt');
+            if (!db) {
+                console.log('⚠️ Firebase DB nicht bereit');
                 return;
             }
             
             try {
-                const settingsRef = ref(db, `users/${user.uid}/settings/visibleTabs`);
-                const snapshot = await get(settingsRef);
+                // Lade GLOBALE Einstellungen (nicht pro User!)
+                const settingsRef = db.ref('settings/tabPermissions');
+                const snapshot = await settingsRef.once('value');
                 
-                let visibleTabs = {};
+                let permissions = {};
                 
                 if (snapshot.exists()) {
-                    visibleTabs = snapshot.val();
-                    console.log('✅ Tab-Einstellungen geladen:', visibleTabs);
+                    permissions = snapshot.val();
+                    console.log('✅ Tab-Berechtigungen geladen:', permissions);
                 } else {
-                    // Default: Alle sichtbar
-                    TAB_DEFINITIONS.forEach(tab => {
-                        visibleTabs[tab.id] = true;
-                    });
-                    console.log('ℹ️ Nutze Default: Alle Tabs sichtbar');
+                    // Default: Standard-Berechtigungen
+                    permissions = getDefaultPermissions();
+                    console.log('ℹ️ Nutze Default-Berechtigungen');
                 }
                 
-                // Wende Settings an
-                applyTabSettings(visibleTabs);
+                // Wende Berechtigungen für aktuelle Rolle an
+                const user = auth.currentUser;
+                if (user) {
+                    const userRef = db.ref(`users/${user.uid}`);
+                    const userSnap = await userRef.once('value');
+                    const userData = userSnap.val();
+                    const role = userData?.role || 'passenger';
+                    
+                    console.log(`🔐 Wende Tab-Berechtigungen an für Rolle: ${role}`);
+                    applyTabPermissions(permissions, role);
+                }
                 
-                // Fülle Tab-Manager Checkboxen
-                fillTabManagerCheckboxes(visibleTabs);
+                // Fülle Admin-Panel Checkboxen
+                fillTabPermissionCheckboxes(permissions);
                 
             } catch (error) {
-                console.error('❌ Fehler beim Laden der Tab-Einstellungen:', error);
+                console.error('❌ Fehler beim Laden der Tab-Berechtigungen:', error);
             }
         }
         
-        // Wende Tab-Settings an
-        function applyTabSettings(visibleTabs) {
-            console.log('🎨 Wende Tab-Settings an...');
+        // Standard-Berechtigungen
+        function getDefaultPermissions() {
+            return {
+                admin: ['passenger', 'schedule', 'history', 'calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'],
+                driver: ['driver', 'schedule', 'history'],
+                passenger: ['passenger', 'schedule', 'history']
+            };
+        }
+        
+        // Wende Tab-Berechtigungen an
+        function applyTabPermissions(permissions, role) {
+            console.log(`🎨 Wende Tab-Berechtigungen an für: ${role}`);
             
-            TAB_DEFINITIONS.forEach(tab => {
-                const isVisible = tab.required || visibleTabs[tab.id] !== false;
-                const tabBtn = document.querySelector(`.admin-tab-btn[data-tab-id="${tab.id}"]`);
+            const allowedTabs = permissions[role] || [];
+            const allTabs = document.querySelectorAll('.tab-button');
+            
+            allTabs.forEach(tab => {
+                const view = tab.dataset.view;
+                const isAllowed = allowedTabs.includes(view);
                 
-                if (tabBtn) {
-                    if (isVisible) {
-                        tabBtn.style.display = 'inline-block';
-                        console.log(`  ✅ Tab sichtbar: ${tab.label}`);
-                    } else {
-                        tabBtn.style.display = 'none';
-                        console.log(`  ❌ Tab versteckt: ${tab.label}`);
-                    }
+                if (isAllowed) {
+                    tab.style.display = '';
+                    console.log(`  ✅ Tab erlaubt: ${view}`);
+                } else {
+                    tab.style.display = 'none';
+                    console.log(`  ❌ Tab verboten: ${view}`);
                 }
             });
         }
         
-        // Fülle Tab-Manager Checkboxen
-        function fillTabManagerCheckboxes(visibleTabs) {
-            const container = document.getElementById('tab-manager-checkboxes');
+        // Fülle Tab-Berechtigungs-Checkboxen im Admin
+        function fillTabPermissionCheckboxes(permissions) {
+            const container = document.getElementById('tab-permissions-container');
             if (!container) return;
             
-            let html = '';
+            const allTabIds = ['passenger', 'schedule', 'history', 'calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'];
+            const roles = ['admin', 'driver', 'passenger'];
             
-            TAB_DEFINITIONS.forEach(tab => {
-                const isChecked = tab.required || visibleTabs[tab.id] !== false;
-                const isDisabled = tab.required;
-                
+            let html = '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">';
+            
+            roles.forEach(role => {
                 html += `
-                    <label style="
-                        display:flex;
-                        align-items:center;
-                        gap:8px;
-                        padding:10px;
-                        background:white;
-                        border-radius:6px;
-                        border:2px solid ${isChecked ? '#3b82f6' : '#e5e7eb'};
-                        cursor:${isDisabled ? 'not-allowed' : 'pointer'};
-                        opacity:${isDisabled ? '0.6' : '1'};
-                        transition:all 0.2s;
-                    " onmouseover="if(!this.querySelector('input').disabled) this.style.borderColor='#3b82f6'" 
-                       onmouseout="if(!this.querySelector('input').checked) this.style.borderColor='#e5e7eb'">
-                        <input 
-                            type="checkbox" 
-                            data-tab-id="${tab.id}"
-                            ${isChecked ? 'checked' : ''}
-                            ${isDisabled ? 'disabled' : ''}
-                            onchange="this.parentElement.style.borderColor = this.checked ? '#3b82f6' : '#e5e7eb'"
-                            style="width:18px;height:18px;cursor:${isDisabled ? 'not-allowed' : 'pointer'};">
-                        <span style="font-size:18px;">${tab.icon}</span>
-                        <span style="font-size:13px;font-weight:500;color:#1f2937;">
-                            ${tab.label}
-                            ${tab.required ? '<span style="color:#6b7280;font-size:11px;"> (Pflicht)</span>' : ''}
-                        </span>
-                    </label>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px;">
+                        <h3 style="margin-top: 0;">${role.toUpperCase()}</h3>
                 `;
+                
+                allTabIds.forEach(tabId => {
+                    const isChecked = permissions[role]?.includes(tabId) || false;
+                    const label = tabId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    
+                    html += `
+                        <label style="display: block; margin: 8px 0; cursor: pointer;">
+                            <input type="checkbox" 
+                                   data-role="${role}" 
+                                   data-tab="${tabId}"
+                                   ${isChecked ? 'checked' : ''}
+                                   onchange="updateTabPermission('${role}', '${tabId}', this.checked)">
+                            ${label}
+                        </label>
+                    `;
+                });
+                
+                html += '</div>';
             });
+            
+            html += '</div>';
             
             container.innerHTML = html;
-            console.log('✅ Tab-Manager Checkboxen gefüllt');
         }
         
-        // Speichere Tab-Settings
-        async function saveTabSettings() {
-            console.log('💾 Speichere Tab-Einstellungen...');
-            
-            const user = auth.currentUser;
-            if (!user) {
-                alert('❌ Nicht eingeloggt!');
-                return;
-            }
-            
-            // Sammle alle Checkbox-Status
-            const visibleTabs = {};
-            
-            document.querySelectorAll('#tab-manager-checkboxes input[type="checkbox"]').forEach(checkbox => {
-                const tabId = checkbox.getAttribute('data-tab-id');
-                visibleTabs[tabId] = checkbox.checked;
-            });
-            
-            console.log('📦 Zu speichernde Settings:', visibleTabs);
+        // Update Tab-Berechtigung
+        async function updateTabPermission(role, tabId, isAllowed) {
+            console.log(`🔄 Update: ${role} → ${tabId} = ${isAllowed}`);
             
             try {
-                const settingsRef = ref(db, `users/${user.uid}/settings/visibleTabs`);
-                await set(settingsRef, visibleTabs);
+                // Lade aktuelle Berechtigungen
+                const settingsRef = db.ref('settings/tabPermissions');
+                const snapshot = await settingsRef.once('value');
+                let permissions = snapshot.exists() ? snapshot.val() : getDefaultPermissions();
                 
-                console.log('✅ Tab-Einstellungen gespeichert!');
+                // Update
+                if (!permissions[role]) {
+                    permissions[role] = [];
+                }
                 
-                // Wende Settings sofort an
-                applyTabSettings(visibleTabs);
+                if (isAllowed) {
+                    if (!permissions[role].includes(tabId)) {
+                        permissions[role].push(tabId);
+                    }
+                } else {
+                    permissions[role] = permissions[role].filter(t => t !== tabId);
+                }
                 
-                alert('✅ Tab-Einstellungen gespeichert!');
+                // Speichere
+                await settingsRef.set(permissions);
+                console.log('✅ Tab-Berechtigung gespeichert!');
+                
+                // Wende sofort an wenn es aktuelle Rolle betrifft
+                const user = auth.currentUser;
+                if (user) {
+                    const userRef = db.ref(`users/${user.uid}`);
+                    const userSnap = await userRef.once('value');
+                    const userData = userSnap.val();
+                    const currentRole = userData?.role || 'passenger';
+                    
+                    if (currentRole === role) {
+                        applyTabPermissions(permissions, currentRole);
+                    }
+                }
                 
             } catch (error) {
                 console.error('❌ Fehler beim Speichern:', error);
-                alert('❌ Fehler beim Speichern: ' + error.message);
             }
         }
         
-        // Lade Tab-Settings bei Login
-        // 🆕 v5.89.1: SAFETY CHECK - warte bis auth bereit ist!
+        // Lade Tab-Berechtigungen bei Login
         function initTabSettingsLoader() {
             if (!auth) {
                 console.log('⏳ Warte auf Firebase Auth...');
@@ -10573,6 +10578,7 @@
         
         // Starte nach 2 Sekunden (Firebase sollte dann bereit sein)
         setTimeout(initTabSettingsLoader, 2000);
+
 
         // 🎯 GPS MONITORING - Prüft alle 5 Sekunden ob GPS läuft
         let gpsMonitoringInterval = null;

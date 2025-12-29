@@ -108,7 +108,8 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.89.0 - TAB MANAGER! 📑📱✨ (Build 20251229-1600)');
+        console.log('🚕 Funk Taxi App v5.89.1 - TAB MANAGER FIXED! 📑📱✨ (Build 20251229-1620)');
+        console.log('📑 v5.89.1: BUGFIX - Firebase Auth Check hinzugefügt!');
         console.log('📑 v5.89.0: TAB MANAGER - Wähle deine Tabs!');
         console.log('📅 v5.89.0: NEUER KALENDER-TAB - Direkt zur Übersicht!');
         console.log('💾 v5.89.0: Settings pro User in Firebase!');
@@ -5438,7 +5439,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.89.0';
+        const APP_VERSION = '5.89.1';
         const APP_BUILD = '20251228-1500-SCRIPT-MANAGER';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -10553,11 +10554,25 @@
         }
         
         // Lade Tab-Settings bei Login
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                setTimeout(() => loadTabSettings(), 1000);
+        // 🆕 v5.89.1: SAFETY CHECK - warte bis auth bereit ist!
+        function initTabSettingsLoader() {
+            if (!auth) {
+                console.log('⏳ Warte auf Firebase Auth...');
+                setTimeout(initTabSettingsLoader, 500);
+                return;
             }
-        });
+            
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    setTimeout(() => loadTabSettings(), 1000);
+                }
+            });
+            
+            console.log('✅ Tab-Settings Loader initialisiert');
+        }
+        
+        // Starte nach 2 Sekunden (Firebase sollte dann bereit sein)
+        setTimeout(initTabSettingsLoader, 2000);
 
         // 🎯 GPS MONITORING - Prüft alle 5 Sekunden ob GPS läuft
         let gpsMonitoringInterval = null;

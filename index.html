@@ -108,9 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.34 - FESTNETZ/MOBIL + GAST-TELEFON! 📱 (Build 20251227-1155)');
+        console.log('🚕 Funk Taxi App v5.88.0 - SCRIPT MANAGER! 🔧📱✨ (Build 20251228-1500)');
+        console.log('🔧 v5.88.0: SCRIPT MANAGER MIT APPS SCRIPT API!');
+        console.log('📝 v5.88.0: Scripts direkt in der App verwalten!');
+        console.log('💻 v5.88.0: Code-Editor (Monaco) eingebaut!');
+        console.log('🚀 v5.88.0: Deployment per Knopfdruck!');
+        console.log('📊 v5.88.0: Logs & Status live anzeigen!');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
-        console.log('🔧 v5.87.69: Keine "is not defined" Fehler mehr!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
         console.log('🔄 v5.87.23: GOOGLE CALENDAR OAUTH INTEGRATION!');
@@ -806,7 +810,7 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     ">
         <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-            <button onclick="switchView('passenger')" class="admin-tab-btn admin-only" data-view="passenger" style="
+            <button onclick="switchView('passenger')" class="admin-tab-btn admin-only tab-toggleable" data-view="passenger" data-tab-id="passenger" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -820,7 +824,7 @@
             ">
                 🚕 Taxi buchen
             </button>
-            <button onclick="switchView('schedule')" class="admin-tab-btn admin-only" data-view="schedule" style="
+            <button onclick="switchView('schedule')" class="admin-tab-btn admin-only tab-toggleable" data-view="schedule" data-tab-id="schedule" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -834,7 +838,7 @@
             ">
                 🚌🚂 Fahrplan
             </button>
-            <button onclick="switchView('history')" class="admin-tab-btn admin-only" data-view="history" style="
+            <button onclick="switchView('history')" class="admin-tab-btn admin-only tab-toggleable" data-view="history" data-tab-id="history" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -848,7 +852,25 @@
             ">
                 📖 Verlauf
             </button>
-            <button onclick="switchView('hotel-calendar')" class="admin-tab-btn admin-only" data-view="hotel-calendar" style="
+            <!-- 🆕 v5.89: KALENDER-TAB (Direkt-Sprung zu Vorbestellungen!) -->
+            <button onclick="switchView('schedule')" class="admin-tab-btn admin-only tab-toggleable" data-view="schedule" data-tab-id="calendar" style="
+                padding: 10px 16px;
+                border: 2px solid #3b82f6;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            " 
+            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(59,130,246,0.5)'" 
+            onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(59,130,246,0.3)'">
+                📅 Kalender
+            </button>
+            <button onclick="switchView('hotel-calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="hotel-calendar" data-tab-id="hotel-calendar" style="
                 padding: 10px 16px;
                 border: 2px solid #f59e0b;
                 background: white;
@@ -863,7 +885,7 @@
                 🏨 Hotel-Kalender
             </button>
             <!-- 🆕 v5.87.63: SCHNELLBUCHUNGS-BUTTON IN TAB-LEISTE! -->
-            <button onclick="openQuickBookingModal()" class="admin-tab-btn admin-only" style="
+            <button onclick="openQuickBookingModal()" class="admin-tab-btn admin-only tab-toggleable" data-tab-id="quick-booking" style="
                 padding: 10px 16px;
                 border: 2px solid #10b981;
                 background: linear-gradient(135deg, #10b981, #059669);
@@ -880,7 +902,7 @@
             onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 4px rgba(16,185,129,0.3)'">
                 ⚡ Schnellbuchung
             </button>
-            <button onclick="switchView('driver')" class="admin-tab-btn driver-visible" data-view="driver" style="
+            <button onclick="switchView('driver')" class="admin-tab-btn driver-visible tab-toggleable" data-view="driver" data-tab-id="driver" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -908,7 +930,7 @@
             ">
                 ⚙️ Admin
             </button>
-            <button onclick="switchView('shift-plan')" class="admin-tab-btn admin-only" data-view="shift-plan" style="
+            <button onclick="switchView('shift-plan')" class="admin-tab-btn admin-only tab-toggleable" data-view="shift-plan" data-tab-id="shift-plan" style="
                 padding: 10px 16px;
                 border: 2px solid #10b981;
                 background: white;
@@ -937,7 +959,7 @@
             ">
                 🔍 DEBUG
             </button>
-            <button onclick="switchView('ai-assistant')" class="admin-tab-btn" data-view="ai-assistant" style="
+            <button onclick="switchView('ai-assistant')" class="admin-tab-btn tab-toggleable" data-view="ai-assistant" data-tab-id="ai-assistant" style="
                 padding: 10px 16px;
                 border: 2px solid #10b981;
                 background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -952,7 +974,7 @@
             ">
                 🤖 AI-Assistent
             </button>
-            <button onclick="switchView('booking-requests')" class="admin-tab-btn" data-view="booking-requests" style="
+            <button onclick="switchView('booking-requests')" class="admin-tab-btn tab-toggleable" data-view="booking-requests" data-tab-id="booking-requests" style="
                 padding: 10px 16px;
                 border: 2px solid #3b82f6;
                 background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
@@ -967,7 +989,7 @@
             ">
                 📬 Anfragen
             </button>
-            <button onclick="switchView('poi-management')" class="admin-tab-btn admin-only" data-view="poi-management" style="
+            <button onclick="switchView('poi-management')" class="admin-tab-btn admin-only tab-toggleable" data-view="poi-management" data-tab-id="poi-management" style="
                 padding: 10px 16px;
                 border: 2px solid #f59e0b;
                 background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -982,7 +1004,7 @@
             ">
                 ⭐ Favoriten-Ziele
             </button>
-            <button onclick="switchView('backup')" class="admin-tab-btn admin-only" data-view="backup" style="
+            <button onclick="switchView('backup')" class="admin-tab-btn admin-only tab-toggleable" data-view="backup" data-tab-id="backup" style="
                 padding: 10px 16px;
                 border: 2px solid #8b5cf6;
                 background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
@@ -3016,6 +3038,35 @@
             </div>
         </div>
         
+        <!-- 🆕 v5.89.0: TAB-VERWALTUNG -->
+        <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #3b82f6;box-shadow:0 4px 12px rgba(59,130,246,0.15);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                <div style="font-size:24px;">📑</div>
+                <div>
+                    <div style="font-weight:700;font-size:16px;color:#1e40af;">Tab-Verwaltung</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">Wähle welche Tabs oben angezeigt werden sollen</div>
+                </div>
+            </div>
+            
+            <div style="background:#eff6ff;padding:15px;border-radius:8px;border-left:4px solid #3b82f6;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;" id="tab-manager-checkboxes">
+                    <!-- Wird dynamisch gefüllt -->
+                    <div style="text-align:center;padding:20px;color:#6b7280;grid-column:1/-1;">
+                        Lade Tab-Einstellungen...
+                    </div>
+                </div>
+                
+                <div style="margin-top:15px;display:flex;justify-content:space-between;align-items:center;padding-top:15px;border-top:2px solid #dbeafe;">
+                    <div style="font-size:12px;color:#6b7280;">
+                        💡 Admin & Fahrer Tabs können nicht ausgeblendet werden
+                    </div>
+                    <button onclick="saveTabSettings()" style="padding:10px 20px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                        💾 Speichern
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- 🆕 v5.87.86: EINSTELLUNGEN (MWST + ZAHLUNGSARTEN) -->
         <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #8b5cf6;box-shadow:0 4px 12px rgba(139,92,246,0.15);">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
@@ -3759,245 +3810,6 @@
             </div>
         </div>
         <!-- END: CRM-SECTION -->
-
-        <!-- BOT DASHBOARD SECTION INSERTED -->
-        <!-- 🤖 BOT MANAGEMENT SECTION -->
-        <div onclick="toggleAdminSection('bot-management')" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-weight:600;font-size:15px;">🤖 Telegram & Email Bot</span>
-            <span id="bot-management-toggle" style="font-size:20px;">▼</span>
-        </div>
-        <div id="bot-management-content" style="display:none;margin-bottom:20px;">
-            
-            <!-- Tab-Auswahl: Telegram vs Email -->
-            <div style="display:flex;margin-bottom:15px;border-radius:8px;overflow:hidden;border:2px solid #e0e0e0;">
-                <button id="bot-tab-telegram" onclick="switchBotTab('telegram')" style="flex:1;padding:10px;border:none;background:#3b82f6;color:white;font-weight:600;cursor:pointer;">
-                    📱 Telegram Bot
-                </button>
-                <button id="bot-tab-email" onclick="switchBotTab('email')" style="flex:1;padding:10px;border:none;background:#f3f4f6;color:#333;font-weight:600;cursor:pointer;">
-                    📧 Email Bot
-                </button>
-            </div>
-            
-            <!-- ═══════════════════════════════════════ -->
-            <!-- TELEGRAM BOT CONTENT -->
-            <!-- ═══════════════════════════════════════ -->
-            <div id="telegram-bot-content">
-                
-                <!-- Status & Controls -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                        <div>
-                            <div style="font-weight:600;font-size:15px;margin-bottom:5px;">Status</div>
-                            <div id="telegram-status" style="display:flex;align-items:center;gap:8px;">
-                                <span style="width:12px;height:12px;background:#10b981;border-radius:50%;"></span>
-                                <span style="font-weight:600;color:#10b981;">AKTIV</span>
-                            </div>
-                        </div>
-                        <div style="display:flex;gap:10px;">
-                            <button onclick="stopTelegramBot()" style="padding:10px 15px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                                🔴 Stoppen
-                            </button>
-                            <button onclick="restartTelegramBot()" style="padding:10px 15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                                🔄 Neu starten
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Webhook URL -->
-                    <div style="margin-top:10px;">
-                        <label style="display:block;font-weight:600;margin-bottom:5px;font-size:13px;">Webhook URL:</label>
-                        <input type="text" id="telegram-webhook-url" placeholder="https://script.google.com/..." style="width:100%;padding:8px;border:2px solid #e0e0e0;border-radius:6px;font-size:12px;font-family:monospace;">
-                        <button onclick="saveTelegramWebhook()" style="width:100%;margin-top:8px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                            💾 Webhook speichern & aktivieren
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Statistiken -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="font-weight:600;font-size:15px;margin-bottom:10px;">📊 Statistiken</div>
-                    
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
-                        <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;">
-                            <div style="font-size:24px;font-weight:700;color:#3b82f6;" id="telegram-today-count">0</div>
-                            <div style="font-size:12px;color:#666;">Anfragen heute</div>
-                        </div>
-                        <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;">
-                            <div style="font-size:24px;font-weight:700;color:#10b981;" id="telegram-today-bookings">0</div>
-                            <div style="font-size:12px;color:#666;">Buchungen heute</div>
-                        </div>
-                    </div>
-                    
-                    <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;margin-bottom:10px;">
-                        <div style="font-size:13px;color:#666;margin-bottom:5px;">Erfolgsrate</div>
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <div style="flex:1;background:#e5e7eb;height:8px;border-radius:4px;overflow:hidden;">
-                                <div id="telegram-success-bar" style="width:75%;background:#10b981;height:100%;"></div>
-                            </div>
-                            <div style="font-weight:700;color:#10b981;" id="telegram-success-rate">75%</div>
-                        </div>
-                    </div>
-                    
-                    <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;">
-                        <div style="font-size:13px;color:#666;margin-bottom:8px;">Diese Woche</div>
-                        <div style="display:flex;justify-content:space-between;">
-                            <span style="font-size:12px;">Anfragen: <strong id="telegram-week-count">0</strong></span>
-                            <span style="font-size:12px;">Buchungen: <strong id="telegram-week-bookings">0</strong></span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Button Analytics -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="font-weight:600;font-size:15px;margin-bottom:10px;">🔘 Button-Nutzung</div>
-                    <div id="telegram-button-stats" style="font-size:13px;">
-                        <div style="margin-bottom:8px;">Lade Daten...</div>
-                    </div>
-                </div>
-                
-                <!-- API Kosten -->
-                <div style="background:#fff7ed;border:2px solid #fed7aa;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="font-weight:600;font-size:15px;margin-bottom:10px;">💰 API Kosten</div>
-                    <div style="font-size:13px;">
-                        <div style="margin-bottom:8px;">
-                            <strong>Heute:</strong> <span id="telegram-cost-today">$0.00</span>
-                            <span style="color:#666;font-size:11px;">(<span id="telegram-calls-today">0</span> Calls)</span>
-                        </div>
-                        <div style="margin-bottom:8px;">
-                            <strong>Diese Woche:</strong> <span id="telegram-cost-week">$0.00</span>
-                        </div>
-                        <div style="padding:10px;background:white;border-radius:6px;border:1px solid #fed7aa;margin-top:10px;">
-                            <div style="font-size:11px;color:#666;margin-bottom:4px;">Geschätzt pro Monat:</div>
-                            <div style="font-size:18px;font-weight:700;color:#f97316;" id="telegram-cost-month">$0.00</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Live-Log -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                        <div style="font-weight:600;font-size:15px;">📝 Live-Log</div>
-                        <button onclick="exportTelegramLogs()" style="padding:6px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
-                            📥 Export CSV
-                        </button>
-                    </div>
-                    <div id="telegram-live-log" style="max-height:400px;overflow-y:auto;background:white;border:2px solid #e5e7eb;border-radius:8px;padding:10px;font-family:monospace;font-size:11px;">
-                        <div style="color:#999;">Warte auf Nachrichten...</div>
-                    </div>
-                </div>
-                
-            </div>
-            
-            <!-- ═══════════════════════════════════════ -->
-            <!-- EMAIL BOT CONTENT -->
-            <!-- ═══════════════════════════════════════ -->
-            <div id="email-bot-content" style="display:none;">
-                
-                <!-- Status & Controls -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                        <div>
-                            <div style="font-weight:600;font-size:15px;margin-bottom:5px;">Status</div>
-                            <div id="email-status" style="display:flex;align-items:center;gap:8px;">
-                                <span style="width:12px;height:12px;background:#ef4444;border-radius:50%;"></span>
-                                <span style="font-weight:600;color:#ef4444;">PAUSIERT - Kein Guthaben</span>
-                            </div>
-                        </div>
-                        <div>
-                            <button onclick="window.open('https://console.anthropic.com', '_blank')" style="padding:10px 15px;background:#f97316;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                                💰 Credits aufladen
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Statistiken -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="font-weight:600;font-size:15px;margin-bottom:10px;">📊 Statistiken</div>
-                    
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
-                        <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;">
-                            <div style="font-size:24px;font-weight:700;color:#3b82f6;" id="email-today-count">0</div>
-                            <div style="font-size:12px;color:#666;">Emails heute</div>
-                        </div>
-                        <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;">
-                            <div style="font-size:24px;font-weight:700;color:#10b981;" id="email-today-bookings">0</div>
-                            <div style="font-size:12px;color:#666;">Buchungen heute</div>
-                        </div>
-                    </div>
-                    
-                    <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;margin-bottom:10px;">
-                        <div style="font-size:13px;color:#666;margin-bottom:8px;">Diese Woche</div>
-                        <div style="display:flex;justify-content:space-between;">
-                            <span style="font-size:12px;">Emails: <strong id="email-week-count">0</strong></span>
-                            <span style="font-size:12px;">Buchungen: <strong id="email-week-bookings">0</strong></span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Filter-Statistiken -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="font-weight:600;font-size:15px;margin-bottom:10px;">🔍 Filter-Analyse</div>
-                    
-                    <div style="background:white;padding:12px;border-radius:8px;border:2px solid #e5e7eb;margin-bottom:10px;">
-                        <div style="font-size:13px;margin-bottom:8px;">
-                            📬 Emails geprüft: <strong id="email-checked-count">0</strong>
-                        </div>
-                        <div style="font-size:13px;margin-bottom:8px;">
-                            ⏭️ Gefiltert (Absender): <strong id="email-filtered-sender">0</strong>
-                            <span style="color:#666;font-size:11px;">(<span id="email-filtered-sender-pct">0</span>%)</span>
-                        </div>
-                        <div style="font-size:13px;margin-bottom:8px;">
-                            ⏭️ Gefiltert (Keywords): <strong id="email-filtered-keywords">0</strong>
-                            <span style="color:#666;font-size:11px;">(<span id="email-filtered-keywords-pct">0</span>%)</span>
-                        </div>
-                        <div style="font-size:13px;color:#10b981;font-weight:600;">
-                            🤖 An Claude: <strong id="email-sent-claude">0</strong>
-                            <span style="color:#666;font-size:11px;font-weight:400;">(<span id="email-sent-claude-pct">0</span>%)</span>
-                        </div>
-                    </div>
-                    
-                    <div style="background:#fff7ed;padding:12px;border-radius:8px;border:2px solid #fed7aa;">
-                        <div style="font-size:12px;font-weight:600;margin-bottom:5px;">💰 Ersparnis durch Filter:</div>
-                        <div style="font-size:11px;color:#666;margin-bottom:3px;">
-                            Ohne Filter: <span id="email-cost-without-filter">$0.00</span>
-                        </div>
-                        <div style="font-size:11px;color:#666;margin-bottom:3px;">
-                            Mit Filter: <span id="email-cost-with-filter">$0.00</span>
-                        </div>
-                        <div style="font-size:16px;font-weight:700;color:#10b981;margin-top:5px;">
-                            Gespart: <span id="email-savings">$0.00</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Top gefilterte Absender -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="font-weight:600;font-size:15px;margin-bottom:10px;">🚫 Top gefilterte Absender</div>
-                    <div id="email-top-filtered" style="font-size:12px;">
-                        <div style="color:#999;">Keine Daten</div>
-                    </div>
-                </div>
-                
-                <!-- Email-Konversationen -->
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;padding:15px;border-radius:12px;margin-bottom:15px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                        <div style="font-weight:600;font-size:15px;">📧 Email-Konversationen</div>
-                        <button onclick="exportEmailLogs()" style="padding:6px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
-                            📥 Export CSV
-                        </button>
-                    </div>
-                    <div id="email-conversations-list" style="max-height:400px;overflow-y:auto;">
-                        <div style="color:#999;padding:20px;text-align:center;">Keine Konversationen</div>
-                    </div>
-                </div>
-                
-            </div>
-            
-        </div>
-        <!-- END: BOT MANAGEMENT SECTION -->
-        <!-- END BOT DASHBOARD SECTION -->
-
         </div>
         
         <!-- COLLAPSIBLE: Controls -->
@@ -5623,8 +5435,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.87.69';
-        const APP_BUILD = '20251220-1230-SETTIMEOUT-FIX';
+        const APP_VERSION = '5.89.0';
+        const APP_BUILD = '20251228-1500-SCRIPT-MANAGER';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -10577,6 +10389,172 @@
         setTimeout(() => updateAdminTabsVisibility(), 3000);
         // Und danach regelmäßig
         setInterval(() => updateAdminTabsVisibility(), 5000);
+
+        // 🆕 v5.89.0: TAB-MANAGER
+        
+        // Tab-Definitionen (ID, Label, Icon, Required)
+        const TAB_DEFINITIONS = [
+            { id: 'passenger', label: 'Taxi buchen', icon: '🚕', required: false },
+            { id: 'schedule', label: 'Fahrplan', icon: '🚌🚂', required: false },
+            { id: 'history', label: 'Verlauf', icon: '📖', required: false },
+            { id: 'calendar', label: 'Kalender', icon: '📅', required: false },
+            { id: 'hotel-calendar', label: 'Hotel-Kalender', icon: '🏨', required: false },
+            { id: 'quick-booking', label: 'Schnellbuchung', icon: '⚡', required: false },
+            { id: 'driver', label: 'Fahrer', icon: '🚗', required: true },
+            { id: 'admin', label: 'Admin', icon: '⚙️', required: true },
+            { id: 'shift-plan', label: 'Schichtplan', icon: '📊', required: false },
+            { id: 'ai-assistant', label: 'AI-Assistent', icon: '🤖', required: false },
+            { id: 'booking-requests', label: 'Anfragen', icon: '📬', required: false },
+            { id: 'poi-management', label: 'Favoriten-Ziele', icon: '⭐', required: false },
+            { id: 'backup', label: 'Backups', icon: '💾', required: false }
+        ];
+        
+        // Lade Tab-Einstellungen
+        async function loadTabSettings() {
+            console.log('📑 Lade Tab-Einstellungen...');
+            
+            const user = auth.currentUser;
+            if (!user) {
+                console.log('⚠️ Kein User eingeloggt');
+                return;
+            }
+            
+            try {
+                const settingsRef = ref(db, `users/${user.uid}/settings/visibleTabs`);
+                const snapshot = await get(settingsRef);
+                
+                let visibleTabs = {};
+                
+                if (snapshot.exists()) {
+                    visibleTabs = snapshot.val();
+                    console.log('✅ Tab-Einstellungen geladen:', visibleTabs);
+                } else {
+                    // Default: Alle sichtbar
+                    TAB_DEFINITIONS.forEach(tab => {
+                        visibleTabs[tab.id] = true;
+                    });
+                    console.log('ℹ️ Nutze Default: Alle Tabs sichtbar');
+                }
+                
+                // Wende Settings an
+                applyTabSettings(visibleTabs);
+                
+                // Fülle Tab-Manager Checkboxen
+                fillTabManagerCheckboxes(visibleTabs);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Tab-Einstellungen:', error);
+            }
+        }
+        
+        // Wende Tab-Settings an
+        function applyTabSettings(visibleTabs) {
+            console.log('🎨 Wende Tab-Settings an...');
+            
+            TAB_DEFINITIONS.forEach(tab => {
+                const isVisible = tab.required || visibleTabs[tab.id] !== false;
+                const tabBtn = document.querySelector(`.admin-tab-btn[data-tab-id="${tab.id}"]`);
+                
+                if (tabBtn) {
+                    if (isVisible) {
+                        tabBtn.style.display = 'inline-block';
+                        console.log(`  ✅ Tab sichtbar: ${tab.label}`);
+                    } else {
+                        tabBtn.style.display = 'none';
+                        console.log(`  ❌ Tab versteckt: ${tab.label}`);
+                    }
+                }
+            });
+        }
+        
+        // Fülle Tab-Manager Checkboxen
+        function fillTabManagerCheckboxes(visibleTabs) {
+            const container = document.getElementById('tab-manager-checkboxes');
+            if (!container) return;
+            
+            let html = '';
+            
+            TAB_DEFINITIONS.forEach(tab => {
+                const isChecked = tab.required || visibleTabs[tab.id] !== false;
+                const isDisabled = tab.required;
+                
+                html += `
+                    <label style="
+                        display:flex;
+                        align-items:center;
+                        gap:8px;
+                        padding:10px;
+                        background:white;
+                        border-radius:6px;
+                        border:2px solid ${isChecked ? '#3b82f6' : '#e5e7eb'};
+                        cursor:${isDisabled ? 'not-allowed' : 'pointer'};
+                        opacity:${isDisabled ? '0.6' : '1'};
+                        transition:all 0.2s;
+                    " onmouseover="if(!this.querySelector('input').disabled) this.style.borderColor='#3b82f6'" 
+                       onmouseout="if(!this.querySelector('input').checked) this.style.borderColor='#e5e7eb'">
+                        <input 
+                            type="checkbox" 
+                            data-tab-id="${tab.id}"
+                            ${isChecked ? 'checked' : ''}
+                            ${isDisabled ? 'disabled' : ''}
+                            onchange="this.parentElement.style.borderColor = this.checked ? '#3b82f6' : '#e5e7eb'"
+                            style="width:18px;height:18px;cursor:${isDisabled ? 'not-allowed' : 'pointer'};">
+                        <span style="font-size:18px;">${tab.icon}</span>
+                        <span style="font-size:13px;font-weight:500;color:#1f2937;">
+                            ${tab.label}
+                            ${tab.required ? '<span style="color:#6b7280;font-size:11px;"> (Pflicht)</span>' : ''}
+                        </span>
+                    </label>
+                `;
+            });
+            
+            container.innerHTML = html;
+            console.log('✅ Tab-Manager Checkboxen gefüllt');
+        }
+        
+        // Speichere Tab-Settings
+        async function saveTabSettings() {
+            console.log('💾 Speichere Tab-Einstellungen...');
+            
+            const user = auth.currentUser;
+            if (!user) {
+                alert('❌ Nicht eingeloggt!');
+                return;
+            }
+            
+            // Sammle alle Checkbox-Status
+            const visibleTabs = {};
+            
+            document.querySelectorAll('#tab-manager-checkboxes input[type="checkbox"]').forEach(checkbox => {
+                const tabId = checkbox.getAttribute('data-tab-id');
+                visibleTabs[tabId] = checkbox.checked;
+            });
+            
+            console.log('📦 Zu speichernde Settings:', visibleTabs);
+            
+            try {
+                const settingsRef = ref(db, `users/${user.uid}/settings/visibleTabs`);
+                await set(settingsRef, visibleTabs);
+                
+                console.log('✅ Tab-Einstellungen gespeichert!');
+                
+                // Wende Settings sofort an
+                applyTabSettings(visibleTabs);
+                
+                alert('✅ Tab-Einstellungen gespeichert!');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern: ' + error.message);
+            }
+        }
+        
+        // Lade Tab-Settings bei Login
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                setTimeout(() => loadTabSettings(), 1000);
+            }
+        });
 
         // 🎯 GPS MONITORING - Prüft alle 5 Sekunden ob GPS läuft
         let gpsMonitoringInterval = null;
@@ -48002,459 +47980,6 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }, 100);
         }
         
-
-    // ============= BOT DASHBOARD FUNCTIONS =============
-    // ═══════════════════════════════════════════════════════════════════
-    // 🤖 BOT MANAGEMENT FUNKTIONEN
-    // ═══════════════════════════════════════════════════════════════════
-    
-    // Tab-Wechsel zwischen Telegram & Email
-    function switchBotTab(tab) {
-        if (tab === 'telegram') {
-            document.getElementById('bot-tab-telegram').style.background = '#3b82f6';
-            document.getElementById('bot-tab-telegram').style.color = 'white';
-            document.getElementById('bot-tab-email').style.background = '#f3f4f6';
-            document.getElementById('bot-tab-email').style.color = '#333';
-            
-            document.getElementById('telegram-bot-content').style.display = 'block';
-            document.getElementById('email-bot-content').style.display = 'none';
-            
-            loadTelegramStats();
-        } else {
-            document.getElementById('bot-tab-email').style.background = '#3b82f6';
-            document.getElementById('bot-tab-email').style.color = 'white';
-            document.getElementById('bot-tab-telegram').style.background = '#f3f4f6';
-            document.getElementById('bot-tab-telegram').style.color = '#333';
-            
-            document.getElementById('email-bot-content').style.display = 'block';
-            document.getElementById('telegram-bot-content').style.display = 'none';
-            
-            loadEmailStats();
-        }
-    }
-    
-    // ═══════════════════════════════════════════════════════════════════
-    // TELEGRAM BOT FUNKTIONEN
-    // ═══════════════════════════════════════════════════════════════════
-    
-    async function loadTelegramStats() {
-        console.log('📊 Lade Telegram Bot Statistiken...');
-        
-        try {
-            const dbRef = getFirebaseRef();
-            
-            // Lade Statistiken
-            const statsSnapshot = await dbRef.child('telegram_bot_analytics/daily_stats').limitToLast(7).once('value');
-            const stats = statsSnapshot.val() || {};
-            
-            const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-            const todayStats = stats[today] || {
-                totalConversations: 0,
-                successfulBookings: 0,
-                totalMessages: 0,
-                apiCalls: 0,
-                totalCost: 0
-            };
-            
-            // Berechne Woche
-            let weekConversations = 0;
-            let weekBookings = 0;
-            let weekCost = 0;
-            let weekCalls = 0;
-            
-            Object.values(stats).forEach(day => {
-                weekConversations += day.totalConversations || 0;
-                weekBookings += day.successfulBookings || 0;
-                weekCost += day.totalCost || 0;
-                weekCalls += day.apiCalls || 0;
-            });
-            
-            // Update UI
-            document.getElementById('telegram-today-count').textContent = todayStats.totalConversations;
-            document.getElementById('telegram-today-bookings').textContent = todayStats.successfulBookings;
-            document.getElementById('telegram-week-count').textContent = weekConversations;
-            document.getElementById('telegram-week-bookings').textContent = weekBookings;
-            
-            // Erfolgsrate
-            const successRate = weekConversations > 0 
-                ? Math.round((weekBookings / weekConversations) * 100) 
-                : 0;
-            document.getElementById('telegram-success-rate').textContent = successRate + '%';
-            document.getElementById('telegram-success-bar').style.width = successRate + '%';
-            
-            // Kosten
-            document.getElementById('telegram-cost-today').textContent = '$' + (todayStats.totalCost || 0).toFixed(2);
-            document.getElementById('telegram-calls-today').textContent = todayStats.apiCalls || 0;
-            document.getElementById('telegram-cost-week').textContent = '$' + weekCost.toFixed(2);
-            document.getElementById('telegram-cost-month').textContent = '$' + (weekCost * 4.3).toFixed(2);
-            
-            // Button Analytics
-            await loadTelegramButtonStats();
-            
-            // Live-Log
-            await loadTelegramLiveLog();
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Laden der Telegram Stats:', error);
-        }
-    }
-    
-    async function loadTelegramButtonStats() {
-        try {
-            const dbRef = getFirebaseRef();
-            const buttonSnapshot = await dbRef.child('telegram_bot_analytics/button_analytics').once('value');
-            const buttons = buttonSnapshot.val() || {};
-            
-            const container = document.getElementById('telegram-button-stats');
-            
-            if (Object.keys(buttons).length === 0) {
-                container.innerHTML = '<div style="color:#999;">Keine Button-Daten verfügbar</div>';
-                return;
-            }
-            
-            // Sortiere nach Klicks
-            const sorted = Object.entries(buttons).sort((a, b) => b[1].clicks - a[1].clicks).slice(0, 5);
-            
-            let html = '';
-            sorted.forEach(([location, data]) => {
-                const totalClicks = data.clicks || 0;
-                const asPickup = data.asPickup || 0;
-                const asDestination = data.asDestination || 0;
-                
-                html += `
-                    <div style="background:white;padding:10px;border-radius:6px;border:1px solid #e5e7eb;margin-bottom:8px;">
-                        <div style="font-weight:600;margin-bottom:4px;">${location}</div>
-                        <div style="font-size:11px;color:#666;">
-                            ${totalClicks}× geklickt
-                            (${asPickup}× Abholort, ${asDestination}× Zielort)
-                        </div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Laden der Button-Stats:', error);
-        }
-    }
-    
-    async function loadTelegramLiveLog() {
-        try {
-            const dbRef = getFirebaseRef();
-            const conversationsSnapshot = await dbRef.child('telegram_bot_analytics/conversations').limitToLast(20).once('value');
-            const conversations = conversationsSnapshot.val() || {};
-            
-            const container = document.getElementById('telegram-live-log');
-            
-            if (Object.keys(conversations).length === 0) {
-                container.innerHTML = '<div style="color:#999;">Warte auf Nachrichten...</div>';
-                return;
-            }
-            
-            let html = '';
-            const sorted = Object.entries(conversations).reverse();
-            
-            sorted.forEach(([id, conv]) => {
-                const time = new Date(conv.startTime).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
-                const outcome = conv.outcome === 'booking_created' ? '✅' : 
-                               conv.outcome === 'abandoned' ? '⚠️' : '❌';
-                
-                html += `<div style="border-bottom:1px solid #e5e7eb;padding:8px 0;">`;
-                html += `<div style="font-weight:600;margin-bottom:4px;">🕐 ${time}  ${conv.userName} ${outcome}</div>`;
-                
-                // Zeige letzte 3 Nachrichten
-                const messages = conv.messages || [];
-                messages.slice(-3).forEach(msg => {
-                    const prefix = msg.role === 'user' ? '👤' : '🤖';
-                    const buttonIcon = msg.fromButton ? '🔘 ' : '';
-                    html += `<div style="font-size:10px;color:#666;margin-left:20px;">
-                        ${prefix} ${buttonIcon}${msg.text}
-                    </div>`;
-                });
-                
-                html += `</div>`;
-            });
-            
-            container.innerHTML = html;
-            container.scrollTop = 0; // Scroll to top (neueste oben)
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Laden des Live-Logs:', error);
-        }
-    }
-    
-    async function stopTelegramBot() {
-        if (!confirm('Telegram Bot wirklich stoppen?')) return;
-        
-        try {
-            const settings = await loadSettings();
-            const botToken = settings.telegram?.botToken;
-            
-            if (!botToken) {
-                alert('❌ Kein Bot Token gespeichert!');
-                return;
-            }
-            
-            // Webhook löschen
-            const response = await fetch(`https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=true`);
-            const data = await response.json();
-            
-            if (data.ok) {
-                // Status in Firebase speichern
-                const dbRef = getFirebaseRef();
-                await dbRef.child('settings/telegram/webhookActive').set(false);
-                
-                // UI Update
-                document.getElementById('telegram-status').innerHTML = `
-                    <span style="width:12px;height:12px;background:#ef4444;border-radius:50%;"></span>
-                    <span style="font-weight:600;color:#ef4444;">GESTOPPT</span>
-                `;
-                
-                showNotification('🔴 Telegram Bot gestoppt!');
-            } else {
-                alert('❌ Fehler: ' + (data.description || 'Unbekannt'));
-            }
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Stoppen des Bots:', error);
-            alert('❌ Fehler: ' + error.message);
-        }
-    }
-    
-    async function restartTelegramBot() {
-        try {
-            const settings = await loadSettings();
-            const webhookUrl = settings.telegram?.webhookUrl;
-            const botToken = settings.telegram?.botToken;
-            
-            if (!webhookUrl || !botToken) {
-                alert('❌ Webhook URL oder Bot Token fehlt!');
-                return;
-            }
-            
-            // Webhook setzen
-            const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
-            const data = await response.json();
-            
-            if (data.ok) {
-                // Status in Firebase speichern
-                const dbRef = getFirebaseRef();
-                await dbRef.child('settings/telegram/webhookActive').set(true);
-                
-                // UI Update
-                document.getElementById('telegram-status').innerHTML = `
-                    <span style="width:12px;height:12px;background:#10b981;border-radius:50%;"></span>
-                    <span style="font-weight:600;color:#10b981;">AKTIV</span>
-                `;
-                
-                showNotification('✅ Telegram Bot gestartet!');
-            } else {
-                alert('❌ Fehler: ' + (data.description || 'Unbekannt'));
-            }
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Starten des Bots:', error);
-            alert('❌ Fehler: ' + error.message);
-        }
-    }
-    
-    async function saveTelegramWebhook() {
-        const webhookUrl = document.getElementById('telegram-webhook-url').value.trim();
-        
-        if (!webhookUrl) {
-            alert('❌ Bitte Webhook URL eingeben!');
-            return;
-        }
-        
-        if (!webhookUrl.startsWith('https://')) {
-            alert('❌ Webhook URL muss mit https:// beginnen!');
-            return;
-        }
-        
-        try {
-            const dbRef = getFirebaseRef();
-            await dbRef.child('settings/telegram/webhookUrl').set(webhookUrl);
-            
-            showNotification('✅ Webhook URL gespeichert!');
-            
-            // Jetzt aktivieren
-            await restartTelegramBot();
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Speichern:', error);
-            alert('❌ Fehler: ' + error.message);
-        }
-    }
-    
-    function exportTelegramLogs() {
-        // TODO: Implementieren - CSV Export der Telegram Logs
-        showNotification('📥 CSV Export wird vorbereitet...');
-    }
-    
-    // ═══════════════════════════════════════════════════════════════════
-    // EMAIL BOT FUNKTIONEN
-    // ═══════════════════════════════════════════════════════════════════
-    
-    async function loadEmailStats() {
-        console.log('📊 Lade Email Bot Statistiken...');
-        
-        try {
-            const dbRef = getFirebaseRef();
-            
-            // Lade Statistiken
-            const statsSnapshot = await dbRef.child('email_bot_analytics/daily_stats').limitToLast(7).once('value');
-            const stats = statsSnapshot.val() || {};
-            
-            const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-            const todayStats = stats[today] || {
-                totalEmailsChecked: 0,
-                filteredByAbsender: 0,
-                filteredByKeywords: 0,
-                sentToClaude: 0,
-                bookingsCreated: 0,
-                totalCost: 0
-            };
-            
-            // Berechne Woche
-            let weekChecked = 0;
-            let weekFiltered = 0;
-            let weekClaude = 0;
-            let weekBookings = 0;
-            
-            Object.values(stats).forEach(day => {
-                weekChecked += day.totalEmailsChecked || 0;
-                weekFiltered += (day.filteredByAbsender || 0) + (day.filteredByKeywords || 0);
-                weekClaude += day.sentToClaude || 0;
-                weekBookings += day.bookingsCreated || 0;
-            });
-            
-            // Update UI
-            document.getElementById('email-today-count').textContent = todayStats.sentToClaude;
-            document.getElementById('email-today-bookings').textContent = todayStats.bookingsCreated;
-            document.getElementById('email-week-count').textContent = weekClaude;
-            document.getElementById('email-week-bookings').textContent = weekBookings;
-            
-            // Filter Stats
-            document.getElementById('email-checked-count').textContent = todayStats.totalEmailsChecked;
-            document.getElementById('email-filtered-sender').textContent = todayStats.filteredByAbsender;
-            document.getElementById('email-filtered-keywords').textContent = todayStats.filteredByKeywords;
-            document.getElementById('email-sent-claude').textContent = todayStats.sentToClaude;
-            
-            const total = todayStats.totalEmailsChecked || 1;
-            document.getElementById('email-filtered-sender-pct').textContent = 
-                Math.round((todayStats.filteredByAbsender / total) * 100);
-            document.getElementById('email-filtered-keywords-pct').textContent = 
-                Math.round((todayStats.filteredByKeywords / total) * 100);
-            document.getElementById('email-sent-claude-pct').textContent = 
-                Math.round((todayStats.sentToClaude / total) * 100);
-            
-            // Kosten-Ersparnis
-            const costWithoutFilter = todayStats.totalEmailsChecked * 0.02;
-            const costWithFilter = todayStats.sentToClaude * 0.02;
-            const savings = costWithoutFilter - costWithFilter;
-            
-            document.getElementById('email-cost-without-filter').textContent = '$' + costWithoutFilter.toFixed(2);
-            document.getElementById('email-cost-with-filter').textContent = '$' + costWithFilter.toFixed(2);
-            document.getElementById('email-savings').textContent = '$' + savings.toFixed(2);
-            
-            // Top gefilterte Absender
-            await loadEmailFilteredSenders();
-            
-            // Email-Konversationen
-            await loadEmailConversations();
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Laden der Email Stats:', error);
-        }
-    }
-    
-    async function loadEmailFilteredSenders() {
-        try {
-            const dbRef = getFirebaseRef();
-            const filterSnapshot = await dbRef.child('email_bot_analytics/filter_hits').once('value');
-            const filters = filterSnapshot.val() || {};
-            
-            const container = document.getElementById('email-top-filtered');
-            
-            if (Object.keys(filters).length === 0) {
-                container.innerHTML = '<div style="color:#999;">Keine Daten</div>';
-                return;
-            }
-            
-            // Sortiere nach Häufigkeit
-            const sorted = Object.entries(filters).sort((a, b) => b[1] - a[1]).slice(0, 5);
-            
-            let html = '';
-            sorted.forEach(([sender, count], index) => {
-                html += `
-                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e5e7eb;">
-                        <span>${index + 1}. ${sender}</span>
-                        <span style="font-weight:600;color:#ef4444;">${count}×</span>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Laden der gefilterten Absender:', error);
-        }
-    }
-    
-    async function loadEmailConversations() {
-        try {
-            const dbRef = getFirebaseRef();
-            const conversationsSnapshot = await dbRef.child('email_bot_analytics/conversations').limitToLast(10).once('value');
-            const conversations = conversationsSnapshot.val() || {};
-            
-            const container = document.getElementById('email-conversations-list');
-            
-            if (Object.keys(conversations).length === 0) {
-                container.innerHTML = '<div style="color:#999;padding:20px;text-align:center;">Keine Konversationen</div>';
-                return;
-            }
-            
-            let html = '';
-            const sorted = Object.entries(conversations).reverse();
-            
-            sorted.forEach(([id, conv]) => {
-                const date = new Date(conv.startTime).toLocaleDateString('de-DE');
-                const time = new Date(conv.startTime).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
-                const outcome = conv.outcome === 'booking_created' ? '✅ Gebucht' : 
-                               conv.outcome === 'incomplete' ? '⚠️ Unvollständig' : '❌ Fehler';
-                
-                html += `
-                    <div style="background:white;border:2px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:10px;cursor:pointer;" 
-                         onclick="showEmailConversationDetails('${id}')">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-                            <div style="font-weight:600;">${conv.customerEmail || 'Unbekannt'}</div>
-                            <div style="font-size:12px;color:#666;">${date} ${time}</div>
-                        </div>
-                        <div style="font-size:12px;color:#666;">
-                            ${conv.emails?.length || 0} Emails → ${outcome}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Laden der Email-Konversationen:', error);
-        }
-    }
-    
-    function showEmailConversationDetails(conversationId) {
-        // TODO: Modal mit Email-Thread Details
-        showNotification('Details werden geladen...');
-    }
-    
-    function exportEmailLogs() {
-        // TODO: Implementieren - CSV Export der Email Logs
-        showNotification('📥 CSV Export wird vorbereitet...');
-    }
-
     </script>
 
     

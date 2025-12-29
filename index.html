@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.88.0 - SCRIPT MANAGER! 🔧📱✨ (Build 20251228-1500)');
+        console.log('🚕 Funk Taxi App v5.89.0 - TAB MANAGER! 📑📱✨ (Build 20251229-1600)');
+        console.log('📑 v5.89.0: TAB MANAGER - Wähle deine Tabs!');
+        console.log('📅 v5.89.0: NEUER KALENDER-TAB - Direkt zur Übersicht!');
+        console.log('💾 v5.89.0: Settings pro User in Firebase!');
+        console.log('🎨 v5.89.0: Tabs ein/ausblenden nach Wunsch!');
         console.log('🔧 v5.88.0: SCRIPT MANAGER MIT APPS SCRIPT API!');
-        console.log('📝 v5.88.0: Scripts direkt in der App verwalten!');
-        console.log('💻 v5.88.0: Code-Editor (Monaco) eingebaut!');
-        console.log('🚀 v5.88.0: Deployment per Knopfdruck!');
-        console.log('📊 v5.88.0: Logs & Status live anzeigen!');
         console.log('🔧 v5.87.69: ALLE Funktionsaufrufe in setTimeout() gewrappt!');
         console.log('📞 v5.87.68: CallMonitor Funktionen nach oben verschoben!');
         console.log('💾 v5.87.27: Auto-Save alle 5 Min!');
@@ -5405,6 +5405,9 @@
         
         // 🐛 DEBUG MODE - Global Variable (für alte Debug-Button Kompatibilität)
         let debugMode = false; // Wird vom Console-Interceptor verwaltet
+        
+        // 🆕 v5.89.0: USER ROLE - Global Variable (wird später durch applyRoleRestrictions gesetzt)
+        let userRole = 'fahrgast'; // Standard-Rolle
         
         // CONFIGURATION
         // 🚗 FAHRZEUGE - werden aus Firebase geladen, Fallback auf Hardcoded
@@ -35115,7 +35118,7 @@ Stack: ${err.stack}
         }
         
         // 🔐 ROLLEN-SYSTEM
-        let userRole = 'fahrgast'; // Standard-Rolle
+        // userRole ist jetzt global am Anfang deklariert!
         
         async function getUserRole(user) {
             // Admin per Email

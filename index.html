@@ -108,7 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.89.2 - TAB BERECHTIGUNGEN! 🔐✨ (Build 20251229-1730)');
+        console.log('🚕 Funk Taxi App v5.89.3 - CHECKBOX FIX! 🔐✅ (Build 20251229-2220)');
+        console.log('✅ v5.89.3: updateTabPermission ist jetzt GLOBAL!');
+        console.log('✅ v5.89.3: Checkboxen speichern jetzt!');
         console.log('🔐 v5.89.2: TAB-BERECHTIGUNGEN GLOBAL!');
         console.log('✅ v5.89.2: Firebase COMPAT Syntax gefixed!');
         console.log('🎯 v5.89.2: Admin stellt ein wer was sieht!');
@@ -10515,7 +10517,8 @@
         }
         
         // Update Tab-Berechtigung
-        async function updateTabPermission(role, tabId, isAllowed) {
+        // Update Tab-Berechtigung (GLOBAL!)
+        window.updateTabPermission = async function(role, tabId, isAllowed) {
             console.log(`🔄 Update: ${role} → ${tabId} = ${isAllowed}`);
             
             try {

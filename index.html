@@ -108,7 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.1 - KALENDER VIEW! 📅✅ (Build 20251230-0930)');
+        console.log('🚕 Funk Taxi App v5.90.2 - TAB PERMISSIONS FIX! 🔐✅ (Build 20251230-0935)');
+        console.log('🔐 v5.90.2: Tab-Berechtigungen FIXED!');
+        console.log('✅ v5.90.2: querySelector nutzt jetzt .admin-tab-btn!');
+        console.log('🎯 v5.90.2: Tabs werden jetzt richtig versteckt/angezeigt!');
         console.log('📅 v5.90.1: EIGENER KALENDER-VIEW erstellt!');
         console.log('✅ v5.90.1: Kalender-Button funktioniert jetzt!');
         console.log('🎯 v5.90.1: calendar-view zeigt Fahrtenkalender!');
@@ -10584,7 +10587,9 @@
             console.log(`🎨 Wende Tab-Berechtigungen an für: ${role}`);
             
             const allowedTabs = permissions[role] || [];
-            const allTabs = document.querySelectorAll('.tab-button');
+            const allTabs = document.querySelectorAll('.admin-tab-btn[data-view]');
+            
+            console.log(`📊 Gefundene Tabs: ${allTabs.length}`);
             
             allTabs.forEach(tab => {
                 const view = tab.dataset.view;

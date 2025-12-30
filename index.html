@@ -108,7 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.89.3 - CHECKBOX FIX! 🔐✅ (Build 20251229-2220)');
+        console.log('🚕 Funk Taxi App v5.90.0 - MEGA DEBUG! 🔍🐛 (Build 20251230-0815)');
+        console.log('🔍 v5.90.0: MEGA DEBUG VERSION!');
+        console.log('🖱️ v5.90.0: Tab-Button Click Logger installiert!');
+        console.log('📋 v5.90.0: switchView() zeigt Stack Trace!');
+        console.log('🎯 v5.90.0: Sehe GENAU was beim Klick passiert!');
         console.log('✅ v5.89.3: updateTabPermission ist jetzt GLOBAL!');
         console.log('✅ v5.89.3: Checkboxen speichern jetzt!');
         console.log('🔐 v5.89.2: TAB-BERECHTIGUNGEN GLOBAL!');
@@ -860,7 +864,7 @@
                 📖 Verlauf
             </button>
             <!-- 🆕 v5.89: KALENDER-TAB (Direkt-Sprung zu Vorbestellungen!) -->
-            <button onclick="switchView('schedule')" class="admin-tab-btn admin-only tab-toggleable" data-view="schedule" data-tab-id="calendar" style="
+            <button onclick="switchView('calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="calendar" data-tab-id="calendar" style="
                 padding: 10px 16px;
                 border: 2px solid #3b82f6;
                 background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
@@ -10036,6 +10040,25 @@
         }
 
         function switchView(view) {
+            // 🔍 v5.90.0: MEGA DEBUG!
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🔍 DEBUG: switchView() AUFGERUFEN!');
+            console.log('📋 Parameter "view":', view);
+            console.log('📍 Typ:', typeof view);
+            console.log('📏 Länge:', view ? view.length : 'null');
+            console.log('🔤 Exakte Bytes:', JSON.stringify(view));
+            
+            // Stack Trace um zu sehen WO es aufgerufen wurde
+            try {
+                const stack = new Error().stack;
+                console.log('📞 Aufgerufen von:');
+                stack.split('\n').slice(1, 4).forEach(line => console.log('   ', line.trim()));
+            } catch (e) {
+                console.log('📞 Stack nicht verfügbar');
+            }
+            
+            console.log('═══════════════════════════════════════════════════════════');
+            
             console.log('🔄 switchView aufgerufen mit:', view);
             debugLog('info', `🔄 Tab-Wechsel: ${view}`);
             
@@ -39351,6 +39374,39 @@ Stack: ${err.stack}
             }
             
             console.log(`✅ DEBUG MONITOR bereit (${window.debugPaused ? 'pausiert' : 'recording'} - ${window.debugLogs.length} Logs geladen)`);
+            
+            // 🔍 v5.90.0: TAB-BUTTON CLICK LOGGER!
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🔍 Installiere Tab-Button Click Logger...');
+            
+            // Warte kurz bis Buttons geladen sind
+            setTimeout(() => {
+                const tabButtons = document.querySelectorAll('.admin-tab-btn');
+                console.log(`📊 Gefunden: ${tabButtons.length} Tab-Buttons`);
+                
+                tabButtons.forEach((btn, index) => {
+                    // Capture-Phase Event Listener (fängt Event GANZ FRÜH ab!)
+                    btn.addEventListener('click', function(event) {
+                        console.log('═══════════════════════════════════════════════════════════');
+                        console.log(`🖱️ TAB-BUTTON #${index} GEKLICKT!`);
+                        console.log('📝 Button Text:', this.textContent.trim().substring(0, 30));
+                        console.log('🎯 data-view:', this.dataset.view);
+                        console.log('🎯 data-tab-id:', this.dataset.tabId);
+                        console.log('🔗 onclick Attribut:', this.getAttribute('onclick'));
+                        console.log('👁️ display:', window.getComputedStyle(this).display);
+                        console.log('👁️ visibility:', window.getComputedStyle(this).visibility);
+                        console.log('📦 Klasse:', this.className);
+                        console.log('🕐 Zeit:', new Date().toLocaleTimeString('de-DE'));
+                        console.log('═══════════════════════════════════════════════════════════');
+                    }, true); // true = capture phase!
+                    
+                    console.log(`  ✅ Logger installiert für Button #${index}: ${btn.textContent.trim().substring(0, 20)}`);
+                });
+                
+                console.log('✅ Tab-Button Click Logger aktiv!');
+            }, 2000); // 2 Sekunden warten
+            
+            console.log('═══════════════════════════════════════════════════════════');
         });
         
         // ═══════════════════════════════════════════════════════════════════════════

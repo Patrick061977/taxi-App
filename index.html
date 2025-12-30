@@ -108,7 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.2 - TAB PERMISSIONS FIX! 🔐✅ (Build 20251230-0935)');
+        console.log('🚕 Funk Taxi App v5.90.3 - TAB TIMER FIX! ⏱️✅ (Build 20251230-1000)');
+        console.log('⏱️ v5.90.3: 5-Sekunden Tab-Timer ENTFERNT!');
+        console.log('✅ v5.90.3: Tabs bleiben jetzt stabil - kein Zurückspringen mehr!');
+        console.log('🎯 v5.90.3: Tab-Checks nur noch beim Login - nicht permanent!');
         console.log('🔐 v5.90.2: Tab-Berechtigungen FIXED!');
         console.log('✅ v5.90.2: querySelector nutzt jetzt .admin-tab-btn!');
         console.log('🎯 v5.90.2: Tabs werden jetzt richtig versteckt/angezeigt!');
@@ -10517,12 +10520,19 @@
             }
         }
         
-        // Admin-Tabs beim Laden prüfen (mehrfach für Sicherheit)
-        setTimeout(() => updateAdminTabsVisibility(), 500);
-        setTimeout(() => updateAdminTabsVisibility(), 1500);
-        setTimeout(() => updateAdminTabsVisibility(), 3000);
-        // Und danach regelmäßig
-        setInterval(() => updateAdminTabsVisibility(), 5000);
+        // 🆕 v5.90.3: Admin-Tabs NUR beim Login prüfen - KEIN permanenter Timer mehr!
+        // Alte 5-Sekunden Checks entfernt - Tabs bleiben stabil
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // Nach Login: Tab-Leiste anzeigen
+                setTimeout(() => updateAdminTabsVisibility(), 500);
+                setTimeout(() => updateAdminTabsVisibility(), 1500);
+            } else {
+                // Beim Logout: Tab-Leiste verstecken
+                const adminTabs = document.getElementById('admin-tabs');
+                if (adminTabs) adminTabs.style.display = 'none';
+            }
+        });
 
         // 🆕 v5.89.0: TAB-MANAGER
         

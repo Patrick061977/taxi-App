@@ -108,7 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.3 - TAB TIMER FIX! ⏱️✅ (Build 20251230-1000)');
+        console.log('🚕 Funk Taxi App v5.90.4 - AUTH FIX! 🔐✅ (Build 20251230-1100)');
+        console.log('🔐 v5.90.4: Firebase Auth null-check hinzugefügt!');
+        console.log('✅ v5.90.4: App startet jetzt ohne Fehler!');
+        console.log('🎯 v5.90.4: Tab-Listener wartet auf Auth-Initialisierung!');
         console.log('⏱️ v5.90.3: 5-Sekunden Tab-Timer ENTFERNT!');
         console.log('✅ v5.90.3: Tabs bleiben jetzt stabil - kein Zurückspringen mehr!');
         console.log('🎯 v5.90.3: Tab-Checks nur noch beim Login - nicht permanent!');
@@ -10520,19 +10523,33 @@
             }
         }
         
-        // 🆕 v5.90.3: Admin-Tabs NUR beim Login prüfen - KEIN permanenter Timer mehr!
+        // 🆕 v5.90.4: Admin-Tabs NUR beim Login prüfen - KEIN permanenter Timer mehr!
         // Alte 5-Sekunden Checks entfernt - Tabs bleiben stabil
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                // Nach Login: Tab-Leiste anzeigen
-                setTimeout(() => updateAdminTabsVisibility(), 500);
-                setTimeout(() => updateAdminTabsVisibility(), 1500);
-            } else {
-                // Beim Logout: Tab-Leiste verstecken
-                const adminTabs = document.getElementById('admin-tabs');
-                if (adminTabs) adminTabs.style.display = 'none';
+        // Warte auf Firebase Auth bevor onAuthStateChanged aufgerufen wird
+        function initAdminTabsListener() {
+            if (!auth) {
+                console.log('⏳ v5.90.4: Warte auf Firebase Auth...');
+                setTimeout(initAdminTabsListener, 500);
+                return;
             }
-        });
+            
+            console.log('✅ v5.90.4: Firebase Auth bereit - registriere Tab-Listener');
+            
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    // Nach Login: Tab-Leiste anzeigen
+                    setTimeout(() => updateAdminTabsVisibility(), 500);
+                    setTimeout(() => updateAdminTabsVisibility(), 1500);
+                } else {
+                    // Beim Logout: Tab-Leiste verstecken
+                    const adminTabs = document.getElementById('admin-tabs');
+                    if (adminTabs) adminTabs.style.display = 'none';
+                }
+            });
+        }
+        
+        // Starte Listener-Initialisierung
+        initAdminTabsListener();
 
         // 🆕 v5.89.0: TAB-MANAGER
         

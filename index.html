@@ -108,7 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.4 - AUTH FIX! 🔐✅ (Build 20251230-1100)');
+        console.log('🚕 Funk Taxi App v5.90.5 - BELIEBTES ZIEL FIX! 📍✅ (Build 20251230-1115)');
+        console.log('📍 v5.90.5: "Beliebtes Ziel" wird nicht mehr an Adresse angehängt!');
+        console.log('🧹 v5.90.5: Datenbank-Bereinigungs-Tool im Admin-Bereich!');
+        console.log('✅ v5.90.5: Geocoding funktioniert jetzt mit beliebten Zielen!');
+        console.log('🎯 v5.90.5: Preis-Berechnung sollte jetzt korrekt sein!');
         console.log('🔐 v5.90.4: Firebase Auth null-check hinzugefügt!');
         console.log('✅ v5.90.4: App startet jetzt ohne Fehler!');
         console.log('🎯 v5.90.4: Tab-Listener wartet auf Auth-Initialisierung!');
@@ -3137,6 +3141,37 @@
             </div>
             <div style="font-size:12px;color:#6b7280;">
                 💡 Tippe Namen oder Telefon → Ergebnisse erscheinen sofort!
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.5: DATENBANK BEREINIGEN -->
+        <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #f59e0b;box-shadow:0 4px 12px rgba(245,158,11,0.15);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;">
+                <div style="font-size:28px;">🧹</div>
+                <div>
+                    <h4 style="margin:0;font-size:18px;color:#92400e;">Datenbank Bereinigen</h4>
+                    <p style="margin:4px 0 0 0;font-size:13px;color:#78350f;">Finde und entferne ", Beliebtes Ziel" aus Adressen</p>
+                </div>
+            </div>
+            
+            <button onclick="findDirtyRides()" style="
+                width:100%;
+                padding:14px;
+                background:linear-gradient(135deg, #f59e0b, #d97706);
+                color:white;
+                border:none;
+                border-radius:8px;
+                font-weight:700;
+                font-size:15px;
+                cursor:pointer;
+                box-shadow:0 4px 8px rgba(245,158,11,0.3);
+                transition:transform 0.2s;
+            " onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+                🔍 Betroffene Fahrten suchen
+            </button>
+            
+            <div id="cleanup-results" style="margin-top:15px;display:none;">
+                <!-- Wird dynamisch gefüllt -->
             </div>
         </div>
         
@@ -12263,6 +12298,286 @@
             }
         }
         
+        // 🆕 v5.90.5: DATENBANK BEREINIGEN - FINDE BETROFFENE FAHRTEN
+        async function findDirtyRides() {
+            console.log('🧹 Suche Fahrten mit ", Beliebtes Ziel"...');
+            
+            const resultsDiv = document.getElementById('cleanup-results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#666;"><div style="font-size:20px;margin-bottom:10px;">🔍</div>Durchsuche Datenbank...</div>';
+            
+            try {
+                const snapshot = await db.ref('rides').once('value');
+                const dirtyRides = [];
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    const hasInPickup = ride.pickup && ride.pickup.includes(', Beliebtes Ziel');
+                    const hasInDest = ride.destination && ride.destination.includes(', Beliebtes Ziel');
+                    
+                    if (hasInPickup || hasInDest) {
+                        dirtyRides.push({
+                            id: child.key,
+                            ...ride,
+                            hasDirtyPickup: hasInPickup,
+                            hasDirtyDest: hasInDest
+                        });
+                    }
+                });
+                
+                console.log(`✅ ${dirtyRides.length} betroffene Fahrten gefunden`);
+                
+                if (dirtyRides.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div style="text-align:center;padding:30px;background:#d1fae5;border-radius:8px;color:#065f46;">
+                            <div style="font-size:48px;margin-bottom:10px;">✅</div>
+                            <div style="font-size:18px;font-weight:700;">Datenbank ist sauber!</div>
+                            <div style="margin-top:8px;font-size:14px;">Keine Fahrten mit ", Beliebtes Ziel" gefunden.</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Sortiere nach Datum (neueste zuerst)
+                dirtyRides.sort((a, b) => {
+                    const timeA = a.pickupTimestamp || a.createdAt || 0;
+                    const timeB = b.pickupTimestamp || b.createdAt || 0;
+                    return timeB - timeA;
+                });
+                
+                // Zeige Ergebnisse
+                let html = `
+                    <div style="background:#fef3c7;padding:15px;border-radius:8px;margin-bottom:15px;border:2px solid #f59e0b;">
+                        <div style="font-size:16px;font-weight:700;color:#92400e;margin-bottom:8px;">
+                            ⚠️ ${dirtyRides.length} Fahrten gefunden
+                        </div>
+                        <div style="font-size:13px;color:#78350f;margin-bottom:12px;">
+                            Diese Fahrten haben ", Beliebtes Ziel" im Pickup oder Ziel
+                        </div>
+                        <button onclick="cleanAllRides()" style="
+                            width:100%;
+                            padding:12px;
+                            background:#dc2626;
+                            color:white;
+                            border:none;
+                            border-radius:8px;
+                            font-weight:700;
+                            cursor:pointer;
+                            font-size:14px;
+                        ">
+                            🧹 ALLE ${dirtyRides.length} FAHRTEN BEREINIGEN
+                        </button>
+                    </div>
+                    
+                    <div style="max-height:500px;overflow-y:auto;">
+                `;
+                
+                dirtyRides.forEach((ride, index) => {
+                    const date = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleDateString('de-DE') : '?';
+                    const time = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) : '?';
+                    
+                    html += `
+                        <div style="background:white;padding:15px;border-radius:8px;margin-bottom:10px;border:2px solid #f59e0b;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+                                <div>
+                                    <div style="font-weight:700;color:#1f2937;">#${index + 1} - ${date} ${time}</div>
+                                    <div style="font-size:13px;color:#6b7280;margin-top:2px;">👤 ${ride.customerName || 'Unbekannt'}</div>
+                                </div>
+                                <span style="background:#fef3c7;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#92400e;">
+                                    ${ride.hasDirtyPickup && ride.hasDirtyDest ? '2x' : '1x'}
+                                </span>
+                            </div>
+                            
+                            ${ride.hasDirtyPickup ? `
+                                <div style="margin-bottom:8px;">
+                                    <div style="font-size:12px;color:#ef4444;font-weight:600;margin-bottom:4px;">📍 Von:</div>
+                                    <div style="font-size:13px;color:#1f2937;background:#fef2f2;padding:8px;border-radius:4px;">
+                                        ${ride.pickup}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${ride.hasDirtyDest ? `
+                                <div style="margin-bottom:8px;">
+                                    <div style="font-size:12px;color:#ef4444;font-weight:600;margin-bottom:4px;">🎯 Nach:</div>
+                                    <div style="font-size:13px;color:#1f2937;background:#fef2f2;padding:8px;border-radius:4px;">
+                                        ${ride.destination}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <button onclick='cleanSingleRide("${ride.id}")' style="
+                                width:100%;
+                                padding:10px;
+                                background:#10b981;
+                                color:white;
+                                border:none;
+                                border-radius:6px;
+                                font-weight:600;
+                                cursor:pointer;
+                                font-size:13px;
+                            ">
+                                🧹 Diese Fahrt bereinigen
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                
+                resultsDiv.innerHTML = html;
+                
+                // Speichere Liste für cleanAllRides
+                window.dirtyRidesList = dirtyRides;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Suchen:', error);
+                resultsDiv.innerHTML = `
+                    <div style="background:#fee2e2;padding:15px;border-radius:8px;color:#991b1b;text-align:center;">
+                        ❌ Fehler: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // 🆕 v5.90.5: EINZELNE FAHRT BEREINIGEN
+        async function cleanSingleRide(rideId) {
+            console.log('🧹 Bereinige Fahrt:', rideId);
+            
+            try {
+                const snapshot = await db.ref(`rides/${rideId}`).once('value');
+                const ride = snapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                const updates = {};
+                
+                if (ride.pickup && ride.pickup.includes(', Beliebtes Ziel')) {
+                    updates.pickup = ride.pickup.replace(/, Beliebtes Ziel/g, '');
+                    console.log('  ✅ Pickup bereinigt');
+                }
+                
+                if (ride.destination && ride.destination.includes(', Beliebtes Ziel')) {
+                    updates.destination = ride.destination.replace(/, Beliebtes Ziel/g, '');
+                    console.log('  ✅ Destination bereinigt');
+                }
+                
+                if (Object.keys(updates).length > 0) {
+                    await db.ref(`rides/${rideId}`).update(updates);
+                    console.log('✅ Fahrt bereinigt!');
+                    showToast('✅ Fahrt bereinigt!', 'success');
+                    
+                    // Aktualisiere Liste
+                    setTimeout(() => findDirtyRides(), 500);
+                } else {
+                    showToast('⚠️ Nichts zu bereinigen', 'info');
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Bereinigen: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.5: ALLE FAHRTEN BEREINIGEN
+        async function cleanAllRides() {
+            if (!window.dirtyRidesList || window.dirtyRidesList.length === 0) {
+                alert('❌ Keine Fahrten zum Bereinigen!');
+                return;
+            }
+            
+            const count = window.dirtyRidesList.length;
+            
+            if (!confirm(`🧹 WIRKLICH ${count} FAHRTEN BEREINIGEN?\n\nDies entfernt ", Beliebtes Ziel" aus allen betroffenen Fahrten.\n\n⚠️ Dies kann nicht rückgängig gemacht werden!`)) {
+                return;
+            }
+            
+            console.log(`🧹 Starte Massen-Bereinigung: ${count} Fahrten...`);
+            
+            const resultsDiv = document.getElementById('cleanup-results');
+            resultsDiv.innerHTML = `
+                <div style="text-align:center;padding:30px;">
+                    <div style="font-size:32px;margin-bottom:15px;">🧹</div>
+                    <div style="font-size:18px;font-weight:700;color:#1f2937;margin-bottom:10px;">
+                        Bereinige ${count} Fahrten...
+                    </div>
+                    <div id="cleanup-progress" style="font-size:14px;color:#6b7280;">
+                        0 / ${count}
+                    </div>
+                </div>
+            `;
+            
+            let cleaned = 0;
+            let errors = 0;
+            
+            try {
+                for (const ride of window.dirtyRidesList) {
+                    try {
+                        const updates = {};
+                        
+                        if (ride.pickup && ride.pickup.includes(', Beliebtes Ziel')) {
+                            updates.pickup = ride.pickup.replace(/, Beliebtes Ziel/g, '');
+                        }
+                        
+                        if (ride.destination && ride.destination.includes(', Beliebtes Ziel')) {
+                            updates.destination = ride.destination.replace(/, Beliebtes Ziel/g, '');
+                        }
+                        
+                        if (Object.keys(updates).length > 0) {
+                            await db.ref(`rides/${ride.id}`).update(updates);
+                            cleaned++;
+                        }
+                        
+                        // Update Progress
+                        document.getElementById('cleanup-progress').textContent = `${cleaned} / ${count}`;
+                        
+                    } catch (error) {
+                        console.error('❌ Fehler bei Fahrt:', ride.id, error);
+                        errors++;
+                    }
+                }
+                
+                console.log(`✅ Bereinigung abgeschlossen: ${cleaned} bereinigt, ${errors} Fehler`);
+                
+                resultsDiv.innerHTML = `
+                    <div style="text-align:center;padding:30px;background:#d1fae5;border-radius:8px;">
+                        <div style="font-size:48px;margin-bottom:15px;">✅</div>
+                        <div style="font-size:20px;font-weight:700;color:#065f46;margin-bottom:10px;">
+                            Bereinigung abgeschlossen!
+                        </div>
+                        <div style="font-size:14px;color:#059669;">
+                            ${cleaned} Fahrten bereinigt
+                            ${errors > 0 ? `<br>${errors} Fehler` : ''}
+                        </div>
+                        <button onclick="findDirtyRides()" style="
+                            margin-top:20px;
+                            padding:12px 24px;
+                            background:#10b981;
+                            color:white;
+                            border:none;
+                            border-radius:8px;
+                            font-weight:700;
+                            cursor:pointer;
+                        ">
+                            🔍 Erneut prüfen
+                        </button>
+                    </div>
+                `;
+                
+                showToast(`✅ ${cleaned} Fahrten bereinigt!`, 'success');
+                
+                // Lösche gespeicherte Liste
+                delete window.dirtyRidesList;
+                
+            } catch (error) {
+                console.error('❌ Fataler Fehler:', error);
+                alert('❌ Fehler bei der Bereinigung: ' + error.message);
+            }
+        }
+        
         // 🆕 v5.86.0: SUCH-ERGEBNISSE MODAL
         function showSearchResultsModal(results, searchTerm, searchType) {
             // Entferne altes Modal
@@ -16192,7 +16507,11 @@
                 }
                 
                 dropdown.innerHTML = frequentDestinations.map(dest => {
-                    const addressString = `${dest.name}, ${dest.address}`;
+                    // 🆕 v5.90.5: "Beliebtes Ziel" ist ein Label, NICHT Teil der Adresse!
+                    // Nur dest.name verwenden, NICHT address anhängen wenn es ein Label ist
+                    const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
+                    const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                    
                     return `
                         <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})">
                             <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
@@ -26814,7 +27133,10 @@
                 }
                 
                 dropdown.innerHTML = frequentDestinations.map(dest => {
-                    const addressString = `${dest.name}, ${dest.address}`;
+                    // 🆕 v5.90.5: "Beliebtes Ziel" ist ein Label, NICHT Teil der Adresse!
+                    const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
+                    const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                    
                     return `
                         <div onclick="selectNewCustomerAddress('${addressString.replace(/'/g, "\\'")}');" style="
                             padding: 12px;
@@ -28330,7 +28652,10 @@
                 }
                 
                 dropdown.innerHTML = frequentDestinations.map(dest => {
-                    const addressString = `${dest.name}, ${dest.address}`;
+                    // 🆕 v5.90.5: "Beliebtes Ziel" ist ein Label, NICHT Teil der Adresse!
+                    const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
+                    const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                    
                     return `
                         <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
                             padding: 12px;

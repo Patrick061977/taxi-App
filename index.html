@@ -108,7 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.7 - ALTE FAHRTEN CLEANUP! 🧹 (Build 20251231-1300)');
+        console.log('🚕 Funk Taxi App v5.90.8 - ZAHLUNGSART IN RECHNUNGEN! 💳 (Build 20251231-1330)');
+        console.log('💳 v5.90.8: Zahlungsart-Auswahl im Rechnungs-Modal!');
+        console.log('📄 v5.90.8: Zahlungsart wird auf PDF angezeigt!');
         console.log('🧹 v5.90.7: Alte "aktive" Fahrten abschließen!');
         console.log('🔧 v5.90.7: Surge Pricing Fix - 410% → 100%!');
         console.log('🎯 v5.90.6: Tabs per Drag & Drop verschieben!');
@@ -31049,6 +31051,20 @@
                                     </select>
                                 </div>
                                 
+                                <!-- 🆕 v5.90.7: ZAHLUNGSART AUSWAHL -->
+                                <div style="margin-top:15px;display:flex;align-items:center;gap:10px;">
+                                    <label style="font-size:13px;color:#6b7280;">💳 Zahlungsart:</label>
+                                    <select id="invoice-payment-method"
+                                            style="padding:8px 15px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;flex:1;">
+                                        <option value="bar">💵 Bar</option>
+                                        <option value="ec">💳 EC-Karte</option>
+                                        <option value="credit">💳 Kreditkarte</option>
+                                        <option value="paypal">🅿️ PayPal</option>
+                                        <option value="rechnung" selected>📄 Rechnung</option>
+                                        <option value="uberweisung">🏦 Überweisung</option>
+                                    </select>
+                                </div>
+                                
                                 <!-- BERECHNUNG -->
                                 <div style="border-top:2px solid #10b981;padding-top:15px;margin-top:15px;">
                                     <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;">
@@ -31442,6 +31458,9 @@
                 const showDistance = document.getElementById('inv-show-distance').checked;
                 const showVat = document.getElementById('inv-show-vat').checked;
                 
+                // 🆕 v5.90.7: ZAHLUNGSART
+                const paymentMethod = document.getElementById('invoice-payment-method').value;
+                
                 // Berechne aus Positionen
                 const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
                 const netPrice = totalGross / (1 + (vatRate / 100));
@@ -31595,6 +31614,23 @@
                 doc.text('Gesamtbetrag:', 100, yPos);
                 doc.text(`${totalGross.toFixed(2)}€`, 160, yPos, { align: 'right' });
                 
+                // 🆕 v5.90.7: ZAHLUNGSART
+                yPos += 10;
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(100);
+                
+                const paymentMethodNames = {
+                    'bar': '💵 Bar',
+                    'ec': '💳 EC-Karte',
+                    'credit': '💳 Kreditkarte',
+                    'paypal': '🅿️ PayPal',
+                    'rechnung': '📄 Rechnung',
+                    'uberweisung': '🏦 Überweisung'
+                };
+                
+                doc.text(`Zahlungsart: ${paymentMethodNames[paymentMethod] || paymentMethod}`, 20, yPos);
+                
                 // FOOTER - Bankdaten (IMMER) - 🆕 v5.87.91: KOMPAKT NEBENEINANDER
                 yPos += 15;
                 doc.setFontSize(8);
@@ -31637,6 +31673,7 @@
                     netPrice: netPrice,
                     vatRate: vatRate,
                     vatAmount: vatAmount,
+                    paymentMethod: paymentMethod, // 🆕 v5.90.7
                     // Speichere Checkbox-Status für spätere Bearbeitung
                     displayOptions: {
                         showCustomer, showAddress, showGuest,

@@ -108,7 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.12 - PHONE NORMALISIERUNG! 📱 (Build 20251231-1500)');
+        console.log('🚕 Funk Taxi App v5.90.13 - RECHNUNG IM KALENDER! 📅 (Build 20251231-1530)');
+        console.log('📅 v5.90.13: Rechnungs-Info im Kalender Day-View!');
+        console.log('💰 v5.90.13: Preis + Rechnung sichtbar!');
         console.log('📱 v5.90.12: Phone immer zu International Format (+49...)!');
         console.log('🔧 v5.90.12: normalizePhoneNumber() Funktion!');
         console.log('✅ v5.90.12: Konsistente Phone-Formate überall!');
@@ -38593,6 +38595,14 @@ Stack: ${err.stack}
                                 ${ride.customerName ? `<div style="font-size: 13px; color: #6b7280;">👤 ${ride.customerName}</div>` : '<div></div>'}
                                 <div style="font-weight: 700; font-size: 16px; color: #667eea;">💰 ${ride.price || 0}€</div>
                             </div>
+                            
+                            ${ride.invoiceNumber ? `
+                                <div style="margin-top: 8px; padding: 8px 12px; background: #d1fae5; border-left: 3px solid #10b981; border-radius: 6px;">
+                                    <span style="font-size: 12px; color: #047857; font-weight: 600;">
+                                        📄 Rechnung: ${ride.invoiceNumber}${ride.invoiceAmount ? ' · ' + ride.invoiceAmount.toFixed(2) + '€' : ''}
+                                    </span>
+                                </div>
+                            ` : ''}
                             
                             ${(() => {
                                 // 🆕 v5.52.2: FAHRZEUG MIT NAME + KENNZEICHEN!

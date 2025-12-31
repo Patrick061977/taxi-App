@@ -108,7 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.8 - ZAHLUNGSART IN RECHNUNGEN! 💳 (Build 20251231-1330)');
+        console.log('🚕 Funk Taxi App v5.90.10 - RECHNUNG IM VERLAUF! 📄 (Build 20251231-1400)');
+        console.log('📄 v5.90.10: Rechnungs-Info wird im Verlauf angezeigt!');
+        console.log('🔄 v5.90.10: Distanz neu berechnen im Rechnungs-Modal!');
+        console.log('🔗 v5.90.10: Rechnung wird in Fahrt verknüpft!');
+        console.log('🔧 v5.90.9: Zahlungsart ohne Emojis in PDF!');
         console.log('💳 v5.90.8: Zahlungsart-Auswahl im Rechnungs-Modal!');
         console.log('📄 v5.90.8: Zahlungsart wird auf PDF angezeigt!');
         console.log('🧹 v5.90.7: Alte "aktive" Fahrten abschließen!');
@@ -22526,6 +22530,13 @@
                             ${ride.assignedTo ? ' | 🚗 ' + (ride.assignedVehicleName || ride.assignedTo) : ''}
                             ${ride.price ? ' | 💰 ' + ride.price + '€' : ''}
                         </div>
+                        ${ride.invoiceNumber ? `
+                            <div style="margin-top:8px;padding:8px;background:#d1fae5;border-left:3px solid #10b981;border-radius:4px;">
+                                <span style="font-size:12px;color:#047857;font-weight:600;">
+                                    📄 Rechnung: ${ride.invoiceNumber}${ride.invoiceAmount ? ' · ' + ride.invoiceAmount.toFixed(2) + '€' : ''}
+                                </span>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -30982,9 +30993,15 @@
                                     </div>
                                     <div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Distanz (km):</label>
-                                        <input type="number" id="invoice-distance" value="${distance.toFixed(1)}" step="0.1" min="0"
-                                               onchange="updateInvoiceDistanceAndVat()"
-                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                        <div style="display:flex;gap:5px;">
+                                            <input type="number" id="invoice-distance" value="${distance.toFixed(1)}" step="0.1" min="0"
+                                                   onchange="updateInvoiceDistanceAndVat()"
+                                                   style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                            <button onclick="recalculateInvoiceDistance()" title="Distanz neu berechnen"
+                                                    style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">
+                                                🔄
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -31210,6 +31227,50 @@
             document.getElementById('invoice-net-display').textContent = netPrice.toFixed(2) + '€';
             document.getElementById('invoice-vat-display').textContent = vatAmount.toFixed(2) + '€';
             document.getElementById('invoice-vat-rate-display').textContent = vatRate;
+        }
+        
+        // 🆕 v5.90.10: DISTANZ NEU BERECHNEN
+        async function recalculateInvoiceDistance() {
+            try {
+                const pickup = document.getElementById('inv-pickup').value.trim();
+                const destination = document.getElementById('inv-destination').value.trim();
+                
+                if (!pickup || !destination) {
+                    alert('❌ Bitte Von- und Nach-Adresse eingeben!');
+                    return;
+                }
+                
+                console.log('🔄 Berechne Distanz:', pickup, '→', destination);
+                
+                // Zeige Loading
+                const distanceInput = document.getElementById('invoice-distance');
+                const oldValue = distanceInput.value;
+                distanceInput.value = '...';
+                distanceInput.disabled = true;
+                
+                // Berechne mit Google Maps
+                const result = await calculateDistanceViaAPI(pickup, destination);
+                
+                if (result && result.distance) {
+                    const distanceKm = result.distance / 1000;
+                    distanceInput.value = distanceKm.toFixed(1);
+                    distanceInput.disabled = false;
+                    
+                    // Update MwSt
+                    updateInvoiceDistanceAndVat();
+                    
+                    showToast(`✅ Distanz aktualisiert: ${distanceKm.toFixed(1)} km`, 'success');
+                } else {
+                    distanceInput.value = oldValue;
+                    distanceInput.disabled = false;
+                    alert('❌ Distanz konnte nicht berechnet werden. Bitte manuell eingeben.');
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Berechnen:', error);
+                document.getElementById('invoice-distance').disabled = false;
+                alert('❌ Fehler: ' + error.message);
+            }
         }
         
         async function generateInvoicePDF() {
@@ -31621,12 +31682,12 @@
                 doc.setTextColor(100);
                 
                 const paymentMethodNames = {
-                    'bar': '💵 Bar',
-                    'ec': '💳 EC-Karte',
-                    'credit': '💳 Kreditkarte',
-                    'paypal': '🅿️ PayPal',
-                    'rechnung': '📄 Rechnung',
-                    'uberweisung': '🏦 Überweisung'
+                    'bar': 'Bar',
+                    'ec': 'EC-Karte',
+                    'credit': 'Kreditkarte',
+                    'paypal': 'PayPal',
+                    'rechnung': 'Rechnung',
+                    'uberweisung': 'Ueberweisung'
                 };
                 
                 doc.text(`Zahlungsart: ${paymentMethodNames[paymentMethod] || paymentMethod}`, 20, yPos);
@@ -31686,6 +31747,16 @@
                 
                 await db.ref(`invoices/${invoiceNumber}`).set(invoiceData);
                 console.log('✅ Rechnung in Firebase gespeichert:', invoiceNumber);
+                
+                // 🆕 v5.90.10: Speichere Rechnung auch in der Fahrt
+                if (rideId) {
+                    await db.ref(`rides/${rideId}`).update({
+                        invoiceNumber: invoiceNumber,
+                        invoiceAmount: totalGross,
+                        invoiceCreatedAt: Date.now()
+                    });
+                    console.log('✅ Rechnung in Fahrt verknüpft');
+                }
                 
                 // PDF herunterladen
                 doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);

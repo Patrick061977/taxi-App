@@ -108,7 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.6 - DRAG & DROP TAB-SORTIERUNG! 🎯 (Build 20251230-1200)');
+        console.log('🚕 Funk Taxi App v5.90.7 - ALTE FAHRTEN CLEANUP! 🧹 (Build 20251231-1300)');
+        console.log('🧹 v5.90.7: Alte "aktive" Fahrten abschließen!');
+        console.log('🔧 v5.90.7: Surge Pricing Fix - 410% → 100%!');
         console.log('🎯 v5.90.6: Tabs per Drag & Drop verschieben!');
         console.log('📍 v5.90.5: Beliebtes Ziel Fix!');
         console.log('📍 v5.90.5: "Beliebtes Ziel" wird nicht mehr an Adresse angehängt!');
@@ -3194,6 +3196,44 @@
             </button>
             
             <div id="cleanup-results" style="margin-top:15px;display:none;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.7: ALTE FAHRTEN ABSCHLIESSEN -->
+        <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #ef4444;box-shadow:0 4px 12px rgba(239,68,68,0.15);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;">
+                <div style="font-size:28px;">🚗</div>
+                <div>
+                    <h4 style="margin:0;font-size:18px;color:#991b1b;">Alte Fahrten abschließen</h4>
+                    <p style="margin:4px 0 0 0;font-size:13px;color:#7f1d1d;">Finde "aktive" Fahrten die hängen geblieben sind</p>
+                </div>
+            </div>
+            
+            <div style="background:#fef2f2;padding:12px;border-radius:6px;margin-bottom:15px;border-left:4px solid #ef4444;">
+                <div style="font-size:13px;color:#7f1d1d;">
+                    <div style="font-weight:600;margin-bottom:5px;">⚠️ Problem: Surge Pricing zu hoch?</div>
+                    <div>Fahrten die als "Akzeptiert" oder "Unterwegs" hängen bleiben, erhöhen das Auto-Surge Pricing!</div>
+                </div>
+            </div>
+            
+            <button onclick="findOldActiveRides()" style="
+                width:100%;
+                padding:14px;
+                background:linear-gradient(135deg, #ef4444, #dc2626);
+                color:white;
+                border:none;
+                border-radius:8px;
+                font-weight:700;
+                font-size:15px;
+                cursor:pointer;
+                box-shadow:0 4px 8px rgba(239,68,68,0.3);
+                transition:transform 0.2s;
+            " onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+                🔍 Alte aktive Fahrten suchen
+            </button>
+            
+            <div id="old-rides-results" style="margin-top:15px;">
                 <!-- Wird dynamisch gefüllt -->
             </div>
         </div>
@@ -12626,6 +12666,287 @@
             } catch (error) {
                 console.error('❌ Fataler Fehler:', error);
                 alert('❌ Fehler bei der Bereinigung: ' + error.message);
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🆕 v5.90.7: ALTE AKTIVE FAHRTEN FINDEN & ABSCHLIESSEN
+        // ═══════════════════════════════════════════════════════════════════
+        
+        async function findOldActiveRides() {
+            console.log('🔍 Suche alte aktive Fahrten...');
+            
+            const resultsDiv = document.getElementById('old-rides-results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <div style="text-align:center;padding:30px;">
+                    <div style="font-size:32px;margin-bottom:15px;">🔍</div>
+                    <div style="font-size:16px;color:#6b7280;">Durchsuche Datenbank...</div>
+                </div>
+            `;
+            
+            try {
+                // Lade alle Fahrten
+                const snapshot = await db.ref('rides').once('value');
+                const rides = [];
+                
+                snapshot.forEach(child => {
+                    rides.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                console.log(`📊 Gesamt-Fahrten: ${rides.length}`);
+                
+                // Filtere aktive Fahrten
+                const activeRides = rides.filter(r => 
+                    r.status === 'accepted' || 
+                    r.status === 'in_progress' ||
+                    r.status === 'new'
+                );
+                
+                console.log(`🚗 Aktive Fahrten: ${activeRides.length}`);
+                
+                // Finde alte Fahrten (älter als 24h)
+                const now = Date.now();
+                const oneDayAgo = now - (24 * 60 * 60 * 1000);
+                
+                const oldActiveRides = activeRides.filter(r => {
+                    const rideTime = r.pickupTimestamp || r.timestamp || 0;
+                    return rideTime < oneDayAgo;
+                });
+                
+                console.log(`⏰ Alte aktive Fahrten (>24h): ${oldActiveRides.length}`);
+                
+                // Speichere für spätere Nutzung
+                window.oldActiveRidesList = oldActiveRides;
+                
+                if (oldActiveRides.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div style="text-align:center;padding:30px;background:#d1fae5;border-radius:8px;">
+                            <div style="font-size:48px;margin-bottom:15px;">✅</div>
+                            <div style="font-size:18px;font-weight:700;color:#065f46;margin-bottom:8px;">
+                                Keine alten Fahrten gefunden!
+                            </div>
+                            <div style="font-size:14px;color:#059669;">
+                                Alle aktiven Fahrten sind aktuell (< 24h)
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Zeige Ergebnisse
+                let html = `
+                    <div style="background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:15px;margin-bottom:15px;">
+                        <div style="font-size:18px;font-weight:700;color:#991b1b;margin-bottom:10px;">
+                            ⚠️ ${oldActiveRides.length} alte Fahrten gefunden!
+                        </div>
+                        <div style="font-size:13px;color:#7f1d1d;margin-bottom:10px;">
+                            Diese Fahrten sind als "aktiv" markiert, aber älter als 24 Stunden.
+                            Dies führt zu erhöhtem Surge Pricing!
+                        </div>
+                `;
+                
+                // Zeige erste 5 als Vorschau
+                html += `<div style="background:white;border-radius:6px;padding:10px;margin-bottom:10px;max-height:300px;overflow-y:auto;">`;
+                oldActiveRides.slice(0, 10).forEach((ride, index) => {
+                    const rideDate = new Date(ride.pickupTimestamp || ride.timestamp || 0);
+                    const hoursAgo = Math.floor((now - (ride.pickupTimestamp || ride.timestamp || 0)) / (1000 * 60 * 60));
+                    
+                    html += `
+                        <div style="padding:10px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1f2937;margin-bottom:4px;">
+                                    ${ride.pickup || '?'} → ${ride.destination || '?'}
+                                </div>
+                                <div style="font-size:12px;color:#6b7280;">
+                                    📅 ${rideDate.toLocaleDateString('de-DE')} ${rideDate.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}
+                                    · ⏰ vor ${hoursAgo}h
+                                    · 🚗 ${ride.driverName || 'Keiner'}
+                                </div>
+                            </div>
+                            <button onclick="completeOldRide('${ride.id}')" style="
+                                padding:6px 12px;
+                                background:#10b981;
+                                color:white;
+                                border:none;
+                                border-radius:6px;
+                                font-weight:600;
+                                font-size:12px;
+                                cursor:pointer;
+                                white-space:nowrap;
+                            ">
+                                ✅ Abschließen
+                            </button>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+                
+                if (oldActiveRides.length > 10) {
+                    html += `<div style="font-size:13px;color:#6b7280;text-align:center;margin-top:8px;">... und ${oldActiveRides.length - 10} weitere</div>`;
+                }
+                
+                html += `
+                        <button onclick="massCompleteOldRides()" style="
+                            width:100%;
+                            padding:12px;
+                            background:#ef4444;
+                            color:white;
+                            border:none;
+                            border-radius:8px;
+                            font-weight:700;
+                            cursor:pointer;
+                            margin-top:10px;
+                        ">
+                            ✅ ALLE ${oldActiveRides.length} FAHRTEN ABSCHLIESSEN
+                        </button>
+                    </div>
+                `;
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Suchen:', error);
+                resultsDiv.innerHTML = `
+                    <div style="text-align:center;padding:20px;background:#fef2f2;border-radius:8px;border:2px solid #ef4444;">
+                        <div style="font-size:32px;margin-bottom:10px;">❌</div>
+                        <div style="font-weight:700;color:#991b1b;">Fehler beim Suchen</div>
+                        <div style="font-size:13px;color:#7f1d1d;margin-top:5px;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        async function completeOldRide(rideId) {
+            if (!confirm('Diese Fahrt auf "Abgeschlossen" setzen?')) return;
+            
+            try {
+                await db.ref(`rides/${rideId}`).update({
+                    status: 'completed',
+                    completedAt: Date.now(),
+                    completedBy: 'cleanup-tool',
+                    completedNote: 'Automatisch abgeschlossen (>24h alt)'
+                });
+                
+                showToast('✅ Fahrt abgeschlossen!', 'success');
+                
+                // Aktualisiere Liste
+                findOldActiveRides();
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        async function massCompleteOldRides() {
+            if (!window.oldActiveRidesList || window.oldActiveRidesList.length === 0) {
+                alert('❌ Keine Fahrten gefunden!');
+                return;
+            }
+            
+            const count = window.oldActiveRidesList.length;
+            
+            if (!confirm(`🚗 WIRKLICH ${count} FAHRTEN ABSCHLIESSEN?\n\nAlle alten "aktiven" Fahrten werden auf "Abgeschlossen" gesetzt.\nDies senkt das Surge Pricing!\n\n⚠️ Dies kann nicht rückgängig gemacht werden!`)) {
+                return;
+            }
+            
+            console.log(`🔄 Starte Massen-Abschluss: ${count} Fahrten...`);
+            
+            const resultsDiv = document.getElementById('old-rides-results');
+            resultsDiv.innerHTML = `
+                <div style="text-align:center;padding:30px;">
+                    <div style="font-size:32px;margin-bottom:15px;">🔄</div>
+                    <div style="font-size:18px;font-weight:700;color:#1f2937;margin-bottom:10px;">
+                        Schließe ${count} Fahrten ab...
+                    </div>
+                    <div id="complete-progress" style="font-size:14px;color:#6b7280;">
+                        0 / ${count}
+                    </div>
+                </div>
+            `;
+            
+            let completed = 0;
+            let errors = 0;
+            
+            try {
+                for (const ride of window.oldActiveRidesList) {
+                    try {
+                        await db.ref(`rides/${ride.id}`).update({
+                            status: 'completed',
+                            completedAt: Date.now(),
+                            completedBy: 'cleanup-tool',
+                            completedNote: 'Automatisch abgeschlossen (>24h alt)'
+                        });
+                        completed++;
+                        
+                        // Update Progress
+                        const progressEl = document.getElementById('complete-progress');
+                        if (progressEl) {
+                            progressEl.textContent = `${completed} / ${count}`;
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Fehler bei Fahrt:', ride.id, error);
+                        errors++;
+                    }
+                }
+                
+                console.log(`✅ Abschluss abgeschlossen: ${completed} abgeschlossen, ${errors} Fehler`);
+                
+                resultsDiv.innerHTML = `
+                    <div style="text-align:center;padding:30px;background:#d1fae5;border-radius:8px;">
+                        <div style="font-size:48px;margin-bottom:15px;">✅</div>
+                        <div style="font-size:20px;font-weight:700;color:#065f46;margin-bottom:10px;">
+                            Abschluss erfolgreich!
+                        </div>
+                        <div style="font-size:14px;color:#059669;margin-bottom:15px;">
+                            ${completed} Fahrten abgeschlossen
+                            ${errors > 0 ? `<br>${errors} Fehler` : ''}
+                        </div>
+                        <div style="background:white;padding:12px;border-radius:6px;margin-bottom:15px;">
+                            <div style="font-size:13px;color:#065f46;">
+                                💡 <strong>Surge Pricing sollte jetzt niedriger sein!</strong><br>
+                                Reload die Seite um die Änderungen zu sehen.
+                            </div>
+                        </div>
+                        <button onclick="location.reload()" style="
+                            margin-right:10px;
+                            padding:12px 24px;
+                            background:#10b981;
+                            color:white;
+                            border:none;
+                            border-radius:8px;
+                            font-weight:700;
+                            cursor:pointer;
+                        ">
+                            🔄 Seite neu laden
+                        </button>
+                        <button onclick="findOldActiveRides()" style="
+                            padding:12px 24px;
+                            background:#667eea;
+                            color:white;
+                            border:none;
+                            border-radius:8px;
+                            font-weight:700;
+                            cursor:pointer;
+                        ">
+                            🔍 Erneut prüfen
+                        </button>
+                    </div>
+                `;
+                
+                showToast(`✅ ${completed} Fahrten abgeschlossen!`, 'success');
+                
+                // Lösche gespeicherte Liste
+                delete window.oldActiveRidesList;
+                
+            } catch (error) {
+                console.error('❌ Fataler Fehler:', error);
+                alert('❌ Fehler beim Abschließen: ' + error.message);
             }
         }
         

@@ -108,7 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.10 - RECHNUNG IM VERLAUF! 📄 (Build 20251231-1400)');
+        console.log('🚕 Funk Taxi App v5.90.12 - PHONE NORMALISIERUNG! 📱 (Build 20251231-1500)');
+        console.log('📱 v5.90.12: Phone immer zu International Format (+49...)!');
+        console.log('🔧 v5.90.12: normalizePhoneNumber() Funktion!');
+        console.log('✅ v5.90.12: Konsistente Phone-Formate überall!');
+        console.log('🎫 v5.90.11: Kunden können ihre Rechnungen runterladen!');
+        console.log('📱 v5.90.11: userId = Phone wenn Admin für Kunden bucht!');
+        console.log('🔍 v5.90.11: Suche auch nach Phone in Firebase!');
+        console.log('📥 v5.90.11: Download-Button für Rechnungen!');
         console.log('📄 v5.90.10: Rechnungs-Info wird im Verlauf angezeigt!');
         console.log('🔄 v5.90.10: Distanz neu berechnen im Rechnungs-Modal!');
         console.log('🔗 v5.90.10: Rechnung wird in Fahrt verknüpft!');
@@ -6552,6 +6559,7 @@
             let firebaseRideIds = [];
             if (isFirebaseReady && currentUser) {
                 try {
+                    // 🆕 v5.90.11: Suche nach UID ODER Phone
                     const snapshot = await db.ref('rides').orderByChild('userId').equalTo(currentUser.uid).once('value');
                     if (snapshot.exists()) {
                         snapshot.forEach(childSnapshot => {
@@ -6560,6 +6568,27 @@
                             firebaseRides.push(ride);
                             firebaseRideIds.push(ride.id);
                         });
+                    }
+                    
+                    // 🆕 v5.90.11: AUCH nach Phone suchen (wenn vorhanden)
+                    // 🆕 v5.90.12: NORMALISIERE Phone vor Suche!
+                    if (currentUser.phoneNumber) {
+                        const normalizedPhone = normalizePhoneNumber(currentUser.phoneNumber);
+                        console.log('🔍 Suche nach normalisierter Phone:', normalizedPhone);
+                        
+                        const phoneSnapshot = await db.ref('rides').orderByChild('userId').equalTo(normalizedPhone).once('value');
+                        if (phoneSnapshot.exists()) {
+                            phoneSnapshot.forEach(childSnapshot => {
+                                const ride = childSnapshot.val();
+                                ride.firebaseId = childSnapshot.key;
+                                // Nur hinzufügen wenn nicht schon drin
+                                if (!firebaseRideIds.includes(ride.id)) {
+                                    firebaseRides.push(ride);
+                                    firebaseRideIds.push(ride.id);
+                                }
+                            });
+                            console.log('✅ Fahrten via Phone gefunden:', phoneSnapshot.numChildren());
+                        }
                     }
                 } catch (error) {
                     console.error('❌ Fehler beim Laden der Firebase Fahrten:', error);
@@ -6822,12 +6851,27 @@
                     
                     if (r.status === 'abgeschlossen' || r.status === 'completed') {
                         // ✅ Normale Rechnung für abgeschlossene Fahrten
-                        documentButton = `
-                            <button onclick="downloadReceipt(${r.createdAt || r.id})" 
-                                style="width:100%;margin-top:8px;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
-                                📄 Rechnung laden
-                            </button>
-                        `;
+                        // 🆕 v5.90.11: Wenn Rechnung existiert → Download, sonst erstellen
+                        if (r.invoiceNumber) {
+                            documentButton = `
+                                <div style="margin-top:10px;padding:10px;background:#d1fae5;border-left:3px solid #10b981;border-radius:6px;">
+                                    <div style="font-size:13px;color:#047857;font-weight:600;margin-bottom:8px;">
+                                        📄 Rechnung: ${r.invoiceNumber}${r.invoiceAmount ? ' · ' + r.invoiceAmount.toFixed(2) + '€' : ''}
+                                    </div>
+                                    <button onclick="downloadInvoicePDF('${r.invoiceNumber}', '${r.firebaseId || r.id}')" 
+                                        style="width:100%;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                        📥 PDF Download
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            documentButton = `
+                                <button onclick="downloadReceipt(${r.createdAt || r.id})" 
+                                    style="width:100%;margin-top:8px;padding:10px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">
+                                    📄 Rechnung laden
+                                </button>
+                            `;
+                        }
                     } else if (r.status === 'storniert' || r.status === 'cancelled') {
                         // 🚨 Stornobeleg NUR wenn innerhalb 60 Minuten storniert!
                         const createdAt = r.createdAt || 0;
@@ -13514,8 +13558,19 @@
             }
             
             // 🔐 Füge userId hinzu (für Firebase Query)
+            // 🆕 v5.90.11: Bei Admin-Buchung für Kunden → nutze customerPhone!
+            // 🆕 v5.90.12: NORMALISIERE PHONE zu International Format!
             if (currentUser) {
-                ride.userId = currentUser.uid;
+                // Wenn Admin für Kunden bucht → nutze Kunden-Telefon als userId
+                if (ride.customerPhone && currentUser.role === 'admin' && ride.customerPhone !== currentUser.phoneNumber) {
+                    ride.userId = normalizePhoneNumber(ride.customerPhone);
+                    console.log('👤 Admin bucht für Kunden - userId = normalized phone:', ride.userId);
+                } else {
+                    ride.userId = currentUser.uid;
+                }
+            } else if (ride.customerPhone) {
+                // Nicht eingeloggt → nutze Telefon (normalisiert)
+                ride.userId = normalizePhoneNumber(ride.customerPhone);
             }
             
             // 🔥 Speichere in Firebase
@@ -13574,6 +13629,33 @@
                     await sendTelegramStatusUpdate(rideForTelegram, oldStatus, updates.status);
                 }
             }
+        }
+
+        // 🆕 v5.90.12: PHONE NORMALISIERUNG
+        // Konvertiert alle Phone-Formate zu International (+49...)
+        function normalizePhoneNumber(phone) {
+            if (!phone) return '';
+            
+            // Entferne alle Leerzeichen, -, /, (, )
+            let clean = phone.replace(/[\s\-\/\(\)]/g, '');
+            
+            // Wenn startet mit 00 → ersetze mit +
+            if (clean.startsWith('00')) {
+                clean = '+' + clean.substring(2);
+            }
+            
+            // Wenn startet mit 0 (Deutschland) → ersetze mit +49
+            else if (clean.startsWith('0') && !clean.startsWith('00')) {
+                clean = '+49' + clean.substring(1);
+            }
+            
+            // Wenn nicht startet mit + → füge +49 hinzu (default Deutschland)
+            else if (!clean.startsWith('+')) {
+                clean = '+49' + clean;
+            }
+            
+            console.log('📱 Phone normalisiert:', phone, '→', clean);
+            return clean;
         }
 
         // GEOCODING & ROUTING
@@ -14303,6 +14385,208 @@
                 // Erstelle PDF mit jsPDF
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
+        
+        // 🆕 v5.90.11: DOWNLOAD ECHTE RECHNUNG AUS FIREBASE
+        async function downloadInvoicePDF(invoiceNumber, rideId) {
+            try {
+                console.log('📄 Lade Rechnung:', invoiceNumber, 'für Fahrt:', rideId);
+                
+                // Check ob jsPDF geladen ist
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    alert('❌ PDF-Bibliothek nicht geladen!\n\nBitte Seite neu laden (F5).');
+                    return;
+                }
+                
+                // Lade Rechnung aus Firebase
+                const invoiceSnapshot = await db.ref(`invoices/${invoiceNumber}`).once('value');
+                const invoice = invoiceSnapshot.val();
+                
+                if (!invoice) {
+                    alert(`❌ Rechnung ${invoiceNumber} nicht gefunden!`);
+                    return;
+                }
+                
+                console.log('✅ Rechnung geladen:', invoice);
+                
+                // Regeneriere PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // HEADER - Firmendaten (IMMER)
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text('Taxiunternehmen Patrick Wydra', 20, 20);
+                doc.text('Amselring 10', 20, 25);
+                doc.text('17424 Ostseebad Heringsdorf', 20, 30);
+                doc.text('Tel.: 038378/22022', 20, 35);
+                
+                // TITEL (IMMER)
+                doc.setFontSize(20);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text('Rechnung', 20, 50);
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
+                doc.text(`Datum: ${new Date(invoice.createdAt).toLocaleDateString('de-DE')}`, 20, 63);
+                
+                let yPos = 75;
+                
+                // KUNDE (falls in displayOptions)
+                if (invoice.displayOptions?.showCustomer && invoice.customerName) {
+                    doc.setFontSize(11);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Kunde:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(10);
+                    yPos += 6;
+                    doc.text(invoice.customerName, 20, yPos);
+                    yPos += 5;
+                }
+                
+                // ADRESSE (falls in displayOptions)
+                if (invoice.displayOptions?.showAddress && invoice.address) {
+                    const addressLines = doc.splitTextToSize(invoice.address, 80);
+                    doc.text(addressLines, 20, yPos);
+                    yPos += addressLines.length * 5;
+                }
+                
+                // GASTNAME (falls in displayOptions)
+                if (invoice.displayOptions?.showGuest && invoice.guestName) {
+                    yPos += 3;
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Gastname:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 5;
+                    doc.text(invoice.guestName, 20, yPos);
+                    yPos += 5;
+                }
+                
+                // FAHRTDETAILS
+                yPos += 5;
+                if (invoice.displayOptions?.showDateTime || invoice.displayOptions?.showRoute || invoice.displayOptions?.showDistance) {
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Fahrtdetails:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 6;
+                }
+                
+                if (invoice.displayOptions?.showDateTime) {
+                    doc.text(`Datum: ${invoice.rideDate}`, 20, yPos);
+                    yPos += 5;
+                    doc.text(`Uhrzeit: ${invoice.rideTime}`, 20, yPos);
+                    yPos += 5;
+                }
+                
+                if (invoice.displayOptions?.showRoute) {
+                    doc.text(`Von: ${invoice.pickup}`, 20, yPos);
+                    yPos += 5;
+                    doc.text(`Nach: ${invoice.destination}`, 20, yPos);
+                    yPos += 5;
+                }
+                
+                if (invoice.displayOptions?.showDistance && invoice.distance) {
+                    doc.text(`Distanz: ${invoice.distance.toFixed(1)} km`, 20, yPos);
+                    yPos += 5;
+                }
+                
+                // POSITIONEN
+                yPos += 10;
+                doc.setFont(undefined, 'bold');
+                doc.text('Pos.', 20, yPos);
+                doc.text('Beschreibung', 40, yPos);
+                doc.text('Betrag', 160, yPos, { align: 'right' });
+                
+                doc.setFont(undefined, 'normal');
+                doc.line(20, yPos + 2, 190, yPos + 2);
+                yPos += 8;
+                
+                // Füge Positionen hinzu
+                (invoice.positions || []).forEach((pos, index) => {
+                    doc.text(String(index + 1), 20, yPos);
+                    doc.text(pos.description || '', 40, yPos);
+                    doc.text(`${pos.amount.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    yPos += 6;
+                });
+                
+                // SUMMEN
+                yPos += 5;
+                doc.line(20, yPos, 190, yPos);
+                yPos += 8;
+                
+                // MwSt-Ausweis (falls aktiviert)
+                if (invoice.displayOptions?.showVat) {
+                    doc.setFont(undefined, 'normal');
+                    doc.text('Zwischensumme (netto):', 100, yPos);
+                    doc.text(`${invoice.netPrice.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    yPos += 6;
+                    
+                    doc.text(`Umsatzsteuer ${invoice.vatRate}%:`, 100, yPos);
+                    doc.text(`${invoice.vatAmount.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                    yPos += 6;
+                }
+                
+                // Gesamtbetrag
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.text('Gesamtbetrag:', 100, yPos);
+                doc.text(`${invoice.totalGross.toFixed(2)}€`, 160, yPos, { align: 'right' });
+                
+                // 🆕 v5.90.11: ZAHLUNGSART
+                yPos += 10;
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(100);
+                
+                const paymentMethodNames = {
+                    'bar': 'Bar',
+                    'ec': 'EC-Karte',
+                    'credit': 'Kreditkarte',
+                    'paypal': 'PayPal',
+                    'rechnung': 'Rechnung',
+                    'uberweisung': 'Ueberweisung'
+                };
+                
+                if (invoice.paymentMethod) {
+                    doc.text(`Zahlungsart: ${paymentMethodNames[invoice.paymentMethod] || invoice.paymentMethod}`, 20, yPos);
+                }
+                
+                // FOOTER - Bankdaten (IMMER)
+                yPos += 15;
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(80);
+                
+                if (yPos > 260) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setDrawColor(200);
+                doc.line(20, yPos, 190, yPos);
+                yPos += 5;
+                
+                // Linke Spalte: Bankverbindung
+                doc.text('Bankverbindung:', 20, yPos);
+                doc.text('Volksbank Vorpommern', 20, yPos + 4);
+                doc.text('IBAN: DE16 1309 1054 0001 5524 90', 20, yPos + 8);
+                doc.text('BIC: GENODEF1HST', 20, yPos + 12);
+                
+                // Rechte Spalte: Steuerdaten
+                doc.text('Steuernummer: 084 289/01178', 120, yPos);
+                doc.text('IK: 601318664', 120, yPos + 4);
+                
+                // PDF herunterladen
+                doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                
+                showToast(`✅ Rechnung ${invoiceNumber} heruntergeladen!`, 'success');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Download:', error);
+                alert('❌ Fehler beim Laden der Rechnung: ' + error.message);
+            }
+        }
                 
             // Schriftart und Größe
             doc.setFont('helvetica');
@@ -24511,10 +24795,11 @@
                 }
                 
                 // Ins CRM eintragen
-                const customerId = user.phone ? user.phone.replace(/[^0-9]/g, '') : uid;
+                // 🆕 v5.90.12: NORMALISIERE Phone für customerId!
+                const customerId = user.phone ? normalizePhoneNumber(user.phone).replace(/[^0-9+]/g, '') : uid;
                 await db.ref('customers/' + customerId).set({
                     name: user.displayName || user.name || 'Unbekannt',
-                    phone: user.phone || '',
+                    phone: user.phone ? normalizePhoneNumber(user.phone) : '',
                     email: user.email || '',
                     address: user.address || '',
                     totalRides: 0,

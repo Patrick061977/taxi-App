@@ -108,7 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.13 - RECHNUNG IM KALENDER! 📅 (Build 20251231-1530)');
+        console.log('🚕 Funk Taxi App v5.90.14 - WHATSAPP RECHNUNG! 📤 (Build 20251231-1600)');
+        console.log('📤 v5.90.14: Rechnung per WhatsApp versenden!');
+        console.log('📱 v5.90.14: Telefonnummer automatisch vorausgefüllt!');
+        console.log('💬 v5.90.14: WhatsApp öffnet direkt mit Nachricht!');
         console.log('📅 v5.90.13: Rechnungs-Info im Kalender Day-View!');
         console.log('💰 v5.90.13: Preis + Rechnung sichtbar!');
         console.log('📱 v5.90.12: Phone immer zu International Format (+49...)!');
@@ -31389,13 +31392,19 @@
                             </div>
                             
                             <!-- BUTTONS -->
-                            <div style="display:flex;gap:10px;">
+                            <div style="display:flex;gap:10px;flex-direction:column;">
                                 <button onclick="generateInvoicePDFv2()" 
-                                        style="flex:1;padding:15px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;">
+                                        style="width:100%;padding:15px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;">
                                     📥 PDF erstellen & speichern
                                 </button>
+                                
+                                <button onclick="shareInvoiceViaWhatsApp()" 
+                                        style="width:100%;padding:15px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                    📤 Per WhatsApp senden
+                                </button>
+                                
                                 <button onclick="closeInvoiceModal()" 
-                                        style="flex:0.3;padding:15px;background:#6b7280;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;">
+                                        style="width:100%;padding:12px;background:#6b7280;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;">
                                     Abbrechen
                                 </button>
                             </div>
@@ -31422,6 +31431,96 @@
             invoiceRideData = null;
             invoiceCustomerData = null;
             invoiceSelectedBillingAddress = null; // 🆕 v5.52.5
+        }
+        
+        // 🆕 v5.90.14: RECHNUNG PER WHATSAPP TEILEN
+        async function shareInvoiceViaWhatsApp() {
+            try {
+                console.log('📤 Starte WhatsApp-Versand...');
+                
+                // Hole aktuelle Rechnung-Daten
+                const rideId = document.getElementById('invoice-ride-id')?.value;
+                if (!rideId) {
+                    alert('❌ Keine Fahrt ausgewählt!');
+                    return;
+                }
+                
+                // Lade Fahrt
+                const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                const ride = rideSnapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Hole Customer Phone
+                let customerPhone = ride.customerPhone;
+                if (!customerPhone && ride.customerId) {
+                    const customerSnapshot = await db.ref('customers/' + ride.customerId).once('value');
+                    const customer = customerSnapshot.val();
+                    if (customer) customerPhone = customer.phone;
+                }
+                
+                if (!customerPhone) {
+                    alert('❌ Keine Telefonnummer für diesen Kunden gefunden!\n\nBitte trage die Nummer im CRM ein.');
+                    return;
+                }
+                
+                // Normalisiere Phone zu WhatsApp-Format
+                const normalizedPhone = normalizePhoneNumber(customerPhone);
+                const whatsappPhone = normalizedPhone.replace(/[^0-9]/g, ''); // Nur Zahlen für WhatsApp
+                
+                console.log('📱 Kunden-Phone:', customerPhone, '→', whatsappPhone);
+                
+                // Hole Rechnungs-Daten
+                const invoiceNumber = document.getElementById('invoice-number')?.textContent || 'Unbekannt';
+                const totalGross = parseFloat(document.getElementById('invoice-total-gross')?.textContent?.replace('€', '') || '0');
+                const customerName = ride.customerName || 'Kunde';
+                
+                // Öffne WhatsApp Web mit Nachricht
+                const message = `Hallo ${customerName},\n\nhier ist Ihre Rechnung ${invoiceNumber} über ${totalGross.toFixed(2)}€.\n\nVielen Dank für Ihre Fahrt! 🚕\n\nMit freundlichen Grüßen\nFunk Taxi Heringsdorf`;
+                
+                const url = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+                
+                window.open(url, '_blank');
+                
+                alert('💬 WhatsApp wurde geöffnet!\n\n⚠️ Bitte PDF manuell erstellen und anhängen:\n1. Klicke "PDF erstellen"\n2. In WhatsApp Chat anhängen');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim WhatsApp-Versand:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.14: RECHNUNG TEILEN (MIT PDF)
+        async function shareInvoiceWithPDF() {
+            try {
+                console.log('📤 Starte Share mit PDF...');
+                
+                const rideId = document.getElementById('invoice-ride-id')?.value;
+                if (!rideId) {
+                    alert('❌ Keine Fahrt ausgewählt!');
+                    return;
+                }
+                
+                // Zeige Loading
+                showToast('⏳ Erstelle PDF...', 'info');
+                
+                // Erstelle PDF (nutze bestehende Funktion)
+                await generateInvoicePDFv2();
+                
+                showToast('✅ PDF erstellt! Jetzt per WhatsApp senden...', 'success');
+                
+                // Nach kurzer Verzögerung WhatsApp öffnen
+                setTimeout(() => {
+                    shareInvoiceViaWhatsApp();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
         }
         
         // 🆕 v5.52.4: Rendere Positionen-Liste

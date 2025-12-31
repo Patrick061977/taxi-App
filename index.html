@@ -108,8 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.14 - WHATSAPP RECHNUNG! 📤 (Build 20251231-1600)');
-        console.log('📤 v5.90.14: Rechnung per WhatsApp versenden!');
+        console.log('🚕 Funk Taxi App v5.90.15 - WHATSAPP ÜBERALL! 📤💬 (Build 20251231-1700)');
+        console.log('📤 v5.90.15: WhatsApp-Button bei ALLEN Rechnungen!');
+        console.log('📄 v5.90.15: In Rechnungs-Liste!');
+        console.log('📅 v5.90.15: Im Kalender!');
+        console.log('💬 v5.90.15: Im Modal!');
+        console.log('📱 v5.90.14: Telefonnummer automatisch vorausgefüllt!');
         console.log('📱 v5.90.14: Telefonnummer automatisch vorausgefüllt!');
         console.log('💬 v5.90.14: WhatsApp öffnet direkt mit Nachricht!');
         console.log('📅 v5.90.13: Rechnungs-Info im Kalender Day-View!');
@@ -31523,6 +31527,106 @@
             }
         }
         
+        // 🆕 v5.90.15: BESTEHENDE RECHNUNG PER WHATSAPP TEILEN
+        async function shareExistingInvoiceViaWhatsApp(invoiceId) {
+            try {
+                console.log('📤 Teile bestehende Rechnung:', invoiceId);
+                
+                // Lade Rechnung aus Firebase
+                const invSnapshot = await db.ref(`invoices/${invoiceId}`).once('value');
+                const invoice = invSnapshot.val();
+                
+                if (!invoice) {
+                    alert('❌ Rechnung nicht gefunden!');
+                    return;
+                }
+                
+                // Lade zugehörige Fahrt (wenn vorhanden)
+                let customerPhone = null;
+                let customerName = invoice.customerName || 'Kunde';
+                
+                if (invoice.rideId) {
+                    const rideSnapshot = await db.ref(`rides/${invoice.rideId}`).once('value');
+                    const ride = rideSnapshot.val();
+                    
+                    if (ride) {
+                        customerPhone = ride.customerPhone;
+                        if (!customerName || customerName === 'Kunde') {
+                            customerName = ride.customerName || 'Kunde';
+                        }
+                    }
+                }
+                
+                // Versuche Customer aus CRM
+                if (!customerPhone && invoice.customerId) {
+                    const custSnapshot = await db.ref(`customers/${invoice.customerId}`).once('value');
+                    const customer = custSnapshot.val();
+                    if (customer) {
+                        customerPhone = customer.phone;
+                        if (!customerName || customerName === 'Kunde') {
+                            customerName = customer.name;
+                        }
+                    }
+                }
+                
+                if (!customerPhone) {
+                    const input = prompt('⚠️ Keine Telefonnummer gespeichert!\n\nBitte Telefonnummer eingeben:');
+                    if (!input) return;
+                    customerPhone = input;
+                }
+                
+                // Normalisiere Phone
+                const normalizedPhone = normalizePhoneNumber(customerPhone);
+                const whatsappPhone = normalizedPhone.replace(/[^0-9]/g, '');
+                
+                console.log('📱 WhatsApp Phone:', whatsappPhone);
+                
+                // Erstelle Nachricht
+                const invoiceNumber = invoice.invoiceNumber || invoiceId;
+                const amount = invoice.totalGross || 0;
+                
+                const message = `Hallo ${customerName},\n\nhier ist Ihre Rechnung ${invoiceNumber} über ${amount.toFixed(2)}€.\n\nVielen Dank für Ihre Fahrt! 🚕\n\nMit freundlichen Grüßen\nFunk Taxi Heringsdorf`;
+                
+                const url = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+                
+                window.open(url, '_blank');
+                
+                showToast('💬 WhatsApp geöffnet! PDF bitte manuell anhängen.', 'success', 4000);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.15: RECHNUNG VIA RIDE TEILEN
+        async function shareRideInvoiceViaWhatsApp(rideId) {
+            try {
+                console.log('📤 Teile Rechnung für Fahrt:', rideId);
+                
+                // Lade Fahrt
+                const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                const ride = rideSnapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                if (!ride.invoiceNumber) {
+                    alert('❌ Keine Rechnung für diese Fahrt vorhanden!');
+                    return;
+                }
+                
+                // Nutze invoiceNumber um Rechnung zu teilen
+                await shareExistingInvoiceViaWhatsApp(ride.invoiceNumber);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         // 🆕 v5.52.4: Rendere Positionen-Liste
         function renderInvoicePositions() {
             const container = document.getElementById('invoice-positions-container');
@@ -32275,9 +32379,10 @@
                             <span style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:${statusColor}20;color:${statusColor};">${statusText}</span>
                         </td>
                         <td style="padding:12px;text-align:center;">
-                            <div style="display:flex;gap:5px;justify-content:center;">
+                            <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">
                                 <button onclick="editInvoice('${inv.id}')" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Bearbeiten">✏️</button>
                                 <button onclick="regenerateInvoicePDF('${inv.id}')" style="padding:6px 10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="PDF neu erstellen">📥</button>
+                                <button onclick="shareExistingInvoiceViaWhatsApp('${inv.id}')" style="padding:6px 10px;background:#25D366;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Per WhatsApp senden">📤</button>
                                 <button onclick="toggleInvoiceStatus('${inv.id}')" style="padding:6px 10px;background:${inv.status === 'bezahlt' ? '#f59e0b' : '#10b981'};color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="${inv.status === 'bezahlt' ? 'Als offen markieren' : 'Als bezahlt markieren'}">${inv.status === 'bezahlt' ? '↩️' : '✅'}</button>
                             </div>
                         </td>
@@ -38696,10 +38801,16 @@ Stack: ${err.stack}
                             </div>
                             
                             ${ride.invoiceNumber ? `
-                                <div style="margin-top: 8px; padding: 8px 12px; background: #d1fae5; border-left: 3px solid #10b981; border-radius: 6px;">
-                                    <span style="font-size: 12px; color: #047857; font-weight: 600;">
-                                        📄 Rechnung: ${ride.invoiceNumber}${ride.invoiceAmount ? ' · ' + ride.invoiceAmount.toFixed(2) + '€' : ''}
-                                    </span>
+                                <div style="margin-top: 8px; padding: 10px 12px; background: #d1fae5; border-left: 3px solid #10b981; border-radius: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 12px; color: #047857; font-weight: 600;">
+                                            📄 Rechnung: ${ride.invoiceNumber}${ride.invoiceAmount ? ' · ' + ride.invoiceAmount.toFixed(2) + '€' : ''}
+                                        </span>
+                                        <button onclick="event.stopPropagation(); shareRideInvoiceViaWhatsApp('${ride.firebaseId || ride.id}')" 
+                                                style="padding: 4px 10px; background: #25D366; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                            📤 WhatsApp
+                                        </button>
+                                    </div>
                                 </div>
                             ` : ''}
                             

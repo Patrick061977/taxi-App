@@ -108,7 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.5 - BELIEBTES ZIEL FIX! 📍✅ (Build 20251230-1115)');
+        console.log('🚕 Funk Taxi App v5.90.6 - DRAG & DROP TAB-SORTIERUNG! 🎯 (Build 20251230-1200)');
+        console.log('🎯 v5.90.6: Tabs per Drag & Drop verschieben!');
+        console.log('📍 v5.90.5: Beliebtes Ziel Fix!');
         console.log('📍 v5.90.5: "Beliebtes Ziel" wird nicht mehr an Adresse angehängt!');
         console.log('🧹 v5.90.5: Datenbank-Bereinigungs-Tool im Admin-Bereich!');
         console.log('✅ v5.90.5: Geocoding funktioniert jetzt mit beliebten Zielen!');
@@ -211,6 +213,27 @@
         .admin-tab-btn.active {
             background: #667eea !important;
             color: white !important;
+        }
+        
+        /* 🎯 v5.90.6: DRAG & DROP TAB STYLING */
+        .admin-tab-btn.dragging {
+            opacity: 0.4;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        }
+        .admin-tab-btn.drag-over {
+            border-left: 3px solid #10b981 !important;
+            margin-left: 5px;
+            transform: translateX(5px);
+        }
+        .admin-tab-btn[draggable="true"] {
+            cursor: grab !important;
+        }
+        .admin-tab-btn[draggable="true"]:active {
+            cursor: grabbing !important;
+        }
+        .admin-tab-btn {
+            transition: all 0.2s ease !important;
         }
         .view { display: none; padding: 15px; }
         .view.active { display: block; }
@@ -3216,6 +3239,34 @@
                     <div style="font-size:12px;color:#6b7280;">
                         💡 Änderungen werden automatisch gespeichert und gelten für ALLE Geräte!
                     </div>
+                </div>
+                
+                <!-- 🎯 v5.90.6: TAB-REIHENFOLGE RESET -->
+                <div style="margin-top:20px;padding:15px;background:#f3f4f6;border-radius:8px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                        <span style="font-size:20px;">🎯</span>
+                        <span style="font-weight:600;color:#1f2937;">Tab-Reihenfolge</span>
+                    </div>
+                    <p style="color:#6b7280;font-size:13px;margin-bottom:10px;">
+                        Tabs können per Drag & Drop in der oberen Leiste verschoben werden. Die Position wird automatisch gespeichert.
+                    </p>
+                    <button 
+                        onclick="resetTabOrder()" 
+                        style="
+                            padding:8px 16px;
+                            background:#ef4444;
+                            color:white;
+                            border:none;
+                            border-radius:6px;
+                            font-weight:600;
+                            cursor:pointer;
+                            font-size:13px;
+                        "
+                        onmouseover="this.style.background='#dc2626'"
+                        onmouseout="this.style.background='#ef4444'"
+                    >
+                        🔄 Standard wiederherstellen
+                    </button>
                 </div>
             </div>
         </div>
@@ -48575,6 +48626,150 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             originalSwitchView(view);
             updateGlobalLogButton();
         };
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🎯 v5.90.6: DRAG & DROP FÜR TABS
+        // ═══════════════════════════════════════════════════════════════════
+        
+        let draggedTab = null;
+        
+        function initTabDragDrop() {
+            console.log('🎯 Initialisiere Tab Drag & Drop...');
+            
+            const tabButtons = document.querySelectorAll('.admin-tab-btn[data-view]');
+            
+            tabButtons.forEach(tab => {
+                tab.setAttribute('draggable', 'true');
+                tab.style.cursor = 'grab';
+                
+                tab.addEventListener('dragstart', handleDragStart);
+                tab.addEventListener('dragend', handleDragEnd);
+                tab.addEventListener('dragover', handleDragOver);
+                tab.addEventListener('drop', handleDrop);
+                tab.addEventListener('dragenter', handleDragEnter);
+                tab.addEventListener('dragleave', handleDragLeave);
+            });
+            
+            loadTabOrder();
+            console.log('✅ Tab Drag & Drop aktiv!');
+        }
+        
+        function handleDragStart(e) {
+            draggedTab = this;
+            this.style.opacity = '0.4';
+            this.style.cursor = 'grabbing';
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            this.classList.add('dragging');
+            console.log('🎯 Drag Start:', this.dataset.view);
+        }
+        
+        function handleDragEnd(e) {
+            this.style.opacity = '1';
+            this.style.cursor = 'grab';
+            this.classList.remove('dragging');
+            document.querySelectorAll('.admin-tab-btn').forEach(tab => {
+                tab.classList.remove('drag-over');
+            });
+            console.log('✅ Drag End');
+        }
+        
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+        
+        function handleDragEnter(e) {
+            if (this !== draggedTab) {
+                this.classList.add('drag-over');
+            }
+        }
+        
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            
+            if (draggedTab !== this) {
+                const container = this.parentNode;
+                const allTabs = [...container.querySelectorAll('.admin-tab-btn[data-view]')];
+                const draggedIndex = allTabs.indexOf(draggedTab);
+                const targetIndex = allTabs.indexOf(this);
+                
+                if (draggedIndex < targetIndex) {
+                    container.insertBefore(draggedTab, this.nextSibling);
+                } else {
+                    container.insertBefore(draggedTab, this);
+                }
+                
+                saveTabOrder();
+                console.log('🎯 Tab verschoben!');
+                showToast('Tab-Reihenfolge gespeichert!', 'success');
+            }
+            
+            return false;
+        }
+        
+        function saveTabOrder() {
+            const container = document.querySelector('.admin-tab-btn').parentNode;
+            const tabs = [...container.querySelectorAll('.admin-tab-btn[data-view]')];
+            const order = tabs.map(tab => tab.dataset.view);
+            localStorage.setItem('tabOrder', JSON.stringify(order));
+            console.log('💾 Tab-Reihenfolge gespeichert:', order);
+        }
+        
+        function loadTabOrder() {
+            const savedOrder = localStorage.getItem('tabOrder');
+            if (!savedOrder) {
+                console.log('ℹ️ Keine gespeicherte Tab-Reihenfolge');
+                return;
+            }
+            
+            try {
+                const order = JSON.parse(savedOrder);
+                console.log('📂 Lade Tab-Reihenfolge:', order);
+                
+                const container = document.querySelector('.admin-tab-btn').parentNode;
+                const tabs = {};
+                
+                container.querySelectorAll('.admin-tab-btn[data-view]').forEach(tab => {
+                    tabs[tab.dataset.view] = tab;
+                });
+                
+                order.forEach(viewName => {
+                    if (tabs[viewName]) {
+                        container.appendChild(tabs[viewName]);
+                    }
+                });
+                
+                Object.keys(tabs).forEach(viewName => {
+                    if (!order.includes(viewName)) {
+                        container.appendChild(tabs[viewName]);
+                    }
+                });
+                
+                console.log('✅ Tab-Reihenfolge wiederhergestellt!');
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Tab-Reihenfolge:', error);
+            }
+        }
+        
+        function resetTabOrder() {
+            if (confirm('Tab-Reihenfolge auf Standard zurücksetzen?')) {
+                localStorage.removeItem('tabOrder');
+                location.reload();
+                console.log('🔄 Tab-Reihenfolge zurückgesetzt!');
+            }
+        }
+        
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                initTabDragDrop();
+            }, 1000);
+        });
     </script>
 
 </body>

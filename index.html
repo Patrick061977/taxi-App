@@ -108,8 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.31 - STRIPE ZAHLUNGEN (TEST)! 💳 (Build 20260101-1300)');
-        console.log('💳 v5.90.31: Zahlungsmethoden im Kundenkonto!');
+        console.log('🚕 Funk Taxi App v5.90.34 - ABBRECHEN FIX! ❌ (Build 20260101-1600)');
+        console.log('❌ v5.90.34: Abbrechen-Button funktioniert jetzt!');
+        console.log('✅ v5.90.34: Modal schließt korrekt!');
+        console.log('🧹 v5.90.33: Clean Up!');
+        console.log('✅ v5.90.33: Neues Tab-Einstellungen Panel nutzen!');
+        console.log('🔒 v5.90.32: Stripe Security!');
+        console.log('✅ v5.90.32: Nur Public Key (sicher)!');
+        console.log('💳 v5.90.31: Zahlungsmethoden UI bereit!');
         console.log('✅ v5.90.31: Stripe Integration (TEST MODE)!');
         console.log('✅ v5.90.31: Karte hinzufügen/löschen!');
         console.log('✅ v5.90.31: Standard setzen!');
@@ -881,7 +887,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.31 - STRIPE ZAHLUNGEN (TEST)! (Build 20260101-1300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.34 - ABBRECHEN FIX! (Build 20260101-1600)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3366,59 +3372,7 @@
             </div>
         </div>
         
-        <!-- 🆕 v5.89.2: TAB-BERECHTIGUNGEN -->
-        <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #3b82f6;box-shadow:0 4px 12px rgba(59,130,246,0.15);">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
-                <div style="font-size:24px;">🔐</div>
-                <div>
-                    <div style="font-weight:700;font-size:16px;color:#1e40af;">Tab-Berechtigungen</div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">Stelle ein wer welche Tabs sehen darf</div>
-                </div>
-            </div>
-            
-            <div style="background:#eff6ff;padding:20px;border-radius:8px;border-left:4px solid#3b82f6;">
-                <div id="tab-permissions-container">
-                    <!-- Wird dynamisch gefüllt -->
-                    <div style="text-align:center;padding:20px;color:#6b7280;">
-                        Lade Tab-Berechtigungen...
-                    </div>
-                </div>
-                
-                <div style="margin-top:15px;padding-top:15px;border-top:2px solid #dbeafe;">
-                    <div style="font-size:12px;color:#6b7280;">
-                        💡 Änderungen werden automatisch gespeichert und gelten für ALLE Geräte!
-                    </div>
-                </div>
-                
-                <!-- 🎯 v5.90.6: TAB-REIHENFOLGE RESET -->
-                <div style="margin-top:20px;padding:15px;background:#f3f4f6;border-radius:8px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                        <span style="font-size:20px;">🎯</span>
-                        <span style="font-weight:600;color:#1f2937;">Tab-Reihenfolge</span>
-                    </div>
-                    <p style="color:#6b7280;font-size:13px;margin-bottom:10px;">
-                        Tabs können per Drag & Drop in der oberen Leiste verschoben werden. Die Position wird automatisch gespeichert.
-                    </p>
-                    <button 
-                        onclick="resetTabOrder()" 
-                        style="
-                            padding:8px 16px;
-                            background:#ef4444;
-                            color:white;
-                            border:none;
-                            border-radius:6px;
-                            font-weight:600;
-                            cursor:pointer;
-                            font-size:13px;
-                        "
-                        onmouseover="this.style.background='#dc2626'"
-                        onmouseout="this.style.background='#ef4444'"
-                    >
-                        🔄 Standard wiederherstellen
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- 🗑️ v5.90.33: TAB-BERECHTIGUNGEN ENTFERNT - Jetzt in Tab-Einstellungen! -->
         
         <!-- 🆕 v5.87.86: EINSTELLUNGEN (MWST + ZAHLUNGSARTEN) -->
         <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #8b5cf6;box-shadow:0 4px 12px rgba(139,92,246,0.15);">
@@ -26686,8 +26640,8 @@
         }
         
         // 🆕 v5.90.31: STRIPE INTEGRATION - TEST MODE!
-        const STRIPE_PUBLIC_KEY = 'pk_test_51QawaTHDKhZcqmLsFRWZTJFhNL8ql7XPM4vVPKCDGQwrXzQ3E4ZfJpbMHHvLHKjgJZVXN0tFFo5Wn0eXsVbz2v5u00nKYKJt2K'; // ← Stripe Test Key
-        const STRIPE_SECRET_KEY = 'sk_test_51QawaTHDKhZcqmLsD5ZtGTzEXC8sGC4JUgkdJz1JjKVAhDC8pzCVPUxQXKN9Kxve31cDFbzKzxgDYWm6hKTxzpWR00yL9xjFTl'; // ← Wird in Apps Script verwendet
+        const STRIPE_PUBLIC_KEY = 'pk_test_51QawaTHDKhZcqmLsFRWZTJFhNL8ql7XPM4vVPKCDGQwrXzQ3E4ZfJpbMHHvLHKjgJZVXN0tFFo5Wn0eXsVbz2v5u00nKYKJt2K'; // ← Stripe Test Public Key (ungefährlich!)
+        // SECRET KEY gehört NICHT hierher! Die kommt später in Google Apps Script!
         
         let stripe = null;
         
@@ -26754,37 +26708,42 @@
         
         // Füge Zahlungsmethode hinzu
         window.addPaymentMethod = async function() {
-            if (!stripe) {
-                alert('❌ Stripe wird geladen...');
-                initStripe();
-                return;
-            }
-            
             if (!currentUser) {
                 alert('❌ Bitte einloggen!');
                 return;
             }
             
+            alert('ℹ️ Stripe-Integration in Entwicklung!\n\nAktuell kannst du Zahlungsmethoden manuell im Profil speichern.\n\nFunktion kommt bald! 💳');
+            
+            // TODO: Später mit Google Apps Script Endpoint
+            // Der erstellt eine Stripe Checkout Session und gibt die URL zurück
+            
+            /*
             try {
-                // Öffne Stripe Checkout
-                const { error } = await stripe.redirectToCheckout({
-                    mode: 'setup',
-                    payment_method_types: ['card', 'sepa_debit'],
-                    customer_email: myProfileData?.email || currentUser.email,
-                    success_url: window.location.origin + '/taxi-App/?payment=success&session_id={CHECKOUT_SESSION_ID}',
-                    cancel_url: window.location.origin + '/taxi-App/?payment=cancel',
-                    locale: 'de'
+                // Rufe Apps Script auf um Checkout Session zu erstellen
+                const response = await fetch('APPS_SCRIPT_URL/createCheckoutSession', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.uid,
+                        email: myProfileData?.email || currentUser.email
+                    })
                 });
                 
-                if (error) {
-                    console.error('❌ Stripe Fehler:', error);
-                    alert('❌ Fehler: ' + error.message);
+                const data = await response.json();
+                
+                if (data.url) {
+                    // Öffne Stripe Checkout
+                    window.location.href = data.url;
+                } else {
+                    alert('❌ Fehler: ' + (data.error || 'Unbekannter Fehler'));
                 }
                 
             } catch (error) {
                 console.error('❌ Fehler:', error);
-                alert('❌ Fehler beim Öffnen von Stripe: ' + error.message);
+                alert('❌ Fehler: ' + error.message);
             }
+            */
         };
         
         // Setze Standard-Zahlungsmethode
@@ -31751,7 +31710,7 @@
                         </div>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" 
+                            <button onclick="closeCompleteRideModal()" 
                                     style="padding: 12px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
                                 ❌ Abbrechen
                             </button>
@@ -31779,6 +31738,13 @@
                 alert('❌ Fehler: ' + error.message);
             }
         }
+        
+        // 🆕 v5.90.34: Schließe Abschließen-Modal
+        window.closeCompleteRideModal = function() {
+            const modals = document.querySelectorAll('div[style*="position: fixed"][style*="z-index: 10000"]');
+            modals.forEach(modal => modal.remove());
+            console.log('✅ Abschließen-Modal geschlossen');
+        };
         
         // 🆕 v5.90.30: SPEICHERE ABGESCHLOSSENE FAHRT - VERBESSERT
         window.saveCompletedRide = async function(rideId) {

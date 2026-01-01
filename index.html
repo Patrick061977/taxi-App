@@ -108,8 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.25 - TABS SPEICHERN FIX! 💾 (Build 20260101-1100)');
-        console.log('💾 v5.90.25: Tab-Reihenfolge wird geladen!');
+        console.log('🚕 Funk Taxi App v5.90.26 - PERFORMANCE FIX! ⚡ (Build 20260101-1130)');
+        console.log('⚡ v5.90.26: WhatsApp-Zeit Observer throttled (500ms)!');
+        console.log('⚡ v5.90.26: Tab-Reihenfolge nur 1x laden!');
+        console.log('🔧 v5.90.26: Keine unnötigen Re-Initialisierungen!');
+        console.log('💾 v5.90.25: Tabs speichern!');
         console.log('📌 v5.90.25: Letzter aktiver Tab wird gespeichert!');
         console.log('🔧 v5.90.25: Fix invoice.brutto.toFixed Fehler!');
         console.log('⏰ v5.90.24: WhatsApp-Style Zeit Admin!');
@@ -862,7 +865,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.88.34 - MOBIL/FESTNETZ ERKENNUNG! (Build 20251227-1155)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.26 - PERFORMANCE FIX! (Build 20260101-1130)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -43783,9 +43786,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('✅ WhatsApp-Style Zeit aktiviert für', timeInputs.length, 'Inputs');
         }
         
-        // Reaktiviere wenn DOM sich ändert (z.B. Modals)
+        // Reaktiviere wenn DOM sich ändert (z.B. Modals) - THROTTLED!
+        let timeObserverTimeout = null;
         const timeObserver = new MutationObserver(() => {
-            setupWhatsAppTimeInputs();
+            // Throttle: Nur alle 500ms
+            if (timeObserverTimeout) return;
+            timeObserverTimeout = setTimeout(() => {
+                setupWhatsAppTimeInputs();
+                timeObserverTimeout = null;
+            }, 500);
         });
         timeObserver.observe(document.body, { childList: true, subtree: true });
         
@@ -50397,7 +50406,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('💾 Tab-Reihenfolge gespeichert:', order);
         }
         
+        let tabOrderLoaded = false; // 🆕 v5.90.26: Verhindere doppeltes Laden
+        
         function loadTabOrder() {
+            if (tabOrderLoaded) {
+                console.log('ℹ️ Tab-Reihenfolge bereits geladen - überspringe');
+                return;
+            }
+            
             const savedOrder = localStorage.getItem('tabOrder');
             if (!savedOrder) {
                 console.log('ℹ️ Keine gespeicherte Tab-Reihenfolge');
@@ -50408,7 +50424,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 const order = JSON.parse(savedOrder);
                 console.log('📂 Lade Tab-Reihenfolge:', order);
                 
-                const container = document.querySelector('.admin-tab-btn').parentNode;
+                const container = document.querySelector('.admin-tab-btn')?.parentNode;
+                if (!container) {
+                    console.log('⚠️ Tab-Container noch nicht bereit');
+                    return;
+                }
+                
                 const tabs = {};
                 
                 container.querySelectorAll('.admin-tab-btn[data-view]').forEach(tab => {
@@ -50427,6 +50448,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                 });
                 
+                tabOrderLoaded = true; // 🆕 v5.90.26: Markiere als geladen
                 console.log('✅ Tab-Reihenfolge wiederhergestellt!');
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Tab-Reihenfolge:', error);

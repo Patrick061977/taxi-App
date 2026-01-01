@@ -108,8 +108,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.34 - ABBRECHEN FIX! ❌ (Build 20260101-1600)');
-        console.log('❌ v5.90.34: Abbrechen-Button funktioniert jetzt!');
+        console.log('🚕 Funk Taxi App v5.90.37 - ADMIN-FAHRT-SCHUTZ! 🛡️ (Build 20260101-1900)');
+        console.log('🛡️ v5.90.37: Admin-Fahrten werden NIEMALS auto-storniert!');
+        console.log('✅ v5.90.37: Schnellbuchung geschützt!');
+        console.log('✅ v5.90.37: Admin-Panel geschützt!');
+        console.log('🏥 v5.90.36: Krankenfahrt-Schutz!');
+        console.log('✅ v5.90.36: Schutz auch ohne Preis!');
+        console.log('🛡️ v5.90.36: Vorbestellungen geschützt!');
+        console.log('💰 v5.90.35: Preis-Fix!');
+        console.log('✅ v5.90.35: Funktioniert bei ALLEN Fahrten!');
+        console.log('❌ v5.90.34: Abbrechen-Button!');
         console.log('✅ v5.90.34: Modal schließt korrekt!');
         console.log('🧹 v5.90.33: Clean Up!');
         console.log('✅ v5.90.33: Neues Tab-Einstellungen Panel nutzen!');
@@ -887,7 +895,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.34 - ABBRECHEN FIX! (Build 20260101-1600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.37 - ADMIN-FAHRT-SCHUTZ! (Build 20260101-1900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8842,6 +8850,44 @@
                         continue; // Überspringen!
                     }
                     
+                    // 🆕 v5.90.36: KRANKENFAHRT-SCHUTZ! 🏥
+                    // Krankenfahrten haben oft keinen Preis (Krankenkassen-Abrechnung)
+                    const isKrankenfahrt = 
+                        ride.isKrankenfahrt === true ||
+                        ride.rideType === 'krankenfahrt' ||
+                        ride.paymentMethod === 'krankenkasse' ||
+                        (ride.notes && ride.notes.toLowerCase().includes('kranken')) ||
+                        (ride.customerName && ride.customerName.toLowerCase().includes('kranken'));
+                    
+                    if (isKrankenfahrt) {
+                        console.log('🏥 KRANKENFAHRT GESCHÜTZT:', {
+                            rideId: rideId,
+                            kunde: ride.customerName,
+                            grund: ride.isKrankenfahrt ? 'Flag' : 'Name/Notizen'
+                        });
+                        continue; // NICHT stornieren!
+                    }
+                    
+                    // 🆕 v5.90.37: ADMIN-FAHRT-SCHUTZ! 🛡️
+                    // Vom Admin erstellte Fahrten dürfen NICHT auto-storniert werden!
+                    const isAdminRide = 
+                        ride.adminProtection === true ||
+                        ride.createdBy === 'admin' ||
+                        ride.bookingSource === 'admin-panel' ||
+                        ride.createdBy === 'quick-booking' ||
+                        ride.createdBy === 'quick-booking-phone' ||
+                        ride.assignedBy === 'admin';
+                    
+                    if (isAdminRide) {
+                        console.log('🛡️ ADMIN-FAHRT GESCHÜTZT:', {
+                            rideId: rideId,
+                            kunde: ride.customerName,
+                            grund: ride.createdBy || 'admin',
+                            quelle: ride.bookingSource || 'unbekannt'
+                        });
+                        continue; // NICHT stornieren!
+                    }
+                    
                     const createdAt = ride.createdAt || ride.timestamp || 0;
                     const pickupTime = ride.pickupTimestamp || 0;
                     
@@ -8914,6 +8960,33 @@
                         continue; // Überspringen!
                     }
                     
+                    // 🆕 v5.90.36: KRANKENFAHRT-SCHUTZ! 🏥
+                    const isKrankenfahrt = 
+                        ride.isKrankenfahrt === true ||
+                        ride.rideType === 'krankenfahrt' ||
+                        ride.paymentMethod === 'krankenkasse' ||
+                        (ride.notes && ride.notes.toLowerCase().includes('kranken')) ||
+                        (ride.customerName && ride.customerName.toLowerCase().includes('kranken'));
+                    
+                    if (isKrankenfahrt) {
+                        console.log('🏥 KRANKENFAHRT (Vorbestellt) GESCHÜTZT:', rideId);
+                        continue; // NICHT stornieren!
+                    }
+                    
+                    // 🆕 v5.90.37: ADMIN-FAHRT-SCHUTZ! 🛡️
+                    const isAdminRide = 
+                        ride.adminProtection === true ||
+                        ride.createdBy === 'admin' ||
+                        ride.bookingSource === 'admin-panel' ||
+                        ride.createdBy === 'quick-booking' ||
+                        ride.createdBy === 'quick-booking-phone' ||
+                        ride.assignedBy === 'admin';
+                    
+                    if (isAdminRide) {
+                        console.log('🛡️ ADMIN-FAHRT (Vorbestellt) GESCHÜTZT:', rideId);
+                        continue; // NICHT stornieren!
+                    }
+                    
                     const pickupTime = ride.pickupTimestamp || 0;
                     const timeSincePickup = now - pickupTime;
                     
@@ -8976,6 +9049,33 @@
                         }
                         
                         continue;
+                    }
+                    
+                    // 🆕 v5.90.36: KRANKENFAHRT-SCHUTZ! 🏥
+                    const isKrankenfahrt = 
+                        ride.isKrankenfahrt === true ||
+                        ride.rideType === 'krankenfahrt' ||
+                        ride.paymentMethod === 'krankenkasse' ||
+                        (ride.notes && ride.notes.toLowerCase().includes('kranken')) ||
+                        (ride.customerName && ride.customerName.toLowerCase().includes('kranken'));
+                    
+                    if (isKrankenfahrt) {
+                        console.log('🏥 KRANKENFAHRT (Akzeptiert) GESCHÜTZT:', rideId);
+                        continue; // NICHT stornieren!
+                    }
+                    
+                    // 🆕 v5.90.37: ADMIN-FAHRT-SCHUTZ! 🛡️
+                    const isAdminRide = 
+                        ride.adminProtection === true ||
+                        ride.createdBy === 'admin' ||
+                        ride.bookingSource === 'admin-panel' ||
+                        ride.createdBy === 'quick-booking' ||
+                        ride.createdBy === 'quick-booking-phone' ||
+                        ride.assignedBy === 'admin';
+                    
+                    if (isAdminRide) {
+                        console.log('🛡️ ADMIN-FAHRT (Akzeptiert) GESCHÜTZT:', rideId);
+                        continue; // NICHT stornieren!
                     }
                     
                     // 🆕 v5.86.34: WICHTIG! Auch accepted Fahrten mit Zukunfts-Abholzeit schützen!
@@ -31326,6 +31426,7 @@
                         distance: routeData.distance,
                         duration: routeData.duration,
                         createdBy: 'admin',
+                        adminProtection: true, // 🆕 v5.90.37: ADMIN-SCHUTZ!
                         isAdvanceBooking: true,
                         bookingSource: 'admin-panel' // 🆕 v5.49.0: Admin Panel Buchung!
                     };
@@ -31653,8 +31754,15 @@
                     return;
                 }
                 
-                // Aktuellen Preis holen
-                const currentPrice = ride.price || ride.calculatedPrice || 0;
+                // Aktuellen Preis holen - SICHER in Number umwandeln!
+                const currentPrice = parseFloat(ride.price || ride.calculatedPrice || 0) || 0;
+                
+                console.log('💰 Preis geladen:', {
+                    raw: ride.price,
+                    calculated: ride.calculatedPrice,
+                    final: currentPrice,
+                    type: typeof currentPrice
+                });
                 
                 // Modal erstellen
                 const modal = document.createElement('div');

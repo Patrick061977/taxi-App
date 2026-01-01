@@ -108,8 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.26 - PERFORMANCE FIX! ⚡ (Build 20260101-1130)');
-        console.log('⚡ v5.90.26: WhatsApp-Zeit Observer throttled (500ms)!');
+        console.log('🚕 Funk Taxi App v5.90.27 - KEIN DOPPELTES TAB-LADEN! 🎯 (Build 20260101-1145)');
+        console.log('🎯 v5.90.27: Tab nur laden wenn anders als aktuell!');
+        console.log('🎯 v5.90.27: Kein unnötiges Neu-Laden mehr!');
+        console.log('⚡ v5.90.26: Performance Optimierungen!');
         console.log('⚡ v5.90.26: Tab-Reihenfolge nur 1x laden!');
         console.log('🔧 v5.90.26: Keine unnötigen Re-Initialisierungen!');
         console.log('💾 v5.90.25: Tabs speichern!');
@@ -865,7 +867,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.26 - PERFORMANCE FIX! (Build 20260101-1130)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.27 - KEIN DOPPELTES TAB-LADEN! (Build 20260101-1145)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -38375,12 +38377,14 @@ Stack: ${err.stack}
             // 🆕 v5.87.70: Update Login-Button nach Login!
             updateLoginButton();
             
-            // 🆕 v5.90.25: Lade letzten aktiven Tab!
+            // 🆕 v5.90.27: Lade letzten aktiven Tab!
             setTimeout(() => {
                 const lastTab = localStorage.getItem('lastActiveTab');
-                if (lastTab) {
-                    console.log('🔄 Lade letzten Tab:', lastTab);
+                if (lastTab && lastTab !== currentView) {
+                    console.log('🔄 Lade letzten Tab:', lastTab, '(aktuell:', currentView, ')');
                     switchView(lastTab);
+                } else if (lastTab) {
+                    console.log('ℹ️ Letzter Tab bereits aktiv:', lastTab);
                 }
             }, 500);
         }

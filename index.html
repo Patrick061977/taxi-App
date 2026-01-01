@@ -108,8 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.37 - ADMIN-FAHRT-SCHUTZ! 🛡️ (Build 20260101-1900)');
-        console.log('🛡️ v5.90.37: Admin-Fahrten werden NIEMALS auto-storniert!');
+        console.log('🚕 Funk Taxi App v5.90.38 - FEIERTAGS-TARIF! 🎉 (Build 20260101-1930)');
+        console.log('🎉 v5.90.38: Feiertage nutzen jetzt Nachttarif!');
+        console.log('✅ v5.90.38: Heute (1.1.) = Feiertag erkannt!');
+        console.log('📊 v5.90.38: Anzeige: "🎉 Feiertag (Nachttarif)"');
+        console.log('🛡️ v5.90.37: Admin-Fahrt-Schutz!');
         console.log('✅ v5.90.37: Schnellbuchung geschützt!');
         console.log('✅ v5.90.37: Admin-Panel geschützt!');
         console.log('🏥 v5.90.36: Krankenfahrt-Schutz!');
@@ -895,7 +898,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.37 - ADMIN-FAHRT-SCHUTZ! (Build 20260101-1900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.38 - FEIERTAGS-TARIF! (Build 20260101-1930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5750,6 +5753,34 @@
             nacht_km_3_4: 2.80,
             nacht_km_ab_5: 2.40
         };
+        
+        // 🆕 v5.90.38: DEUTSCHE FEIERTAGE
+        const FEIERTAGE = [
+            '01-01', // Neujahr
+            '05-01', // Tag der Arbeit
+            '10-03', // Tag der Deutschen Einheit
+            '12-24', // Heiligabend
+            '12-25', // 1. Weihnachtstag
+            '12-26', // 2. Weihnachtstag
+            '12-31'  // Silvester
+            // Ostern, Pfingsten etc. sind variabel - später ergänzen
+        ];
+        
+        // 🆕 v5.90.38: Prüfe ob Feiertag
+        function isFeiertag(date) {
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateStr = `${month}-${day}`;
+            
+            const result = FEIERTAGE.includes(dateStr);
+            
+            if (result) {
+                console.log(`🎉 FEIERTAG ERKANNT: ${day}.${month}. → Nachttarif!`);
+            }
+            
+            return result;
+        }
+        
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
@@ -17246,8 +17277,11 @@
             const calcTime = timestamp ? new Date(timestamp) : new Date();
             const hour = calcTime.getHours(), day = calcTime.getDay();
             
-            // Prüfe ob Nachttarif (Mo-Sa 22-6 Uhr, Sonntag ganztägig)
-            const isNight = (hour >= 22 || hour < 6) || (day === 0);
+            // 🆕 v5.90.38: Prüfe Feiertag
+            const istFeiertag = isFeiertag(calcTime);
+            
+            // Prüfe ob Nachttarif (Mo-Sa 22-6 Uhr, Sonntag ganztägig, ODER Feiertag!)
+            const isNight = (hour >= 22 || hour < 6) || (day === 0) || istFeiertag;
             
             // Wähle Tarif
             const grundgebuehr = isNight ? TARIF.nacht_grundgebuehr : TARIF.grundgebuehr;
@@ -17271,8 +17305,15 @@
             let base = grundgebuehr + kmPreis;
             let text = [];
             
+            // 🆕 v5.90.38: Feiertags-Hinweis (hat Priorität vor Nacht/Sonntag)
+            if (istFeiertag) {
+                text.push('🎉 Feiertag (Nachttarif)');
+            }
             // Nachttarif-Hinweis
-            if (isNight) {
+            else if (day === 0) {
+                text.push('Sonntag (Nachttarif)');
+            }
+            else if (isNight) {
                 text.push('Nachttarif');
             }
             

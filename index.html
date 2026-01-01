@@ -108,8 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.24 - WHATSAPP-STYLE ZEIT ADMIN! ⏰ (Build 20260101-1030)');
-        console.log('⏰ v5.90.24: Zeit springt auf :00 bei Stunden-Wechsel!');
+        console.log('🚕 Funk Taxi App v5.90.25 - TABS SPEICHERN FIX! 💾 (Build 20260101-1100)');
+        console.log('💾 v5.90.25: Tab-Reihenfolge wird geladen!');
+        console.log('📌 v5.90.25: Letzter aktiver Tab wird gespeichert!');
+        console.log('🔧 v5.90.25: Fix invoice.brutto.toFixed Fehler!');
+        console.log('⏰ v5.90.24: WhatsApp-Style Zeit Admin!');
         console.log('✅ v5.90.24: Gilt für ALLE Zeit-Inputs (Admin, Kalender)!');
         console.log('🚗 v5.90.23: Fahrer Taxameter-Preis!');
         console.log('💰 v5.90.23: 2 Buttons: Fertig / Mit Rechnung!');
@@ -10545,6 +10548,10 @@
             }
             
             currentView = view;
+            
+            // 🆕 v5.90.25: Speichere aktiven Tab!
+            localStorage.setItem('lastActiveTab', view);
+            console.log('💾 Aktiver Tab gespeichert:', view);
             
             console.log('🔄 View gewechselt zu:', view);
             
@@ -38364,6 +38371,15 @@ Stack: ${err.stack}
             
             // 🆕 v5.87.70: Update Login-Button nach Login!
             updateLoginButton();
+            
+            // 🆕 v5.90.25: Lade letzten aktiven Tab!
+            setTimeout(() => {
+                const lastTab = localStorage.getItem('lastActiveTab');
+                if (lastTab) {
+                    console.log('🔄 Lade letzten Tab:', lastTab);
+                    switchView(lastTab);
+                }
+            }, 500);
         }
         
         function onUserLoggedOut() {
@@ -48629,7 +48645,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 </div>
                                 <div style="text-align:right;">
                                     <div style="font-weight:700;font-size:16px;color:#10b981;margin-bottom:4px;">
-                                        ${invoice.brutto.toFixed(2)}€
+                                        ${(invoice.brutto || 0).toFixed(2)}€
                                     </div>
                                     <div style="font-size:11px;padding:3px 8px;background:${statusColor};color:white;border-radius:4px;font-weight:600;">
                                         ${statusText}
@@ -50428,6 +50444,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         window.addEventListener('load', () => {
             setTimeout(() => {
                 initTabDragDrop();
+                loadTabOrder(); // 🆕 v5.90.25: Tab-Reihenfolge laden!
             }, 1000);
         });
     </script>

@@ -108,8 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.23 - FAHRER TAXAMETER-PREIS! 🚗💰 (Build 20260101-1000)');
-        console.log('🚗 v5.90.23: Fahrer kann Taxameter-Preis eintragen!');
+        console.log('🚕 Funk Taxi App v5.90.24 - WHATSAPP-STYLE ZEIT ADMIN! ⏰ (Build 20260101-1030)');
+        console.log('⏰ v5.90.24: Zeit springt auf :00 bei Stunden-Wechsel!');
+        console.log('✅ v5.90.24: Gilt für ALLE Zeit-Inputs (Admin, Kalender)!');
+        console.log('🚗 v5.90.23: Fahrer Taxameter-Preis!');
         console.log('💰 v5.90.23: 2 Buttons: Fertig / Mit Rechnung!');
         console.log('📄 v5.90.23: Rechnung mit richtigem Preis!');
         console.log('✅ v5.90.22: Kalender Abschließen-Button!');
@@ -43700,7 +43702,76 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             // Lade Stats nach kurzer Verzögerung
             setTimeout(loadFiftyFiftyStats, 3000);
+            
+            // 🆕 v5.90.24: WHATSAPP-STYLE ZEIT AKTIVIEREN
+            setTimeout(setupWhatsAppTimeInputs, 1000);
         });
+        
+        // 🆕 v5.90.24: WHATSAPP-STYLE ZEIT - MINUTEN AUF :00 BEI STUNDEN-WECHSEL
+        function setupWhatsAppTimeInputs() {
+            const timeInputs = document.querySelectorAll('input[type="time"], input[type="datetime-local"]');
+            
+            timeInputs.forEach(input => {
+                // Verhindere doppelte Listener
+                if (input.dataset.whatsappTime) return;
+                input.dataset.whatsappTime = 'true';
+                
+                let lastHour = null;
+                
+                input.addEventListener('input', function(e) {
+                    const value = this.value;
+                    if (!value) return;
+                    
+                    let currentHour, currentMinute;
+                    
+                    if (this.type === 'datetime-local') {
+                        const parts = value.split('T');
+                        if (parts.length === 2) {
+                            const timePart = parts[1];
+                            [currentHour, currentMinute] = timePart.split(':');
+                        }
+                    } else if (this.type === 'time') {
+                        [currentHour, currentMinute] = value.split(':');
+                    }
+                    
+                    // Wenn Stunde geändert → Minuten auf :00
+                    if (lastHour !== null && currentHour !== lastHour) {
+                        console.log('⏰ Stunde geändert:', lastHour, '→', currentHour, '→ Setze :00');
+                        
+                        if (this.type === 'datetime-local') {
+                            const datePart = value.split('T')[0];
+                            this.value = `${datePart}T${currentHour}:00`;
+                        } else if (this.type === 'time') {
+                            this.value = `${currentHour}:00`;
+                        }
+                    }
+                    
+                    lastHour = currentHour;
+                });
+                
+                input.addEventListener('focus', function() {
+                    const value = this.value;
+                    if (!value) return;
+                    
+                    if (this.type === 'datetime-local') {
+                        const parts = value.split('T');
+                        if (parts.length === 2) {
+                            lastHour = parts[1].split(':')[0];
+                        }
+                    } else if (this.type === 'time') {
+                        lastHour = value.split(':')[0];
+                    }
+                });
+            });
+            
+            console.log('✅ WhatsApp-Style Zeit aktiviert für', timeInputs.length, 'Inputs');
+        }
+        
+        // Reaktiviere wenn DOM sich ändert (z.B. Modals)
+        const timeObserver = new MutationObserver(() => {
+            setupWhatsAppTimeInputs();
+        });
+        timeObserver.observe(document.body, { childList: true, subtree: true });
         
         // Lade 50/50 Statistik
         async function loadFiftyFiftyStats() {

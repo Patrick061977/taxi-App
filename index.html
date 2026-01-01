@@ -108,8 +108,18 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.38 - FEIERTAGS-TARIF! 🎉 (Build 20260101-1930)');
-        console.log('🎉 v5.90.38: Feiertage nutzen jetzt Nachttarif!');
+        console.log('🚕 Funk Taxi App v5.90.41 - ARCHIV KOMPLETT! 🗄️ (Build 20260101-2045)');
+        console.log('✅ v5.90.41: Backup, POI & Archiv in Tab-Einstellungen!');
+        console.log('✅ v5.90.41: Alle Tabs jetzt konfigurierbar!');
+        console.log('🗄️ v5.90.40: Archiv-System!');
+        console.log('✅ v5.90.40: Sehe ALLE Auto-Stornos!');
+        console.log('🔍 v5.90.40: Filter & Suche!');
+        console.log('🔄 v5.90.40: Wiederherstellen-Funktion!');
+        console.log('📊 v5.90.40: Statistiken & Gründe!');
+        console.log('🔧 v5.90.39: Tab-Einstellungen Fix!');
+        console.log('✅ v5.90.39: Checkboxen zeigen korrekten Status!');
+        console.log('✅ v5.90.39: Speichern funktioniert!');
+        console.log('🎉 v5.90.38: Feiertags-Tarif!');
         console.log('✅ v5.90.38: Heute (1.1.) = Feiertag erkannt!');
         console.log('📊 v5.90.38: Anzeige: "🎉 Feiertag (Nachttarif)"');
         console.log('🛡️ v5.90.37: Admin-Fahrt-Schutz!');
@@ -898,7 +908,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.38 - FEIERTAGS-TARIF! (Build 20260101-1930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.41 - ARCHIV KOMPLETT! (Build 20260101-2045)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1156,6 +1166,23 @@
                 box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
             ">
                 🔽 Backup
+            </button>
+            
+            <!-- 🆕 v5.90.40: ARCHIV TAB -->
+            <button onclick="switchView('archive')" class="admin-tab-btn admin-only tab-toggleable" data-view="archive" data-tab-id="archive" style="
+                padding: 10px 16px;
+                border: 2px solid #dc2626;
+                background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+            ">
+                🗄️ Archiv
             </button>
         </div>
     </div>
@@ -5684,6 +5711,57 @@
                         <strong>Restore:</strong> Mit einem Klick kannst du ein Backup wiederherstellen (überschreibt aktuelle Daten!).
                     </p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.90.40: ARCHIV VIEW - Gelöschte Fahrten -->
+    <div id="archive-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+        <div style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 12px rgba(220,38,38,0.3);">
+            <h2 style="margin:0;font-size:24px;font-weight:700;">🗄️ Fahrt-Archiv</h2>
+            <p style="margin:8px 0 0 0;opacity:0.9;font-size:14px;">Alle stornierten & gelöschten Fahrten</p>
+        </div>
+        
+        <!-- Statistik -->
+        <div id="archive-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">
+            <!-- Wird dynamisch gefüllt -->
+        </div>
+        
+        <!-- Filter -->
+        <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;">
+                <div>
+                    <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">📅 Zeitraum</label>
+                    <select id="archive-time-filter" onchange="loadArchive()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        <option value="today">Heute</option>
+                        <option value="week" selected>Diese Woche</option>
+                        <option value="month">Dieser Monat</option>
+                        <option value="all">Alle</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">🔍 Grund</label>
+                    <select id="archive-reason-filter" onchange="filterArchive()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        <option value="all">Alle Gründe</option>
+                        <option value="auto24h">Auto: Älter als 24h</option>
+                        <option value="autotime">Auto: Zeit verpasst</option>
+                        <option value="manual">Manuell storniert</option>
+                        <option value="other">Andere</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">🔎 Suche</label>
+                    <input type="text" id="archive-search" oninput="filterArchive()" placeholder="Kunde, Telefon, Route..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fahrten-Liste -->
+        <div id="archive-list" style="display:flex;flex-direction:column;gap:15px;">
+            <div style="text-align:center;padding:40px;color:#6b7280;">
+                Lade Archiv...
             </div>
         </div>
     </div>
@@ -10723,6 +10801,11 @@
                 }, 100);
             }
             
+            // 🆕 v5.90.40: Archiv laden bei Archive-View!
+            if (view === 'archive') {
+                setTimeout(() => loadArchive(), 100);
+            }
+            
             const gpsIndicator = document.getElementById('gps-indicator');
             if (view === 'driver') {
                 if (gpsIndicator) gpsIndicator.style.display = 'flex';
@@ -11076,7 +11159,7 @@
         // Standard-Berechtigungen
         function getDefaultPermissions() {
             return {
-                admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'],
+                admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive'],
                 driver: ['driver', 'schedule', 'history'],
                 passenger: ['passenger', 'schedule', 'history']
             };
@@ -11091,7 +11174,7 @@
                 const snapshot = await settingsRef.once('value');
                 let permissions = snapshot.exists() ? snapshot.val() : null;
                 
-                const allTabs = ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'];
+                const allTabs = ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive'];
                 
                 // Wenn keine Permissions oder Admin hat nicht alle Tabs
                 if (!permissions || !permissions.admin || permissions.admin.length < allTabs.length) {
@@ -50838,18 +50921,43 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             { id: 'shift-plan', name: '📊 Schichtplan', admin: true },
             { id: 'debug', name: '🐛 Debug', admin: true },
             { id: 'ai-assistant', name: '🤖 AI-Assistent', admin: true },
-            { id: 'booking-requests', name: '📬 Anfragen', admin: true }
+            { id: 'booking-requests', name: '📬 Anfragen', admin: true },
+            { id: 'backup', name: '🔽 Backup', admin: true },
+            { id: 'poi-management', name: '📍 POI-Verwaltung', admin: true },
+            { id: 'archive', name: '🗄️ Archiv', admin: true }
         ];
         
         // Initialisiere Tab-Einstellungen Panel
-        function initTabSettingsPanel() {
+        async function initTabSettingsPanel() {
             const checkboxes = document.getElementById('tab-checkboxes');
             const select = document.getElementById('default-tab-select');
             
             if (!checkboxes || !select) return;
             
-            // Lade gespeicherte Einstellungen
-            const saved = JSON.parse(localStorage.getItem('tabSettings') || '{}');
+            // 🆕 v5.90.39: LADE VON FIREBASE!
+            let saved = {};
+            
+            if (currentUser && db) {
+                try {
+                    const snapshot = await db.ref(`users/${currentUser.uid}/tabSettings`).once('value');
+                    if (snapshot.exists()) {
+                        saved = snapshot.val();
+                        console.log('✅ Tab-Einstellungen für Panel von Firebase geladen:', saved);
+                    } else {
+                        console.log('ℹ️ Keine Tab-Einstellungen in Firebase - nutze Defaults');
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden:', error);
+                }
+            }
+            
+            // Fallback zu localStorage
+            if (!saved.visible) {
+                const localSaved = JSON.parse(localStorage.getItem('tabSettings') || '{}');
+                saved = localSaved;
+            }
+            
+            // Wenn immer noch nichts → ALLE Tabs als Default
             const visible = saved.visible || ALL_TABS.map(t => t.id);
             const defaultTab = saved.default || 'passenger';
             
@@ -50868,6 +50976,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             select.innerHTML = ALL_TABS.map(tab => 
                 `<option value="${tab.id}" ${tab.id === defaultTab ? 'selected' : ''}>${tab.name}</option>`
             ).join('');
+            
+            console.log('✅ Tab-Einstellungen Panel initialisiert:', { visible, defaultTab });
         }
         
         // Speichere Tab-Einstellungen
@@ -50954,10 +51064,244 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             console.log('✅ Tab-Einstellungen angewendet:', settings);
         }
         
+        // 🆕 v5.90.40: ARCHIV-SYSTEM
+        let allArchivedRides = [];
+        let filteredArchivedRides = [];
+        
+        async function loadArchive() {
+            console.log('🗄️ Lade Archiv...');
+            
+            if (!isFirebaseReady) {
+                alert('⏳ Firebase nicht bereit!');
+                return;
+            }
+            
+            const timeFilter = document.getElementById('archive-time-filter').value;
+            const now = Date.now();
+            let startTime = 0;
+            
+            if (timeFilter === 'today') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                startTime = today.getTime();
+            } else if (timeFilter === 'week') {
+                startTime = now - (7 * 24 * 60 * 60 * 1000);
+            } else if (timeFilter === 'month') {
+                startTime = now - (30 * 24 * 60 * 60 * 1000);
+            }
+            
+            try {
+                const snapshot = await db.ref('rides')
+                    .orderByChild('status')
+                    .equalTo('cancelled')
+                    .once('value');
+                
+                allArchivedRides = [];
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    const cancelledAt = ride.cancelledAt || ride.timestamp || 0;
+                    
+                    if (cancelledAt >= startTime) {
+                        allArchivedRides.push({
+                            id: child.key,
+                            ...ride
+                        });
+                    }
+                });
+                
+                // Sortiere nach Lösch-Datum (neueste zuerst)
+                allArchivedRides.sort((a, b) => (b.cancelledAt || 0) - (a.cancelledAt || 0));
+                
+                console.log(`✅ ${allArchivedRides.length} archivierte Fahrten geladen`);
+                
+                filterArchive();
+                updateArchiveStats();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden:', error);
+                document.getElementById('archive-list').innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#ef4444;">
+                        ❌ Fehler beim Laden: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function filterArchive() {
+            const reasonFilter = document.getElementById('archive-reason-filter').value;
+            const searchTerm = document.getElementById('archive-search').value.toLowerCase();
+            
+            filteredArchivedRides = allArchivedRides.filter(ride => {
+                // Grund-Filter
+                if (reasonFilter !== 'all') {
+                    const reason = ride.cancelledReason || '';
+                    if (reasonFilter === 'auto24h' && !reason.includes('24h')) return false;
+                    if (reasonFilter === 'autotime' && !reason.includes('Abholzeit') && !reason.includes('verpasst')) return false;
+                    if (reasonFilter === 'manual' && reason.includes('Auto-Storno')) return false;
+                    if (reasonFilter === 'other' && (reason.includes('Auto-Storno') || !reason)) return false;
+                }
+                
+                // Such-Filter
+                if (searchTerm) {
+                    const searchable = `${ride.customerName || ''} ${ride.customerPhone || ''} ${ride.pickup || ''} ${ride.destination || ''}`.toLowerCase();
+                    if (!searchable.includes(searchTerm)) return false;
+                }
+                
+                return true;
+            });
+            
+            displayArchive();
+        }
+        
+        function displayArchive() {
+            const container = document.getElementById('archive-list');
+            
+            if (filteredArchivedRides.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        📭 Keine archivierten Fahrten gefunden
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredArchivedRides.map(ride => {
+                const cancelledDate = ride.cancelledAt ? new Date(ride.cancelledAt) : null;
+                const createdDate = ride.createdAt ? new Date(ride.createdAt) : null;
+                const reason = ride.cancelledReason || 'Unbekannt';
+                const isAuto = reason.includes('Auto-Storno');
+                
+                return `
+                    <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);border-left:4px solid ${isAuto ? '#dc2626' : '#f59e0b'};">
+                        <!-- Header -->
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:15px;">
+                            <div>
+                                <div style="font-size:16px;font-weight:700;color:#1f2937;margin-bottom:4px;">
+                                    ${isAuto ? '🤖' : '👤'} ${reason}
+                                </div>
+                                <div style="font-size:13px;color:#6b7280;">
+                                    ⏰ Gelöscht: ${cancelledDate ? cancelledDate.toLocaleString('de-DE') : 'Unbekannt'}
+                                </div>
+                            </div>
+                            <div style="background:${isAuto ? '#fee2e2' : '#fef3c7'};color:${isAuto ? '#991b1b' : '#92400e'};padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;">
+                                ${isAuto ? 'AUTO' : 'MANUELL'}
+                            </div>
+                        </div>
+                        
+                        <!-- Details -->
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:15px;">
+                            <div>
+                                <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">KUNDE</div>
+                                <div style="font-weight:600;color:#1f2937;">${ride.customerName || 'Unbekannt'}</div>
+                                ${ride.customerPhone ? `<div style="font-size:12px;color:#6b7280;">${ride.customerPhone}</div>` : ''}
+                            </div>
+                            
+                            <div>
+                                <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">ROUTE</div>
+                                <div style="font-size:13px;color:#1f2937;">
+                                    📍 ${ride.pickup || 'Start'}<br>
+                                    🎯 ${ride.destination || 'Ziel'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">PREIS</div>
+                                <div style="font-weight:600;color:#1f2937;">
+                                    ${ride.price ? ride.price + '€' : '❌ Nicht berechnet'}
+                                </div>
+                                ${ride.distance ? `<div style="font-size:12px;color:#6b7280;">${ride.distance} km</div>` : ''}
+                            </div>
+                            
+                            <div>
+                                <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">ERSTELLT</div>
+                                <div style="font-size:13px;color:#1f2937;">
+                                    ${createdDate ? createdDate.toLocaleString('de-DE') : 'Unbekannt'}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div style="display:flex;gap:10px;padding-top:15px;border-top:1px solid #e5e7eb;">
+                            <button onclick="restoreRide('${ride.id}')" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                🔄 Wiederherstellen
+                            </button>
+                            <button onclick="showRideDetails('${ride.id}')" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                📄 Details
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function updateArchiveStats() {
+            const stats = {
+                total: allArchivedRides.length,
+                auto24h: allArchivedRides.filter(r => r.cancelledReason?.includes('24h')).length,
+                autoTime: allArchivedRides.filter(r => r.cancelledReason?.includes('Abholzeit')).length,
+                manual: allArchivedRides.filter(r => !r.cancelledReason?.includes('Auto-Storno')).length,
+                noPrice: allArchivedRides.filter(r => !r.price).length
+            };
+            
+            document.getElementById('archive-stats').innerHTML = `
+                <div style="background:white;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-size:28px;font-weight:700;color:#1f2937;">${stats.total}</div>
+                    <div style="font-size:13px;color:#6b7280;margin-top:4px;">Gesamt storniert</div>
+                </div>
+                
+                <div style="background:white;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-size:28px;font-weight:700;color:#dc2626;">${stats.auto24h}</div>
+                    <div style="font-size:13px;color:#6b7280;margin-top:4px;">Auto: >24h alt</div>
+                </div>
+                
+                <div style="background:white;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-size:28px;font-weight:700;color:#ea580c;">${stats.autoTime}</div>
+                    <div style="font-size:13px;color:#6b7280;margin-top:4px;">Auto: Zeit verpasst</div>
+                </div>
+                
+                <div style="background:white;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-size:28px;font-weight:700;color:#f59e0b;">${stats.manual}</div>
+                    <div style="font-size:13px;color:#6b7280;margin-top:4px;">Manuell storniert</div>
+                </div>
+                
+                <div style="background:white;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-size:28px;font-weight:700;color:#8b5cf6;">${stats.noPrice}</div>
+                    <div style="font-size:13px;color:#6b7280;margin-top:4px;">Ohne Preis</div>
+                </div>
+            `;
+        }
+        
+        async function restoreRide(rideId) {
+            if (!confirm('⚠️ Fahrt wiederherstellen?\n\nDie Fahrt wird auf Status "new" gesetzt und erscheint wieder in der Liste.')) {
+                return;
+            }
+            
+            try {
+                await db.ref(`rides/${rideId}`).update({
+                    status: 'new',
+                    cancelledReason: null,
+                    cancelledAt: null,
+                    autoCleanup: null,
+                    restoredAt: Date.now(),
+                    restoredBy: currentUser ? currentUser.email : 'unknown'
+                });
+                
+                alert('✅ Fahrt wiederhergestellt!\n\nDie Fahrt ist jetzt wieder aktiv.');
+                
+                // Neu laden
+                loadArchive();
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Wiederherstellen: ' + error.message);
+            }
+        }
+        
         window.addEventListener('load', () => {
             setTimeout(() => {
                 initTabDragDrop();
-                initTabSettingsPanel(); // 🆕 v5.90.29: Panel initialisieren
+                initTabSettingsPanel(); // 🆕 v5.90.29: Panel initialisieren (jetzt async!)
             }, 1000);
             
             // 🆕 v5.90.29: Tab-Einstellungen laden

@@ -108,7 +108,21 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.15 - WHATSAPP ÜBERALL! 📤💬 (Build 20251231-1700)');
+        console.log('🚕 Funk Taxi App v5.90.20 - EMAIL-BOT SLOT-CHECK! 🤖 (Build 20251231-2300)');
+        console.log('🤖 v5.90.20: Email-Bot kann Slots prüfen!');
+        console.log('📅 v5.90.20: window.checkSlotForBot() API!');
+        console.log('✅ v5.90.20: Alternative Zeiten für Bot!');
+        console.log('✅ v5.90.19: Kunde sieht Admin-Buchungen!');
+        console.log('⏰ v5.90.19: Vorbestellung min. 1 Stunde im Voraus!');
+        console.log('🔒 v5.90.19: Validierung bei Zeit-Änderung!');
+        console.log('🕐 v5.90.18: Stunde ändern → Minuten auf :00!');
+        console.log('✨ v5.90.18: Bessere UX bei Zeitauswahl!');
+        console.log('🔧 v5.90.17: Admin bekommt automatisch ALLE Tabs!');
+        console.log('🔧 v5.90.17: Auto-Fix für falsche Firebase Permissions!');
+        console.log('✅ v5.90.17: Hotel-Calendar in Admin Tabs!');
+        console.log('🔧 v5.90.16: Slot-Check zeigt mehr Status!');
+        console.log('🔧 v5.90.16: Admin-Override Warnung!');
+        console.log('🔧 v5.90.16: Bessere Debug-Logs!');
         console.log('📤 v5.90.15: WhatsApp-Button bei ALLEN Rechnungen!');
         console.log('📄 v5.90.15: In Rechnungs-Liste!');
         console.log('📅 v5.90.15: Im Kalender!');
@@ -6579,12 +6593,14 @@
                         });
                     }
                     
-                    // 🆕 v5.90.11: AUCH nach Phone suchen (wenn vorhanden)
-                    // 🆕 v5.90.12: NORMALISIERE Phone vor Suche!
+                    // 🆕 v5.90.12: AUCH nach Phone suchen (wenn vorhanden)
+                    // 🆕 v5.90.19: Suche auch nach customerPhone!
                     if (currentUser.phoneNumber) {
                         const normalizedPhone = normalizePhoneNumber(currentUser.phoneNumber);
+                        console.log('📱 Phone normalisiert:', currentUser.phoneNumber, '→', normalizedPhone);
                         console.log('🔍 Suche nach normalisierter Phone:', normalizedPhone);
                         
+                        // Suche nach userId = Phone
                         const phoneSnapshot = await db.ref('rides').orderByChild('userId').equalTo(normalizedPhone).once('value');
                         if (phoneSnapshot.exists()) {
                             phoneSnapshot.forEach(childSnapshot => {
@@ -6596,7 +6612,22 @@
                                     firebaseRideIds.push(ride.id);
                                 }
                             });
-                            console.log('✅ Fahrten via Phone gefunden:', phoneSnapshot.numChildren());
+                            console.log('✅ Fahrten via userId=Phone gefunden:', phoneSnapshot.numChildren());
+                        }
+                        
+                        // 🆕 v5.90.19: AUCH nach customerPhone suchen!
+                        const customerPhoneSnapshot = await db.ref('rides').orderByChild('customerPhone').equalTo(normalizedPhone).once('value');
+                        if (customerPhoneSnapshot.exists()) {
+                            customerPhoneSnapshot.forEach(childSnapshot => {
+                                const ride = childSnapshot.val();
+                                ride.firebaseId = childSnapshot.key;
+                                // Nur hinzufügen wenn nicht schon drin
+                                if (!firebaseRideIds.includes(ride.id)) {
+                                    firebaseRides.push(ride);
+                                    firebaseRideIds.push(ride.id);
+                                }
+                            });
+                            console.log('✅ Fahrten via customerPhone gefunden:', customerPhoneSnapshot.numChildren());
                         }
                     }
                 } catch (error) {
@@ -7079,7 +7110,7 @@
             datetimeContainer.style.display = 'block';
             if (helpText) helpText.style.display = 'block';
             
-            // Setze Standard auf jetzt + 1 Stunde (gerundet auf 5 Min)
+            // 🆕 v5.90.19: Mindestens 1 Stunde in Zukunft!
             const defaultTime = new Date();
             defaultTime.setHours(defaultTime.getHours() + 1);
             
@@ -7099,10 +7130,18 @@
             const day = String(defaultTime.getDate()).padStart(2, '0');
             dateInput.value = `${year}-${month}-${day}`;
             
-            // Minimum-Datum auf heute setzen
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            dateInput.min = todayStr;
+            // 🆕 v5.90.19: Minimum-Datum + Zeit (1 Stunde ab jetzt)
+            const minTime = new Date();
+            minTime.setHours(minTime.getHours() + 1);
+            const minDateStr = `${minTime.getFullYear()}-${String(minTime.getMonth() + 1).padStart(2, '0')}-${String(minTime.getDate()).padStart(2, '0')}`;
+            dateInput.min = minDateStr;
+            
+            // Event Listener für Validierung
+            dateInput.addEventListener('change', validateMinimumTime);
+            hourSelect.addEventListener('change', validateMinimumTime);
+            minuteSelect.addEventListener('change', validateMinimumTime);
+            
+            console.log('⏰ Vorbestellen: Minimum 1 Stunde ab jetzt:', minTime.toLocaleString('de-DE'));
             
             // Stunde und Minute
             hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
@@ -7115,6 +7154,59 @@
                     performLiveSlotCheck();
                 }, 500);
             }
+        }
+        
+        // 🆕 v5.90.19: VALIDIERE MINIMUM 1 STUNDE
+        function validateMinimumTime() {
+            const dateInput = document.getElementById('custom-date');
+            const hourSelect = document.getElementById('custom-hour');
+            const minuteSelect = document.getElementById('custom-minute');
+            
+            if (!dateInput || !hourSelect || !minuteSelect) return true;
+            
+            const dateVal = dateInput.value;
+            const hourVal = hourSelect.value;
+            const minuteVal = minuteSelect.value;
+            
+            if (!dateVal) return true; // Kein Datum = OK (noch nicht ausgefüllt)
+            
+            // Gewählte Zeit
+            const selectedTime = new Date(dateVal);
+            selectedTime.setHours(parseInt(hourVal), parseInt(minuteVal), 0, 0);
+            
+            // Minimum Zeit (jetzt + 1 Stunde)
+            const minTime = new Date();
+            minTime.setHours(minTime.getHours() + 1);
+            minTime.setSeconds(0, 0);
+            
+            // Prüfe
+            if (selectedTime < minTime) {
+                const minTimeStr = minTime.toLocaleString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                alert(`⚠️ Vorbestellungen müssen mindestens 1 Stunde im Voraus erfolgen!\n\nFrüheste mögliche Zeit: ${minTimeStr}`);
+                
+                // Setze zurück auf Minimum
+                const year = minTime.getFullYear();
+                const month = String(minTime.getMonth() + 1).padStart(2, '0');
+                const day = String(minTime.getDate()).padStart(2, '0');
+                dateInput.value = `${year}-${month}-${day}`;
+                
+                hourSelect.value = String(minTime.getHours()).padStart(2, '0');
+                
+                // Runde Minuten auf nächste 5
+                const roundedMin = Math.ceil(minTime.getMinutes() / 5) * 5;
+                minuteSelect.value = String(roundedMin % 60).padStart(2, '0');
+                
+                return false;
+            }
+            
+            return true;
         }
 
         // 🗑️ Fahrt aus Verlauf stornieren
@@ -10750,6 +10842,9 @@
             }
             
             try {
+                // 🆕 v5.90.17: AUTO-FIX für Admin Permissions
+                await ensureAdminHasAllTabs();
+                
                 // Lade GLOBALE Einstellungen (nicht pro User!)
                 const settingsRef = db.ref('settings/tabPermissions');
                 const snapshot = await settingsRef.once('value');
@@ -10788,10 +10883,47 @@
         // Standard-Berechtigungen
         function getDefaultPermissions() {
             return {
-                admin: ['passenger', 'schedule', 'history', 'calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'],
+                admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'],
                 driver: ['driver', 'schedule', 'history'],
                 passenger: ['passenger', 'schedule', 'history']
             };
+        }
+        
+        // 🆕 v5.90.17: AUTO-FIX für Admin Permissions
+        async function ensureAdminHasAllTabs() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const settingsRef = db.ref('settings/tabPermissions');
+                const snapshot = await settingsRef.once('value');
+                let permissions = snapshot.exists() ? snapshot.val() : null;
+                
+                const allTabs = ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'];
+                
+                // Wenn keine Permissions oder Admin hat nicht alle Tabs
+                if (!permissions || !permissions.admin || permissions.admin.length < allTabs.length) {
+                    console.warn('⚠️ Admin Permissions unvollständig - fixe automatisch!');
+                    console.log('📊 Vorher:', permissions?.admin || 'keine');
+                    
+                    if (!permissions) {
+                        permissions = getDefaultPermissions();
+                    } else {
+                        permissions.admin = allTabs;
+                    }
+                    
+                    await settingsRef.set(permissions);
+                    console.log('✅ Admin Permissions automatisch gefixt!');
+                    console.log('📊 Nachher:', permissions.admin);
+                    
+                    return permissions;
+                }
+                
+                return permissions;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Auto-Fix:', error);
+                return getDefaultPermissions();
+            }
         }
         
         // Wende Tab-Berechtigungen an
@@ -12276,6 +12408,25 @@
                     dropdown.style.display = 'none';
                 }
             });
+            
+            // 🆕 v5.90.18: WHATSAPP-STYLE ZEIT-AUSWAHL
+            // Wenn Stunde geändert wird → Minuten auf :00
+            const hourSelect = document.getElementById('custom-hour');
+            if (hourSelect) {
+                hourSelect.addEventListener('change', () => {
+                    const minuteSelect = document.getElementById('custom-minute');
+                    if (minuteSelect) {
+                        minuteSelect.value = '00';
+                        console.log('🕐 Stunde geändert → Minuten auf :00');
+                        
+                        // Trigger Slot-Check
+                        if (typeof performLiveSlotCheck === 'function') {
+                            performLiveSlotCheck();
+                        }
+                    }
+                });
+                console.log('✅ WhatsApp-Style Zeit-Auswahl aktiviert');
+            }
         });
         
         // 🔍 v5.31.3: RIDE-ID SUCHE
@@ -19168,6 +19319,13 @@
                 timeslotSettings = JSON.parse(saved);
             }
             
+            // 🆕 v5.90.16: WARNUNG bei Admin-Override!
+            if (timeslotSettings.adminOverride) {
+                console.warn('⚠️⚠️⚠️ ADMIN-OVERRIDE IST AKTIV! ⚠️⚠️⚠️');
+                console.warn('⚠️ Alle Zeitslots werden als FREI markiert!');
+                console.warn('⚠️ Deaktiviere dies in den Einstellungen!');
+            }
+            
             // UI aktualisieren
             const rideDurationSlider = document.getElementById('ride-duration-slider');
             const travelTimeSlider = document.getElementById('travel-time-slider');
@@ -19191,6 +19349,12 @@
             
             if (adminOverrideCheckbox) {
                 adminOverrideCheckbox.checked = timeslotSettings.adminOverride;
+                
+                // 🆕 v5.90.16: Visueller Hinweis!
+                if (timeslotSettings.adminOverride) {
+                    adminOverrideCheckbox.parentElement.style.background = '#fee2e2';
+                    adminOverrideCheckbox.parentElement.style.border = '2px solid #ef4444';
+                }
             }
             
             // Total Buffer aktualisieren
@@ -19208,20 +19372,27 @@
         
         // Prüft ob Zeitslot bereits belegt ist
         async function checkTimeSlotAvailability(requestedTimestamp, pickupCoords) {
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('🔍 SLOT-CHECK GESTARTET');
+            console.log('═══════════════════════════════════════════════════════');
+            
             if (!isFirebaseReady) {
+                console.log('❌ Firebase nicht bereit → Slot FREI (Fallback)');
                 debugLog('warn', '⚠️ Slot-Check: Firebase nicht bereit');
                 return { available: true };
             }
             
             // 🎯 v5.33.2: Admin-Override prüfen!
             if (timeslotSettings.adminOverride) {
-                console.log('🎯 Admin-Override aktiv - Zeitslot-Check übersprungen!');
+                console.log('🎯 Admin-Override AKTIV → Slot FREI (Override)');
+                console.log('⚠️ ACHTUNG: Alle Slots werden freigegeben!');
                 debugLog('warn', '🎯 Admin-Override: Slot-Check übersprungen');
                 return { available: true };
             }
             
             const requestedDate = new Date(requestedTimestamp).toLocaleString('de-DE');
-            console.log('🔍 Prüfe Zeitslot für:', requestedDate);
+            console.log('📅 Gewünschte Zeit:', requestedDate);
+            console.log('📍 Pickup Coords:', pickupCoords);
             debugLog('info', `🔍 Prüfe Zeitslot: ${requestedDate}`);
             
             try {
@@ -19235,11 +19406,17 @@
                 });
                 
                 // Filtere nur aktive und vorbestellte Fahrten
+                // 🆕 v5.90.16: ALLE aktiven Status berücksichtigen!
                 const activeRides = rides.filter(r => 
                     r.status && 
-                    ['new', 'assigned', 'vorbestellt', 'picked_up', 'ongoing'].includes(r.status) &&
+                    ['new', 'assigned', 'vorbestellt', 'picked_up', 'ongoing', 'akzeptiert', 'accepted', 'unterwegs', 'angekommen', 'assigned_to_driver'].includes(r.status) &&
                     r.pickupTimestamp
                 );
+                
+                console.log(`🔍 Gefundene aktive Fahrten: ${activeRides.length} von ${rides.length} total`);
+                if (activeRides.length > 0) {
+                    console.log('📋 Status der aktiven Fahrten:', activeRides.map(r => r.status));
+                }
                 
                 // 🔧 v5.39.8: Nur Fahrten prüfen die zeitlich relevant sind!
                 // Filtere Fahrten die mehr als 48h vor oder nach gewünschter Zeit liegen
@@ -19424,6 +19601,111 @@
                 });
             }
         }
+        
+        // 🆕 v5.90.20: API FÜR EMAIL-BOT / TELEGRAM-BOT
+        // Prüft Slot-Verfügbarkeit und gibt Alternativen zurück
+        window.checkSlotForBot = async function(dateTimeStr, pickupAddress) {
+            console.log('🤖 BOT Slot-Check:', dateTimeStr, pickupAddress);
+            
+            try {
+                // 1. Parse DateTime String (z.B. "2026-01-02 14:00")
+                const [datePart, timePart] = dateTimeStr.split(' ');
+                const [year, month, day] = datePart.split('-').map(n => parseInt(n));
+                const [hour, minute] = timePart.split(':').map(n => parseInt(n));
+                
+                const requestedTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+                const timestamp = requestedTime.getTime();
+                
+                console.log('📅 Gewünschte Zeit:', requestedTime.toLocaleString('de-DE'));
+                
+                // 2. Geocode Pickup Address
+                let pickupCoords = null;
+                if (pickupAddress) {
+                    pickupCoords = await geocode(pickupAddress);
+                    console.log('📍 Pickup Coords:', pickupCoords);
+                }
+                
+                // 3. Check Slot
+                const availability = await checkTimeSlotAvailability(timestamp, pickupCoords);
+                
+                // 4. Wenn belegt, finde Alternativen
+                if (!availability.available && availability.conflictingRide) {
+                    console.log('⚠️ Slot belegt, berechne Alternativen...');
+                    
+                    const alternatives = await calculateAlternativeTimes(
+                        availability.conflictingRide,
+                        pickupCoords,
+                        timestamp
+                    );
+                    
+                    // Formatiere Alternativen
+                    const formattedAlternatives = alternatives.slice(0, 3).map(alt => {
+                        const altDate = new Date(alt.timestamp);
+                        return {
+                            time: altDate.toLocaleString('de-DE', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            }),
+                            timestamp: alt.timestamp,
+                            reason: alt.reason
+                        };
+                    });
+                    
+                    return {
+                        available: false,
+                        requestedTime: dateTimeStr,
+                        alternatives: formattedAlternatives
+                    };
+                }
+                
+                // 5. Slot ist frei!
+                return {
+                    available: true,
+                    requestedTime: dateTimeStr,
+                    alternatives: []
+                };
+                
+            } catch (error) {
+                console.error('❌ BOT Slot-Check Fehler:', error);
+                return {
+                    available: true, // Im Fehlerfall erlauben
+                    requestedTime: dateTimeStr,
+                    error: error.message,
+                    alternatives: []
+                };
+            }
+        };
+        
+        // 🆕 v5.90.20: EINFACHE API - Nur JA/NEIN
+        window.isSlotAvailable = async function(dateTimeStr, pickupAddress) {
+            const result = await window.checkSlotForBot(dateTimeStr, pickupAddress);
+            return result.available;
+        };
+        
+        // 🆕 v5.90.20: API MIT ALTERNATIVEN ALS TEXT
+        window.checkSlotWithText = async function(dateTimeStr, pickupAddress) {
+            const result = await window.checkSlotForBot(dateTimeStr, pickupAddress);
+            
+            if (result.available) {
+                return `✅ ${dateTimeStr} ist verfügbar!`;
+            } else {
+                let text = `❌ ${dateTimeStr} ist leider belegt.\n\n`;
+                
+                if (result.alternatives && result.alternatives.length > 0) {
+                    text += '📅 Alternative Zeiten:\n';
+                    result.alternatives.forEach((alt, i) => {
+                        text += `${i + 1}. ${alt.time}\n`;
+                    });
+                } else {
+                    text += 'Keine Alternativen gefunden.';
+                }
+                
+                return text;
+            }
+        };
         
         // Berechnet Route-Dauer via Google Maps
         async function calculateRouteDuration(fromCoords, toCoords) {

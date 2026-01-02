@@ -108,15 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.46 - TRACKING IM KALENDER! 📍 (Build 20260102-1045)');
+        console.log('🚕 Funk Taxi App v5.90.47 - TRACKING IM KALENDER-TAB! 📍 (Build 20260102-1110)');
+        console.log('🔧 v5.90.47: KRITISCHER FIX!');
+        console.log('✅ v5.90.47: Tracking-Link jetzt IM KALENDER-TAB sichtbar!');
+        console.log('✅ v5.90.47: onclick entfernt - keine Admin-Warnung mehr!');
+        console.log('✅ v5.90.47: Alle Details immer sichtbar!');
         console.log('📍 v5.90.46: Tracking-Link im Admin-Kalender sichtbar!');
         console.log('✅ v5.90.46: "Taxi Tracken" Button!');
         console.log('📋 v5.90.46: "Link kopieren" Button!');
-        console.log('⏰ v5.90.46: "Wird erstellt" Status!');
-        console.log('🔧 v5.90.45: KRITISCHE FEHLER GEFIXT!');
-        console.log('✅ v5.90.45: Syntax-Error behoben!');
-        console.log('✅ v5.90.45: currentUser Check gefixt!');
-        console.log('✅ v5.90.45: isFirebaseReady Check gefixt!');
         console.log('🎯 v5.90.43: Vollständige Adressen mit PLZ!');
         console.log('🖐️ v5.90.43: Marker sind verschiebbar!');
         console.log('✅ v5.90.43: Bestätigungs-Dialog nach Verschieben!');
@@ -947,7 +946,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.46 - TRACKING IM KALENDER! (Build 20260102-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.47 - TRACKING IM KALENDER-TAB! (Build 20260102-1110)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -40330,13 +40329,12 @@ Stack: ${err.stack}
                     }[ride.status] || ride.status;
                     
                     html += `
-                        <div onclick="viewRideDetails('${ride.firebaseId || ride.id}')" style="
+                        <div style="
                             background: white;
                             border-left: 4px solid ${color};
                             padding: 15px;
                             border-radius: 8px;
                             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                            cursor: pointer;
                             transition: all 0.2s;
                         " onmouseenter="this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">

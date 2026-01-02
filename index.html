@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.49 - DEBUG LOGGING! 🔍 (Build 20260102-1130)');
-        console.log('🔍 v5.90.49: MEHR LOGGING!');
-        console.log('✅ v5.90.49: Debug createTrackingLink Aufruf!');
-        console.log('✅ v5.90.49: VOR + NACH Logging!');
-        console.log('🚀 v5.90.48: Link wird IMMER SOFORT erstellt!');
+        console.log('🚕 Funk Taxi App v5.90.50 - EDIT-MODAL FIX! ✅ (Build 20260102-1140)');
+        console.log('🎯 v5.90.50: KRITISCHER FIX!');
+        console.log('✅ v5.90.50: Tracking-Link auch im Edit-Modal!');
+        console.log('✅ v5.90.50: saveEditedRide ruft createTrackingLink auf!');
+        console.log('🔍 v5.90.49: Debug Logging aktiv!');
         console.log('🎯 v5.90.43: Vollständige Adressen mit PLZ!');
         console.log('🖐️ v5.90.43: Marker sind verschiebbar!');
         console.log('✅ v5.90.43: Bestätigungs-Dialog nach Verschieben!');
@@ -943,7 +943,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.49 - DEBUG LOGGING! (Build 20260102-1130)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.50 - EDIT-MODAL FIX! (Build 20260102-1140)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8154,6 +8154,12 @@
                 try {
                     await db.ref('rides/' + rideId).update(updates);
                     console.log('✅ Fahrt in Firebase aktualisiert');
+                    
+                    // 🆕 v5.90.50: TRACKING-LINK ERSTELLEN wenn Fahrzeug zugewiesen!
+                    if (newVehicleId && newVehicleId !== '') {
+                        console.log('🔗 Erstelle Tracking-Link (saveEditedRide)...');
+                        await createTrackingLinkForRide(rideId, newVehicleId);
+                    }
                     
                     // 📱 v5.64.43: TELEGRAM RICHTIG SENDEN!
                     if (newVehicleId && updates.vehicle) {

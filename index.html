@@ -108,13 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.48 - LINK IMMER SOFORT! 🚀 (Build 20260102-1120)');
-        console.log('🚀 v5.90.48: KRITISCHER FIX!');
-        console.log('✅ v5.90.48: Tracking-Link wird IMMER SOFORT erstellt!');
-        console.log('✅ v5.90.48: Keine 15-Min Wartezeit mehr!');
-        console.log('✅ v5.90.48: Egal ob Fahrzeug online oder offline!');
-        console.log('✅ v5.90.48: Link bei Fahrzeug-Zuweisung sofort da!');
-        console.log('🔧 v5.90.47: Tracking im Kalender-Tab sichtbar!');
+        console.log('🚕 Funk Taxi App v5.90.49 - DEBUG LOGGING! 🔍 (Build 20260102-1130)');
+        console.log('🔍 v5.90.49: MEHR LOGGING!');
+        console.log('✅ v5.90.49: Debug createTrackingLink Aufruf!');
+        console.log('✅ v5.90.49: VOR + NACH Logging!');
+        console.log('🚀 v5.90.48: Link wird IMMER SOFORT erstellt!');
         console.log('🎯 v5.90.43: Vollständige Adressen mit PLZ!');
         console.log('🖐️ v5.90.43: Marker sind verschiebbar!');
         console.log('✅ v5.90.43: Bestätigungs-Dialog nach Verschieben!');
@@ -945,7 +943,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.48 - LINK IMMER SOFORT! (Build 20260102-1120)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.49 - DEBUG LOGGING! (Build 20260102-1130)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8742,8 +8740,19 @@
                 // 3️⃣ SPEICHERE IN FIREBASE
                 await db.ref('rides/' + rideId).update(updateData);
                 
-                // 🆕 v5.90.44: TRACKING-LINK ERSTELLEN!
-                await createTrackingLinkForRide(rideId, vehicleId);
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('🔗 VOR createTrackingLink Aufruf!');
+                console.log('   rideId:', rideId);
+                console.log('   vehicleId:', vehicleId);
+                console.log('═══════════════════════════════════════════════════════════');
+                
+                // 🆕 v5.90.48: TRACKING-LINK ERSTELLEN!
+                const trackingLink = await createTrackingLinkForRide(rideId, vehicleId);
+                
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('🔗 NACH createTrackingLink Aufruf!');
+                console.log('   Ergebnis:', trackingLink);
+                console.log('═══════════════════════════════════════════════════════════');
                 
                 // 4️⃣ UPDATE LOKAL (wenn Fahrt geladen)
                 const ride = rides.find(r => (r.firebaseId || r.id) === rideId);

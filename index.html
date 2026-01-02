@@ -108,16 +108,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.45 - BUGFIXES! 🔧 (Build 20260102-1020)');
+        console.log('🚕 Funk Taxi App v5.90.46 - TRACKING IM KALENDER! 📍 (Build 20260102-1045)');
+        console.log('📍 v5.90.46: Tracking-Link im Admin-Kalender sichtbar!');
+        console.log('✅ v5.90.46: "Taxi Tracken" Button!');
+        console.log('📋 v5.90.46: "Link kopieren" Button!');
+        console.log('⏰ v5.90.46: "Wird erstellt" Status!');
         console.log('🔧 v5.90.45: KRITISCHE FEHLER GEFIXT!');
         console.log('✅ v5.90.45: Syntax-Error behoben!');
         console.log('✅ v5.90.45: currentUser Check gefixt!');
         console.log('✅ v5.90.45: isFirebaseReady Check gefixt!');
-        console.log('🔗 v5.90.44: Tracking-Link System implementiert!');
-        console.log('✅ v5.90.44: Sofort-Fahrten → Link sofort');
-        console.log('⏰ v5.90.44: Geplante Fahrten → Link 15 Min vorher');
-        console.log('📅 v5.90.44: Google Calendar Integration');
-        console.log('⚙️ v5.90.44: Admin-Schalter für Tracking-Links');
         console.log('🎯 v5.90.43: Vollständige Adressen mit PLZ!');
         console.log('🖐️ v5.90.43: Marker sind verschiebbar!');
         console.log('✅ v5.90.43: Bestätigungs-Dialog nach Verschieben!');
@@ -948,7 +947,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.45 - BUGFIXES! (Build 20260102-1020)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.46 - TRACKING IM KALENDER! (Build 20260102-1045)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -40416,6 +40415,50 @@ Stack: ${err.stack}
                                 }
                                 
                                 return vehicleHtml;
+                            })()}
+                            
+                            ${(() => {
+                                // 🆕 v5.90.45: TRACKING-LINK ANZEIGEN!
+                                if (ride.trackingLink && ride.status !== 'completed' && ride.status !== 'abgeschlossen' && ride.status !== 'cancelled' && ride.status !== 'storniert') {
+                                    return `
+                                        <div style="margin-top: 10px; padding: 12px; background: #dcfce7; border: 2px solid #10b981; border-radius: 8px;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                                <div style="font-size: 18px;">📍</div>
+                                                <div style="font-weight: 600; font-size: 13px; color: #047857;">Live-Tracking verfügbar</div>
+                                            </div>
+                                            <div style="display: flex; gap: 6px;">
+                                                <a href="${ride.trackingLink}" target="_blank" 
+                                                   style="flex: 1; padding: 8px 12px; background: #10b981; color: white; text-align: center; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; display: block;"
+                                                   onclick="event.stopPropagation();">
+                                                    🚕 Taxi Tracken
+                                                </a>
+                                                <button onclick="event.stopPropagation(); navigator.clipboard.writeText('${ride.trackingLink}'); alert('✅ Link kopiert!');" 
+                                                        style="padding: 8px 12px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    📋 Link kopieren
+                                                </button>
+                                            </div>
+                                            <div style="font-size: 10px; color: #059669; margin-top: 6px; word-break: break-all;">${ride.trackingLink}</div>
+                                        </div>
+                                    `;
+                                } else if (ride.trackingLinkPending && (ride.vehicleId || ride.assignedVehicle)) {
+                                    // Link wird noch erstellt
+                                    const pickupTime = new Date(ride.pickupTimestamp);
+                                    const now = new Date();
+                                    const minutesUntil = Math.round((pickupTime - now) / 60000);
+                                    
+                                    return `
+                                        <div style="margin-top: 10px; padding: 12px; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <div style="font-size: 18px;">⏰</div>
+                                                <div>
+                                                    <div style="font-weight: 600; font-size: 12px; color: #92400e;">Tracking-Link wird erstellt</div>
+                                                    <div style="font-size: 10px; color: #92400e; margin-top: 2px;">Noch ${minutesUntil} Min bis zur Abholung</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                                return '';
                             })()}
                             
                             <!-- 🆕 BEARBEITEN/RECHNUNG/KOPIEREN/LÖSCHEN Buttons -->

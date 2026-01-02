@@ -209,6 +209,12 @@
             const rideSnap = await db.ref('rides').child(rideId).once('value');
             const ride = rideSnap.val();
             
+            // 🆕 v5.90.53: STATUS-CHECK - Ist Fahrt beendet?
+            if (ride && (ride.status === 'completed' || ride.status === 'abgeschlossen')) {
+                showError('✅ Diese Fahrt wurde bereits abgeschlossen.<br><br>Das Live-Tracking ist nicht mehr aktiv.');
+                return;
+            }
+            
             if (ride) {
                 // Fahrt-Infos anzeigen
                 const customerName = ride.customerName || 'Ihre Fahrt';
@@ -244,16 +250,16 @@
                 }
             }
             
-            // Live-Position vom Fahrzeug hören
-            db.ref('vehicles').child(vehicleId).on('value', (vehicleSnap) => {
-                const vehicle = vehicleSnap.val();
+            // Live-Position direkt vom Fahrer hören (drivers/ statt vehicles/)
+            db.ref('drivers').child(vehicleId).on('value', (driverSnap) => {
+                const driver = driverSnap.val();
                 
-                if (!vehicle) {
-                    showWarning('⚠️ Fahrzeug nicht gefunden');
+                if (!driver) {
+                    showWarning('⚠️ Fahrer nicht gefunden');
                     return;
                 }
                 
-                const loc = vehicle.location;
+                const loc = driver.location;
                 
                 if (!loc || !loc.lat || !loc.lng) {
                     showWarning('⏳ Warte auf GPS-Signal vom Fahrzeug...');
@@ -320,7 +326,7 @@
                 if (!trackingData || !trackingData.active) {
                     showError('❌ Tracking wurde beendet');
                     // Stop listening
-                    db.ref('vehicles').child(vehicleId).off();
+                    db.ref('drivers').child(vehicleId).off();
                 }
             }, 30000); // Alle 30 Sekunden
         });

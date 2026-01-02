@@ -245,25 +245,39 @@
                 }
             }
             
-            // Live-Position direkt vom Fahrer hören (drivers/ statt vehicles/)
-            db.ref('drivers').child(vehicleId).on('value', (driverSnap) => {
-                const driver = driverSnap.val();
+            // 🎯 EXAKT WIE FAHRZEUG-ÜBERSICHT: Live-Updates!
+            db.ref('drivers').on('value', (driversSnapshot) => {
+                const driversData = driversSnapshot.val() || {};
                 
-                if (!driver || !driver.lat || !driver.lon) {
+                console.log('📊 Live-Update: Alle Fahrer:', Object.keys(driversData));
+                
+                // Finde den richtigen Fahrer
+                const driver = driversData[vehicleId];
+                
+                if (!driver) {
+                    console.error('❌ Kein Fahrer gefunden für:', vehicleId);
+                    console.log('📋 Verfügbare IDs:', Object.keys(driversData));
+                    showWarning('⚠️ Fahrzeug nicht gefunden');
+                    return;
+                }
+                
+                if (!driver.lat || !driver.lon) {
                     showWarning('⏳ Warte auf GPS-Signal vom Fahrzeug...');
                     return;
                 }
                 
-                // Status-Indikator (wie in Fahrer-View)
+                console.log('✅ Fahrer gefunden!', { lat: driver.lat, lon: driver.lon });
+                
+                // Status-Indikator
                 const now = Date.now();
                 const age = driver.timestamp ? (now - driver.timestamp) : 999999;
                 
                 const statusIndicator = document.getElementById('status-indicator');
                 
-                if (age < 60000) { // < 1 Min
+                if (age < 60000) {
                     statusIndicator.className = 'status-indicator status-ok';
                     statusIndicator.title = '🟢 Live';
-                } else if (age < 300000) { // < 5 Min
+                } else if (age < 300000) {
                     statusIndicator.className = 'status-indicator status-warning';
                     statusIndicator.title = '🟡 Vor ' + Math.round(age/60000) + ' Min';
                 } else {
@@ -271,8 +285,8 @@
                     statusIndicator.title = '🔴 Offline';
                 }
                 
-                // Custom Icon erstellen (EXAKT wie Fahrer-View!)
-                const color = '#22c55e'; // Grün
+                // Custom Icon (EXAKT wie Fahrer-View!)
+                const color = '#22c55e';
                 const icon = L.divIcon({
                     className: 'fleet-marker',
                     html: `
@@ -293,7 +307,7 @@
                     iconAnchor: [18, 18]
                 });
                 
-                // Marker aktualisieren (mit driver.lat/lon!)
+                // Marker erstellen/aktualisieren
                 if (vehicleMarker) {
                     vehicleMarker.setLatLng([driver.lat, driver.lon]);
                 } else {
@@ -325,10 +339,9 @@
                 const trackingCheck = await db.ref('tracking').child(trackingCode).once('value');
                 const trackingData = trackingCheck.val();
                 
-                if (!trackingData || !trackingData.active) {
+                if (!trackingData) {
                     showError('❌ Tracking wurde beendet');
-                    // Stop listening
-                    db.ref('drivers').child(vehicleId).off();
+                    db.ref('drivers').off();
                 }
             }, 30000); // Alle 30 Sekunden
         });

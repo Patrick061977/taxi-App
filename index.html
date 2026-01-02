@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.50 - EDIT-MODAL FIX! ✅ (Build 20260102-1140)');
-        console.log('🎯 v5.90.50: KRITISCHER FIX!');
-        console.log('✅ v5.90.50: Tracking-Link auch im Edit-Modal!');
-        console.log('✅ v5.90.50: saveEditedRide ruft createTrackingLink auf!');
-        console.log('🔍 v5.90.49: Debug Logging aktiv!');
+        console.log('🚕 Funk Taxi App v5.90.52 - MANUELL LINKS ERSTELLEN! 🔗 (Build 20260102-1150)');
+        console.log('🎯 v5.90.52: PERFEKT FÜR MANUELLE KONTROLLE!');
+        console.log('✅ v5.90.52: Button IN gelber Box: "🔗 Jetzt Link erstellen"');
+        console.log('🔧 v5.90.52: createSingleTrackingLink() für einzelne Fahrten!');
+        console.log('👆 v5.90.52: Klick → Link erstellt → Grüne Box!');
+        console.log('✅ v5.90.51: Button "Links Nachholen" für alle auf einmal!');
         console.log('🎯 v5.90.43: Vollständige Adressen mit PLZ!');
         console.log('🖐️ v5.90.43: Marker sind verschiebbar!');
         console.log('✅ v5.90.43: Bestätigungs-Dialog nach Verschieben!');
@@ -943,7 +944,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.50 - EDIT-MODAL FIX! (Build 20260102-1140)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.52 - MANUELL LINKS! (Build 20260102-1150)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2091,6 +2092,9 @@
             </button>
             <button id="quick-booking-btn" onclick="openQuickBookingModal()" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #f59e0b; background: #f59e0b; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);">
                 ⚡ Schnellbuchung
+            </button>
+            <button id="fix-tracking-btn" onclick="fixMissingTrackingLinks()" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #8b5cf6; background: #8b5cf6; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);">
+                🔗 Links Nachholen
             </button>
         </div>
         
@@ -3388,7 +3392,7 @@
             </div>
         </div>
         
-        <!-- 🆕 v5.90.7: ALTE FAHRTEN ABSCHLIESSEN -->
+ ABSCHLIESSEN -->
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #ef4444;box-shadow:0 4px 12px rgba(239,68,68,0.15);">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;">
                 <div style="font-size:28px;">🚗</div>
@@ -29354,6 +29358,118 @@
         }
         
         // 🆕 v5.34.0: SCHNELLBUCHUNG MODAL
+        // 🆕 v5.90.52: EINZELNEN TRACKING-LINK ERSTELLEN!
+        async function createSingleTrackingLink(rideId, vehicleId) {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            console.log('═══════════════════════════════════════════');
+            console.log(`🔗 ERSTELLE TRACKING-LINK FÜR FAHRT: ${rideId}`);
+            console.log(`🚗 Fahrzeug: ${vehicleId}`);
+            console.log('═══════════════════════════════════════════');
+            
+            try {
+                // Link erstellen
+                await createTrackingLinkForRide(rideId, vehicleId);
+                
+                console.log('✅ Link erfolgreich erstellt!');
+                
+                // Kalender neu laden um grüne Box zu zeigen
+                if (typeof loadCalendarData === 'function') {
+                    await loadCalendarData();
+                }
+                if (typeof renderCalendar === 'function') {
+                    await renderCalendar();
+                }
+                
+                console.log('✅ Kalender aktualisiert!');
+                console.log('═══════════════════════════════════════════');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen:', error);
+                alert('❌ Fehler beim Erstellen des Links: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.51: TRACKING-LINKS NACHHOLEN!
+        async function fixMissingTrackingLinks() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht verbunden!');
+                return;
+            }
+            
+            if (!confirm('🔗 Tracking-Links für alle Fahrten mit Fahrzeug aber ohne Link erstellen?\n\nDas kann ein paar Sekunden dauern!')) {
+                return;
+            }
+            
+            console.log('═══════════════════════════════════════════');
+            console.log('🔗 STARTE TRACKING-LINK NACHHOL-PROZESS');
+            console.log('═══════════════════════════════════════════');
+            
+            try {
+                // Lade ALLE Fahrten
+                const snapshot = await db.ref('rides').once('value');
+                const allRides = [];
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    ride.firebaseId = child.key;
+                    allRides.push(ride);
+                });
+                
+                console.log(`📊 ${allRides.length} Fahrten geladen`);
+                
+                // Filtere: vehicleId vorhanden ABER trackingLink fehlt
+                const ridesNeedingLink = allRides.filter(ride => {
+                    const hasVehicle = ride.vehicleId && ride.vehicleId !== '';
+                    const missingLink = !ride.trackingLink || ride.trackingLink === '';
+                    return hasVehicle && missingLink;
+                });
+                
+                console.log(`🎯 ${ridesNeedingLink.length} Fahrten brauchen Tracking-Link`);
+                
+                if (ridesNeedingLink.length === 0) {
+                    alert('✅ Alle Fahrten haben bereits Tracking-Links!');
+                    return;
+                }
+                
+                // Erstelle Links
+                let success = 0;
+                let failed = 0;
+                
+                for (const ride of ridesNeedingLink) {
+                    try {
+                        console.log(`🔗 Erstelle Link für Fahrt ${ride.firebaseId} (${ride.pickup} → ${ride.destination})`);
+                        await createTrackingLinkForRide(ride.firebaseId, ride.vehicleId);
+                        success++;
+                    } catch (error) {
+                        console.error(`❌ Fehler bei ${ride.firebaseId}:`, error);
+                        failed++;
+                    }
+                }
+                
+                console.log('═══════════════════════════════════════════');
+                console.log(`✅ FERTIG! ${success} erfolgreich, ${failed} fehlgeschlagen`);
+                console.log('═══════════════════════════════════════════');
+                
+                alert(`✅ Tracking-Links erstellt!\n\n✅ Erfolgreich: ${success}\n${failed > 0 ? '❌ Fehlgeschlagen: ' + failed : ''}\n\nKalender wird neu geladen...`);
+                
+                // Kalender neu laden
+                if (typeof loadCalendarData === 'function') {
+                    await loadCalendarData();
+                }
+                if (typeof renderCalendar === 'function') {
+                    await renderCalendar();
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Nachholen:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         async function openQuickBookingModal(prefilledCustomer = null) {
             if (!isFirebaseReady) {
                 alert('❌ Firebase nicht verbunden!');
@@ -40446,12 +40562,17 @@ Stack: ${err.stack}
                                     // Fahrzeug zugewiesen aber noch kein Link
                                     return `
                                         <div style="margin-top: 10px; padding: 12px; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px;">
-                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
                                                 <div style="font-size: 18px;">⏰</div>
                                                 <div style="font-weight: 600; font-size: 12px; color: #92400e;">
                                                     Tracking-Link wird erstellt...
                                                 </div>
                                             </div>
+                                            <button onclick="event.stopPropagation(); createSingleTrackingLink('${ride.firebaseId || ride.id}', '${ride.vehicleId || ride.assignedVehicle}')" 
+                                                    style="width: 100%; padding: 10px; background: #f59e0b; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                                    onmouseover="this.style.background='#d97706'" onmouseout="this.style.background='#f59e0b'">
+                                                🔗 Jetzt Link erstellen
+                                            </button>
                                         </div>
                                     `;
                                 }

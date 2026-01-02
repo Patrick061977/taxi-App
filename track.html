@@ -249,21 +249,14 @@
             db.ref('drivers').child(vehicleId).on('value', (driverSnap) => {
                 const driver = driverSnap.val();
                 
-                if (!driver) {
-                    showWarning('⚠️ Fahrer nicht gefunden');
-                    return;
-                }
-                
-                const loc = driver.location;
-                
-                if (!loc || !loc.lat || !loc.lng) {
+                if (!driver || !driver.lat || !driver.lon) {
                     showWarning('⏳ Warte auf GPS-Signal vom Fahrzeug...');
                     return;
                 }
                 
-                // Status-Indikator
+                // Status-Indikator (wie in Fahrer-View)
                 const now = Date.now();
-                const age = now - (loc.timestamp || 0);
+                const age = driver.timestamp ? (now - driver.timestamp) : 999999;
                 
                 const statusIndicator = document.getElementById('status-indicator');
                 
@@ -278,20 +271,36 @@
                     statusIndicator.title = '🔴 Offline';
                 }
                 
-                // Marker aktualisieren
+                // Custom Icon erstellen (EXAKT wie Fahrer-View!)
+                const color = '#22c55e'; // Grün
+                const icon = L.divIcon({
+                    className: 'fleet-marker',
+                    html: `
+                        <div style="
+                            background: ${color};
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 50%;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 18px;
+                        ">🚕</div>
+                    `,
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                });
+                
+                // Marker aktualisieren (mit driver.lat/lon!)
                 if (vehicleMarker) {
-                    vehicleMarker.setLatLng([loc.lat, loc.lng]);
+                    vehicleMarker.setLatLng([driver.lat, driver.lon]);
                 } else {
-                    vehicleMarker = L.marker([loc.lat, loc.lng], {
-                        icon: L.divIcon({
-                            html: '<div style="font-size:40px;">🚕</div>',
-                            iconSize: [40, 40],
-                            className: ''
-                        })
-                    }).addTo(map);
+                    vehicleMarker = L.marker([driver.lat, driver.lon], { icon }).addTo(map);
                     
                     // Zur Position zoomen
-                    const bounds = L.latLngBounds([[loc.lat, loc.lng]]);
+                    const bounds = L.latLngBounds([[driver.lat, driver.lon]]);
                     
                     if (pickupMarker) bounds.extend(pickupMarker.getLatLng());
                     if (destinationMarker) bounds.extend(destinationMarker.getLatLng());
@@ -300,15 +309,13 @@
                 }
                 
                 // Location Info
-                const timestamp = new Date(loc.timestamp || Date.now());
-                const vehicleName = vehicle.name || 'Fahrzeug';
-                const vehiclePlate = vehicle.plate || '';
+                const timestamp = new Date(driver.timestamp || Date.now());
                 
                 document.getElementById('location-info').innerHTML = `
                     📍 Aktualisiert: ${timestamp.toLocaleTimeString('de-DE')}
                     <br>
                     <small style="opacity:0.7;">
-                        ${vehicleName}${vehiclePlate ? ' (' + vehiclePlate + ')' : ''}
+                        ${driver.lat.toFixed(4)}, ${driver.lon.toFixed(4)}
                     </small>
                 `;
             });

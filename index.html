@@ -108,14 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.47 - TRACKING IM KALENDER-TAB! 📍 (Build 20260102-1110)');
-        console.log('🔧 v5.90.47: KRITISCHER FIX!');
-        console.log('✅ v5.90.47: Tracking-Link jetzt IM KALENDER-TAB sichtbar!');
-        console.log('✅ v5.90.47: onclick entfernt - keine Admin-Warnung mehr!');
-        console.log('✅ v5.90.47: Alle Details immer sichtbar!');
-        console.log('📍 v5.90.46: Tracking-Link im Admin-Kalender sichtbar!');
-        console.log('✅ v5.90.46: "Taxi Tracken" Button!');
-        console.log('📋 v5.90.46: "Link kopieren" Button!');
+        console.log('🚕 Funk Taxi App v5.90.48 - LINK IMMER SOFORT! 🚀 (Build 20260102-1120)');
+        console.log('🚀 v5.90.48: KRITISCHER FIX!');
+        console.log('✅ v5.90.48: Tracking-Link wird IMMER SOFORT erstellt!');
+        console.log('✅ v5.90.48: Keine 15-Min Wartezeit mehr!');
+        console.log('✅ v5.90.48: Egal ob Fahrzeug online oder offline!');
+        console.log('✅ v5.90.48: Link bei Fahrzeug-Zuweisung sofort da!');
+        console.log('🔧 v5.90.47: Tracking im Kalender-Tab sichtbar!');
         console.log('🎯 v5.90.43: Vollständige Adressen mit PLZ!');
         console.log('🖐️ v5.90.43: Marker sind verschiebbar!');
         console.log('✅ v5.90.43: Bestätigungs-Dialog nach Verschieben!');
@@ -946,7 +945,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.47 - TRACKING IM KALENDER-TAB! (Build 20260102-1110)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.48 - LINK IMMER SOFORT! (Build 20260102-1120)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8531,20 +8530,9 @@
                 console.log('⏰ Abholzeit:', new Date(pickupTime).toLocaleString('de-DE'));
                 console.log('⏰ In', minutesUntilPickup, 'Minuten');
                 
-                if (timeDiff > 15 * 60 * 1000) {
-                    // MEHR als 15 Minuten → Warte!
-                    console.log('⏰ Geplante Fahrt in', minutesUntilPickup, 'Min');
-                    console.log('⏰ Link wird 15 Min vorher erstellt');
-                    
-                    await db.ref('rides/' + rideId).update({
-                        trackingLinkPending: true
-                    });
-                    
-                    return null;
-                }
-                
-                // SOFORT-FAHRT oder < 15 Min → Link JETZT erstellen!
-                console.log('✅ Sofort-Fahrt oder < 15 Min → Erstelle Link JETZT!');
+                // 🆕 v5.90.48: LINK WIRD IMMER SOFORT ERSTELLT!
+                // Nicht mehr warten bis 15 Min vorher!
+                console.log('✅ Erstelle Link JETZT (unabhängig von Abholzeit)!');
                 
                 const trackingCode = generateTrackingCode();
                 const trackingLink = `https://patrick061977.github.io/taxi-App/track.html?code=${trackingCode}`;
@@ -40416,8 +40404,9 @@ Stack: ${err.stack}
                             })()}
                             
                             ${(() => {
-                                // 🆕 v5.90.45: TRACKING-LINK ANZEIGEN!
-                                if (ride.trackingLink && ride.status !== 'completed' && ride.status !== 'abgeschlossen' && ride.status !== 'cancelled' && ride.status !== 'storniert') {
+                                // 🆕 v5.90.48: TRACKING-LINK ANZEIGEN!
+                                // Link wird jetzt IMMER sofort erstellt bei Fahrzeug-Zuweisung
+                                if (ride.trackingLink) {
                                     return `
                                         <div style="margin-top: 10px; padding: 12px; background: #dcfce7; border: 2px solid #10b981; border-radius: 8px;">
                                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
@@ -40438,19 +40427,14 @@ Stack: ${err.stack}
                                             <div style="font-size: 10px; color: #059669; margin-top: 6px; word-break: break-all;">${ride.trackingLink}</div>
                                         </div>
                                     `;
-                                } else if (ride.trackingLinkPending && (ride.vehicleId || ride.assignedVehicle)) {
-                                    // Link wird noch erstellt
-                                    const pickupTime = new Date(ride.pickupTimestamp);
-                                    const now = new Date();
-                                    const minutesUntil = Math.round((pickupTime - now) / 60000);
-                                    
+                                } else if (ride.vehicleId || ride.assignedVehicle) {
+                                    // Fahrzeug zugewiesen aber noch kein Link
                                     return `
                                         <div style="margin-top: 10px; padding: 12px; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px;">
                                             <div style="display: flex; align-items: center; gap: 8px;">
                                                 <div style="font-size: 18px;">⏰</div>
-                                                <div>
-                                                    <div style="font-weight: 600; font-size: 12px; color: #92400e;">Tracking-Link wird erstellt</div>
-                                                    <div style="font-size: 10px; color: #92400e; margin-top: 2px;">Noch ${minutesUntil} Min bis zur Abholung</div>
+                                                <div style="font-weight: 600; font-size: 12px; color: #92400e;">
+                                                    Tracking-Link wird erstellt...
                                                 </div>
                                             </div>
                                         </div>

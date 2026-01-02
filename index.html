@@ -108,13 +108,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.44 - TRACKING-LINKS! 🔗 (Build 20260102-0830)');
+        console.log('🚕 Funk Taxi App v5.90.45 - BUGFIXES! 🔧 (Build 20260102-1020)');
+        console.log('🔧 v5.90.45: KRITISCHE FEHLER GEFIXT!');
+        console.log('✅ v5.90.45: Syntax-Error behoben!');
+        console.log('✅ v5.90.45: currentUser Check gefixt!');
+        console.log('✅ v5.90.45: isFirebaseReady Check gefixt!');
         console.log('🔗 v5.90.44: Tracking-Link System implementiert!');
         console.log('✅ v5.90.44: Sofort-Fahrten → Link sofort');
         console.log('⏰ v5.90.44: Geplante Fahrten → Link 15 Min vorher');
         console.log('📅 v5.90.44: Google Calendar Integration');
         console.log('⚙️ v5.90.44: Admin-Schalter für Tracking-Links');
-        console.log('📍 v5.90.43: Präzise Marker!');
         console.log('🎯 v5.90.43: Vollständige Adressen mit PLZ!');
         console.log('🖐️ v5.90.43: Marker sind verschiebbar!');
         console.log('✅ v5.90.43: Bestätigungs-Dialog nach Verschieben!');
@@ -945,7 +948,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.44 - TRACKING-LINKS! (Build 20260102-0830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.45 - BUGFIXES! (Build 20260102-1020)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -24240,20 +24243,6 @@
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
-                    icon: L.divIcon({
-                        className: 'custom-marker',
-                        html: '<div style="background:#ef4444;color:white;padding:8px 12px;border-radius:20px;font-weight:bold;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,0.3);">📍 ' + name.split(',')[0] + '</div>',
-                        iconSize: [120, 40],
-                        iconAnchor: [60, 40]
-                    })
-                }).addTo(fleetMap);
-                
-                // Zur Position zoomen
-                fleetMap.setView([lat, lon], 14);
-                
-                console.log('📍 Adresse auf Karte markiert:', name);
-            }
-        }
         
         // 🆕 v5.88.32: Adresse als Google Maps Link teilen
         function shareFleetAddress() {
@@ -44702,7 +44691,13 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // Lade 50/50 Statistik
         async function loadFiftyFiftyStats() {
             const statsDiv = document.getElementById('fifty-fifty-stats');
-            if (!statsDiv || !isFirebaseReady) return;
+            if (!statsDiv) return;
+            
+            // Check ob Firebase bereit ist
+            if (!db || typeof isFirebaseReady === 'undefined' || !isFirebaseReady) {
+                console.log('⚠️ Firebase nicht bereit für 50/50 Stats');
+                return;
+            }
             
             try {
                 const snapshot = await db.ref('rides').orderByChild('fiftyFifty/enabled').equalTo(true).once('value');
@@ -51393,9 +51388,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // 🆕 v5.90.39: LADE VON FIREBASE!
             let saved = {};
             
-            if (currentUser && db) {
+            // Check ob Firebase und User bereit sind
+            const user = firebase.auth().currentUser;
+            
+            if (user && db) {
                 try {
-                    const snapshot = await db.ref(`users/${currentUser.uid}/tabSettings`).once('value');
+                    const snapshot = await db.ref(`users/${user.uid}/tabSettings`).once('value');
                     if (snapshot.exists()) {
                         saved = snapshot.val();
                         console.log('✅ Tab-Einstellungen für Panel von Firebase geladen:', saved);

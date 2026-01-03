@@ -24046,8 +24046,8 @@
                             poi.address.toLowerCase().includes(lowerQuery)
                         );
                         
-                        // 🆕 v5.90.43: VERBESSERTES GEOCODING mit Usedom-Bias!
-                        // Usedom Bounding Box für präzisere Ergebnisse
+                        // 🆕 v5.90.66: VERBESSERTES GEOCODING - Flexibler!
+                        // Usedom Bounding Box für präzisere Ergebnisse (OHNE bounded!)
                         const usedomBounds = '53.8,13.6,54.2,14.2'; // Usedom Region
                         
                         // Nominatim mit besseren Parametern
@@ -24056,10 +24056,12 @@
                             `&q=${encodeURIComponent(query)}` +
                             `&countrycodes=de` +
                             `&viewbox=${usedomBounds}` +
-                            `&bounded=1` + // Bevorzuge Ergebnisse in der Box
+                            // `&bounded=1` + // ❌ ENTFERNT - zu restriktiv!
                             `&limit=8` +
                             `&addressdetails=1` +
                             `&extratags=1`;
+                        
+                        console.log('🔍 Geocoding URL:', nominatimUrl);
                         
                         const response = await fetch(nominatimUrl);
                         const results = await response.json();
@@ -24113,7 +24115,19 @@
                         });
                         
                         if (!html) {
-                            html = '<div style="padding:12px;color:#999;text-align:center;">Keine Ergebnisse</div>';
+                            // 🆕 v5.90.66: Hilfreiche Tipps bei keine Ergebnisse!
+                            html = `
+                                <div style="padding:12px;color:#999;text-align:center;">
+                                    <div style="margin-bottom:8px;">❌ Keine Ergebnisse</div>
+                                    <div style="font-size:11px;margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px;text-align:left;">
+                                        <div style="font-weight:600;margin-bottom:4px;">💡 Tipps:</div>
+                                        <div>• Rechtschreibung prüfen</div>
+                                        <div>• Weniger Details eingeben</div>
+                                        <div>• Nur Straßenname versuchen</div>
+                                        <div>• Nur Ortsname versuchen</div>
+                                    </div>
+                                </div>
+                            `;
                         }
                         
                         dropdown.innerHTML = html;
@@ -24122,7 +24136,24 @@
                         
                     } catch (e) {
                         console.error('❌ Geocoding Fehler:', e);
-                        dropdown.innerHTML = '<div style="padding:12px;color:#ef4444;">Fehler bei der Suche</div>';
+                        
+                        // 🆕 v5.90.66: Bessere Fehlermeldungen
+                        let errorMsg = 'Fehler bei der Suche';
+                        
+                        if (e.message && e.message.includes('fetch')) {
+                            errorMsg = '⚠️ Netzwerkfehler - Bitte nochmal versuchen';
+                        } else if (!navigator.onLine) {
+                            errorMsg = '📡 Keine Internetverbindung';
+                        }
+                        
+                        dropdown.innerHTML = `
+                            <div style="padding:12px;color:#ef4444;text-align:center;">
+                                ${errorMsg}
+                            </div>
+                            <div style="padding:8px 12px;font-size:11px;color:#999;text-align:center;">
+                                💡 Tipp: Prüfe Rechtschreibung (z.B. "Goethestrasse" statt "Goethestrassel")
+                            </div>
+                        `;
                     }
                 }, 300);
             });

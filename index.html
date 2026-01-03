@@ -108,10 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.74 - RESET FIX + NACHTTARIF FIX! 🌙 (Build 20260103-2130)');
-        console.log('🧹 v5.90.74: Reset löscht ALLES komplett!');
-        console.log('🌙 v5.90.74: Nachttarif-Berechnung gefixt!');
-        console.log('✅ v5.90.74: Flags + Buttons + Zeit korrekt zurückgesetzt!');
+        console.log('🚕 Funk Taxi App v5.90.75 - PREISBERECHNUNG FIX! 💰 (Build 20260103-2310)');
+        console.log('🔧 v5.90.75: pickupTimeSelect undefined GEFIXT!');
+        console.log('✅ v5.90.75: Preisberechnung funktioniert wieder!');
         console.log('⭐ v5.90.69: "Als POI speichern" Button!');
         console.log('📍 v5.90.69: Marker verschieben → POI an exakter Position!');
         console.log('🔄 v5.90.69: POI sofort überall verfügbar!');
@@ -18912,15 +18911,12 @@
             
             priceHtml += '</div>';
             
-            // 🆕 v5.41.5: SLOT-CHECK beim Preis-Berechnen (Patrick's Idee!)
-            // Prüfe ob es eine Vorbestellung ist
-            // ✅ v5.41.6: Verwende pickupTimeSelect von oben (bereits deklariert!)
-            const isAdvanceBooking = currentRideType === 'vorbestellen' || 
-                                    (pickupTimeSelect !== 'sofort' && pickupTimeSelect !== 'jetzt' && pickupTimeSelect !== '5min');
+            // 🆕 v5.90.75: SLOT-CHECK beim Preis-Berechnen
+            // Prüfe ob es eine Vorbestellung ist (nur currentRideType!)
+            const isAdvanceBooking = currentRideType === 'vorbestellen';
             
             console.log('🔍 Slot-Check beim Preis-Berechnen:', {
                 currentRideType: currentRideType,
-                pickupTimeSelect: pickupTimeSelect,
                 isAdvanceBooking: isAdvanceBooking,
                 autoBookingEnabled: autoBookingEnabled,
                 isFirebaseReady: isFirebaseReady

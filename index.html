@@ -108,8 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.52 - MANUELL LINKS ERSTELLEN! 🔗 (Build 20260102-1150)');
-        console.log('🎯 v5.90.52: PERFEKT FÜR MANUELLE KONTROLLE!');
+        console.log('🚕 Funk Taxi App v5.90.69 - POI SPEICHERN! ⭐ (Build 20260103-1320)');
+        console.log('🎯 v5.90.69: PIN statt Bubble + POI speichern!');
+        console.log('✅ v5.90.69: Einfacher roter PIN (kein störender Text)!');
+        console.log('⭐ v5.90.69: "Als POI speichern" Button!');
+        console.log('📍 v5.90.69: Marker verschieben → POI an exakter Position!');
+        console.log('🔄 v5.90.69: POI sofort überall verfügbar!');
+        console.log('✅ v5.90.68: Gleiches Geocoding-System überall!');
         console.log('✅ v5.90.52: Button IN gelber Box: "🔗 Jetzt Link erstellen"');
         console.log('🔧 v5.90.52: createSingleTrackingLink() für einzelne Fahrten!');
         console.log('👆 v5.90.52: Klick → Link erstellt → Grüne Box!');
@@ -24116,13 +24121,18 @@
                     fleetMap.removeLayer(fleetSearchMarker);
                 }
                 
-                // 🆕 v5.90.43: VERSCHIEBBARE MARKER!
+                // 🆕 v5.90.69: EINFACHER PIN (keine störende Bubble!)
                 fleetSearchMarker = L.marker([lat, lon], {
                     icon: L.divIcon({
                         className: 'custom-marker',
-                        html: '<div style="background:#ef4444;color:white;padding:8px 12px;border-radius:20px;font-weight:bold;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,0.3);">📍 ' + (fullAddress || name).split(',')[0] + '</div>',
-                        iconSize: [120, 40],
-                        iconAnchor: [60, 40]
+                        html: `
+                            <div style="position:relative;">
+                                <div style="width:30px;height:30px;background:#ef4444;border:3px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.3);"></div>
+                                <div style="position:absolute;top:30px;left:15px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid #ef4444;transform:translateX(-50%);"></div>
+                            </div>
+                        `,
+                        iconSize: [30, 42],
+                        iconAnchor: [15, 42]
                     }),
                     draggable: true  // ← VERSCHIEBBAR!
                 }).addTo(fleetMap);
@@ -24193,12 +24203,17 @@
                     <div style="font-size:11px;color:#999;margin-bottom:15px;">
                         Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}
                     </div>
-                    <div style="display:flex;gap:10px;">
-                        <button onclick="confirmMarkerPosition()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                            ✅ Ja, perfekt!
-                        </button>
-                        <button onclick="closeMarkerConfirmation()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                            🔄 Nochmal
+                    <div style="display:flex;gap:10px;flex-direction:column;">
+                        <div style="display:flex;gap:10px;">
+                            <button onclick="confirmMarkerPosition()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                ✅ Ja, perfekt!
+                            </button>
+                            <button onclick="closeMarkerConfirmation()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                🔄 Nochmal
+                            </button>
+                        </div>
+                        <button onclick="saveFleetAddressAsPOI()" style="width:100%;padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;margin-top:5px;">
+                            ⭐ Als POI speichern
                         </button>
                     </div>
                 </div>
@@ -24216,6 +24231,68 @@
         function closeMarkerConfirmation() {
             const confirmBox = document.getElementById('marker-confirm-box');
             if (confirmBox) confirmBox.remove();
+        }
+        
+        // 🆕 v5.90.69: Als POI speichern!
+        async function saveFleetAddressAsPOI() {
+            const input = document.getElementById('fleet-address-search');
+            const currentName = input.value || fleetSearchName;
+            
+            // Dialog für POI-Namen
+            const poiName = prompt('📍 POI Name eingeben:', currentName);
+            if (!poiName || !poiName.trim()) {
+                return;
+            }
+            
+            if (!fleetSearchCoords) {
+                alert('❌ Keine Position ausgewählt!');
+                return;
+            }
+            
+            try {
+                // Speichere in Firebase unter /pois/
+                const poiData = {
+                    name: poiName.trim(),
+                    address: currentName,
+                    lat: fleetSearchCoords.lat,
+                    lon: fleetSearchCoords.lon,
+                    addedBy: currentUser?.email || 'unknown',
+                    addedAt: new Date().toISOString(),
+                    category: 'custom' // Für spätere Filterung
+                };
+                
+                // Erstelle POI ID aus Name (lowercase, keine Leerzeichen)
+                const poiId = poiName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                
+                await database.ref('pois/' + poiId).set(poiData);
+                
+                console.log('✅ POI gespeichert:', poiData);
+                
+                // Füge zum lokalen POI-Array hinzu
+                if (!allPOIs.some(p => p.name === poiName)) {
+                    allPOIs.push({
+                        name: poiName.trim(),
+                        address: currentName,
+                        lat: fleetSearchCoords.lat,
+                        lon: fleetSearchCoords.lon
+                    });
+                }
+                
+                // 🆕 v5.90.69: POIs neu laden damit es überall verfügbar ist!
+                if (typeof loadPOIs === 'function') {
+                    await loadPOIs();
+                }
+                
+                // Schließe Bestätigung
+                closeMarkerConfirmation();
+                
+                // Zeige Erfolg
+                showToast(`⭐ POI "${poiName}" gespeichert und ab sofort verfügbar!`, 'success');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern des POI!');
+            }
         }
         
         // Toast-Funktion für Hinweise

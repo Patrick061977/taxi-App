@@ -983,7 +983,8 @@
     </div>
 
     <!-- 🆕 v5.33.1: TAB-LEISTE - NUR FÜR ADMIN! -->
-    <div id="admin-tabs" style="
+    <!-- 🆕 v5.90.65: MAIN TAB BAR - Zentrale Tab-Navigation -->
+    <div id="main-tab-bar" class="main-navigation-tabs" style="
         display: none;
         background: white;
         padding: 10px 15px;
@@ -1100,7 +1101,7 @@
             ">
                 🚗 Fahrer
             </button>
-            <button onclick="switchView('admin')" class="admin-tab-btn admin-only" data-view="admin" style="
+            <button onclick="switchView('admin')" class="admin-tab-btn admin-only tab-toggleable" data-view="admin" data-tab-id="admin" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
                 background: white;
@@ -1128,7 +1129,7 @@
             ">
                 📊 Schichtplan
             </button>
-            <button id="old-debug-tab-btn" onclick="switchView('debug')" class="admin-tab-btn" data-view="debug" style="
+            <button id="old-debug-tab-btn" onclick="switchView('debug')" class="admin-tab-btn tab-toggleable" data-view="debug" data-tab-id="debug" style="
                 display: none;
                 padding: 10px 16px;
                 border: 2px solid #ef4444;
@@ -2078,13 +2079,13 @@
         
         <!-- Ansichts-Toggle -->
         <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-            <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+            <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                 📅 Monat
             </button>
             <button id="cal-week-btn" onclick="switchCalendarView('week')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                 📊 Woche
             </button>
-            <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+            <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                 📋 Tag
             </button>
             <button id="cal-timeline-btn" onclick="switchCalendarView('timeline')" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #10b981; background: white; color: #10b981; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
@@ -2249,8 +2250,8 @@
                 <option value="tesla_model3_1">🚗 PW-TX 111</option>
                 <option value="tesla_model3_2">🚗 PW-TX 222</option>
                 <option value="tesla_model3_3">🚗 PW-TX 333</option>
-                <option value="tesla_modely_1">🚙 PW-MY 222</option>
-                <option value="tesla_modely_2">🚙 PW-MY 333</option>
+                <option value="tesla_model_y_1">🚙 PW-MY 222</option>
+                <option value="tesla_model_y_2">🚙 PW-MY 333</option>
             </select>
             
             <!-- Stats Mini -->
@@ -3524,13 +3525,13 @@
         <div id="calendar-content" style="display:none;margin-bottom:20px;background:white;padding:15px;border-radius:8px;border:1px solid #e5e7eb;">
             <!-- Ansichts-Toggle -->
             <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-                <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                <button id="cal-month-btn" onclick="switchCalendarView('month')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                     📅 Monat
                 </button>
                 <button id="cal-week-btn" onclick="switchCalendarView('week')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                     📊 Woche
                 </button>
-                <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                <button id="cal-day-btn" onclick="switchCalendarView('day')" style="flex: 1; min-width: 120px; padding: 12px; border: 2px solid #667eea; background: #667eea; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                     📋 Tag
                 </button>
                 <button id="cal-timeline-btn" onclick="switchCalendarView('timeline')" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #10b981; background: white; color: #10b981; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
@@ -5859,8 +5860,8 @@
             'tesla_model3_1': { name: 'Tesla Model 3 #1', id: 'tesla_model3_1', plate: 'PW-TX 111' },
             'tesla_model3_2': { name: 'Tesla Model 3 #2', id: 'tesla_model3_2', plate: 'PW-TX 222' },
             'tesla_model3_3': { name: 'Tesla Model 3 #3', id: 'tesla_model3_3', plate: 'PW-TX 333' },
-            'tesla_modely_1': { name: 'Tesla Model Y #1', id: 'tesla_modely_1', plate: 'PW-MY 222' },
-            'tesla_modely_2': { name: 'Tesla Model Y #2', id: 'tesla_modely_2', plate: 'PW-MY 333' }
+            'tesla_model_y_1': { name: 'Tesla Model Y #1', id: 'tesla_model_y_1', plate: 'PW-MY 222' },
+            'tesla_model_y_2': { name: 'Tesla Model Y #2', id: 'tesla_model_y_2', plate: 'PW-MY 333' }
         };
         let VEHICLES = { ...DEFAULT_VEHICLES }; // Wird aus Firebase überschrieben
         const TARIF = { 
@@ -8159,11 +8160,13 @@
                     await db.ref('rides/' + rideId).update(updates);
                     console.log('✅ Fahrt in Firebase aktualisiert');
                     
-                    // 🆕 v5.90.50: TRACKING-LINK ERSTELLEN wenn Fahrzeug zugewiesen!
-                    if (newVehicleId && newVehicleId !== '') {
-                        console.log('🔗 Erstelle Tracking-Link (saveEditedRide)...');
-                        await createTrackingLinkForRide(rideId, newVehicleId);
-                    }
+                    // 🆕 v5.90.62: TRACKING-LINK ERST BEI FAHRER-ACCEPT!
+                    // Link wird NICHT mehr hier erstellt, sondern in acceptRide()
+                    // if (newVehicleId && newVehicleId !== '') {
+                    //     console.log('🔗 Erstelle Tracking-Link (saveEditedRide)...');
+                    //     await createTrackingLinkForRide(rideId, newVehicleId);
+                    // }
+                    console.log('ℹ️ Tracking-Link wird bei Fahrer-Accept erstellt');
                     
                     // 📱 v5.64.43: TELEGRAM RICHTIG SENDEN!
                     if (newVehicleId && updates.vehicle) {
@@ -8730,13 +8733,14 @@
                 console.log('✅ Kennzeichen:', vehiclePlate);
                 
                 // 2️⃣ ERSTELLE UPDATE-DATEN
+                // 🆕 v5.90.62: Status ASSIGNED statt accepted - Fahrer muss akzeptieren!
                 const updateData = {
                     vehicleId: vehicleId,
                     vehicle: vehicleName,
                     vehicleLabel: vehicleName,
                     vehiclePlate: vehiclePlate,
-                    status: 'accepted',
-                    acceptedAt: Date.now(),
+                    status: 'assigned',  // ✅ Fahrer muss noch akzeptieren!
+                    assignedAt: Date.now(),
                     assignedBy: 'admin'
                 };
                 
@@ -8751,18 +8755,16 @@
                 await db.ref('rides/' + rideId).update(updateData);
                 
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔗 VOR createTrackingLink Aufruf!');
-                console.log('   rideId:', rideId);
-                console.log('   vehicleId:', vehicleId);
+                console.log('ℹ️ TRACKING-LINK WIRD ERST BEI FAHRER-ACCEPT ERSTELLT!');
+                console.log('   Fahrer muss Fahrt annehmen (status: assigned → accepted)');
+                console.log('   Dann wird in acceptRide() der Link erstellt');
                 console.log('═══════════════════════════════════════════════════════════');
                 
-                // 🆕 v5.90.48: TRACKING-LINK ERSTELLEN!
-                const trackingLink = await createTrackingLinkForRide(rideId, vehicleId);
+                // 🆕 v5.90.62: Link wird NICHT mehr hier erstellt!
+                // Wird erst in acceptRide() erstellt wenn Fahrer bestätigt
+                // const trackingLink = await createTrackingLinkForRide(rideId, vehicleId);
                 
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔗 NACH createTrackingLink Aufruf!');
-                console.log('   Ergebnis:', trackingLink);
-                console.log('═══════════════════════════════════════════════════════════');
+                const trackingLink = null; // Link noch nicht vorhanden
                 
                 // 4️⃣ UPDATE LOKAL (wenn Fahrt geladen)
                 const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
@@ -11308,7 +11310,7 @@
 
         // 🆕 v5.33.1: Admin-Tabs anzeigen/verstecken
         function updateAdminTabsVisibility() {
-            const adminTabs = document.getElementById('admin-tabs');
+            const adminTabs = document.getElementById('main-tab-bar');
             if (!adminTabs) return;
             
             // 🆕 v5.33.6: Prüfe User-Rolle!
@@ -11381,7 +11383,7 @@
                     setTimeout(() => updateAdminTabsVisibility(), 1500);
                 } else {
                     // Beim Logout: Tab-Leiste verstecken
-                    const adminTabs = document.getElementById('admin-tabs');
+                    const adminTabs = document.getElementById('main-tab-bar');
                     if (adminTabs) adminTabs.style.display = 'none';
                 }
             });
@@ -11493,20 +11495,23 @@
             console.log(`🎨 Wende Tab-Berechtigungen an für: ${role}`);
             
             const allowedTabs = permissions[role] || [];
-            const allTabs = document.querySelectorAll('.admin-tab-btn[data-view]');
+            
+            // 🆕 v5.90.65: Nutze data-tab-id statt data-view!
+            const allTabs = document.querySelectorAll('.tab-toggleable[data-tab-id]');
             
             console.log(`📊 Gefundene Tabs: ${allTabs.length}`);
+            console.log(`📋 Erlaubte Tabs: ${allowedTabs.join(', ')}`);
             
             allTabs.forEach(tab => {
-                const view = tab.dataset.view;
-                const isAllowed = allowedTabs.includes(view);
+                const tabId = tab.dataset.tabId; // 🆕 Nutze tab-id!
+                const isAllowed = allowedTabs.includes(tabId);
                 
                 if (isAllowed) {
                     tab.style.display = '';
-                    console.log(`  ✅ Tab erlaubt: ${view}`);
+                    console.log(`  ✅ Tab erlaubt: ${tabId}`);
                 } else {
                     tab.style.display = 'none';
-                    console.log(`  ❌ Tab verboten: ${view}`);
+                    console.log(`  ❌ Tab verboten: ${tabId}`);
                 }
             });
         }
@@ -11719,7 +11724,11 @@
         }
 
         function updateDriverView() {
-            const newRides = rides.filter(r => r.status === 'new');
+            // 🆕 v5.90.61: Zeige auch MIR ZUGEWIESENE Fahrten!
+            const newRides = rides.filter(r => 
+                r.status === 'new' || 
+                (r.status === 'assigned' && currentVehicle && r.vehicleId === currentVehicle)
+            );
             const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
             const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
             const completed = myRides.filter(r => r.status === 'completed');
@@ -11779,6 +11788,30 @@
                 if (current.customerName) rideInfo += `👤 ${current.customerName} • `;
                 rideInfo += `→ ${current.destination}`;
                 if (current.price) rideInfo += ` • 💰 ${current.price}€`;
+                
+                // 🆕 v5.90.61: Tracking-Link anzeigen
+                if (current.trackingLink) {
+                    rideInfo += `
+                        <div style="margin-top:10px;padding:10px;background:#e0f2fe;border-radius:8px;border:1px solid #0ea5e9;">
+                            <div style="font-size:11px;color:#0369a1;font-weight:600;margin-bottom:6px;">
+                                🔗 TRACKING-LINK FÜR KUNDE:
+                            </div>
+                            <input type="text" value="${current.trackingLink}" 
+                                readonly 
+                                id="tracking-link-input"
+                                style="width:100%;padding:8px;border:1px solid #0ea5e9;border-radius:4px;font-size:11px;background:white;"
+                                onclick="this.select()">
+                            <div style="display:flex;gap:6px;margin-top:6px;">
+                                <button onclick="copyTrackingLink('${current.trackingLink}')" style="flex:1;padding:6px;background:#3b82f6;color:white;border:none;border-radius:4px;font-size:11px;font-weight:600;">
+                                    📋 Kopieren
+                                </button>
+                                <button onclick="shareViaWhatsApp('${current.trackingLink}')" style="flex:1;padding:6px;background:#25d366;color:white;border:none;border-radius:4px;font-size:11px;font-weight:600;">
+                                    💬 WhatsApp
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
                 
                 document.getElementById('driver-current-ride').innerHTML = rideInfo;
                 
@@ -11922,7 +11955,7 @@
                                 ${r.pickupTime && r.pickupTime !== 'Sofort' ? ` | ⏰ Abholung: <strong>${r.pickupTime}</strong>` : ' | ⚡ Sofort'}
                             </div>
                         </div>
-                        ${!current ? `<button class="btn btn-success" onclick="acceptRide('${r.firebaseId}')" style="margin-top:10px;">✓ Annehmen</button>` : '<div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:13px;text-align:center;">Schließe erst aktuelle Fahrt ab</div>'}
+                        ${!current ? `<button class="btn btn-success" onclick="acceptRide('${r.firebaseId}')" style="margin-top:10px;">${r.status === 'assigned' ? '✅ FAHRT STARTEN' : '✓ Annehmen'}</button>` : '<div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:13px;text-align:center;">Schließe erst aktuelle Fahrt ab</div>'}
                     </div>
                     `;
                 }).join('');
@@ -16885,12 +16918,13 @@
                 
                 console.log(`✅ Telegram-Status-Update gesendet: ${oldStatus} → ${newStatus}`);
                 
-                // 🆕 v5.87.94: TRACKING-SMS SENDEN wenn Fahrer zugewiesen!
-                if (newStatus === 'accepted' || newStatus === 'assigned') {
+                // 🆕 v5.90.62: TRACKING-SMS NUR BEI ACCEPTED!
+                // (Nicht bei assigned - Fahrer muss erst akzeptieren!)
+                if (newStatus === 'accepted' && ride.trackingLink) {
                     const customerPhone = ride.customerPhone || ride.phone;
                     if (customerPhone) {
-                        const trackingLink = `${window.location.origin}${window.location.pathname}?ride=${ride.firebaseId || ride.id}`;
-                        await sendTrackingSMS(customerPhone, trackingLink);
+                        console.log('📱 Sende Tracking-SMS an Kunde:', customerPhone);
+                        await sendTrackingSMS(customerPhone, ride.trackingLink);
                     }
                 }
                 
@@ -23197,6 +23231,10 @@
                 assignedTo: null, // Zurücksetzen
                 assignmentExpiresAt: null
             });
+            
+            // 🆕 v5.90.60: TRACKING-LINK ERSTELLEN!
+            console.log('🔗 Erstelle Tracking-Link nach acceptRide...');
+            await createTrackingLinkForRide(rideId, currentVehicle);
             
             // 📜 PROTOKOLL: Fahrt angenommen
             logActivity('status', 'accepted', `Fahrt angenommen von ${vehicleName}`, {
@@ -36874,6 +36912,12 @@ Stack: ${err.stack}
             });
         }
         
+        function shareViaWhatsApp(link) {
+            const message = `🚕 Dein Taxi kannst du hier live verfolgen:\n\n${link}\n\nFunk Taxi Heringsdorf`;
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        }
+        
         async function closeRide() {
             // 🆕 Setze Fahrt auf "completed" in Firebase damit sie nicht wieder auftaucht!
             if (myCurrentRide && myCurrentRide.firebaseId && isFirebaseReady) {
@@ -39854,7 +39898,7 @@ Stack: ${err.stack}
         // 🆕 v5.27.0: KALENDER-SYSTEM
         // ═══════════════════════════════════════════════════════════════════════════
         
-        let currentCalendarView = 'month'; // 'month', 'week', 'day'
+        let currentCalendarView = 'day'; // 🆕 v5.90.64: Start in Tag-Ansicht!
         let currentCalendarDate = new Date(); // Aktuelles Datum im Kalender
         
         function switchCalendarView(view) {
@@ -51659,9 +51703,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 return;
             }
             
-            // Verstecke nicht-sichtbare Tabs
+            // 🆕 v5.90.65: Verstecke nicht-sichtbare Tabs (nutze data-tab-id!)
             ALL_TABS.forEach(tab => {
-                const btn = document.querySelector(`.admin-tab-btn[data-view="${tab.id}"]`);
+                const btn = document.querySelector(`.tab-toggleable[data-tab-id="${tab.id}"]`);
                 if (btn) {
                     if (settings.visible.includes(tab.id)) {
                         btn.style.display = '';

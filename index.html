@@ -108,9 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.75 - PREISBERECHNUNG FIX! 💰 (Build 20260103-2310)');
-        console.log('🔧 v5.90.75: pickupTimeSelect undefined GEFIXT!');
-        console.log('✅ v5.90.75: Preisberechnung funktioniert wieder!');
+        console.log('🚕 Funk Taxi App v5.90.70 - POPUP OBEN + DB-FIX! ✅ (Build 20260103-1650)');
+        console.log('🎯 v5.90.70: Popup nach oben + database→db Fix!');
+        console.log('✅ v5.90.70: Karte bleibt sichtbar + POI speichern funktioniert!');
         console.log('⭐ v5.90.69: "Als POI speichern" Button!');
         console.log('📍 v5.90.69: Marker verschieben → POI an exakter Position!');
         console.log('🔄 v5.90.69: POI sofort überall verfügbar!');
@@ -678,8 +678,8 @@
         }
     </style>
     
-    <!-- 🔒 STRIPE DEAKTIVIERT - Löst "betrügerische Website" Warnung aus! -->
-    <!-- <script src="https://js.stripe.com/v3/"></script> -->
+    <!-- 🆕 v5.90.31: STRIPE SDK -->
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
     
@@ -1673,15 +1673,9 @@
                     <button onclick="saveLocationPOI('pickup')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
                         ⭐
                     </button>
-                    <!-- 🆕 v5.90.73: GPS als Icon-Button (wie Stern!) -->
-                    <button onclick="useMyLocation()" style="padding:12px 14px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Meinen GPS-Standort verwenden">
-                        📍
-                    </button>
-                    <!-- 🆕 v5.90.73: Bestätigung als kleines Icon -->
-                    <span id="pickup-confirmation-icon" style="display:none;font-size:20px;"></span>
                 </div>
                 
-                <!-- 🆕 v5.90.73: NUR Fehler-Hinweis (groß), Erfolg = nur Icon -->
+                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
                 <div id="pickup-confirmation" style="
                     display: none;
                     margin-top: 8px;
@@ -1690,13 +1684,13 @@
                     font-size: 13px;
                     font-weight: 600;
                 ">
-                    <!-- Wird nur bei FEHLER angezeigt -->
+                    <!-- Wird dynamisch befüllt -->
                 </div>
                 
                 <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
                 <div id="pickup-saved-locations" style="display:none;margin-top:8px;"></div>
                 
-                <!-- 🆕 v5.90.73: GPS Button ist jetzt Icon neben Eingabefeld! -->
+                <button onclick="useMyLocation()" style="margin-top:8px;padding:8px 12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;width:100%;font-size:14px;">📍 Meinen Standort</button>
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
             
@@ -1707,11 +1701,9 @@
                     <button onclick="saveLocationPOI('destination')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
                         ⭐
                     </button>
-                    <!-- 🆕 v5.90.73: Bestätigung als kleines Icon -->
-                    <span id="destination-confirmation-icon" style="display:none;font-size:20px;"></span>
                 </div>
                 
-                <!-- 🆕 v5.90.73: NUR Fehler-Hinweis (groß), Erfolg = nur Icon -->
+                <!-- 🆕 v5.42.7: BESTÄTIGUNGS-HINWEIS -->
                 <div id="destination-confirmation" style="
                     display: none;
                     margin-top: 8px;
@@ -1720,7 +1712,7 @@
                     font-size: 13px;
                     font-weight: 600;
                 ">
-                    <!-- Wird nur bei FEHLER angezeigt -->
+                    <!-- Wird dynamisch befüllt -->
                 </div>
                 
                 <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
@@ -1782,8 +1774,6 @@
                                 <option value="45">45</option><option value="50">50</option><option value="55">55</option>
                             </select>
                             <span style="font-size:14px;color:#666;">Uhr</span>
-                            <!-- 🆕 v5.90.73: Slot-Bestätigung als Icon -->
-                            <span id="slot-confirmation-icon" style="display:none;font-size:20px;" title="Zeitslot verfügbar!">✅</span>
                         </div>
                     </div>
                     
@@ -14487,12 +14477,7 @@
                 
                 if (data.length > 0) {
                     console.log('✅ Ort gefunden:', address, '→', data[0].display_name);
-                    return { 
-                        lat: parseFloat(data[0].lat), 
-                        lon: parseFloat(data[0].lon),
-                        display_name: data[0].display_name,
-                        address: data[0].address || {}
-                    };
+                    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
                 } else {
                     console.warn('⚠️ Ort nicht gefunden:', address);
                 }
@@ -18170,33 +18155,29 @@
             }
         }
 
-        // 🆕 v5.90.73: KOMPAKTE BESTÄTIGUNG MIT ICONS!
+        // 🆕 v5.42.8: UPDATE BESTÄTIGUNGS-HINWEIS
         function updateConfirmationHint(field) {
             const hintDiv = document.getElementById(field + '-confirmation');
-            const hintIcon = document.getElementById(field + '-confirmation-icon');
             const input = document.getElementById(field);
             const value = input.value.trim();
             
             // Kein Text → Kein Hinweis
             if (!value) {
                 hintDiv.style.display = 'none';
-                if (hintIcon) hintIcon.style.display = 'none';
                 return;
             }
             
             const isConfirmed = field === 'pickup' ? pickupConfirmed : destinationConfirmed;
             
             if (isConfirmed) {
-                // ✅ BESTÄTIGT - NUR KLEINES ICON! (v5.90.73)
-                hintDiv.style.display = 'none';  // Box weg!
-                if (hintIcon) {
-                    hintIcon.style.display = 'inline-block';
-                    hintIcon.innerHTML = '✅';
-                    hintIcon.title = 'Adresse bestätigt';
-                }
+                // ✅ BESTÄTIGT - Grüner Haken
+                hintDiv.style.display = 'block';
+                hintDiv.style.background = '#d1fae5';
+                hintDiv.style.border = '2px solid #10b981';
+                hintDiv.style.color = '#065f46';
+                hintDiv.innerHTML = '✅ Adresse bestätigt';
             } else {
-                // ⚠️ NICHT BESTÄTIGT - Roter Hinweis (bleibt Box!)
-                if (hintIcon) hintIcon.style.display = 'none';
+                // ⚠️ NICHT BESTÄTIGT - Roter Hinweis
                 hintDiv.style.display = 'block';
                 hintDiv.style.background = '#fee2e2';
                 hintDiv.style.border = '2px solid #ef4444';
@@ -18659,18 +18640,12 @@
                 
                 if (liveDisplay) {
                     if (availability.available) {
-                        // ✅ FREI - v5.90.73: NUR ICON, keine große Box!
-                        liveDisplay.style.display = 'none';  // Box weg!
-                        const slotIcon = document.getElementById('slot-confirmation-icon');
-                        if (slotIcon) {
-                            slotIcon.style.display = 'inline-block';
-                        }
+                        // ✅ FREI
+                        liveDisplay.innerHTML = '<strong style="color:#10b981;">✅ Zeitslot verfügbar!</strong>';
+                        liveDisplay.style.background = '#d1fae5';
+                        liveDisplay.style.border = '2px solid #10b981';
                     } else {
                         // ❌ BESETZT → Zeige ALTERNATIVEN! (Patrick's Idee!)
-                        // v5.90.73: Icon verstecken!
-                        const slotIcon = document.getElementById('slot-confirmation-icon');
-                        if (slotIcon) slotIcon.style.display = 'none';
-                        
                         console.log('⚠️ Live-Check: Slot belegt, berechne Alternativen...');
                         
                         // Berechne alternative Zeiten
@@ -18859,24 +18834,26 @@
             debugLog('info', `🗺️ Route: ${route.distance} km, ${route.duration} Min`);
             
             // Hole Abholzeit für korrekte Tarifberechnung
-            // 🆕 v5.90.74: Nutze currentRideType für korrekte Zeitberechnung!
-            let pickupTimestamp = Date.now() + 5 * 60000; // Default: SOFORT = +5 Min
+            // 🆕 v5.30.0: Alte pickup-time gibt es nicht mehr, nutze Fallback
+            const oldPickupTimeElem = document.getElementById('pickup-time');
+            const pickupTimeSelect = oldPickupTimeElem ? oldPickupTimeElem.value : 'sofort';
+            // 🆕 SOFORT = +5 Min Vorlauf für Logik-Stabilität
+            let pickupTimestamp = Date.now() + 5 * 60000;
             
-            if (currentRideType === 'vorbestellen') {
-                // 🆕 v5.90.74: Lese aus custom-date + hour + minute!
-                const dateVal = document.getElementById('custom-date')?.value;
-                const hourVal = document.getElementById('custom-hour')?.value;
-                const minuteVal = document.getElementById('custom-minute')?.value;
-                
+            if (pickupTimeSelect === '15min') {
+                pickupTimestamp = Date.now() + 15 * 60000;
+            } else if (pickupTimeSelect === '30min') {
+                pickupTimestamp = Date.now() + 30 * 60000;
+            } else if (pickupTimeSelect === '1h') {
+                pickupTimestamp = Date.now() + 60 * 60000;
+            } else if (pickupTimeSelect === 'datetime') {
+                // 🆕 Lese aus neuen Feldern (Datum + Stunde + Minute)
+                const dateVal = document.getElementById('custom-date').value;
+                const hourVal = document.getElementById('custom-hour').value;
+                const minuteVal = document.getElementById('custom-minute').value;
                 if (dateVal && hourVal && minuteVal) {
                     pickupTimestamp = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`).getTime();
-                    console.log(`🕐 VORBESTELL-ZEIT: ${dateVal} ${hourVal}:${minuteVal}`);
-                } else {
-                    console.warn('⚠️ Vorbestell-Felder nicht ausgefüllt, nutze JETZT');
                 }
-            } else {
-                // SOFORT-Buchung = jetzt + 5 Min
-                console.log('⚡ SOFORT-Buchung: Zeit = jetzt + 5 Min');
             }
             
             // Berechne Preis MIT Zeitstempel (für korrekten Tag/Nacht-Tarif)
@@ -18911,12 +18888,15 @@
             
             priceHtml += '</div>';
             
-            // 🆕 v5.90.75: SLOT-CHECK beim Preis-Berechnen
-            // Prüfe ob es eine Vorbestellung ist (nur currentRideType!)
-            const isAdvanceBooking = currentRideType === 'vorbestellen';
+            // 🆕 v5.41.5: SLOT-CHECK beim Preis-Berechnen (Patrick's Idee!)
+            // Prüfe ob es eine Vorbestellung ist
+            // ✅ v5.41.6: Verwende pickupTimeSelect von oben (bereits deklariert!)
+            const isAdvanceBooking = currentRideType === 'vorbestellen' || 
+                                    (pickupTimeSelect !== 'sofort' && pickupTimeSelect !== 'jetzt' && pickupTimeSelect !== '5min');
             
             console.log('🔍 Slot-Check beim Preis-Berechnen:', {
                 currentRideType: currentRideType,
+                pickupTimeSelect: pickupTimeSelect,
                 isAdvanceBooking: isAdvanceBooking,
                 autoBookingEnabled: autoBookingEnabled,
                 isFirebaseReady: isFirebaseReady
@@ -19601,27 +19581,11 @@
             if (pickupConf) pickupConf.style.display = 'none';
             if (destConf) destConf.style.display = 'none';
             
-            // 🆕 v5.90.73: Auch Icons verstecken!
-            const pickupIcon = document.getElementById('pickup-confirmation-icon');
-            const destIcon = document.getElementById('destination-confirmation-icon');
-            const slotIcon = document.getElementById('slot-confirmation-icon');
-            if (pickupIcon) pickupIcon.style.display = 'none';
-            if (destIcon) destIcon.style.display = 'none';
-            if (slotIcon) slotIcon.style.display = 'none';
-            
             // 📅 Vorbestell-Felder zurücksetzen
             const preorderDateTime = document.getElementById('preorder-datetime');
             if (preorderDateTime) {
                 preorderDateTime.value = '';
             }
-            
-            // 🆕 v5.90.74: custom-date/hour/minute auch zurücksetzen!
-            const customDate = document.getElementById('custom-date');
-            const customHour = document.getElementById('custom-hour');
-            const customMinute = document.getElementById('custom-minute');
-            if (customDate) customDate.value = '';
-            if (customHour) customHour.value = '00';
-            if (customMinute) customMinute.value = '00';
             
             // 💳 Zahlungsmethode zurücksetzen
             const paymentMethod = document.getElementById('payment-method');
@@ -19686,38 +19650,6 @@
             // 📍 KOORDINATEN ZURÜCKSETZEN
             window.pickupCoords = null;
             window.destCoords = null;
-            
-            // ✅ v5.90.74: Confirmation-Flags zurücksetzen!
-            pickupConfirmed = false;
-            destinationConfirmed = false;
-            
-            // 🆕 v5.90.74: Ride-Type zurücksetzen!
-            currentRideType = null;
-            
-            // 🆕 v5.90.74: Ride-Type Buttons zurücksetzen!
-            const btnSofort = document.getElementById('btn-sofort');
-            const btnVorbestellen = document.getElementById('btn-vorbestellen');
-            const sofortBereich = document.getElementById('sofort-bereich');
-            const vorbestellenBereich = document.getElementById('vorbestellen-bereich');
-            
-            if (btnSofort) {
-                btnSofort.style.border = '3px solid #e5e7eb';
-                btnSofort.style.background = 'white';
-                const divs = btnSofort.querySelectorAll('div');
-                if (divs[1]) divs[1].style.color = '#6b7280';
-                if (divs[2]) divs[2].style.color = '#666';
-            }
-            
-            if (btnVorbestellen) {
-                btnVorbestellen.style.border = '3px solid #e5e7eb';
-                btnVorbestellen.style.background = 'white';
-                const divs = btnVorbestellen.querySelectorAll('div');
-                if (divs[1]) divs[1].style.color = '#6b7280';
-                if (divs[2]) divs[2].style.color = '#666';
-            }
-            
-            if (sofortBereich) sofortBereich.style.display = 'none';
-            if (vorbestellenBereich) vorbestellenBereich.style.display = 'none';
             
             // 🔘 BUTTONS ZURÜCKSETZEN
             const rideTypeContainer = document.getElementById('ride-type-container');
@@ -21908,14 +21840,6 @@
             const destConf = document.getElementById('destination-confirmation');
             if (pickupConf) pickupConf.style.display = 'none';
             if (destConf) destConf.style.display = 'none';
-            
-            // 🆕 v5.90.73: Auch Icons verstecken!
-            const pickupIcon = document.getElementById('pickup-confirmation-icon');
-            const destIcon = document.getElementById('destination-confirmation-icon');
-            const slotIcon = document.getElementById('slot-confirmation-icon');
-            if (pickupIcon) pickupIcon.style.display = 'none';
-            if (destIcon) destIcon.style.display = 'none';
-            if (slotIcon) slotIcon.style.display = 'none';
             
             // Zurücksetzen auf Default-Werte
             const oldPickupTime = document.getElementById('pickup-time');
@@ -24110,7 +24034,7 @@
                 
                 if (searchTimeout) clearTimeout(searchTimeout);
                 
-                if (query.length < 6) {
+                if (query.length < 3) {
                     dropdown.style.display = 'none';
                     return;
                 }
@@ -24143,27 +24067,10 @@
                         const result = await geocode(query);
                         
                         if (result) {
-                            // 🆕 v5.90.71: Formatiere Adresse MIT PLZ (wie Schnellbuchung!)
-                            let displayText = '';
-                            if (result.address) {
-                                if (result.address.road) displayText += result.address.road + ' ';
-                                if (result.address.house_number) displayText += result.address.house_number + ', ';
-                                if (result.address.postcode) displayText += result.address.postcode + ' ';
-                                if (result.address.village || result.address.town || result.address.city) {
-                                    displayText += (result.address.village || result.address.town || result.address.city);
-                                }
-                            }
-                            
-                            // Fallback wenn keine formatierte Adresse
-                            if (!displayText.trim()) {
-                                displayText = query;
-                            }
-                            
                             // Adresse anzeigen
                             html += `
-                                <div onclick="selectFleetAddress('${displayText.replace(/'/g, "\\'")}', ${result.lat}, ${result.lon}, '${displayText.replace(/'/g, "\\'")}' )" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
-                                    <div style="font-weight:500;">📍 ${displayText}</div>
-                                    <div style="font-size:11px;color:#999;margin-top:2px;">${result.display_name}</div>
+                                <div onclick="selectFleetAddress('${query}', ${result.lat}, ${result.lon}, '${query}')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
+                                    <div style="font-weight:500;">📍 ${query}</div>
                                 </div>
                             `;
                         }
@@ -27478,7 +27385,6 @@
             }
         }
         
-        /* 🔒 STRIPE DEAKTIVIERT - Löst "betrügerische Website" Warnung aus!
         // 🆕 v5.90.31: STRIPE INTEGRATION - TEST MODE!
         const STRIPE_PUBLIC_KEY = 'pk_test_51QawaTHDKhZcqmLsFRWZTJFhNL8ql7XPM4vVPKCDGQwrXzQ3E4ZfJpbMHHvLHKjgJZVXN0tFFo5Wn0eXsVbz2v5u00nKYKJt2K'; // ← Stripe Test Public Key (ungefährlich!)
         // SECRET KEY gehört NICHT hierher! Die kommt später in Google Apps Script!
@@ -27492,12 +27398,6 @@
                 console.log('✅ Stripe initialisiert (TEST MODE)');
                 loadPaymentMethods();
             }
-        }
-        */ // STRIPE ENDE
-        
-        // 🆕 v5.90.71: STRIPE DEAKTIVIERT - Dummy-Funktionen
-        function initStripe() {
-            console.log('⚠️ Stripe deaktiviert (Warnung vermeiden)');
         }
         
         // Lade Zahlungsmethoden vom User
@@ -46055,7 +45955,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const dropdown = document.getElementById('poi-address-dropdown');
             const query = input.value.trim();
             
-            if (query.length < 6) {
+            if (query.length < 3) {
                 dropdown.style.display = 'none';
                 return;
             }
@@ -46091,32 +45991,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                     
                     dropdown.innerHTML = results.map(r => {
-                        // 🆕 v5.90.72: Formatiere Adresse MIT PLZ (wie Fleet-Suche!)
-                        let displayText = '';
-                        if (r.address) {
-                            if (r.address.road) displayText += r.address.road + ' ';
-                            if (r.address.house_number) displayText += r.address.house_number + ', ';
-                            if (r.address.postcode) displayText += r.address.postcode + ' ';
-                            if (r.address.village || r.address.town || r.address.city) {
-                                displayText += (r.address.village || r.address.town || r.address.city);
-                            }
-                        }
-                        
-                        // Fallback wenn keine Formatierung möglich
-                        if (!displayText.trim()) {
-                            displayText = r.display_name;
-                        }
-                        
-                        // Encode address object as JSON for onclick
-                        const addressJson = JSON.stringify(r.address || {}).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                        
+                        const displayName = r.display_name;
                         return `
-                            <div onclick="selectPOIAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")}', '${addressJson}')" 
+                            <div onclick="selectPOIAddress('${displayName.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" 
                                  style="padding:12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.2s;"
                                  onmouseover="this.style.background='#fef3c7'"
                                  onmouseout="this.style.background='white'">
-                                <div style="font-weight:600;color:#92400e;font-size:14px;">📍 ${displayText}</div>
-                                <div style="font-size:11px;color:#a16207;margin-top:2px;">${r.display_name}</div>
+                                <div style="font-weight:600;color:#92400e;font-size:14px;">${displayName}</div>
+                                <div style="font-size:11px;color:#a16207;margin-top:2px;">📐 ${parseFloat(r.lat).toFixed(6)}, ${parseFloat(r.lon).toFixed(6)}</div>
                             </div>
                         `;
                     }).join('');
@@ -46129,14 +46011,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }, 300);
         }
         
-        function selectPOIAddress(formattedAddress, lat, lon, fullAddress, addressJsonStr) {
-            // 🆕 v5.90.72: Nutze formatierte Adresse MIT PLZ!
-            document.getElementById('poi-address').value = formattedAddress;
+        function selectPOIAddress(address, lat, lon) {
+            // 🆕 v5.86.32: Kürze lange Adressen!
+            const shortAddress = shortenAddress(address);
+            
+            document.getElementById('poi-address').value = shortAddress;
             document.getElementById('poi-lat').value = lat;
             document.getElementById('poi-lon').value = lon;
             document.getElementById('poi-address-dropdown').style.display = 'none';
-            
-            console.log('✅ POI Adresse ausgewählt:', formattedAddress);
         }
         
         // 🆕 v5.86.32: Kürze Nominatim-Adressen für bessere Lesbarkeit
@@ -46316,7 +46198,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const dropdown = document.getElementById('edit-poi-address-dropdown');
             const query = input.value.trim();
             
-            if (query.length < 6) {
+            if (query.length < 3) {
                 dropdown.style.display = 'none';
                 return;
             }
@@ -46342,29 +46224,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                     
                     dropdown.innerHTML = results.map(r => {
-                        // 🆕 v5.90.72: Formatiere Adresse MIT PLZ (wie Fleet-Suche!)
-                        let displayText = '';
-                        if (r.address) {
-                            if (r.address.road) displayText += r.address.road + ' ';
-                            if (r.address.house_number) displayText += r.address.house_number + ', ';
-                            if (r.address.postcode) displayText += r.address.postcode + ' ';
-                            if (r.address.village || r.address.town || r.address.city) {
-                                displayText += (r.address.village || r.address.town || r.address.city);
-                            }
-                        }
-                        
-                        // Fallback wenn keine Formatierung möglich
-                        if (!displayText.trim()) {
-                            displayText = r.display_name;
-                        }
-                        
+                        const displayName = r.display_name;
                         return `
-                            <div onclick="selectEditPOIAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")}' )" 
+                            <div onclick="selectEditPOIAddress('${displayName.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" 
                                  style="padding:12px;cursor:pointer;border-bottom:1px solid #f3f4f6;"
                                  onmouseover="this.style.background='#dbeafe'"
                                  onmouseout="this.style.background='white'">
-                                <div style="font-weight:600;color:#1e40af;font-size:14px;">📍 ${displayText}</div>
-                                <div style="font-size:11px;color:#3b82f6;margin-top:2px;">${r.display_name}</div>
+                                <div style="font-weight:600;color:#1e40af;font-size:14px;">${displayName}</div>
+                                <div style="font-size:11px;color:#3b82f6;margin-top:2px;">📐 ${parseFloat(r.lat).toFixed(6)}, ${parseFloat(r.lon).toFixed(6)}</div>
                             </div>
                         `;
                     }).join('');
@@ -46377,14 +46244,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }, 300);
         }
         
-        function selectEditPOIAddress(formattedAddress, lat, lon, fullAddress) {
-            // 🆕 v5.90.72: Nutze formatierte Adresse MIT PLZ!
-            document.getElementById('edit-poi-address').value = formattedAddress;
+        function selectEditPOIAddress(address, lat, lon) {
+            // 🆕 v5.86.32: Kürze lange Adressen!
+            const shortAddress = shortenAddress(address);
+            
+            document.getElementById('edit-poi-address').value = shortAddress;
             document.getElementById('edit-poi-lat').value = lat;
             document.getElementById('edit-poi-lon').value = lon;
             document.getElementById('edit-poi-address-dropdown').style.display = 'none';
-            
-            console.log('✅ Edit POI Adresse ausgewählt:', formattedAddress);
         }
         
         async function updatePOI(id) {

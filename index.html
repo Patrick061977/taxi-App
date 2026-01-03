@@ -108,9 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.69 - POI SPEICHERN! ⭐ (Build 20260103-1320)');
-        console.log('🎯 v5.90.69: PIN statt Bubble + POI speichern!');
-        console.log('✅ v5.90.69: Einfacher roter PIN (kein störender Text)!');
+        console.log('🚕 Funk Taxi App v5.90.70 - POPUP OBEN + DB-FIX! ✅ (Build 20260103-1650)');
+        console.log('🎯 v5.90.70: Popup nach oben + database→db Fix!');
+        console.log('✅ v5.90.70: Karte bleibt sichtbar + POI speichern funktioniert!');
         console.log('⭐ v5.90.69: "Als POI speichern" Button!');
         console.log('📍 v5.90.69: Marker verschieben → POI an exakter Position!');
         console.log('🔄 v5.90.69: POI sofort überall verfügbar!');
@@ -24121,18 +24121,18 @@
                     fleetMap.removeLayer(fleetSearchMarker);
                 }
                 
-                // 🆕 v5.90.69: EINFACHER PIN (keine störende Bubble!)
+                // 🆕 v5.90.70: GRÖSSERER PIN für bessere Sichtbarkeit!
                 fleetSearchMarker = L.marker([lat, lon], {
                     icon: L.divIcon({
                         className: 'custom-marker',
                         html: `
                             <div style="position:relative;">
-                                <div style="width:30px;height:30px;background:#ef4444;border:3px solid white;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.3);"></div>
-                                <div style="position:absolute;top:30px;left:15px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid #ef4444;transform:translateX(-50%);"></div>
+                                <div style="width:40px;height:40px;background:#ef4444;border:4px solid white;border-radius:50%;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
+                                <div style="position:absolute;top:40px;left:20px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:16px solid #ef4444;transform:translateX(-50%);"></div>
                             </div>
                         `,
-                        iconSize: [30, 42],
-                        iconAnchor: [15, 42]
+                        iconSize: [40, 56],
+                        iconAnchor: [20, 56]
                     }),
                     draggable: true  // ← VERSCHIEBBAR!
                 }).addTo(fleetMap);
@@ -24181,39 +24181,39 @@
             confirmBox.id = 'marker-confirm-box';
             confirmBox.style.cssText = `
                 position: fixed;
-                bottom: 100px;
+                top: 80px;
                 left: 50%;
                 transform: translateX(-50%);
                 background: white;
-                padding: 20px;
+                padding: 12px 16px;
                 border-radius: 12px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.3);
                 z-index: 10000;
-                max-width: 90%;
-                width: 400px;
+                max-width: 95%;
+                width: auto;
+                border: 3px solid #10b981;
             `;
             
             confirmBox.innerHTML = `
-                <div style="text-align:center;">
-                    <div style="font-size:24px;margin-bottom:10px;">📍</div>
-                    <div style="font-weight:600;font-size:16px;margin-bottom:8px;">Position angepasst!</div>
-                    <div style="font-size:13px;color:#666;margin-bottom:15px;">
-                        Ist das die richtige Position?
-                    </div>
-                    <div style="font-size:11px;color:#999;margin-bottom:15px;">
-                        Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}
-                    </div>
-                    <div style="display:flex;gap:10px;flex-direction:column;">
-                        <div style="display:flex;gap:10px;">
-                            <button onclick="confirmMarkerPosition()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                                ✅ Ja, perfekt!
-                            </button>
-                            <button onclick="closeMarkerConfirmation()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                                🔄 Nochmal
-                            </button>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="font-size:20px;">📍</div>
+                        <div>
+                            <div style="font-weight:600;font-size:14px;color:#1f2937;">Position OK?</div>
+                            <div style="font-size:11px;color:#6b7280;">
+                                ${lat.toFixed(6)}, ${lon.toFixed(6)}
+                            </div>
                         </div>
-                        <button onclick="saveFleetAddressAsPOI()" style="width:100%;padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;margin-top:5px;">
-                            ⭐ Als POI speichern
+                    </div>
+                    <div style="display:flex;gap:6px;margin-left:auto;">
+                        <button onclick="confirmMarkerPosition()" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">
+                            ✓ Ja
+                        </button>
+                        <button onclick="closeMarkerConfirmation()" style="padding:8px 12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">
+                            🔄 Neu
+                        </button>
+                        <button onclick="saveFleetAddressAsPOI()" style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">
+                            ⭐ POI
                         </button>
                     </div>
                 </div>
@@ -24264,7 +24264,7 @@
                 // Erstelle POI ID aus Name (lowercase, keine Leerzeichen)
                 const poiId = poiName.toLowerCase().replace(/[^a-z0-9]/g, '_');
                 
-                await database.ref('pois/' + poiId).set(poiData);
+                await db.ref('pois/' + poiId).set(poiData);
                 
                 console.log('✅ POI gespeichert:', poiData);
                 

@@ -24016,7 +24016,7 @@
         let fleetSearchCoords = null; // 🆕 Koordinaten der gesuchten Adresse
         let fleetSearchName = null;   // 🆕 Name der gesuchten Adresse
         
-        // 🆕 v5.88.31: Adresssuche in Fahrzeug-Übersicht
+        // 🆕 v5.90.68: GLEICHES SYSTEM WIE ABHOLORT!
         function initFleetAddressSearch() {
             const input = document.getElementById('fleet-address-search');
             const dropdown = document.getElementById('fleet-address-dropdown');
@@ -24039,123 +24039,49 @@
                 
                 searchTimeout = setTimeout(async () => {
                     try {
-                        // Erst POIs durchsuchen
+                        // 1. Erst POIs durchsuchen
                         const lowerQuery = query.toLowerCase();
                         const matchingPOIs = allPOIs.filter(poi => 
                             poi.name.toLowerCase().includes(lowerQuery) || 
                             poi.address.toLowerCase().includes(lowerQuery)
                         );
                         
-                        // 🆕 v5.90.66: VERBESSERTES GEOCODING - Flexibler!
-                        // Usedom Bounding Box für präzisere Ergebnisse (OHNE bounded!)
-                        const usedomBounds = '53.8,13.6,54.2,14.2'; // Usedom Region
-                        
-                        // Nominatim mit besseren Parametern
-                        const nominatimUrl = `https://nominatim.openstreetmap.org/search?` +
-                            `format=json` +
-                            `&q=${encodeURIComponent(query)}` +
-                            `&countrycodes=de` +
-                            `&viewbox=${usedomBounds}` +
-                            // `&bounded=1` + // ❌ ENTFERNT - zu restriktiv!
-                            `&limit=8` +
-                            `&addressdetails=1` +
-                            `&extratags=1`;
-                        
-                        console.log('🔍 Geocoding URL:', nominatimUrl);
-                        
-                        const response = await fetch(nominatimUrl);
-                        const results = await response.json();
-                        
                         let html = '';
                         
-                        // POI Treffer zuerst
+                        // POI Treffer zuerst (GELB)
                         matchingPOIs.forEach(poi => {
                             html += `
-                                <div onclick="selectFleetAddress('${poi.name}', ${poi.lat}, ${poi.lon}, '${poi.address}')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;hover:background:#f3f4f6;">
+                                <div onclick="selectFleetAddress('${poi.name}', ${poi.lat}, ${poi.lon}, '${poi.address}')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;background:#fef9e7;">
                                     <div style="font-weight:600;color:#f59e0b;">⭐ ${poi.name}</div>
                                     <div style="font-size:12px;color:#666;margin-top:2px;">${poi.address}</div>
                                 </div>
                             `;
                         });
                         
-                        // 🆕 v5.90.43: Nominatim mit VOLLSTÄNDIGER Adresse
-                        results.forEach(r => {
-                            // Vollständige Adresse zusammenbauen
-                            const addr = r.address || {};
-                            let fullAddress = '';
-                            
-                            // Hausnummer + Straße
-                            if (addr.house_number && addr.road) {
-                                fullAddress = `${addr.road} ${addr.house_number}`;
-                            } else if (addr.road) {
-                                fullAddress = addr.road;
-                            }
-                            
-                            // PLZ + Ort
-                            const plz = addr.postcode || '';
-                            const ort = addr.village || addr.town || addr.city || addr.municipality || '';
-                            
-                            if (plz && ort) {
-                                fullAddress += `, ${plz} ${ort}`;
-                            } else if (ort) {
-                                fullAddress += `, ${ort}`;
-                            }
-                            
-                            // Fallback auf display_name wenn keine Details
-                            if (!fullAddress) {
-                                fullAddress = r.display_name.split(',').slice(0, 3).join(', ');
-                            }
-                            
+                        // 2. GLEICHE geocode() Funktion wie Abholort!
+                        const result = await geocode(query);
+                        
+                        if (result) {
+                            // Adresse anzeigen
                             html += `
-                                <div onclick="selectFleetAddress('${fullAddress.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon}, '${fullAddress.replace(/'/g, "\\'")}', ${JSON.stringify(addr).replace(/'/g, "\\'").replace(/"/g, '&quot;')})" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
-                                    <div style="font-weight:500;">${fullAddress}</div>
-                                    ${addr.house_number ? '<div style="font-size:11px;color:#10b981;margin-top:2px;">✅ Hausnummer vorhanden</div>' : ''}
+                                <div onclick="selectFleetAddress('${query}', ${result.lat}, ${result.lon}, '${query}')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
+                                    <div style="font-weight:500;">📍 ${query}</div>
                                 </div>
                             `;
-                        });
+                        }
                         
                         if (!html) {
-                            // 🆕 v5.90.66: Hilfreiche Tipps bei keine Ergebnisse!
-                            html = `
-                                <div style="padding:12px;color:#999;text-align:center;">
-                                    <div style="margin-bottom:8px;">❌ Keine Ergebnisse</div>
-                                    <div style="font-size:11px;margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px;text-align:left;">
-                                        <div style="font-weight:600;margin-bottom:4px;">💡 Tipps:</div>
-                                        <div>• Rechtschreibung prüfen</div>
-                                        <div>• Weniger Details eingeben</div>
-                                        <div>• Nur Straßenname versuchen</div>
-                                        <div>• Nur Ortsname versuchen</div>
-                                    </div>
-                                </div>
-                            `;
+                            html = '<div style="padding:12px;color:#999;text-align:center;">Keine Ergebnisse</div>';
                         }
                         
                         dropdown.innerHTML = html;
-                        
-                        console.log(`🔍 Gefunden: ${matchingPOIs.length} POIs, ${results.length} Adressen`);
+                        console.log(`🔍 Fleet-Suche: ${matchingPOIs.length} POIs, ${result ? '1' : '0'} Geocode`);
                         
                     } catch (e) {
-                        console.error('❌ Geocoding Fehler:', e);
-                        
-                        // 🆕 v5.90.66: Bessere Fehlermeldungen
-                        let errorMsg = 'Fehler bei der Suche';
-                        
-                        if (e.message && e.message.includes('fetch')) {
-                            errorMsg = '⚠️ Netzwerkfehler - Bitte nochmal versuchen';
-                        } else if (!navigator.onLine) {
-                            errorMsg = '📡 Keine Internetverbindung';
-                        }
-                        
-                        dropdown.innerHTML = `
-                            <div style="padding:12px;color:#ef4444;text-align:center;">
-                                ${errorMsg}
-                            </div>
-                            <div style="padding:8px 12px;font-size:11px;color:#999;text-align:center;">
-                                💡 Tipp: Prüfe Rechtschreibung (z.B. "Goethestrasse" statt "Goethestrassel")
-                            </div>
-                        `;
+                        console.error('❌ Fleet-Suche Fehler:', e);
+                        dropdown.innerHTML = '<div style="padding:12px;color:#ef4444;">Fehler bei der Suche</div>';
                     }
-                }, 300);
+                }, 800); // Debounce: 800ms
             });
             
             // Dropdown schließen bei Klick außerhalb
@@ -24165,7 +24091,7 @@
                 }
             });
             
-            console.log('🔍 Fleet-Adresssuche initialisiert (mit Usedom-Bias)');
+            console.log('🔍 Fleet-Adresssuche initialisiert (GLEICHES SYSTEM WIE ABHOLORT)');
         }
         
         function selectFleetAddress(name, lat, lon, fullAddress, addressDetails) {

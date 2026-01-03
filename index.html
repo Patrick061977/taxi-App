@@ -108,9 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.75 - PREISBERECHNUNG FIX! 💰 (Build 20260103-2310)');
-        console.log('🔧 v5.90.75: pickupTimeSelect undefined GEFIXT!');
-        console.log('✅ v5.90.75: Preisberechnung funktioniert wieder!');
+        console.log('🚕 Funk Taxi App v5.90.77 - ZIEL ÄNDERN + AUTO-UPDATE! 🎯 (Build 20260103-2330)');
+        console.log('❌ v5.90.77: Rotes X → Nur Ziel ändern (Rest bleibt!)');
+        console.log('🔄 v5.90.77: Neues Ziel → Preis automatisch neu berechnet!');
+        console.log('✨ v5.90.77: Bessere UX - kein kompletter Reset mehr nötig!');
         console.log('⭐ v5.90.69: "Als POI speichern" Button!');
         console.log('📍 v5.90.69: Marker verschieben → POI an exakter Position!');
         console.log('🔄 v5.90.69: POI sofort überall verfügbar!');
@@ -1704,6 +1705,10 @@
                 <label>🎯 Zielort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" style="flex:1;">
+                    <!-- 🆕 v5.90.77: ROTES X - Nur Ziel ändern! -->
+                    <button id="clear-destination-btn" onclick="clearDestinationOnly()" style="display:none;padding:10px 12px;border:2px solid #ef4444;background:#fee2e2;color:#991b1b;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Nur Ziel ändern">
+                        ❌
+                    </button>
                     <button onclick="saveLocationPOI('destination')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
                         ⭐
                     </button>
@@ -18284,6 +18289,14 @@
                 updateConfirmationHint('destination');
                 console.log('✅ Zielort gespeichert:', address, destCoords);
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
+                
+                // 🆕 v5.90.77: AUTO-NEUBERECHNUNG wenn Preis schon da war!
+                if (priceCalculated && pickupCoords) {
+                    console.log('🔄 Neues Ziel → Auto-Neuberechnung...');
+                    setTimeout(() => {
+                        calculatePriceAndShow();
+                    }, 300);
+                }
             } else if (inputId === 'qb-panel-pickup') {
                 // 🆕 v5.50.7: Admin-Panel Abholort!
                 qbPanelPickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
@@ -18538,48 +18551,89 @@
             }
         }
         
-        // 🆕 BUCHUNG ABBRECHEN - setzt alles zurück
-        function cancelBooking() {
-            // 🆕 Bestätigungsdialog
-            const confirmed = confirm('↩️ Buchung wirklich abbrechen?\n\nAlle eingegebenen Daten werden gelöscht.');
-            if (!confirmed) return;
+        // 🆕 v5.90.77: NUR ZIEL ÄNDERN (Rest bleibt!)
+        function clearDestinationOnly() {
+            console.log('🎯 Nur Ziel ändern - Rest bleibt!');
             
-            // Felder leeren
-            document.getElementById('pickup').value = '';
-            document.getElementById('destination').value = '';
-            // NOTE: pickup-time Element entfernt in v5.30.0
-            const oldPickupTime = document.getElementById('pickup-time');
-            if (oldPickupTime) oldPickupTime.value = 'jetzt';
-            document.getElementById('passengers').value = '1';
+            // Nur Ziel-Feld leeren
+            const destInput = document.getElementById('destination');
+            if (destInput) {
+                destInput.value = '';
+                destInput.focus(); // Cursor ins Feld
+            }
+            
+            // Ziel-Icon verstecken
+            const destIcon = document.getElementById('destination-confirmation-icon');
+            if (destIcon) {
+                destIcon.style.display = 'none';
+            }
+            
+            // Ziel-Coords löschen
+            destCoords = null;
+            destinationConfirmed = false;
+            
+            // Preis verstecken
+            const priceDisplay = document.getElementById('price-display');
+            if (priceDisplay) {
+                priceDisplay.style.display = 'none';
+            }
             
             // Karte verstecken
             const routeMap = document.getElementById('route-map');
-            if (routeMap) routeMap.style.display = 'none';
+            if (routeMap) {
+                routeMap.style.display = 'none';
+            }
             
-            // Preis verstecken
-            document.getElementById('price-display').innerHTML = '';
+            // "Taxi buchen" Button verstecken
+            const bookBtn = document.getElementById('book-btn');
+            if (bookBtn) {
+                bookBtn.style.display = 'none';
+            }
             
-            // Taxi buchen Button verstecken
-            document.getElementById('book-btn').style.display = 'none';
+            // X-Button verstecken
+            const clearDestBtn = document.getElementById('clear-destination-btn');
+            if (clearDestBtn) {
+                clearDestBtn.style.display = 'none';
+            }
             
-            // Verfügbare Taxis verstecken
-            document.getElementById('available-taxis-display').innerHTML = '';
-            
-            // Button zurück zu "Preis berechnen"
+            // "Preis berechnen" Button zurück
             const priceBtn = document.getElementById('price-btn');
-            priceBtn.innerHTML = '💰 Preis berechnen';
-            priceBtn.classList.remove('btn-danger');
-            priceBtn.classList.add('btn-primary');
+            if (priceBtn) {
+                priceBtn.innerHTML = '💰 Preis berechnen';
+                priceBtn.classList.remove('btn-danger');
+                priceBtn.classList.add('btn-primary');
+            }
             
             // Status zurücksetzen
             priceCalculated = false;
             window.currentPrice = null;
             window.currentDistance = null;
             window.currentDuration = null;
-            pickupCoords = null;
-            destCoords = null;
             
-            console.log('↩️ Buchung abgebrochen');
+            console.log('✅ Nur Ziel gelöscht - Abholort/Datum/Zeit bleiben!');
+        }
+
+        // 🆕 BUCHUNG ABBRECHEN - setzt alles zurück
+        function cancelBooking() {
+            // 🆕 Bestätigungsdialog
+            const confirmed = confirm('↩️ Buchung wirklich abbrechen?\n\nAlle eingegebenen Daten werden gelöscht.');
+            if (!confirmed) return;
+            
+            // 🆕 v5.90.76: Nutze resetBookingForm() für kompletten Reset!
+            resetBookingForm();
+            
+            // Button zurück zu "Preis berechnen"
+            const priceBtn = document.getElementById('price-btn');
+            if (priceBtn) {
+                priceBtn.innerHTML = '💰 Preis berechnen';
+                priceBtn.classList.remove('btn-danger');
+                priceBtn.classList.add('btn-primary');
+            }
+            
+            // Status zurücksetzen
+            priceCalculated = false;
+            
+            console.log('↩️ Buchung abgebrochen - ALLES zurückgesetzt!');
         }
 
         // BOOKING
@@ -18953,6 +19007,12 @@
             const priceDisplay = document.getElementById('price-display');
             priceDisplay.innerHTML = priceHtml;
             priceDisplay.style.display = 'block';
+            
+            // 🆕 v5.90.77: ROTES X anzeigen (um nur Ziel zu ändern)
+            const clearDestBtn = document.getElementById('clear-destination-btn');
+            if (clearDestBtn) {
+                clearDestBtn.style.display = 'inline-block';
+            }
             
             // 🗺️ ROUTE-KARTE ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
@@ -19652,6 +19712,13 @@
                     routeMapInstance.remove();
                     routeMapInstance = null;
                 }
+            }
+            
+            // 🆕 v5.90.76: LIVE-SLOT-CHECK VERSTECKEN
+            const liveSlotCheck = document.getElementById('live-slot-check');
+            if (liveSlotCheck) {
+                liveSlotCheck.style.display = 'none';
+                liveSlotCheck.innerHTML = '';
             }
             
             // 🔘 "BUCHEN"-BUTTON VERSTECKEN

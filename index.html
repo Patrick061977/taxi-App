@@ -108,9 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.73 - MOBILE UI CLEANER! ✅ (Build 20260103-2100)');
-        console.log('🎯 v5.90.73: Kompakte Icons statt große Boxen!');
-        console.log('✅ v5.90.73: 150px Platz gespart! GPS als Icon! 📍');
+        console.log('🚕 Funk Taxi App v5.90.74 - RESET FIX + NACHTTARIF FIX! 🌙 (Build 20260103-2130)');
+        console.log('🧹 v5.90.74: Reset löscht ALLES komplett!');
+        console.log('🌙 v5.90.74: Nachttarif-Berechnung gefixt!');
+        console.log('✅ v5.90.74: Flags + Buttons + Zeit korrekt zurückgesetzt!');
         console.log('⭐ v5.90.69: "Als POI speichern" Button!');
         console.log('📍 v5.90.69: Marker verschieben → POI an exakter Position!');
         console.log('🔄 v5.90.69: POI sofort überall verfügbar!');
@@ -18859,26 +18860,24 @@
             debugLog('info', `🗺️ Route: ${route.distance} km, ${route.duration} Min`);
             
             // Hole Abholzeit für korrekte Tarifberechnung
-            // 🆕 v5.30.0: Alte pickup-time gibt es nicht mehr, nutze Fallback
-            const oldPickupTimeElem = document.getElementById('pickup-time');
-            const pickupTimeSelect = oldPickupTimeElem ? oldPickupTimeElem.value : 'sofort';
-            // 🆕 SOFORT = +5 Min Vorlauf für Logik-Stabilität
-            let pickupTimestamp = Date.now() + 5 * 60000;
+            // 🆕 v5.90.74: Nutze currentRideType für korrekte Zeitberechnung!
+            let pickupTimestamp = Date.now() + 5 * 60000; // Default: SOFORT = +5 Min
             
-            if (pickupTimeSelect === '15min') {
-                pickupTimestamp = Date.now() + 15 * 60000;
-            } else if (pickupTimeSelect === '30min') {
-                pickupTimestamp = Date.now() + 30 * 60000;
-            } else if (pickupTimeSelect === '1h') {
-                pickupTimestamp = Date.now() + 60 * 60000;
-            } else if (pickupTimeSelect === 'datetime') {
-                // 🆕 Lese aus neuen Feldern (Datum + Stunde + Minute)
-                const dateVal = document.getElementById('custom-date').value;
-                const hourVal = document.getElementById('custom-hour').value;
-                const minuteVal = document.getElementById('custom-minute').value;
+            if (currentRideType === 'vorbestellen') {
+                // 🆕 v5.90.74: Lese aus custom-date + hour + minute!
+                const dateVal = document.getElementById('custom-date')?.value;
+                const hourVal = document.getElementById('custom-hour')?.value;
+                const minuteVal = document.getElementById('custom-minute')?.value;
+                
                 if (dateVal && hourVal && minuteVal) {
                     pickupTimestamp = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`).getTime();
+                    console.log(`🕐 VORBESTELL-ZEIT: ${dateVal} ${hourVal}:${minuteVal}`);
+                } else {
+                    console.warn('⚠️ Vorbestell-Felder nicht ausgefüllt, nutze JETZT');
                 }
+            } else {
+                // SOFORT-Buchung = jetzt + 5 Min
+                console.log('⚡ SOFORT-Buchung: Zeit = jetzt + 5 Min');
             }
             
             // Berechne Preis MIT Zeitstempel (für korrekten Tag/Nacht-Tarif)
@@ -19620,6 +19619,14 @@
                 preorderDateTime.value = '';
             }
             
+            // 🆕 v5.90.74: custom-date/hour/minute auch zurücksetzen!
+            const customDate = document.getElementById('custom-date');
+            const customHour = document.getElementById('custom-hour');
+            const customMinute = document.getElementById('custom-minute');
+            if (customDate) customDate.value = '';
+            if (customHour) customHour.value = '00';
+            if (customMinute) customMinute.value = '00';
+            
             // 💳 Zahlungsmethode zurücksetzen
             const paymentMethod = document.getElementById('payment-method');
             if (paymentMethod) {
@@ -19683,6 +19690,38 @@
             // 📍 KOORDINATEN ZURÜCKSETZEN
             window.pickupCoords = null;
             window.destCoords = null;
+            
+            // ✅ v5.90.74: Confirmation-Flags zurücksetzen!
+            pickupConfirmed = false;
+            destinationConfirmed = false;
+            
+            // 🆕 v5.90.74: Ride-Type zurücksetzen!
+            currentRideType = null;
+            
+            // 🆕 v5.90.74: Ride-Type Buttons zurücksetzen!
+            const btnSofort = document.getElementById('btn-sofort');
+            const btnVorbestellen = document.getElementById('btn-vorbestellen');
+            const sofortBereich = document.getElementById('sofort-bereich');
+            const vorbestellenBereich = document.getElementById('vorbestellen-bereich');
+            
+            if (btnSofort) {
+                btnSofort.style.border = '3px solid #e5e7eb';
+                btnSofort.style.background = 'white';
+                const divs = btnSofort.querySelectorAll('div');
+                if (divs[1]) divs[1].style.color = '#6b7280';
+                if (divs[2]) divs[2].style.color = '#666';
+            }
+            
+            if (btnVorbestellen) {
+                btnVorbestellen.style.border = '3px solid #e5e7eb';
+                btnVorbestellen.style.background = 'white';
+                const divs = btnVorbestellen.querySelectorAll('div');
+                if (divs[1]) divs[1].style.color = '#6b7280';
+                if (divs[2]) divs[2].style.color = '#666';
+            }
+            
+            if (sofortBereich) sofortBereich.style.display = 'none';
+            if (vorbestellenBereich) vorbestellenBereich.style.display = 'none';
             
             // 🔘 BUTTONS ZURÜCKSETZEN
             const rideTypeContainer = document.getElementById('ride-type-container');

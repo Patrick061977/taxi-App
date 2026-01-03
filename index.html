@@ -6858,6 +6858,22 @@
                         }
                     }
                     
+                    // 🆕 v5.90.77: SUCHE AUCH NACH customerId (Admin-Buchungen)!
+                    if (currentUser.uid) {
+                        const customerIdSnapshot = await db.ref('rides').orderByChild('customerId').equalTo(currentUser.uid).once('value');
+                        if (customerIdSnapshot.exists()) {
+                            customerIdSnapshot.forEach(childSnapshot => {
+                                const ride = childSnapshot.val();
+                                ride.firebaseId = childSnapshot.key;
+                                if (!firebaseRideIds.includes(ride.id)) {
+                                    firebaseRides.push(ride);
+                                    firebaseRideIds.push(ride.id);
+                                }
+                            });
+                            console.log('✅ Fahrten via customerId gefunden:', customerIdSnapshot.numChildren());
+                        }
+                    }
+                    
                     // 🆕 v5.90.21: ADDITIONAL FALLBACK - Suche nach customerName wenn Phone nicht hilft
                     if (currentUser.displayName && firebaseRides.length === 0) {
                         console.log('🔍 Fallback-Suche nach Name:', currentUser.displayName);
@@ -32330,6 +32346,7 @@
                 
                     const rideData = {
                         customerId: qbPanelCustomer.id,
+                        userId: qbPanelCustomer.id, // 🆕 v5.90.78: Für Verlaufssuche!
                         customerName: qbPanelCustomer.name || 'Unbekannt',
                         customerPhone: qbPanelCustomer.phone || '',
                         pickup,
@@ -35573,6 +35590,7 @@
                     bookedBy: 'admin',
                     notes: notes || '',
                     customerId: finalCustomerId,
+                    userId: finalCustomerId, // 🆕 v5.90.78: Für Verlaufssuche!
                     pickupCoords: quickBookingPickupCoords, // 🔧 v5.39.8: FIX - Koordinaten!
                     destCoords: quickBookingDestCoords, // 🔧 v5.39.8: FIX - Koordinaten!
                     // 🆕 v5.48.2: PREIS, DISTANZ, DAUER!

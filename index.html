@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.102 - ADMIN-VIEWS FIX! 🔒 (Build 20260104-1805)');
-        console.log('✅ v5.90.102: ALLE Admin-Views mit .admin-only markiert!');
-        console.log('✅ v5.90.102: switchView prüft Admin-Berechtigung!');
-        console.log('✅ v5.90.102: Kunden können KEINE Admin-Views öffnen!');
-        console.log('✅ v5.90.101: CSS + body.is-admin!');
+        console.log('🚕 Funk Taxi App v5.90.103 - CSS FIX! 🔧 (Build 20260104-1810)');
+        console.log('✅ v5.90.103: CSS FIX - body:not(.is-admin) statt always hide!');
+        console.log('✅ v5.90.103: Admin-Views funktionieren wieder!');
+        console.log('✅ v5.90.103: Kunden sehen KEINE Admin-Views!');
+        console.log('✅ v5.90.102: switchView prüft Berechtigung!');
         console.log('✅ v5.90.100: Parallele Requests!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
@@ -340,14 +340,9 @@
             color: white !important;
         }
         
-        /* 🔧 v5.90.101: ADMIN-ONLY TABS - Standardmäßig versteckt! */
-        .admin-only {
+        /* 🔧 v5.90.103: ADMIN-ONLY - NUR verstecken wenn NICHT Admin! */
+        body:not(.is-admin) .admin-only {
             display: none !important;
-        }
-        
-        /* 🔧 v5.90.101: Nur für Admin sichtbar */
-        body.is-admin .admin-only {
-            display: revert !important;
         }
         
         /* 🎯 v5.90.6: DRAG & DROP TAB STYLING */
@@ -971,7 +966,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.102 - ADMIN-VIEWS FIX! 🔒 (Build 20260104-1805)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.103 - CSS FIX! 🔧 (Build 20260104-1810)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="

@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.98 - ROUTE CACHE! ⚡ (Build 20260104-1720)');
-        console.log('✅ v5.90.98: Route-Cache für OSRM (1 Stunde)!');
-        console.log('✅ v5.90.98: Nutzt gespeicherte Duration statt Neuberechnung!');
-        console.log('✅ v5.90.98: 100x SCHNELLER bei Zeitslot-Prüfung!');
-        console.log('✅ v5.90.97: Filtert "Beliebtes Ziel" aus!');
+        console.log('🚕 Funk Taxi App v5.90.99 - PRÄZISION + ADMIN-TABS! 🎯 (Build 20260104-1730)');
+        console.log('✅ v5.90.99: Optimierter Slot-Check → Gleicher Tag + ±6h!');
+        console.log('✅ v5.90.99: Minimum OSRM-Calls bei maximaler Präzision!');
+        console.log('✅ v5.90.99: 📅 Kalender NUR für Admin sichtbar!');
+        console.log('✅ v5.90.99: Alle Admin-Only Tabs erzwungen!');
+        console.log('✅ v5.90.98: Route-Cache (1 Stunde)!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -960,7 +961,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.98 - ROUTE CACHE! ⚡ (Build 20260104-1720)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.99 - PRÄZISION + ADMIN-TABS! 🎯 (Build 20260104-1730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -20506,15 +20507,23 @@
                     console.log('📋 Status der aktiven Fahrten:', activeRides.map(r => r.status));
                 }
                 
-                // 🔧 v5.39.8: Nur Fahrten prüfen die zeitlich relevant sind!
-                // Filtere Fahrten die mehr als 48h vor oder nach gewünschter Zeit liegen
+                // 🔧 v5.90.99: INTELLIGENTER FILTER für minimale OSRM-Calls!
+                // Nur Fahrten vom GLEICHEN TAG + maximal 6h Abstand
+                const requestedDay = new Date(requestedTimestamp).toDateString();
                 const relevantRides = activeRides.filter(r => {
+                    const rideDay = new Date(r.pickupTimestamp).toDateString();
+                    
+                    // 1. Muss gleicher Tag sein
+                    if (rideDay !== requestedDay) return false;
+                    
+                    // 2. Maximal 6 Stunden Abstand (vor oder nach)
                     const timeDiff = Math.abs(r.pickupTimestamp - requestedTimestamp);
                     const hoursDiff = timeDiff / (1000 * 60 * 60);
-                    return hoursDiff <= 48; // Nur Fahrten innerhalb 48h relevant
+                    return hoursDiff <= 6; // Nur Fahrten innerhalb ±6h relevant
                 });
                 
-                console.log(`🔍 Relevante Fahrten gefunden: ${relevantRides.length} von ${activeRides.length}`);
+                console.log(`⚡ v5.90.99: Optimierter Filter → ${relevantRides.length} von ${activeRides.length} Fahrten`);
+                console.log(`📊 Eingesparte Prüfungen: ${activeRides.length - relevantRides.length} (= ${activeRides.length - relevantRides.length} * 2 = ${(activeRides.length - relevantRides.length) * 2} OSRM-Calls gespart!)`);
                 
                 // 🆕 v5.32.5j: VERBESSERTE PRÜFUNG - Berücksichtigt Fahrtende + Fahrzeit
                 for (const ride of relevantRides) {
@@ -52388,15 +52397,27 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             if (!settings) {
-                console.log('ℹ️ Keine Tab-Einstellungen - zeige alle Tabs');
+                console.log('ℹ️ Keine Tab-Einstellungen - wende Admin-Regeln an');
+                // 🔧 v5.90.99: Auch ohne Settings → Admin-Only Tabs verstecken!
+                ALL_TABS.forEach(tab => {
+                    const btn = document.querySelector(`.tab-toggleable[data-tab-id="${tab.id}"]`);
+                    if (btn && tab.admin && userRole !== 'admin') {
+                        btn.style.display = 'none';
+                        console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${userRole || 'Gast'}`);
+                    }
+                });
                 return;
             }
             
-            // 🆕 v5.90.65: Verstecke nicht-sichtbare Tabs (nutze data-tab-id!)
+            // 🔧 v5.90.99: ERZWINGE Admin-Only Tabs basierend auf userRole!
             ALL_TABS.forEach(tab => {
                 const btn = document.querySelector(`.tab-toggleable[data-tab-id="${tab.id}"]`);
                 if (btn) {
-                    if (settings.visible.includes(tab.id)) {
+                    // Admin-Only Tab UND User ist NICHT Admin → VERSTECKEN!
+                    if (tab.admin && userRole !== 'admin') {
+                        btn.style.display = 'none';
+                        console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${userRole || 'Gast'}`);
+                    } else if (settings.visible.includes(tab.id)) {
                         btn.style.display = '';
                     } else {
                         btn.style.display = 'none';

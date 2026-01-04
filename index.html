@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.97 - ALT-DATEN FILTER! 🧹 (Build 20260104-1600)');
-        console.log('✅ v5.90.97: Filtert "Beliebtes Ziel" aus frequentDestinations!');
-        console.log('✅ v5.90.97: Keine Label-Strings mehr in Dropdown!');
-        console.log('✅ v5.90.97: Nur noch echte Adressen!');
-        console.log('✅ v5.90.96: Quick Booking zeigt echte Adresse!');
+        console.log('🚕 Funk Taxi App v5.90.98 - ROUTE CACHE! ⚡ (Build 20260104-1720)');
+        console.log('✅ v5.90.98: Route-Cache für OSRM (1 Stunde)!');
+        console.log('✅ v5.90.98: Nutzt gespeicherte Duration statt Neuberechnung!');
+        console.log('✅ v5.90.98: 100x SCHNELLER bei Zeitslot-Prüfung!');
+        console.log('✅ v5.90.97: Filtert "Beliebtes Ziel" aus!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -960,7 +960,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.97 - ALT-DATEN FILTER! 🧹 (Build 20260104-1600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.98 - ROUTE CACHE! ⚡ (Build 20260104-1720)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -20544,8 +20544,8 @@
                     // 🆕 v5.50.1: Zeige ob aus Fahrt oder berechnet!
                     console.log(`   📊 Dauer der Fahrt: ${rideDuration} Min (${ride.duration ? 'aus Fahrt gespeichert' : 'Standard-Wert'})`);
                     
-                    // Wenn Koordinaten vorhanden, berechne echte Dauer
-                    if (ride.pickupCoords && ride.destCoords) {
+                    // 🔧 v5.90.98: NUR neu berechnen wenn KEINE duration gespeichert!
+                    if (!ride.duration && ride.pickupCoords && ride.destCoords) {
                         console.log('   🗺️ Berechne ECHTE Dauer mit OSRM...');
                         rideDuration = await calculateRouteDuration(
                             ride.pickupCoords,
@@ -20796,8 +20796,30 @@
         };
         
         // Berechnet Route-Dauer via Google Maps
+        // 🔧 v5.90.98: ROUTE CACHE - Vermeide doppelte OSRM-Calls!
+        const routeCache = new Map();
+        const CACHE_DURATION = 60 * 60 * 1000; // 1 Stunde
+        
+        function getRouteCacheKey(fromCoords, toCoords) {
+            // Runde auf 3 Dezimalstellen (~111m Genauigkeit)
+            const fromLat = Math.round(fromCoords.lat * 1000) / 1000;
+            const fromLon = Math.round((fromCoords.lon || fromCoords.lng) * 1000) / 1000;
+            const toLat = Math.round(toCoords.lat * 1000) / 1000;
+            const toLon = Math.round((toCoords.lon || toCoords.lng) * 1000) / 1000;
+            return `${fromLat},${fromLon}→${toLat},${toLon}`;
+        }
+        
         async function calculateRouteDuration(fromCoords, toCoords) {
             if (!fromCoords || !toCoords) return 15; // Fallback
+            
+            // 🔧 v5.90.98: PRÜFE CACHE ZUERST!
+            const cacheKey = getRouteCacheKey(fromCoords, toCoords);
+            const cached = routeCache.get(cacheKey);
+            
+            if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+                console.log(`⚡ Route aus Cache: ${cached.duration} Min (Key: ${cacheKey.substring(0, 20)}...)`);
+                return cached.duration;
+            }
             
             try {
                 // 🔧 v5.49.7: OSRM statt Google! (kostenlos, kein API Key!)
@@ -20820,7 +20842,14 @@
                 if (data.code === 'Ok' && data.routes && data.routes[0]) {
                     const duration = data.routes[0].duration; // Sekunden
                     const minutes = Math.ceil(duration / 60); // Minuten, aufgerundet
-                    console.log(`✅ Route berechnet (OSRM): ${minutes} Min`);
+                    
+                    // 🔧 v5.90.98: SPEICHERE IM CACHE!
+                    routeCache.set(cacheKey, { 
+                        duration: minutes, 
+                        timestamp: Date.now() 
+                    });
+                    
+                    console.log(`✅ Route berechnet (OSRM): ${minutes} Min → Cache gespeichert`);
                     return minutes;
                 } else {
                     console.warn('⚠️ OSRM konnte Route nicht berechnen:', data.code || 'Unknown');

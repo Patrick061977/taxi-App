@@ -108,7 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.84 - USERID FIX! 🎯 (Build 20260104-1050)');
+        console.log('🚕 Funk Taxi App v5.90.85 - FINALE USERID-SUCHE! 🎯✨ (Build 20260104-1245)');
+        console.log('✅ v5.90.85: 3-STUFEN userId-Suche - GARANTIERT!');
+        console.log('✅ v5.90.85: Suche via Phone → Name → Fallback!');
+        console.log('✅ v5.90.85: Admin-Buchungen in "Meine Fahrten"!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -956,7 +959,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.82 - AUTO PHONE-SUCHE! (Build 20260104-0920)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.85 - 3-STUFEN USERID-SUCHE! 🎯✨ (Build 20260104-1245)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6787,7 +6790,7 @@
         
         async function updateHistoryView() {
             console.log('═══════════════════════════════════════════════════════');
-            console.log('📖 v5.90.84 - updateHistoryView DEBUG START');
+            console.log('📖 v5.90.85 - updateHistoryView DEBUG START');
             console.log('═══════════════════════════════════════════════════════');
             console.log('📋 Tab:', currentHistoryTab);
             console.log('👤 currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
@@ -17835,6 +17838,137 @@
                 basePrice: base.toFixed(2),
                 surgeMultiplier: surge.multiplier
             };
+        }
+
+        // 🆕 v5.90.85: ROBUSTE 3-STUFEN userId-SUCHE für Admin-Buchungen
+        async function findUserIdForCustomer(customerName, customerPhone) {
+            console.log('═══════════════════════════════════════════════');
+            console.log('🔍 3-STUFEN userId-SUCHE START');
+            console.log('   👤 Name:', customerName || '(nicht vorhanden)');
+            console.log('   📞 Phone:', customerPhone || '(nicht vorhanden)');
+            console.log('═══════════════════════════════════════════════');
+            
+            let foundUserId = null;
+            
+            // ═══════════════════════════════════════════════
+            // STUFE 1: Suche nach PHONE in /users
+            // ═══════════════════════════════════════════════
+            if (customerPhone) {
+                try {
+                    const normalized = customerPhone.replace(/\s/g, '');
+                    console.log('   🔍 STUFE 1: Suche nach phone:', normalized);
+                    
+                    const snapshot = await db.ref('users')
+                        .orderByChild('phone')
+                        .equalTo(normalized)
+                        .limitToFirst(1)
+                        .once('value');
+                    
+                    if (snapshot.exists()) {
+                        snapshot.forEach(child => {
+                            foundUserId = child.key;
+                            console.log('   ✅ STUFE 1 ERFOLG! userId:', foundUserId);
+                        });
+                        
+                        if (foundUserId) {
+                            console.log('🎉 userId via PHONE gefunden:', foundUserId);
+                            console.log('═══════════════════════════════════════════════');
+                            return foundUserId;
+                        }
+                    }
+                    console.log('   ⏭️  STUFE 1: Kein Ergebnis');
+                } catch (error) {
+                    console.error('   ❌ STUFE 1 FEHLER:', error);
+                }
+            }
+            
+            // ═══════════════════════════════════════════════
+            // STUFE 2: Suche nach DISPLAYNAME in /users
+            // ═══════════════════════════════════════════════
+            if (!foundUserId && customerName) {
+                try {
+                    console.log('   🔍 STUFE 2: Suche nach displayName:', customerName);
+                    
+                    const snapshot = await db.ref('users')
+                        .orderByChild('displayName')
+                        .equalTo(customerName)
+                        .limitToFirst(1)
+                        .once('value');
+                    
+                    if (snapshot.exists()) {
+                        snapshot.forEach(child => {
+                            foundUserId = child.key;
+                            console.log('   ✅ STUFE 2 ERFOLG! userId:', foundUserId);
+                        });
+                        
+                        if (foundUserId) {
+                            console.log('🎉 userId via NAME gefunden:', foundUserId);
+                            console.log('═══════════════════════════════════════════════');
+                            return foundUserId;
+                        }
+                    }
+                    console.log('   ⏭️  STUFE 2: Kein Ergebnis');
+                } catch (error) {
+                    console.error('   ❌ STUFE 2 FEHLER:', error);
+                }
+            }
+            
+            // ═══════════════════════════════════════════════
+            // STUFE 3: ALLE USERS DURCHSUCHEN (Fallback)
+            // ═══════════════════════════════════════════════
+            if (!foundUserId && (customerName || customerPhone)) {
+                try {
+                    console.log('   🔍 STUFE 3: Durchsuche ALLE Users als Fallback...');
+                    
+                    const allUsers = await db.ref('users').once('value');
+                    const normalizedPhone = customerPhone ? customerPhone.replace(/\s/g, '') : '';
+                    
+                    allUsers.forEach(child => {
+                        if (foundUserId) return; // Schon gefunden
+                        
+                        const userData = child.val();
+                        const userPhone = (userData.phone || '').replace(/\s/g, '');
+                        const userName = (userData.displayName || '').toLowerCase();
+                        const searchName = (customerName || '').toLowerCase();
+                        
+                        // Phone Match?
+                        if (normalizedPhone && userPhone === normalizedPhone) {
+                            foundUserId = child.key;
+                            console.log('   ✅ STUFE 3 ERFOLG (Phone-Match)! userId:', foundUserId);
+                            return;
+                        }
+                        
+                        // Name Match (case-insensitive)?
+                        if (searchName && userName === searchName) {
+                            foundUserId = child.key;
+                            console.log('   ✅ STUFE 3 ERFOLG (Name-Match)! userId:', foundUserId);
+                            return;
+                        }
+                    });
+                    
+                    if (!foundUserId) {
+                        console.log('   ⏭️  STUFE 3: Kein Ergebnis');
+                    }
+                } catch (error) {
+                    console.error('   ❌ STUFE 3 FEHLER:', error);
+                }
+            }
+            
+            // ═══════════════════════════════════════════════
+            // FINAL: ERGEBNIS
+            // ═══════════════════════════════════════════════
+            if (foundUserId) {
+                console.log('🎉 userId GEFUNDEN:', foundUserId);
+                console.log('═══════════════════════════════════════════════');
+                return foundUserId;
+            } else {
+                console.warn('⚠️  userId NICHT GEFUNDEN!');
+                console.warn('   ℹ️  Fahrt wird OHNE userId gespeichert');
+                console.warn('   ℹ️  Erscheint NICHT in "Meine Fahrten" des Kunden!');
+                console.warn('   💡 LÖSUNG: Kunde muss sich einmal einloggen damit User-Profil erstellt wird');
+                console.log('═══════════════════════════════════════════════');
+                return null;
+            }
         }
 
         // AUTOCOMPLETE
@@ -32436,8 +32570,18 @@
                         }
                     }
                     
+                    // 🆕 v5.90.85: FINDE userId FÜR "MEINE FAHRTEN"!
+                    const userId = await findUserIdForCustomer(qbPanelCustomer.name, finalCustomerPhone);
+                    
+                    if (!userId) {
+                        console.warn('⚠️ WARNUNG: Keine userId gefunden für', qbPanelCustomer.name);
+                        console.warn('   Fahrt wird gespeichert, aber erscheint NICHT in "Meine Fahrten"');
+                        console.warn('   LÖSUNG: Kunde muss sich einmal in App einloggen!');
+                    }
+                    
                     const rideData = {
                         customerId: qbPanelCustomer.id,
+                        userId: userId || null, // 🆕 v5.90.85: AUTH-UID FÜR "MEINE FAHRTEN"!
                         customerName: qbPanelCustomer.name || 'Unbekannt',
                         customerPhone: finalCustomerPhone,
                         pickup,
@@ -35702,7 +35846,17 @@
                     }
                 }
                 
+                // 🆕 v5.90.85: FINDE userId FÜR "MEINE FAHRTEN"!
+                const userId = await findUserIdForCustomer(finalCustomer.name, finalCustomerPhone);
+                
+                if (!userId) {
+                    console.warn('⚠️ WARNUNG: Keine userId gefunden für', finalCustomer.name);
+                    console.warn('   Fahrt wird gespeichert, aber erscheint NICHT in "Meine Fahrten"');
+                    console.warn('   LÖSUNG: Kunde muss sich einmal in App einloggen!');
+                }
+                
                 const ride = {
+                    userId: userId || null, // 🆕 v5.90.85: AUTH-UID FÜR "MEINE FAHRTEN"!
                     customerName: finalCustomer.name || 'Unbekannt',
                     customerPhone: finalCustomerPhone,
                     // 🆕 v5.75.0: GAST-NAME (optional)

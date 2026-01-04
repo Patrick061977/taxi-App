@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.103 - CSS FIX! 🔧 (Build 20260104-1810)');
-        console.log('✅ v5.90.103: CSS FIX - body:not(.is-admin) statt always hide!');
-        console.log('✅ v5.90.103: Admin-Views funktionieren wieder!');
-        console.log('✅ v5.90.103: Kunden sehen KEINE Admin-Views!');
-        console.log('✅ v5.90.102: switchView prüft Berechtigung!');
+        console.log('🚕 Funk Taxi App v5.90.104 - WEISSE BUTTONS! 🎨 (Build 20260104-1820)');
+        console.log('✅ v5.90.104: Buttons weiss gemacht: Kalender, Schnellbuchung, Favoriten, Archiv!');
+        console.log('✅ v5.90.104: Einheitliches Design wie Taxi buchen!');
+        console.log('✅ v5.90.103: CSS Fix - Admin-Views funktionieren!');
+        console.log('✅ v5.90.102: Admin-Views geschützt!');
         console.log('✅ v5.90.100: Parallele Requests!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
@@ -966,7 +966,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.103 - CSS FIX! 🔧 (Build 20260104-1810)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.104 - WEISSE BUTTONS! 🎨 (Build 20260104-1820)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1063,18 +1063,15 @@
             <button onclick="switchView('calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="calendar" data-tab-id="calendar" style="
                 padding: 10px 16px;
                 border: 2px solid #3b82f6;
-                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                color: white;
+                background: white;
+                color: #3b82f6;
                 border-radius: 8px;
                 font-weight: 600;
                 font-size: 13px;
                 cursor: pointer;
                 white-space: nowrap;
                 transition: all 0.2s;
-                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-            " 
-            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(59,130,246,0.5)'" 
-            onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(59,130,246,0.3)'">
+            ">
                 📅 Kalender
             </button>
             <button onclick="switchView('hotel-calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="hotel-calendar" data-tab-id="hotel-calendar" style="
@@ -1095,18 +1092,15 @@
             <button onclick="openQuickBookingModal()" class="admin-tab-btn admin-only tab-toggleable" data-tab-id="quick-booking" style="
                 padding: 10px 16px;
                 border: 2px solid #10b981;
-                background: linear-gradient(135deg, #10b981, #059669);
-                color: white;
+                background: white;
+                color: #10b981;
                 border-radius: 8px;
                 font-weight: 600;
                 font-size: 13px;
                 cursor: pointer;
                 white-space: nowrap;
                 transition: all 0.2s;
-                box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-            " 
-            onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 8px rgba(16,185,129,0.4)'" 
-            onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 4px rgba(16,185,129,0.3)'">
+            ">
                 ⚡ Schnellbuchung
             </button>
             <button onclick="switchView('driver')" class="admin-tab-btn driver-visible tab-toggleable" data-view="driver" data-tab-id="driver" style="
@@ -1199,15 +1193,14 @@
             <button onclick="switchView('poi-management')" class="admin-tab-btn admin-only tab-toggleable" data-view="poi-management" data-tab-id="poi-management" style="
                 padding: 10px 16px;
                 border: 2px solid #f59e0b;
-                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                color: white;
+                background: white;
+                color: #f59e0b;
                 border-radius: 8px;
                 font-weight: 600;
                 font-size: 13px;
                 cursor: pointer;
                 white-space: nowrap;
                 transition: all 0.2s;
-                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
             ">
                 ⭐ Favoriten-Ziele
             </button>
@@ -1231,15 +1224,14 @@
             <button onclick="switchView('archive')" class="admin-tab-btn admin-only tab-toggleable" data-view="archive" data-tab-id="archive" style="
                 padding: 10px 16px;
                 border: 2px solid #dc2626;
-                background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-                color: white;
+                background: white;
+                color: #dc2626;
                 border-radius: 8px;
                 font-weight: 600;
                 font-size: 13px;
                 cursor: pointer;
                 white-space: nowrap;
                 transition: all 0.2s;
-                box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
             ">
                 🗄️ Archiv
             </button>

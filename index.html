@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.94 - NUR SUCHBASIERT! 🔍 (Build 20260104-1410)');
-        console.log('✅ v5.90.94: Leeres Feld → Nichts angezeigt!');
-        console.log('✅ v5.90.94: Tippe "Bahn" → Nur Ergebnisse mit "Bahn"!');
-        console.log('✅ v5.90.94: POIs mit Treffer zuerst, dann Nominatim!');
-        console.log('✅ v5.90.94: Keine automatischen "Beliebten Ziele" mehr!');
+        console.log('🚕 Funk Taxi App v5.90.95 - NUR MECKLENBURG-VORPOMMERN! 🗺️ (Build 20260104-1415)');
+        console.log('✅ v5.90.95: Nominatim auf MV beschränkt!');
+        console.log('✅ v5.90.95: Viewbox: 10.6,54.7,14.4,53.1');
+        console.log('✅ v5.90.95: Keine Ergebnisse aus anderen Bundesländern!');
+        console.log('✅ v5.90.95: 19 Nominatim-Aufrufe angepasst!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -960,7 +960,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.94 - NUR SUCHBASIERT! 🔍 (Build 20260104-1410)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.95 - NUR MV! 🗺️ (Build 20260104-1415)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8162,7 +8162,7 @@
                         `https://nominatim.openstreetmap.org/search?` +
                         `format=json&` +
                         `q=${encodeURIComponent(newPickup)}&` +
-                        `countrycodes=de,pl&` +
+                        `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                         `limit=1`
                     );
                     const pickupData = await pickupResponse.json();
@@ -8175,7 +8175,7 @@
                         `https://nominatim.openstreetmap.org/search?` +
                         `format=json&` +
                         `q=${encodeURIComponent(newDestination)}&` +
-                        `countrycodes=de,pl&` +
+                        `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                         `limit=1`
                     );
                     const destData = await destResponse.json();
@@ -18331,12 +18331,12 @@
                 
                 // Starte beide Suchen parallel
                 const searchPromises = [
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
                 ];
                 
                 if (queriesAreDifferent) {
                     searchPromises.push(
-                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
                     );
                 }
                 
@@ -27696,7 +27696,7 @@
                     'https://nominatim.openstreetmap.org/search?' +
                     'format=json&' +
                     'q=' + encodeURIComponent(query) + '&' +
-                    'countrycodes=de,pl&' +
+                    'countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&' +
                     'limit=8&' +
                     'addressdetails=1'
                 );
@@ -27807,7 +27807,7 @@
                     'https://nominatim.openstreetmap.org/search?' +
                     'format=json&' +
                     'q=' + encodeURIComponent(query) + '&' +
-                    'countrycodes=de,pl&' +
+                    'countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&' +
                     'limit=8&' +
                     'addressdetails=1'
                 );
@@ -28291,7 +28291,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de,pl&` +
+                    `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                     `limit=8&` +
                     `addressdetails=1`
                 );
@@ -29797,7 +29797,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de,pl&` +
+                    `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                     `limit=10&` +
                     `addressdetails=1`
                 );
@@ -31435,12 +31435,12 @@
                 
                 // Starte beide Suchen parallel
                 const searchPromises = [
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
                 ];
                 
                 if (queriesAreDifferent) {
                     searchPromises.push(
-                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de,pl&limit=15&addressdetails=1`)
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
                     );
                 }
                 
@@ -32321,7 +32321,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(searchQuery)}&` +
-                    `countrycodes=de,pl&` +
+                    `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                     `limit=8&` +
                     `addressdetails=1`
                 );
@@ -32572,7 +32572,7 @@
                     const tasks = [];
                     if (!qbPanelPickupCoords && pickup) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de,pl&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -32584,7 +32584,7 @@
                     }
                     if (!qbPanelDestCoords && destination) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de,pl&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -35838,7 +35838,7 @@
                     const tasks = [];
                     if (!quickBookingPickupCoords && pickup) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de,pl&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -35850,7 +35850,7 @@
                     }
                     if (!quickBookingDestCoords && destination) {
                         tasks.push(
-                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de,pl&limit=1`)
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=1`)
                                 .then(r => r.json())
                                 .then(results => {
                                     if (results.length > 0) {
@@ -36330,7 +36330,7 @@
                     `https://nominatim.openstreetmap.org/search?` +
                     `format=json&` +
                     `q=${encodeURIComponent(query)}&` +
-                    `countrycodes=de,pl&` +
+                    `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                     `limit=8&` +
                     `addressdetails=1`
                 );
@@ -39781,7 +39781,7 @@ Stack: ${err.stack}
             clearTimeout(profileAddressDebounce);
             profileAddressDebounce = setTimeout(async () => {
                 try {
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de,pl&limit=5`;
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=5`;
                     const response = await fetch(url);
                     const results = await response.json();
                     
@@ -46555,7 +46555,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         `https://nominatim.openstreetmap.org/search?` +
                         `format=json&` +
                         `q=${encodeURIComponent(searchQuery)}&` +
-                        `countrycodes=de,pl&` +
+                        `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                         `limit=10&` +
                         `addressdetails=1&` +
                         `accept-language=de,pl,en`,
@@ -46812,7 +46812,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         `https://nominatim.openstreetmap.org/search?` +
                         `format=json&` +
                         `q=${encodeURIComponent(query)}&` +
-                        `countrycodes=de,pl&` +
+                        `countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&` +
                         `limit=10&` +
                         `addressdetails=1`
                     );

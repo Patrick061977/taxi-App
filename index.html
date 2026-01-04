@@ -108,13 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.87 - NAME-SUCHE FIX! 🎯 (Build 20260104-1310)');
-        console.log('✅ v5.90.87: Findet Fahrten AUCH wenn customerPhone fehlt!');
-        console.log('✅ v5.90.87: Sucht nach customerName aus bekannten Fahrten!');
-        console.log('✅ v5.90.87: ALLE Fahrten werden gefunden - GARANTIERT!');
-        console.log('🔧 v5.90.86: "Beliebtes Ziel" wird NICHT mehr an Adresse gehängt!');
-        console.log('✅ v5.90.86: Korrekte Geocoding → Korrekte Preise!');
-        console.log('✅ v5.90.85: 3-STUFEN userId-Suche - GARANTIERT!');
+        console.log('🚕 Funk Taxi App v5.90.93 - HAUSNUMMER-CHECK! 🏠 (Build 20260104-1400)');
+        console.log('✅ v5.90.93: Kombiniert Koordinaten + Hausnummer!');
+        console.log('✅ v5.90.93: Amselring 10 vs 11 = UNTERSCHIEDLICH!');
+        console.log('✅ v5.90.93: Amselring 10 mit/ohne PLZ = GLEICH!');
+        console.log('✅ v5.90.93: < 10m UND gleiche Hausnr = GLEICH!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -962,7 +960,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.87 - NAME-SUCHE FIX! 🎯 (Build 20260104-1310)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.93 - HAUSNUMMER-CHECK! 🏠 (Build 20260104-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6793,7 +6791,7 @@
         
         async function updateHistoryView() {
             console.log('═══════════════════════════════════════════════════════');
-            console.log('📖 v5.90.87 - updateHistoryView DEBUG START');
+            console.log('📖 v5.90.88 - updateHistoryView DEBUG START');
             console.log('═══════════════════════════════════════════════════════');
             console.log('📋 Tab:', currentHistoryTab);
             console.log('👤 currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
@@ -6845,10 +6843,10 @@
                             phoneSnapshot.forEach(childSnapshot => {
                                 const ride = childSnapshot.val();
                                 ride.firebaseId = childSnapshot.key;
-                                // Nur hinzufügen wenn nicht schon drin
-                                if (!firebaseRideIds.includes(ride.id)) {
+                                // 🔧 v5.90.88: FIX - Nutze firebaseId statt ride.id
+                                if (!firebaseRides.some(r => r.firebaseId === childSnapshot.key)) {
                                     firebaseRides.push(ride);
-                                    firebaseRideIds.push(ride.id);
+                                    if (ride.id) firebaseRideIds.push(ride.id);
                                     console.log('   ✅ Gefunden:', ride.pickup, '→', ride.destination, '(', ride.status, ')');
                                 }
                             });
@@ -6864,10 +6862,10 @@
                             customerPhoneSnapshot.forEach(childSnapshot => {
                                 const ride = childSnapshot.val();
                                 ride.firebaseId = childSnapshot.key;
-                                // Nur hinzufügen wenn nicht schon drin
-                                if (!firebaseRideIds.includes(ride.id)) {
+                                // 🔧 v5.90.88: FIX - Nutze firebaseId statt ride.id (kann undefined sein!)
+                                if (!firebaseRides.some(r => r.firebaseId === childSnapshot.key)) {
                                     firebaseRides.push(ride);
-                                    firebaseRideIds.push(ride.id);
+                                    if (ride.id) firebaseRideIds.push(ride.id);
                                     console.log('   ✅ Gefunden:', ride.pickup, '→', ride.destination, '(', ride.status, ')');
                                 }
                             });
@@ -6883,9 +6881,10 @@
                             phoneFieldSnapshot.forEach(childSnapshot => {
                                 const ride = childSnapshot.val();
                                 ride.firebaseId = childSnapshot.key;
-                                if (!firebaseRideIds.includes(ride.id)) {
+                                // 🔧 v5.90.88: FIX - Nutze firebaseId statt ride.id
+                                if (!firebaseRides.some(r => r.firebaseId === childSnapshot.key)) {
                                     firebaseRides.push(ride);
-                                    firebaseRideIds.push(ride.id);
+                                    if (ride.id) firebaseRideIds.push(ride.id);
                                     console.log('   ✅ Gefunden:', ride.pickup, '→', ride.destination, '(', ride.status, ')');
                                 }
                             });
@@ -6911,9 +6910,10 @@
                                 const ride = childSnapshot.val();
                                 ride.firebaseId = childSnapshot.key;
                                 console.log('   ✅ Gefunden:', ride.pickup, '→', ride.destination, '(', ride.status, ')');
-                                if (!firebaseRideIds.includes(ride.id)) {
+                                // 🔧 v5.90.88: FIX - Nutze firebaseId statt ride.id
+                                if (!firebaseRides.some(r => r.firebaseId === childSnapshot.key)) {
                                     firebaseRides.push(ride);
-                                    firebaseRideIds.push(ride.id);
+                                    if (ride.id) firebaseRideIds.push(ride.id);
                                 }
                             });
                             console.log('✅ Fahrten via customerId gefunden:', customerIdSnapshot.numChildren());
@@ -11585,7 +11585,7 @@
             return {
                 admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive'],
                 driver: ['driver', 'schedule', 'history'],
-                passenger: ['passenger', 'schedule', 'history']
+                passenger: ['passenger', 'history']  // 🔧 v5.90.89: Nur Buchen + Meine Fahrten!
             };
         }
         
@@ -18125,31 +18125,101 @@
                     const pickLat = ride.pickupLat || (ride.pickupCoords && ride.pickupCoords.lat);
                     const pickLon = ride.pickupLon || (ride.pickupCoords && ride.pickupCoords.lon);
                     
+                    // 🔧 v5.90.93: Hilfsfunktion - Distanz zwischen 2 Punkten berechnen
+                    const getDistance = (lat1, lon1, lat2, lon2) => {
+                        const R = 6371e3; // Earth radius in meters
+                        const φ1 = lat1 * Math.PI / 180;
+                        const φ2 = lat2 * Math.PI / 180;
+                        const Δφ = (lat2 - lat1) * Math.PI / 180;
+                        const Δλ = (lon2 - lon1) * Math.PI / 180;
+                        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                                Math.cos(φ1) * Math.cos(φ2) *
+                                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        return R * c; // Distance in meters
+                    };
+                    
+                    // 🔧 v5.90.93: Extrahiere Straße + Hausnummer
+                    const extractStreetAndNumber = (address) => {
+                        // Match: "Amselring 10" aus "Amselring 10, 17424 Heringsdorf"
+                        const match = address.match(/^([^\d,]+\s*\d+[a-z]?)/i);
+                        return match ? match[1].toLowerCase().trim() : address.toLowerCase();
+                    };
+                    
                     // Zähle Zielorte
                     if (ride.destination && destLat && destLon) {
-                        const key = ride.destination.toLowerCase().trim();
-                        if (!destinationCount[key]) {
+                        // 🔧 v5.90.93: Intelligente Duplikat-Erkennung
+                        let existingKey = null;
+                        const newStreetNumber = extractStreetAndNumber(ride.destination);
+                        
+                        for (const [key, dest] of Object.entries(destinationCount)) {
+                            const distance = getDistance(destLat, destLon, dest.lat, dest.lon);
+                            const existingStreetNumber = extractStreetAndNumber(dest.name);
+                            
+                            // GLEICH wenn:
+                            // 1. < 10m UND gleiche Straße+Hausnummer ODER
+                            // 2. < 2m (exakt gleiche Koordinaten mit GPS-Ungenauigkeit)
+                            if ((distance < 10 && newStreetNumber === existingStreetNumber) || distance < 2) {
+                                existingKey = key;
+                                break;
+                            }
+                        }
+                        
+                        if (existingKey) {
+                            // Ort existiert bereits → Count erhöhen
+                            destinationCount[existingKey].count++;
+                            // Wenn neue Adresse länger/vollständiger → Überschreibe!
+                            if (ride.destination.length > destinationCount[existingKey].name.length) {
+                                destinationCount[existingKey].name = ride.destination;
+                            }
+                        } else {
+                            // Neuer Ort → Hinzufügen
+                            const key = ride.destination.toLowerCase().trim();
                             destinationCount[key] = {
                                 name: ride.destination,
                                 lat: destLat,
                                 lon: destLon,
-                                count: 0
+                                count: 1
                             };
                         }
-                        destinationCount[key].count++;
                     }
+                    
                     // Zähle auch Abholorte
                     if (ride.pickup && pickLat && pickLon) {
-                        const key = ride.pickup.toLowerCase().trim();
-                        if (!destinationCount[key]) {
+                        // 🔧 v5.90.93: Intelligente Duplikat-Erkennung
+                        let existingKey = null;
+                        const newStreetNumber = extractStreetAndNumber(ride.pickup);
+                        
+                        for (const [key, dest] of Object.entries(destinationCount)) {
+                            const distance = getDistance(pickLat, pickLon, dest.lat, dest.lon);
+                            const existingStreetNumber = extractStreetAndNumber(dest.name);
+                            
+                            // GLEICH wenn:
+                            // 1. < 10m UND gleiche Straße+Hausnummer ODER
+                            // 2. < 2m (exakt gleiche Koordinaten)
+                            if ((distance < 10 && newStreetNumber === existingStreetNumber) || distance < 2) {
+                                existingKey = key;
+                                break;
+                            }
+                        }
+                        
+                        if (existingKey) {
+                            // Ort existiert bereits → Count erhöhen
+                            destinationCount[existingKey].count++;
+                            // Wenn neue Adresse länger/vollständiger → Überschreibe!
+                            if (ride.pickup.length > destinationCount[existingKey].name.length) {
+                                destinationCount[existingKey].name = ride.pickup;
+                            }
+                        } else {
+                            // Neuer Ort → Hinzufügen
+                            const key = ride.pickup.toLowerCase().trim();
                             destinationCount[key] = {
                                 name: ride.pickup,
                                 lat: pickLat,
                                 lon: pickLon,
-                                count: 0
+                                count: 1
                             };
                         }
-                        destinationCount[key].count++;
                     }
                 });
                 
@@ -18198,8 +18268,9 @@
                 );
                 if (!alreadyExists) {
                     frequentDestinations.push({
-                        name: freq.name,
-                        address: 'Beliebtes Ziel',
+                        name: freq.name,           // VOLLSTÄNDIGE Adresse aus Fahrt!
+                        address: freq.name,         // 🔧 v5.90.92: Zeige echte Adresse!
+                        label: '⭐ Beliebtes Ziel', // Optional: Info-Tag
                         lat: freq.lat,
                         lon: freq.lon,
                         fromBookings: true
@@ -18219,15 +18290,27 @@
                 }
                 
                 dropdown.innerHTML = frequentDestinations.map(dest => {
-                    // 🆕 v5.90.5: "Beliebtes Ziel" ist ein Label, NICHT Teil der Adresse!
-                    // Nur dest.name verwenden, NICHT address anhängen wenn es ein Label ist
-                    const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
-                    const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                    // 🔧 v5.90.92: Zeige ECHTE Adresse bei Beliebten Zielen!
+                    const addressString = dest.address || dest.name;
+                    
+                    // Bei fromBookings: Zeige vollständige Adresse als Label
+                    let displayName = dest.name;
+                    let displayLabel = '';
+                    
+                    if (dest.fromBookings) {
+                        // Beliebtes Ziel: Zeige vollständige Adresse
+                        displayName = dest.name;
+                        displayLabel = `⭐ Häufig genutzt`;
+                    } else {
+                        // Admin-POI: Name + Adresse
+                        displayName = dest.name;
+                        displayLabel = dest.address || '';
+                    }
                     
                     return `
                         <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})">
-                            <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
-                            <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                            <div style="font-weight:600;color:#f59e0b;">${displayName}</div>
+                            ${displayLabel ? `<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>` : ''}
                         </div>
                     `;
                 }).join('');
@@ -18332,13 +18415,13 @@
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        // 🔧 v5.90.86: FIX - Prüfe ob Label! NICHT an Adresse anhängen!
-                        const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
-                        const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                        // 🔧 v5.90.91: SAUBERE Lösung - address oder name
+                        const addressString = dest.address || dest.name;
+                        const displayLabel = dest.label || dest.address || '';
                         return `
                             <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="background:#fffbeb;">
                                 <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
-                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
                             </div>
                         `;
                     }).join('');
@@ -18496,6 +18579,20 @@
 
         function selectAddress(inputId, address, lat, lon) {
             debugLog('info', `📍 Adresse ausgewählt: ${inputId} = ${address}`);
+            
+            // 🔧 v5.90.90: WARN wenn "Beliebtes Ziel" in Adresse!
+            if (address && address.includes('Beliebtes Ziel')) {
+                console.error('═══════════════════════════════════════');
+                console.error('🚨 KRITISCHER FEHLER ERKANNT!');
+                console.error('❌ Adresse enthält "Beliebtes Ziel"!');
+                console.error('📍 Adresse:', address);
+                console.error('💡 Das sollte NICHT passieren (Bug in v5.90.86)!');
+                console.error('═══════════════════════════════════════');
+                
+                // Entferne "Beliebtes Ziel" automatisch als Notfall-Fix
+                address = address.replace(', Beliebtes Ziel', '').replace(',Beliebtes Ziel', '');
+                console.log('✅ Notfall-Fix: Bereinigt zu:', address);
+            }
             
             document.getElementById(inputId).value = address;
             document.getElementById(inputId + '-dropdown').style.display = 'none';
@@ -29708,9 +29805,9 @@
                 }
                 
                 dropdown.innerHTML = frequentDestinations.map(dest => {
-                    // 🆕 v5.90.5: "Beliebtes Ziel" ist ein Label, NICHT Teil der Adresse!
-                    const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
-                    const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                    // 🔧 v5.90.91: SAUBERE Lösung - address oder name
+                    const addressString = dest.address || dest.name;
+                    const displayLabel = dest.label || dest.address || '';
                     
                     return `
                         <div onclick="selectNewCustomerAddress('${addressString.replace(/'/g, "\\'")}');" style="
@@ -29719,7 +29816,7 @@
                             border-bottom: 1px solid #e5e7eb;
                         " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
                             <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
-                            <div style="font-size:13px;color:#666;margin-top:2px;">${dest.address}</div>
+                            <div style="font-size:13px;color:#666;margin-top:2px;">${displayLabel}</div>
                         </div>
                     `;
                 }).join('');
@@ -29761,9 +29858,9 @@
                         🏥 BEKANNTE ORTE
                     </div>`;
                     html += matchingPOIs.map(dest => {
-                        // 🔧 v5.90.86: FIX - Prüfe ob Label! NICHT an Adresse anhängen!
-                        const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
-                        const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                        // 🔧 v5.90.91: SAUBERE Lösung - address oder name
+                        const addressString = dest.address || dest.name;
+                        const displayLabel = dest.label || dest.address || '';
                         return `
                             <div onclick="selectNewCustomerAddress('${addressString.replace(/'/g, "\\'")}');" style="
                                 padding: 12px;
@@ -29772,7 +29869,7 @@
                                 background:#fffbeb;
                             " onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
                                 <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
-                                <div style="font-size:13px;color:#666;margin-top:2px;">${dest.address}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;">${displayLabel}</div>
                             </div>
                         `;
                     }).join('');
@@ -29821,6 +29918,19 @@
         function selectNewCustomerAddress(address) {
             const input = document.getElementById('new-phone-customer-address');
             const dropdown = document.getElementById('new-customer-address-dropdown');
+            
+            // 🔧 v5.90.90: WARN wenn "Beliebtes Ziel" in Adresse!
+            if (address && address.includes('Beliebtes Ziel')) {
+                console.error('═══════════════════════════════════════');
+                console.error('🚨 NEW-CUSTOMER: "Beliebtes Ziel" erkannt!');
+                console.error('📍 Adresse:', address);
+                console.error('═══════════════════════════════════════');
+                
+                // Notfall-Fix
+                address = address.replace(', Beliebtes Ziel', '').replace(',Beliebtes Ziel', '');
+                console.log('✅ Bereinigt zu:', address);
+            }
+            
             if (input) input.value = address;
             if (dropdown) dropdown.style.display = 'none';
         }
@@ -31341,9 +31451,9 @@
                 }
                 
                 dropdown.innerHTML = frequentDestinations.map(dest => {
-                    // 🆕 v5.90.5: "Beliebtes Ziel" ist ein Label, NICHT Teil der Adresse!
-                    const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
-                    const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                    // 🔧 v5.90.91: SAUBERE Lösung - address oder name
+                    const addressString = dest.address || dest.name;
+                    const displayLabel = dest.label || dest.address || '';
                     
                     return `
                         <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
@@ -31352,7 +31462,7 @@
                             border-bottom: 1px solid #e5e7eb;
                         ">
                             <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
-                            <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                            <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
                         </div>
                     `;
                 }).join('');
@@ -31425,9 +31535,9 @@
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        // 🔧 v5.90.86: FIX - Prüfe ob Label! NICHT an Adresse anhängen!
-                        const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
-                        const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
+                        // 🔧 v5.90.91: SAUBERE Lösung - address oder name
+                        const addressString = dest.address || dest.name;
+                        const displayLabel = dest.label || dest.address || '';
                         return `
                             <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
                                 padding: 12px;
@@ -31436,7 +31546,7 @@
                                 background:#fffbeb;
                             ">
                                 <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
-                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${dest.address}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
                             </div>
                         `;
                     }).join('');
@@ -31525,6 +31635,18 @@
         function selectQuickBookingAddress(fieldId, address, lat, lon) {
             const input = document.getElementById(fieldId);
             const dropdown = document.getElementById(fieldId + '-dropdown');
+            
+            // 🔧 v5.90.90: WARN wenn "Beliebtes Ziel" in Adresse!
+            if (address && address.includes('Beliebtes Ziel')) {
+                console.error('═══════════════════════════════════════');
+                console.error('🚨 QUICK-BOOKING: "Beliebtes Ziel" erkannt!');
+                console.error('📍 Adresse:', address);
+                console.error('═══════════════════════════════════════');
+                
+                // Notfall-Fix
+                address = address.replace(', Beliebtes Ziel', '').replace(',Beliebtes Ziel', '');
+                console.log('✅ Bereinigt zu:', address);
+            }
             
             input.value = address;
             dropdown.style.display = 'none';

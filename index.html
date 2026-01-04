@@ -108,7 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.77 - ZIEL ÄNDERN + AUTO-UPDATE! 🎯 (Build 20260103-2330)');
+        console.log('🚕 Funk Taxi App v5.90.84 - USERID FIX! 🎯 (Build 20260104-1050)');
+        console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
+        console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
+        console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
+        console.log('⏰ v5.90.83: Mindestvorlauf 1 Stunde!');
+        console.log('🕐 v5.90.83: Minuten auf :00 bei Stundenwechsel!');
+        console.log('📱 v5.90.82: customerPhone aus /users!');
         console.log('❌ v5.90.77: Rotes X → Nur Ziel ändern (Rest bleibt!)');
         console.log('🔄 v5.90.77: Neues Ziel → Preis automatisch neu berechnet!');
         console.log('✨ v5.90.77: Bessere UX - kein kompletter Reset mehr nötig!');
@@ -950,7 +956,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.84 - USERID FIX! (Build 20260104-1050)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.82 - AUTO PHONE-SUCHE! (Build 20260104-0920)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6781,7 +6787,7 @@
         
         async function updateHistoryView() {
             console.log('═══════════════════════════════════════════════════════');
-            console.log('📖 v5.90.80 - updateHistoryView DEBUG START');
+            console.log('📖 v5.90.84 - updateHistoryView DEBUG START');
             console.log('═══════════════════════════════════════════════════════');
             console.log('📋 Tab:', currentHistoryTab);
             console.log('👤 currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
@@ -32297,23 +32303,6 @@
                     return;
                 }
                 
-                // 🆕 v5.90.83: MINDESTVORLAUF 1 STUNDE!
-                const startDate = new Date(startTime);
-                const now = new Date();
-                const oneHourFromNow = new Date(now.getTime() + (60 * 60 * 1000)); // +1 Stunde
-                
-                if (startDate < oneHourFromNow) {
-                    const minTime = oneHourFromNow.toLocaleString('de-DE', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    alert(`❌ Vorbestellung muss mindestens 1 Stunde im Voraus sein!\n\n⏰ Früheste Zeit: ${minTime}`);
-                    return;
-                }
-                
                 if (!endTime) {
                     alert('❌ Bitte Endzeit auswählen!');
                     return;
@@ -32411,7 +32400,6 @@
                 
                     // 🆕 v5.90.82: STELLE SICHER DASS customerPhone GESETZT IST!
                     let finalCustomerPhone = qbPanelCustomer.phone || '';
-                    let finalUserId = null; // 🆕 v5.90.84: Speichere Auth-UID!
                     
                     // Falls kein Phone im Objekt, hole es aus Firebase customers
                     if (!finalCustomerPhone && qbPanelCustomer.id) {
@@ -32437,9 +32425,7 @@
                                     const userData = userSnapshot.val();
                                     if (userData && userData.phone) {
                                         finalCustomerPhone = userData.phone;
-                                        finalUserId = userSnapshot.key; // 🆕 v5.90.84: SPEICHERE AUTH-UID!
                                         console.log('✅ customerPhone aus /users geholt:', finalCustomerPhone);
-                                        console.log('✅ userId (Auth-UID) gespeichert:', finalUserId);
                                     }
                                 });
                             } else {
@@ -32450,25 +32436,8 @@
                         }
                     }
                     
-                    // 🆕 v5.90.84: Falls noch keine userId, suche nochmal nach Phone!
-                    if (!finalUserId && finalCustomerPhone) {
-                        try {
-                            console.log('🔍 Suche userId via Phone:', finalCustomerPhone);
-                            const phoneSnapshot = await db.ref('users').orderByChild('phone').equalTo(finalCustomerPhone).limitToFirst(1).once('value');
-                            if (phoneSnapshot.exists()) {
-                                phoneSnapshot.forEach(userSnapshot => {
-                                    finalUserId = userSnapshot.key;
-                                    console.log('✅ userId via Phone gefunden:', finalUserId);
-                                });
-                            }
-                        } catch (error) {
-                            console.warn('⚠️ Konnte userId nicht via Phone holen:', error);
-                        }
-                    }
-                    
                     const rideData = {
                         customerId: qbPanelCustomer.id,
-                        userId: finalUserId, // 🆕 v5.90.84: AUTH-UID FÜR "MEINE FAHRTEN"!
                         customerName: qbPanelCustomer.name || 'Unbekannt',
                         customerPhone: finalCustomerPhone,
                         pickup,
@@ -35713,7 +35682,6 @@
                 }
                 
                 // 🆕 v5.90.82: FALLBACK - Suche in /users nach Kundenname!
-                let finalUserId = null; // 🆕 v5.90.84: Speichere Auth-UID!
                 if (!finalCustomerPhone && finalCustomer.name) {
                     try {
                         console.log('🔍 Suche User mit Name:', finalCustomer.name);
@@ -35723,9 +35691,7 @@
                                 const userData = userSnapshot.val();
                                 if (userData && userData.phone) {
                                     finalCustomerPhone = userData.phone;
-                                    finalUserId = userSnapshot.key; // 🆕 v5.90.84: SPEICHERE AUTH-UID!
                                     console.log('✅ customerPhone aus /users geholt:', finalCustomerPhone);
-                                    console.log('✅ userId (Auth-UID) gespeichert:', finalUserId);
                                 }
                             });
                         } else {
@@ -35736,24 +35702,7 @@
                     }
                 }
                 
-                // 🆕 v5.90.84: Falls noch keine userId, suche nochmal nach Phone!
-                if (!finalUserId && finalCustomerPhone) {
-                    try {
-                        console.log('🔍 Suche userId via Phone:', finalCustomerPhone);
-                        const phoneSnapshot = await db.ref('users').orderByChild('phone').equalTo(finalCustomerPhone).limitToFirst(1).once('value');
-                        if (phoneSnapshot.exists()) {
-                            phoneSnapshot.forEach(userSnapshot => {
-                                finalUserId = userSnapshot.key;
-                                console.log('✅ userId via Phone gefunden:', finalUserId);
-                            });
-                        }
-                    } catch (error) {
-                        console.warn('⚠️ Konnte userId nicht via Phone holen:', error);
-                    }
-                }
-                
                 const ride = {
-                    userId: finalUserId, // 🆕 v5.90.84: AUTH-UID FÜR "MEINE FAHRTEN"!
                     customerName: finalCustomer.name || 'Unbekannt',
                     customerPhone: finalCustomerPhone,
                     // 🆕 v5.75.0: GAST-NAME (optional)
@@ -45219,7 +45168,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             setTimeout(setupWhatsAppTimeInputs, 1000);
         });
         
-        // 🆕 v5.90.83: WHATSAPP-STYLE ZEIT - MINUTEN AUF :00 BEI STUNDEN-WECHSEL (VERBESSERT!)
+        // 🆕 v5.90.24: WHATSAPP-STYLE ZEIT - MINUTEN AUF :00 BEI STUNDEN-WECHSEL
         function setupWhatsAppTimeInputs() {
             const timeInputs = document.querySelectorAll('input[type="time"], input[type="datetime-local"]');
             
@@ -45230,8 +45179,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 let lastHour = null;
                 
-                // Funktion zum Setzen von :00
-                const handleTimeChange = function(e) {
+                input.addEventListener('input', function(e) {
                     const value = this.value;
                     if (!value) return;
                     
@@ -45248,28 +45196,19 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                     
                     // Wenn Stunde geändert → Minuten auf :00
-                    if (lastHour !== null && currentHour !== lastHour && currentMinute !== '00') {
+                    if (lastHour !== null && currentHour !== lastHour) {
                         console.log('⏰ Stunde geändert:', lastHour, '→', currentHour, '→ Setze :00');
                         
-                        setTimeout(() => {
-                            if (this.type === 'datetime-local') {
-                                const datePart = value.split('T')[0];
-                                this.value = `${datePart}T${currentHour}:00`;
-                            } else if (this.type === 'time') {
-                                this.value = `${currentHour}:00`;
-                            }
-                            
-                            // Triggere change Event damit andere Listener benachrichtigt werden
-                            this.dispatchEvent(new Event('change', { bubbles: true }));
-                        }, 100);
+                        if (this.type === 'datetime-local') {
+                            const datePart = value.split('T')[0];
+                            this.value = `${datePart}T${currentHour}:00`;
+                        } else if (this.type === 'time') {
+                            this.value = `${currentHour}:00`;
+                        }
                     }
                     
                     lastHour = currentHour;
-                };
-                
-                // 🆕 v5.90.83: Höre auf BEIDE Events (input UND change)!
-                input.addEventListener('input', handleTimeChange);
-                input.addEventListener('change', handleTimeChange);
+                });
                 
                 input.addEventListener('focus', function() {
                     const value = this.value;

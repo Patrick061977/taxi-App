@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.96 - QUICK BOOKING FIX! ⚡ (Build 20260104-1530)');
-        console.log('✅ v5.90.96: Quick Booking zeigt echte Adresse statt "Beliebtes Ziel"!');
-        console.log('✅ v5.90.96: Zeile 31398 gefixt - address = freq.name!');
-        console.log('✅ v5.90.96: Konsistent mit anderen Autocomplete-Funktionen!');
-        console.log('✅ v5.90.95: Nur Mecklenburg-Vorpommern!');
+        console.log('🚕 Funk Taxi App v5.90.97 - ALT-DATEN FILTER! 🧹 (Build 20260104-1600)');
+        console.log('✅ v5.90.97: Filtert "Beliebtes Ziel" aus frequentDestinations!');
+        console.log('✅ v5.90.97: Keine Label-Strings mehr in Dropdown!');
+        console.log('✅ v5.90.97: Nur noch echte Adressen!');
+        console.log('✅ v5.90.96: Quick Booking zeigt echte Adresse!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -960,7 +960,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.96 - QUICK BOOKING FIX! ⚡ (Build 20260104-1530)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.97 - ALT-DATEN FILTER! 🧹 (Build 20260104-1600)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -18225,6 +18225,14 @@
                 
                 // Sortiere nach Häufigkeit und nimm Top 20
                 cachedFrequentDestinations = Object.values(destinationCount)
+                    .filter(dest => {
+                        // 🔧 v5.90.97: FILTERE ALT-DATEN - Keine Label-Strings!
+                        const isLabelString = dest.name === 'Beliebtes Ziel' || 
+                                             dest.name === 'Favorit' ||
+                                             dest.name.includes('Beliebtes Ziel') ||
+                                             dest.name.includes('Favorit');
+                        return !isLabelString;
+                    })
                     .sort((a, b) => b.count - a.count)
                     .slice(0, 20);
                     

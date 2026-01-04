@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.100 - PARALLELE REQUESTS! 🚀 (Build 20260104-1745)');
-        console.log('✅ v5.90.100: PARALLELE OSRM-Calls! Alle gleichzeitig! 🚀');
-        console.log('✅ v5.90.100: PARALLELES Geocoding! Start + Ziel gleichzeitig! ⚡');
-        console.log('✅ v5.90.100: Von 7.5 Sek → 3 Sek → Mit Cache < 1 Sek! 🎯');
-        console.log('✅ v5.90.99: Optimierter Filter (Gleicher Tag + ±6h)!');
-        console.log('✅ v5.90.99: 📅 Kalender nur für Admin!');
+        console.log('🚕 Funk Taxi App v5.90.101 - ADMIN-TABS FIX! 🔒 (Build 20260104-1755)');
+        console.log('✅ v5.90.101: 📅 Kalender nur für Admin (CSS + body.is-admin)!');
+        console.log('✅ v5.90.101: .admin-only versteckt standardmäßig!');
+        console.log('✅ v5.90.101: Kunden sehen KEINE Admin-Tabs mehr!');
+        console.log('✅ v5.90.100: Parallele OSRM-Calls!');
+        console.log('✅ v5.90.100: Paralleles Geocoding!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -338,6 +338,16 @@
         .admin-tab-btn.active {
             background: #667eea !important;
             color: white !important;
+        }
+        
+        /* 🔧 v5.90.101: ADMIN-ONLY TABS - Standardmäßig versteckt! */
+        .admin-only {
+            display: none !important;
+        }
+        
+        /* 🔧 v5.90.101: Nur für Admin sichtbar */
+        body.is-admin .admin-only {
+            display: revert !important;
         }
         
         /* 🎯 v5.90.6: DRAG & DROP TAB STYLING */
@@ -961,7 +971,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.100 - PARALLELE REQUESTS! 🚀 (Build 20260104-1745)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.101 - ADMIN-TABS FIX! 🔒 (Build 20260104-1755)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -39071,6 +39081,9 @@ Stack: ${err.stack}
             
             // Je nach Rolle anzeigen
             if (role === 'fahrgast') {
+                // 🔧 v5.90.101: ENTFERNE is-admin Klasse
+                document.body.classList.remove('is-admin');
+                
                 // Fahrgast sieht: Fahrgast + Verlauf
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block'; // ✅ IMMER anzeigen!
@@ -39081,6 +39094,9 @@ Stack: ${err.stack}
                 
                 switchView('passenger');
             } else if (role === 'fahrer') {
+                // 🔧 v5.90.101: ENTFERNE is-admin Klasse
+                document.body.classList.remove('is-admin');
+                
                 // Fahrer sieht: Fahrgast + Verlauf + Fahrer
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block';
@@ -39092,6 +39108,10 @@ Stack: ${err.stack}
                 
                 switchView('driver');
             } else if (role === 'admin') {
+                // 🔧 v5.90.101: SETZE is-admin Klasse - zeigt .admin-only Elemente!
+                document.body.classList.add('is-admin');
+                console.log('✅ v5.90.101: is-admin Klasse gesetzt - Admin-Tabs jetzt sichtbar!');
+                
                 // Admin sieht: ALLES
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block';
@@ -39127,6 +39147,9 @@ Stack: ${err.stack}
                     console.log('✅ 50/50-Einstellungen geladen');
                 }
             } else {
+                // 🔧 v5.90.101: ENTFERNE is-admin Klasse
+                document.body.classList.remove('is-admin');
+                
                 // 🆕 v5.26.14d: Nicht eingeloggt: Fahrgast + Verlauf BEIDE anzeigen!
                 if (fahrgastBtn) fahrgastBtn.style.display = 'block';
                 if (verlaufBtn) verlaufBtn.style.display = 'block'; // ✅ AUCH ohne Login!

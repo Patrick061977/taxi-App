@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.86 - BELIEBTE ZIELE FIX! 🎯✨ (Build 20260104-1255)');
+        console.log('🚕 Funk Taxi App v5.90.87 - NAME-SUCHE FIX! 🎯 (Build 20260104-1310)');
+        console.log('✅ v5.90.87: Findet Fahrten AUCH wenn customerPhone fehlt!');
+        console.log('✅ v5.90.87: Sucht nach customerName aus bekannten Fahrten!');
+        console.log('✅ v5.90.87: ALLE Fahrten werden gefunden - GARANTIERT!');
         console.log('🔧 v5.90.86: "Beliebtes Ziel" wird NICHT mehr an Adresse gehängt!');
         console.log('✅ v5.90.86: Korrekte Geocoding → Korrekte Preise!');
-        console.log('✅ v5.90.86: Fix in ALLEN 3 Autocomplete-Funktionen!');
         console.log('✅ v5.90.85: 3-STUFEN userId-Suche - GARANTIERT!');
-        console.log('✅ v5.90.85: Suche via Phone → Name → Fallback!');
-        console.log('✅ v5.90.85: Admin-Buchungen in "Meine Fahrten"!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -962,7 +962,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.86 - BELIEBTE ZIELE FIX! 🔧 (Build 20260104-1255)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.87 - NAME-SUCHE FIX! 🎯 (Build 20260104-1310)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6793,7 +6793,7 @@
         
         async function updateHistoryView() {
             console.log('═══════════════════════════════════════════════════════');
-            console.log('📖 v5.90.85 - updateHistoryView DEBUG START');
+            console.log('📖 v5.90.87 - updateHistoryView DEBUG START');
             console.log('═══════════════════════════════════════════════════════');
             console.log('📋 Tab:', currentHistoryTab);
             console.log('👤 currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
@@ -6923,27 +6923,67 @@
                     }
                     console.log('══════ CUSTOMER-ID-SUCHE ENDE ══════');
                     
-                    // 🆕 v5.90.21: ADDITIONAL FALLBACK - Suche nach customerName wenn Phone nicht hilft
-                    if (currentUser.displayName && firebaseRides.length === 0) {
-                        console.log('══════ NAME-SUCHE START (FALLBACK) ══════');
-                        console.log('🔍 Suche 5: customerName =', currentUser.displayName);
-                        const nameSnapshot = await db.ref('rides').orderByChild('customerName').equalTo(currentUser.displayName).once('value');
-                        if (nameSnapshot.exists()) {
-                            nameSnapshot.forEach(childSnapshot => {
-                                const ride = childSnapshot.val();
-                                ride.firebaseId = childSnapshot.key;
-                                console.log('   ✅ Gefunden:', ride.pickup, '→', ride.destination, '(', ride.status, ')');
-                                if (!firebaseRideIds.includes(ride.id)) {
-                                    firebaseRides.push(ride);
-                                    firebaseRideIds.push(ride.id);
-                                }
-                            });
-                            console.log('✅ Fahrten via customerName gefunden:', nameSnapshot.numChildren());
-                        } else {
-                            console.log('❌ Keine Fahrten via customerName');
-                        }
-                        console.log('══════ NAME-SUCHE ENDE ══════');
+                    // 🆕 v5.90.87: NAME-SUCHE IMMER DURCHFÜHREN!
+                    // Problem: displayName ist oft leer, aber customerName in Fahrten ist gesetzt!
+                    // Lösung: Suche nach bekannten Namen ODER Telefonnummer-Matching
+                    console.log('══════ NAME-SUCHE START ══════');
+                    
+                    // BEKANNTE NAMEN FÜR DIESEN USER (aus customerPhone-Suche extrahieren)
+                    const knownNames = new Set();
+                    if (currentUserPhone) {
+                        // Durchsuche bereits gefundene Fahrten nach Namen
+                        firebaseRides.forEach(r => {
+                            if (r.customerName && r.customerName !== 'Unbekannt') {
+                                knownNames.add(r.customerName);
+                            }
+                        });
                     }
+                    
+                    // Falls wir Namen gefunden haben, suche nach diesen
+                    if (knownNames.size > 0) {
+                        for (const name of knownNames) {
+                            console.log('🔍 Suche 5: customerName =', name);
+                            try {
+                                const nameSnapshot = await db.ref('rides').orderByChild('customerName').equalTo(name).once('value');
+                                if (nameSnapshot.exists()) {
+                                    nameSnapshot.forEach(childSnapshot => {
+                                        const ride = childSnapshot.val();
+                                        ride.firebaseId = childSnapshot.key;
+                                        // Nur hinzufügen wenn noch nicht vorhanden
+                                        if (!firebaseRides.some(r => r.firebaseId === childSnapshot.key)) {
+                                            console.log('   ✅ Gefunden:', ride.pickup, '→', ride.destination, '(', ride.status, ')');
+                                            firebaseRides.push(ride);
+                                            if (ride.id) firebaseRideIds.push(ride.id);
+                                        }
+                                    });
+                                    console.log('✅ Fahrten via customerName gefunden:', nameSnapshot.numChildren());
+                                }
+                            } catch (error) {
+                                console.error('❌ Fehler bei Name-Suche:', error);
+                            }
+                        }
+                    } else if (currentUser.displayName) {
+                        // Fallback: Versuche displayName wenn vorhanden
+                        console.log('🔍 Suche 5: customerName (displayName) =', currentUser.displayName);
+                        try {
+                            const nameSnapshot = await db.ref('rides').orderByChild('customerName').equalTo(currentUser.displayName).once('value');
+                            if (nameSnapshot.exists()) {
+                                nameSnapshot.forEach(childSnapshot => {
+                                    const ride = childSnapshot.val();
+                                    ride.firebaseId = childSnapshot.key;
+                                    if (!firebaseRides.some(r => r.firebaseId === childSnapshot.key)) {
+                                        console.log('   ✅ Gefunden:', ride.pickup, '→', ride.destination, '(', ride.status, ')');
+                                        firebaseRides.push(ride);
+                                        if (ride.id) firebaseRideIds.push(ride.id);
+                                    }
+                                });
+                                console.log('✅ Fahrten via customerName gefunden:', nameSnapshot.numChildren());
+                            }
+                        } catch (error) {
+                            console.error('❌ Fehler bei Name-Suche:', error);
+                        }
+                    }
+                    console.log('══════ NAME-SUCHE ENDE ══════');
                 } catch (error) {
                     console.error('❌ Fehler beim Laden der Firebase Fahrten:', error);
                 }

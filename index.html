@@ -108,7 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.85 - FINALE USERID-SUCHE! 🎯✨ (Build 20260104-1245)');
+        console.log('🚕 Funk Taxi App v5.90.86 - BELIEBTE ZIELE FIX! 🎯✨ (Build 20260104-1255)');
+        console.log('🔧 v5.90.86: "Beliebtes Ziel" wird NICHT mehr an Adresse gehängt!');
+        console.log('✅ v5.90.86: Korrekte Geocoding → Korrekte Preise!');
+        console.log('✅ v5.90.86: Fix in ALLEN 3 Autocomplete-Funktionen!');
         console.log('✅ v5.90.85: 3-STUFEN userId-Suche - GARANTIERT!');
         console.log('✅ v5.90.85: Suche via Phone → Name → Fallback!');
         console.log('✅ v5.90.85: Admin-Buchungen in "Meine Fahrten"!');
@@ -959,7 +962,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.85 - 3-STUFEN USERID-SUCHE! 🎯✨ (Build 20260104-1245)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.86 - BELIEBTE ZIELE FIX! 🔧 (Build 20260104-1255)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -18289,7 +18292,9 @@
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        const addressString = `${dest.name}, ${dest.address}`;
+                        // 🔧 v5.90.86: FIX - Prüfe ob Label! NICHT an Adresse anhängen!
+                        const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
+                        const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
                         return `
                             <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="background:#fffbeb;">
                                 <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
@@ -29716,7 +29721,9 @@
                         🏥 BEKANNTE ORTE
                     </div>`;
                     html += matchingPOIs.map(dest => {
-                        const addressString = `${dest.name}, ${dest.address}`;
+                        // 🔧 v5.90.86: FIX - Prüfe ob Label! NICHT an Adresse anhängen!
+                        const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
+                        const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
                         return `
                             <div onclick="selectNewCustomerAddress('${addressString.replace(/'/g, "\\'")}');" style="
                                 padding: 12px;
@@ -31378,7 +31385,9 @@
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        const addressString = `${dest.name}, ${dest.address}`;
+                        // 🔧 v5.90.86: FIX - Prüfe ob Label! NICHT an Adresse anhängen!
+                        const isLabel = dest.address === 'Beliebtes Ziel' || dest.address === 'Favorit';
+                        const addressString = isLabel ? dest.name : `${dest.name}, ${dest.address}`;
                         return `
                             <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
                                 padding: 12px;

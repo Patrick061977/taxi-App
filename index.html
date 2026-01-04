@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.101 - ADMIN-TABS FIX! 🔒 (Build 20260104-1755)');
-        console.log('✅ v5.90.101: 📅 Kalender nur für Admin (CSS + body.is-admin)!');
-        console.log('✅ v5.90.101: .admin-only versteckt standardmäßig!');
-        console.log('✅ v5.90.101: Kunden sehen KEINE Admin-Tabs mehr!');
-        console.log('✅ v5.90.100: Parallele OSRM-Calls!');
-        console.log('✅ v5.90.100: Paralleles Geocoding!');
+        console.log('🚕 Funk Taxi App v5.90.102 - ADMIN-VIEWS FIX! 🔒 (Build 20260104-1805)');
+        console.log('✅ v5.90.102: ALLE Admin-Views mit .admin-only markiert!');
+        console.log('✅ v5.90.102: switchView prüft Admin-Berechtigung!');
+        console.log('✅ v5.90.102: Kunden können KEINE Admin-Views öffnen!');
+        console.log('✅ v5.90.101: CSS + body.is-admin!');
+        console.log('✅ v5.90.100: Parallele Requests!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -971,7 +971,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.101 - ADMIN-TABS FIX! 🔒 (Build 20260104-1755)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.102 - ADMIN-VIEWS FIX! 🔒 (Build 20260104-1805)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1985,7 +1985,7 @@
     </div>
 
     <!-- 🆕 v5.86.0: HOTEL-KALENDER VIEW -->
-    <div id="hotel-calendar-view" class="view">
+    <div id="hotel-calendar-view" class="view admin-only">
         <!-- 🆕 v5.87.44: GLEICHER CONTENT WIE IM ADMIN (funktioniert gut!) -->
         
         <!-- Info-Box -->
@@ -2115,7 +2115,7 @@
     </div>
 
     <!-- 🆕 v5.90.1: KALENDER VIEW (Eigener View!) -->
-    <div id="calendar-view" class="view">
+    <div id="calendar-view" class="view admin-only">
         <h3 style="margin: 0 0 20px 0; color: #1f2937;">📅 Fahrten-Kalender</h3>
         
         <!-- Ansichts-Toggle -->
@@ -3313,7 +3313,7 @@
         </script>
     </div>
 
-    <div id="admin-view" class="view">
+    <div id="admin-view" class="view admin-only">
         <h3 style="margin: 20px 0;">Dashboard</h3>
         
         <!-- 🆕 v5.90.29: TAB-EINSTELLUNGEN -->
@@ -5137,7 +5137,7 @@
     </div>
 
     <!-- 🆕 v5.43.0: SCHICHTPLAN-VIEW -->
-    <div id="shift-plan-view" class="view">
+    <div id="shift-plan-view" class="view admin-only">
         <div style="max-width: 1200px; margin: 20px auto; padding: 0 15px;">
             <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
                 <!-- Header -->
@@ -5178,7 +5178,7 @@
     </div>
 
     <!-- 🔍 DEBUG-VIEW - v5.39.4 -->
-    <div id="debug-view" class="view" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
+    <div id="debug-view" class="view admin-only" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; text-align: center;">
@@ -5288,7 +5288,7 @@
     </div>
 
     <!-- 🆕 v5.62.0: AI-ASSISTENT VIEW -->
-    <div id="ai-assistant-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+    <div id="ai-assistant-view" class="view admin-only" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
@@ -5511,7 +5511,7 @@
     </div>
 
     <!-- 🆕 v5.63.0: BUCHUNGSANFRAGEN VIEW (Telegram-Bot für Fahrgäste) -->
-    <div id="booking-requests-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+    <div id="booking-requests-view" class="view admin-only" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 20px; text-align: center;">
@@ -5659,7 +5659,7 @@
     </div>
 
     <!-- 🆕 v5.86.30: POI-MANAGEMENT VIEW -->
-    <div id="poi-management-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+    <div id="poi-management-view" class="view admin-only" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
@@ -5707,7 +5707,7 @@
     </div>
 
     <!-- 🆕 v5.86.14: BACKUP VIEW -->
-    <div id="backup-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+    <div id="backup-view" class="view admin-only" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 20px; text-align: center;">
@@ -5806,7 +5806,7 @@
     </div>
 
     <!-- 🆕 v5.90.40: ARCHIV VIEW - Gelöschte Fahrten -->
-    <div id="archive-view" class="view" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
+    <div id="archive-view" class="view admin-only" style="display:none; max-width: 1200px; margin: 20px auto; padding: 0 15px;">
         <div style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 12px rgba(220,38,38,0.3);">
             <h2 style="margin:0;font-size:24px;font-weight:700;">🗄️ Fahrt-Archiv</h2>
             <p style="margin:8px 0 0 0;opacity:0.9;font-size:14px;">Alle stornierten & gelöschten Fahrten</p>
@@ -11176,6 +11176,19 @@
             // ✅ Zeige nur die aktive View
             const viewElement = document.getElementById(view + '-view');
             if (viewElement) {
+                // 🔧 v5.90.102: PRÜFE ob Admin-View und ob User Admin ist!
+                const isAdminView = viewElement.classList.contains('admin-only');
+                const isAdmin = document.body.classList.contains('is-admin');
+                
+                if (isAdminView && !isAdmin) {
+                    console.warn('🔒 v5.90.102: Zugriff verweigert! Admin-View nur für Admin!');
+                    console.warn(`   View "${view}" ist admin-only, aber User ist kein Admin!`);
+                    console.warn('   → Redirect zu passenger-view');
+                    // Redirect zu passenger
+                    switchView('passenger');
+                    return;
+                }
+                
                 viewElement.style.display = 'block';
                 viewElement.style.visibility = 'visible';
                 viewElement.classList.add('active');

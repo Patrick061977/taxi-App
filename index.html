@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.93 - HAUSNUMMER-CHECK! 🏠 (Build 20260104-1400)');
-        console.log('✅ v5.90.93: Kombiniert Koordinaten + Hausnummer!');
-        console.log('✅ v5.90.93: Amselring 10 vs 11 = UNTERSCHIEDLICH!');
-        console.log('✅ v5.90.93: Amselring 10 mit/ohne PLZ = GLEICH!');
-        console.log('✅ v5.90.93: < 10m UND gleiche Hausnr = GLEICH!');
+        console.log('🚕 Funk Taxi App v5.90.94 - NUR SUCHBASIERT! 🔍 (Build 20260104-1410)');
+        console.log('✅ v5.90.94: Leeres Feld → Nichts angezeigt!');
+        console.log('✅ v5.90.94: Tippe "Bahn" → Nur Ergebnisse mit "Bahn"!');
+        console.log('✅ v5.90.94: POIs mit Treffer zuerst, dann Nominatim!');
+        console.log('✅ v5.90.94: Keine automatischen "Beliebten Ziele" mehr!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -960,7 +960,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.93 - HAUSNUMMER-CHECK! 🏠 (Build 20260104-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.94 - NUR SUCHBASIERT! 🔍 (Build 20260104-1410)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -18280,40 +18280,16 @@
             
             console.log('📊 Verfügbare Vorschläge:', frequentDestinations.length, '(POIs:', savedPOIs.length, '+ Buchungen:', frequentFromBookings.length, ')');
             
-            // Zeige Favoriten wenn Suche sehr kurz ist (< 3 Zeichen) ODER wenn Query leer
-            if (!query || query.length < 3) {
+            // 🔧 v5.90.94: NUR noch suchbasiert - keine automatischen Vorschläge bei leerem Feld!
+            if (!query || query.trim() === '') {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            // Mindestens 2 Zeichen für Suche
+            if (query.length < 2) {
                 dropdown.style.display = 'block';
-                
-                if (frequentDestinations.length === 0) {
-                    dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">💡 Tipp: Admin kann Favoriten-Ziele hinzufügen!</div>';
-                    return;
-                }
-                
-                dropdown.innerHTML = frequentDestinations.map(dest => {
-                    // 🔧 v5.90.92: Zeige ECHTE Adresse bei Beliebten Zielen!
-                    const addressString = dest.address || dest.name;
-                    
-                    // Bei fromBookings: Zeige vollständige Adresse als Label
-                    let displayName = dest.name;
-                    let displayLabel = '';
-                    
-                    if (dest.fromBookings) {
-                        // Beliebtes Ziel: Zeige vollständige Adresse
-                        displayName = dest.name;
-                        displayLabel = `⭐ Häufig genutzt`;
-                    } else {
-                        // Admin-POI: Name + Adresse
-                        displayName = dest.name;
-                        displayLabel = dest.address || '';
-                    }
-                    
-                    return `
-                        <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})">
-                            <div style="font-weight:600;color:#f59e0b;">${displayName}</div>
-                            ${displayLabel ? `<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>` : ''}
-                        </div>
-                    `;
-                }).join('');
+                dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">💡 Bitte mindestens 2 Zeichen eingeben...</div>';
                 return;
             }
             
@@ -29796,30 +29772,14 @@
             
             const frequentDestinations = allPOIs.length > 0 ? allPOIs : [];
             
-            // Zeige Favoriten wenn Suche leer oder < 3 Zeichen
-            if (!query || query.length < 3) {
-                if (frequentDestinations.length === 0) {
-                    dropdown.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">💡 Tipp: Admin kann Favoriten hinzufügen!</div>';
-                    dropdown.style.display = 'block';
-                    return;
-                }
-                
-                dropdown.innerHTML = frequentDestinations.map(dest => {
-                    // 🔧 v5.90.91: SAUBERE Lösung - address oder name
-                    const addressString = dest.address || dest.name;
-                    const displayLabel = dest.label || dest.address || '';
-                    
-                    return `
-                        <div onclick="selectNewCustomerAddress('${addressString.replace(/'/g, "\\'")}');" style="
-                            padding: 12px;
-                            cursor: pointer;
-                            border-bottom: 1px solid #e5e7eb;
-                        " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                            <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
-                            <div style="font-size:13px;color:#666;margin-top:2px;">${displayLabel}</div>
-                        </div>
-                    `;
-                }).join('');
+            // 🔧 v5.90.94: NUR noch suchbasiert!
+            if (!query || query.trim() === '') {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            if (query.length < 2) {
+                dropdown.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">💡 Mindestens 2 Zeichen eingeben...</div>';
                 dropdown.style.display = 'block';
                 return;
             }
@@ -31443,29 +31403,15 @@
                 }
             }
             
-            // Zeige Favoriten wenn Suche sehr kurz ist (< 3 Zeichen) ODER wenn Query leer
-            if (!query || query.length < 3) {
-                if (frequentDestinations.length === 0) {
-                    dropdown.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">💡 Tipp: Admin kann Favoriten-Ziele hinzufügen!</div>';
-                    return;
-                }
-                
-                dropdown.innerHTML = frequentDestinations.map(dest => {
-                    // 🔧 v5.90.91: SAUBERE Lösung - address oder name
-                    const addressString = dest.address || dest.name;
-                    const displayLabel = dest.label || dest.address || '';
-                    
-                    return `
-                        <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
-                            padding: 12px;
-                            cursor: pointer;
-                            border-bottom: 1px solid #e5e7eb;
-                        ">
-                            <div style="font-weight:600;color:#f59e0b;">⭐ ${dest.name}</div>
-                            <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
-                        </div>
-                    `;
-                }).join('');
+            // 🔧 v5.90.94: NUR noch suchbasiert!
+            if (!query || query.trim() === '') {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            if (query.length < 2) {
+                dropdown.innerHTML = '<div style="padding:10px;color:#999;text-align:center;">💡 Mindestens 2 Zeichen eingeben...</div>';
+                dropdown.style.display = 'block';
                 return;
             }
             

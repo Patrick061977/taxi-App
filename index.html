@@ -950,7 +950,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.52 - MANUELL LINKS! (Build 20260102-1150)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.82 - AUTO PHONE-SUCHE! (Build 20260104-0920)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -32392,10 +32392,48 @@
                     const endDate = new Date(endTime);
                     const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
                 
+                    // 🆕 v5.90.82: STELLE SICHER DASS customerPhone GESETZT IST!
+                    let finalCustomerPhone = qbPanelCustomer.phone || '';
+                    
+                    // Falls kein Phone im Objekt, hole es aus Firebase customers
+                    if (!finalCustomerPhone && qbPanelCustomer.id) {
+                        try {
+                            const customerSnapshot = await db.ref('customers/' + qbPanelCustomer.id).once('value');
+                            const customerData = customerSnapshot.val();
+                            if (customerData && customerData.phone) {
+                                finalCustomerPhone = customerData.phone;
+                                console.log('✅ customerPhone aus Firebase /customers geholt:', finalCustomerPhone);
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ Konnte customerPhone nicht aus /customers holen:', error);
+                        }
+                    }
+                    
+                    // 🆕 v5.90.82: FALLBACK - Suche in /users nach Kundenname!
+                    if (!finalCustomerPhone && qbPanelCustomer.name) {
+                        try {
+                            console.log('🔍 Suche User mit Name:', qbPanelCustomer.name);
+                            const usersSnapshot = await db.ref('users').orderByChild('displayName').equalTo(qbPanelCustomer.name).limitToFirst(1).once('value');
+                            if (usersSnapshot.exists()) {
+                                usersSnapshot.forEach(userSnapshot => {
+                                    const userData = userSnapshot.val();
+                                    if (userData && userData.phone) {
+                                        finalCustomerPhone = userData.phone;
+                                        console.log('✅ customerPhone aus /users geholt:', finalCustomerPhone);
+                                    }
+                                });
+                            } else {
+                                console.log('ℹ️ Kein User mit Name gefunden:', qbPanelCustomer.name);
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ Konnte customerPhone nicht aus /users holen:', error);
+                        }
+                    }
+                    
                     const rideData = {
                         customerId: qbPanelCustomer.id,
                         customerName: qbPanelCustomer.name || 'Unbekannt',
-                        customerPhone: qbPanelCustomer.phone || '',
+                        customerPhone: finalCustomerPhone,
                         pickup,
                         destination,
                         pickupTime: startDate.toISOString(),
@@ -35620,9 +35658,47 @@
                 const pickupDate = new Date(datetime);
                 const pickupTimestamp = pickupDate.getTime();
                 
+                // 🆕 v5.90.81: STELLE SICHER DASS customerPhone GESETZT IST!
+                let finalCustomerPhone = finalCustomer.phone || '';
+                
+                // Falls kein Phone im Objekt, hole es aus Firebase customers
+                if (!finalCustomerPhone && finalCustomerId) {
+                    try {
+                        const customerSnapshot = await db.ref('customers/' + finalCustomerId).once('value');
+                        const customerData = customerSnapshot.val();
+                        if (customerData && customerData.phone) {
+                            finalCustomerPhone = customerData.phone;
+                            console.log('✅ customerPhone aus Firebase /customers geholt:', finalCustomerPhone);
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ Konnte customerPhone nicht aus /customers holen:', error);
+                    }
+                }
+                
+                // 🆕 v5.90.82: FALLBACK - Suche in /users nach Kundenname!
+                if (!finalCustomerPhone && finalCustomer.name) {
+                    try {
+                        console.log('🔍 Suche User mit Name:', finalCustomer.name);
+                        const usersSnapshot = await db.ref('users').orderByChild('displayName').equalTo(finalCustomer.name).limitToFirst(1).once('value');
+                        if (usersSnapshot.exists()) {
+                            usersSnapshot.forEach(userSnapshot => {
+                                const userData = userSnapshot.val();
+                                if (userData && userData.phone) {
+                                    finalCustomerPhone = userData.phone;
+                                    console.log('✅ customerPhone aus /users geholt:', finalCustomerPhone);
+                                }
+                            });
+                        } else {
+                            console.log('ℹ️ Kein User mit Name gefunden:', finalCustomer.name);
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ Konnte customerPhone nicht aus /users holen:', error);
+                    }
+                }
+                
                 const ride = {
                     customerName: finalCustomer.name || 'Unbekannt',
-                    customerPhone: finalCustomer.phone || '',
+                    customerPhone: finalCustomerPhone,
                     // 🆕 v5.75.0: GAST-NAME (optional)
                     guestName: document.getElementById('quick-booking-guest-name')?.value?.trim() || '',
                     // 🆕 v5.88.21: GAST-TELEFON (optional) - nur Info!

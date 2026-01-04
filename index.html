@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.95 - NUR MECKLENBURG-VORPOMMERN! 🗺️ (Build 20260104-1415)');
-        console.log('✅ v5.90.95: Nominatim auf MV beschränkt!');
-        console.log('✅ v5.90.95: Viewbox: 10.6,54.7,14.4,53.1');
-        console.log('✅ v5.90.95: Keine Ergebnisse aus anderen Bundesländern!');
-        console.log('✅ v5.90.95: 19 Nominatim-Aufrufe angepasst!');
+        console.log('🚕 Funk Taxi App v5.90.96 - QUICK BOOKING FIX! ⚡ (Build 20260104-1530)');
+        console.log('✅ v5.90.96: Quick Booking zeigt echte Adresse statt "Beliebtes Ziel"!');
+        console.log('✅ v5.90.96: Zeile 31398 gefixt - address = freq.name!');
+        console.log('✅ v5.90.96: Konsistent mit anderen Autocomplete-Funktionen!');
+        console.log('✅ v5.90.95: Nur Mecklenburg-Vorpommern!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -960,7 +960,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.95 - NUR MV! 🗺️ (Build 20260104-1415)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.96 - QUICK BOOKING FIX! ⚡ (Build 20260104-1530)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31395,7 +31395,8 @@
                 if (!alreadyExists) {
                     frequentDestinations.push({
                         name: freq.name,
-                        address: 'Beliebtes Ziel',
+                        address: freq.name,         // 🔧 v5.90.96: Echte Adresse!
+                        label: '⭐ Beliebtes Ziel', // Nur Label zur Anzeige
                         lat: freq.lat,
                         lon: freq.lon,
                         fromBookings: true

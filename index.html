@@ -108,10 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.113 - AUTO-SURGE DEFAULT AUS! 💰 (Build 20260105-2005)');
-        console.log('✅ v5.90.113: Auto-Surge standardmäßig DEAKTIVIERT');
-        console.log('✅ v5.90.113: Surge erst ab 2. Auto (1 Auto = 0%)');
-        console.log('✅ v5.90.113: Kunden sehen NORMALPREISE');
+        console.log('🚕 Funk Taxi App v5.90.114 - SOFORT + VORBESTELLEN! ⚡📅 (Build 20260105-2125)');
+        console.log('✅ v5.90.114: SOFORT-Button wieder aktiv');
+        console.log('✅ v5.90.114: VORBESTELLEN mit 1h Vorlauf');
+        console.log('✅ v5.90.114: Auto-Surge standardmäßig AUS');
+        console.log('✅ v5.90.114: Surge erst ab 2. Auto (1 Auto = 0%)');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
         console.log('✅ v5.90.110: Format: 20-26-001 / 20-26-NS-001');
         console.log('✅ v5.90.109: Counter pro Jahr!');
@@ -1765,19 +1766,19 @@
             <div class="input-group" style="margin-top:25px;">
                 <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
                 
-                <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr;gap:12px;">
-                    <!-- SOFORT Button - 🚫 v5.90.112: PERMANENT DEAKTIVIERT! Nur Vorbestellung mit 1h Vorlauf! -->
-                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none !important;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <!-- SOFORT Button - 🆕 v5.90.114: WIEDER AKTIVIERT! -->
+                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">⚡</div>
                         <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:4px;">SOFORT</div>
                         <div style="font-size:12px;color:#666;">Nächstes verfügbares Taxi</div>
                     </button>
                     
-                    <!-- VORBESTELLEN Button - 🆕 v5.90.112: EINZIGE Option! Automatisch aktiv! -->
-                    <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:20px 15px;border:3px solid #667eea;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                    <!-- VORBESTELLEN Button -->
+                    <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:20px 15px;border:3px solid #e5e7eb;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">📅</div>
-                        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:4px;">VORBESTELLEN</div>
-                        <div style="font-size:12px;color:rgba(255,255,255,0.9);">1 Stunde Vorlauf erforderlich</div>
+                        <div style="font-weight:700;font-size:16px;color:#6b7280;margin-bottom:4px;">VORBESTELLEN</div>
+                        <div style="font-size:12px;color:#666;">1 Stunde Vorlauf erforderlich</div>
                     </button>
                 </div>
             </div>
@@ -7604,17 +7605,8 @@
             }
         }
         
-        // 🆕 v5.90.112: AUTO-AKTIVIERE VORBESTELLEN BEIM PAGE LOAD!
-        document.addEventListener('DOMContentLoaded', () => {
-            // Warte kurz bis DOM vollständig geladen
-            setTimeout(() => {
-                // Aktiviere VORBESTELLEN automatisch
-                if (!currentRideType) {
-                    console.log('🆕 v5.90.112: Aktiviere VORBESTELLEN automatisch (Sofort deaktiviert)');
-                    selectRideType('vorbestellen');
-                }
-            }, 100);
-        });
+        // 🆕 v5.90.114: KEINE AUTO-AKTIVIERUNG! Nutzer wählt selbst SOFORT oder VORBESTELLEN
+        // (Code entfernt - Buttons sind beide sichtbar und gleichwertig)
         
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
         function initVorbestellenDefaults() {

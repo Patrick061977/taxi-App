@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.114 - SOFORT + VORBESTELLEN! ⚡📅 (Build 20260105-2125)');
-        console.log('✅ v5.90.114: SOFORT-Button wieder aktiv');
-        console.log('✅ v5.90.114: VORBESTELLEN mit 1h Vorlauf');
-        console.log('✅ v5.90.114: Auto-Surge standardmäßig AUS');
-        console.log('✅ v5.90.114: Surge erst ab 2. Auto (1 Auto = 0%)');
+        console.log('🚕 Funk Taxi App v5.90.116 - SOFORT NUR MIT FAHRERN! ⚡ (Build 20260105-2310)');
+        console.log('✅ v5.90.116: SOFORT-Button nur wenn Fahrer online/besetzt');
+        console.log('✅ v5.90.116: 1-Stunde-Regel ENTFERNT!');
+        console.log('✅ v5.90.116: Auto-Surge standardmäßig AUS');
+        console.log('✅ v5.90.116: Realtime Fahrer-Verfügbarkeit');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
         console.log('✅ v5.90.110: Format: 20-26-001 / 20-26-NS-001');
         console.log('✅ v5.90.109: Counter pro Jahr!');
@@ -1766,8 +1766,8 @@
             <div class="input-group" style="margin-top:25px;">
                 <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
                 
-                <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <!-- SOFORT Button - 🆕 v5.90.114: WIEDER AKTIVIERT! -->
+                <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr;gap:12px;">
+                    <!-- SOFORT Button - 🆕 v5.90.116: Initial versteckt, nur wenn Fahrer verfügbar! -->
                     <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">⚡</div>
                         <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:4px;">SOFORT</div>
@@ -1778,7 +1778,7 @@
                     <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:20px 15px;border:3px solid #e5e7eb;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">📅</div>
                         <div style="font-weight:700;font-size:16px;color:#6b7280;margin-bottom:4px;">VORBESTELLEN</div>
-                        <div style="font-size:12px;color:#666;">1 Stunde Vorlauf erforderlich</div>
+                        <div style="font-size:12px;color:#666;">Datum & Zeit wählen</div>
                     </button>
                 </div>
             </div>
@@ -19981,24 +19981,8 @@
                 
                 pickupTimestamp = selectedDate.getTime();
                 
-                // 🆕 v5.90.112: KUNDEN MÜSSEN MINDESTENS 1 STUNDE VORLAUF HABEN!
-                const now = Date.now();
-                const oneHourFromNow = now + (60 * 60 * 1000); // +1 Stunde
-                
-                if (pickupTimestamp < oneHourFromNow) {
-                    const neededTime = new Date(oneHourFromNow).toLocaleTimeString('de-DE', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    
-                    alert(
-                        '⏰ Vorbestellung nur mit 1 Stunde Vorlauf möglich!\n\n' +
-                        `Früheste Buchung: ${neededTime} Uhr\n\n` +
-                        '📞 Für kurzfristige Fahrten bitte anrufen:\n' +
-                        '03837822022'
-                    );
-                    return;
-                }
+                // 🆕 v5.90.116: 1-Stunde-Regel ENTFERNT! Vorbestellung ohne Zeitbeschränkung!
+                // Kunden können jederzeit vorbestellen
                 
                 // 🐛 DEBUG: Zeige was gespeichert wird
                 console.log('📅 VORBESTELLUNG - Eingabe:', {

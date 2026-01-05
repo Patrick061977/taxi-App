@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.106 - KRANKENFAHRT OPTION! 🏥 (Build 20260105-1030)');
-        console.log('✅ v5.90.106: Radio Buttons: Taxipreis oder Krankenfahrt!');
-        console.log('✅ v5.90.106: Krankenfahrt → kein Preis berechnet!');
-        console.log('✅ v5.90.106: Klarer als Checkbox!');
-        console.log('✅ v5.90.105: POI aus Schnellbuchung speichern!');
-        console.log('✅ v5.90.105: Favoriten-Modal Fix!');
+        console.log('🚕 Funk Taxi App v5.90.110 - NEUES RECHNUNGSNUMMER FORMAT! 📄 (Build 20260105-1410)');
+        console.log('✅ v5.90.110: Format jetzt: 20-26-001 (statt RE-2026-001)');
+        console.log('✅ v5.90.110: NoShow: 20-26-NS-001 (statt NS-2026-001)');
+        console.log('✅ v5.90.109: Counter pro Jahr!');
+        console.log('✅ v5.90.108: Modus-Umschalter!');
+        console.log('✅ v5.90.107: Tagesprogramm für Fahrer!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -189,6 +189,7 @@
         console.log('✅ v5.90.24: Gilt für ALLE Zeit-Inputs (Admin, Kalender)!');
         console.log('🚗 v5.90.23: Fahrer Taxameter-Preis!');
         console.log('💰 v5.90.23: 2 Buttons: Fertig / Mit Rechnung!');
+        console.log('📄 v5.90.24: Neues Rechnungsformat 20-26-001 + Rechnung-Tab!');
         console.log('📄 v5.90.23: Rechnung mit richtigem Preis!');
         console.log('✅ v5.90.22: Kalender Abschließen-Button!');
         console.log('💰 v5.90.22: Preis bearbeiten beim Abschließen!');
@@ -966,7 +967,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.106 - KRANKENFAHRT OPTION! 🏥 (Build 20260105-1030)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.109 - RECHNUNGSNUMMER FIX! 🧾 (Build 20260105-1405)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1073,6 +1074,21 @@
                 transition: all 0.2s;
             ">
                 📅 Kalender
+            </button>
+            <!-- 🆕 v5.90.24: RECHNUNG-TAB -->
+            <button onclick="switchView('rechnung')" class="admin-tab-btn admin-only tab-toggleable" data-view="rechnung" data-tab-id="rechnung" style="
+                padding: 10px 16px;
+                border: 2px solid #8b5cf6;
+                background: white;
+                color: #8b5cf6;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                📄 Rechnung
             </button>
             <button onclick="switchView('hotel-calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="hotel-calendar" data-tab-id="hotel-calendar" style="
                 padding: 10px 16px;
@@ -1968,6 +1984,43 @@
             <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🧹 Cache leeren & App neu laden
             </button>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.90.24: RECHNUNG VIEW -->
+    <div id="rechnung-view" class="view admin-only">
+        <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
+            <h2 style="margin:0 0 10px 0;font-size:24px;">📄 Rechnung erstellen</h2>
+            <p style="margin:0;font-size:14px;opacity:0.95;">Erstelle manuelle Rechnungen für Kunden</p>
+        </div>
+        
+        <div style="background:white;padding:20px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:20px;">
+            <div style="margin-bottom:20px;">
+                <h3 style="margin:0 0 15px 0;color:#1f2937;font-size:18px;">💡 Rechnungen erstellen</h3>
+                <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:15px;border-radius:8px;font-size:14px;color:#1e40af;">
+                    <strong>Zwei Wege:</strong><br>
+                    <br>
+                    <strong>1️⃣ Aus Fahrt (empfohlen):</strong><br>
+                    → Admin → Kalender → Verlauf → Fahrt auswählen → "📄 Rechnung"<br>
+                    <span style="font-size:12px;opacity:0.8;">✅ Alle Daten automatisch (Koordinaten, Preis, Route)</span>
+                    <br><br>
+                    <strong>2️⃣ Manuell/Neu:</strong><br>
+                    → Klicke unten auf "Neue Rechnung erstellen"<br>
+                    <span style="font-size:12px;opacity:0.8;">✏️ Für Rechnungen ohne bestehende Fahrt</span>
+                </div>
+            </div>
+            
+            <button onclick="openInvoiceModalEmpty()" style="width:100%;padding:16px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
+                ✏️ Neue Rechnung erstellen (leer)
+            </button>
+        </div>
+        
+        <!-- Einzel-Rechnungen Liste (aus Admin) -->
+        <div id="rechnung-single-invoices-container" style="background:white;padding:20px;border-radius:12px;border:2px solid #e5e7eb;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <span style="font-weight:600;font-size:15px;">📄 Einzel-Rechnungen <span id="rechnung-single-invoices-count" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+            </div>
+            <div id="rechnung-single-invoices-list"></div>
         </div>
     </div>
 
@@ -3302,6 +3355,90 @@
 
     <div id="admin-view" class="view admin-only">
         <h3 style="margin: 20px 0;">Dashboard</h3>
+        
+        <!-- 🆕 v5.90.108: FAHRZEUG-ZUTEILUNGS-MODUS UMSCHALTER! -->
+        <div id="assignment-mode-banner" style="
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
+            border: 3px solid #f59e0b;
+        ">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+                <!-- Mode Indicator -->
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                        <div id="mode-icon" style="font-size: 36px;">🔧</div>
+                        <div>
+                            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 4px;" id="mode-title">
+                                MANUELLER MODUS
+                            </div>
+                            <div style="font-size: 14px; color: rgba(255,255,255,0.9);" id="mode-description">
+                                Du teilst Fahrten manuell den Fahrzeugen zu
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Toggle Switch -->
+                <div style="text-align: center;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.8); margin-bottom: 8px; font-weight: 600;">
+                        MODUS WECHSELN
+                    </div>
+                    <label style="
+                        position: relative;
+                        display: inline-block;
+                        width: 80px;
+                        height: 40px;
+                        cursor: pointer;
+                    ">
+                        <input type="checkbox" id="assignment-mode-toggle" onchange="toggleAssignmentMode()" style="opacity: 0; width: 0; height: 0;">
+                        <span style="
+                            position: absolute;
+                            cursor: pointer;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: rgba(255,255,255,0.3);
+                            transition: .4s;
+                            border-radius: 40px;
+                            border: 3px solid white;
+                        ">
+                            <span style="
+                                position: absolute;
+                                content: '';
+                                height: 28px;
+                                width: 28px;
+                                left: 3px;
+                                bottom: 3px;
+                                background-color: white;
+                                transition: .4s;
+                                border-radius: 50%;
+                            " id="mode-slider"></span>
+                        </span>
+                    </label>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: white; font-weight: 600;">
+                        <span>🔧</span>
+                        <span>🤖</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Info Box -->
+            <div id="mode-info-box" style="
+                margin-top: 15px;
+                padding: 12px;
+                background: rgba(255,255,255,0.15);
+                border-radius: 8px;
+                border-left: 4px solid white;
+                font-size: 13px;
+                color: white;
+            ">
+                ℹ️ Im manuellen Modus musst du jede Fahrt selbst einem Fahrzeug zuteilen.
+            </div>
+        </div>
         
         <!-- 🆕 v5.90.29: TAB-EINSTELLUNGEN -->
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #10b981;box-shadow:0 4px 12px rgba(16,185,129,0.15);">
@@ -11149,7 +11286,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -11239,6 +11376,23 @@
             // 🆕 v5.90.40: Archiv laden bei Archive-View!
             if (view === 'archive') {
                 setTimeout(() => loadArchive(), 100);
+            }
+            
+            // 🆕 v5.90.24: Rechnungsliste laden bei Rechnung-View!
+            if (view === 'rechnung') {
+                setTimeout(() => {
+                    if (typeof loadInvoicesList === 'function') {
+                        console.log('📄 Lade Rechnungsliste in Rechnung-View...');
+                        loadInvoicesList();
+                        // Update auch die Rechnung-View Container
+                        const list = document.getElementById('rechnung-single-invoices-list');
+                        const count = document.getElementById('rechnung-single-invoices-count');
+                        if (list && count) {
+                            list.innerHTML = document.getElementById('single-invoices-list')?.innerHTML || '';
+                            count.textContent = document.getElementById('single-invoices-count')?.textContent || '0';
+                        }
+                    }
+                }, 100);
             }
             
             const gpsIndicator = document.getElementById('gps-indicator');
@@ -11871,11 +12025,30 @@
         }
 
         function updateDriverView() {
-            // 🆕 v5.90.61: Zeige auch MIR ZUGEWIESENE Fahrten!
-            const newRides = rides.filter(r => 
-                r.status === 'new' || 
-                (r.status === 'assigned' && currentVehicle && r.vehicleId === currentVehicle)
-            );
+            // 🆕 v5.90.107: ZEIGE ALLE ZUGETEILTEN FAHRTEN (TAGESPROGRAMM)!
+            const newRides = rides.filter(r => {
+                // Ignoriere completed, cancelled, picked_up (die laufen schon)
+                if (r.status === 'completed' || r.status === 'cancelled' || r.status === 'picked_up') {
+                    return false;
+                }
+                
+                // Zeige:
+                // 1. Alle neuen Fahrten
+                if (r.status === 'new') return true;
+                
+                // 2. Alle Fahrten die MEINEM Fahrzeug zugeteilt sind (egal welcher Status!)
+                if (currentVehicle && r.vehicleId === currentVehicle) {
+                    return true;
+                }
+                
+                // 3. Zugewiesene Fahrten (assigned Status)
+                if (r.status === 'assigned' && currentVehicle && r.vehicleId === currentVehicle) {
+                    return true;
+                }
+                
+                return false;
+            });
+            
             const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
             const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
             const completed = myRides.filter(r => r.status === 'completed');
@@ -12058,20 +12231,43 @@
             } else if (newRides.length === 0) {
                 document.getElementById('new-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine neuen Aufträge</div>';
             } else {
-                let ridesHtml = newRides.map(r => {
-                    // 🎯 Check ob Fahrt diesem Fahrer zugewiesen ist
+                let ridesHtml = newRides
+                    // 🆕 v5.90.107: Sortiere nach pickupTimestamp (Tagesprogramm!)
+                    .sort((a, b) => {
+                        const aTime = a.pickupTimestamp || a.timestamp || 0;
+                        const bTime = b.pickupTimestamp || b.timestamp || 0;
+                        return aTime - bTime;
+                    })
+                    .map(r => {
+                    // 🎯 v5.90.107: Verbesserte Badge-Logik!
+                    const isMyVehicle = (currentVehicle && r.vehicleId === currentVehicle);
                     const isAssignedToMe = r.assignedTo === currentVehicle;
                     const timeLeft = r.assignmentExpiresAt ? Math.max(0, Math.ceil((r.assignmentExpiresAt - Date.now()) / 1000)) : null;
                     
                     let assignmentBadge = '';
                     let cardStyle = '';
                     
+                    // Fall 1: Zeitlich zugewiesen (mit Timer)
                     if (isAssignedToMe && timeLeft > 0) {
                         assignmentBadge = `<span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:bold;animation:pulse 1s infinite;">⏰ DIR ZUGEWIESEN - ${timeLeft}s</span>`;
                         cardStyle = 'border:3px solid #ef4444;background:#fef2f2;';
-                    } else if (r.assignedTo && r.assignedTo !== currentVehicle) {
+                    }
+                    // Fall 2: Meinem Fahrzeug fest zugeteilt (z.B. vom Admin)
+                    else if (isMyVehicle) {
+                        assignmentBadge = `<span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:bold;">✅ DEINE FAHRT</span>`;
+                        cardStyle = 'border:2px solid #10b981;background:#f0fdf4;';
+                    }
+                    // Fall 3: Anderem Fahrzeug zugeteilt
+                    else if (r.assignedTo && r.assignedTo !== currentVehicle) {
                         assignmentBadge = `<span style="background:#94a3b8;padding:4px 8px;border-radius:12px;font-size:12px;">👤 Zugewiesen: ${r.assignedVehicleName || r.assignedTo}</span>`;
-                    } else {
+                    }
+                    // Fall 4: Anderem Fahrzeug zugeteilt (via vehicleId)
+                    else if (r.vehicleId && r.vehicleId !== currentVehicle) {
+                        const vehicleName = VEHICLES[r.vehicleId] ? VEHICLES[r.vehicleId].name : r.vehicleId;
+                        assignmentBadge = `<span style="background:#94a3b8;padding:4px 8px;border-radius:12px;font-size:12px;">👤 Zugewiesen: ${vehicleName}</span>`;
+                    }
+                    // Fall 5: Neu (für alle)
+                    else {
                         assignmentBadge = '<span style="background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:12px;">🆕 Neu</span>';
                     }
                     
@@ -33889,6 +34085,218 @@
             invoiceSelectedBillingAddress = null; // 🆕 v5.52.5
         }
         
+        // 🆕 v5.90.24: LEERE RECHNUNG ERSTELLEN (ohne Fahrt)
+        async function openInvoiceModalEmpty() {
+            console.log('📄 Öffne leeres Rechnungsmodal');
+            
+            try {
+                // 🆕 Leere globale Daten
+                invoiceRideData = null;
+                invoiceCustomerData = null;
+                invoiceSelectedBillingAddress = '';
+                
+                // 🆕 Initialisiere leere Position
+                invoicePositions = [
+                    {
+                        id: 1,
+                        description: '',
+                        amount: 0
+                    }
+                ];
+                
+                // Leere Werte
+                const customerName = '';
+                const customerAddress = '';
+                const guestName = '';
+                const rideDate = new Date().toLocaleDateString('de-DE');
+                const rideTime = new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+                const pickup = '';
+                const destination = '';
+                const distance = 0;
+                
+                const modal = document.createElement('div');
+                modal.id = 'invoice-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+                
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:16px;max-width:800px;width:100%;max-height:90vh;overflow-y:auto;">
+                        <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:20px;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:10;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <h3 style="margin:0;font-size:20px;">📄 Neue Rechnung erstellen (leer)</h3>
+                                <button onclick="closeInvoiceModal()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+                            </div>
+                        </div>
+                        
+                        <div style="padding:20px;">
+                            <!-- 🆕 BEARBEITBARE FELDER -->
+                            <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#1e40af;">✏️ Rechnungsdaten</div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Kundenname:</label>
+                                        <input type="text" id="inv-customer-name" value=""
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" placeholder="Name eingeben">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Gastname (optional):</label>
+                                        <input type="text" id="inv-guest-name" value=""
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" placeholder="Optional">
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-top:10px;">
+                                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Rechnungsadresse:</label>
+                                    <textarea id="inv-address" rows="2" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;" placeholder="Straße, PLZ Ort"></textarea>
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Von:</label>
+                                        <input type="text" id="inv-pickup" value=""
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" placeholder="Startort">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Nach:</label>
+                                        <input type="text" id="inv-destination" value=""
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" placeholder="Zielort">
+                                    </div>
+                                </div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-top:10px;">
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Datum:</label>
+                                        <input type="text" id="inv-date" value="${rideDate}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Uhrzeit:</label>
+                                        <input type="text" id="inv-time" value="${rideTime}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Distanz (km):</label>
+                                        <div style="display:flex;gap:5px;">
+                                            <input type="number" id="invoice-distance" value="0.0" step="0.1" min="0"
+                                                   onchange="updateInvoiceDistanceAndVat()"
+                                                   style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                            <button onclick="recalculateInvoiceDistance()" title="Distanz neu berechnen"
+                                                    style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">
+                                                🔄
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 🆕 CHECKBOXEN: WAS SOLL AUF DIE RECHNUNG? -->
+                            <div style="background:#fefce8;border:2px solid #eab308;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#854d0e;">📋 Was soll auf die Rechnung?</div>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-customer" checked style="width:18px;height:18px;">
+                                        <span>👤 Kundenname</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-address" checked style="width:18px;height:18px;">
+                                        <span>📍 Adresse</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-guest" style="width:18px;height:18px;">
+                                        <span>📝 Gastname</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-route" checked style="width:18px;height:18px;">
+                                        <span>🚕 Von/Nach</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-datetime" checked style="width:18px;height:18px;">
+                                        <span>📅 Datum/Uhrzeit</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-distance" style="width:18px;height:18px;">
+                                        <span>📏 Distanz (km)</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
+                                        <input type="checkbox" id="inv-show-vat" checked style="width:18px;height:18px;">
+                                        <span>💶 MwSt-Ausweis</span>
+                                    </label>
+                                </div>
+                                
+                                <div style="margin-top:15px;padding:10px;background:#dcfce7;border-radius:6px;font-size:13px;color:#166534;">
+                                    🔒 <strong>Immer dabei:</strong> Rechnungsnummer, Datum, Bankdaten, Steuernummer
+                                </div>
+                            </div>
+                            
+                            <!-- POSITIONEN -->
+                            <div style="background:#f0fdf4;border:2px solid #10b981;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:15px;color:#047857;">💰 Positionen (Brutto-Beträge)</div>
+                                
+                                <div id="invoice-positions-container"></div>
+                                
+                                <button onclick="addInvoicePosition()" 
+                                        style="width:100%;padding:10px;margin-top:10px;background:#10b981;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s;"
+                                        onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    + Position hinzufügen
+                                </button>
+                                
+                                <div style="margin-top:15px;padding-top:15px;border-top:2px solid #e0e0e0;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                                        <span style="font-weight:600;font-size:15px;">Gesamt (Brutto):</span>
+                                        <span id="invoice-total" style="font-weight:700;font-size:20px;color:#10b981;">0.00 €</span>
+                                    </div>
+                                    <div id="invoice-vat-display" style="margin-top:10px;padding:10px;background:#f3f4f6;border-radius:6px;font-size:13px;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- 🆕 v5.90.7: ZAHLUNGSART -->
+                            <div style="background:#fef3c7;border:2px solid #fbbf24;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <label style="display:block;font-weight:700;margin-bottom:10px;color:#92400e;">💳 Zahlungsart</label>
+                                <select id="invoice-payment-method" style="width:100%;padding:12px;border:2px solid #fbbf24;border-radius:8px;font-size:14px;cursor:pointer;">
+                                    <option value="rechnung" selected>📄 Rechnung (Standard)</option>
+                                    <option value="bar">💶 Bar bezahlt</option>
+                                    <option value="ec">💳 EC-Karte</option>
+                                    <option value="kreditkarte">💳 Kreditkarte</option>
+                                </select>
+                            </div>
+                            
+                            <!-- BUTTONS -->
+                            <input type="hidden" id="invoice-ride-id" value="">
+                            <input type="hidden" id="invoice-vat-rate" value="7">
+                            
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <button onclick="generateInvoicePDFv2()" 
+                                        style="padding:15px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:15px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
+                                    📄 Rechnung erstellen
+                                </button>
+                                <button onclick="shareInvoiceViaWhatsApp()" 
+                                        style="padding:15px;background:#25D366;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:15px;box-shadow:0 4px 12px rgba(37,211,102,0.3);">
+                                    📤 Per WhatsApp
+                                </button>
+                            </div>
+                            
+                            <button onclick="closeInvoiceModal()" 
+                                    style="width:100%;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;margin-top:10px;cursor:pointer;">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Rendere Positionen initial
+                renderInvoicePositions();
+                updateInvoiceCalculation();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Öffnen des leeren Rechnungsmodals:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         // 🆕 v5.90.14: RECHNUNG PER WHATSAPP TEILEN
         async function shareInvoiceViaWhatsApp() {
             try {
@@ -34724,24 +35132,31 @@
             }
         }
         
+        // 🆕 v5.90.24: NEUES RECHNUNGSFORMAT 20-26-001
         async function getNextInvoiceNumber() {
             try {
-                // Lade letzte Rechnungsnummer
-                const snapshot = await db.ref('invoiceCounter').once('value');
+                const currentYear = new Date().getFullYear();
+                
+                // Lade Counter für aktuelles Jahr
+                const snapshot = await db.ref(`invoiceCounter/${currentYear}`).once('value');
                 let counter = snapshot.val() || 0;
                 
                 counter++;
                 
-                // Speichere neue Nummer
-                await db.ref('invoiceCounter').set(counter);
+                // Speichere neue Nummer für dieses Jahr
+                await db.ref(`invoiceCounter/${currentYear}`).set(counter);
                 
-                // Format: RE1323, RE1324, etc.
-                return `RE${counter}`;
+                // 🆕 Format: 20-26-001, 20-26-002, etc.
+                const shortYear = String(currentYear).substring(2); // 2026 → 26
+                const paddedCounter = String(counter).padStart(3, '0');
+                return `20-${shortYear}-${paddedCounter}`;
                 
             } catch (error) {
                 console.error('❌ Fehler beim Abrufen der Rechnungsnummer:', error);
-                // Fallback: Zeitstempel
-                return `RE${Date.now()}`;
+                // Fallback: Zeitstempel mit neuem Format
+                const year = new Date().getFullYear();
+                const shortYear = String(year).substring(2);
+                return `20-${shortYear}-${Date.now()}`;
             }
         }
         
@@ -35724,19 +36139,27 @@
         
         async function getNextNoShowInvoiceNumber() {
             try {
-                const snapshot = await db.ref('noShowInvoiceCounter').once('value');
+                const currentYear = new Date().getFullYear();
+                
+                // Lade Counter für aktuelles Jahr
+                const snapshot = await db.ref(`noShowInvoiceCounter/${currentYear}`).once('value');
                 let counter = snapshot.val() || 0;
                 
                 counter++;
                 
-                await db.ref('noShowInvoiceCounter').set(counter);
+                // Speichere neue Nummer für dieses Jahr
+                await db.ref(`noShowInvoiceCounter/${currentYear}`).set(counter);
                 
-                // Format: NS1, NS2, etc.
-                return `NS${counter}`;
+                // Format: 20-26-NS-001, 20-26-NS-002, etc.
+                const shortYear = String(currentYear).substring(2); // 2026 → 26
+                const paddedCounter = String(counter).padStart(3, '0');
+                return `20-${shortYear}-NS-${paddedCounter}`;
                 
             } catch (error) {
                 console.error('❌ Fehler beim Abrufen der NoShow-Rechnungsnummer:', error);
-                return `NS${Date.now()}`;
+                const year = new Date().getFullYear();
+                const shortYear = String(year).substring(2);
+                return `20-${shortYear}-NS-${Date.now()}`;
             }
         }
         
@@ -52402,6 +52825,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             { id: 'passenger', name: '🚕 Taxi buchen', admin: false },
             { id: 'quick-booking', name: '⚡ Schnellbuchung', admin: true },
             { id: 'calendar', name: '📅 Kalender', admin: true },
+            { id: 'rechnung', name: '📄 Rechnung', admin: true },
             { id: 'fahrplan', name: '🚌 Fahrplan', admin: false },
             { id: 'history', name: '📋 Verlauf', admin: false },
             { id: 'hotel-calendar', name: '🏨 Hotel-Kalender', admin: true },
@@ -52802,6 +53226,144 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
         }
         
+        // 🆕 v5.90.108: FAHRZEUG-ZUTEILUNGS-MODUS FUNKTIONEN!
+        
+        // Global variable für aktuellen Modus
+        let assignmentMode = 'manual'; // 'manual' oder 'automatic'
+        
+        // Lade Modus aus Firebase
+        async function loadAssignmentMode() {
+            try {
+                const snapshot = await db.ref('settings/assignmentMode').once('value');
+                if (snapshot.exists()) {
+                    assignmentMode = snapshot.val();
+                    console.log('✅ Assignment Mode geladen:', assignmentMode);
+                } else {
+                    // Standard: Manual
+                    assignmentMode = 'manual';
+                    console.log('ℹ️ Assignment Mode: Standard (manual)');
+                }
+                
+                // Update UI
+                updateAssignmentModeUI();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden des Assignment Mode:', error);
+                assignmentMode = 'manual';
+                updateAssignmentModeUI();
+            }
+        }
+        
+        // Speichere Modus in Firebase
+        async function saveAssignmentMode(mode) {
+            try {
+                await db.ref('settings/assignmentMode').set(mode);
+                console.log('✅ Assignment Mode gespeichert:', mode);
+                return true;
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                return false;
+            }
+        }
+        
+        // Toggle Modus
+        async function toggleAssignmentMode() {
+            const toggle = document.getElementById('assignment-mode-toggle');
+            const newMode = toggle.checked ? 'automatic' : 'manual';
+            
+            console.log('🔄 Wechsle Modus:', assignmentMode, '→', newMode);
+            
+            // Bestätigungs-Dialog
+            const confirmMsg = newMode === 'automatic' 
+                ? '🤖 Automatischer Modus aktivieren?\n\nDas System wird neue Fahrten automatisch dem nächsten verfügbaren Fahrzeug zuteilen.\n\nFortfahren?' 
+                : '🔧 Manueller Modus aktivieren?\n\nDu musst jede Fahrt selbst einem Fahrzeug zuteilen.\n\nFortfahren?';
+            
+            if (!confirm(confirmMsg)) {
+                // Abbrechen → Toggle zurücksetzen
+                toggle.checked = (assignmentMode === 'automatic');
+                return;
+            }
+            
+            // Speichere in Firebase
+            const success = await saveAssignmentMode(newMode);
+            
+            if (success) {
+                assignmentMode = newMode;
+                updateAssignmentModeUI();
+                
+                // Success Message
+                const successMsg = newMode === 'automatic' 
+                    ? '✅ Automatischer Modus aktiviert!\n\nNeue Fahrten werden automatisch zugeteilt.' 
+                    : '✅ Manueller Modus aktiviert!\n\nDu kannst jetzt Fahrten manuell zuteilen.';
+                
+                alert(successMsg);
+                
+                // 🔔 Wenn automatic → starte Auto-Assignment
+                if (newMode === 'automatic') {
+                    startAutoAssignment();
+                }
+            } else {
+                // Fehler → Toggle zurücksetzen
+                toggle.checked = (assignmentMode === 'automatic');
+                alert('❌ Fehler beim Speichern!\n\nBitte versuche es erneut.');
+            }
+        }
+        
+        // Update UI basierend auf Modus
+        function updateAssignmentModeUI() {
+            const banner = document.getElementById('assignment-mode-banner');
+            const icon = document.getElementById('mode-icon');
+            const title = document.getElementById('mode-title');
+            const description = document.getElementById('mode-description');
+            const infoBox = document.getElementById('mode-info-box');
+            const toggle = document.getElementById('assignment-mode-toggle');
+            const slider = document.getElementById('mode-slider');
+            
+            if (!banner) return; // Noch nicht geladen
+            
+            if (assignmentMode === 'automatic') {
+                // AUTOMATISCHER MODUS
+                banner.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                banner.style.borderColor = '#10b981';
+                icon.textContent = '🤖';
+                title.textContent = 'AUTOMATISCHER MODUS';
+                description.textContent = 'System teilt Fahrten automatisch den Fahrzeugen zu';
+                infoBox.innerHTML = '✅ Neue Fahrten werden automatisch dem nächsten verfügbaren Fahrzeug zugeteilt.';
+                toggle.checked = true;
+                
+                // Slider Animation
+                if (slider) {
+                    slider.style.transform = 'translateX(40px)';
+                }
+                
+            } else {
+                // MANUELLER MODUS
+                banner.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                banner.style.borderColor = '#f59e0b';
+                icon.textContent = '🔧';
+                title.textContent = 'MANUELLER MODUS';
+                description.textContent = 'Du teilst Fahrten manuell den Fahrzeugen zu';
+                infoBox.innerHTML = 'ℹ️ Im manuellen Modus musst du jede Fahrt selbst einem Fahrzeug zuteilen.';
+                toggle.checked = false;
+                
+                // Slider Animation
+                if (slider) {
+                    slider.style.transform = 'translateX(0)';
+                }
+            }
+            
+            console.log('✅ UI aktualisiert:', assignmentMode);
+        }
+        
+        // 🤖 Auto-Assignment Funktion (für später)
+        function startAutoAssignment() {
+            console.log('🤖 Auto-Assignment gestartet!');
+            // TODO: Implementiere Auto-Assignment Logik
+            // - Höre auf neue Fahrten
+            // - Finde nächstes verfügbares Fahrzeug
+            // - Weise zu
+        }
+        
         window.addEventListener('load', () => {
             setTimeout(() => {
                 initTabDragDrop();
@@ -52810,6 +53372,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             // 🆕 v5.90.29: Tab-Einstellungen laden
             setTimeout(() => loadTabSettings(), 1500);
+            
+            // 🆕 v5.90.108: Assignment Mode laden
+            setTimeout(() => loadAssignmentMode(), 2000);
         });
     </script>
 

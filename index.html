@@ -108,9 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.111 - FAVORITEN-ZIELE FIX! ⭐ (Build 20260105-1845)');
-        console.log('✅ v5.90.111: "POI" → "Favorit" umbenannt');
-        console.log('✅ v5.90.111: Autocomplete KURZ (kein Landkreis/Bundesland!)');
+        console.log('🚕 Funk Taxi App v5.90.112 - NUR VORBESTELLUNG! ⏰ (Build 20260105-1930)');
+        console.log('✅ v5.90.112: SOFORT deaktiviert - nur Vorbestellung!');
+        console.log('✅ v5.90.112: 1h Vorlauf erforderlich');
+        console.log('✅ v5.90.112: Telefon: 03837822022');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
         console.log('✅ v5.90.110: Format: 20-26-001 / 20-26-NS-001');
         console.log('✅ v5.90.109: Counter pro Jahr!');
@@ -1765,18 +1766,18 @@
                 <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
                 
                 <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr;gap:12px;">
-                    <!-- SOFORT Button - 🆕 v5.32.5g: Initial versteckt, nur wenn Fahrer verfügbar -->
-                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                    <!-- SOFORT Button - 🚫 v5.90.112: PERMANENT DEAKTIVIERT! Nur Vorbestellung mit 1h Vorlauf! -->
+                    <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none !important;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">⚡</div>
                         <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:4px;">SOFORT</div>
                         <div style="font-size:12px;color:#666;">Nächstes verfügbares Taxi</div>
                     </button>
                     
-                    <!-- VORBESTELLEN Button -->
-                    <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:20px 15px;border:3px solid #e5e7eb;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
+                    <!-- VORBESTELLEN Button - 🆕 v5.90.112: EINZIGE Option! Automatisch aktiv! -->
+                    <button id="btn-vorbestellen" onclick="selectRideType('vorbestellen')" style="padding:20px 15px;border:3px solid #667eea;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">📅</div>
-                        <div style="font-weight:700;font-size:16px;color:#6b7280;margin-bottom:4px;">VORBESTELLEN</div>
-                        <div style="font-size:12px;color:#666;">Datum & Zeit wählen</div>
+                        <div style="font-weight:700;font-size:16px;color:white;margin-bottom:4px;">VORBESTELLEN</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.9);">1 Stunde Vorlauf erforderlich</div>
                     </button>
                 </div>
             </div>
@@ -7597,6 +7598,18 @@
                 initVorbestellenDefaults();
             }
         }
+        
+        // 🆕 v5.90.112: AUTO-AKTIVIERE VORBESTELLEN BEIM PAGE LOAD!
+        document.addEventListener('DOMContentLoaded', () => {
+            // Warte kurz bis DOM vollständig geladen
+            setTimeout(() => {
+                // Aktiviere VORBESTELLEN automatisch
+                if (!currentRideType) {
+                    console.log('🆕 v5.90.112: Aktiviere VORBESTELLEN automatisch (Sofort deaktiviert)');
+                    selectRideType('vorbestellen');
+                }
+            }, 100);
+        });
         
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
         function initVorbestellenDefaults() {
@@ -19931,13 +19944,17 @@
             let rideStatus = 'new';
             const now = new Date();
             
-            if (currentRideType === 'sofort') {
-                // ⚡ SOFORT-Buchung
-                pickupTime = 'Sofort';
-                pickupTimestamp = Date.now() + 5 * 60000;
-                rideStatus = 'new';
-                
-            } else if (currentRideType === 'vorbestellen') {
+            // 🚫 v5.90.112: SOFORT-BUCHUNG DEAKTIVIERT!
+            if (currentRideType === 'sofort' || !currentRideType) {
+                alert(
+                    '⏰ Nur Vorbestellung mit 1 Stunde Vorlauf möglich!\n\n' +
+                    '📞 Für kurzfristige Fahrten bitte anrufen:\n' +
+                    '03837822022'
+                );
+                return;
+            }
+            
+            if (currentRideType === 'vorbestellen') {
                 // 📅 VORBESTELL-Buchung - Datum & Zeit direkt aus Feldern
                 const dateVal = document.getElementById('custom-date').value;
                 const hourVal = document.getElementById('custom-hour').value;
@@ -19963,6 +19980,25 @@
                 );
                 
                 pickupTimestamp = selectedDate.getTime();
+                
+                // 🆕 v5.90.112: KUNDEN MÜSSEN MINDESTENS 1 STUNDE VORLAUF HABEN!
+                const now = Date.now();
+                const oneHourFromNow = now + (60 * 60 * 1000); // +1 Stunde
+                
+                if (pickupTimestamp < oneHourFromNow) {
+                    const neededTime = new Date(oneHourFromNow).toLocaleTimeString('de-DE', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    alert(
+                        '⏰ Vorbestellung nur mit 1 Stunde Vorlauf möglich!\n\n' +
+                        `Früheste Buchung: ${neededTime} Uhr\n\n` +
+                        '📞 Für kurzfristige Fahrten bitte anrufen:\n' +
+                        '03837822022'
+                    );
+                    return;
+                }
                 
                 // 🐛 DEBUG: Zeige was gespeichert wird
                 console.log('📅 VORBESTELLUNG - Eingabe:', {
@@ -20007,11 +20043,6 @@
                 
                 // ⚡ Sofort (≤15 Min) vs 📅 Vorbestellung (>15 Min)
                 rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
-                
-            } else {
-                // Kein Ride-Type gewählt
-                alert('❌ Bitte wähle:\n\n⚡ SOFORT oder\n📅 VORBESTELLEN');
-                return;
             }
             
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik

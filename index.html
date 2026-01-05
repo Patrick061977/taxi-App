@@ -6086,8 +6086,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.89.1';
-        const APP_BUILD = '20251228-1500-SCRIPT-MANAGER';
+        const APP_VERSION = '5.90.118';
+        const APP_BUILD = '20260105-2350-SMART-SLOT-ICON';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -7688,6 +7688,11 @@
             if (selectedTime < now) {
                 alert(`⚠️ Die gewählte Zeit liegt in der Vergangenheit!\n\nBitte wähle eine zukünftige Zeit.`);
                 return false;
+            }
+            
+            // 🆕 v5.90.118: Update Icon wenn Abholadresse bestätigt!
+            if (pickupConfirmed && currentRideType === 'vorbestellen') {
+                setTimeout(() => updateConfirmationHint('pickup'), 100);
             }
             
             return true;
@@ -18691,7 +18696,7 @@
         }
 
         // 🆕 v5.90.73: KOMPAKTE BESTÄTIGUNG MIT ICONS!
-        function updateConfirmationHint(field) {
+        async function updateConfirmationHint(field) {
             const hintDiv = document.getElementById(field + '-confirmation');
             const hintIcon = document.getElementById(field + '-confirmation-icon');
             const input = document.getElementById(field);
@@ -18707,12 +18712,61 @@
             const isConfirmed = field === 'pickup' ? pickupConfirmed : destinationConfirmed;
             
             if (isConfirmed) {
-                // ✅ BESTÄTIGT - NUR KLEINES ICON! (v5.90.73)
+                // ✅ BESTÄTIGT - Aber prüfen wir auch Slot-Verfügbarkeit?
                 hintDiv.style.display = 'none';  // Box weg!
+                
+                // 🆕 v5.90.118: SLOT-PRÜFUNG für pickup bei Vorbestellung!
+                if (field === 'pickup' && currentRideType === 'vorbestellen') {
+                    const dateVal = document.getElementById('custom-date')?.value;
+                    const hourVal = document.getElementById('custom-hour')?.value;
+                    const minuteVal = document.getElementById('custom-minute')?.value;
+                    
+                    // Wenn Zeit gewählt wurde → Slot prüfen!
+                    if (dateVal && hourVal !== '' && minuteVal !== '' && pickupCoords && isFirebaseReady) {
+                        try {
+                            // Timestamp berechnen
+                            const dateParts = dateVal.split('-');
+                            const selectedDate = new Date(
+                                parseInt(dateParts[0]),
+                                parseInt(dateParts[1]) - 1,
+                                parseInt(dateParts[2]),
+                                parseInt(hourVal),
+                                parseInt(minuteVal),
+                                0, 0
+                            );
+                            const timestamp = selectedDate.getTime();
+                            
+                            // Slot-Verfügbarkeit prüfen
+                            const availability = await checkTimeSlotAvailability(timestamp, pickupCoords);
+                            
+                            if (hintIcon) {
+                                hintIcon.style.display = 'inline-block';
+                                if (availability.available) {
+                                    // ✅ GRÜN: Adresse OK + Slot verfügbar
+                                    hintIcon.innerHTML = '✅';
+                                    hintIcon.title = 'Adresse bestätigt und Zeitslot verfügbar';
+                                    hintIcon.style.color = '#10b981';
+                                } else {
+                                    // ⚠️ GELB: Adresse OK, aber Slot belegt
+                                    hintIcon.innerHTML = '⚠️';
+                                    hintIcon.title = 'Adresse bestätigt, aber gewählte Zeit bereits belegt';
+                                    hintIcon.style.color = '#f59e0b';
+                                }
+                            }
+                            return;
+                        } catch (error) {
+                            console.error('❌ Fehler bei Slot-Prüfung:', error);
+                            // Bei Fehler: Nur Adresse anzeigen
+                        }
+                    }
+                }
+                
+                // Standard: Nur Adresse bestätigt (wenn keine Slot-Prüfung oder bei destination)
                 if (hintIcon) {
                     hintIcon.style.display = 'inline-block';
                     hintIcon.innerHTML = '✅';
                     hintIcon.title = 'Adresse bestätigt';
+                    hintIcon.style.color = '#10b981';
                 }
             } else {
                 // ⚠️ NICHT BESTÄTIGT - Roter Hinweis (bleibt Box!)

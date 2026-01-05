@@ -108,9 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.110 - NEUES RECHNUNGSNUMMER FORMAT! 📄 (Build 20260105-1410)');
-        console.log('✅ v5.90.110: Format jetzt: 20-26-001 (statt RE-2026-001)');
-        console.log('✅ v5.90.110: NoShow: 20-26-NS-001 (statt NS-2026-001)');
+        console.log('🚕 Funk Taxi App v5.90.111 - FAVORITEN-ZIELE FIX! ⭐ (Build 20260105-1845)');
+        console.log('✅ v5.90.111: "POI" → "Favorit" umbenannt');
+        console.log('✅ v5.90.111: Autocomplete KURZ (kein Landkreis/Bundesland!)');
+        console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
+        console.log('✅ v5.90.110: Format: 20-26-001 / 20-26-NS-001');
         console.log('✅ v5.90.109: Counter pro Jahr!');
         console.log('✅ v5.90.108: Modus-Umschalter!');
         console.log('✅ v5.90.107: Tagesprogramm für Fahrer!');
@@ -30473,9 +30475,9 @@
                             <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." title="Tippe Adresse ein - Dropdown mit Vorschlägen erscheint" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                             
-                            <!-- 🆕 v5.90.105: Als POI speichern Button -->
-                            <button onclick="saveDestinationAsPOI()" title="Diesen Zielort als POI speichern für spätere Nutzung" style="margin-top:8px;width:100%;padding:8px;background:#fef3c7;color:#92400e;border:2px dashed #f59e0b;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.background='#fcd34d';this.style.borderStyle='solid';" onmouseout="this.style.background='#fef3c7';this.style.borderStyle='dashed';">
-                                ⭐ Als POI speichern
+                            <!-- 🆕 v5.90.105: Als Favorit speichern Button -->
+                            <button onclick="saveDestinationAsPOI()" title="Diesen Zielort als Favorit speichern für spätere Nutzung" style="margin-top:8px;width:100%;padding:8px;background:#fef3c7;color:#92400e;border:2px dashed #f59e0b;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.background='#fcd34d';this.style.borderStyle='solid';" onmouseout="this.style.background='#fef3c7';this.style.borderStyle='dashed';">
+                                ⭐ Als Favorit speichern
                             </button>
                         </div>
                         
@@ -47180,32 +47182,40 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                     
                     dropdown.innerHTML = results.map(r => {
-                        // 🆕 v5.90.72: Formatiere Adresse MIT PLZ (wie Fleet-Suche!)
+                        // 🆕 v5.90.111: KURZE Formatierung - NUR Straße, PLZ, Ort (KEIN Landkreis/Bundesland!)
                         let displayText = '';
                         if (r.address) {
+                            // Straße + Hausnummer
                             if (r.address.road) displayText += r.address.road + ' ';
                             if (r.address.house_number) displayText += r.address.house_number + ', ';
+                            
+                            // PLZ + Ort
                             if (r.address.postcode) displayText += r.address.postcode + ' ';
                             if (r.address.village || r.address.town || r.address.city) {
                                 displayText += (r.address.village || r.address.town || r.address.city);
                             }
                         }
                         
-                        // Fallback wenn keine Formatierung möglich
+                        // Fallback: Nur erste 3 Teile (Straße, Ort, PLZ - OHNE Landkreis/Bundesland)
+                        if (!displayText.trim() && r.display_name) {
+                            const parts = r.display_name.split(',').slice(0, 3);
+                            displayText = parts.join(',').trim();
+                        }
+                        
+                        // Letzter Fallback
                         if (!displayText.trim()) {
-                            displayText = r.display_name;
+                            displayText = 'Unbekannte Adresse';
                         }
                         
                         // Encode address object as JSON for onclick
                         const addressJson = JSON.stringify(r.address || {}).replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         
                         return `
-                            <div onclick="selectPOIAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")}', '${addressJson}')" 
+                            <div onclick="selectPOIAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon}, '${displayText.replace(/'/g, "\\'")}', '${addressJson}')" 
                                  style="padding:12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.2s;"
                                  onmouseover="this.style.background='#fef3c7'"
                                  onmouseout="this.style.background='white'">
                                 <div style="font-weight:600;color:#92400e;font-size:14px;">📍 ${displayText}</div>
-                                <div style="font-size:11px;color:#a16207;margin-top:2px;">${r.display_name}</div>
                             </div>
                         `;
                     }).join('');
@@ -47431,29 +47441,37 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     }
                     
                     dropdown.innerHTML = results.map(r => {
-                        // 🆕 v5.90.72: Formatiere Adresse MIT PLZ (wie Fleet-Suche!)
+                        // 🆕 v5.90.111: KURZE Formatierung - NUR Straße, PLZ, Ort (KEIN Landkreis/Bundesland!)
                         let displayText = '';
                         if (r.address) {
+                            // Straße + Hausnummer
                             if (r.address.road) displayText += r.address.road + ' ';
                             if (r.address.house_number) displayText += r.address.house_number + ', ';
+                            
+                            // PLZ + Ort
                             if (r.address.postcode) displayText += r.address.postcode + ' ';
                             if (r.address.village || r.address.town || r.address.city) {
                                 displayText += (r.address.village || r.address.town || r.address.city);
                             }
                         }
                         
-                        // Fallback wenn keine Formatierung möglich
+                        // Fallback: Nur erste 3 Teile (Straße, Ort, PLZ - OHNE Landkreis/Bundesland)
+                        if (!displayText.trim() && r.display_name) {
+                            const parts = r.display_name.split(',').slice(0, 3);
+                            displayText = parts.join(',').trim();
+                        }
+                        
+                        // Letzter Fallback
                         if (!displayText.trim()) {
-                            displayText = r.display_name;
+                            displayText = 'Unbekannte Adresse';
                         }
                         
                         return `
-                            <div onclick="selectEditPOIAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")}' )" 
+                            <div onclick="selectEditPOIAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon}, '${displayText.replace(/'/g, "\\'")}' )" 
                                  style="padding:12px;cursor:pointer;border-bottom:1px solid #f3f4f6;"
                                  onmouseover="this.style.background='#dbeafe'"
                                  onmouseout="this.style.background='white'">
                                 <div style="font-weight:600;color:#1e40af;font-size:14px;">📍 ${displayText}</div>
-                                <div style="font-size:11px;color:#3b82f6;margin-top:2px;">${r.display_name}</div>
                             </div>
                         `;
                     }).join('');

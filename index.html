@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.104 - WEISSE BUTTONS! 🎨 (Build 20260104-1820)');
-        console.log('✅ v5.90.104: Buttons weiss gemacht: Kalender, Schnellbuchung, Favoriten, Archiv!');
-        console.log('✅ v5.90.104: Einheitliches Design wie Taxi buchen!');
-        console.log('✅ v5.90.103: CSS Fix - Admin-Views funktionieren!');
-        console.log('✅ v5.90.102: Admin-Views geschützt!');
-        console.log('✅ v5.90.100: Parallele Requests!');
+        console.log('🚕 Funk Taxi App v5.90.106 - KRANKENFAHRT OPTION! 🏥 (Build 20260105-1030)');
+        console.log('✅ v5.90.106: Radio Buttons: Taxipreis oder Krankenfahrt!');
+        console.log('✅ v5.90.106: Krankenfahrt → kein Preis berechnet!');
+        console.log('✅ v5.90.106: Klarer als Checkbox!');
+        console.log('✅ v5.90.105: POI aus Schnellbuchung speichern!');
+        console.log('✅ v5.90.105: Favoriten-Modal Fix!');
         console.log('✅ v5.90.84: Admin-Buchungen haben jetzt userId!');
         console.log('✅ v5.90.84: Erscheinen in "Meine Fahrten"!');
         console.log('🔍 v5.90.84: Auto-Suche nach userId via Name + Phone!');
@@ -966,7 +966,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.104 - WEISSE BUTTONS! 🎨 (Build 20260104-1820)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.106 - KRANKENFAHRT OPTION! 🏥 (Build 20260105-1030)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -30276,6 +30276,11 @@
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Wohin soll der Kunde fahren?">🎯 Zielort</label>
                             <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." title="Tippe Adresse ein - Dropdown mit Vorschlägen erscheint" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            
+                            <!-- 🆕 v5.90.105: Als POI speichern Button -->
+                            <button onclick="saveDestinationAsPOI()" title="Diesen Zielort als POI speichern für spätere Nutzung" style="margin-top:8px;width:100%;padding:8px;background:#fef3c7;color:#92400e;border:2px dashed #f59e0b;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;" onmouseover="this.style.background='#fcd34d';this.style.borderStyle='solid';" onmouseout="this.style.background='#fef3c7';this.style.borderStyle='dashed';">
+                                ⭐ Als POI speichern
+                            </button>
                         </div>
                         
                         <!-- Häufige Zielorte -->
@@ -30318,13 +30323,19 @@
                             <textarea id="quick-booking-notes" placeholder="z.B. Rollstuhl, Kindersitz..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;min-height:60px;resize:vertical;box-sizing:border-box;"></textarea>
                         </div>
                         
-                        <!-- 🆕 v5.64.18: PREIS-BERECHNUNG OPTION -->
+                        <!-- 🆕 v5.90.106: PREIS-BERECHNUNG OPTION - Radio Buttons! -->
                         <div style="margin-bottom:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
-                            <label style="display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:600;color:#047857;" title="Preis automatisch aus Distanz berechnen">
-                                <input type="checkbox" id="quick-booking-calculate-price" checked style="margin-right:8px;cursor:pointer;width:18px;height:18px;">
-                                <span>💰 Preis berechnen</span>
+                            <div style="font-size:14px;font-weight:600;color:#047857;margin-bottom:8px;">💰 Preis-Berechnung:</div>
+                            
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:13px;margin-bottom:6px;" title="Taxipreis automatisch aus Distanz berechnen">
+                                <input type="radio" name="quick-booking-price-mode" value="taxi" checked style="margin-right:8px;cursor:pointer;">
+                                <span>💰 Taxipreis berechnen</span>
                             </label>
-                            <div style="font-size:12px;color:#059669;margin-top:4px;margin-left:26px;">Aus: z.B. für Krankenfahrten</div>
+                            
+                            <label style="display:flex;align-items:center;cursor:pointer;font-size:13px;" title="Krankenfahrt - kein Preis wird berechnet">
+                                <input type="radio" name="quick-booking-price-mode" value="medical" style="margin-right:8px;cursor:pointer;">
+                                <span>🏥 Krankenfahrt (kein Preis)</span>
+                            </label>
                         </div>
                         
                         <!-- 🆕 v5.64.18: ZEIT-BERECHNUNG OPTION -->
@@ -31745,13 +31756,14 @@
             }
             
             const modal = document.createElement('div');
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10001;padding:15px;';
+            modal.id = 'quick-booking-favorites-modal'; // 🔧 v5.90.105: ID hinzugefügt!
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10002;padding:15px;';
             
             modal.innerHTML = `
                 <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                         <h3 style="margin:0;font-size:18px;">⭐ Favoriten</h3>
-                        <button onclick="this.closest('div[style*=\"fixed\"]').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
+                        <button onclick="document.getElementById('quick-booking-favorites-modal').remove()" style="background:none;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;">×</button>
                     </div>
                     
                     <div style="display:flex;flex-direction:column;gap:10px;">
@@ -31773,7 +31785,7 @@
                         `).join('')}
                     </div>
                     
-                    <button onclick="this.closest('div[style*=\"fixed\"]').remove()" style="width:100%;margin-top:15px;padding:12px;background:#f3f4f6;color:#666;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    <button onclick="document.getElementById('quick-booking-favorites-modal').remove()" style="width:100%;margin-top:15px;padding:12px;background:#f3f4f6;color:#666;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                         Schließen
                     </button>
                 </div>
@@ -31841,6 +31853,71 @@
             
             localStorage.setItem('quickBookingFavorites', JSON.stringify(favorites));
             alert('✅ Als Favorit gespeichert!');
+        }
+        
+        // 🆕 v5.90.105: ZIELORT ALS POI SPEICHERN
+        async function saveDestinationAsPOI() {
+            const destination = document.getElementById('quick-booking-destination').value.trim();
+            
+            if (!destination) {
+                alert('❌ Bitte erst einen Zielort eingeben!');
+                return;
+            }
+            
+            // Frage nach POI-Name
+            const poiName = prompt('⭐ POI-Name eingeben:\n\nWie soll dieser Ort gespeichert werden?\n(z.B. "Hotel Ahlbeck", "Flughafen", "Bahnhof")', '');
+            
+            if (!poiName || !poiName.trim()) {
+                return; // Abgebrochen
+            }
+            
+            try {
+                // Hole Koordinaten
+                let coords = quickBookingDestCoords;
+                
+                // Falls noch keine Coords → geocode jetzt
+                if (!coords || !coords.lat || !coords.lon) {
+                    console.log('🔍 Geocode Zielort für POI...');
+                    coords = await geocode(destination);
+                    if (!coords) {
+                        alert('❌ Konnte Koordinaten nicht ermitteln!');
+                        return;
+                    }
+                }
+                
+                // Speichere in Firebase
+                const poiData = {
+                    name: poiName.trim(),
+                    address: destination,
+                    lat: coords.lat,
+                    lon: coords.lon,
+                    category: 'Sonstige', // Default Kategorie
+                    createdAt: Date.now(),
+                    createdBy: 'Schnellbuchung',
+                    source: 'manual'
+                };
+                
+                await db.ref('pois').push(poiData);
+                
+                // Erfolgsmeldung
+                const toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 25px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:99999;font-weight:700;font-size:15px;display:flex;align-items:center;gap:10px;';
+                toast.innerHTML = `
+                    <div style="font-size:24px;">⭐</div>
+                    <div>
+                        <div style="font-size:15px;">${poiName}</div>
+                        <div style="font-size:12px;opacity:0.9;font-weight:400;margin-top:2px;">Als POI gespeichert!</div>
+                    </div>
+                `;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+                
+                console.log('✅ POI gespeichert:', poiName, destination);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim POI speichern:', error);
+                alert('❌ Fehler beim Speichern: ' + error.message);
+            }
         }
         
         // 🆕 v5.38.6: SCHNELLBUCHUNG-PANEL IM KALENDER
@@ -35915,10 +35992,11 @@
                     }
                 }
                 
-                // 🆕 v5.64.18: LESE OPTIONEN AUS!
-                const shouldCalculatePrice = document.getElementById('quick-booking-calculate-price').checked;
+                // 🆕 v5.90.106: LESE OPTIONEN AUS - Radio Buttons!
+                const priceMode = document.querySelector('input[name="quick-booking-price-mode"]:checked').value;
+                const shouldCalculatePrice = (priceMode === 'taxi'); // true wenn Taxi, false wenn medical
                 const durationMode = document.querySelector('input[name="quick-booking-duration-mode"]:checked').value;
-                console.log('💰 Preis berechnen?', shouldCalculatePrice);
+                console.log('💰 Preis-Modus:', priceMode, '→ Berechnen?', shouldCalculatePrice);
                 console.log('⏱️ Dauer-Modus:', durationMode);
                 
                 // 🆕 v5.64.25: AUTO-GEOCODE WENN COORDS FEHLEN!

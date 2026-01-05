@@ -108,9 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.111 - FAVORITEN-ZIELE FIX! ⭐ (Build 20260105-1845)');
-        console.log('✅ v5.90.111: "POI" → "Favorit" umbenannt');
-        console.log('✅ v5.90.111: Autocomplete KURZ (kein Landkreis/Bundesland!)');
+        console.log('🚕 Funk Taxi App v5.90.117 - 1-STUNDE-REGEL KOMPLETT WEG! ⚡ (Build 20260105-2345)');
+        console.log('✅ v5.90.117: validateMinimumTime nur Vergangenheit');
+        console.log('✅ v5.90.117: dateInput.min = heute (nicht +1h)');
+        console.log('✅ v5.90.117: 1-Stunde-Regel komplett entfernt!');
+        console.log('✅ v5.90.116: SOFORT nur wenn Fahrer online/besetzt');
+        console.log('✅ v5.90.116: Auto-Surge standardmäßig AUS');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
         console.log('✅ v5.90.110: Format: 20-26-001 / 20-26-NS-001');
         console.log('✅ v5.90.109: Counter pro Jahr!');
@@ -1765,7 +1768,7 @@
                 <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
                 
                 <div id="ride-type-buttons-container" style="display:grid;grid-template-columns:1fr;gap:12px;">
-                    <!-- SOFORT Button - 🆕 v5.32.5g: Initial versteckt, nur wenn Fahrer verfügbar -->
+                    <!-- SOFORT Button - 🆕 v5.90.116: Initial versteckt, nur wenn Fahrer verfügbar! -->
                     <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;padding:20px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;transition:all 0.3s;">
                         <div style="font-size:32px;margin-bottom:8px;">⚡</div>
                         <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:4px;">SOFORT</div>
@@ -5074,20 +5077,25 @@
             <!-- Automatische Anpassung -->
             <div style="margin-bottom:20px;">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:#f9fafb;border-radius:8px;">
-                    <input type="checkbox" id="auto-surge-enabled" onchange="savePricingSettings()" checked style="width:20px;height:20px;">
+                    <input type="checkbox" id="auto-surge-enabled" onchange="savePricingSettings()" style="width:20px;height:20px;">
                     <div>
                         <div style="font-weight:600;font-size:14px;">📊 Automatisch (Auslastung)</div>
-                        <div style="font-size:12px;color:#666;">Preis steigt bei hoher Nachfrage</div>
+                        <div style="font-size:12px;color:#666;">⚠️ Standard: AUS (Normalpreise für Kunden)</div>
                     </div>
                 </label>
-                <div style="margin-top:10px;padding:10px;background:#f0fdf4;border-radius:8px;display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:13px;">Pro aktivem Taxi:</span>
-                    <select id="surge-per-taxi" onchange="savePricingSettings()" style="padding:8px;border-radius:6px;border:1px solid #d1d5db;font-size:14px;">
-                        <option value="5">+5%</option>
-                        <option value="10" selected>+10%</option>
-                        <option value="15">+15%</option>
-                        <option value="20">+20%</option>
-                    </select>
+                <div style="margin-top:10px;padding:10px;background:#f0fdf4;border-radius:8px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="font-size:13px;">Pro zusätzlichem Taxi:</span>
+                        <select id="surge-per-taxi" onchange="savePricingSettings()" style="padding:8px;border-radius:6px;border:1px solid #d1d5db;font-size:14px;">
+                            <option value="5">+5%</option>
+                            <option value="10" selected>+10%</option>
+                            <option value="15">+15%</option>
+                            <option value="20">+20%</option>
+                        </select>
+                    </div>
+                    <div style="font-size:11px;color:#666;line-height:1.4;">
+                        💡 <strong>Beispiel:</strong> 1 Auto = 0%, 2 Autos = +10%, 3 Autos = +20%
+                    </div>
                 </div>
             </div>
             
@@ -7598,6 +7606,9 @@
             }
         }
         
+        // 🆕 v5.90.114: KEINE AUTO-AKTIVIERUNG! Nutzer wählt selbst SOFORT oder VORBESTELLEN
+        // (Code entfernt - Buttons sind beide sichtbar und gleichwertig)
+        
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
         function initVorbestellenDefaults() {
             const datetimeContainer = document.getElementById('custom-datetime-container');
@@ -7607,7 +7618,7 @@
             datetimeContainer.style.display = 'block';
             if (helpText) helpText.style.display = 'block';
             
-            // 🆕 v5.90.19: Mindestens 1 Stunde in Zukunft!
+            // 🆕 v5.90.117: Default = +1 Stunde (nur Vorschlag, keine Regel!)
             const defaultTime = new Date();
             defaultTime.setHours(defaultTime.getHours() + 1);
             
@@ -7627,10 +7638,9 @@
             const day = String(defaultTime.getDate()).padStart(2, '0');
             dateInput.value = `${year}-${month}-${day}`;
             
-            // 🆕 v5.90.19: Minimum-Datum + Zeit (1 Stunde ab jetzt)
-            const minTime = new Date();
-            minTime.setHours(minTime.getHours() + 1);
-            const minDateStr = `${minTime.getFullYear()}-${String(minTime.getMonth() + 1).padStart(2, '0')}-${String(minTime.getDate()).padStart(2, '0')}`;
+            // 🆕 v5.90.117: KEINE 1-Stunde-Regel! Minimum = Heute
+            const today = new Date();
+            const minDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
             dateInput.min = minDateStr;
             
             // Event Listener für Validierung
@@ -7638,7 +7648,7 @@
             hourSelect.addEventListener('change', validateMinimumTime);
             minuteSelect.addEventListener('change', validateMinimumTime);
             
-            console.log('⏰ Vorbestellen: Minimum 1 Stunde ab jetzt:', minTime.toLocaleString('de-DE'));
+            console.log('⏰ Vorbestellen: Minimum = Heute (keine 1-Stunde-Regel)');
             
             // Stunde und Minute
             hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
@@ -7671,35 +7681,12 @@
             const selectedTime = new Date(dateVal);
             selectedTime.setHours(parseInt(hourVal), parseInt(minuteVal), 0, 0);
             
-            // Minimum Zeit (jetzt + 1 Stunde)
-            const minTime = new Date();
-            minTime.setHours(minTime.getHours() + 1);
-            minTime.setSeconds(0, 0);
+            // 🆕 v5.90.117: KEINE 1-Stunde-Regel mehr!
+            // Nur prüfen ob Zeit nicht in der Vergangenheit ist
+            const now = new Date();
             
-            // Prüfe
-            if (selectedTime < minTime) {
-                const minTimeStr = minTime.toLocaleString('de-DE', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
-                alert(`⚠️ Vorbestellungen müssen mindestens 1 Stunde im Voraus erfolgen!\n\nFrüheste mögliche Zeit: ${minTimeStr}`);
-                
-                // Setze zurück auf Minimum
-                const year = minTime.getFullYear();
-                const month = String(minTime.getMonth() + 1).padStart(2, '0');
-                const day = String(minTime.getDate()).padStart(2, '0');
-                dateInput.value = `${year}-${month}-${day}`;
-                
-                hourSelect.value = String(minTime.getHours()).padStart(2, '0');
-                
-                // Runde Minuten auf nächste 5
-                const roundedMin = Math.ceil(minTime.getMinutes() / 5) * 5;
-                minuteSelect.value = String(roundedMin % 60).padStart(2, '0');
-                
+            if (selectedTime < now) {
+                alert(`⚠️ Die gewählte Zeit liegt in der Vergangenheit!\n\nBitte wähle eine zukünftige Zeit.`);
                 return false;
             }
             
@@ -14851,9 +14838,9 @@
 
         // 💰 SURGE PRICING SETTINGS (Firebase-synchronisiert!)
         let pricingSettings = {
-            autoSurgeEnabled: true,
-            surgePerTaxi: 10,      // % pro aktivem Taxi
-            manualMultiplier: 0    // Manueller +/- %
+            autoSurgeEnabled: false,   // 🆕 v5.90.113: DEFAULT AUS! (Normalpreise)
+            surgePerTaxi: 10,          // % pro aktivem Taxi
+            manualMultiplier: 0        // Manueller +/- %
         };
         
         // Lade Pricing Settings aus Firebase
@@ -14888,7 +14875,7 @@
         
         // Speichere Pricing Settings in Firebase
         function savePricingSettings() {
-            pricingSettings.autoSurgeEnabled = document.getElementById('auto-surge-enabled')?.checked ?? true;
+            pricingSettings.autoSurgeEnabled = document.getElementById('auto-surge-enabled')?.checked ?? false;  // 🆕 v5.90.113: Fallback auf false!
             pricingSettings.surgePerTaxi = parseInt(document.getElementById('surge-per-taxi')?.value ?? 10);
             
             if (isFirebaseReady) {
@@ -15971,8 +15958,11 @@
             // Auto-Surge basierend auf aktiven Fahrten
             if (pricingSettings.autoSurgeEnabled) {
                 const activeRides = rides.filter(r => r.status === 'accepted' || r.status === 'in_progress').length;
-                if (activeRides > 0) {
-                    const autoSurge = activeRides * pricingSettings.surgePerTaxi;
+                
+                // 🆕 v5.90.113: Aufschlag erst ab 2 Autos!
+                // 1 Auto = 0%, 2 Autos = +10%, 3 Autos = +20%, etc.
+                if (activeRides > 1) {
+                    const autoSurge = (activeRides - 1) * pricingSettings.surgePerTaxi;
                     multiplier += autoSurge;
                     reasons.push(`+${autoSurge}% (${activeRides} Taxi${activeRides > 1 ? 's' : ''} unterwegs)`);
                 }
@@ -19931,13 +19921,17 @@
             let rideStatus = 'new';
             const now = new Date();
             
-            if (currentRideType === 'sofort') {
-                // ⚡ SOFORT-Buchung
-                pickupTime = 'Sofort';
-                pickupTimestamp = Date.now() + 5 * 60000;
-                rideStatus = 'new';
-                
-            } else if (currentRideType === 'vorbestellen') {
+            // 🚫 v5.90.112: SOFORT-BUCHUNG DEAKTIVIERT!
+            if (currentRideType === 'sofort' || !currentRideType) {
+                alert(
+                    '⏰ Nur Vorbestellung mit 1 Stunde Vorlauf möglich!\n\n' +
+                    '📞 Für kurzfristige Fahrten bitte anrufen:\n' +
+                    '03837822022'
+                );
+                return;
+            }
+            
+            if (currentRideType === 'vorbestellen') {
                 // 📅 VORBESTELL-Buchung - Datum & Zeit direkt aus Feldern
                 const dateVal = document.getElementById('custom-date').value;
                 const hourVal = document.getElementById('custom-hour').value;
@@ -19963,6 +19957,9 @@
                 );
                 
                 pickupTimestamp = selectedDate.getTime();
+                
+                // 🆕 v5.90.116: 1-Stunde-Regel ENTFERNT! Vorbestellung ohne Zeitbeschränkung!
+                // Kunden können jederzeit vorbestellen
                 
                 // 🐛 DEBUG: Zeige was gespeichert wird
                 console.log('📅 VORBESTELLUNG - Eingabe:', {
@@ -20007,11 +20004,6 @@
                 
                 // ⚡ Sofort (≤15 Min) vs 📅 Vorbestellung (>15 Min)
                 rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
-                
-            } else {
-                // Kein Ride-Type gewählt
-                alert('❌ Bitte wähle:\n\n⚡ SOFORT oder\n📅 VORBESTELLEN');
-                return;
             }
             
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik

@@ -108,13 +108,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.122 - DROPDOWN NUR FREIE SLOTS! 📋 (Build 20260106-1045)');
-        console.log('✅ v5.90.122: Dropdown zeigt NUR freie Zeitslots!');
-        console.log('✅ v5.90.122: Zeitfenster: +15 Min bis +120 Min');
-        console.log('✅ v5.90.122: 5-Minuten-Schritte (00, 05, 10, 15...)');
-        console.log('✅ v5.90.122: Besetzt = unsichtbar!');
-        console.log('✅ v5.90.122: Kunde sieht nur was frei ist!');
-        console.log('✅ v5.90.121: Krankenfahrt im Bearbeiten-Modal!');
+        console.log('🚕 Funk Taxi App v5.90.124 - VCF KONTAKT-EXPORT! 📱 (Build 20260106-1400)');
+        console.log('✅ v5.90.124: Kompakte Kontakt-Export-Liste!');
+        console.log('✅ v5.90.124: VCF-Export für einzelne Kunden!');
+        console.log('✅ v5.90.123: Ziffernblock in ALLEN Modals!');
+        console.log('✅ v5.90.123: Taxi buchen → Ziffernblock mit Slot-Check!');
+        console.log('✅ v5.90.123: Quick-Booking → Ziffernblock!');
+        console.log('✅ v5.90.123: Bearbeiten-Modal → Ziffernblock!');
+        console.log('✅ v5.90.123: Keine "Drehballons" mehr!');
+        console.log('✅ v5.90.123: Zeit eingeben → Check → Alternativen!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -1797,24 +1799,26 @@
                 <div class="input-group">
                     <label>📅 Abholzeit wählen</label>
                     
-                    <!-- 🆕 v5.90.122: DROPDOWN MIT NUR FREIEN SLOTS (5-Min-Schritte!) -->
+                    <!-- 🆕 v5.90.123: ZIFFERNBLOCK MIT SLOT-CHECK! -->
                     <div id="custom-datetime-container" style="margin-top:0;">
-                        <input type="date" id="custom-date" onchange="loadAvailableTimeSlots()" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
+                        <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
                         
-                        <!-- Zeit-Dropdown mit NUR freien Slots -->
+                        <!-- Zeit mit Ziffernblock -->
                         <div style="display:flex;gap:8px;align-items:center;">
-                            <select id="custom-time-dropdown" style="flex:1;padding:15px 12px;border:2px solid #10b981;background:white;border-radius:8px;font-size:16px;font-weight:600;color:#333;cursor:pointer;">
-                                <option value="">Lade verfügbare Zeiten...</option>
-                            </select>
+                            <button id="time-display-btn" onclick="openTimeKeypadForBooking()" style="flex:1;padding:15px 12px;border:2px solid #667eea;background:white;border-radius:8px;font-size:18px;font-weight:600;color:#667eea;cursor:pointer;text-align:center;font-family:'Courier New',monospace;">
+                                09:00
+                            </button>
+                            <button onclick="openTimeKeypadForBooking()" style="padding:12px 16px;border:2px solid #667eea;background:#667eea;color:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Zeit eingeben">
+                                ⌨️
+                            </button>
                             <!-- Hidden inputs für Kompatibilität -->
                             <input type="hidden" id="custom-hour" value="09">
                             <input type="hidden" id="custom-minute" value="00">
-                            <!-- 🆕 v5.90.73: Slot-Bestätigung als Icon -->
-                            <span id="slot-confirmation-icon" style="display:none;font-size:20px;" title="Zeitslot verfügbar!">✅</span>
                         </div>
                         
-                        <div style="font-size:12px;color:#666;margin-top:8px;">
-                            ℹ️ Zeigt nur verfügbare Zeiten in 5-Min-Schritten
+                        <!-- Slot-Status Anzeige -->
+                        <div id="slot-status-display" style="display:none;margin-top:10px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
+                            <!-- Wird dynamisch gefüllt -->
                         </div>
                     </div>
                     
@@ -4323,6 +4327,20 @@
             <div style="margin-bottom:15px;">
                 <input type="text" id="customer-search" placeholder="🔍 Kunde suchen (Name, Email, Telefon)..." oninput="searchCustomers()" onpaste="setTimeout(searchCustomers, 100)" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
             </div>
+            
+            <!-- 🆕 KONTAKTE EXPORTIEREN - KOMPAKTE ANSICHT -->
+            <div style="margin-bottom:15px;padding:15px;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);border-radius:8px;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-weight:700;font-size:16px;color:white;">📱 Kontakte exportieren</span>
+                    <button onclick="toggleExportList()" id="toggle-export-btn" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;backdrop-filter:blur(10px);">
+                        Anzeigen ▼
+                    </button>
+                </div>
+                <div id="export-customers-list" style="display:none;background:white;border-radius:8px;padding:10px;max-height:300px;overflow-y:auto;">
+                    <div style="color:#666;text-align:center;padding:20px;">Lade Kunden...</div>
+                </div>
+            </div>
+            
             <div id="customers-list" style="max-height:400px;overflow-y:auto;"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
                 <button onclick="loadAllCustomers()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
@@ -7806,7 +7824,7 @@
         // (Code entfernt - Buttons sind beide sichtbar und gleichwertig)
         
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
-        // 🔧 v5.90.122: Angepasst für Dropdown mit freien Slots
+        // 🔧 v5.90.123: Angepasst für Ziffernblock mit Slot-Check
         function initVorbestellenDefaults() {
             const datetimeContainer = document.getElementById('custom-datetime-container');
             const helpText = document.getElementById('datetime-help');
@@ -7818,6 +7836,11 @@
             // 🆕 v5.90.117: Default = +1 Stunde (nur Vorschlag, keine Regel!)
             const defaultTime = new Date();
             defaultTime.setHours(defaultTime.getHours() + 1);
+            
+            // Runde auf 5 Minuten
+            const roundedMinutes = Math.ceil(defaultTime.getMinutes() / 5) * 5;
+            defaultTime.setMinutes(roundedMinutes % 60);
+            if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
             
             // Setze Datum
             const dateInput = document.getElementById('custom-date');
@@ -7831,20 +7854,17 @@
             const minDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
             dateInput.min = minDateStr;
             
-            console.log('⏰ Vorbestellen: Minimum = Heute (keine 1-Stunde-Regel)');
+            // Setze Zeit im Button
+            const timeBtn = document.getElementById('time-display-btn');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
             
-            // 🆕 v5.90.122: LADE VERFÜGBARE ZEITSLOTS!
-            setTimeout(() => {
-                loadAvailableTimeSlots();
-            }, 300);
+            const timeStr = `${String(defaultTime.getHours()).padStart(2, '0')}:${String(defaultTime.getMinutes()).padStart(2, '0')}`;
+            if (timeBtn) timeBtn.textContent = timeStr;
+            hourInput.value = String(defaultTime.getHours()).padStart(2, '0');
+            minuteInput.value = String(defaultTime.getMinutes()).padStart(2, '0');
             
-            // 🆕 v5.48.0: Wenn Abholadresse schon eingegeben → Trigger Live-Slot-Check!
-            if (pickupCoords) {
-                console.log('🔍 Abholadresse vorhanden, trigger Live-Slot-Check...');
-                setTimeout(() => {
-                    performLiveSlotCheck();
-                }, 500);
-            }
+            console.log('⏰ Vorbestellen initialisiert:', timeStr);
         }
         
         // 🆕 v5.90.19: VALIDIERE MINIMUM 1 STUNDE
@@ -8221,7 +8241,24 @@
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">🕐 Abholzeit</label>
-                        <input type="datetime-local" id="edit-datetime" step="300" value="${formattedDateTime}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
+                                <input type="date" id="edit-date" value="${formattedDateTime.split('T')[0]}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Uhrzeit</label>
+                                <div style="display:flex;gap:6px;">
+                                    <button type="button" id="edit-time-btn" onclick="openEditTimeKeypad()" style="flex:1;padding:10px;border:2px solid #667eea;background:white;border-radius:6px;font-size:14px;font-weight:600;color:#667eea;cursor:pointer;font-family:'Courier New',monospace;">
+                                        ${formattedDateTime.split('T')[1] || '09:00'}
+                                    </button>
+                                    <button type="button" onclick="openEditTimeKeypad()" style="padding:10px 12px;border:2px solid #667eea;background:#667eea;color:white;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px;">
+                                        ⌨️
+                                    </button>
+                                </div>
+                                <input type="hidden" id="edit-time" value="${formattedDateTime.split('T')[1] || '09:00'}">
+                            </div>
+                        </div>
                     </div>
                     
                     <div style="margin-bottom:15px;">
@@ -8439,11 +8476,35 @@
             console.log('✅ setupEditAutocomplete abgeschlossen!');
         }
         
+        // 🆕 v5.90.123: ZIFFERNBLOCK FÜR BEARBEITEN-MODAL
+        function openEditTimeKeypad() {
+            const timeBtn = document.getElementById('edit-time-btn');
+            const timeInput = document.getElementById('edit-time');
+            
+            const currentTime = timeBtn ? timeBtn.textContent.trim() : '09:00';
+            
+            console.log('⌨️ Öffne Ziffernblock für Bearbeiten:', currentTime);
+            
+            showTimeKeypad(currentTime, (newTime) => {
+                console.log('✅ Zeit gewählt:', newTime);
+                
+                if (timeBtn) timeBtn.textContent = newTime;
+                if (timeInput) timeInput.value = newTime;
+                
+                console.log('📊 Bearbeiten Zeit gesetzt:', newTime);
+            });
+        }
+        
         async function saveEditedRide(rideId) {
             const newPickup = document.getElementById('edit-pickup').value.trim();
             const newDestination = document.getElementById('edit-destination').value.trim();
             const newCustomer = document.getElementById('edit-customer').value.trim();
-            const newDateTime = document.getElementById('edit-datetime').value;
+            
+            // 🆕 v5.90.123: Getrennte Datum/Zeit Felder!
+            const newDate = document.getElementById('edit-date')?.value;
+            const newTime = document.getElementById('edit-time')?.value || document.getElementById('edit-time-btn')?.textContent?.trim() || '09:00';
+            const newDateTime = newDate ? `${newDate}T${newTime}` : '';
+            
             const newPassengers = document.getElementById('edit-passengers').value;
             const newVehicleId = document.getElementById('edit-vehicle').value;
             
@@ -19810,124 +19871,143 @@
             return R * c;
         }
 
-        // 🆕 v5.90.122: LADE VERFÜGBARE ZEITSLOTS (5-MIN-SCHRITTE, NUR FREIE!)
-        async function loadAvailableTimeSlots() {
-            console.log('🕐 Lade verfügbare Zeitslots...');
-            
+        // 🆕 v5.90.123: ZIFFERNBLOCK FÜR TAXI BUCHEN MIT SLOT-CHECK!
+        function openTimeKeypadForBooking() {
+            const displayBtn = document.getElementById('time-display-btn');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
             const dateInput = document.getElementById('custom-date');
-            const timeDropdown = document.getElementById('custom-time-dropdown');
             
-            if (!dateInput.value) {
-                console.log('⚠️ Kein Datum gewählt');
-                return;
-            }
+            const currentTime = displayBtn.textContent.trim();
             
-            const selectedDate = dateInput.value;
-            console.log('📅 Gewähltes Datum:', selectedDate);
+            console.log('⌨️ Öffne Ziffernblock für Buchung:', currentTime);
             
-            // Hole alle Fahrten für dieses Datum
+            // Öffne Ziffernblock
+            showTimeKeypad(currentTime, async (newTime) => {
+                console.log('✅ Zeit gewählt:', newTime);
+                
+                // Parse Zeit
+                const parts = newTime.split(':');
+                const hour = parts[0];
+                const minute = parts[1];
+                
+                // Update Hidden Inputs
+                hourInput.value = hour;
+                minuteInput.value = minute;
+                
+                // Update Button Display
+                displayBtn.textContent = newTime;
+                
+                console.log('📊 Zeit gesetzt:', { hour, minute });
+                
+                // 🆕 PRÜFE OB SLOT FREI IST!
+                if (dateInput.value) {
+                    await checkSlotAvailability(dateInput.value, newTime);
+                }
+            });
+        }
+        
+        // 🆕 v5.90.123: PRÜFE SLOT-VERFÜGBARKEIT + ZEIGE ALTERNATIVEN
+        async function checkSlotAvailability(date, time) {
+            const statusDisplay = document.getElementById('slot-status-display');
+            
+            console.log('🔍 Prüfe Slot:', { date, time });
+            
+            // Hole Fahrten
             const rides = JSON.parse(localStorage.getItem('taxiRides') || '[]');
             const vehicles = JSON.parse(localStorage.getItem('taxiVehicles') || '[]');
             const activeVehicleCount = vehicles.filter(v => v.active).length;
             
-            console.log('🚗 Aktive Fahrzeuge:', activeVehicleCount);
+            // Erstelle DateTime
+            const slotDateTime = new Date(date + 'T' + time);
             
-            // Generiere Zeitfenster
-            const now = new Date();
-            const startTime = new Date(now.getTime() + 15 * 60000); // +15 Min (5 frühe Slots)
-            const endTime = new Date(now.getTime() + 120 * 60000); // +120 Min (2 Stunden)
+            // Prüfe ob frei
+            const isFree = isTimeSlotAvailable(slotDateTime, rides, activeVehicleCount);
             
-            console.log('⏰ Zeitfenster:', {
-                start: startTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}),
-                end: endTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})
-            });
-            
-            // Generiere alle 5-Minuten-Slots
-            const slots = [];
-            const currentSlot = new Date(startTime);
-            currentSlot.setMinutes(Math.floor(currentSlot.getMinutes() / 5) * 5); // Runde auf 5-Min
-            currentSlot.setSeconds(0);
-            currentSlot.setMilliseconds(0);
-            
-            while (currentSlot <= endTime) {
-                const hour = currentSlot.getHours();
-                const minute = currentSlot.getMinutes();
-                const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            if (isFree) {
+                // ✅ FREI!
+                statusDisplay.style.display = 'block';
+                statusDisplay.style.background = '#d1fae5';
+                statusDisplay.style.border = '2px solid #10b981';
+                statusDisplay.style.color = '#065f46';
+                statusDisplay.innerHTML = `✅ <strong>${time} Uhr ist verfügbar!</strong>`;
                 
-                // Prüfe ob Slot frei ist
-                const slotDateTime = new Date(selectedDate + 'T' + timeStr);
-                const isFree = isTimeSlotAvailable(slotDateTime, rides, activeVehicleCount);
+                console.log('✅ Slot ist frei!');
+            } else {
+                // ❌ BESETZT! Suche Alternativen
+                const alternatives = findAlternativeSlots(slotDateTime, rides, activeVehicleCount);
                 
-                if (isFree) {
-                    slots.push({
-                        time: timeStr,
-                        hour: hour,
-                        minute: minute
+                statusDisplay.style.display = 'block';
+                statusDisplay.style.background = '#fee2e2';
+                statusDisplay.style.border = '2px solid #ef4444';
+                statusDisplay.style.color = '#991b1b';
+                
+                let html = `❌ <strong>${time} Uhr ist leider besetzt!</strong><br><br>`;
+                
+                if (alternatives.length > 0) {
+                    html += `💡 <strong>Verfügbare Alternativen:</strong><br>`;
+                    html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
+                    alternatives.forEach(alt => {
+                        html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">${alt}</button>`;
                     });
+                    html += '</div>';
+                } else {
+                    html += '<br>⚠️ Keine Alternativen in der Nähe verfügbar.';
                 }
                 
-                // Nächster 5-Min-Slot
-                currentSlot.setMinutes(currentSlot.getMinutes() + 5);
+                statusDisplay.innerHTML = html;
+                
+                console.log('❌ Slot besetzt! Alternativen:', alternatives);
             }
-            
-            console.log('✅ Freie Slots gefunden:', slots.length);
-            
-            // Dropdown füllen
-            timeDropdown.innerHTML = '';
-            
-            if (slots.length === 0) {
-                timeDropdown.innerHTML = '<option value="">❌ Keine freien Zeiten verfügbar</option>';
-                timeDropdown.style.borderColor = '#ef4444';
-                return;
-            }
-            
-            // Erste Option
-            const firstOption = document.createElement('option');
-            firstOption.value = '';
-            firstOption.textContent = `📋 ${slots.length} freie Zeiten verfügbar`;
-            timeDropdown.appendChild(firstOption);
-            
-            // Alle freien Slots
-            slots.forEach((slot, index) => {
-                const option = document.createElement('option');
-                option.value = slot.time;
-                option.textContent = slot.time;
-                option.dataset.hour = slot.hour;
-                option.dataset.minute = slot.minute;
-                
-                // Markiere erste richtige Option
-                if (index === 0) {
-                    option.textContent = `${slot.time} ⭐`;
-                }
-                
-                timeDropdown.appendChild(option);
-            });
-            
-            timeDropdown.style.borderColor = '#10b981';
-            
-            // Event Listener für Auswahl
-            timeDropdown.onchange = function() {
-                const selected = timeDropdown.options[timeDropdown.selectedIndex];
-                if (selected.value) {
-                    document.getElementById('custom-hour').value = selected.dataset.hour;
-                    document.getElementById('custom-minute').value = selected.dataset.minute;
-                    console.log('✅ Zeit gewählt:', selected.value);
-                    
-                    // Zeige Bestätigung
-                    const icon = document.getElementById('slot-confirmation-icon');
-                    icon.style.display = 'inline';
-                    icon.textContent = '✅';
-                }
-            };
         }
         
-        // 🆕 v5.90.122: PRÜFE OB ZEITSLOT VERFÜGBAR IST
+        // 🆕 v5.90.123: FINDE ALTERNATIVE ZEITSLOTS
+        function findAlternativeSlots(originalTime, rides, vehicleCount) {
+            const alternatives = [];
+            
+            // Suche ±30 Minuten in 5-Min-Schritten
+            for (let offset = -30; offset <= 30; offset += 5) {
+                if (offset === 0) continue; // Original Zeit überspringen
+                
+                const testTime = new Date(originalTime.getTime() + offset * 60000);
+                
+                if (isTimeSlotAvailable(testTime, rides, vehicleCount)) {
+                    const timeStr = `${String(testTime.getHours()).padStart(2, '0')}:${String(testTime.getMinutes()).padStart(2, '0')}`;
+                    alternatives.push(timeStr);
+                    
+                    // Max 5 Alternativen
+                    if (alternatives.length >= 5) break;
+                }
+            }
+            
+            return alternatives;
+        }
+        
+        // 🆕 v5.90.123: WÄHLE ALTERNATIVE ZEIT
+        function selectAlternativeTime(time) {
+            const displayBtn = document.getElementById('time-display-btn');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
+            const dateInput = document.getElementById('custom-date');
+            
+            const parts = time.split(':');
+            hourInput.value = parts[0];
+            minuteInput.value = parts[1];
+            displayBtn.textContent = time;
+            
+            console.log('✅ Alternative gewählt:', time);
+            
+            // Neu prüfen
+            checkSlotAvailability(dateInput.value, time);
+        }
+        
+        // 🆕 v5.90.123: PRÜFE OB ZEITSLOT VERFÜGBAR IST
         function isTimeSlotAvailable(slotDateTime, rides, activeVehicleCount) {
             // Zähle wie viele Fahrten zu dieser Zeit laufen
             let bookedCount = 0;
             
             rides.forEach(ride => {
-                if (ride.status === 'cancelled') return;
+                if (ride.status === 'cancelled' || ride.status === 'storniert') return;
                 
                 const rideTime = new Date(ride.pickupTime);
                 const rideEndTime = new Date(rideTime.getTime() + 30 * 60000); // +30 Min Puffer
@@ -30544,7 +30624,15 @@
                                 </div>
                                 <div>
                                     <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Uhrzeit</label>
-                                    <input type="time" id="quick-booking-time" value="${defaultDate.split('T')[1] || '09:00'}" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                    <div style="display:flex;gap:6px;">
+                                        <button type="button" id="quick-booking-time-btn" onclick="openQuickBookingTimeKeypad()" style="flex:1;padding:12px;border:2px solid #667eea;background:white;border-radius:8px;font-size:14px;font-weight:600;color:#667eea;cursor:pointer;font-family:'Courier New',monospace;">
+                                            ${defaultDate.split('T')[1] || '09:00'}
+                                        </button>
+                                        <button type="button" onclick="openQuickBookingTimeKeypad()" style="padding:12px 14px;border:2px solid #667eea;background:#667eea;color:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                                            ⌨️
+                                        </button>
+                                    </div>
+                                    <input type="hidden" id="quick-booking-time" value="${defaultDate.split('T')[1] || '09:00'}">
                                 </div>
                             </div>
                         </div>
@@ -36271,6 +36359,25 @@
             return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
         
+        // 🆕 v5.90.123: ZIFFERNBLOCK FÜR QUICK-BOOKING MODAL
+        function openQuickBookingTimeKeypad() {
+            const timeBtn = document.getElementById('quick-booking-time-btn');
+            const timeInput = document.getElementById('quick-booking-time');
+            
+            const currentTime = timeBtn ? timeBtn.textContent.trim() : '09:00';
+            
+            console.log('⌨️ Öffne Ziffernblock für Quick-Booking:', currentTime);
+            
+            showTimeKeypad(currentTime, (newTime) => {
+                console.log('✅ Zeit gewählt:', newTime);
+                
+                if (timeBtn) timeBtn.textContent = newTime;
+                if (timeInput) timeInput.value = newTime;
+                
+                console.log('📊 Quick-Booking Zeit gesetzt:', newTime);
+            });
+        }
+        
         async function submitQuickBooking() {
             // 🔒 v5.64.16: DOPPELKLICK-SCHUTZ!
             if (window.isSubmittingQuickBooking) {
@@ -37275,6 +37382,187 @@
                 toast.innerHTML = `❌ Fehler beim Löschen!`;
                 setTimeout(() => toast.remove(), 3000);
             }
+        }
+        
+        // 📱 VCF EXPORT FUNKTIONEN - v5.90.124
+        
+        // Toggle Export-Liste anzeigen/verstecken
+        function toggleExportList() {
+            const list = document.getElementById('export-customers-list');
+            const btn = document.getElementById('toggle-export-btn');
+            
+            if (list.style.display === 'none') {
+                list.style.display = 'block';
+                btn.innerHTML = 'Verstecken ▲';
+                loadCustomersForExport();
+            } else {
+                list.style.display = 'none';
+                btn.innerHTML = 'Anzeigen ▼';
+            }
+        }
+        
+        // Lade Kunden für Export-Liste
+        async function loadCustomersForExport() {
+            const container = document.getElementById('export-customers-list');
+            container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">⏳ Lade Kunden...</div>';
+            
+            if (!isFirebaseReady) {
+                container.innerHTML = '<div style="color:red;padding:20px;text-align:center;">❌ Firebase nicht verbunden</div>';
+                return;
+            }
+            
+            try {
+                const snapshot = await db.ref('customers').once('value');
+                const customers = [];
+                
+                snapshot.forEach(child => {
+                    const customer = child.val();
+                    customer.id = child.key;
+                    customers.push(customer);
+                });
+                
+                // Sortiere nach Name
+                customers.sort((a, b) => {
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                if (customers.length === 0) {
+                    container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Keine Kunden vorhanden</div>';
+                    return;
+                }
+                
+                // Kompakte Liste mit nur Namen
+                container.innerHTML = `
+                    <div style="margin-bottom:10px;padding:10px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">
+                        💡 <strong>Tipp:</strong> Klicke auf einen Namen, um den Kontakt als .vcf zu exportieren
+                    </div>
+                    ${customers.map(c => `
+                        <div onclick="exportCustomerToVCF('${c.id}')" 
+                             style="padding:12px;margin-bottom:5px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;transition:all 0.2s;display:flex;justify-content:space-between;align-items:center;"
+                             onmouseover="this.style.background='#f0fdf4';this.style.borderColor='#10b981';"
+                             onmouseout="this.style.background='#f9fafb';this.style.borderColor='#e5e7eb';">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-size:20px;">👤</span>
+                                <span style="font-weight:600;color:#333;">${c.name || 'Unbekannt'}</span>
+                            </div>
+                            <span style="font-size:20px;color:#10b981;">📱</span>
+                        </div>
+                    `).join('')}
+                `;
+                
+                console.log(`📱 ${customers.length} Kunden für Export geladen`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden:', error);
+                container.innerHTML = '<div style="color:red;padding:20px;text-align:center;">❌ Fehler beim Laden</div>';
+            }
+        }
+        
+        // Exportiere einzelnen Kunden als VCF
+        function exportCustomerToVCF(customerId) {
+            // Finde Kunde in allCustomers (falls bereits geladen)
+            let customer = allCustomers.find(c => c.id === customerId);
+            
+            // Falls nicht in allCustomers, dann aus Firebase laden
+            if (!customer) {
+                db.ref('customers/' + customerId).once('value').then(snapshot => {
+                    customer = snapshot.val();
+                    if (customer) {
+                        customer.id = customerId;
+                        generateVCFDownload(customer);
+                    }
+                });
+                return;
+            }
+            
+            generateVCFDownload(customer);
+        }
+        
+        // Generiere VCF-Datei und starte Download
+        function generateVCFDownload(customer) {
+            // VCF-Format erstellen (vCard 3.0)
+            let vcfContent = 'BEGIN:VCARD\n';
+            vcfContent += 'VERSION:3.0\n';
+            
+            // Name
+            if (customer.name) {
+                vcfContent += `FN:${customer.name}\n`;
+                vcfContent += `N:${customer.name};;;;\n`;
+            }
+            
+            // Telefon
+            if (customer.phone) {
+                vcfContent += `TEL;TYPE=CELL:${customer.phone}\n`;
+            }
+            
+            // Email
+            if (customer.email) {
+                vcfContent += `EMAIL;TYPE=INTERNET:${customer.email}\n`;
+            }
+            
+            // Wohnadresse
+            if (customer.address) {
+                // Format: ADR;TYPE=HOME:;;Straße;Stadt;Region;PLZ;Land
+                vcfContent += `ADR;TYPE=HOME:;;${customer.address};;;;\n`;
+            }
+            
+            // Rechnungsadresse(n) als Notiz
+            if (customer.billingAddresses && customer.billingAddresses.length > 0) {
+                const billingText = customer.billingAddresses
+                    .map(ba => `${ba.label}: ${ba.address}`)
+                    .join(' | ');
+                vcfContent += `NOTE:Rechnungsadr.: ${billingText}\n`;
+            } else if (customer.billingAddress) {
+                vcfContent += `NOTE:Rechnungsadresse: ${customer.billingAddress}\n`;
+            }
+            
+            // Notizen
+            if (customer.notes) {
+                const existingNote = customer.billingAddresses ? `NOTE:Rechnungsadr.: ... | ` : 'NOTE:';
+                if (!vcfContent.includes('NOTE:')) {
+                    vcfContent += `NOTE:${customer.notes}\n`;
+                } else {
+                    // Notizen an bestehende NOTE anhängen
+                    vcfContent = vcfContent.replace(/NOTE:(.+)\n/, `NOTE:$1 | ${customer.notes}\n`);
+                }
+            }
+            
+            // Kategorien
+            vcfContent += 'CATEGORIES:Taxi-Kunde\n';
+            
+            // Organisation
+            vcfContent += 'ORG:Funk Taxi Heringsdorf;\n';
+            
+            vcfContent += 'END:VCARD\n';
+            
+            // Datei-Download erstellen
+            const blob = new Blob([vcfContent], { type: 'text/vcard;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Dateiname: Name des Kunden (ohne Sonderzeichen)
+            const fileName = (customer.name || 'Kontakt')
+                .replace(/[^a-zA-Z0-9äöüÄÖÜß\s]/g, '')
+                .replace(/\s+/g, '_');
+            a.download = `${fileName}.vcf`;
+            
+            // Download starten
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Toast-Nachricht
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
+            toast.innerHTML = `✅ ${customer.name || 'Kontakt'} exportiert!`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+            
+            console.log(`📱 VCF exportiert: ${customer.name}`);
         }
         
         // 🧹 CACHE LEEREN FUNKTION

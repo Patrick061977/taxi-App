@@ -108,12 +108,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.117 - 1-STUNDE-REGEL KOMPLETT WEG! ⚡ (Build 20260105-2345)');
-        console.log('✅ v5.90.117: validateMinimumTime nur Vergangenheit');
-        console.log('✅ v5.90.117: dateInput.min = heute (nicht +1h)');
-        console.log('✅ v5.90.117: 1-Stunde-Regel komplett entfernt!');
-        console.log('✅ v5.90.116: SOFORT nur wenn Fahrer online/besetzt');
-        console.log('✅ v5.90.116: Auto-Surge standardmäßig AUS');
+        console.log('🚕 Funk Taxi App v5.90.122 - DROPDOWN NUR FREIE SLOTS! 📋 (Build 20260106-1045)');
+        console.log('✅ v5.90.122: Dropdown zeigt NUR freie Zeitslots!');
+        console.log('✅ v5.90.122: Zeitfenster: +15 Min bis +120 Min');
+        console.log('✅ v5.90.122: 5-Minuten-Schritte (00, 05, 10, 15...)');
+        console.log('✅ v5.90.122: Besetzt = unsichtbar!');
+        console.log('✅ v5.90.122: Kunde sieht nur was frei ist!');
+        console.log('✅ v5.90.121: Krankenfahrt im Bearbeiten-Modal!');
+        console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
+        console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
         console.log('✅ v5.90.110: Format: 20-26-001 / 20-26-NS-001');
         console.log('✅ v5.90.109: Counter pro Jahr!');
@@ -1794,30 +1797,24 @@
                 <div class="input-group">
                     <label>📅 Abholzeit wählen</label>
                     
-                    <!-- Datum + Zeit direkt (ohne Dropdown!) -->
+                    <!-- 🆕 v5.90.122: DROPDOWN MIT NUR FREIEN SLOTS (5-Min-Schritte!) -->
                     <div id="custom-datetime-container" style="margin-top:0;">
-                        <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
+                        <input type="date" id="custom-date" onchange="loadAvailableTimeSlots()" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
+                        
+                        <!-- Zeit-Dropdown mit NUR freien Slots -->
                         <div style="display:flex;gap:8px;align-items:center;">
-                            <select id="custom-hour" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
-                                <option value="00">00</option><option value="01">01</option><option value="02">02</option>
-                                <option value="03">03</option><option value="04">04</option><option value="05">05</option>
-                                <option value="06">06</option><option value="07">07</option><option value="08">08</option>
-                                <option value="09">09</option><option value="10">10</option><option value="11">11</option>
-                                <option value="12">12</option><option value="13">13</option><option value="14">14</option>
-                                <option value="15">15</option><option value="16">16</option><option value="17">17</option>
-                                <option value="18">18</option><option value="19">19</option><option value="20">20</option>
-                                <option value="21">21</option><option value="22">22</option><option value="23">23</option>
+                            <select id="custom-time-dropdown" style="flex:1;padding:15px 12px;border:2px solid #10b981;background:white;border-radius:8px;font-size:16px;font-weight:600;color:#333;cursor:pointer;">
+                                <option value="">Lade verfügbare Zeiten...</option>
                             </select>
-                            <span style="font-size:20px;font-weight:bold;">:</span>
-                            <select id="custom-minute" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;">
-                                <option value="00">00</option><option value="05">05</option><option value="10">10</option>
-                                <option value="15">15</option><option value="20">20</option><option value="25">25</option>
-                                <option value="30">30</option><option value="35">35</option><option value="40">40</option>
-                                <option value="45">45</option><option value="50">50</option><option value="55">55</option>
-                            </select>
-                            <span style="font-size:14px;color:#666;">Uhr</span>
+                            <!-- Hidden inputs für Kompatibilität -->
+                            <input type="hidden" id="custom-hour" value="09">
+                            <input type="hidden" id="custom-minute" value="00">
                             <!-- 🆕 v5.90.73: Slot-Bestätigung als Icon -->
                             <span id="slot-confirmation-icon" style="display:none;font-size:20px;" title="Zeitslot verfügbar!">✅</span>
+                        </div>
+                        
+                        <div style="font-size:12px;color:#666;margin-top:8px;">
+                            ℹ️ Zeigt nur verfügbare Zeiten in 5-Min-Schritten
                         </div>
                     </div>
                     
@@ -6086,8 +6083,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.118';
-        const APP_BUILD = '20260105-2350-SMART-SLOT-ICON';
+        const APP_VERSION = '5.89.1';
+        const APP_BUILD = '20251228-1500-SCRIPT-MANAGER';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -6826,6 +6823,205 @@
         }
         
         console.log('✅ v5.87.68: CallHistory Funktionen definiert (OBEN im Script)!');
+        
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🆕 v5.90.121: ZIFFERNBLOCK ZEIT-EINGABE (wie Google Calendar)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function showTimeKeypad(currentValue, callback) {
+            console.log('⌨️ Ziffernblock öffnen mit:', currentValue);
+            
+            // Parse aktuelle Zeit
+            let displayValue = '';
+            if (currentValue) {
+                // Entferne alle nicht-Ziffern
+                displayValue = currentValue.replace(/[^0-9]/g, '');
+            }
+            
+            // Modal erstellen
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;padding:20px;max-width:350px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:2px solid #3b82f6;padding-bottom:10px;">
+                        <div style="font-size:14px;font-weight:600;color:#667eea;">Ziffernblock</div>
+                        <div style="font-size:14px;font-weight:600;color:#667eea;">Liste</div>
+                    </div>
+                    
+                    <!-- Zeit-Anzeige -->
+                    <div id="keypad-display" style="font-size:48px;font-weight:bold;color:#667eea;text-align:center;margin-bottom:20px;font-family:'Courier New', monospace;min-height:60px;display:flex;align-items:center;justify-content:center;">
+                        ${displayValue || '0:00'}
+                    </div>
+                    
+                    <!-- Ziffernblock -->
+                    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:15px;">
+                        <button class="keypad-btn" data-value="1" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">1</button>
+                        <button class="keypad-btn" data-value="2" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">2</button>
+                        <button class="keypad-btn" data-value="3" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">3</button>
+                        <button class="keypad-btn" data-value="4" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">4</button>
+                        <button class="keypad-btn" data-value="5" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">5</button>
+                        <button class="keypad-btn" data-value="6" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">6</button>
+                        <button class="keypad-btn" data-value="7" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">7</button>
+                        <button class="keypad-btn" data-value="8" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">8</button>
+                        <button class="keypad-btn" data-value="9" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">9</button>
+                        <button class="keypad-btn" data-value="0" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;grid-column:2;">0</button>
+                        <button id="keypad-backspace" style="padding:15px;font-size:20px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">⌫</button>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="display:flex;gap:10px;">
+                        <button id="keypad-ok" style="flex:1;padding:15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;">
+                            Ok
+                        </button>
+                        <button id="keypad-cancel" style="flex:1;padding:15px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Event Listeners
+            const display = modal.querySelector('#keypad-display');
+            let currentInput = displayValue;
+            
+            // Update Display
+            function updateDisplay() {
+                if (currentInput.length === 0) {
+                    display.textContent = '0:00';
+                    return;
+                }
+                
+                // Format als Zeit
+                if (currentInput.length === 1) {
+                    display.textContent = currentInput + ':00';
+                } else if (currentInput.length === 2) {
+                    display.textContent = currentInput + ':00';
+                } else if (currentInput.length === 3) {
+                    const hour = currentInput.substring(0, 1);
+                    const min = currentInput.substring(1, 3);
+                    display.textContent = hour + ':' + min;
+                } else if (currentInput.length === 4) {
+                    const hour = currentInput.substring(0, 2);
+                    const min = currentInput.substring(2, 4);
+                    display.textContent = hour + ':' + min;
+                } else {
+                    // Max 4 Ziffern
+                    currentInput = currentInput.substring(0, 4);
+                    const hour = currentInput.substring(0, 2);
+                    const min = currentInput.substring(2, 4);
+                    display.textContent = hour + ':' + min;
+                }
+            }
+            
+            // Ziffern-Buttons
+            modal.querySelectorAll('.keypad-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const value = btn.getAttribute('data-value');
+                    if (currentInput.length < 4) {
+                        currentInput += value;
+                        updateDisplay();
+                    }
+                });
+                
+                // Hover Effekt
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.background = '#667eea';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = '#667eea';
+                    btn.style.transform = 'scale(1.05)';
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.background = 'white';
+                    btn.style.color = 'black';
+                    btn.style.borderColor = '#e0e0e0';
+                    btn.style.transform = 'scale(1)';
+                });
+            });
+            
+            // Backspace
+            modal.querySelector('#keypad-backspace').addEventListener('click', () => {
+                if (currentInput.length > 0) {
+                    currentInput = currentInput.slice(0, -1);
+                    updateDisplay();
+                }
+            });
+            
+            // OK Button
+            modal.querySelector('#keypad-ok').addEventListener('click', () => {
+                // Parse Eingabe
+                let hour = 0;
+                let minute = 0;
+                
+                if (currentInput.length === 1) {
+                    // "9" → "09:00"
+                    hour = parseInt(currentInput);
+                    minute = 0;
+                } else if (currentInput.length === 2) {
+                    // "14" → "14:00"
+                    hour = parseInt(currentInput);
+                    minute = 0;
+                } else if (currentInput.length === 3) {
+                    // "143" → "14:30"
+                    hour = parseInt(currentInput.substring(0, 1));
+                    minute = parseInt(currentInput.substring(1, 3));
+                } else if (currentInput.length === 4) {
+                    // "1430" → "14:30"
+                    hour = parseInt(currentInput.substring(0, 2));
+                    minute = parseInt(currentInput.substring(2, 4));
+                }
+                
+                // Validierung
+                if (hour > 23) hour = 23;
+                if (minute > 59) minute = 59;
+                
+                // 🆕 v5.90.121: AUTO-RUNDUNG AUF 5-MIN!
+                minute = Math.round(minute / 5) * 5;
+                if (minute === 60) {
+                    minute = 0;
+                    hour++;
+                    if (hour > 23) hour = 0;
+                }
+                
+                // Format
+                const timeString = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+                
+                console.log('✅ Zeit gewählt:', timeString);
+                console.log('📊 Gerundet auf 5-Min:', minute);
+                
+                // Callback aufrufen
+                if (callback) callback(timeString);
+                
+                // Modal schließen
+                document.body.removeChild(modal);
+            });
+            
+            // Cancel Button
+            modal.querySelector('#keypad-cancel').addEventListener('click', () => {
+                console.log('❌ Abgebrochen');
+                document.body.removeChild(modal);
+            });
+            
+            // ESC zum Schließen
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    if (modal.parentNode) {
+                        document.body.removeChild(modal);
+                    }
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+            // Initial display update
+            updateDisplay();
+        }
+        
+        console.log('✅ v5.90.121: Ziffernblock-Interface geladen!');
         
         // ═══════════════════════════════════════════════════════════════════
 
@@ -7610,6 +7806,7 @@
         // (Code entfernt - Buttons sind beide sichtbar und gleichwertig)
         
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
+        // 🔧 v5.90.122: Angepasst für Dropdown mit freien Slots
         function initVorbestellenDefaults() {
             const datetimeContainer = document.getElementById('custom-datetime-container');
             const helpText = document.getElementById('datetime-help');
@@ -7622,37 +7819,24 @@
             const defaultTime = new Date();
             defaultTime.setHours(defaultTime.getHours() + 1);
             
-            // 🔧 Runde auf nächste 5 Minuten
-            const roundedMinutes = Math.ceil(defaultTime.getMinutes() / 5) * 5;
-            defaultTime.setMinutes(roundedMinutes % 60);
-            if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
-            
-            // Setze Werte
+            // Setze Datum
             const dateInput = document.getElementById('custom-date');
-            const hourSelect = document.getElementById('custom-hour');
-            const minuteSelect = document.getElementById('custom-minute');
-            
-            // Datum im Format YYYY-MM-DD
             const year = defaultTime.getFullYear();
             const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
             const day = String(defaultTime.getDate()).padStart(2, '0');
             dateInput.value = `${year}-${month}-${day}`;
             
-            // 🆕 v5.90.117: KEINE 1-Stunde-Regel! Minimum = Heute
+            // Min-Datum = Heute
             const today = new Date();
             const minDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
             dateInput.min = minDateStr;
             
-            // Event Listener für Validierung
-            dateInput.addEventListener('change', validateMinimumTime);
-            hourSelect.addEventListener('change', validateMinimumTime);
-            minuteSelect.addEventListener('change', validateMinimumTime);
-            
             console.log('⏰ Vorbestellen: Minimum = Heute (keine 1-Stunde-Regel)');
             
-            // Stunde und Minute
-            hourSelect.value = String(defaultTime.getHours()).padStart(2, '0');
-            minuteSelect.value = String(defaultTime.getMinutes()).padStart(2, '0');
+            // 🆕 v5.90.122: LADE VERFÜGBARE ZEITSLOTS!
+            setTimeout(() => {
+                loadAvailableTimeSlots();
+            }, 300);
             
             // 🆕 v5.48.0: Wenn Abholadresse schon eingegeben → Trigger Live-Slot-Check!
             if (pickupCoords) {
@@ -7688,11 +7872,6 @@
             if (selectedTime < now) {
                 alert(`⚠️ Die gewählte Zeit liegt in der Vergangenheit!\n\nBitte wähle eine zukünftige Zeit.`);
                 return false;
-            }
-            
-            // 🆕 v5.90.118: Update Icon wenn Abholadresse bestätigt!
-            if (pickupConfirmed && currentRideType === 'vorbestellen') {
-                setTimeout(() => updateConfirmationHint('pickup'), 100);
             }
             
             return true;
@@ -8062,14 +8241,22 @@
                         </select>
                     </div>
                     
-                    <!-- 🆕 v5.75.0: PREIS-BERECHNUNG OPTION -->
+                    <!-- 🆕 v5.90.121: PREIS-BERECHNUNG OPTION mit Krankenfahrt -->
                     <div style="margin-bottom:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                            <input type="checkbox" id="edit-calculate-price" ${ride.price > 0 ? 'checked' : ''} style="width:18px;height:18px;">
-                            <span style="font-weight:600;">💰 Preis berechnen</span>
+                        <div style="font-weight:600;margin-bottom:8px;">💰 Preis-Berechnung:</div>
+                        
+                        <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
+                            <input type="radio" name="edit-price-mode" value="normal" ${(!ride.isKrankenfahrt && ride.price !== 0) || !ride.isKrankenfahrt ? 'checked' : ''} style="width:16px;height:16px;">
+                            <span>💵 Normaler Preis berechnen</span>
                         </label>
-                        <div style="font-size:12px;color:#065f46;margin-top:4px;">
-                            Aus: z.B. für Krankenfahrten
+                        
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;" title="Krankenfahrt - kein Preis wird berechnet">
+                            <input type="radio" name="edit-price-mode" value="medical" ${ride.isKrankenfahrt === true ? 'checked' : ''} style="width:16px;height:16px;">
+                            <span>🏥 Krankenfahrt (kein Preis)</span>
+                        </label>
+                        
+                        <div style="font-size:12px;color:#065f46;margin-top:6px;">
+                            💡 Krankenfahrten werden nicht berechnet
                         </div>
                     </div>
                     
@@ -8263,9 +8450,14 @@
             // 🆕 v5.75.2: GAST-NAME!
             const newGuestName = document.getElementById('edit-guest-name')?.value?.trim() || '';
             
-            // 🆕 v5.75.0: PREIS/ZEIT OPTIONEN!
-            const shouldCalculatePrice = document.getElementById('edit-calculate-price').checked;
+            // 🆕 v5.90.121: PREIS-MODUS mit Krankenfahrt!
+            const priceMode = document.querySelector('input[name="edit-price-mode"]:checked')?.value || 'normal';
+            const isKrankenfahrt = priceMode === 'medical';
+            const shouldCalculatePrice = priceMode === 'normal';
             const durationMode = document.querySelector('input[name="edit-duration-mode"]:checked').value;
+            
+            console.log('💰 Preis-Modus:', priceMode);
+            console.log('🏥 Krankenfahrt?', isKrankenfahrt);
             console.log('💰 Preis berechnen?', shouldCalculatePrice);
             console.log('⏱️ Dauer-Modus:', durationMode);
             console.log('📝 Gast-Name:', newGuestName || '(leer)');
@@ -8374,8 +8566,11 @@
                 passengers: newPassengers,
                 status: newStatus,
                 editedAt: Date.now(),
+                // 🆕 v5.90.121: KRANKENFAHRT!
+                isKrankenfahrt: isKrankenfahrt,
+                rideType: isKrankenfahrt ? 'krankenfahrt' : 'normal',
                 // 🆕 v5.75.0: PREIS/DISTANZ/DAUER!
-                price: price,
+                price: isKrankenfahrt ? 0 : price,
                 distance: distance,
                 duration: duration
             };
@@ -9415,9 +9610,14 @@
             try {
                 const now = Date.now();
                 const MAX_ASSIGNED_AGE = 2 * 60 * 1000; // 2 Minuten für assigned
-                const MAX_NEW_AGE = 24 * 60 * 60 * 1000; // 24 Stunden für new/vorbestellt
                 
-                // 1. Cleanup für 'assigned' Fahrten (älter als 2 Min)
+                // 🆕 v5.90.120: AUTO-LÖSCHUNGEN DEAKTIVIERT!
+                // Patrick will KEINE automatischen Löschungen mehr
+                // NUR noch 2-Min Timeout für 'assigned' Status (gibt Fahrt frei, löscht NICHT!)
+                // Alle 24h Cleanups sind deaktiviert!
+                console.log('🛡️ v5.90.120: Auto-Cleanup nur für assigned (Status-Reset, KEINE Löschung)');
+                
+                // 1. Cleanup für 'assigned' Fahrten (älter als 2 Min) - NUR STATUS ZURÜCKSETZEN!
                 const assignedSnapshot = await db.ref('rides').orderByChild('status').equalTo('assigned').once('value');
                 const assignedRides = assignedSnapshot.val() || {};
                 
@@ -9448,394 +9648,27 @@
                     }
                 }
                 
-                // 2. Cleanup für alte 'new' Fahrten (älter als 24h)
-                const newSnapshot = await db.ref('rides').orderByChild('status').equalTo('new').once('value');
-                const newRides = newSnapshot.val() || {};
+                // 🆕 v5.90.120: ALLE 24h AUTO-CLEANUPS DEAKTIVIERT!
+                // ═══════════════════════════════════════════════════
+                // Patrick will KEINE automatischen Löschungen mehr!
+                // Grund: Keine Überraschungen, volle Kontrolle
+                //
+                // DEAKTIVIERT:
+                // - ❌ 24h Cleanup für 'new' → status: 'cancelled'
+                // - ❌ 24h Cleanup für 'vorbestellt' → status: 'cancelled'
+                // - ❌ 24h Cleanup für 'accepted' → status: 'completed'
+                // - ❌ 24h Cleanup für 'picked_up' → status: 'completed'
+                //
+                // ERGEBNIS:
+                // → KEINE Fahrten werden automatisch gelöscht
+                // → Fahrten bleiben für immer im System
+                // → Patrick löscht manuell wenn nötig
+                // → Später kann man immer noch aufräumen
+                //
+                // ═══════════════════════════════════════════════════
                 
-                for (const rideId in newRides) {
-                    const ride = newRides[rideId];
-                    
-                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
-                    const isHotelRide = ride.hotelCalendarId || 
-                                       ride.source === 'hotel_calendar_cloud_sync' || 
-                                       ride.source === 'csv-import' ||
-                                       ride.hotelName ||
-                                       ride.guestName ||
-                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
-                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
-                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
-                    
-                    if (isHotelRide) {
-                        console.log('🛡️ Hotel-Fahrt geschützt:', rideId, {
-                            hotelCalendarId: ride.hotelCalendarId,
-                            source: ride.source,
-                            hotelName: ride.hotelName,
-                            guestName: ride.guestName,
-                            customer: ride.customerName
-                        });
-                        
-                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
-                        if (!ride.hotelCalendarId) {
-                            console.warn('⚠️ WARNUNG: Hotel-Fahrt OHNE hotelCalendarId!', {
-                                rideId: rideId,
-                                customer: ride.customerName,
-                                source: ride.source,
-                                pickup: ride.pickup,
-                                destination: ride.destination
-                            });
-                            
-                            // Setze hotelCalendarId nachträglich wenn möglich
-                            if (ride.source === 'hotel_calendar_cloud_sync' || ride.source === 'csv-import') {
-                                await db.ref(`rides/${rideId}`).update({
-                                    hotelCalendarId: 'RECOVERED_' + Date.now(),
-                                    recoveredProtection: true
-                                });
-                                console.log('✅ hotelCalendarId nachträglich gesetzt für:', rideId);
-                            }
-                        }
-                        
-                        continue; // Überspringen!
-                    }
-                    
-                    // 🛡️ v5.86.0: LÖSCHSCHUTZ für completed/cancelled!
-                    if (ride.status === 'completed' || ride.status === 'cancelled') {
-                        continue; // Überspringen!
-                    }
-                    
-                    // 🆕 v5.90.36: KRANKENFAHRT-SCHUTZ! 🏥
-                    // Krankenfahrten haben oft keinen Preis (Krankenkassen-Abrechnung)
-                    const isKrankenfahrt = 
-                        ride.isKrankenfahrt === true ||
-                        ride.rideType === 'krankenfahrt' ||
-                        ride.paymentMethod === 'krankenkasse' ||
-                        (ride.notes && ride.notes.toLowerCase().includes('kranken')) ||
-                        (ride.customerName && ride.customerName.toLowerCase().includes('kranken'));
-                    
-                    if (isKrankenfahrt) {
-                        console.log('🏥 KRANKENFAHRT GESCHÜTZT:', {
-                            rideId: rideId,
-                            kunde: ride.customerName,
-                            grund: ride.isKrankenfahrt ? 'Flag' : 'Name/Notizen'
-                        });
-                        continue; // NICHT stornieren!
-                    }
-                    
-                    // 🆕 v5.90.37: ADMIN-FAHRT-SCHUTZ! 🛡️
-                    // Vom Admin erstellte Fahrten dürfen NICHT auto-storniert werden!
-                    const isAdminRide = 
-                        ride.adminProtection === true ||
-                        ride.createdBy === 'admin' ||
-                        ride.bookingSource === 'admin-panel' ||
-                        ride.createdBy === 'quick-booking' ||
-                        ride.createdBy === 'quick-booking-phone' ||
-                        ride.assignedBy === 'admin';
-                    
-                    if (isAdminRide) {
-                        console.log('🛡️ ADMIN-FAHRT GESCHÜTZT:', {
-                            rideId: rideId,
-                            kunde: ride.customerName,
-                            grund: ride.createdBy || 'admin',
-                            quelle: ride.bookingSource || 'unbekannt'
-                        });
-                        continue; // NICHT stornieren!
-                    }
-                    
-                    const createdAt = ride.createdAt || ride.timestamp || 0;
-                    const pickupTime = ride.pickupTimestamp || 0;
-                    
-                    // 🆕 v5.86.33: WICHTIG! Vorbestellte Fahrten mit Zukunfts-Abholzeit NICHT stornieren!
-                    if (pickupTime > now) {
-                        console.log(`🛡️ Zukünftige Fahrt geschützt: ${rideId} - Abholung in ${Math.round((pickupTime - now)/3600000)}h`);
-                        continue; // Überspringen!
-                    }
-                    
-                    const relevantTime = pickupTime || createdAt;
-                    const age = now - relevantTime;
-                    
-                    if (age > MAX_NEW_AGE) {
-                        console.log(`🧹 Cleanup: Alte Fahrt ${rideId} - ${Math.round(age/3600000)}h alt - wird storniert`);
-                        console.log('📊 Fahrt-Details:', {
-                            customer: ride.customerName,
-                            pickup: ride.pickup,
-                            destination: ride.destination,
-                            created: new Date(createdAt).toLocaleString('de-DE'),
-                            age: Math.round(age/3600000) + 'h',
-                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
-                            source: ride.source || 'KEINE'
-                        });
-                        
-                        await db.ref('rides/' + rideId).update({
-                            status: 'cancelled',
-                            cancelledReason: 'Auto-Storno: Fahrt älter als 24h',
-                            cancelledAt: now,
-                            autoCleanup: true
-                        });
-                        
-                        console.log(`🗑️ Alte Fahrt ${rideId} automatisch storniert`);
-                        
-                        logActivity('system', 'auto_cancel', `Alte Fahrt auto-storniert: ${ride.customerName || 'Kunde'}`, {
-                            rideId: rideId,
-                            age: Math.round(age/3600000) + 'h'
-                        });
-                    }
-                }
-                
-                // 3. Cleanup für alte 'vorbestellt' Fahrten (Abholzeit in der Vergangenheit + 2h)
-                const vorbestelltSnapshot = await db.ref('rides').orderByChild('status').equalTo('vorbestellt').once('value');
-                const vorbestelltRides = vorbestelltSnapshot.val() || {};
-                
-                for (const rideId in vorbestelltRides) {
-                    const ride = vorbestelltRides[rideId];
-                    
-                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
-                    const isHotelRide = ride.hotelCalendarId || 
-                                       ride.source === 'hotel_calendar_cloud_sync' || 
-                                       ride.source === 'csv-import' ||
-                                       ride.hotelName ||
-                                       ride.guestName ||
-                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
-                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
-                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
-                    
-                    if (isHotelRide) {
-                        console.log('🛡️ Hotel-Vorbestellung geschützt:', rideId);
-                        
-                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
-                        if (!ride.hotelCalendarId) {
-                            console.warn('⚠️ WARNUNG: Hotel-Vorbestellung OHNE hotelCalendarId!', {
-                                rideId: rideId,
-                                customer: ride.customerName,
-                                source: ride.source
-                            });
-                        }
-                        
-                        continue; // Überspringen!
-                    }
-                    
-                    // 🆕 v5.90.36: KRANKENFAHRT-SCHUTZ! 🏥
-                    const isKrankenfahrt = 
-                        ride.isKrankenfahrt === true ||
-                        ride.rideType === 'krankenfahrt' ||
-                        ride.paymentMethod === 'krankenkasse' ||
-                        (ride.notes && ride.notes.toLowerCase().includes('kranken')) ||
-                        (ride.customerName && ride.customerName.toLowerCase().includes('kranken'));
-                    
-                    if (isKrankenfahrt) {
-                        console.log('🏥 KRANKENFAHRT (Vorbestellt) GESCHÜTZT:', rideId);
-                        continue; // NICHT stornieren!
-                    }
-                    
-                    // 🆕 v5.90.37: ADMIN-FAHRT-SCHUTZ! 🛡️
-                    const isAdminRide = 
-                        ride.adminProtection === true ||
-                        ride.createdBy === 'admin' ||
-                        ride.bookingSource === 'admin-panel' ||
-                        ride.createdBy === 'quick-booking' ||
-                        ride.createdBy === 'quick-booking-phone' ||
-                        ride.assignedBy === 'admin';
-                    
-                    if (isAdminRide) {
-                        console.log('🛡️ ADMIN-FAHRT (Vorbestellt) GESCHÜTZT:', rideId);
-                        continue; // NICHT stornieren!
-                    }
-                    
-                    const pickupTime = ride.pickupTimestamp || 0;
-                    const timeSincePickup = now - pickupTime;
-                    
-                    // 🛡️ v5.86.0: NUR wenn Abholzeit in VERGANGENHEIT + 2h!
-                    // Wenn in Zukunft → NICHT stornieren!
-                    if (pickupTime > now) {
-                        console.log('🛡️ Zukünftige Vorbestellung geschützt:', rideId);
-                        continue; // Überspringen!
-                    }
-                    
-                    // Wenn Abholzeit mehr als 2 Stunden vorbei ist
-                    if (pickupTime > 0 && timeSincePickup > 2 * 60 * 60 * 1000) {
-                        console.log(`🧹 Cleanup: Verpasste Vorbestellung ${rideId} - Abholzeit war vor ${Math.round(timeSincePickup/3600000)}h`);
-                        console.log('📊 Vorbestellung-Details:', {
-                            customer: ride.customerName,
-                            pickup: ride.pickup,
-                            destination: ride.destination,
-                            pickupTime: new Date(pickupTime).toLocaleString('de-DE'),
-                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
-                            source: ride.source || 'KEINE'
-                        });
-                        
-                        await db.ref('rides/' + rideId).update({
-                            status: 'cancelled',
-                            cancelledReason: 'Auto-Storno: Abholzeit verpasst',
-                            cancelledAt: now,
-                            autoCleanup: true
-                        });
-                        
-                        console.log(`🗑️ Verpasste Vorbestellung ${rideId} automatisch storniert`);
-                    }
-                }
-                
-                // 4. Cleanup für alte 'accepted' Fahrten (älter als 24h)
-                const acceptedSnapshot = await db.ref('rides').orderByChild('status').equalTo('accepted').once('value');
-                const acceptedRides = acceptedSnapshot.val() || {};
-                
-                for (const rideId in acceptedRides) {
-                    const ride = acceptedRides[rideId];
-                    
-                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
-                    const isHotelRide = ride.hotelCalendarId || 
-                                       ride.source === 'hotel_calendar_cloud_sync' || 
-                                       ride.source === 'csv-import' ||
-                                       ride.hotelName ||
-                                       ride.guestName ||
-                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
-                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
-                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
-                    
-                    if (isHotelRide) {
-                        console.log('🛡️ Hotel-Fahrt (accepted) geschützt:', rideId);
-                        
-                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
-                        if (!ride.hotelCalendarId) {
-                            console.warn('⚠️ WARNUNG: Hotel-Fahrt (accepted) OHNE hotelCalendarId!', {
-                                rideId: rideId,
-                                customer: ride.customerName
-                            });
-                        }
-                        
-                        continue;
-                    }
-                    
-                    // 🆕 v5.90.36: KRANKENFAHRT-SCHUTZ! 🏥
-                    const isKrankenfahrt = 
-                        ride.isKrankenfahrt === true ||
-                        ride.rideType === 'krankenfahrt' ||
-                        ride.paymentMethod === 'krankenkasse' ||
-                        (ride.notes && ride.notes.toLowerCase().includes('kranken')) ||
-                        (ride.customerName && ride.customerName.toLowerCase().includes('kranken'));
-                    
-                    if (isKrankenfahrt) {
-                        console.log('🏥 KRANKENFAHRT (Akzeptiert) GESCHÜTZT:', rideId);
-                        continue; // NICHT stornieren!
-                    }
-                    
-                    // 🆕 v5.90.37: ADMIN-FAHRT-SCHUTZ! 🛡️
-                    const isAdminRide = 
-                        ride.adminProtection === true ||
-                        ride.createdBy === 'admin' ||
-                        ride.bookingSource === 'admin-panel' ||
-                        ride.createdBy === 'quick-booking' ||
-                        ride.createdBy === 'quick-booking-phone' ||
-                        ride.assignedBy === 'admin';
-                    
-                    if (isAdminRide) {
-                        console.log('🛡️ ADMIN-FAHRT (Akzeptiert) GESCHÜTZT:', rideId);
-                        continue; // NICHT stornieren!
-                    }
-                    
-                    // 🆕 v5.86.34: WICHTIG! Auch accepted Fahrten mit Zukunfts-Abholzeit schützen!
-                    const pickupTime = ride.pickupTimestamp || 0;
-                    if (pickupTime > now) {
-                        console.log(`🛡️ Zukünftige accepted Fahrt geschützt: ${rideId} - Abholung in ${Math.round((pickupTime - now)/3600000)}h`);
-                        continue; // Überspringen!
-                    }
-                    
-                    const acceptedAt = ride.acceptedAt || ride.createdAt || 0;
-                    const age = now - acceptedAt;
-                    
-                    if (age > MAX_NEW_AGE) { // 24h
-                        console.log(`✅ Auto-Abschluss: Alte accepted Fahrt ${rideId} - ${Math.round(age/3600000)}h alt`);
-                        console.log('📊 Accepted-Details:', {
-                            customer: ride.customerName,
-                            pickup: ride.pickup,
-                            destination: ride.destination,
-                            acceptedAt: new Date(acceptedAt).toLocaleString('de-DE'),
-                            price: ride.price || ride.calculatedPrice || 0,
-                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
-                            source: ride.source || 'KEINE'
-                        });
-                        
-                        // 🆕 v5.90.42: AUTO-ABSCHLUSS statt Storno!
-                        await db.ref('rides/' + rideId).update({
-                            status: 'completed',
-                            completedAt: now,
-                            completedBy: 'system-auto-24h',
-                            completedReason: 'Auto-Abschluss: Fahrt älter als 24h',
-                            autoCompleted: true,
-                            price: ride.price || ride.calculatedPrice || 0
-                        });
-                        
-                        console.log(`✅ Alte accepted Fahrt ${rideId} automatisch ABGESCHLOSSEN (nicht storniert!)`);
-                        
-                        logActivity('system', 'auto_complete', `Accepted Fahrt auto-abgeschlossen: ${ride.customerName || 'Kunde'}`, {
-                            rideId: rideId,
-                            age: Math.round(age/3600000) + 'h',
-                            price: ride.price || ride.calculatedPrice || 0
-                        });
-                    }
-                }
-                
-                // 5. Cleanup für alte 'picked_up' Fahrten (älter als 24h)
-                const pickedUpSnapshot = await db.ref('rides').orderByChild('status').equalTo('picked_up').once('value');
-                const pickedUpRides = pickedUpSnapshot.val() || {};
-                
-                for (const rideId in pickedUpRides) {
-                    const ride = pickedUpRides[rideId];
-                    
-                    // 🆕 v5.87.59: VERSTÄRKTER SCHUTZ für Hotel-Fahrten!
-                    const isHotelRide = ride.hotelCalendarId || 
-                                       ride.source === 'hotel_calendar_cloud_sync' || 
-                                       ride.source === 'csv-import' ||
-                                       ride.hotelName ||
-                                       ride.guestName ||
-                                       (ride.customerName && ride.customerName.includes('Hotel')) ||
-                                       (ride.pickup && ride.pickup.toLowerCase().includes('hotel')) ||
-                                       (ride.destination && ride.destination.toLowerCase().includes('hotel'));
-                    
-                    if (isHotelRide) {
-                        console.log('🛡️ Hotel-Fahrt (picked_up) geschützt:', rideId);
-                        
-                        // 🚨 v5.87.59: WARNUNG wenn hotelCalendarId fehlt!
-                        if (!ride.hotelCalendarId) {
-                            console.warn('⚠️ WARNUNG: Hotel-Fahrt (picked_up) OHNE hotelCalendarId!', {
-                                rideId: rideId,
-                                customer: ride.customerName
-                            });
-                        }
-                        
-                        continue;
-                    }
-                    
-                    // 🆕 v5.86.34: WICHTIG! Auch picked_up mit Zukunfts-Abholzeit schützen (selten, aber möglich)
-                    const pickupTime = ride.pickupTimestamp || 0;
-                    if (pickupTime > now) {
-                        console.log(`🛡️ Zukünftige picked_up Fahrt geschützt: ${rideId} - Abholung in ${Math.round((pickupTime - now)/3600000)}h`);
-                        continue; // Überspringen!
-                    }
-                    
-                    const pickedUpAt = ride.pickedUpAt || ride.acceptedAt || ride.createdAt || 0;
-                    const age = now - pickedUpAt;
-                    
-                    if (age > MAX_NEW_AGE) { // 24h
-                        console.log(`🧹 Cleanup: Alte picked_up Fahrt ${rideId} - ${Math.round(age/3600000)}h alt`);
-                        console.log('📊 Picked_up-Details:', {
-                            customer: ride.customerName,
-                            pickup: ride.pickup,
-                            destination: ride.destination,
-                            pickedUpAt: new Date(pickedUpAt).toLocaleString('de-DE'),
-                            hotelCalendarId: ride.hotelCalendarId || 'KEINE',
-                            source: ride.source || 'KEINE'
-                        });
-                        
-                        await db.ref('rides/' + rideId).update({
-                            status: 'completed',
-                            completedAt: now,
-                            completedReason: 'Auto-Abschluss: Fahrt älter als 24h',
-                            autoCleanup: true
-                        });
-                        
-                        console.log(`✅ Alte picked_up Fahrt ${rideId} automatisch abgeschlossen`);
-                    }
-                }
-                
-                console.log('✅ Cleanup abgeschlossen');
+                console.log('✅ Cleanup abgeschlossen (nur assigned Timeout aktiv)');
+                console.log('🛡️ 24h Auto-Cleanup ist DEAKTIVIERT - keine automatischen Löschungen!');
                 
             } catch (error) {
                 console.error('❌ Cleanup-Fehler:', error);
@@ -18712,61 +18545,62 @@
             const isConfirmed = field === 'pickup' ? pickupConfirmed : destinationConfirmed;
             
             if (isConfirmed) {
-                // ✅ BESTÄTIGT - Aber prüfen wir auch Slot-Verfügbarkeit?
-                hintDiv.style.display = 'none';  // Box weg!
-                
-                // 🆕 v5.90.118: SLOT-PRÜFUNG für pickup bei Vorbestellung!
-                if (field === 'pickup' && currentRideType === 'vorbestellen') {
-                    const dateVal = document.getElementById('custom-date')?.value;
-                    const hourVal = document.getElementById('custom-hour')?.value;
-                    const minuteVal = document.getElementById('custom-minute')?.value;
+                // 🆕 v5.90.118: Bei Vorbestellung + Abholort → Prüfe Slot-Verfügbarkeit!
+                if (currentRideType === 'vorbestellen' && field === 'pickup') {
+                    const dateInput = document.getElementById('custom-date');
+                    const hourSelect = document.getElementById('custom-hour');
+                    const minuteSelect = document.getElementById('custom-minute');
                     
-                    // Wenn Zeit gewählt wurde → Slot prüfen!
-                    if (dateVal && hourVal !== '' && minuteVal !== '' && pickupCoords && isFirebaseReady) {
+                    // Wenn Zeit gewählt wurde → Prüfe Slot
+                    if (dateInput && hourSelect && minuteSelect && dateInput.value) {
+                        const dateVal = dateInput.value;
+                        const hourVal = hourSelect.value;
+                        const minuteVal = minuteSelect.value;
+                        
+                        // Timestamp berechnen
+                        const dateParts = dateVal.split('-');
+                        const selectedDate = new Date(
+                            parseInt(dateParts[0]),
+                            parseInt(dateParts[1]) - 1,
+                            parseInt(dateParts[2]),
+                            parseInt(hourVal),
+                            parseInt(minuteVal),
+                            0, 0
+                        );
+                        const timestamp = selectedDate.getTime();
+                        
+                        // Slot prüfen
                         try {
-                            // Timestamp berechnen
-                            const dateParts = dateVal.split('-');
-                            const selectedDate = new Date(
-                                parseInt(dateParts[0]),
-                                parseInt(dateParts[1]) - 1,
-                                parseInt(dateParts[2]),
-                                parseInt(hourVal),
-                                parseInt(minuteVal),
-                                0, 0
-                            );
-                            const timestamp = selectedDate.getTime();
-                            
-                            // Slot-Verfügbarkeit prüfen
                             const availability = await checkTimeSlotAvailability(timestamp, pickupCoords);
                             
+                            hintDiv.style.display = 'none';  // Box weg!
                             if (hintIcon) {
                                 hintIcon.style.display = 'inline-block';
                                 if (availability.available) {
-                                    // ✅ GRÜN: Adresse OK + Slot verfügbar
+                                    // ✅ GRÜN: Adresse OK + Slot frei!
                                     hintIcon.innerHTML = '✅';
-                                    hintIcon.title = 'Adresse bestätigt und Zeitslot verfügbar';
-                                    hintIcon.style.color = '#10b981';
+                                    hintIcon.title = 'Adresse bestätigt - Slot verfügbar';
                                 } else {
-                                    // ⚠️ GELB: Adresse OK, aber Slot belegt
+                                    // ⚠️ ORANGE: Adresse OK, aber Slot belegt!
                                     hintIcon.innerHTML = '⚠️';
-                                    hintIcon.title = 'Adresse bestätigt, aber gewählte Zeit bereits belegt';
+                                    hintIcon.title = 'Adresse bestätigt - Slot belegt!';
                                     hintIcon.style.color = '#f59e0b';
                                 }
                             }
                             return;
                         } catch (error) {
-                            console.error('❌ Fehler bei Slot-Prüfung:', error);
-                            // Bei Fehler: Nur Adresse anzeigen
+                            console.error('❌ Slot-Prüfung fehlgeschlagen:', error);
+                            // Bei Fehler: Zeige einfaches Grün
                         }
                     }
                 }
                 
-                // Standard: Nur Adresse bestätigt (wenn keine Slot-Prüfung oder bei destination)
+                // ✅ BESTÄTIGT - NUR KLEINES ICON! (v5.90.73)
+                hintDiv.style.display = 'none';  // Box weg!
                 if (hintIcon) {
                     hintIcon.style.display = 'inline-block';
                     hintIcon.innerHTML = '✅';
                     hintIcon.title = 'Adresse bestätigt';
-                    hintIcon.style.color = '#10b981';
                 }
             } else {
                 // ⚠️ NICHT BESTÄTIGT - Roter Hinweis (bleibt Box!)
@@ -19322,6 +19156,34 @@
                             hour: '2-digit',
                             minute: '2-digit'
                         });
+                        
+                        // 🆕 v5.90.119: Prüfe ob Fehler (fehlender Zielort)
+                        if (alternatives.length > 0 && alternatives[0].error && alternatives[0].message === 'missing_destination') {
+                            // FEHLER: Zielort fehlt!
+                            const conflictTime = alternatives[0].rideTime;
+                            liveDisplay.innerHTML = `
+                                <div style="color:#ef4444;font-weight:bold;margin-bottom:10px;">
+                                    ⚠️ ${chosenTime} Uhr ist bereits belegt!
+                                </div>
+                                <div style="color:#ef4444;font-size:13px;margin-bottom:8px;border-left:3px solid #ef4444;padding-left:10px;">
+                                    🚨 <strong>PROBLEM:</strong> Die Fahrt um ${conflictTime} Uhr hat <strong>keinen Zielort</strong>!<br>
+                                    <br>
+                                    <strong>Folge:</strong> Alternative Zeiten können nicht berechnet werden.<br>
+                                    <br>
+                                    <strong>Lösung:</strong><br>
+                                    1. Öffne die Fahrt um ${conflictTime} im Kalender<br>
+                                    2. Trage den Zielort nach<br>
+                                    3. Versuche es erneut
+                                </div>
+                                <div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">
+                                    💡 <strong>Tipp:</strong> Ohne Zielort kann das System die Rückfahrzeit nicht berechnen.
+                                </div>
+                            `;
+                            liveDisplay.style.background = '#fee2e2';
+                            liveDisplay.style.border = '2px solid #ef4444';
+                            liveDisplay.style.display = 'block';
+                            return;
+                        }
                         
                         // Erstelle HTML mit Alternativen
                         let html = `<div style="color:#f59e0b;font-weight:bold;margin-bottom:10px;">
@@ -19946,6 +19808,174 @@
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
+        }
+
+        // 🆕 v5.90.122: LADE VERFÜGBARE ZEITSLOTS (5-MIN-SCHRITTE, NUR FREIE!)
+        async function loadAvailableTimeSlots() {
+            console.log('🕐 Lade verfügbare Zeitslots...');
+            
+            const dateInput = document.getElementById('custom-date');
+            const timeDropdown = document.getElementById('custom-time-dropdown');
+            
+            if (!dateInput.value) {
+                console.log('⚠️ Kein Datum gewählt');
+                return;
+            }
+            
+            const selectedDate = dateInput.value;
+            console.log('📅 Gewähltes Datum:', selectedDate);
+            
+            // Hole alle Fahrten für dieses Datum
+            const rides = JSON.parse(localStorage.getItem('taxiRides') || '[]');
+            const vehicles = JSON.parse(localStorage.getItem('taxiVehicles') || '[]');
+            const activeVehicleCount = vehicles.filter(v => v.active).length;
+            
+            console.log('🚗 Aktive Fahrzeuge:', activeVehicleCount);
+            
+            // Generiere Zeitfenster
+            const now = new Date();
+            const startTime = new Date(now.getTime() + 15 * 60000); // +15 Min (5 frühe Slots)
+            const endTime = new Date(now.getTime() + 120 * 60000); // +120 Min (2 Stunden)
+            
+            console.log('⏰ Zeitfenster:', {
+                start: startTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}),
+                end: endTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})
+            });
+            
+            // Generiere alle 5-Minuten-Slots
+            const slots = [];
+            const currentSlot = new Date(startTime);
+            currentSlot.setMinutes(Math.floor(currentSlot.getMinutes() / 5) * 5); // Runde auf 5-Min
+            currentSlot.setSeconds(0);
+            currentSlot.setMilliseconds(0);
+            
+            while (currentSlot <= endTime) {
+                const hour = currentSlot.getHours();
+                const minute = currentSlot.getMinutes();
+                const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                
+                // Prüfe ob Slot frei ist
+                const slotDateTime = new Date(selectedDate + 'T' + timeStr);
+                const isFree = isTimeSlotAvailable(slotDateTime, rides, activeVehicleCount);
+                
+                if (isFree) {
+                    slots.push({
+                        time: timeStr,
+                        hour: hour,
+                        minute: minute
+                    });
+                }
+                
+                // Nächster 5-Min-Slot
+                currentSlot.setMinutes(currentSlot.getMinutes() + 5);
+            }
+            
+            console.log('✅ Freie Slots gefunden:', slots.length);
+            
+            // Dropdown füllen
+            timeDropdown.innerHTML = '';
+            
+            if (slots.length === 0) {
+                timeDropdown.innerHTML = '<option value="">❌ Keine freien Zeiten verfügbar</option>';
+                timeDropdown.style.borderColor = '#ef4444';
+                return;
+            }
+            
+            // Erste Option
+            const firstOption = document.createElement('option');
+            firstOption.value = '';
+            firstOption.textContent = `📋 ${slots.length} freie Zeiten verfügbar`;
+            timeDropdown.appendChild(firstOption);
+            
+            // Alle freien Slots
+            slots.forEach((slot, index) => {
+                const option = document.createElement('option');
+                option.value = slot.time;
+                option.textContent = slot.time;
+                option.dataset.hour = slot.hour;
+                option.dataset.minute = slot.minute;
+                
+                // Markiere erste richtige Option
+                if (index === 0) {
+                    option.textContent = `${slot.time} ⭐`;
+                }
+                
+                timeDropdown.appendChild(option);
+            });
+            
+            timeDropdown.style.borderColor = '#10b981';
+            
+            // Event Listener für Auswahl
+            timeDropdown.onchange = function() {
+                const selected = timeDropdown.options[timeDropdown.selectedIndex];
+                if (selected.value) {
+                    document.getElementById('custom-hour').value = selected.dataset.hour;
+                    document.getElementById('custom-minute').value = selected.dataset.minute;
+                    console.log('✅ Zeit gewählt:', selected.value);
+                    
+                    // Zeige Bestätigung
+                    const icon = document.getElementById('slot-confirmation-icon');
+                    icon.style.display = 'inline';
+                    icon.textContent = '✅';
+                }
+            };
+        }
+        
+        // 🆕 v5.90.122: PRÜFE OB ZEITSLOT VERFÜGBAR IST
+        function isTimeSlotAvailable(slotDateTime, rides, activeVehicleCount) {
+            // Zähle wie viele Fahrten zu dieser Zeit laufen
+            let bookedCount = 0;
+            
+            rides.forEach(ride => {
+                if (ride.status === 'cancelled') return;
+                
+                const rideTime = new Date(ride.pickupTime);
+                const rideEndTime = new Date(rideTime.getTime() + 30 * 60000); // +30 Min Puffer
+                
+                // Prüfe ob Slot innerhalb der Fahrtzeit liegt
+                if (slotDateTime >= rideTime && slotDateTime <= rideEndTime) {
+                    bookedCount++;
+                }
+            });
+            
+            // Slot ist frei wenn weniger Fahrten als Fahrzeuge
+            return bookedCount < activeVehicleCount;
+        }
+
+        // 🆕 v5.90.121: ZIFFERNBLOCK FÜR TAXI BUCHEN TAB (DEAKTIVIERT in v5.90.122!)
+        function openTimeKeypad() {
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
+            const btnDisplay = document.getElementById('time-keypad-btn');
+            
+            // Aktuelle Zeit holen
+            const currentTime = btnDisplay.textContent.trim();
+            
+            console.log('⌨️ Öffne Ziffernblock mit:', currentTime);
+            
+            // Ziffernblock öffnen
+            showTimeKeypad(currentTime, (newTime) => {
+                console.log('✅ Neue Zeit gewählt:', newTime);
+                
+                // Parse Zeit
+                const parts = newTime.split(':');
+                const hour = parts[0];
+                const minute = parts[1];
+                
+                // Update Hidden Inputs
+                hourInput.value = hour;
+                minuteInput.value = minute;
+                
+                // Update Button Display
+                btnDisplay.textContent = newTime;
+                
+                // 🆕 v5.90.121: Trigger Slot-Check!
+                // Simuliere Change Event auf Hour Input
+                const event = new Event('change', { bubbles: true });
+                hourInput.dispatchEvent(event);
+                
+                console.log('📊 Hidden Inputs updated:', { hour, minute });
+            });
         }
 
         async function book() {
@@ -20913,6 +20943,24 @@
         // Berechnet alternative Zeiten
         async function calculateAlternativeTimes(conflictingRide, pickupCoords, requestedTimestamp) {
             console.log('💡 Berechne alternative Zeiten...');
+            
+            // 🆕 v5.90.119: Prüfe ob Zielort vorhanden!
+            if (!conflictingRide.destCoords) {
+                console.warn('⚠️ WARNUNG: Zielort der blockierenden Fahrt fehlt!');
+                console.warn('   Fahrt-ID:', conflictingRide.firebaseId || conflictingRide.id);
+                console.warn('   Start:', new Date(conflictingRide.pickupTimestamp).toLocaleString('de-DE'));
+                
+                // Gebe Warnung zurück statt falsche Zeiten
+                return [{
+                    error: true,
+                    message: 'missing_destination',
+                    rideId: conflictingRide.firebaseId || conflictingRide.id,
+                    rideTime: new Date(conflictingRide.pickupTimestamp).toLocaleString('de-DE', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                }];
+            }
             
             try {
                 // 1. Berechne Dauer der konfliktierenden Fahrt

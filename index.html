@@ -1129,6 +1129,21 @@
             ">
                 ⚡ Schnellbuchung
             </button>
+            <!-- 🆕 v5.90.124: VCF KONTAKT-EXPORT BUTTON -->
+            <button onclick="openVCFExportModal()" class="admin-tab-btn admin-only tab-toggleable" data-tab-id="vcf-export" style="
+                padding: 10px 16px;
+                border: 2px solid #f59e0b;
+                background: white;
+                color: #f59e0b;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                📱 Kontakt-Export
+            </button>
             <button onclick="switchView('driver')" class="admin-tab-btn driver-visible tab-toggleable" data-view="driver" data-tab-id="driver" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
@@ -4327,19 +4342,6 @@
             
             <div style="margin-bottom:15px;">
                 <input type="text" id="customer-search" placeholder="🔍 Kunde suchen (Name, Email, Telefon)..." oninput="searchCustomers()" onpaste="setTimeout(searchCustomers, 100)" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
-            </div>
-            
-            <!-- 🆕 KONTAKTE EXPORTIEREN - KOMPAKTE ANSICHT -->
-            <div style="margin-bottom:15px;padding:15px;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);border-radius:8px;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                    <span style="font-weight:700;font-size:16px;color:white;">📱 Kontakte exportieren</span>
-                    <button onclick="toggleExportList()" id="toggle-export-btn" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;backdrop-filter:blur(10px);">
-                        Anzeigen ▼
-                    </button>
-                </div>
-                <div id="export-customers-list" style="display:none;background:white;border-radius:8px;padding:10px;max-height:300px;overflow-y:auto;">
-                    <div style="color:#666;text-align:center;padding:20px;">Lade Kunden...</div>
-                </div>
             </div>
             
             <div id="customers-list" style="max-height:400px;overflow-y:auto;"></div>
@@ -37385,32 +37387,75 @@
             }
         }
         
-        // 📱 VCF EXPORT FUNKTIONEN - v5.90.124
+        // 📱 VCF EXPORT MODAL - v5.90.124 NEU!
         
-        // Toggle Export-Liste anzeigen/verstecken
-        function toggleExportList() {
-            const list = document.getElementById('export-customers-list');
-            const btn = document.getElementById('toggle-export-btn');
-            
-            if (list.style.display === 'none') {
-                list.style.display = 'block';
-                btn.innerHTML = 'Verstecken ▲';
-                loadCustomersForExport();
-            } else {
-                list.style.display = 'none';
-                btn.innerHTML = 'Anzeigen ▼';
-            }
-        }
+        // Globale Variable für ausgewählte Kunden
+        let selectedCustomersForExport = new Set();
         
-        // Lade Kunden für Export-Liste
-        async function loadCustomersForExport() {
-            const container = document.getElementById('export-customers-list');
-            container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">⏳ Lade Kunden...</div>';
-            
+        // Öffne VCF Export Modal
+        async function openVCFExportModal() {
             if (!isFirebaseReady) {
-                container.innerHTML = '<div style="color:red;padding:20px;text-align:center;">❌ Firebase nicht verbunden</div>';
+                alert('❌ Firebase nicht verbunden!');
                 return;
             }
+            
+            // Reset Selection
+            selectedCustomersForExport.clear();
+            
+            // Modal erstellen
+            const modal = document.createElement('div');
+            modal.id = 'vcf-export-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;width:100%;max-width:500px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="padding:20px;border-bottom:2px solid #e5e7eb;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);">
+                        <h2 style="margin:0;color:white;font-size:20px;display:flex;align-items:center;gap:10px;">
+                            <span>📱</span>
+                            <span>Kontakte exportieren</span>
+                        </h2>
+                        <p style="margin:8px 0 0 0;color:rgba(255,255,255,0.9);font-size:13px;">
+                            Wähle Kunden aus, um sie als VCF zu exportieren
+                        </p>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="flex:1;overflow-y:auto;padding:15px;" id="vcf-export-list">
+                        <div style="text-align:center;color:#666;padding:40px 20px;">
+                            <div style="font-size:48px;margin-bottom:15px;">⏳</div>
+                            <div style="font-size:16px;font-weight:600;">Lade Kunden...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="padding:15px;border-top:2px solid #e5e7eb;background:#f9fafb;display:flex;gap:10px;border-radius:0 0 16px 16px;">
+                        <button onclick="closeVCFExportModal()" style="flex:1;padding:14px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                        <button onclick="exportSelectedCustomers()" id="export-vcf-btn" style="flex:1;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                            Exportieren (0)
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Lade Kunden
+            loadCustomersForVCFExport();
+        }
+        
+        // Close Modal
+        function closeVCFExportModal() {
+            const modal = document.getElementById('vcf-export-modal');
+            if (modal) modal.remove();
+            selectedCustomersForExport.clear();
+        }
+        
+        // Lade Kunden für Export
+        async function loadCustomersForVCFExport() {
+            const container = document.getElementById('vcf-export-list');
             
             try {
                 const snapshot = await db.ref('customers').once('value');
@@ -37422,7 +37467,7 @@
                     customers.push(customer);
                 });
                 
-                // Sortiere nach Name
+                // Sortiere alphabetisch
                 customers.sort((a, b) => {
                     const nameA = (a.name || '').toLowerCase();
                     const nameB = (b.name || '').toLowerCase();
@@ -37430,55 +37475,137 @@
                 });
                 
                 if (customers.length === 0) {
-                    container.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Keine Kunden vorhanden</div>';
+                    container.innerHTML = `
+                        <div style="text-align:center;color:#666;padding:40px 20px;">
+                            <div style="font-size:48px;margin-bottom:15px;">📭</div>
+                            <div style="font-size:16px;font-weight:600;">Keine Kunden vorhanden</div>
+                        </div>
+                    `;
                     return;
                 }
                 
-                // Kompakte Liste mit nur Namen
+                // Render Kunden-Liste mit Checkboxen
                 container.innerHTML = `
-                    <div style="margin-bottom:10px;padding:10px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">
-                        💡 <strong>Tipp:</strong> Klicke auf einen Namen, um den Kontakt als .vcf zu exportieren
+                    <div style="margin-bottom:15px;padding:12px;background:#fef3c7;border-radius:8px;border:2px solid #f59e0b;">
+                        <div style="font-size:14px;color:#92400e;font-weight:600;margin-bottom:5px;">
+                            💡 So funktioniert's:
+                        </div>
+                        <div style="font-size:12px;color:#92400e;line-height:1.5;">
+                            ✅ Kunden anklicken (Checkbox aktivieren)<br>
+                            📱 "Exportieren" klicken<br>
+                            💾 Jeder Kunde wird als eigene .vcf Datei gespeichert
+                        </div>
                     </div>
+                    
                     ${customers.map(c => `
-                        <div onclick="exportCustomerToVCF('${c.id}')" 
-                             style="padding:12px;margin-bottom:5px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;transition:all 0.2s;display:flex;justify-content:space-between;align-items:center;"
-                             onmouseover="this.style.background='#f0fdf4';this.style.borderColor='#10b981';"
-                             onmouseout="this.style.background='#f9fafb';this.style.borderColor='#e5e7eb';">
-                            <div style="display:flex;align-items:center;gap:10px;">
-                                <span style="font-size:20px;">👤</span>
-                                <span style="font-weight:600;color:#333;">${c.name || 'Unbekannt'}</span>
+                        <div onclick="toggleCustomerSelection('${c.id}')" id="vcf-customer-${c.id}" 
+                             style="padding:12px;margin-bottom:8px;background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:12px;"
+                             onmouseover="if(!this.classList.contains('selected')) { this.style.borderColor='#f59e0b'; this.style.background='#fffbeb'; }"
+                             onmouseout="if(!this.classList.contains('selected')) { this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb'; }">
+                            
+                            <input type="checkbox" id="vcf-checkbox-${c.id}" 
+                                   onclick="event.stopPropagation(); toggleCustomerSelection('${c.id}');"
+                                   style="width:20px;height:20px;cursor:pointer;flex-shrink:0;">
+                            
+                            <div style="flex:1;">
+                                <div style="font-weight:600;color:#1f2937;font-size:15px;">${c.name || 'Unbekannt'}</div>
+                                ${c.phone ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">📞 ${c.phone}</div>` : ''}
                             </div>
-                            <span style="font-size:20px;color:#10b981;">📱</span>
+                            
+                            <span style="font-size:20px;">👤</span>
                         </div>
                     `).join('')}
                 `;
                 
-                console.log(`📱 ${customers.length} Kunden für Export geladen`);
+                console.log(`📱 ${customers.length} Kunden geladen`);
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden:', error);
-                container.innerHTML = '<div style="color:red;padding:20px;text-align:center;">❌ Fehler beim Laden</div>';
+                container.innerHTML = `
+                    <div style="text-align:center;color:#ef4444;padding:40px 20px;">
+                        <div style="font-size:48px;margin-bottom:15px;">❌</div>
+                        <div style="font-size:16px;font-weight:600;">Fehler beim Laden</div>
+                    </div>
+                `;
             }
         }
         
-        // Exportiere einzelnen Kunden als VCF
-        function exportCustomerToVCF(customerId) {
-            // Finde Kunde in allCustomers (falls bereits geladen)
-            let customer = allCustomers.find(c => c.id === customerId);
+        // Toggle Kunden-Auswahl
+        function toggleCustomerSelection(customerId) {
+            const checkbox = document.getElementById(`vcf-checkbox-${customerId}`);
+            const customerDiv = document.getElementById(`vcf-customer-${customerId}`);
+            const exportBtn = document.getElementById('export-vcf-btn');
             
-            // Falls nicht in allCustomers, dann aus Firebase laden
-            if (!customer) {
-                db.ref('customers/' + customerId).once('value').then(snapshot => {
-                    customer = snapshot.val();
-                    if (customer) {
-                        customer.id = customerId;
-                        generateVCFDownload(customer);
-                    }
-                });
+            if (!checkbox || !customerDiv) return;
+            
+            // Toggle Checkbox
+            checkbox.checked = !checkbox.checked;
+            
+            // Update Selection Set
+            if (checkbox.checked) {
+                selectedCustomersForExport.add(customerId);
+                customerDiv.classList.add('selected');
+                customerDiv.style.borderColor = '#10b981';
+                customerDiv.style.background = '#f0fdf4';
+            } else {
+                selectedCustomersForExport.delete(customerId);
+                customerDiv.classList.remove('selected');
+                customerDiv.style.borderColor = '#e5e7eb';
+                customerDiv.style.background = '#f9fafb';
+            }
+            
+            // Update Export Button
+            const count = selectedCustomersForExport.size;
+            exportBtn.innerHTML = count > 0 ? `Exportieren (${count})` : 'Exportieren (0)';
+            exportBtn.style.opacity = count > 0 ? '1' : '0.5';
+            exportBtn.style.cursor = count > 0 ? 'pointer' : 'not-allowed';
+        }
+        
+        // Exportiere ausgewählte Kunden
+        async function exportSelectedCustomers() {
+            if (selectedCustomersForExport.size === 0) {
+                alert('⚠️ Bitte wähle mindestens einen Kunden aus!');
                 return;
             }
             
-            generateVCFDownload(customer);
+            const count = selectedCustomersForExport.size;
+            const exportBtn = document.getElementById('export-vcf-btn');
+            
+            // Button-Feedback
+            exportBtn.innerHTML = `⏳ Exportiere ${count} Kontakt${count > 1 ? 'e' : ''}...`;
+            exportBtn.disabled = true;
+            
+            try {
+                // Lade alle ausgewählten Kunden und exportiere sie
+                for (const customerId of selectedCustomersForExport) {
+                    const snapshot = await db.ref('customers/' + customerId).once('value');
+                    const customer = snapshot.val();
+                    
+                    if (customer) {
+                        customer.id = customerId;
+                        generateVCFDownload(customer);
+                        
+                        // Kurze Pause zwischen Downloads (damit Browser alle verarbeitet)
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                }
+                
+                // Success Toast
+                const toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:999999;font-weight:600;animation:slideIn 0.3s ease;';
+                toast.innerHTML = `✅ ${count} Kontakt${count > 1 ? 'e' : ''} exportiert!`;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+                
+                // Modal schließen
+                closeVCFExportModal();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Export:', error);
+                alert('❌ Fehler beim Export! Bitte erneut versuchen.');
+                exportBtn.innerHTML = `Exportieren (${count})`;
+                exportBtn.disabled = false;
+            }
         }
         
         // Generiere VCF-Datei und starte Download
@@ -37505,7 +37632,6 @@
             
             // Wohnadresse
             if (customer.address) {
-                // Format: ADR;TYPE=HOME:;;Straße;Stadt;Region;PLZ;Land
                 vcfContent += `ADR;TYPE=HOME:;;${customer.address};;;;\n`;
             }
             
@@ -37521,11 +37647,9 @@
             
             // Notizen
             if (customer.notes) {
-                const existingNote = customer.billingAddresses ? `NOTE:Rechnungsadr.: ... | ` : 'NOTE:';
                 if (!vcfContent.includes('NOTE:')) {
                     vcfContent += `NOTE:${customer.notes}\n`;
                 } else {
-                    // Notizen an bestehende NOTE anhängen
                     vcfContent = vcfContent.replace(/NOTE:(.+)\n/, `NOTE:$1 | ${customer.notes}\n`);
                 }
             }
@@ -37555,13 +37679,6 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
-            // Toast-Nachricht
-            const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
-            toast.innerHTML = `✅ ${customer.name || 'Kontakt'} exportiert!`;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2000);
             
             console.log(`📱 VCF exportiert: ${customer.name}`);
         }

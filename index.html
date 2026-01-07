@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.152 - E-MAIL IM MODAL! 📧 (Build 20260107-1440)');
-        console.log('✅ v5.90.152: BUG GEFIXT: customerEmail & customerId werden jetzt gespeichert!');
-        console.log('✅ v5.90.152: "📧 Per E-Mail" Button im Rechnungsmodal!');
-        console.log('✅ v5.90.152: Rechnung direkt aus Modal per E-Mail versenden!');
-        console.log('✅ v5.90.152: Bessere E-Mail-Prüfung mit Debug-Info!');
+        console.log('🚕 Funk Taxi App v5.90.153 - BESSERE SUCHE! 🔍 (Build 20260107-1450)');
+        console.log('✅ v5.90.153: CRM-Suche verbessert - TEILSTRING + CASE-INSENSITIVE!');
+        console.log('✅ v5.90.153: "gnies" findet jetzt "Gniesmer"!');
+        console.log('✅ v5.90.153: Suche funktioniert mit Namensteilen!');
+        console.log('✅ v5.90.153: Groß/Kleinschreibung egal!');
+        console.log('✅ v5.90.152: E-Mail im Modal!');
         console.log('✅ v5.90.151: Scheduled Bug Fix!');
-        console.log('✅ v5.90.150: AI Direkt-Buchung!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -975,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.152 - E-MAIL IM MODAL! 📧 (Build 20260107-1440)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.153 - BESSERE SUCHE! 🔍 (Build 20260107-1450)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -35122,21 +35122,59 @@
                 
                 console.log('🔍 Suche Kunde nach Name:', customerName);
                 
-                // Suche in Firebase
+                // 🆕 v5.90.153: BESSERE SUCHE - TEILSTRING + CASE-INSENSITIVE!
                 try {
-                    const snapshot = await db.ref('customers').orderByChild('name').equalTo(customerName).once('value');
+                    // Lade ALLE Kunden
+                    const snapshot = await db.ref('customers').once('value');
                     
                     if (!snapshot.exists()) {
-                        alert('❌ Kunde nicht gefunden!\n\nBitte erst im CRM (Admin-Bereich) anlegen.');
+                        alert('❌ Keine Kunden im CRM gefunden!');
                         return;
                     }
                     
-                    // Nimm den ersten Match
+                    // Filter in JavaScript - case-insensitive & Teilstring
+                    const searchLower = customerName.toLowerCase();
+                    const matches = [];
+                    
                     snapshot.forEach(child => {
-                        if (!customerId) {
-                            customerId = child.key;
+                        const customer = child.val();
+                        const nameLower = (customer.name || '').toLowerCase();
+                        
+                        // Prüfe ob Name den Suchbegriff enthält
+                        if (nameLower.includes(searchLower)) {
+                            matches.push({
+                                id: child.key,
+                                name: customer.name,
+                                phone: customer.phone
+                            });
                         }
                     });
+                    
+                    console.log(`🔍 ${matches.length} Treffer gefunden:`, matches);
+                    
+                    if (matches.length === 0) {
+                        alert(`❌ Kunde "${customerName}" nicht gefunden!\n\nBitte erst im CRM (Admin-Bereich) anlegen.`);
+                        return;
+                    }
+                    
+                    if (matches.length === 1) {
+                        // Genau 1 Treffer → direkt öffnen
+                        customerId = matches[0].id;
+                        console.log('✅ 1 Treffer gefunden:', matches[0].name);
+                    } else {
+                        // Mehrere Treffer → User fragen
+                        let message = `🔍 ${matches.length} Kunden gefunden:\n\n`;
+                        matches.forEach((m, i) => {
+                            message += `${i + 1}. ${m.name}`;
+                            if (m.phone) message += ` (${m.phone})`;
+                            message += '\n';
+                        });
+                        message += '\nÖffne ersten Kunden...';
+                        
+                        alert(message);
+                        customerId = matches[0].id;
+                        console.log('✅ Mehrere Treffer - nehme ersten:', matches[0].name);
+                    }
                     
                     console.log('✅ Kunde gefunden:', customerId);
                     
@@ -35178,21 +35216,40 @@
             
             console.log('🔍 Suche Kunde nach Name:', customerName);
             
+            // 🆕 v5.90.153: BESSERE SUCHE!
             try {
-                const snapshot = await db.ref('customers').orderByChild('name').equalTo(customerName).once('value');
+                // Lade ALLE Kunden
+                const snapshot = await db.ref('customers').once('value');
                 
                 if (!snapshot.exists()) {
-                    alert('❌ Kunde "' + customerName + '" nicht im CRM gefunden!\n\nBitte erst im Admin-Bereich anlegen.');
+                    alert('❌ Keine Kunden im CRM!');
                     return;
                 }
                 
-                // Nimm den ersten Match
-                let foundId = null;
+                // Filter - case-insensitive & Teilstring
+                const searchLower = customerName.toLowerCase();
+                const matches = [];
+                
                 snapshot.forEach(child => {
-                    if (!foundId) {
-                        foundId = child.key;
+                    const customer = child.val();
+                    const nameLower = (customer.name || '').toLowerCase();
+                    
+                    if (nameLower.includes(searchLower)) {
+                        matches.push({
+                            id: child.key,
+                            name: customer.name,
+                            phone: customer.phone
+                        });
                     }
                 });
+                
+                if (matches.length === 0) {
+                    alert(`❌ Kunde "${customerName}" nicht im CRM gefunden!\n\nBitte erst im Admin-Bereich anlegen.`);
+                    return;
+                }
+                
+                const foundId = matches[0].id;
+                console.log(`✅ ${matches.length} Treffer - nehme ersten:`, matches[0].name);
                 
                 if (foundId) {
                     console.log('✅ Kunde gefunden:', foundId);
@@ -35229,21 +35286,40 @@
             
             console.log('🔍 Suche Kunde nach Name:', customerName);
             
+            // 🆕 v5.90.153: BESSERE SUCHE!
             try {
-                const snapshot = await db.ref('customers').orderByChild('name').equalTo(customerName).once('value');
+                // Lade ALLE Kunden
+                const snapshot = await db.ref('customers').once('value');
                 
                 if (!snapshot.exists()) {
-                    alert('❌ Kunde "' + customerName + '" nicht im CRM gefunden!\n\nBitte erst im Admin-Bereich anlegen.');
+                    alert('❌ Keine Kunden im CRM!');
                     return;
                 }
                 
-                // Nimm den ersten Match
-                let foundId = null;
+                // Filter - case-insensitive & Teilstring
+                const searchLower = customerName.toLowerCase();
+                const matches = [];
+                
                 snapshot.forEach(child => {
-                    if (!foundId) {
-                        foundId = child.key;
+                    const customer = child.val();
+                    const nameLower = (customer.name || '').toLowerCase();
+                    
+                    if (nameLower.includes(searchLower)) {
+                        matches.push({
+                            id: child.key,
+                            name: customer.name,
+                            phone: customer.phone
+                        });
                     }
                 });
+                
+                if (matches.length === 0) {
+                    alert(`❌ Kunde "${customerName}" nicht im CRM gefunden!\n\nBitte erst im Admin-Bereich anlegen.`);
+                    return;
+                }
+                
+                const foundId = matches[0].id;
+                console.log(`✅ ${matches.length} Treffer - nehme ersten:`, matches[0].name);
                 
                 if (foundId) {
                     console.log('✅ Kunde gefunden:', foundId);

@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.171 - MANUELLE RECHNUNG! 📄💰 (Build 20260107-2200)');
-        console.log('🆕 v5.90.171: MANUELLE RECHNUNG FÜR KUNDEN ERSTELLEN!');
-        console.log('✅ v5.90.171: Button in CRM-Suche "Rechnung erstellen"');
-        console.log('✅ v5.90.171: Datum RÜCKWIRKEND wählbar (auch Vergangenheit!)');
-        console.log('✅ v5.90.171: Auto-Preis-Berechnung oder manuell');
-        console.log('✅ v5.90.171: Speichert in Firebase als completed Fahrt');
-        console.log('✅ v5.90.171: PDF-Rechnung direkt erstellen möglich');
+        console.log('🚕 Funk Taxi App v5.90.172 - LÄNDERVORWAHL! 📞🌍 (Build 20260107-2210)');
+        console.log('🆕 v5.90.172: AUTOMATISCHE LÄNDERVORWAHL +49!');
+        console.log('✅ v5.90.172: Telefon-Feld fügt +49 automatisch hinzu');
+        console.log('✅ v5.90.172: 0170... wird zu +49170...');
+        console.log('✅ v5.90.172: Funktioniert beim Verlassen des Feldes (onblur)');
+        console.log('📄 v5.90.171: Manuelle Rechnung für Vergangenheit');
+        console.log('💰 v5.90.171: Auto-Preis-Berechnung');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -32202,7 +32202,12 @@
                     
                     <div style="margin-bottom:12px;">
                         <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Telefon: <span style="color:#ef4444;">*</span></label>
-                        <input type="tel" id="new-qb-customer-phone" value="${prefillPhone}" placeholder="z.B. 0170 1234567" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <input type="tel" id="new-qb-customer-phone" value="${prefillPhone}" placeholder="z.B. 0170 1234567" 
+                               onblur="addCountryCode(this)" 
+                               style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                            💡 Tipp: +49 wird automatisch hinzugefügt
+                        </div>
                     </div>
                     
                     <div style="margin-bottom:12px;">
@@ -32643,6 +32648,40 @@
                 const day = String(date.getDate()).padStart(2, '0');
                 const displayText = `${weekdays[date.getDay()]}, ${day}. ${months[date.getMonth()]} ${date.getFullYear()}`;
                 displayButton.textContent = displayText;
+            }
+        }
+        
+        // 🆕 v5.90.172: LÄNDERVORWAHL AUTOMATISCH HINZUFÜGEN
+        function addCountryCode(input) {
+            if (!input || !input.value) return;
+            
+            let phone = input.value.trim();
+            
+            // Bereits +49 oder + vorhanden? Dann nichts machen
+            if (phone.startsWith('+')) {
+                return;
+            }
+            
+            // Entferne Leerzeichen und Bindestriche für Check
+            const cleanPhone = phone.replace(/[\s\-]/g, '');
+            
+            // Beginnt mit 0? Dann ersetze durch +49
+            if (cleanPhone.startsWith('0')) {
+                phone = '+49' + cleanPhone.substring(1);
+                input.value = phone;
+                console.log('✅ +49 hinzugefügt:', phone);
+            }
+            // Beginnt mit 49? Dann füge + hinzu
+            else if (cleanPhone.startsWith('49')) {
+                phone = '+' + cleanPhone;
+                input.value = phone;
+                console.log('✅ + hinzugefügt:', phone);
+            }
+            // Beginnt mit Ziffer (aber nicht 0 oder 49)? Dann füge +49 hinzu
+            else if (/^\d/.test(cleanPhone)) {
+                phone = '+49' + cleanPhone;
+                input.value = phone;
+                console.log('✅ +49 vorangestellt:', phone);
             }
         }
         

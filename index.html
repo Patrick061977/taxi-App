@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.156 - RECHNUNG-MODAL FIX! 📄 (Build 20260107-1545)');
-        console.log('✅ v5.90.156: "Neue Rechnung (leer)" Modal funktioniert jetzt!');
-        console.log('✅ v5.90.156: Robuste Element-Prüfung - kein Crash mehr!');
-        console.log('✅ v5.90.156: Rechnungen für vergangene Fahrten erstellen!');
+        console.log('🚕 Funk Taxi App v5.90.157 - KALENDER VERGANGENHEIT! 📅 (Build 20260107-1555)');
+        console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
+        console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
+        console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
+        console.log('✅ v5.90.156: Rechnung-Modal Fix!');
         console.log('✅ v5.90.155: POI-Namen im Kalender!');
         console.log('✅ v5.90.154: Vergangenheit für Admins!');
-        console.log('✅ v5.90.153: Bessere CRM-Suche!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -975,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.156 - RECHNUNG-MODAL FIX! 📄 (Build 20260107-1545)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.157 - KALENDER VERGANGENHEIT! 📅 (Build 20260107-1555)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -32234,15 +32234,23 @@
                 dayCell.textContent = day;
                 dayCell.style.cssText = 'text-align:center;padding:12px 8px;cursor:pointer;border-radius:8px;font-size:15px;transition:all 0.2s;font-weight:500;';
                 
+                // 🆕 v5.90.157: Admin-Check
+                const isAdmin = currentUser && (currentUser.email === 'patrick061977@gmail.com' || currentUser.email === 'admin@taxi-heringsdorf.de');
+                
                 // Styling
                 const isToday = date.getTime() === today.getTime();
                 const isSelected = selectedDate && date.getTime() === selectedDate.getTime();
                 const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                 const isPast = date < today;
                 
-                if (isPast) {
+                // 🆕 v5.90.157: Vergangene Tage nur für Nicht-Admins deaktivieren
+                if (isPast && !isAdmin) {
                     dayCell.style.color = '#d1d5db';
                     dayCell.style.cursor = 'not-allowed';
+                } else if (isPast && isAdmin) {
+                    // Admin sieht vergangene Tage anders (aber klickbar!)
+                    dayCell.style.color = '#9ca3af';
+                    dayCell.style.fontStyle = 'italic';
                 } else if (isSelected) {
                     dayCell.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
                     dayCell.style.color = 'white';
@@ -32258,8 +32266,8 @@
                     dayCell.style.color = '#374151';
                 }
                 
-                // Hover Effekt (nur für zukünftige Tage)
-                if (!isPast) {
+                // 🆕 v5.90.157: Hover & Click für Admins auch bei vergangenen Tagen!
+                if (!isPast || isAdmin) {
                     dayCell.onmouseover = function() {
                         if (!isSelected) {
                             this.style.background = '#f3f4f6';

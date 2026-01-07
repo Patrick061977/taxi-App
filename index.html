@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.153 - BESSERE SUCHE! 🔍 (Build 20260107-1450)');
-        console.log('✅ v5.90.153: CRM-Suche verbessert - TEILSTRING + CASE-INSENSITIVE!');
-        console.log('✅ v5.90.153: "gnies" findet jetzt "Gniesmer"!');
-        console.log('✅ v5.90.153: Suche funktioniert mit Namensteilen!');
-        console.log('✅ v5.90.153: Groß/Kleinschreibung egal!');
+        console.log('🚕 Funk Taxi App v5.90.154 - VERGANGENHEIT FÜR ADMINS! ⏰ (Build 20260107-1500)');
+        console.log('✅ v5.90.154: ADMINS DÜRFEN JETZT VERGANGENHEITSTERMINE EINGEBEN!');
+        console.log('✅ v5.90.154: Rechnungen für vergangene Fahrten erstellen möglich!');
+        console.log('✅ v5.90.154: Normale User: Nur Zukunft (wie bisher)');
+        console.log('✅ v5.90.154: Admins: Auch Vergangenheit erlaubt!');
+        console.log('✅ v5.90.153: Bessere CRM-Suche!');
         console.log('✅ v5.90.152: E-Mail im Modal!');
-        console.log('✅ v5.90.151: Scheduled Bug Fix!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -975,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.153 - BESSERE SUCHE! 🔍 (Build 20260107-1450)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.154 - VERGANGENHEIT FÜR ADMINS! ⏰ (Build 20260107-1500)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8135,11 +8135,19 @@
             
             // 🆕 v5.90.117: KEINE 1-Stunde-Regel mehr!
             // Nur prüfen ob Zeit nicht in der Vergangenheit ist
+            // 🆕 v5.90.154: ADMINS DÜRFEN VERGANGENHEIT!
             const now = new Date();
             
             if (selectedTime < now) {
-                alert(`⚠️ Die gewählte Zeit liegt in der Vergangenheit!\n\nBitte wähle eine zukünftige Zeit.`);
-                return false;
+                // Prüfe ob User Admin ist
+                const isAdmin = currentUser && (currentUser.email === 'patrick061977@gmail.com' || currentUser.email === 'admin@taxi-heringsdorf.de');
+                
+                if (!isAdmin) {
+                    alert(`⚠️ Die gewählte Zeit liegt in der Vergangenheit!\n\nBitte wähle eine zukünftige Zeit.`);
+                    return false;
+                } else {
+                    console.log('✅ Admin darf Vergangenheit!');
+                }
             }
             
             return true;
@@ -20394,10 +20402,17 @@
                     minute: '2-digit' 
                 });
                 
-                // Prüfe ob in der Vergangenheit
+                // 🆕 v5.90.154: Prüfe ob in der Vergangenheit - ADMINS ERLAUBT!
                 if (pickupTimestamp < Date.now()) {
-                    alert('❌ Die Abholzeit liegt in der Vergangenheit!\n\nBitte wähle eine Zeit in der Zukunft.');
-                    return;
+                    // Prüfe ob User Admin ist
+                    const isAdmin = currentUser && (currentUser.email === 'patrick061977@gmail.com' || currentUser.email === 'admin@taxi-heringsdorf.de');
+                    
+                    if (!isAdmin) {
+                        alert('❌ Die Abholzeit liegt in der Vergangenheit!\n\nBitte wähle eine Zeit in der Zukunft.');
+                        return;
+                    } else {
+                        console.log('✅ Admin erstellt Fahrt in Vergangenheit (für Rechnung)');
+                    }
                 }
                 
                 // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)

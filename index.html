@@ -43,7 +43,7 @@
     <!-- 🔄 Cache-Control (wird dynamisch gesetzt) -->
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
-    <title>Funk Taxi Heringsdorf v5.90.124</title>
+    <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
     <script>
@@ -108,15 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.124 - VCF KONTAKT-EXPORT! 📱 (Build 20260106-1400)');
-        console.log('✅ v5.90.124: Kompakte Kontakt-Export-Liste!');
-        console.log('✅ v5.90.124: VCF-Export für einzelne Kunden!');
-        console.log('✅ v5.90.123: Ziffernblock in ALLEN Modals!');
-        console.log('✅ v5.90.123: Taxi buchen → Ziffernblock mit Slot-Check!');
-        console.log('✅ v5.90.123: Quick-Booking → Ziffernblock!');
-        console.log('✅ v5.90.123: Bearbeiten-Modal → Ziffernblock!');
-        console.log('✅ v5.90.123: Keine "Drehballons" mehr!');
-        console.log('✅ v5.90.123: Zeit eingeben → Check → Alternativen!');
+        console.log('🚕 Funk Taxi App v5.90.133 - CRM-LOGIN FIX! 🎯 (Build 20260107-1000)');
+        console.log('✅ v5.90.133: KRITISCHER FIX - Kunden werden beim Login erkannt!');
+        console.log('✅ v5.90.133: Prüft CRM BEVOR neuer Kunde angelegt wird!');
+        console.log('✅ v5.90.133: Keine Duplikate mehr!');
+        console.log('✅ v5.90.132: Migrations-Script!');
+        console.log('✅ v5.90.130: Ziffernblock Mobile!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -977,7 +974,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱 Version 5.90.124 - VCF KONTAKT-EXPORT! (Build 20260106-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.109 - RECHNUNGSNUMMER FIX! 🧾 (Build 20260105-1405)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1128,21 +1125,6 @@
                 transition: all 0.2s;
             ">
                 ⚡ Schnellbuchung
-            </button>
-            <!-- 🆕 v5.90.124: VCF KONTAKT-EXPORT BUTTON -->
-            <button onclick="openVCFExportModal()" class="admin-tab-btn admin-only tab-toggleable" data-tab-id="vcf-export" style="
-                padding: 10px 16px;
-                border: 2px solid #f59e0b;
-                background: white;
-                color: #f59e0b;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 13px;
-                cursor: pointer;
-                white-space: nowrap;
-                transition: all 0.2s;
-            ">
-                📱 Kontakt-Export
             </button>
             <button onclick="switchView('driver')" class="admin-tab-btn driver-visible tab-toggleable" data-view="driver" data-tab-id="driver" style="
                 padding: 10px 16px;
@@ -1300,7 +1282,6 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <p style="color: rgba(255,255,255,0.6); font-size: 11px; margin-top: 5px;">v5.90.124</p>
             </div>
             
             <!-- SCHRITT 1: Telefonnummer eingeben -->
@@ -3376,7 +3357,10 @@
     </div>
 
     <div id="admin-view" class="view admin-only">
-        <h3 style="margin: 20px 0;">Dashboard</h3>
+        <!-- Header mit Suchleiste -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0;">
+            <h3 style="margin:0;">⚙️ Admin Dashboard</h3>
+        </div>
         
         <!-- 🆕 v5.90.108: FAHRZEUG-ZUTEILUNGS-MODUS UMSCHALTER! -->
         <div id="assignment-mode-banner" style="
@@ -3460,46 +3444,6 @@
             ">
                 ℹ️ Im manuellen Modus musst du jede Fahrt selbst einem Fahrzeug zuteilen.
             </div>
-        </div>
-        
-        <!-- 🆕 v5.90.29: TAB-EINSTELLUNGEN -->
-        <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #10b981;box-shadow:0 4px 12px rgba(16,185,129,0.15);">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;">
-                <div style="font-size:28px;">⚙️</div>
-                <div>
-                    <h4 style="margin:0;font-size:18px;color:#065f46;">Meine Tab-Einstellungen</h4>
-                    <p style="margin:4px 0 0 0;font-size:13px;color:#047857;">Wähle welche Tabs du sehen willst</p>
-                </div>
-            </div>
-            
-            <div style="background:#f0fdf4;padding:15px;border-radius:8px;margin-bottom:15px;">
-                <div style="font-size:14px;font-weight:600;margin-bottom:12px;color:#065f46;">Sichtbare Tabs:</div>
-                <div id="tab-checkboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-            </div>
-            
-            <div style="background:#f0fdf4;padding:15px;border-radius:8px;margin-bottom:15px;">
-                <label style="display:block;font-size:14px;font-weight:600;margin-bottom:8px;color:#065f46;">Standard-Tab beim Start:</label>
-                <select id="default-tab-select" style="width:100%;padding:12px;border:2px solid #10b981;border-radius:8px;font-size:14px;">
-                    <!-- Wird dynamisch gefüllt -->
-                </select>
-            </div>
-            
-            <button onclick="saveTabSettings()" style="
-                width:100%;
-                padding:14px;
-                background:linear-gradient(135deg, #10b981, #059669);
-                color:white;
-                border:none;
-                border-radius:8px;
-                font-weight:700;
-                font-size:15px;
-                cursor:pointer;
-                box-shadow:0 4px 8px rgba(16,185,129,0.3);
-            ">
-                💾 Tab-Einstellungen speichern
-            </button>
         </div>
         
         <!-- 🆕 v5.86.0: INTELLIGENTE SUCHE -->
@@ -4290,6 +4234,21 @@
             </div>
         </div>
         
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- 🆕 v5.90.126: KATEGORIE 1 - VERWALTUNG -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <div onclick="toggleAdminSection('cat-management')" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:18px;border-radius:12px;cursor:pointer;margin:30px 0 15px 0;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 16px rgba(59,130,246,0.3);">
+            <div style="display:flex;align-items:center;gap:15px;">
+                <span style="font-size:32px;">📊</span>
+                <div>
+                    <div style="font-weight:700;font-size:18px;">VERWALTUNG</div>
+                    <div style="font-size:13px;opacity:0.9;">Kunden, Fahrzeuge & Benutzer</div>
+                </div>
+            </div>
+            <span id="cat-management-toggle" style="font-size:28px;">▼</span>
+        </div>
+        <div id="cat-management-content" style="display:block;padding:0 10px;">
+        
         <!-- 🔐 NEU: BENUTZER-VERWALTUNG -->
         <div onclick="toggleAdminSection('users')" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:600;font-size:15px;">👥 Benutzer-Verwaltung</span>
@@ -4343,7 +4302,6 @@
             <div style="margin-bottom:15px;">
                 <input type="text" id="customer-search" placeholder="🔍 Kunde suchen (Name, Email, Telefon)..." oninput="searchCustomers()" onpaste="setTimeout(searchCustomers, 100)" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
             </div>
-            
             <div id="customers-list" style="max-height:400px;overflow-y:auto;"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
                 <button onclick="loadAllCustomers()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
@@ -4370,6 +4328,26 @@
                     📱 Kontakte aus Telefon importieren
                 </button>
             </div>
+            <!-- 🆕 v5.90.125: ALLE KUNDEN ALS VCF EXPORTIEREN! -->
+            <div style="margin-top:10px;">
+                <button onclick="exportAllCustomersToVCF()" style="
+                    width:100%;
+                    padding:12px;
+                    background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                    color:white;
+                    border:none;
+                    border-radius:8px;
+                    font-weight:600;
+                    cursor:pointer;
+                    box-shadow:0 2px 8px rgba(245, 158, 11, 0.3);
+                    transition:transform 0.2s;
+                " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    📱 Alle zu Kontakten exportieren
+                </button>
+                <div style="font-size:12px;color:#6b7280;margin-top:4px;text-align:center;">
+                    Alle Kunden als .vcf Datei herunterladen
+                </div>
+            </div>
             <div style="margin-top:10px;">
                 <label for="csv-import" style="display:block;padding:12px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;text-align:center;">
                     📥 Google Kontakte importieren (CSV)
@@ -4384,6 +4362,23 @@
         </div>
         <!-- END: CRM-SECTION -->
         </div>
+        
+        </div><!-- Ende VERWALTUNG -->
+        
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- 🆕 v5.90.126: KATEGORIE 2 - ERWEITERT -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <div onclick="toggleAdminSection('cat-advanced')" style="background:linear-gradient(135deg,#6b7280,#4b5563);color:white;padding:18px;border-radius:12px;cursor:pointer;margin:30px 0 15px 0;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 16px rgba(107,114,128,0.3);">
+            <div style="display:flex;align-items:center;gap:15px;">
+                <span style="font-size:32px;">🛠️</span>
+                <div>
+                    <div style="font-weight:700;font-size:18px;">ERWEITERT</div>
+                    <div style="font-size:13px;opacity:0.9;">Tools, Logs & Weitere Funktionen</div>
+                </div>
+            </div>
+            <span id="cat-advanced-toggle" style="font-size:28px;">▼</span>
+        </div>
+        <div id="cat-advanced-content" style="display:none;padding:0 10px;">
         
         <!-- COLLAPSIBLE: Controls -->
         <div onclick="toggleAdminSection('controls')" style="background:#f3f4f6;padding:12px;border-radius:8px;cursor:pointer;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
@@ -4415,6 +4410,27 @@
             <div class="stat-card"><div style="font-size: 28px;" id="a-revenue">0€</div><div>Umsatz</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-pending">0</div><div>Offen</div></div>
             <div class="stat-card"><div style="font-size: 28px;" id="a-active">0</div><div>Aktiv</div></div>
+        </div>
+        
+        <!-- 🆕 v5.90.126: QUICK ACTIONS -->
+        <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #667eea;box-shadow:0 4px 12px rgba(102,126,234,0.15);">
+            <div style="font-weight:700;font-size:16px;margin-bottom:15px;color:#4c51bf;display:flex;align-items:center;gap:8px;">
+                ⚡ Quick Actions
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                <button onclick="openQuickBookingFromAdmin()" style="padding:15px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(16,185,129,0.3);display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <span style="font-size:24px;">🚕</span>
+                    <span>Schnellbuchung</span>
+                </button>
+                <button onclick="loadAllCustomers()" style="padding:15px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(59,130,246,0.3);display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <span style="font-size:24px;">👥</span>
+                    <span>Kunden laden</span>
+                </button>
+                <button onclick="navigateToTab('calendar')" style="padding:15px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;box-shadow:0 2px 8px rgba(139,92,246,0.3);display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <span style="font-size:24px;">📅</span>
+                    <span>Kalender</span>
+                </button>
+            </div>
         </div>
         
         <!-- 🆕 v5.31.5: DEZENTE BENACHRICHTIGUNG für neue Fahrten -->
@@ -4567,6 +4583,37 @@
                 </button>
                 
                 <div id="timeslot-save-status" style="margin-top:8px;text-align:center;font-size:12px;"></div>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.132: SYSTEM-VERWALTUNG -->
+        <div style="background:#fef3c7;border:2px solid #fbbf24;padding:15px;border-radius:12px;margin:15px 0;">
+            <div style="font-weight:600;font-size:15px;margin-bottom:15px;display:flex;align-items:center;gap:8px;">
+                🔧 System-Verwaltung
+                <span style="font-size:11px;background:#dc2626;color:white;padding:2px 8px;border-radius:4px;font-weight:600;">ADMIN</span>
+            </div>
+            
+            <div style="background:white;padding:15px;border-radius:8px;border:1px solid #fbbf24;margin-bottom:10px;">
+                <div style="font-weight:600;font-size:14px;color:#92400e;margin-bottom:5px;">
+                    📞 Telefonnummern normalisieren
+                </div>
+                <div style="font-size:12px;color:#78350f;margin-bottom:10px;">
+                    Alle Mobilnummern auf einheitliches Format "+49..." umstellen
+                </div>
+                <button onclick="normalizePhoneNumbers()" style="
+                    width:100%;
+                    padding:12px;
+                    background:#f59e0b;
+                    color:white;
+                    border:none;
+                    border-radius:8px;
+                    font-weight:600;
+                    cursor:pointer;
+                    font-size:14px;
+                ">
+                    🔄 Jetzt normalisieren
+                </button>
+                <div id="normalize-status" style="margin-top:8px;text-align:center;font-size:12px;"></div>
             </div>
         </div>
         
@@ -5286,7 +5333,10 @@
             </div>
             
         </div>
-    </div>
+        
+        </div><!-- Ende ERWEITERT -->
+        
+    </div><!-- Ende admin-view -->
 
     <!-- 🆕 v5.43.0: SCHICHTPLAN-VIEW -->
     <div id="shift-plan-view" class="view admin-only">
@@ -6941,15 +6991,39 @@
             
             // Ziffern-Buttons
             modal.querySelectorAll('.keypad-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
+                // 🆕 v5.90.130: Touch-Events für Mobile!
+                const handleInput = () => {
                     const value = btn.getAttribute('data-value');
                     if (currentInput.length < 4) {
                         currentInput += value;
                         updateDisplay();
                     }
+                };
+                
+                btn.addEventListener('click', handleInput);
+                
+                // 🆕 v5.90.130: Touch-Feedback + Input für Mobile
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    btn.style.background = '#667eea';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = '#667eea';
+                    btn.style.transform = 'scale(1.05)';
                 });
                 
-                // Hover Effekt
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault(); // Verhindere click Event danach
+                    handleInput(); // Führe Input aus
+                    // Visual Feedback zurücksetzen
+                    setTimeout(() => {
+                        btn.style.background = 'white';
+                        btn.style.color = 'black';
+                        btn.style.borderColor = '#e0e0e0';
+                        btn.style.transform = 'scale(1)';
+                    }, 100);
+                });
+                
+                // Hover Effekt (nur für Desktop)
                 btn.addEventListener('mouseenter', () => {
                     btn.style.background = '#667eea';
                     btn.style.color = 'white';
@@ -6965,15 +7039,33 @@
             });
             
             // Backspace
-            modal.querySelector('#keypad-backspace').addEventListener('click', () => {
+            const backspaceBtn = modal.querySelector('#keypad-backspace');
+            const handleBackspace = () => {
                 if (currentInput.length > 0) {
                     currentInput = currentInput.slice(0, -1);
                     updateDisplay();
                 }
+            };
+            backspaceBtn.addEventListener('click', handleBackspace);
+            backspaceBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                backspaceBtn.style.background = '#667eea';
+                backspaceBtn.style.color = 'white';
+                backspaceBtn.style.borderColor = '#667eea';
+            });
+            backspaceBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                handleBackspace();
+                setTimeout(() => {
+                    backspaceBtn.style.background = 'white';
+                    backspaceBtn.style.color = 'black';
+                    backspaceBtn.style.borderColor = '#e0e0e0';
+                }, 100);
             });
             
             // OK Button
-            modal.querySelector('#keypad-ok').addEventListener('click', () => {
+            const okBtn = modal.querySelector('#keypad-ok');
+            const handleOk = () => {
                 // Parse Eingabe
                 let hour = 0;
                 let minute = 0;
@@ -7019,12 +7111,31 @@
                 
                 // Modal schließen
                 document.body.removeChild(modal);
+            };
+            okBtn.addEventListener('click', handleOk);
+            okBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                okBtn.style.background = '#059669'; // Dunkleres Grün
+            });
+            okBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                handleOk();
             });
             
             // Cancel Button
-            modal.querySelector('#keypad-cancel').addEventListener('click', () => {
+            const cancelBtn = modal.querySelector('#keypad-cancel');
+            const handleCancel = () => {
                 console.log('❌ Abgebrochen');
                 document.body.removeChild(modal);
+            };
+            cancelBtn.addEventListener('click', handleCancel);
+            cancelBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                cancelBtn.style.background = '#4b5563'; // Dunkleres Grau
+            });
+            cancelBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                handleCancel();
             });
             
             // ESC zum Schließen
@@ -20850,6 +20961,160 @@
         // Beim Laden Einstellungen laden
         setTimeout(() => loadTimeslotSettings(), 1000);
         
+        // 🆕 v5.90.132: TELEFONNUMMERN NORMALISIEREN
+        async function normalizePhoneNumbers() {
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('🔧 TELEFONNUMMERN-MIGRATION GESTARTET');
+            console.log('═══════════════════════════════════════════════════════');
+            
+            const statusDiv = document.getElementById('normalize-status');
+            const btn = event.target;
+            
+            if (!confirm('🔧 Telefonnummern normalisieren?\n\n' +
+                'Diese Aktion wird:\n' +
+                '• Alle Mobilnummern auf "+49..." Format umstellen\n' +
+                '• "01732022629" → "+491732022629"\n' +
+                '• "491732022629" → "+491732022629"\n\n' +
+                'Fortfahren?')) {
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Läuft...';
+            statusDiv.innerHTML = '<span style="color:#f59e0b;">⏳ Lade Kunden...</span>';
+            
+            try {
+                // Alle Kunden laden
+                const snapshot = await db.ref('customers').once('value');
+                const customers = snapshot.val();
+                
+                if (!customers) {
+                    statusDiv.innerHTML = '<span style="color:#dc2626;">❌ Keine Kunden gefunden</span>';
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Jetzt normalisieren';
+                    return;
+                }
+                
+                console.log(`📊 Gefunden: ${Object.keys(customers).length} Kunden`);
+                statusDiv.innerHTML = '<span style="color:#f59e0b;">⏳ Normalisiere Nummern...</span>';
+                
+                let updated = 0;
+                let skipped = 0;
+                let errors = 0;
+                
+                // Durch alle Kunden gehen
+                for (const [customerId, customer] of Object.entries(customers)) {
+                    try {
+                        let needsUpdate = false;
+                        const updates = {};
+                        
+                        // 🔧 MOBILNUMMER NORMALISIEREN (mobilePhone)
+                        if (customer.mobilePhone) {
+                            const oldMobile = customer.mobilePhone;
+                            const normalizedMobile = normalizeMobileNumber(oldMobile);
+                            
+                            if (normalizedMobile && normalizedMobile !== oldMobile) {
+                                updates.mobilePhone = normalizedMobile;
+                                needsUpdate = true;
+                                console.log(`✅ ${customer.name}: mobilePhone "${oldMobile}" → "${normalizedMobile}"`);
+                            }
+                        }
+                        
+                        // 🔧 TELEFON NORMALISIEREN (phone) - NUR wenn es eine Mobilnummer ist!
+                        if (customer.phone) {
+                            const oldPhone = customer.phone;
+                            // Prüfe ob es eine Mobilnummer ist (beginnt mit 01... oder +491... oder 491...)
+                            if (isMobileNumber(oldPhone)) {
+                                const normalizedPhone = normalizeMobileNumber(oldPhone);
+                                
+                                if (normalizedPhone && normalizedPhone !== oldPhone) {
+                                    updates.phone = normalizedPhone;
+                                    needsUpdate = true;
+                                    console.log(`✅ ${customer.name}: phone "${oldPhone}" → "${normalizedPhone}"`);
+                                }
+                            }
+                        }
+                        
+                        // Update in Firebase
+                        if (needsUpdate) {
+                            await db.ref(`customers/${customerId}`).update(updates);
+                            updated++;
+                            console.log(`💾 ${customer.name}: Updates gespeichert`);
+                        } else {
+                            skipped++;
+                        }
+                        
+                    } catch (err) {
+                        console.error(`❌ Fehler bei ${customer.name}:`, err);
+                        errors++;
+                    }
+                }
+                
+                console.log('═══════════════════════════════════════════════════════');
+                console.log('✅ MIGRATION ABGESCHLOSSEN');
+                console.log(`📊 Aktualisiert: ${updated}`);
+                console.log(`⏭️ Übersprungen: ${skipped}`);
+                console.log(`❌ Fehler: ${errors}`);
+                console.log('═══════════════════════════════════════════════════════');
+                
+                statusDiv.innerHTML = `<span style="color:#10b981;">✅ Fertig! ${updated} aktualisiert, ${skipped} übersprungen, ${errors} Fehler</span>`;
+                
+                alert(`✅ Migration abgeschlossen!\n\n` +
+                    `📊 Aktualisiert: ${updated}\n` +
+                    `⏭️ Übersprungen: ${skipped}\n` +
+                    `❌ Fehler: ${errors}`);
+                
+            } catch (error) {
+                console.error('❌ Migration-Fehler:', error);
+                statusDiv.innerHTML = '<span style="color:#dc2626;">❌ Fehler bei Migration</span>';
+                alert('❌ Fehler bei Migration: ' + error.message);
+            }
+            
+            btn.disabled = false;
+            btn.textContent = '🔄 Jetzt normalisieren';
+        }
+        
+        // 🔧 Hilfsfunktion: Prüft ob Nummer eine Mobilnummer ist
+        function isMobileNumber(phone) {
+            if (!phone) return false;
+            const clean = phone.replace(/\s/g, '');
+            // Deutsche Mobilnummern: beginnen mit 01... oder +491... oder 491...
+            return clean.startsWith('01') || 
+                   clean.startsWith('+491') || 
+                   clean.startsWith('491');
+        }
+        
+        // 🔧 Hilfsfunktion: Normalisiert Mobilnummer auf +49... Format
+        function normalizeMobileNumber(phone) {
+            if (!phone) return null;
+            
+            // Entferne Leerzeichen
+            let clean = phone.replace(/\s/g, '');
+            
+            // Bereits korrekt formatiert?
+            if (clean.startsWith('+491') && clean.length >= 12) {
+                return clean;
+            }
+            
+            // Beginnt mit "01..." → "+491..."
+            if (clean.startsWith('01')) {
+                return '+49' + clean.substring(1);
+            }
+            
+            // Beginnt mit "491..." → "+491..."
+            if (clean.startsWith('491')) {
+                return '+' + clean;
+            }
+            
+            // Beginnt mit "+490..." → "+491..." (0 entfernen)
+            if (clean.startsWith('+490')) {
+                return '+49' + clean.substring(4);
+            }
+            
+            // Nicht als Mobilnummer erkannt
+            return null;
+        }
+        
         // Prüft ob Zeitslot bereits belegt ist
         async function checkTimeSlotAvailability(requestedTimestamp, pickupCoords) {
             console.log('═══════════════════════════════════════════════════════');
@@ -27149,6 +27414,9 @@
                                 <button onclick="bookForCustomer('${c.id}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
                                     🚕 Buchen
                                 </button>
+                                <button onclick="exportCustomerToVCF('${c.id}')" style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;" title="Als Kontakt exportieren">
+                                    📱 Zu Kontakten
+                                </button>
                                 <button onclick="showCustomerHistory('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}')" style="padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">
                                     📋 Verlauf
                                 </button>
@@ -28660,7 +28928,42 @@
                     <h3 style="margin:0 0 15px 0;">➕ Neuer Kunde</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="new-customer-name" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
-                        <input type="text" id="new-customer-phone" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        
+                        <!-- 🆕 v5.90.129: TELEFON MIT LÄNDERVORWAHL -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Telefon</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="new-customer-phone-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="new-customer-phone" placeholder="170 1234567" 
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
+                                    oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                            </div>
+                        </div>
+                        
+                        <!-- 🆕 v5.90.129: MOBILFUNKNUMMER MIT LÄNDERVORWAHL -->
+                        <div style="position:relative;">
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📱 Mobilfunknummer (für Google Kalender)</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="new-customer-mobile-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="new-customer-mobile" placeholder="170 1234567" 
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
+                                    oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                            </div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
+                                ℹ️ Optional: Wird für Google Kalender-Synchronisation verwendet
+                            </div>
+                        </div>
+                        
                         <input type="email" id="new-customer-email" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;">
                             <input type="text" id="new-customer-address" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
@@ -29179,6 +29482,15 @@
                 return;
             }
             
+            // 🆕 v5.90.129: Kombiniere Ländervorwahl + Telefonnummer
+            const phoneCountry = document.getElementById('new-customer-phone-country').value;
+            const phoneNumber = document.getElementById('new-customer-phone').value.trim().replace(/\s/g, '');
+            const fullPhone = phoneNumber ? phoneCountry + phoneNumber : '';
+            
+            const mobileCountry = document.getElementById('new-customer-mobile-country').value;
+            const mobileNumber = document.getElementById('new-customer-mobile').value.trim().replace(/\s/g, '');
+            const fullMobile = mobileNumber ? mobileCountry + mobileNumber : '';
+            
             // 🆕 v5.52.5: Rechnungsadresse als Array initialisieren
             const address = document.getElementById('new-customer-address').value.trim();
             const billingSameAsAddress = document.getElementById('new-customer-billing-same').checked;
@@ -29186,7 +29498,8 @@
             
             const customer = {
                 name: name,
-                phone: document.getElementById('new-customer-phone').value.trim(),
+                phone: fullPhone, // 🆕 v5.90.129: Vollständige Nummer mit Ländervorwahl
+                mobilePhone: fullMobile, // 🆕 v5.90.129: Vollständige Nummer mit Ländervorwahl
                 email: document.getElementById('new-customer-email').value.trim(),
                 address: address,
                 billingAddresses: [{ // 🆕 v5.52.5: Array mit Standard-Adresse
@@ -29235,6 +29548,251 @@
                 toast.style.background = '#ef4444';
                 toast.innerHTML = `❌ Fehler beim Speichern!`;
                 setTimeout(() => toast.remove(), 3000);
+            }
+        }
+        
+        // 🆕 v5.90.124: EXPORTIERE KUNDE ALS VCF (vCard) FÜR HANDY-KONTAKTE
+        async function exportCustomerToVCF(customerId) {
+            console.log('📱 Exportiere Kunde als VCF:', customerId);
+            
+            try {
+                // Lade Kunde aus Firebase
+                let customer = null;
+                
+                if (isFirebaseReady) {
+                    const snapshot = await db.ref(`customers/${customerId}`).once('value');
+                    customer = snapshot.val();
+                }
+                
+                // Fallback: Suche in localStorage
+                if (!customer) {
+                    const customers = JSON.parse(localStorage.getItem('taxiCustomers') || '[]');
+                    customer = customers.find(c => c.id === customerId);
+                }
+                
+                if (!customer) {
+                    alert('❌ Kunde nicht gefunden!');
+                    return;
+                }
+                
+                console.log('📋 Kunde gefunden:', customer);
+                
+                // Erstelle VCF (vCard 3.0 Format)
+                let vcf = 'BEGIN:VCARD\n';
+                vcf += 'VERSION:3.0\n';
+                
+                // Name (erforderlich)
+                if (customer.name) {
+                    // FN = Formatted Name (voller Name)
+                    vcf += `FN:${customer.name}\n`;
+                    // N = Name (Nachname;Vorname;;;)
+                    // Wenn möglich, Name aufteilen
+                    const nameParts = customer.name.trim().split(' ');
+                    if (nameParts.length > 1) {
+                        const lastName = nameParts[nameParts.length - 1];
+                        const firstName = nameParts.slice(0, -1).join(' ');
+                        vcf += `N:${lastName};${firstName};;;\n`;
+                    } else {
+                        vcf += `N:${customer.name};;;;\n`;
+                    }
+                }
+                
+                // Telefon
+                if (customer.phone) {
+                    // TYPE=CELL für Mobiltelefon
+                    vcf += `TEL;TYPE=CELL:${customer.phone}\n`;
+                }
+                
+                // Email
+                if (customer.email) {
+                    vcf += `EMAIL:${customer.email}\n`;
+                }
+                
+                // Adresse
+                if (customer.address) {
+                    // ADR;TYPE=HOME:;;Straße;Stadt;Region;PLZ;Land
+                    vcf += `ADR;TYPE=HOME:;;${customer.address};;;;\n`;
+                }
+                
+                // Notizen
+                if (customer.notes) {
+                    vcf += `NOTE:${customer.notes}\n`;
+                }
+                
+                // Firma/Organisation (falls gesetzt)
+                if (customer.company) {
+                    vcf += `ORG:${customer.company}\n`;
+                }
+                
+                // Kategorie
+                vcf += 'CATEGORIES:Taxi Heringsdorf\n';
+                
+                vcf += 'END:VCARD';
+                
+                console.log('📄 VCF erstellt:', vcf);
+                
+                // Erstelle Blob und Download
+                const blob = new Blob([vcf], { type: 'text/vcard;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                // Erstelle Download-Link
+                const a = document.createElement('a');
+                a.href = url;
+                // Dateiname: Name des Kunden (sanitized)
+                const fileName = (customer.name || 'Kontakt').replace(/[^a-zA-Z0-9äöüÄÖÜß\s]/g, '').replace(/\s+/g, '_');
+                a.download = `${fileName}.vcf`;
+                
+                // Trigger Download
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                console.log('✅ VCF Download gestartet!');
+                
+                // Success Feedback
+                alert(`✅ Kontakt "${customer.name}" wurde als .vcf Datei heruntergeladen!\n\nÖffne die Datei auf deinem Handy, um den Kontakt zu importieren.`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim VCF Export:', error);
+                alert('❌ Fehler beim Exportieren: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.125: EXPORTIERE ALLE KUNDEN ALS EINE VCF-DATEI!
+        async function exportAllCustomersToVCF() {
+            console.log('📱 Exportiere ALLE Kunden als VCF...');
+            
+            // Bestätigung
+            if (!confirm('📱 Alle Kunden als .vcf Datei exportieren?\n\nDu kannst die Datei dann auf deinem Handy öffnen und alle Kontakte auf einmal importieren!')) {
+                return;
+            }
+            
+            try {
+                // Lade alle Kunden
+                let customers = [];
+                
+                if (isFirebaseReady) {
+                    const snapshot = await db.ref('customers').once('value');
+                    snapshot.forEach(child => {
+                        const customer = child.val();
+                        customer.id = child.key;
+                        customers.push(customer);
+                    });
+                }
+                
+                // Fallback: localStorage
+                if (customers.length === 0) {
+                    customers = JSON.parse(localStorage.getItem('taxiCustomers') || '[]');
+                }
+                
+                if (customers.length === 0) {
+                    alert('❌ Keine Kunden gefunden!');
+                    return;
+                }
+                
+                console.log(`📋 ${customers.length} Kunden gefunden`);
+                
+                // Erstelle VCF für ALLE Kunden
+                let vcf = '';
+                let successCount = 0;
+                
+                customers.forEach((customer, index) => {
+                    // Überspringe Kunden ohne Namen oder Telefon
+                    if (!customer.name && !customer.phone) {
+                        console.log(`⚠️ Überspringe Kunde ${index + 1}: Kein Name und kein Telefon`);
+                        return;
+                    }
+                    
+                    // Erstelle vCard für diesen Kunden
+                    vcf += 'BEGIN:VCARD\n';
+                    vcf += 'VERSION:3.0\n';
+                    
+                    // Name
+                    if (customer.name) {
+                        vcf += `FN:${customer.name}\n`;
+                        const nameParts = customer.name.trim().split(' ');
+                        if (nameParts.length > 1) {
+                            const lastName = nameParts[nameParts.length - 1];
+                            const firstName = nameParts.slice(0, -1).join(' ');
+                            vcf += `N:${lastName};${firstName};;;\n`;
+                        } else {
+                            vcf += `N:${customer.name};;;;\n`;
+                        }
+                    }
+                    
+                    // Telefon
+                    if (customer.phone) {
+                        vcf += `TEL;TYPE=CELL:${customer.phone}\n`;
+                    }
+                    
+                    // Email
+                    if (customer.email) {
+                        vcf += `EMAIL:${customer.email}\n`;
+                    }
+                    
+                    // Adresse
+                    if (customer.address) {
+                        vcf += `ADR;TYPE=HOME:;;${customer.address};;;;\n`;
+                    }
+                    
+                    // Notizen
+                    if (customer.notes) {
+                        vcf += `NOTE:${customer.notes}\n`;
+                    }
+                    
+                    // Firma
+                    if (customer.company) {
+                        vcf += `ORG:${customer.company}\n`;
+                    }
+                    
+                    // Kategorie
+                    vcf += 'CATEGORIES:Taxi Heringsdorf\n';
+                    
+                    vcf += 'END:VCARD\n';
+                    
+                    successCount++;
+                });
+                
+                console.log(`✅ ${successCount} von ${customers.length} Kunden exportiert`);
+                
+                if (successCount === 0) {
+                    alert('❌ Keine gültigen Kunden zum Exportieren gefunden!');
+                    return;
+                }
+                
+                // Erstelle Blob und Download
+                const blob = new Blob([vcf], { type: 'text/vcard;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                // Erstelle Download-Link
+                const a = document.createElement('a');
+                a.href = url;
+                const today = new Date().toISOString().split('T')[0];
+                a.download = `TaxiHeringsdorf_Alle_Kunden_${today}.vcf`;
+                
+                // Trigger Download
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                console.log('✅ VCF Download gestartet!');
+                
+                // Success Feedback
+                alert(`✅ ${successCount} Kunden wurden als .vcf Datei heruntergeladen!\n\n📱 Öffne die Datei auf deinem Handy, um alle Kontakte zu importieren.`);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim VCF Export:', error);
+                alert('❌ Fehler beim Exportieren: ' + error.message);
             }
         }
         
@@ -30562,6 +31120,13 @@
                             <input type="hidden" id="quick-booking-customer" value="">
                             <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:10000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
                             
+                            <!-- 🆕 v5.90.125: KUNDE BEARBEITEN BUTTON! -->
+                            <div id="quick-booking-edit-customer-btn" style="display:none;margin-top:8px;">
+                                <button onclick="editQuickBookingCustomer()" title="Kundendaten bearbeiten" style="width:100%;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                    ✏️ Kundendaten bearbeiten
+                                </button>
+                            </div>
+                            
                             <!-- 🆕 v5.64.23: HANDY-KONTAKTE BUTTON -->
                             <button onclick="importPhoneContact()" title="Kontakt aus Handy-Kontakten importieren" style="margin-top:8px;width:100%;padding:10px;background:#f0f9ff;color:#1e40af;border:2px solid #3b82f6;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
                                 📱 Aus Handy-Kontakten importieren
@@ -31655,6 +32220,22 @@
             }
         }
         
+        // 🆕 v5.90.125: KUNDE AUS SCHNELLBUCHUNG BEARBEITEN
+        function editQuickBookingCustomer() {
+            const editBtn = document.getElementById('quick-booking-edit-customer-btn');
+            const customerId = editBtn ? editBtn.dataset.customerId : null;
+            
+            if (!customerId) {
+                alert('❌ Kein Kunde ausgewählt!');
+                return;
+            }
+            
+            console.log('✏️ Bearbeite Kunde aus Schnellbuchung:', customerId);
+            
+            // Rufe bestehende editCustomer Funktion auf
+            editCustomer(customerId);
+        }
+        
         function selectQuickBookingCustomer(id, name, phone, address, favoriteDestination) {
             console.log('✅ Kunde gewählt:', name);
             console.log('   ID:', id, '| Phone:', phone); // 🆕 v5.87.75
@@ -31677,6 +32258,18 @@
             
             // Schließe Dropdown
             document.getElementById('quick-booking-customer-dropdown').style.display = 'none';
+            
+            // 🆕 v5.90.125: ZEIGE EDIT-BUTTON wenn Kunde ausgewählt!
+            const editBtn = document.getElementById('quick-booking-edit-customer-btn');
+            if (editBtn) {
+                if (id && id !== 'new') {
+                    editBtn.style.display = 'block';
+                    // Speichere ID für Edit-Funktion
+                    editBtn.dataset.customerId = id;
+                } else {
+                    editBtn.style.display = 'none';
+                }
+            }
             
             // 🆕 v5.64.3: Leere häufige Zielorte VOR dem Neuladen (verhindert alte Daten)
             const frequentContainer = document.getElementById('quick-booking-frequent-destinations');
@@ -35436,7 +36029,11 @@
                             <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">
                                 <button onclick="editInvoice('${inv.id}')" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Bearbeiten">✏️</button>
                                 <button onclick="regenerateInvoicePDF('${inv.id}')" style="padding:6px 10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="PDF neu erstellen">📥</button>
+                                
+                                <!-- 🆕 v5.90.128: E-MAIL VERSAND -->
+                                <button onclick="sendSingleInvoiceViaEmail('${inv.id}')" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Per E-Mail senden">📧</button>
                                 <button onclick="shareExistingInvoiceViaWhatsApp('${inv.id}')" style="padding:6px 10px;background:#25D366;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Per WhatsApp senden">📤</button>
+                                
                                 <button onclick="toggleInvoiceStatus('${inv.id}')" style="padding:6px 10px;background:${inv.status === 'bezahlt' ? '#f59e0b' : '#10b981'};color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="${inv.status === 'bezahlt' ? 'Als offen markieren' : 'Als bezahlt markieren'}">${inv.status === 'bezahlt' ? '↩️' : '✅'}</button>
                             </div>
                         </td>
@@ -36976,6 +37573,24 @@
                 currentCustomerBillingAddresses = [];
             }
             
+            // 🆕 v5.90.129: Telefonnummer aufteilen in Ländervorwahl + Nummer
+            function splitPhoneNumber(fullPhone) {
+                if (!fullPhone) return { country: '+49', number: '' };
+                
+                const phone = fullPhone.trim();
+                // Prüfe auf Ländervorwahlen
+                if (phone.startsWith('+49')) return { country: '+49', number: phone.substring(3).trim() };
+                if (phone.startsWith('+43')) return { country: '+43', number: phone.substring(3).trim() };
+                if (phone.startsWith('+41')) return { country: '+41', number: phone.substring(3).trim() };
+                if (phone.startsWith('+48')) return { country: '+48', number: phone.substring(3).trim() };
+                
+                // Fallback: Wenn keine Vorwahl, nimm +49
+                return { country: '+49', number: phone };
+            }
+            
+            const phone = splitPhoneNumber(customer.phone);
+            const mobile = splitPhoneNumber(customer.mobilePhone);
+            
             const modal = document.createElement('div');
             modal.id = 'edit-customer-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
@@ -36984,7 +37599,42 @@
                     <h3 style="margin:0 0 15px 0;">✏️ Kunde bearbeiten</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="edit-customer-name" value="${customer.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
-                        <input type="text" id="edit-customer-phone" value="${customer.phone || ''}" placeholder="Telefon" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        
+                        <!-- 🆕 v5.90.129: TELEFON MIT LÄNDERVORWAHL -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Telefon</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="edit-customer-phone-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="edit-customer-phone" placeholder="170 1234567" 
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
+                                    oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                            </div>
+                        </div>
+                        
+                        <!-- 🆕 v5.90.129: MOBILFUNKNUMMER MIT LÄNDERVORWAHL -->
+                        <div style="position:relative;">
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📱 Mobilfunknummer (für Google Kalender)</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="edit-customer-mobile-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="edit-customer-mobile" placeholder="170 1234567" 
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
+                                    oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                            </div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
+                                ℹ️ Optional: Wird für Google Kalender-Synchronisation verwendet
+                            </div>
+                        </div>
+                        
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;">
                             <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;">
@@ -37017,6 +37667,25 @@
                 </div>
             `;
             document.body.appendChild(modal);
+            
+            // 🆕 v5.90.129: Setze Telefonnummer-Dropdowns und -Werte
+            setTimeout(() => {
+                // Telefon
+                const phoneCountrySelect = document.getElementById('edit-customer-phone-country');
+                const phoneInput = document.getElementById('edit-customer-phone');
+                if (phoneCountrySelect && phoneInput) {
+                    phoneCountrySelect.value = phone.country;
+                    phoneInput.value = phone.number;
+                }
+                
+                // Mobilnummer
+                const mobileCountrySelect = document.getElementById('edit-customer-mobile-country');
+                const mobileInput = document.getElementById('edit-customer-mobile');
+                if (mobileCountrySelect && mobileInput) {
+                    mobileCountrySelect.value = mobile.country;
+                    mobileInput.value = mobile.number;
+                }
+            }, 10);
             
             // Rendere Adressen-Liste
             renderBillingAddressesList();
@@ -37295,9 +37964,19 @@
                 }];
             }
             
+            // 🆕 v5.90.129: Kombiniere Ländervorwahl + Telefonnummer
+            const phoneCountry = document.getElementById('edit-customer-phone-country').value;
+            const phoneNumber = document.getElementById('edit-customer-phone').value.trim().replace(/\s/g, '');
+            const fullPhone = phoneNumber ? phoneCountry + phoneNumber : '';
+            
+            const mobileCountry = document.getElementById('edit-customer-mobile-country').value;
+            const mobileNumber = document.getElementById('edit-customer-mobile').value.trim().replace(/\s/g, '');
+            const fullMobile = mobileNumber ? mobileCountry + mobileNumber : '';
+            
             const updates = {
                 name: name,
-                phone: document.getElementById('edit-customer-phone').value.trim(),
+                phone: fullPhone, // 🆕 v5.90.129: Vollständige Nummer mit Ländervorwahl
+                mobilePhone: fullMobile, // 🆕 v5.90.129: Vollständige Nummer mit Ländervorwahl
                 email: document.getElementById('edit-customer-email').value.trim(),
                 address: address,
                 billingAddresses: currentCustomerBillingAddresses, // 🆕 v5.52.5: Array!
@@ -37385,302 +38064,6 @@
                 toast.innerHTML = `❌ Fehler beim Löschen!`;
                 setTimeout(() => toast.remove(), 3000);
             }
-        }
-        
-        // 📱 VCF EXPORT MODAL - v5.90.124 NEU!
-        
-        // Globale Variable für ausgewählte Kunden
-        let selectedCustomersForExport = new Set();
-        
-        // Öffne VCF Export Modal
-        async function openVCFExportModal() {
-            if (!isFirebaseReady) {
-                alert('❌ Firebase nicht verbunden!');
-                return;
-            }
-            
-            // Reset Selection
-            selectedCustomersForExport.clear();
-            
-            // Modal erstellen
-            const modal = document.createElement('div');
-            modal.id = 'vcf-export-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
-            
-            modal.innerHTML = `
-                <div style="background:white;border-radius:16px;width:100%;max-width:500px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-                    <!-- Header -->
-                    <div style="padding:20px;border-bottom:2px solid #e5e7eb;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);">
-                        <h2 style="margin:0;color:white;font-size:20px;display:flex;align-items:center;gap:10px;">
-                            <span>📱</span>
-                            <span>Kontakte exportieren</span>
-                        </h2>
-                        <p style="margin:8px 0 0 0;color:rgba(255,255,255,0.9);font-size:13px;">
-                            Wähle Kunden aus, um sie als VCF zu exportieren
-                        </p>
-                    </div>
-                    
-                    <!-- Content -->
-                    <div style="flex:1;overflow-y:auto;padding:15px;" id="vcf-export-list">
-                        <div style="text-align:center;color:#666;padding:40px 20px;">
-                            <div style="font-size:48px;margin-bottom:15px;">⏳</div>
-                            <div style="font-size:16px;font-weight:600;">Lade Kunden...</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div style="padding:15px;border-top:2px solid #e5e7eb;background:#f9fafb;display:flex;gap:10px;border-radius:0 0 16px 16px;">
-                        <button onclick="closeVCFExportModal()" style="flex:1;padding:14px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;">
-                            Abbrechen
-                        </button>
-                        <button onclick="exportSelectedCustomers()" id="export-vcf-btn" style="flex:1;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
-                            Exportieren (0)
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            // Lade Kunden
-            loadCustomersForVCFExport();
-        }
-        
-        // Close Modal
-        function closeVCFExportModal() {
-            const modal = document.getElementById('vcf-export-modal');
-            if (modal) modal.remove();
-            selectedCustomersForExport.clear();
-        }
-        
-        // Lade Kunden für Export
-        async function loadCustomersForVCFExport() {
-            const container = document.getElementById('vcf-export-list');
-            
-            try {
-                const snapshot = await db.ref('customers').once('value');
-                const customers = [];
-                
-                snapshot.forEach(child => {
-                    const customer = child.val();
-                    customer.id = child.key;
-                    customers.push(customer);
-                });
-                
-                // Sortiere alphabetisch
-                customers.sort((a, b) => {
-                    const nameA = (a.name || '').toLowerCase();
-                    const nameB = (b.name || '').toLowerCase();
-                    return nameA.localeCompare(nameB);
-                });
-                
-                if (customers.length === 0) {
-                    container.innerHTML = `
-                        <div style="text-align:center;color:#666;padding:40px 20px;">
-                            <div style="font-size:48px;margin-bottom:15px;">📭</div>
-                            <div style="font-size:16px;font-weight:600;">Keine Kunden vorhanden</div>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                // Render Kunden-Liste mit Checkboxen
-                container.innerHTML = `
-                    <div style="margin-bottom:15px;padding:12px;background:#fef3c7;border-radius:8px;border:2px solid #f59e0b;">
-                        <div style="font-size:14px;color:#92400e;font-weight:600;margin-bottom:5px;">
-                            💡 So funktioniert's:
-                        </div>
-                        <div style="font-size:12px;color:#92400e;line-height:1.5;">
-                            ✅ Kunden anklicken (Checkbox aktivieren)<br>
-                            📱 "Exportieren" klicken<br>
-                            💾 Jeder Kunde wird als eigene .vcf Datei gespeichert
-                        </div>
-                    </div>
-                    
-                    ${customers.map(c => `
-                        <div onclick="toggleCustomerSelection('${c.id}')" id="vcf-customer-${c.id}" 
-                             style="padding:12px;margin-bottom:8px;background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:12px;"
-                             onmouseover="if(!this.classList.contains('selected')) { this.style.borderColor='#f59e0b'; this.style.background='#fffbeb'; }"
-                             onmouseout="if(!this.classList.contains('selected')) { this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb'; }">
-                            
-                            <input type="checkbox" id="vcf-checkbox-${c.id}" 
-                                   onclick="event.stopPropagation(); toggleCustomerSelection('${c.id}');"
-                                   style="width:20px;height:20px;cursor:pointer;flex-shrink:0;">
-                            
-                            <div style="flex:1;">
-                                <div style="font-weight:600;color:#1f2937;font-size:15px;">${c.name || 'Unbekannt'}</div>
-                                ${c.phone ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">📞 ${c.phone}</div>` : ''}
-                            </div>
-                            
-                            <span style="font-size:20px;">👤</span>
-                        </div>
-                    `).join('')}
-                `;
-                
-                console.log(`📱 ${customers.length} Kunden geladen`);
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Laden:', error);
-                container.innerHTML = `
-                    <div style="text-align:center;color:#ef4444;padding:40px 20px;">
-                        <div style="font-size:48px;margin-bottom:15px;">❌</div>
-                        <div style="font-size:16px;font-weight:600;">Fehler beim Laden</div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Toggle Kunden-Auswahl
-        function toggleCustomerSelection(customerId) {
-            const checkbox = document.getElementById(`vcf-checkbox-${customerId}`);
-            const customerDiv = document.getElementById(`vcf-customer-${customerId}`);
-            const exportBtn = document.getElementById('export-vcf-btn');
-            
-            if (!checkbox || !customerDiv) return;
-            
-            // Toggle Checkbox
-            checkbox.checked = !checkbox.checked;
-            
-            // Update Selection Set
-            if (checkbox.checked) {
-                selectedCustomersForExport.add(customerId);
-                customerDiv.classList.add('selected');
-                customerDiv.style.borderColor = '#10b981';
-                customerDiv.style.background = '#f0fdf4';
-            } else {
-                selectedCustomersForExport.delete(customerId);
-                customerDiv.classList.remove('selected');
-                customerDiv.style.borderColor = '#e5e7eb';
-                customerDiv.style.background = '#f9fafb';
-            }
-            
-            // Update Export Button
-            const count = selectedCustomersForExport.size;
-            exportBtn.innerHTML = count > 0 ? `Exportieren (${count})` : 'Exportieren (0)';
-            exportBtn.style.opacity = count > 0 ? '1' : '0.5';
-            exportBtn.style.cursor = count > 0 ? 'pointer' : 'not-allowed';
-        }
-        
-        // Exportiere ausgewählte Kunden
-        async function exportSelectedCustomers() {
-            if (selectedCustomersForExport.size === 0) {
-                alert('⚠️ Bitte wähle mindestens einen Kunden aus!');
-                return;
-            }
-            
-            const count = selectedCustomersForExport.size;
-            const exportBtn = document.getElementById('export-vcf-btn');
-            
-            // Button-Feedback
-            exportBtn.innerHTML = `⏳ Exportiere ${count} Kontakt${count > 1 ? 'e' : ''}...`;
-            exportBtn.disabled = true;
-            
-            try {
-                // Lade alle ausgewählten Kunden und exportiere sie
-                for (const customerId of selectedCustomersForExport) {
-                    const snapshot = await db.ref('customers/' + customerId).once('value');
-                    const customer = snapshot.val();
-                    
-                    if (customer) {
-                        customer.id = customerId;
-                        generateVCFDownload(customer);
-                        
-                        // Kurze Pause zwischen Downloads (damit Browser alle verarbeitet)
-                        await new Promise(resolve => setTimeout(resolve, 300));
-                    }
-                }
-                
-                // Success Toast
-                const toast = document.createElement('div');
-                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:999999;font-weight:600;animation:slideIn 0.3s ease;';
-                toast.innerHTML = `✅ ${count} Kontakt${count > 1 ? 'e' : ''} exportiert!`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-                
-                // Modal schließen
-                closeVCFExportModal();
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Export:', error);
-                alert('❌ Fehler beim Export! Bitte erneut versuchen.');
-                exportBtn.innerHTML = `Exportieren (${count})`;
-                exportBtn.disabled = false;
-            }
-        }
-        
-        // Generiere VCF-Datei und starte Download
-        function generateVCFDownload(customer) {
-            // VCF-Format erstellen (vCard 3.0)
-            let vcfContent = 'BEGIN:VCARD\n';
-            vcfContent += 'VERSION:3.0\n';
-            
-            // Name
-            if (customer.name) {
-                vcfContent += `FN:${customer.name}\n`;
-                vcfContent += `N:${customer.name};;;;\n`;
-            }
-            
-            // Telefon
-            if (customer.phone) {
-                vcfContent += `TEL;TYPE=CELL:${customer.phone}\n`;
-            }
-            
-            // Email
-            if (customer.email) {
-                vcfContent += `EMAIL;TYPE=INTERNET:${customer.email}\n`;
-            }
-            
-            // Wohnadresse
-            if (customer.address) {
-                vcfContent += `ADR;TYPE=HOME:;;${customer.address};;;;\n`;
-            }
-            
-            // Rechnungsadresse(n) als Notiz
-            if (customer.billingAddresses && customer.billingAddresses.length > 0) {
-                const billingText = customer.billingAddresses
-                    .map(ba => `${ba.label}: ${ba.address}`)
-                    .join(' | ');
-                vcfContent += `NOTE:Rechnungsadr.: ${billingText}\n`;
-            } else if (customer.billingAddress) {
-                vcfContent += `NOTE:Rechnungsadresse: ${customer.billingAddress}\n`;
-            }
-            
-            // Notizen
-            if (customer.notes) {
-                if (!vcfContent.includes('NOTE:')) {
-                    vcfContent += `NOTE:${customer.notes}\n`;
-                } else {
-                    vcfContent = vcfContent.replace(/NOTE:(.+)\n/, `NOTE:$1 | ${customer.notes}\n`);
-                }
-            }
-            
-            // Kategorien
-            vcfContent += 'CATEGORIES:Taxi-Kunde\n';
-            
-            // Organisation
-            vcfContent += 'ORG:Funk Taxi Heringsdorf;\n';
-            
-            vcfContent += 'END:VCARD\n';
-            
-            // Datei-Download erstellen
-            const blob = new Blob([vcfContent], { type: 'text/vcard;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            
-            // Dateiname: Name des Kunden (ohne Sonderzeichen)
-            const fileName = (customer.name || 'Kontakt')
-                .replace(/[^a-zA-Z0-9äöüÄÖÜß\s]/g, '')
-                .replace(/\s+/g, '_');
-            a.download = `${fileName}.vcf`;
-            
-            // Download starten
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            console.log(`📱 VCF exportiert: ${customer.name}`);
         }
         
         // 🧹 CACHE LEEREN FUNKTION
@@ -40285,30 +40668,56 @@ Stack: ${err.stack}
             errorDiv.style.display = 'none';
             
             try {
-                // 🆕 v5.74.0: FIX - Suche in CUSTOMERS statt users!
-                const customersSnapshot = await db.ref('customers').orderByChild('phone').equalTo(fullPhoneNumber).once('value');
-                const existingCustomer = customersSnapshot.val();
+                // 🆕 v5.90.132: STRIKTE SUCHE - SICHERHEIT!
+                // Telefonnummer MUSS exakt stimmen (Zwei-Faktor-Auth!)
+                console.log('🔍 Suche Kunde mit exakter Telefonnummer:', fullPhoneNumber);
+                
+                const customersSnapshot = await db.ref('customers')
+                    .orderByChild('phone')
+                    .equalTo(fullPhoneNumber)
+                    .once('value');
+                
+                let existingCustomer = null;
+                let customerId = null;
+                
+                if (customersSnapshot.exists()) {
+                    const customers = customersSnapshot.val();
+                    customerId = Object.keys(customers)[0];
+                    existingCustomer = customers[customerId];
+                    console.log('✅ Kunde gefunden über phone:', existingCustomer.name);
+                }
+                
+                // 🆕 v5.90.132: Wenn nicht über phone gefunden, prüfe mobilePhone
+                if (!existingCustomer) {
+                    const mobileSnapshot = await db.ref('customers')
+                        .orderByChild('mobilePhone')
+                        .equalTo(fullPhoneNumber)
+                        .once('value');
+                    
+                    if (mobileSnapshot.exists()) {
+                        const customers = mobileSnapshot.val();
+                        customerId = Object.keys(customers)[0];
+                        existingCustomer = customers[customerId];
+                        console.log('✅ Kunde gefunden über mobilePhone:', existingCustomer.name);
+                    }
+                }
                 
                 if (existingCustomer) {
                     // ✅ BEKANNTER KUNDE - Direkt einloggen ohne SMS!
                     console.log('✅ Bekannter Kunde gefunden!', existingCustomer);
                     
-                    // Hole Kunden-Daten
-                    const customerId = Object.keys(existingCustomer)[0];
-                    const customerData = existingCustomer[customerId];
-                    
                     // 🆕 v5.74.0: FIX - Lade NAME aus customerData.name (nicht displayName!)
-                    const customerName = customerData.name || fullPhoneNumber;
+                    const customerName = existingCustomer.name || fullPhoneNumber;
                     
                     // Speichere als "eingeloggt"
                     localStorage.setItem('loggedInPhone', fullPhoneNumber);
-                    localStorage.setItem('loggedInUserId', customerData.uid || customerId);
+                    localStorage.setItem('loggedInUserId', existingCustomer.uid || customerId);
                     localStorage.setItem('loggedInUserName', customerName);
                     
                     console.log('💾 Gespeichert:', {
                         phone: fullPhoneNumber,
                         name: customerName,
-                        userId: customerData.uid || customerId
+                        userId: existingCustomer.uid || customerId
                     });
                     
                     // Login-Screen verstecken
@@ -40503,70 +40912,132 @@ Stack: ${err.stack}
                     loginModal.style.display = 'none';
                 }
                 
-                // 🆕 v5.72.0: NAME-HANDLING!
-                if (isNewUser) {
-                    console.log('🎯 Neuer User → frage nach Namen');
+                // 🆕 v5.90.133: KRITISCHER FIX!
+                // Prüfe ZUERST ob Kunde bereits im CRM existiert (per phone ODER mobilePhone)!
+                console.log('🔍 v5.90.133: Prüfe ob Kunde bereits im CRM existiert...');
+                
+                let existingCustomer = null;
+                let existingCustomerId = null;
+                
+                try {
+                    // Suche in phone
+                    const phoneSnapshot = await db.ref('customers').orderByChild('phone').equalTo(userPhone).once('value');
+                    if (phoneSnapshot.exists()) {
+                        const customers = phoneSnapshot.val();
+                        existingCustomerId = Object.keys(customers)[0];
+                        existingCustomer = customers[existingCustomerId];
+                        console.log('✅ Kunde gefunden in phone:', existingCustomer.name);
+                    }
                     
-                    // SOFORT Name abfragen (KEIN setTimeout!)
-                    const userName = prompt('👋 Willkommen!\n\nWie heißen Sie?');
+                    // Wenn nicht gefunden, suche in mobilePhone
+                    if (!existingCustomer) {
+                        const mobileSnapshot = await db.ref('customers').orderByChild('mobilePhone').equalTo(userPhone).once('value');
+                        if (mobileSnapshot.exists()) {
+                            const customers = mobileSnapshot.val();
+                            existingCustomerId = Object.keys(customers)[0];
+                            existingCustomer = customers[existingCustomerId];
+                            console.log('✅ Kunde gefunden in mobilePhone:', existingCustomer.name);
+                        }
+                    }
+                } catch (err) {
+                    console.error('⚠️ Fehler bei CRM-Suche:', err);
+                }
+                
+                if (existingCustomer) {
+                    // ✅ KUNDE EXISTIERT BEREITS IM CRM!
+                    console.log('🎯 v5.90.133: Kunde existiert bereits im CRM:', existingCustomer.name);
+                    console.log('💾 Verknüpfe mit Firebase Auth UID:', userId);
                     
-                    if (userName && userName.trim()) {
-                        const trimmedName = userName.trim();
-                        localStorage.setItem('loggedInUserName', trimmedName);
-                        console.log('💾 Name gespeichert:', trimmedName);
+                    // Speichere Name
+                    localStorage.setItem('loggedInUserName', existingCustomer.name);
+                    
+                    // Speichere Adresse falls vorhanden
+                    if (existingCustomer.address) {
+                        localStorage.setItem('loggedInUserAddress', existingCustomer.address);
+                    }
+                    
+                    // 🆕 v5.90.133: Verknüpfe CRM-Kunde mit Firebase Auth UID!
+                    try {
+                        await db.ref(`customers/${existingCustomerId}`).update({
+                            uid: userId,
+                            lastLogin: Date.now()
+                        });
+                        console.log('✅ CRM-Kunde mit Firebase Auth verknüpft!');
+                    } catch (err) {
+                        console.error('⚠️ Fehler beim Verknüpfen:', err);
+                    }
+                    
+                    console.log('🎉 Login erfolgreich als:', existingCustomer.name);
+                    
+                } else {
+                    // ❌ KUNDE EXISTIERT NICHT IM CRM
+                    console.log('🆕 v5.90.133: Kunde nicht im CRM gefunden');
+                    
+                    // 🆕 v5.72.0: NAME-HANDLING!
+                    if (isNewUser) {
+                        console.log('🎯 Neuer User → frage nach Namen');
                         
-                        // In Firebase speichern
+                        // SOFORT Name abfragen (KEIN setTimeout!)
+                        const userName = prompt('👋 Willkommen!\n\nWie heißen Sie?');
+                        
+                        if (userName && userName.trim()) {
+                            const trimmedName = userName.trim();
+                            localStorage.setItem('loggedInUserName', trimmedName);
+                            console.log('💾 Name gespeichert:', trimmedName);
+                            
+                            // In Firebase speichern
+                            try {
+                                const existing = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
+                                if (!existing.exists()) {
+                                    await db.ref('customers').push({
+                                        name: trimmedName,
+                                        phone: userPhone,
+                                        uid: userId,
+                                        createdAt: Date.now(),
+                                        totalRides: 0,
+                                        totalRevenue: 0,
+                                        source: 'phone-auth'
+                                    });
+                                    console.log('✅ Kunde in Firebase erstellt');
+                                }
+                            } catch (err) {
+                                console.error('⚠️ Firebase-Fehler:', err);
+                            }
+                        } else {
+                            console.log('⚠️ Kein Name → verwende Telefon');
+                            localStorage.setItem('loggedInUserName', userPhone);
+                        }
+                    } else {
+                        // BESTEHENDER USER → Name aus Firebase laden
+                        console.log('👤 Bestehender User → lade Name aus Firebase');
+                        console.log('📞 Suche Kunde mit Telefon:', userPhone);
+                        
                         try {
-                            const existing = await db.ref('customers').orderByChild('uid').equalTo(userId).once('value');
-                            if (!existing.exists()) {
-                                await db.ref('customers').push({
-                                    name: trimmedName,
-                                    phone: userPhone,
-                                    uid: userId,
-                                    createdAt: Date.now(),
-                                    totalRides: 0,
-                                    totalRevenue: 0,
-                                    source: 'phone-auth'
-                                });
-                                console.log('✅ Kunde in Firebase erstellt');
+                            // 🆕 v5.73.1: Suche nach TELEFON statt UID (robuster!)
+                            const snapshot = await db.ref('customers').orderByChild('phone').equalTo(userPhone).once('value');
+                            if (snapshot.exists()) {
+                                const customerData = Object.values(snapshot.val())[0];
+                                if (customerData.name) {
+                                    localStorage.setItem('loggedInUserName', customerData.name);
+                                    console.log('✅ Name aus Firebase geladen:', customerData.name);
+                                    
+                                    // 🆕 v5.73.1: Speichere auch Adresse falls vorhanden
+                                    if (customerData.address) {
+                                        localStorage.setItem('loggedInUserAddress', customerData.address);
+                                        console.log('✅ Adresse aus Firebase geladen:', customerData.address);
+                                    }
+                                } else {
+                                    console.log('⚠️ Kein Name in Firebase → verwende Telefon');
+                                    localStorage.setItem('loggedInUserName', userPhone);
+                                }
+                            } else {
+                                console.log('⚠️ Kunde nicht in Firebase → verwende Telefon');
+                                localStorage.setItem('loggedInUserName', userPhone);
                             }
                         } catch (err) {
                             console.error('⚠️ Firebase-Fehler:', err);
-                        }
-                    } else {
-                        console.log('⚠️ Kein Name → verwende Telefon');
-                        localStorage.setItem('loggedInUserName', userPhone);
-                    }
-                } else {
-                    // BESTEHENDER USER → Name aus Firebase laden
-                    console.log('👤 Bestehender User → lade Name aus Firebase');
-                    console.log('📞 Suche Kunde mit Telefon:', userPhone);
-                    
-                    try {
-                        // 🆕 v5.73.1: Suche nach TELEFON statt UID (robuster!)
-                        const snapshot = await db.ref('customers').orderByChild('phone').equalTo(userPhone).once('value');
-                        if (snapshot.exists()) {
-                            const customerData = Object.values(snapshot.val())[0];
-                            if (customerData.name) {
-                                localStorage.setItem('loggedInUserName', customerData.name);
-                                console.log('✅ Name aus Firebase geladen:', customerData.name);
-                                
-                                // 🆕 v5.73.1: Speichere auch Adresse falls vorhanden
-                                if (customerData.address) {
-                                    localStorage.setItem('loggedInUserAddress', customerData.address);
-                                    console.log('✅ Adresse aus Firebase geladen:', customerData.address);
-                                }
-                            } else {
-                                console.log('⚠️ Kein Name in Firebase → verwende Telefon');
-                                localStorage.setItem('loggedInUserName', userPhone);
-                            }
-                        } else {
-                            console.log('⚠️ Kunde nicht in Firebase → verwende Telefon');
                             localStorage.setItem('loggedInUserName', userPhone);
                         }
-                    } catch (err) {
-                        console.error('⚠️ Firebase-Fehler:', err);
-                        localStorage.setItem('loggedInUserName', userPhone);
                     }
                 }
                 
@@ -51539,7 +52010,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">
                                 Erstellt: ${createdDate}
                             </div>
-                            <div style="display:flex;gap:8px;">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
                                 ${invoice.status === 'open' ? `
                                     <button onclick="markInvoicePaid('${invoice.id}')" style="flex:1;padding:8px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
                                         ✅ Als bezahlt markieren
@@ -51549,6 +52020,15 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                         ↩️ Wieder öffnen
                                     </button>
                                 `}
+                                
+                                <!-- 🆕 v5.90.128: VERSAND-BUTTONS -->
+                                <button onclick="sendInvoiceViaEmail('${invoice.id}')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                                    📧 E-Mail
+                                </button>
+                                <button onclick="sendInvoiceViaWhatsApp('${invoice.id}')" style="flex:1;padding:8px;background:#25d366;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:4px;">
+                                    📱 WhatsApp
+                                </button>
+                                
                                 <button onclick="deleteInvoice('${invoice.id}')" style="padding:8px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
                                     🗑️
                                 </button>
@@ -51605,6 +52085,168 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             } catch (error) {
                 console.error('❌ Fehler:', error);
                 alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.128: HOTEL-RECHNUNG PER E-MAIL VERSENDEN
+        async function sendInvoiceViaEmail(invoiceId) {
+            console.log('📧 Versende Hotel-Rechnung per E-Mail:', invoiceId);
+            
+            try {
+                // Lade Rechnung
+                const snapshot = await db.ref(`hotelInvoices/${invoiceId}`).once('value');
+                const invoice = snapshot.val();
+                
+                if (!invoice) {
+                    alert('❌ Rechnung nicht gefunden!');
+                    return;
+                }
+                
+                // Prüfe ob Hotel eine E-Mail hat
+                if (!invoice.hotelEmail && !invoice.hotelCustomerId) {
+                    alert('❌ Keine E-Mail-Adresse für dieses Hotel hinterlegt!\n\nBitte E-Mail-Adresse im Hotel-Kontakt hinzufügen.');
+                    return;
+                }
+                
+                // Hole Hotel-Daten wenn nur CustomerId vorhanden
+                let hotelEmail = invoice.hotelEmail;
+                if (!hotelEmail && invoice.hotelCustomerId) {
+                    const customerSnapshot = await db.ref(`customers/${invoice.hotelCustomerId}`).once('value');
+                    const customer = customerSnapshot.val();
+                    hotelEmail = customer?.email;
+                }
+                
+                if (!hotelEmail) {
+                    alert('❌ Keine E-Mail-Adresse gefunden!');
+                    return;
+                }
+                
+                // Erstelle E-Mail mit PDF
+                const subject = `Rechnung ${invoice.invoiceNr} - ${invoice.hotelName}`;
+                const body = `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung ${invoice.invoiceNr} für den Zeitraum ${invoice.period || ''}.\n\n` +
+                             `Hotel: ${invoice.hotelName}\n` +
+                             `Fahrten: ${invoice.ridesCount}\n` +
+                             `Betrag: ${(invoice.brutto || 0).toFixed(2)}€\n\n` +
+                             `Mit freundlichen Grüßen\n` +
+                             `Ihr Taxi-Team`;
+                
+                // Öffne E-Mail-Programm
+                const mailtoLink = `mailto:${hotelEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                window.open(mailtoLink, '_blank');
+                
+                console.log('✅ E-Mail-Programm geöffnet');
+                alert('📧 E-Mail-Programm geöffnet!\n\nBitte hängen Sie die PDF-Rechnung manuell an.');
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Versenden: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.128: HOTEL-RECHNUNG PER WHATSAPP VERSENDEN
+        async function sendInvoiceViaWhatsApp(invoiceId) {
+            console.log('📱 Versende Hotel-Rechnung per WhatsApp:', invoiceId);
+            
+            try {
+                // Lade Rechnung
+                const snapshot = await db.ref(`hotelInvoices/${invoiceId}`).once('value');
+                const invoice = snapshot.val();
+                
+                if (!invoice) {
+                    alert('❌ Rechnung nicht gefunden!');
+                    return;
+                }
+                
+                // Prüfe ob Hotel eine Handynummer hat
+                if (!invoice.hotelPhone && !invoice.hotelCustomerId) {
+                    alert('❌ Keine Telefonnummer für dieses Hotel hinterlegt!\n\nBitte Telefonnummer im Hotel-Kontakt hinzufügen.');
+                    return;
+                }
+                
+                // Hole Hotel-Daten wenn nur CustomerId vorhanden
+                let hotelPhone = invoice.hotelPhone;
+                if (!hotelPhone && invoice.hotelCustomerId) {
+                    const customerSnapshot = await db.ref(`customers/${invoice.hotelCustomerId}`).once('value');
+                    const customer = customerSnapshot.val();
+                    hotelPhone = customer?.mobilePhone || customer?.phone;
+                }
+                
+                if (!hotelPhone) {
+                    alert('❌ Keine Telefonnummer gefunden!');
+                    return;
+                }
+                
+                // Bereinige Telefonnummer
+                const cleanPhone = hotelPhone.replace(/[^0-9+]/g, '');
+                
+                // Erstelle WhatsApp-Nachricht
+                const message = `Hallo ${invoice.hotelName},\n\n` +
+                               `anbei die Rechnung ${invoice.invoiceNr}:\n\n` +
+                               `📅 Zeitraum: ${invoice.period || ''}\n` +
+                               `🚕 Fahrten: ${invoice.ridesCount}\n` +
+                               `💰 Betrag: ${(invoice.brutto || 0).toFixed(2)}€\n\n` +
+                               `Mit freundlichen Grüßen`;
+                
+                // Öffne WhatsApp
+                const whatsappLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+                window.open(whatsappLink, '_blank');
+                
+                console.log('✅ WhatsApp geöffnet');
+                alert('📱 WhatsApp geöffnet!\n\nBitte senden Sie die PDF-Rechnung als Datei-Anhang.');
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Versenden: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.128: EINZEL-RECHNUNG PER E-MAIL VERSENDEN
+        async function sendSingleInvoiceViaEmail(invoiceId) {
+            console.log('📧 Versende Einzel-Rechnung per E-Mail:', invoiceId);
+            
+            try {
+                // Lade Rechnung
+                const snapshot = await db.ref(`invoices/${invoiceId}`).once('value');
+                const invoice = snapshot.val();
+                
+                if (!invoice) {
+                    alert('❌ Rechnung nicht gefunden!');
+                    return;
+                }
+                
+                // Prüfe ob Kunde eine E-Mail hat
+                let customerEmail = invoice.customerEmail;
+                if (!customerEmail && invoice.customerId) {
+                    const customerSnapshot = await db.ref(`customers/${invoice.customerId}`).once('value');
+                    const customer = customerSnapshot.val();
+                    customerEmail = customer?.email;
+                }
+                
+                if (!customerEmail) {
+                    alert('❌ Keine E-Mail-Adresse für diesen Kunden hinterlegt!\n\nBitte E-Mail-Adresse im Kunden-Profil hinzufügen.');
+                    return;
+                }
+                
+                // Erstelle E-Mail mit PDF
+                const subject = `Rechnung ${invoice.invoiceNumber || invoice.id} - Taxi Heringsdorf`;
+                const body = `Sehr geehrte/r ${invoice.customerName || 'Kunde'},\n\n` +
+                             `anbei erhalten Sie Ihre Rechnung ${invoice.invoiceNumber || invoice.id}.\n\n` +
+                             `Betrag: ${(invoice.totalGross || 0).toFixed(2)}€\n` +
+                             `Status: ${invoice.status === 'bezahlt' ? 'Bezahlt' : 'Offen'}\n\n` +
+                             `Vielen Dank für Ihr Vertrauen!\n\n` +
+                             `Mit freundlichen Grüßen\n` +
+                             `Ihr Taxi-Team`;
+                
+                // Öffne E-Mail-Programm
+                const mailtoLink = `mailto:${customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                window.open(mailtoLink, '_blank');
+                
+                console.log('✅ E-Mail-Programm geöffnet');
+                alert('📧 E-Mail-Programm geöffnet!\n\nBitte hängen Sie die PDF-Rechnung manuell an.');
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Versenden: ' + error.message);
             }
         }
         

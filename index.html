@@ -108,12 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.169 - ADMIN TAB FIX! 👨‍💼✅ (Build 20260107-2150)');
-        console.log('✅ v5.90.169: Admin Tab IMMER sichtbar für Admins!');
-        console.log('✅ v5.90.169: initExpressBooking Fix - Prüft ob Funktion existiert');
-        console.log('✅ v5.90.168: Alle Syntax-Fehler behoben');
-        console.log('🔧 v5.90.166: reverseGeocode() hinzugefügt');
-        console.log('⚡ v5.90.165: Express-Buchung komplett neu');
+        console.log('🚕 Funk Taxi App v5.90.164 - E-RECHNUNG READY! 📄⚡🏢 (Build 20260107-1945)');
+        console.log('🆕 v5.90.164: E-RECHNUNG (ZUGFERD 2.3) INTEGRIERT!');
+        console.log('✅ v5.90.164: Automatische Format-Erkennung (Hotel = E-Rechnung)');
+        console.log('✅ v5.90.164: XML-Generierung & Validierung');
+        console.log('✅ v5.90.164: B2B & B2G kompatibel');
+        console.log('✅ v5.90.164: Gesetzeskonform ab 01.01.2025');
+        console.log('📄 v5.90.163: Rechnung-Button in intelligenter Suche');
+        console.log('✅ v5.90.163: Kunde suchen → "📄 Rechnung" → PDF erstellen');
         console.log('🔧 v5.90.162: KRITISCHE FEHLER BEHOBEN!');
         console.log('✅ v5.90.162: Syntax-Fehler entfernt (return not in function)');
         console.log('✅ v5.90.162: Doppelter Express-Code entfernt (~113 Zeilen)');
@@ -12054,19 +12056,7 @@
             if (view === 'express-booking') {
                 setTimeout(() => {
                     console.log('⚡ v5.90.159: Initialisiere Express-Buchung Tab...');
-                    if (typeof initExpressBooking === 'function') {
-                        initExpressBooking();
-                    } else {
-                        console.error('❌ initExpressBooking ist noch nicht definiert! Warte...');
-                        // Retry nach 1 Sekunde
-                        setTimeout(() => {
-                            if (typeof initExpressBooking === 'function') {
-                                initExpressBooking();
-                            } else {
-                                console.error('❌ initExpressBooking existiert nicht!');
-                            }
-                        }, 1000);
-                    }
+                    initExpressBooking();
                 }, 100);
             }
             
@@ -15507,28 +15497,6 @@
                 }
             } catch (e) { console.error(e); }
             return { distance: 0, duration: 0, geometry: null };
-        }
-
-        // 🆕 v5.90.165: REVERSE GEOCODING (Koordinaten → Adresse)
-        async function reverseGeocode(lat, lon) {
-            try {
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
-                );
-                const data = await response.json();
-                
-                if (data && data.display_name) {
-                    console.log('📍 Reverse Geocode:', data.display_name);
-                    return data.display_name;
-                }
-                
-                // Fallback: Koordinaten als String
-                return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-                
-            } catch (error) {
-                console.error('❌ Reverse Geocoding Fehler:', error);
-                return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-            }
         }
 
         // 💰 SURGE PRICING SETTINGS (Firebase-synchronisiert!)
@@ -26416,6 +26384,667 @@
         let expressRideType = 'vorbestellen';
         let expressCalculatedData = null; // Speichert Distanz, Dauer, Preis
         
+        async function initExpressBooking() {
+            console.log('⚡ v5.90.161: Initialisiere Express-Buchung (NEU!)...');
+            
+            const wrapper = document.getElementById('express-map-wrapper');
+            if (!wrapper) {
+                console.error('❌ express-map-wrapper nicht gefunden!');
+                return;
+            }
+            
+            // Falls Karte bereits existiert
+            if (expressMap) {
+                console.log('🔄 Karte existiert bereits');
+                return;
+            }
+            
+            try {
+                // Erstelle Karte
+                wrapper.innerHTML = '<div id="express-leaflet-map" style="width:100%;height:100%;"></div>';
+                
+                expressMap = L.map('express-leaflet-map', {
+                    zoomControl: true,
+                    scrollWheelZoom: true
+                }).setView([53.9547, 14.1783], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap',
+                    maxZoom: 19
+                }).addTo(expressMap);
+                
+                console.log('✅ Express-Karte erstellt!');
+                
+                // Click-Handler
+                expressMap.on('click', handleExpressMapClick);
+                
+                // Setze Datum/Zeit
+                const today = new Date();
+                document.getElementById('express-date').valueAsDate = today;
+                const nowPlus1 = new Date(today.getTime() + 60*60*1000);
+                document.getElementById('express-time').value = 
+                    `${String(nowPlus1.getHours()).padStart(2,'0')}:${String(nowPlus1.getMinutes()).padStart(2,'0')}`;
+                
+                // Lade POIs
+                await loadExpressPOIs();
+                
+                // Setup Autocomplete
+                setupExpressAutocomplete();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der Express-Karte:', error);
+                wrapper.innerHTML = `
+                    <div style="width:100%;height:100%;background:#fef2f2;display:flex;align-items:center;justify-content:center;">
+                        <div style="text-align:center;padding:20px;color:#dc2626;">
+                            <div style="font-size:48px;margin-bottom:12px;">❌</div>
+                            <div style="font-size:14px;font-weight:600;">Karte konnte nicht geladen werden</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // LADE POIs FÜR FAVORITEN-BUTTONS
+        async function loadExpressPOIs() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const snapshot = await db.ref('pois').once('value');
+                expressPOIs = [];
+                
+                snapshot.forEach(child => {
+                    expressPOIs.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                console.log(`⭐ ${expressPOIs.length} POIs für Express-Buchung geladen`);
+                
+                if (expressPOIs.length > 0) {
+                    renderExpressPOIButtons();
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der POIs:', error);
+            }
+        }
+        
+        // RENDER POI-BUTTONS
+        function renderExpressPOIButtons() {
+            const container = document.getElementById('express-poi-container');
+            if (!container || expressPOIs.length === 0) return;
+            
+            container.innerHTML = `
+                <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:10px;">
+                    <div style="font-weight:700;color:#92400e;margin-bottom:6px;font-size:12px;">⭐ SCHNELL-AUSWAHL:</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                        ${expressPOIs.map(poi => `
+                            <button onclick="selectExpressPOI('${poi.id}', '${poi.name}')" 
+                                    style="padding:6px 12px;background:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                ⭐ ${poi.name}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            container.style.display = 'block';
+        }
+        
+        // POI AUSWÄHLEN
+        function selectExpressPOI(poiId, poiName) {
+            const poi = expressPOIs.find(p => p.id === poiId);
+            if (!poi) return;
+            
+            console.log('⭐ POI ausgewählt:', poiName);
+            
+            // Simuliere Karten-Click
+            const fakeEvent = {
+                latlng: {
+                    lat: poi.lat,
+                    lng: poi.lon
+                }
+            };
+            
+            handleExpressMapClick(fakeEvent, poi.address);
+            
+            // Zoom auf POI
+            expressMap.setView([poi.lat, poi.lon], 16);
+        }
+        
+        // KARTEN-CLICK HANDLER
+        async function handleExpressMapClick(e, predefinedAddress = null) {
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
+            
+            console.log(`🖱️ Karte geklickt - Step ${expressStep}:`, lat, lon);
+            
+            const statusEl = document.getElementById('express-map-status');
+            
+            if (expressStep === 1) {
+                // ABHOLORT SETZEN
+                statusEl.innerHTML = '🔄 Lade Abholort-Adresse...';
+                statusEl.style.background = '#fef3c7';
+                
+                // Entferne alten Marker
+                if (expressPickupMarker) {
+                    expressMap.removeLayer(expressPickupMarker);
+                }
+                
+                // Grüner Marker (DRAGGABLE!)
+                const greenIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: '<div style="background:#10b981;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">📍</div>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30]
+                });
+                
+                expressPickupMarker = L.marker([lat, lon], {
+                    icon: greenIcon,
+                    draggable: true
+                }).addTo(expressMap);
+                
+                expressPickupCoords = { lat, lon };
+                
+                // Drag-Handler
+                expressPickupMarker.on('dragend', async function() {
+                    const newPos = expressPickupMarker.getLatLng();
+                    console.log('📍 Abholort verschoben:', newPos);
+                    expressPickupCoords = { lat: newPos.lat, lon: newPos.lng };
+                    
+                    statusEl.innerHTML = '🔄 Lade neue Adresse...';
+                    const address = await reverseGeocode(newPos.lat, newPos.lng);
+                    document.getElementById('express-pickup').value = address;
+                    expressPickupMarker.setPopupContent(`<strong>📍 Abholort</strong><br>${address}`);
+                    
+                    // Route neu berechnen wenn Ziel schon gesetzt
+                    if (expressDestinationCoords) {
+                        await calculateExpressRouteAuto();
+                    }
+                });
+                
+                // Reverse Geocoding
+                let address = predefinedAddress;
+                if (!address) {
+                    address = await reverseGeocode(lat, lon);
+                }
+                
+                document.getElementById('express-pickup').value = address;
+                expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`).openPopup();
+                
+                // Weiter zu Schritt 2
+                expressStep = 2;
+                statusEl.innerHTML = '🎯 Klicke auf Karte für Zielort (oder wähle Favorit)';
+                statusEl.style.background = '#dbeafe';
+                statusEl.style.borderColor = '#3b82f6';
+                
+                console.log('✅ Abholort gesetzt:', address);
+                
+            } else if (expressStep === 2) {
+                // ZIELORT SETZEN
+                statusEl.innerHTML = '🔄 Lade Zielort-Adresse...';
+                statusEl.style.background = '#fef3c7';
+                
+                // Entferne alten Marker
+                if (expressDestinationMarker) {
+                    expressMap.removeLayer(expressDestinationMarker);
+                }
+                
+                // Roter Marker (DRAGGABLE!)
+                const redIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: '<div style="background:#ef4444;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🎯</div>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30]
+                });
+                
+                expressDestinationMarker = L.marker([lat, lon], {
+                    icon: redIcon,
+                    draggable: true
+                }).addTo(expressMap);
+                
+                expressDestinationCoords = { lat, lon };
+                
+                // Drag-Handler
+                expressDestinationMarker.on('dragend', async function() {
+                    const newPos = expressDestinationMarker.getLatLng();
+                    console.log('🎯 Zielort verschoben:', newPos);
+                    expressDestinationCoords = { lat: newPos.lat, lon: newPos.lng };
+                    
+                    statusEl.innerHTML = '🔄 Lade neue Adresse...';
+                    const address = await reverseGeocode(newPos.lat, newPos.lng);
+                    document.getElementById('express-destination').value = address;
+                    expressDestinationMarker.setPopupContent(`<strong>🎯 Zielort</strong><br>${address}`);
+                    
+                    // Route neu berechnen
+                    await calculateExpressRouteAuto();
+                });
+                
+                // Reverse Geocoding
+                let address = predefinedAddress;
+                if (!address) {
+                    address = await reverseGeocode(lat, lon);
+                }
+                
+                document.getElementById('express-destination').value = address;
+                expressDestinationMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`).openPopup();
+                
+                console.log('✅ Zielort gesetzt:', address);
+                
+                // AUTOMATISCH ROUTE BERECHNEN!
+                await calculateExpressRouteAuto();
+            }
+        }
+        
+        // REVERSE GEOCODING
+        async function reverseGeocode(lat, lon) {
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
+                );
+                const data = await response.json();
+                
+                const addr = data.address || {};
+                const parts = [];
+                if (addr.road) parts.push(addr.road);
+                if (addr.house_number) parts.push(addr.house_number);
+                if (addr.postcode) parts.push(addr.postcode);
+                if (addr.city || addr.town || addr.village) {
+                    parts.push(addr.city || addr.town || addr.village);
+                }
+                
+                return parts.length > 0 ? parts.join(', ') : data.display_name;
+                
+            } catch (error) {
+                console.error('❌ Reverse Geocoding Fehler:', error);
+                return `Position: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+            }
+        }
+        
+        // AUTOMATISCH ROUTE BERECHNEN (nach Karten-Click)
+        async function calculateExpressRouteAuto() {
+            const statusEl = document.getElementById('express-map-status');
+            statusEl.innerHTML = '🔄 Berechne Route...';
+            
+            try {
+                // Nutze bestehende calculateRoute Funktion!
+                const route = await calculateRoute(expressPickupCoords, expressDestinationCoords);
+                
+                if (!route || !route.distance) {
+                    throw new Error('Keine Route gefunden');
+                }
+                
+                console.log(`✅ Route: ${route.distance} km, ${route.duration} min`);
+                
+                // Zeichne Route
+                if (expressRouteLayer) {
+                    expressMap.removeLayer(expressRouteLayer);
+                }
+                
+                if (route.geometry) {
+                    const coords = route.geometry.map(c => [c[1], c[0]]);
+                    expressRouteLayer = L.polyline(coords, {
+                        color: '#10b981',
+                        weight: 5,
+                        opacity: 0.7
+                    }).addTo(expressMap);
+                    
+                    // Zoom auf Route
+                    expressMap.fitBounds(expressRouteLayer.getBounds(), { padding: [50, 50] });
+                }
+                
+                // Berechne Preis
+                const pricing = calculatePrice(parseFloat(route.distance), Date.now());
+                
+                // Speichere Daten
+                expressCalculatedData = {
+                    distance: route.distance,
+                    duration: route.duration,
+                    price: pricing.total
+                };
+                
+                // Zeige "Preis berechnen" Button
+                document.getElementById('express-calc-btn').style.display = 'block';
+                
+                statusEl.innerHTML = `✅ Route: ${route.distance} km • Klick "Preis berechnen"!`;
+                statusEl.style.background = '#d1fae5';
+                statusEl.style.borderColor = '#10b981';
+                
+            } catch (error) {
+                console.error('❌ Route-Berechnung fehlgeschlagen:', error);
+                statusEl.innerHTML = '⚠️ Route-Berechnung fehlgeschlagen - bitte Adressen manuell eingeben';
+                statusEl.style.background = '#fef3c7';
+                statusEl.style.borderColor = '#f59e0b';
+            }
+        }
+        
+        // PREIS BERECHNEN (Button-Click)
+        async function calculateExpressPrice() {
+            console.log('💰 Berechne Preis für Express-Buchung...');
+            
+            const pickup = document.getElementById('express-pickup').value.trim();
+            const destination = document.getElementById('express-destination').value.trim();
+            
+            if (!pickup || !destination) {
+                alert('❌ Bitte Abholort und Zielort angeben!');
+                return;
+            }
+            
+            // Wenn wir schon Daten von Karte haben
+            if (expressCalculatedData) {
+                showExpressPriceResult(expressCalculatedData);
+                return;
+            }
+            
+            // Sonst: Normale Berechnung wie in "Taxi buchen"
+            try {
+                // Geocode Adressen
+                const pickupCoords = await geocode(pickup);
+                const destCoords = await geocode(destination);
+                
+                if (!pickupCoords || !destCoords) {
+                    alert('❌ Adressen konnten nicht gefunden werden!');
+                    return;
+                }
+                
+                // Route berechnen
+                const route = await calculateRoute(pickupCoords, destCoords);
+                
+                if (!route || !route.distance) {
+                    alert('❌ Route konnte nicht berechnet werden!');
+                    return;
+                }
+                
+                // Preis berechnen
+                const pricing = calculatePrice(parseFloat(route.distance), Date.now());
+                
+                expressCalculatedData = {
+                    distance: route.distance,
+                    duration: route.duration,
+                    price: pricing.total
+                };
+                
+                // Zeige Ergebnis
+                showExpressPriceResult(expressCalculatedData);
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Preis-Berechnung:', error);
+                alert('❌ Fehler bei der Berechnung!');
+            }
+        }
+        
+        // ZEIGE PREIS-ERGEBNIS
+        function showExpressPriceResult(data) {
+            const resultEl = document.getElementById('express-price-result');
+            
+            resultEl.innerHTML = `
+                <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:15px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <div style="font-size:11px;color:#065f46;font-weight:600;margin-bottom:3px;">📏 DISTANZ</div>
+                            <div style="font-size:18px;color:#10b981;font-weight:700;">${data.distance} km</div>
+                        </div>
+                        <div>
+                            <div style="font-size:11px;color:#065f46;font-weight:600;margin-bottom:3px;">💰 PREIS</div>
+                            <div style="font-size:18px;color:#10b981;font-weight:700;">${data.price.toFixed(2)}€</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            resultEl.style.display = 'block';
+            
+            // Zeige Zeit-Sektion
+            document.getElementById('express-time-section').style.display = 'block';
+        }
+        
+        // RIDE TYPE AUSWÄHLEN
+        function selectExpressRideType(type) {
+            expressRideType = type;
+            console.log('⏱️ Express Ride Type:', type);
+            
+            const sofortBtn = document.getElementById('express-btn-sofort');
+            const vorbestellenBtn = document.getElementById('express-btn-vorbestellen');
+            const datetimePicker = document.getElementById('express-datetime-picker');
+            
+            if (type === 'sofort') {
+                sofortBtn.style.borderColor = '#10b981';
+                sofortBtn.querySelector('div:last-child').style.color = '#059669';
+                vorbestellenBtn.style.borderColor = '#e5e7eb';
+                vorbestellenBtn.querySelector('div:last-child').style.color = '#6b7280';
+                datetimePicker.style.display = 'none';
+            } else {
+                sofortBtn.style.borderColor = '#e5e7eb';
+                sofortBtn.querySelector('div:last-child').style.color = '#6b7280';
+                vorbestellenBtn.style.borderColor = '#10b981';
+                vorbestellenBtn.querySelector('div:last-child').style.color = '#059669';
+                datetimePicker.style.display = 'block';
+            }
+            
+            // Zeige Kunden-Sektion
+            document.getElementById('express-customer-section').style.display = 'block';
+            document.getElementById('express-book-btn').style.display = 'block';
+        }
+        
+        // SETUP AUTOCOMPLETE
+        function setupExpressAutocomplete() {
+            // Pickup Autocomplete
+            const pickupInput = document.getElementById('express-pickup');
+            const pickupDropdown = document.getElementById('express-pickup-dropdown');
+            
+            pickupInput.addEventListener('input', () => {
+                handleExpressAutocomplete(pickupInput, pickupDropdown, 'pickup');
+            });
+            
+            // Destination Autocomplete
+            const destInput = document.getElementById('express-destination');
+            const destDropdown = document.getElementById('express-destination-dropdown');
+            
+            destInput.addEventListener('input', () => {
+                handleExpressAutocomplete(destInput, destDropdown, 'destination');
+            });
+        }
+        
+        let expressAutocompleteTimeout = null;
+        
+        async function handleExpressAutocomplete(input, dropdown, type) {
+            const query = input.value.trim();
+            
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            clearTimeout(expressAutocompleteTimeout);
+            
+            expressAutocompleteTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+                    );
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        dropdown.style.display = 'none';
+                        return;
+                    }
+                    
+                    dropdown.innerHTML = results.map(r => `
+                        <div onclick="selectExpressAutocomplete('${type}', '${r.display_name.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" 
+                             style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
+                            ${r.display_name}
+                        </div>
+                    `).join('');
+                    
+                    dropdown.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('❌ Autocomplete Fehler:', error);
+                }
+            }, 300);
+        }
+        
+        function selectExpressAutocomplete(type, address, lat, lon) {
+            if (type === 'pickup') {
+                document.getElementById('express-pickup').value = address;
+                document.getElementById('express-pickup-dropdown').style.display = 'none';
+                expressPickupCoords = { lat, lon };
+                
+                // Setze Marker
+                if (expressPickupMarker) {
+                    expressMap.removeLayer(expressPickupMarker);
+                }
+                const greenIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: '<div style="background:#10b981;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30]
+                });
+                expressPickupMarker = L.marker([lat, lon], { icon: greenIcon, draggable: true }).addTo(expressMap);
+                expressMap.setView([lat, lon], 15);
+                expressStep = 2;
+                
+            } else {
+                document.getElementById('express-destination').value = address;
+                document.getElementById('express-destination-dropdown').style.display = 'none';
+                expressDestinationCoords = { lat, lon };
+                
+                // Setze Marker
+                if (expressDestinationMarker) {
+                    expressMap.removeLayer(expressDestinationMarker);
+                }
+                const redIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: '<div style="background:#ef4444;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30]
+                });
+                expressDestinationMarker = L.marker([lat, lon], { icon: redIcon, draggable: true }).addTo(expressMap);
+                
+                // Auto-berechne Route
+                if (expressPickupCoords) {
+                    calculateExpressRouteAuto();
+                }
+            }
+        }
+        
+        // BUCHEN
+        async function executeExpressBooking() {
+            console.log('⚡ Führe Express-Buchung aus...');
+            
+            const pickup = document.getElementById('express-pickup').value.trim();
+            const destination = document.getElementById('express-destination').value.trim();
+            const customer = document.getElementById('express-customer').value.trim();
+            const guest = document.getElementById('express-guest').value.trim();
+            const passengers = document.getElementById('express-passengers').value;
+            const payment = document.getElementById('express-payment').value;
+            
+            if (!pickup || !destination) {
+                alert('❌ Bitte Abholort und Zielort angeben!');
+                return;
+            }
+            
+            if (!customer) {
+                alert('❌ Bitte Kundenname eingeben!');
+                return;
+            }
+            
+            if (!expressCalculatedData) {
+                alert('❌ Bitte erst Preis berechnen!');
+                return;
+            }
+            
+            // Zeitstempel
+            let pickupTimestamp;
+            if (expressRideType === 'sofort') {
+                pickupTimestamp = Date.now();
+            } else {
+                const date = document.getElementById('express-date').value;
+                const time = document.getElementById('express-time').value;
+                if (!date || !time) {
+                    alert('❌ Bitte Datum und Uhrzeit wählen!');
+                    return;
+                }
+                pickupTimestamp = new Date(`${date}T${time}`).getTime();
+            }
+            
+            // Erstelle Ride
+            const ride = {
+                pickup,
+                destination,
+                pickupLat: expressPickupCoords?.lat || null,
+                pickupLon: expressPickupCoords?.lon || null,
+                destinationLat: expressDestinationCoords?.lat || null,
+                destinationLon: expressDestinationCoords?.lon || null,
+                pickupTimestamp,
+                customerName: customer,
+                guestName: guest || '',
+                passengers: parseInt(passengers),
+                paymentMethod: payment,
+                distance: expressCalculatedData.distance,
+                price: expressCalculatedData.price,
+                status: expressRideType === 'sofort' ? 'pending' : 'scheduled',
+                createdAt: Date.now(),
+                userId: currentUser ? currentUser.uid : null
+            };
+            
+            try {
+                const rideRef = await db.ref('rides').push(ride);
+                console.log('✅ Express-Buchung gespeichert:', rideRef.key);
+                
+                alert(`✅ Buchung erfolgreich!\n\nVon: ${pickup}\nNach: ${destination}\nKunde: ${customer}\nPreis: ${expressCalculatedData.price.toFixed(2)}€`);
+                
+                // Reset
+                resetExpressBooking();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern der Buchung!');
+            }
+        }
+        
+        // RESET
+        function resetExpressBooking() {
+            console.log('🔄 Reset Express-Buchung...');
+            
+            // Entferne Marker & Route
+            if (expressPickupMarker) {
+                expressMap.removeLayer(expressPickupMarker);
+                expressPickupMarker = null;
+            }
+            if (expressDestinationMarker) {
+                expressMap.removeLayer(expressDestinationMarker);
+                expressDestinationMarker = null;
+            }
+            if (expressRouteLayer) {
+                expressMap.removeLayer(expressRouteLayer);
+                expressRouteLayer = null;
+            }
+            
+            // Reset Variablen
+            expressPickupCoords = null;
+            expressDestinationCoords = null;
+            expressStep = 1;
+            expressCalculatedData = null;
+            
+            // Reset UI
+            document.getElementById('express-pickup').value = '';
+            document.getElementById('express-destination').value = '';
+            document.getElementById('express-customer').value = '';
+            document.getElementById('express-guest').value = '';
+            document.getElementById('express-map-status').innerHTML = '⚪ Klicke auf Karte für Abholort ODER gib Adresse unten ein';
+            document.getElementById('express-map-status').style.background = '#fef3c7';
+            document.getElementById('express-price-result').style.display = 'none';
+            document.getElementById('express-time-section').style.display = 'none';
+            document.getElementById('express-customer-section').style.display = 'none';
+            document.getElementById('express-book-btn').style.display = 'none';
+            document.getElementById('express-calc-btn').style.display = 'block';
+            
+            // Zoom zurück
+            expressMap.setView([53.9547, 14.1783], 13);
+            
+            console.log('✅ Reset erfolgreich!');
+        }
+        
         async function loadExpressPOIsNew() {
             if (!isFirebaseReady) return;
             
@@ -33079,611 +33708,7 @@
             }
         }
         
-        // ═══════════════════════════════════════════════════════════════════
-        // 🆕 v5.90.165: EXPRESS-BUCHUNG - KOMPLETT NEU!
-        // Karte + Formular = Wie Schnellbuchung aber mit visueller Unterstützung
-        // ═══════════════════════════════════════════════════════════════════
         async function openQuickBookingModal(prefilledCustomer = null) {
-        // ═══════════════════════════════════════════════════════════════════
-        // 🆕 v5.90.165: EXPRESS-BUCHUNG - KOMPLETT NEU!
-        // Karte + Formular = Wie Schnellbuchung aber mit visueller Unterstützung
-        // ═══════════════════════════════════════════════════════════════════
-        
-        // GLOBALE VARIABLEN
-        let expressMap = null;
-        let expressPickupMarker = null;
-        let expressDestMarker = null;
-        let expressRouteLayer = null;
-        let expressPickupCoords = null;
-        let expressDestCoords = null;
-        let expressCalculatedPrice = null;
-        let expressAutocompleteTimeout = null;
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // INIT
-        // ═══════════════════════════════════════════════════════════════════
-        
-        async function initExpressBooking() {
-            console.log('⚡ v5.90.165: Init Express-Buchung (NEU & SAUBER!)...');
-            
-            const wrapper = document.getElementById('express-map-wrapper');
-            if (!wrapper) {
-                console.error('❌ express-map-wrapper nicht gefunden!');
-                return;
-            }
-            
-            // Falls Karte existiert
-            if (expressMap) {
-                console.log('🔄 Karte existiert, invalidiere Size...');
-                expressMap.invalidateSize();
-                return;
-            }
-            
-            try {
-                // Erstelle Karte
-                wrapper.innerHTML = '<div id="express-leaflet-map" style="width:100%;height:100%;"></div>';
-                
-                expressMap = L.map('express-leaflet-map', {
-                    zoomControl: true,
-                    scrollWheelZoom: true
-                }).setView([53.9547, 14.1783], 13);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap',
-                    maxZoom: 19
-                }).addTo(expressMap);
-                
-                console.log('✅ Express-Karte erstellt!');
-                
-                // Click-Handler
-                expressMap.on('click', handleExpressMapClick);
-                
-                // Setze Default Datum/Zeit
-                const today = new Date();
-                document.getElementById('express-date').valueAsDate = today;
-                const nowPlus30 = new Date(today.getTime() + 30*60*1000);
-                document.getElementById('express-time').value = 
-                    `${String(nowPlus30.getHours()).padStart(2,'0')}:${String(nowPlus30.getMinutes()).padStart(2,'0')}`;
-                
-                // Lade Kunden wenn noch nicht
-                if (allCustomers.length === 0) {
-                    await loadAllCustomers();
-                }
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Erstellen der Karte:', error);
-                wrapper.innerHTML = `
-                    <div style="width:100%;height:100%;background:#fef2f2;display:flex;align-items:center;justify-content:center;">
-                        <div style="text-align:center;padding:20px;color:#dc2626;">
-                            <div style="font-size:48px;margin-bottom:12px;">❌</div>
-                            <div style="font-size:14px;font-weight:600;">Karte konnte nicht geladen werden</div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // KARTEN-CLICK (HAUPTFUNKTION!)
-        // ═══════════════════════════════════════════════════════════════════
-        
-        async function handleExpressMapClick(e) {
-            const lat = e.latlng.lat;
-            const lon = e.latlng.lng;
-            
-            console.log(`🗺️ Karte geklickt: ${lat}, ${lon}`);
-            
-            try {
-                // Reverse Geocode
-                const address = await reverseGeocode(lat, lon);
-                console.log('📍 Adresse:', address);
-                
-                // Entscheide: Abholort oder Ziel?
-                if (!expressPickupCoords) {
-                    // 1. KLICK → ABHOLORT
-                    document.getElementById('express-pickup').value = address;
-                    expressPickupCoords = { lat, lon };
-                    
-                    // Marker setzen
-                    if (expressPickupMarker) expressMap.removeLayer(expressPickupMarker);
-                    expressPickupMarker = L.marker([lat, lon], {
-                        draggable: true,
-                        icon: L.divIcon({
-                            html: '<div style="background:#10b981;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">📍</div>',
-                            className: '',
-                            iconSize: [36, 36]
-                        })
-                    }).addTo(expressMap);
-                    
-                    expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`).openPopup();
-                    
-                    // Drag-Handler
-                    expressPickupMarker.on('dragend', async (event) => {
-                        const pos = event.target.getLatLng();
-                        const newAddr = await reverseGeocode(pos.lat, pos.lng);
-                        document.getElementById('express-pickup').value = newAddr;
-                        expressPickupCoords = { lat: pos.lat, lon: pos.lng };
-                        event.target.setPopupContent(`<strong>📍 Abholort</strong><br>${newAddr}`);
-                        calculateExpressRouteAndPrice();
-                    });
-                    
-                    updateExpressStatus();
-                    
-                } else if (!expressDestCoords) {
-                    // 2. KLICK → ZIELORT
-                    document.getElementById('express-destination').value = address;
-                    expressDestCoords = { lat, lon };
-                    
-                    // Marker setzen
-                    if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
-                    expressDestMarker = L.marker([lat, lon], {
-                        draggable: true,
-                        icon: L.divIcon({
-                            html: '<div style="background:#ef4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>',
-                            className: '',
-                            iconSize: [36, 36]
-                        })
-                    }).addTo(expressMap);
-                    
-                    expressDestMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`).openPopup();
-                    
-                    // Drag-Handler
-                    expressDestMarker.on('dragend', async (event) => {
-                        const pos = event.target.getLatLng();
-                        const newAddr = await reverseGeocode(pos.lat, pos.lng);
-                        document.getElementById('express-destination').value = newAddr;
-                        expressDestCoords = { lat: pos.lat, lon: pos.lng };
-                        event.target.setPopupContent(`<strong>🎯 Zielort</strong><br>${newAddr}`);
-                        calculateExpressRouteAndPrice();
-                    });
-                    
-                    updateExpressStatus();
-                    
-                    // AUTOMATISCH ROUTE & PREIS BERECHNEN!
-                    await calculateExpressRouteAndPrice();
-                    
-                } else {
-                    // BEIDE EXISTIEREN → ERSETZE ZIELORT
-                    document.getElementById('express-destination').value = address;
-                    expressDestCoords = { lat, lon };
-                    
-                    if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
-                    expressDestMarker = L.marker([lat, lon], {
-                        draggable: true,
-                        icon: L.divIcon({
-                            html: '<div style="background:#ef4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>',
-                            className: '',
-                            iconSize: [36, 36]
-                        })
-                    }).addTo(expressMap);
-                    
-                    expressDestMarker.bindPopup(`<strong>🎯 Zielort (NEU)</strong><br>${address}`).openPopup();
-                    
-                    expressDestMarker.on('dragend', async (event) => {
-                        const pos = event.target.getLatLng();
-                        const newAddr = await reverseGeocode(pos.lat, pos.lng);
-                        document.getElementById('express-destination').value = newAddr;
-                        expressDestCoords = { lat: pos.lat, lon: pos.lng };
-                        event.target.setPopupContent(`<strong>🎯 Zielort</strong><br>${newAddr}`);
-                        calculateExpressRouteAndPrice();
-                    });
-                    
-                    await calculateExpressRouteAndPrice();
-                }
-                
-            } catch (error) {
-                console.error('❌ Geocoding-Fehler:', error);
-                showToast('❌ Adresse konnte nicht ermittelt werden', 'error');
-            }
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // STATUS UPDATE
-        // ═══════════════════════════════════════════════════════════════════
-        
-        function updateExpressStatus() {
-            const statusEl = document.getElementById('express-map-status');
-            
-            if (!expressPickupCoords) {
-                statusEl.innerHTML = '⚪ Klicke auf Karte für Abholort';
-                statusEl.style.background = '#fef3c7';
-                statusEl.style.borderColor = '#f59e0b';
-                statusEl.style.color = '#92400e';
-            } else if (!expressDestCoords) {
-                statusEl.innerHTML = '🟡 SUPER! Jetzt Zielort auf Karte klicken';
-                statusEl.style.background = '#fef3c7';
-                statusEl.style.borderColor = '#f59e0b';
-                statusEl.style.color = '#92400e';
-            } else {
-                statusEl.innerHTML = '🟢 PERFEKT! Route wird berechnet...';
-                statusEl.style.background = '#dcfce7';
-                statusEl.style.borderColor = '#10b981';
-                statusEl.style.color = '#065f46';
-            }
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // ROUTE & PREIS BERECHNEN
-        // ═══════════════════════════════════════════════════════════════════
-        
-        async function calculateExpressRouteAndPrice() {
-            if (!expressPickupCoords || !expressDestCoords) return;
-            
-            try {
-                console.log('💰 Berechne Route & Preis...');
-                
-                // OSRM Route
-                const route = await calculateRoute(expressPickupCoords, expressDestCoords);
-                console.log('🛣️ Route:', route);
-                
-                // Zeige Route auf Karte
-                if (expressRouteLayer) expressMap.removeLayer(expressRouteLayer);
-                
-                const latlngs = route.geometry.map(coord => [coord[1], coord[0]]);
-                expressRouteLayer = L.polyline(latlngs, {
-                    color: '#3b82f6',
-                    weight: 5,
-                    opacity: 0.7
-                }).addTo(expressMap);
-                
-                // Zoom auf Route
-                expressMap.fitBounds(expressRouteLayer.getBounds(), { padding: [50, 50] });
-                
-                // Berechne Preis
-                const settings = pricingSettings || {
-                    basePrice: 3.50,
-                    pricePerKm: 2.00,
-                    nightSurcharge: 1.50,
-                    holidaySurcharge: 5.00
-                };
-                
-                const price = calculatePrice(route.distance, Date.now(), settings);
-                
-                expressCalculatedPrice = {
-                    distance: route.distance,
-                    duration: route.duration,
-                    total: price.total,
-                    net: price.net,
-                    vatRate: price.vatRate,
-                    vat: price.vat
-                };
-                
-                // Zeige Preis
-                document.getElementById('express-distance-text').textContent = route.distance;
-                document.getElementById('express-duration-text').textContent = route.duration;
-                document.getElementById('express-price-text').textContent = price.total.toFixed(2);
-                document.getElementById('express-price-display').style.display = 'block';
-                
-                // Update Status
-                const statusEl = document.getElementById('express-map-status');
-                statusEl.innerHTML = `🟢 FERTIG! ${route.distance} km · ${route.duration} Min. · ${price.total.toFixed(2)}€`;
-                statusEl.style.background = '#dcfce7';
-                statusEl.style.borderColor = '#10b981';
-                statusEl.style.color = '#065f46';
-                
-                console.log('✅ Route & Preis berechnet!');
-                
-            } catch (error) {
-                console.error('❌ Fehler bei Routing:', error);
-                showToast('❌ Route konnte nicht berechnet werden', 'error');
-            }
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // AUTOCOMPLETE (PICKUP)
-        // ═══════════════════════════════════════════════════════════════════
-        
-        async function expressAutocompletePickup() {
-            const input = document.getElementById('express-pickup');
-            const dropdown = document.getElementById('express-pickup-dropdown');
-            const query = input.value.trim();
-            
-            if (query.length < 3) {
-                dropdown.style.display = 'none';
-                return;
-            }
-            
-            clearTimeout(expressAutocompleteTimeout);
-            expressAutocompleteTimeout = setTimeout(async () => {
-                try {
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
-                    const response = await fetch(url);
-                    const results = await response.json();
-                    
-                    if (results && results.length > 0) {
-                        dropdown.innerHTML = results.map(r => `
-                            <div onclick="selectExpressPickup(${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")}')}" 
-                                 style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
-                                <div style="font-weight:600;">${r.display_name.split(',')[0]}</div>
-                                <div style="font-size:12px;color:#666;">${r.display_name}</div>
-                            </div>
-                        `).join('');
-                        dropdown.style.display = 'block';
-                    } else {
-                        dropdown.style.display = 'none';
-                    }
-                    
-                } catch (error) {
-                    console.error('Autocomplete Fehler:', error);
-                }
-            }, 300);
-        }
-        
-        function selectExpressPickup(lat, lon, address) {
-            document.getElementById('express-pickup').value = address;
-            document.getElementById('express-pickup-dropdown').style.display = 'none';
-            
-            expressPickupCoords = { lat, lon };
-            
-            // Marker setzen
-            if (expressPickupMarker) expressMap.removeLayer(expressPickupMarker);
-            expressPickupMarker = L.marker([lat, lon], {
-                draggable: true,
-                icon: L.divIcon({
-                    html: '<div style="background:#10b981;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">📍</div>',
-                    className: '',
-                    iconSize: [36, 36]
-                })
-            }).addTo(expressMap);
-            
-            expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`);
-            
-            expressPickupMarker.on('dragend', async (event) => {
-                const pos = event.target.getLatLng();
-                const newAddr = await reverseGeocode(pos.lat, pos.lng);
-                document.getElementById('express-pickup').value = newAddr;
-                expressPickupCoords = { lat: pos.lat, lon: pos.lng };
-                event.target.setPopupContent(`<strong>📍 Abholort</strong><br>${newAddr}`);
-                if (expressDestCoords) calculateExpressRouteAndPrice();
-            });
-            
-            expressMap.setView([lat, lon], 15);
-            updateExpressStatus();
-            
-            if (expressDestCoords) {
-                calculateExpressRouteAndPrice();
-            }
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // AUTOCOMPLETE (DESTINATION)
-        // ═══════════════════════════════════════════════════════════════════
-        
-        async function expressAutocompleteDestination() {
-            const input = document.getElementById('express-destination');
-            const dropdown = document.getElementById('express-destination-dropdown');
-            const query = input.value.trim();
-            
-            if (query.length < 3) {
-                dropdown.style.display = 'none';
-                return;
-            }
-            
-            clearTimeout(expressAutocompleteTimeout);
-            expressAutocompleteTimeout = setTimeout(async () => {
-                try {
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
-                    const response = await fetch(url);
-                    const results = await response.json();
-                    
-                    if (results && results.length > 0) {
-                        dropdown.innerHTML = results.map(r => `
-                            <div onclick="selectExpressDestination(${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")}')}" 
-                                 style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
-                                <div style="font-weight:600;">${r.display_name.split(',')[0]}</div>
-                                <div style="font-size:12px;color:#666;">${r.display_name}</div>
-                            </div>
-                        `).join('');
-                        dropdown.style.display = 'block';
-                    } else {
-                        dropdown.style.display = 'none';
-                    }
-                    
-                } catch (error) {
-                    console.error('Autocomplete Fehler:', error);
-                }
-            }, 300);
-        }
-        
-        function selectExpressDestination(lat, lon, address) {
-            document.getElementById('express-destination').value = address;
-            document.getElementById('express-destination-dropdown').style.display = 'none';
-            
-            expressDestCoords = { lat, lon };
-            
-            // Marker setzen
-            if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
-            expressDestMarker = L.marker([lat, lon], {
-                draggable: true,
-                icon: L.divIcon({
-                    html: '<div style="background:#ef4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>',
-                    className: '',
-                    iconSize: [36, 36]
-                })
-            }).addTo(expressMap);
-            
-            expressDestMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`);
-            
-            expressDestMarker.on('dragend', async (event) => {
-                const pos = event.target.getLatLng();
-                const newAddr = await reverseGeocode(pos.lat, pos.lng);
-                document.getElementById('express-destination').value = newAddr;
-                expressDestCoords = { lat: pos.lat, lon: pos.lng };
-                event.target.setPopupContent(`<strong>🎯 Zielort</strong><br>${newAddr}`);
-                calculateExpressRouteAndPrice();
-            });
-            
-            expressMap.setView([lat, lon], 15);
-            updateExpressStatus();
-            
-            if (expressPickupCoords) {
-                calculateExpressRouteAndPrice();
-            }
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // KUNDEN-SUCHE
-        // ═══════════════════════════════════════════════════════════════════
-        
-        function expressSearchCustomer() {
-            const input = document.getElementById('express-customer-search');
-            const dropdown = document.getElementById('express-customer-dropdown');
-            const query = input.value.trim().toLowerCase();
-            
-            if (query.length < 2) {
-                dropdown.style.display = 'none';
-                return;
-            }
-            
-            const matches = allCustomers.filter(c => 
-                (c.name && c.name.toLowerCase().includes(query)) ||
-                (c.phone && c.phone.includes(query))
-            );
-            
-            if (matches.length > 0) {
-                dropdown.innerHTML = matches.slice(0, 5).map(c => `
-                    <div onclick="selectExpressCustomer('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}')}" 
-                         style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
-                        <div style="font-weight:600;">${c.name}</div>
-                        ${c.phone ? `<div style="font-size:12px;color:#666;">📞 ${c.phone}</div>` : ''}
-                    </div>
-                `).join('');
-                dropdown.style.display = 'block';
-            } else {
-                dropdown.style.display = 'none';
-            }
-        }
-        
-        function selectExpressCustomer(customerId, customerName) {
-            document.getElementById('express-customer-search').value = customerName;
-            document.getElementById('express-customer-id').value = customerId;
-            document.getElementById('express-customer-dropdown').style.display = 'none';
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // BUCHEN! (HAUPTFUNKTION)
-        // ═══════════════════════════════════════════════════════════════════
-        
-        async function executeExpressBooking() {
-            console.log('🚕 v5.90.165: Express-Buchung ausführen...');
-            
-            // Validierung
-            const pickup = document.getElementById('express-pickup').value.trim();
-            const destination = document.getElementById('express-destination').value.trim();
-            const date = document.getElementById('express-date').value;
-            const time = document.getElementById('express-time').value;
-            const customerName = document.getElementById('express-customer-search').value.trim();
-            const customerId = document.getElementById('express-customer-id').value;
-            
-            if (!pickup) {
-                showToast('❌ Bitte Abholort eingeben!', 'error');
-                return;
-            }
-            
-            if (!destination) {
-                showToast('❌ Bitte Zielort eingeben!', 'error');
-                return;
-            }
-            
-            if (!date || !time) {
-                showToast('❌ Bitte Datum und Uhrzeit eingeben!', 'error');
-                return;
-            }
-            
-            if (!customerName) {
-                showToast('❌ Bitte Kunde auswählen!', 'error');
-                return;
-            }
-            
-            try {
-                // Timestamp erstellen
-                const pickupTimestamp = new Date(`${date}T${time}`).getTime();
-                
-                // Fahrt-Objekt
-                const ride = {
-                    pickup: pickup,
-                    destination: destination,
-                    pickupTimestamp: pickupTimestamp,
-                    customerName: customerName,
-                    customerId: customerId || null,
-                    guestName: document.getElementById('express-guest-name').value.trim() || null,
-                    passengers: parseInt(document.getElementById('express-passengers').value) || 1,
-                    paymentMethod: document.getElementById('express-payment').value,
-                    notes: document.getElementById('express-notes').value.trim() || null,
-                    status: 'pending',
-                    createdAt: Date.now(),
-                    createdBy: currentUser?.name || 'Admin',
-                    source: 'express-booking',
-                    distance: expressCalculatedPrice?.distance || null,
-                    price: expressCalculatedPrice?.total || null
-                };
-                
-                console.log('📋 Fahrt:', ride);
-                
-                // Speichern in Firebase
-                const rideRef = await db.ref('rides').push(ride);
-                const rideId = rideRef.key;
-                
-                console.log('✅ Fahrt gespeichert:', rideId);
-                
-                showToast(`✅ Buchung erfolgreich! Fahrt ${rideId.slice(-6)}`, 'success');
-                
-                // Reset
-                resetExpressBooking();
-                
-                // Optional: Zurück zum Kalender
-                if (typeof loadCalendarData === 'function') {
-                    await loadCalendarData();
-                    await renderCalendar();
-                }
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Buchen:', error);
-                showToast('❌ Fehler beim Erstellen der Buchung', 'error');
-            }
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // RESET
-        // ═══════════════════════════════════════════════════════════════════
-        
-        function resetExpressBooking() {
-            console.log('🔄 Reset Express-Buchung...');
-            
-            // Marker entfernen
-            if (expressPickupMarker) expressMap.removeLayer(expressPickupMarker);
-            if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
-            if (expressRouteLayer) expressMap.removeLayer(expressRouteLayer);
-            
-            // Variablen reset
-            expressPickupMarker = null;
-            expressDestMarker = null;
-            expressRouteLayer = null;
-            expressPickupCoords = null;
-            expressDestCoords = null;
-            expressCalculatedPrice = null;
-            
-            // Felder leeren
-            document.getElementById('express-pickup').value = '';
-            document.getElementById('express-destination').value = '';
-            document.getElementById('express-customer-search').value = '';
-            document.getElementById('express-customer-id').value = '';
-            document.getElementById('express-guest-name').value = '';
-            document.getElementById('express-notes').value = '';
-            document.getElementById('express-price-display').style.display = 'none';
-            
-            // Status reset
-            updateExpressStatus();
-            
-            // Karte zurück
-            expressMap.setView([53.9547, 14.1783], 13);
-            
-            console.log('✅ Reset fertig!');
-        }
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // ENDE EXPRESS-BOOKING
-        // ═══════════════════════════════════════════════════════════════════
             if (!isFirebaseReady) {
                 alert('❌ Firebase nicht verbunden!');
                 return;
@@ -57595,13 +57620,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     if (tab.admin && (!currentUser || currentUser.role !== 'admin')) {
                         btn.style.display = 'none';
                         console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${currentUser?.role || 'Gast'}`);
-                    } 
-                    // 🆕 v5.90.169: Admin Tab IMMER sichtbar für Admins!
-                    else if (tab.id === 'admin' && currentUser && currentUser.role === 'admin') {
-                        btn.style.display = '';
-                        console.log(`✅ v5.90.169: Admin Tab erzwungen sichtbar!`);
-                    }
-                    else if (settings.visible.includes(tab.id)) {
+                    } else if (settings.visible.includes(tab.id)) {
                         btn.style.display = '';
                     } else {
                         btn.style.display = 'none';

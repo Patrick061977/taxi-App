@@ -108,11 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.146 - ROLLING WINDOW! 🔄 (Build 20260107-1340)');
-        console.log('✅ v5.90.146: UNENDLICH WEITER TIPPEN!');
-        console.log('✅ v5.90.146: Rolling Window - Letzte 4 Ziffern zählen!');
-        console.log('✅ v5.90.146: Führende Nullen bleiben erhalten!');
-        console.log('✅ v5.90.146: "0815" → "08:15" ✅');
+        console.log('🚕 Funk Taxi App v5.90.147 - TAB-VERWALTUNG ZURÜCK! 📱 (Build 20260107-1350)');
+        console.log('✅ v5.90.147: TAB-VERWALTUNG im Admin wieder hinzugefügt!');
+        console.log('✅ v5.90.147: Tabs ein/ausblenden + Standard-Tab wählen!');
+        console.log('✅ v5.90.146: Rolling Window Ziffernblock!');
         console.log('✅ v5.90.145: Leere beim ersten Klick!');
         console.log('✅ v5.90.142: Zentrale getCustomer()!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
@@ -975,7 +974,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.146 - ROLLING WINDOW! 🔄 (Build 20260107-1340)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.147 - TAB-VERWALTUNG ZURÜCK! 📱 (Build 20260107-1350)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3583,6 +3582,117 @@
         </div>
         
         <!-- 🗑️ v5.90.33: TAB-BERECHTIGUNGEN ENTFERNT - Jetzt in Tab-Einstellungen! -->
+        
+        <!-- 🆕 v5.90.147: TAB-VERWALTUNG ZURÜCK! -->
+        <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #3b82f6;box-shadow:0 4px 12px rgba(59,130,246,0.15);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;">
+                <div style="font-size:28px;">📱</div>
+                <div>
+                    <h4 style="margin:0;font-size:18px;color:#1e40af;">Tab-Verwaltung</h4>
+                    <p style="margin:4px 0 0 0;font-size:13px;color:#3730a3;">Wähle welche Tabs oben angezeigt werden sollen</p>
+                </div>
+            </div>
+            
+            <!-- Checkboxen für Tabs -->
+            <div id="tab-checkboxes" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-bottom:20px;">
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="passenger" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">🚕 Fahrgast</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="schedule" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">📅 Termine</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="history" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">📜 Verlauf</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="calendar" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">📆 Kalender</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="rechnung" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">🧾 Rechnung</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="hotel-calendar" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">🏨 Hotel-Kalender</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="quick-booking" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">⚡ Schnellbuchung</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="driver" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">🚗 Fahrer</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="admin" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">⚙️ Admin</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="shift-plan" checked style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">📋 Schichtplan</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="debug" style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">🐛 Debug</span>
+                </label>
+                
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
+                    <input type="checkbox" value="ai-assistant" style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;color:#1e40af;">🤖 AI Assistent</span>
+                </label>
+            </div>
+            
+            <!-- Standard-Tab Auswahl -->
+            <div style="background:#eff6ff;padding:15px;border-radius:8px;margin-bottom:15px;border-left:4px solid #3b82f6;">
+                <label style="display:block;font-weight:600;color:#1e40af;margin-bottom:8px;">
+                    🎯 Standard-Tab (wird beim Start geöffnet):
+                </label>
+                <select id="default-tab-select" style="width:100%;padding:10px;border:2px solid #3b82f6;border-radius:6px;font-size:14px;">
+                    <option value="passenger">🚕 Fahrgast</option>
+                    <option value="schedule">📅 Termine</option>
+                    <option value="history">📜 Verlauf</option>
+                    <option value="calendar">📆 Kalender</option>
+                    <option value="driver">🚗 Fahrer</option>
+                    <option value="admin">⚙️ Admin</option>
+                </select>
+            </div>
+            
+            <!-- Speichern Button -->
+            <button onclick="saveTabSettings()" style="
+                width:100%;
+                padding:14px;
+                background:linear-gradient(135deg, #3b82f6, #2563eb);
+                color:white;
+                border:none;
+                border-radius:8px;
+                font-weight:700;
+                font-size:15px;
+                cursor:pointer;
+                box-shadow:0 4px 8px rgba(59,130,246,0.3);
+                transition:transform 0.2s;
+            " onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+                💾 Tab-Einstellungen speichern
+            </button>
+            
+            <div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">
+                ⚠️ Die Seite wird nach dem Speichern neu geladen
+            </div>
+        </div>
         
         <!-- 🆕 v5.87.86: EINSTELLUNGEN (MWST + ZAHLUNGSARTEN) -->
         <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;border:2px solid #8b5cf6;box-shadow:0 4px 12px rgba(139,92,246,0.15);">

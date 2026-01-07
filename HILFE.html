@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚕 Funk Taxi App - Hilfe & Dokumentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f9fafb;
+            color: #1f2937;
+        }
+        
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        
+        .search-container {
+            position: relative;
+            max-width: 600px;
+        }
+        
+        #search-input {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        #search-input:focus {
+            outline: 3px solid #fbbf24;
+        }
+        
+        .search-icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+        }
+        
+        /* LAYOUT */
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            height: calc(100vh - 120px);
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* SIDEBAR (LINKS) */
+        .sidebar {
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .category {
+            margin-bottom: 25px;
+        }
+        
+        .category-title {
+            font-weight: 700;
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .help-item {
+            padding: 12px 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        
+        .help-item:hover {
+            background: #f3f4f6;
+            border-left-color: #667eea;
+            transform: translateX(3px);
+        }
+        
+        .help-item.active {
+            background: #eef2ff;
+            border-left-color: #667eea;
+            font-weight: 600;
+        }
+        
+        .help-item-title {
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+        
+        .help-item-meta {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        
+        /* CONTENT (RECHTS) */
+        .content {
+            background: white;
+            padding: 40px;
+            overflow-y: auto;
+        }
+        
+        .content h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #1f2937;
+        }
+        
+        .content h3 {
+            font-size: 20px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+        
+        .content p {
+            line-height: 1.8;
+            margin-bottom: 15px;
+            color: #4b5563;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        .screenshot {
+            width: 100%;
+            max-width: 800px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .step-list {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .step {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .step:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .step-number {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        
+        .step-content h4 {
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        
+        .step-content p {
+            margin: 0;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .code-block {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        
+        .info-box {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .error-box {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .function-ref {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .function-ref strong {
+            color: #667eea;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #e0e7ff;
+            color: #3730a3;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
+        #no-results {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+        
+        #no-results .emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .welcome-screen {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        
+        .welcome-screen .emoji {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid #e5e7eb;
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <div class="header">
+        <h1>🚕 Funk Taxi App - Hilfe & Dokumentation</h1>
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="🔍 Suche nach Feature, Funktion oder Problem..." autocomplete="off">
+            <span class="search-icon">🔍</span>
+        </div>
+    </div>
+    
+    <!-- CONTAINER -->
+    <div class="container">
+        <!-- SIDEBAR (Links) -->
+        <div class="sidebar" id="sidebar">
+            <!-- Wird mit JavaScript gefüllt -->
+        </div>
+        
+        <!-- CONTENT (Rechts) -->
+        <div class="content" id="content">
+            <div class="welcome-screen">
+                <div class="emoji">👋</div>
+                <h2>Willkommen zur Hilfe!</h2>
+                <p style="margin-top: 20px;">Wähle ein Thema links oder nutze die Suchfunktion oben.</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        // HILFE-DATENBANK
+        // ═══════════════════════════════════════════════════════════════
+        
+        const helpDatabase = {
+            // 🚕 BUCHUNG
+            'express-booking': {
+                title: '⚡ Express-Buchung',
+                category: '🚕 Buchung',
+                tags: ['karte', 'schnell', 'admin', 'visuell'],
+                lines: '6078-6212',
+                functions: ['initExpressBooking', 'handleExpressMapClick', 'executeExpressBooking'],
+                content: `
+                    <h2>⚡ Express-Buchung</h2>
+                    <span class="badge">Admin</span>
+                    <span class="badge">Zeile 6078-6212</span>
+                    
+                    <h3>🎯 Was ist das?</h3>
+                    <p>Die Express-Buchung ist eine <strong>visuelle Schnellbuchung</strong> für Admins. Statt Adressen einzutippen, kannst du direkt auf der Karte klicken!</p>
+                    
+                    <div class="info-box">
+                        <strong>💡 Vorteil:</strong> Buchung in 30 Sekunden statt 3 Minuten!
+                    </div>
+                    
+                    <h3>📝 So funktioniert's:</h3>
+                    <div class="step-list">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Admin-Panel öffnen</h4>
+                                <p>Einloggen als Admin → Admin-Dashboard → "⚡ Express-Buchung"</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Abholort auf Karte klicken</h4>
+                                <p>Karte öffnet sich → <strong>1. KLICK</strong> setzt grüne Stecknadel 📍 → Adresse wird automatisch gefüllt!</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Zielort auf Karte klicken</h4>
+                                <p><strong>2. KLICK</strong> setzt rote Stecknadel 🎯 → Adresse automatisch gefüllt → Route wird gezeichnet!</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>Preis wird automatisch berechnet</h4>
+                                <p>OSRM berechnet Route → Distanz & Dauer → Preis erscheint in grüner Box 💰</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">5</div>
+                            <div class="step-content">
+                                <h4>Restliche Felder ausfüllen</h4>
+                                <p>Datum/Zeit, Kunde, Personen, Zahlungsmethode</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">6</div>
+                            <div class="step-content">
+                                <h4>Buchen!</h4>
+                                <p>Button "🚕 JETZT BUCHEN" klicken → Fertig! 🎉</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3>🔧 Wichtige Funktionen:</h3>
+                    <div class="function-ref">
+                        <strong>initExpressBooking()</strong> - Zeile 33148<br>
+                        Erstellt die Karte (Leaflet) und setzt Event-Listener
+                    </div>
+                    <div class="function-ref">
+                        <strong>handleExpressMapClick(e)</strong> - Zeile 33202<br>
+                        Wird bei Karten-Klick aufgerufen → reverseGeocode → Marker setzen
+                    </div>
+                    <div class="function-ref">
+                        <strong>calculateExpressRouteAndPrice()</strong> - Zeile 33341<br>
+                        Berechnet Route (OSRM) und Preis automatisch
+                    </div>
+                    <div class="function-ref">
+                        <strong>executeExpressBooking()</strong> - Zeile 33609<br>
+                        Speichert Buchung in Firebase
+                    </div>
+                    
+                    <h3>💡 Tipps & Tricks:</h3>
+                    <div class="info-box">
+                        <strong>Stecknadeln verschiebbar!</strong><br>
+                        Du kannst die Stecknadeln nach dem Setzen noch verschieben → Adresse wird automatisch aktualisiert!
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>Auch Tippen möglich!</strong><br>
+                        Du kannst alternativ auch Adressen eintippen → Autocomplete schlägt vor → Klicken → Marker wird gesetzt!
+                    </div>
+                    
+                    <h3>⚠️ Häufige Probleme:</h3>
+                    <div class="error-box">
+                        <strong>❌ Karte lädt nicht?</strong><br>
+                        → Browser-Cache leeren (Strg+Shift+R)<br>
+                        → Leaflet CSS/JS prüfen (sollte in index.html sein)<br>
+                        → Console öffnen (F12) → Fehler?
+                    </div>
+                    
+                    <div class="error-box">
+                        <strong>❌ Klick funktioniert nicht?</strong><br>
+                        → Console öffnen → Fehler "reverseGeocode is not defined"?<br>
+                        → Version v5.90.166+ verwenden (reverseGeocode wurde hinzugefügt!)
+                    </div>
+                    
+                    <div class="error-box">
+                        <strong>❌ Adresse nicht gefunden?</strong><br>
+                        → Nominatim API könnte offline sein<br>
+                        → Rate-Limit erreicht? (1 Request/Sekunde)<br>
+                        → Koordinaten werden als Fallback angezeigt
+                    </div>
+                    
+                    <h3>🔗 Verwendete APIs:</h3>
+                    <div class="code-block">
+// Leaflet - Karte
+https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
+
+// Nominatim - Geocoding (Adresse → Koordinaten)
+https://nominatim.openstreetmap.org/search
+
+// Nominatim Reverse - Koordinaten → Adresse
+https://nominatim.openstreetmap.org/reverse
+
+// OSRM - Routing (Route berechnen)
+https://router.project-osrm.org/route/v1/driving/
+                    </div>
+                `
+            },
+            
+            'taxi-booking': {
+                title: '🚕 Taxi buchen (Normal)',
+                category: '🚕 Buchung',
+                tags: ['fahrgast', 'öffentlich', 'buchung'],
+                lines: '1701-2100',
+                functions: ['handlePriceButton', 'calculatePriceAndShow', 'geocode', 'calculateRoute'],
+                content: `
+                    <h2>🚕 Taxi buchen (Normal)</h2>
+                    <span class="badge">Öffentlich</span>
+                    <span class="badge">Zeile 1701-2100</span>
+                    
+                    <h3>🎯 Was ist das?</h3>
+                    <p>Die <strong>Standard-Buchungsmaske</strong> für Fahrgäste. Öffentlich zugänglich, keine Anmeldung nötig!</p>
+                    
+                    <h3>📝 So funktioniert's:</h3>
+                    <div class="step-list">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Abholort eingeben</h4>
+                                <p>Adresse eintippen → Autocomplete-Vorschläge → Auswählen</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Zielort eingeben</h4>
+                                <p>Adresse eintippen → Autocomplete-Vorschläge → Auswählen</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Wann fahren?</h4>
+                                <p>"⚡ SOFORT" oder "📅 VORBESTELLEN" (Datum/Zeit wählen)</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>Preis berechnen</h4>
+                                <p>Button "💰 Preis berechnen" → Route wird gezeigt → Preis erscheint</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">5</div>
+                            <div class="step-content">
+                                <h4>Kontaktdaten eingeben</h4>
+                                <p>Name, Telefon (wird gespeichert für nächstes Mal!)</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">6</div>
+                            <div class="step-content">
+                                <h4>Taxi buchen!</h4>
+                                <p>Button "🚕 TAXI BUCHEN" → Bestätigung → Fertig! 🎉</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3>🔧 Wichtige Funktionen:</h3>
+                    <div class="function-ref">
+                        <strong>geocode(address)</strong> - Zeile 15426<br>
+                        Wandelt Adresse in Koordinaten um (Nominatim API)
+                    </div>
+                    <div class="function-ref">
+                        <strong>calculateRoute(from, to)</strong> - Zeile 15487<br>
+                        Berechnet Route mit OSRM (Distanz, Dauer, Geometrie)
+                    </div>
+                    <div class="function-ref">
+                        <strong>calculatePrice(distance, timestamp, settings)</strong> - Zeile 15600<br>
+                        Berechnet Preis basierend auf Distanz, Zeit, Tarif
+                    </div>
+                    <div class="function-ref">
+                        <strong>handlePriceButton()</strong> - Zeile 19870<br>
+                        Handler für "Preis berechnen" Button
+                    </div>
+                    
+                    <h3>💡 Features:</h3>
+                    <div class="info-box">
+                        <strong>📍 GPS-Button</strong><br>
+                        Nutzt aktuelle Position als Abholort!
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>⭐ Favoriten speichern</strong><br>
+                        Stern-Button neben Adresse → Ort wird als POI gespeichert!
+                    </div>
+                    
+                    <div class="info-box">
+                        <strong>🌟 Stammkunden-Funktion</strong><br>
+                        Nach 1. Buchung: Daten werden gespeichert → Nächstes Mal automatisch vorausgefüllt!
+                    </div>
+                `
+            },
+            
+            'driver-tracking': {
+                title: '🚗 Fahrer GPS-Tracking',
+                category: '🚗 Fahrer',
+                tags: ['gps', 'tracking', 'fahrer', 'live'],
+                lines: '2500-2800',
+                functions: ['startGPSTracking', 'updateDriverLocation'],
+                content: `
+                    <h2>🚗 Fahrer GPS-Tracking</h2>
+                    <span class="badge">Fahrer</span>
+                    <span class="badge">Zeile 2500-2800</span>
+                    
+                    <h3>🎯 Was ist das?</h3>
+                    <p>Live-GPS-Tracking für Fahrer. Position wird automatisch alle 5 Sekunden in Firebase gespeichert!</p>
+                    
+                    <h3>📝 So funktioniert's:</h3>
+                    <div class="step-list">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Als Fahrer einloggen</h4>
+                                <p>Login → Rolle: "driver" → Fahrer-View öffnet sich</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>GPS-Erlaubnis geben</h4>
+                                <p>Browser fragt nach Standort-Erlaubnis → "Erlauben" klicken</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Tracking startet automatisch</h4>
+                                <p>Position wird alle 5 Sekunden aktualisiert → In Firebase gespeichert</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>Auf Karte sichtbar</h4>
+                                <p>Admin kann Position in "Fahrzeug-Übersicht" sehen</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3>🔧 Wichtige Funktionen:</h3>
+                    <div class="function-ref">
+                        <strong>startGPSTracking()</strong> - Zeile 25000<br>
+                        Startet watchPosition → sendet Updates an Firebase
+                    </div>
+                    <div class="function-ref">
+                        <strong>updateDriverLocation(lat, lon)</strong> - Zeile 25100<br>
+                        Speichert Position in /vehicles/{vehicleId}
+                    </div>
+                    
+                    <h3>⚠️ Wichtig:</h3>
+                    <div class="warning-box">
+                        <strong>📱 App muss offen bleiben!</strong><br>
+                        GPS-Tracking funktioniert nur wenn Browser-Tab aktiv ist. Bei Hintergrund-App: Tracking pausiert!
+                    </div>
+                    
+                    <div class="error-box">
+                        <strong>❌ GPS funktioniert nicht?</strong><br>
+                        1. Standort-Erlaubnis prüfen (Browser-Einstellungen)<br>
+                        2. GPS am Handy aktiviert?<br>
+                        3. Console öffnen → Fehler "User denied Geolocation"?
+                    </div>
+                `
+            },
+            
+            'firebase-structure': {
+                title: '💾 Firebase Datenbank-Struktur',
+                category: '🔧 Technik',
+                tags: ['firebase', 'datenbank', 'struktur', 'technisch'],
+                lines: 'N/A',
+                functions: ['db.ref'],
+                content: `
+                    <h2>💾 Firebase Datenbank-Struktur</h2>
+                    <span class="badge">Technik</span>
+                    
+                    <h3>🗄️ Datenbank-Struktur:</h3>
+                    <div class="code-block">
+funk-taxi-app-default-rtdb/
+├── /rides              - Alle Fahrten
+│   ├── {rideId}
+│   │   ├── pickup: "Bahnhofstr. 12"
+│   │   ├── destination: "Strandstr. 5"
+│   │   ├── pickupTimestamp: 1704645600000
+│   │   ├── status: "pending" | "assigned" | "completed"
+│   │   ├── vehicleId: "taxi-001"
+│   │   ├── customerId: "customer-123"
+│   │   ├── price: 25.00
+│   │   └── distance: 8.5
+│
+├── /vehicles           - Fahrzeuge (Live-GPS)
+│   ├── {vehicleId}
+│   │   ├── name: "Taxi 1"
+│   │   ├── status: "free" | "busy"
+│   │   ├── lat: 53.9547
+│   │   ├── lon: 14.1783
+│   │   ├── lastUpdate: 1704645600000
+│   │   └── currentRideId: "ride-xyz" (optional)
+│
+├── /users              - Benutzer
+│   ├── {userId}
+│   │   ├── name: "Max Mustermann"
+│   │   ├── email: "max@example.com"
+│   │   ├── role: "passenger" | "driver" | "admin"
+│   │   └── phone: "+49170123456"
+│
+├── /customers          - CRM-Kunden
+│   ├── {customerId}
+│   │   ├── name: "Hotel Villa Monique"
+│   │   ├── phone: "+49170123456"
+│   │   ├── email: "kontakt@villa-monique.de"
+│   │   ├── address: "Strandpromenade 1"
+│   │   ├── notes: "Rechnung per E-Mail"
+│   │   └── type: "hotel" | "firma" | "privat"
+│
+├── /pois               - POI-Favoriten
+│   ├── {poiId}
+│   │   ├── name: "Bahnhof"
+│   │   ├── address: "Bahnhofstr. 12"
+│   │   ├── lat: 53.9547
+│   │   ├── lon: 14.1783
+│   │   └── category: "öffentlich" | "hotel" | "sonstiges"
+│
+├── /hotels             - Hotel-Daten
+│   ├── {hotelId}
+│   │   ├── name: "Hotel Villa Monique"
+│   │   ├── address: "Strandpromenade 1"
+│   │   └── rides: [...] (Import aus CSV)
+│
+├── /settings           - System-Einstellungen
+│   ├── /pricing
+│   │   ├── basePrice: 3.50
+│   │   ├── pricePerKm: 2.00
+│   │   ├── nightSurcharge: 1.50
+│   │   ├── holidaySurcharge: 5.00
+│   │   ├── autoSurgeEnabled: false
+│   │   └── surgePerTaxi: 10
+│   └── /system
+│       └── bookingSystemOnline: true
+│
+└── /shifts             - Schichtplan
+    ├── {shiftId}
+    │   ├── driverId: "driver-001"
+    │   ├── vehicleId: "taxi-001"
+    │   ├── start: 1704600000000
+    │   └── end: 1704628800000
+                    </div>
+                    
+                    <h3>🔧 Zugriff:</h3>
+                    <div class="function-ref">
+                        <strong>Lesen:</strong> db.ref('rides').once('value')<br>
+                        <strong>Schreiben:</strong> db.ref('rides').push(data)<br>
+                        <strong>Update:</strong> db.ref('rides/{id}').update(data)<br>
+                        <strong>Löschen:</strong> db.ref('rides/{id}').remove()
+                    </div>
+                    
+                    <h3>⚠️ Rules (Sicherheit):</h3>
+                    <div class="warning-box">
+                        <strong>Firebase Rules prüfen!</strong><br>
+                        Stelle sicher dass nur berechtigte User Zugriff haben:<br>
+                        - Fahrgäste: Nur eigene Fahrten lesen<br>
+                        - Fahrer: Zugewiesene Fahrten + GPS schreiben<br>
+                        - Admin: Alles
+                    </div>
+                `
+            },
+            
+            'troubleshooting': {
+                title: '🐛 Häufige Probleme & Lösungen',
+                category: '❓ Hilfe',
+                tags: ['fehler', 'probleme', 'debug', 'lösung'],
+                lines: 'N/A',
+                functions: [],
+                content: `
+                    <h2>🐛 Häufige Probleme & Lösungen</h2>
+                    
+                    <h3>❌ Express-Buchung: Karte lädt nicht</h3>
+                    <div class="error-box">
+                        <strong>Symptom:</strong> Graue Box statt Karte<br><br>
+                        <strong>Ursache:</strong> Leaflet CSS/JS nicht geladen<br><br>
+                        <strong>Lösung:</strong><br>
+                        1. Browser-Cache leeren (Strg+Shift+R)<br>
+                        2. Console öffnen (F12) → Fehler suchen<br>
+                        3. Prüfen: Leaflet CDN erreichbar?<br>
+                        4. Notfall: index.html neu hochladen
+                    </div>
+                    
+                    <h3>❌ Karten-Klick funktioniert nicht</h3>
+                    <div class="error-box">
+                        <strong>Symptom:</strong> Klick macht nichts, keine Stecknadel<br><br>
+                        <strong>Ursache:</strong> reverseGeocode Funktion fehlt (alte Version!)<br><br>
+                        <strong>Lösung:</strong><br>
+                        1. Version prüfen: v5.90.166+ verwenden!<br>
+                        2. Console: "reverseGeocode is not defined"? → Update nötig!<br>
+                        3. Neue index.html hochladen
+                    </div>
+                    
+                    <h3>❌ Nominatim "Too Many Requests"</h3>
+                    <div class="error-box">
+                        <strong>Symptom:</strong> Autocomplete funktioniert nicht mehr<br><br>
+                        <strong>Ursache:</strong> Rate-Limit erreicht (1 Request/Sekunde!)<br><br>
+                        <strong>Lösung:</strong><br>
+                        1. 1-2 Minuten warten<br>
+                        2. Weniger schnell tippen (Autocomplete wartet 300ms)<br>
+                        3. POI-Favoriten nutzen (keine API-Calls!)
+                    </div>
+                    
+                    <h3>❌ OSRM Routing über Grenze (DE→PL) klappt nicht</h3>
+                    <div class="warning-box">
+                        <strong>Symptom:</strong> Route wird nicht gezeichnet bei grenzüberschreitenden Fahrten<br><br>
+                        <strong>Ursache:</strong> OSRM hat keine Routing-Daten über Grenze<br><br>
+                        <strong>Lösung:</strong><br>
+                        App nutzt automatisch Luftlinie als Fallback!<br>
+                        Preis wird trotzdem berechnet (Luftlinie × 1.3)
+                    </div>
+                    
+                    <h3>❌ Firebase: "Permission denied"</h3>
+                    <div class="error-box">
+                        <strong>Symptom:</strong> Daten können nicht gelesen/geschrieben werden<br><br>
+                        <strong>Ursache:</strong> Firebase Rules zu strikt<br><br>
+                        <strong>Lösung:</strong><br>
+                        1. Firebase Console öffnen<br>
+                        2. Realtime Database → Rules<br>
+                        3. Prüfen: ".read" und ".write" korrekt?<br>
+                        4. Für Development: Rules auf "true" (NICHT für Production!)
+                    </div>
+                    
+                    <h3>❌ GPS-Tracking funktioniert nicht (Fahrer)</h3>
+                    <div class="error-box">
+                        <strong>Symptom:</strong> Position wird nicht aktualisiert<br><br>
+                        <strong>Lösung:</strong><br>
+                        1. Standort-Erlaubnis im Browser gegeben?<br>
+                        2. GPS am Handy aktiviert?<br>
+                        3. Browser-Tab muss aktiv bleiben!<br>
+                        4. Console: "User denied Geolocation"?
+                    </div>
+                    
+                    <h3>❌ "isFirebaseReady is false"</h3>
+                    <div class="error-box">
+                        <strong>Symptom:</strong> Funktionen funktionieren nicht<br><br>
+                        <strong>Ursache:</strong> Firebase nicht initialisiert<br><br>
+                        <strong>Lösung:</strong><br>
+                        1. Warten (5-10 Sekunden)<br>
+                        2. Firebase Config in index.html prüfen<br>
+                        3. Internet-Verbindung OK?<br>
+                        4. Console: Firebase-Fehler?
+                    </div>
+                    
+                    <h3>🔧 Debug-Tricks:</h3>
+                    <div class="info-box">
+                        <strong>Console öffnen:</strong> F12 (Windows) oder Cmd+Option+I (Mac)<br>
+                        <strong>Console-Log prüfen:</strong> Suche nach "❌" oder "Error"<br>
+                        <strong>Network-Tab:</strong> Prüfe API-Calls (Nominatim, OSRM, Firebase)<br>
+                        <strong>Cache leeren:</strong> Strg+Shift+R (Windows) oder Cmd+Shift+R (Mac)
+                    </div>
+                `
+            }
+        };
+        
+        // ═══════════════════════════════════════════════════════════════
+        // RENDER SIDEBAR
+        // ═══════════════════════════════════════════════════════════════
+        
+        function renderSidebar(filter = '') {
+            const sidebar = document.getElementById('sidebar');
+            const categories = {};
+            
+            // Gruppiere nach Kategorie
+            Object.keys(helpDatabase).forEach(key => {
+                const item = helpDatabase[key];
+                
+                // Filter
+                if (filter) {
+                    const searchLower = filter.toLowerCase();
+                    const matchTitle = item.title.toLowerCase().includes(searchLower);
+                    const matchTags = item.tags.some(tag => tag.toLowerCase().includes(searchLower));
+                    const matchFunctions = item.functions.some(fn => fn.toLowerCase().includes(searchLower));
+                    
+                    if (!matchTitle && !matchTags && !matchFunctions) {
+                        return;
+                    }
+                }
+                
+                if (!categories[item.category]) {
+                    categories[item.category] = [];
+                }
+                categories[item.category].push({ key, ...item });
+            });
+            
+            // Render
+            let html = '';
+            Object.keys(categories).forEach(category => {
+                html += `<div class="category">`;
+                html += `<div class="category-title">${category}</div>`;
+                
+                categories[category].forEach(item => {
+                    html += `
+                        <div class="help-item" onclick="showContent('${item.key}')">
+                            <div class="help-item-title">${item.title}</div>
+                            <div class="help-item-meta">Zeile ${item.lines}</div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            });
+            
+            if (html === '') {
+                html = `
+                    <div id="no-results">
+                        <div class="emoji">🔍</div>
+                        <h3>Nichts gefunden</h3>
+                        <p>Versuche andere Suchbegriffe!</p>
+                    </div>
+                `;
+            }
+            
+            sidebar.innerHTML = html;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // SHOW CONTENT
+        // ═══════════════════════════════════════════════════════════════
+        
+        function showContent(key) {
+            const content = document.getElementById('content');
+            const item = helpDatabase[key];
+            
+            if (!item) return;
+            
+            content.innerHTML = item.content;
+            
+            // Active State
+            document.querySelectorAll('.help-item').forEach(el => el.classList.remove('active'));
+            event.target.closest('.help-item').classList.add('active');
+            
+            // Scroll to top
+            content.scrollTop = 0;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // SEARCH
+        // ═══════════════════════════════════════════════════════════════
+        
+        const searchInput = document.getElementById('search-input');
+        let searchTimeout;
+        
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                renderSidebar(e.target.value);
+            }, 300);
+        });
+        
+        // ═══════════════════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════════════════
+        
+        renderSidebar();
+    </script>
+</body>
+</html>

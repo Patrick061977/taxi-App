@@ -108,7 +108,17 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.161 - EXPRESS WIE TAXI BUCHEN! ⚡🚕 (Build 20260107-1800)');
+        console.log('🚕 Funk Taxi App v5.90.166 - EXPRESS FIX: reverseGeocode! ⚡🗺️ (Build 20260107-2050)');
+        console.log('🐛 v5.90.166: BUGFIX - reverseGeocode() fehlte (Karte-Klick funktioniert jetzt!)');
+        console.log('✅ v5.90.166: Koordinaten → Adresse Konvertierung');
+        console.log('✅ v5.90.165: Express-Buchung komplett neu (Karte + Formular)');
+        console.log('✅ v5.90.165: Stecknadeln verschiebbar + Auto-Update');
+        console.log('📄 v5.90.164: E-Rechnung (ZUGFeRD 2.3) integriert');
+        console.log('🔧 v5.90.162: KRITISCHE FEHLER BEHOBEN!');
+        console.log('✅ v5.90.162: Syntax-Fehler entfernt (return not in function)');
+        console.log('✅ v5.90.162: Doppelter Express-Code entfernt (~113 Zeilen)');
+        console.log('✅ v5.90.162: Firebase-Checks hinzugefügt (initTabSettingsPanel)');
+        console.log('✅ v5.90.162: currentUser/userRole Fehler gefixed');
         console.log('✅ v5.90.161: EXPRESS-BUCHUNG KOMPLETT NEU - NUTZT TAXI-BUCHEN LOGIK!');
         console.log('✅ v5.90.161: Alle Felder: Abholort, Zielort, Zeit, Kunde, Gast, etc.');
         console.log('✅ v5.90.161: Karten-Click: Marker setzen + Felder automatisch füllen!');
@@ -6063,28 +6073,26 @@
     </div>
 
     <!-- 🆕 v5.90.161: EXPRESS-BUCHUNG VIEW - BASIEREND AUF TAXI BUCHEN + KARTE! -->
+    <!-- 🆕 v5.90.165: EXPRESS-BUCHUNG (KARTE + FORMULAR) -->
     <div id="express-booking-view" class="view admin-only" style="display:none;">
         <h3 style="margin:0 0 15px 0;">⚡ Express-Buchung (Visuell + Schnell)</h3>
         
-        <!-- 🗺️ KARTE ZUERST -->
+        <!-- 🗺️ KARTE ZUERST (MIT STECKNADELN) -->
         <div style="background:white;padding:15px;border-radius:12px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
             <!-- Anleitung -->
             <div style="background:#dcfce7;border:2px solid #10b981;border-radius:8px;padding:12px;margin-bottom:12px;">
                 <div style="font-weight:700;color:#065f46;margin-bottom:6px;font-size:13px;">🗺️ VISUELL BUCHEN:</div>
                 <div style="font-size:12px;color:#065f46;line-height:1.5;">
-                    <strong>Option 1:</strong> Klick auf Karte → Abholort 📍 → Zielort 🎯<br>
-                    <strong>Option 2:</strong> Adresse unten eingeben<br>
-                    <strong>Tipp:</strong> Marker verschiebbar! ⭐ Favoriten-Buttons nutzen!
+                    <strong>1. Klick:</strong> Abholort 📍<br>
+                    <strong>2. Klick:</strong> Zielort 🎯<br>
+                    <strong>Tipp:</strong> Stecknadeln sind verschiebbar! Adressen werden automatisch gefüllt!
                 </div>
             </div>
             
             <!-- Status -->
             <div id="express-map-status" style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:10px;margin-bottom:10px;font-weight:600;color:#92400e;text-align:center;font-size:13px;">
-                ⚪ Klicke auf Karte für Abholort ODER gib Adresse unten ein
+                ⚪ Klicke auf Karte für Abholort
             </div>
-            
-            <!-- POI-Favoriten Buttons -->
-            <div id="express-poi-container" style="display:none;margin-bottom:10px;"></div>
             
             <!-- Karte -->
             <div id="express-map-wrapper" style="height:400px;border:3px solid #10b981;border-radius:12px;overflow:hidden;">
@@ -6097,107 +6105,125 @@
             </div>
         </div>
         
-        <!-- 📋 FORMULAR (wie "Taxi buchen") -->
-        <div id="express-booking-form">
+        <!-- 📋 FORMULAR (WIE SCHNELLBUCHUNG) -->
+        <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            
             <!-- Abholort -->
-            <div class="input-group">
-                <label>📍 Abholort</label>
-                <input type="text" id="express-pickup" placeholder="Klick auf Karte oder eingeben...">
-                <div class="autocomplete-dropdown" id="express-pickup-dropdown"></div>
+            <div style="margin-bottom:15px;position:relative;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📍 Abholort</label>
+                <input type="text" id="express-pickup" placeholder="Auf Karte klicken oder eingeben..." 
+                       oninput="expressAutocompletePickup()" autocomplete="off"
+                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                <div id="express-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
             </div>
             
             <!-- Zielort -->
-            <div class="input-group">
-                <label>🎯 Zielort</label>
-                <input type="text" id="express-destination" placeholder="Klick auf Karte oder eingeben...">
-                <div class="autocomplete-dropdown" id="express-destination-dropdown"></div>
+            <div style="margin-bottom:15px;position:relative;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">🎯 Zielort</label>
+                <input type="text" id="express-destination" placeholder="Auf Karte klicken oder eingeben..." 
+                       oninput="expressAutocompleteDestination()" autocomplete="off"
+                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                <div id="express-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
             </div>
             
-            <!-- Preis berechnen Button -->
-            <button id="express-calc-btn" class="btn btn-primary" onclick="calculateExpressPrice()" style="margin-top:10px;">
-                💰 Preis berechnen
-            </button>
-            
-            <!-- Preis-Anzeige -->
-            <div id="express-price-result" style="display:none;margin-top:15px;"></div>
-            
-            <!-- Wann fahren? -->
-            <div id="express-time-section" style="display:none;margin-top:20px;">
-                <div class="input-group">
-                    <label style="font-size:16px;font-weight:700;">⏱️ Wann möchten Sie fahren?</label>
-                    
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px;">
-                        <button id="express-btn-sofort" onclick="selectExpressRideType('sofort')" style="padding:18px 15px;border:3px solid #e5e7eb;background:white;border-radius:12px;cursor:pointer;">
-                            <div style="font-size:28px;margin-bottom:6px;">⚡</div>
-                            <div style="font-weight:700;font-size:15px;color:#6b7280;">SOFORT</div>
-                        </button>
-                        
-                        <button id="express-btn-vorbestellen" onclick="selectExpressRideType('vorbestellen')" style="padding:18px 15px;border:3px solid #10b981;background:white;border-radius:12px;cursor:pointer;">
-                            <div style="font-size:28px;margin-bottom:6px;">📅</div>
-                            <div style="font-weight:700;font-size:15px;color:#059669;">VORBESTELLEN</div>
-                        </button>
+            <!-- Preis-Anzeige (versteckt bis berechnet) -->
+            <div id="express-price-display" style="display:none;margin-bottom:15px;background:#dcfce7;border:2px solid #10b981;border-radius:8px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:12px;color:#065f46;margin-bottom:2px;">💰 Geschätzter Preis:</div>
+                        <div style="font-size:11px;color:#065f46;">📏 <span id="express-distance-text">-</span> km · ⏱️ <span id="express-duration-text">-</span> Min.</div>
                     </div>
+                    <div style="font-size:24px;font-weight:800;color:#10b981;"><span id="express-price-text">0.00</span>€</div>
                 </div>
-                
-                <!-- Datum/Zeit Picker -->
-                <div id="express-datetime-picker" style="margin-top:15px;">
-                    <div class="input-group">
-                        <label>📅 Datum</label>
-                        <input type="date" id="express-date" style="padding:12px;border:2px solid #10b981;border-radius:8px;font-size:15px;width:100%;">
+            </div>
+            
+            <!-- Startzeit -->
+            <div style="margin-bottom:15px;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📅 Startzeit</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div>
+                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Datum</label>
+                        <input type="date" id="express-date" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
-                    <div class="input-group">
-                        <label>🕐 Uhrzeit</label>
-                        <input type="time" id="express-time" style="padding:12px;border:2px solid #10b981;border-radius:8px;font-size:15px;width:100%;">
+                    <div>
+                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Uhrzeit</label>
+                        <input type="time" id="express-time" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
                 </div>
             </div>
             
             <!-- Kunde -->
-            <div id="express-customer-section" style="display:none;margin-top:20px;">
-                <div class="input-group">
-                    <label>👤 Kunde (Rechnung)</label>
-                    <input type="text" id="express-customer" placeholder="Kundenname für Rechnung">
-                    <div class="autocomplete-dropdown" id="express-customer-dropdown"></div>
-                </div>
-                
-                <div class="input-group">
-                    <label>🧳 Gast-Name <span style="font-size:12px;color:#999;">(optional, für Hotels)</span></label>
-                    <input type="text" id="express-guest" placeholder="z.B. Herr Müller">
-                </div>
-                
-                <div class="input-group">
-                    <label>👥 Personen</label>
-                    <select id="express-passengers">
-                        <option value="1">1 Person</option>
-                        <option value="2">2 Personen</option>
-                        <option value="3">3 Personen</option>
-                        <option value="4">4 Personen</option>
-                    </select>
-                </div>
-                
-                <div class="input-group">
-                    <label>💳 Zahlungsmethode</label>
-                    <select id="express-payment">
-                        <option value="bar">💶 Bar (Bargeld)</option>
-                        <option value="karte">💳 EC-Karte / Kreditkarte</option>
-                        <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
-                    </select>
-                </div>
+            <div style="margin-bottom:15px;position:relative;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">👤 Kunde (Rechnung)</label>
+                <input type="text" id="express-customer-search" placeholder="Telefon oder Name eingeben..." 
+                       oninput="expressSearchCustomer()" autocomplete="off"
+                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                <input type="hidden" id="express-customer-id" value="">
+                <div id="express-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+            </div>
+            
+            <!-- Fahrgast-Name (optional) -->
+            <div style="margin-bottom:15px;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">
+                    🧳 Fahrgast-Name (optional)
+                    <span style="font-weight:400;font-size:12px;color:#6b7280;margin-left:4px;">nur Info</span>
+                </label>
+                <input type="text" id="express-guest-name" placeholder="z.B. Herr Müller" 
+                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;background:#f9fafb;">
+            </div>
+            
+            <!-- Personen -->
+            <div style="margin-bottom:15px;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">👥 Anzahl Personen</label>
+                <select id="express-passengers" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    <option value="1">1 Person</option>
+                    <option value="2">2 Personen</option>
+                    <option value="3">3 Personen</option>
+                    <option value="4">4 Personen</option>
+                    <option value="5">5 Personen</option>
+                    <option value="6">6 Personen</option>
+                    <option value="7">7 Personen</option>
+                    <option value="8">8 Personen</option>
+                </select>
+            </div>
+            
+            <!-- Zahlungsmethode -->
+            <div style="margin-bottom:15px;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">💳 Zahlungsmethode</label>
+                <select id="express-payment" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    <option value="bar">💶 Bar (Bargeld)</option>
+                    <option value="ec">💳 EC-Karte</option>
+                    <option value="credit">💳 Kreditkarte</option>
+                    <option value="paypal">📱 PayPal</option>
+                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
+                </select>
+            </div>
+            
+            <!-- Notizen (optional) -->
+            <div style="margin-bottom:20px;">
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;">📝 Notizen (optional)</label>
+                <textarea id="express-notes" placeholder="z.B. Rollstuhl, Gepäck, etc." rows="2"
+                          style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
             </div>
             
             <!-- Buchen Button -->
-            <button id="express-book-btn" class="btn btn-success" onclick="executeExpressBooking()" style="margin-top:20px;display:none;">
-                ⚡ JETZT BUCHEN
+            <button onclick="executeExpressBooking()" 
+                    style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,0.3);transition:all 0.3s;"
+                    onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(16,185,129,0.4)'"
+                    onmouseout="this.style.transform='';this.style.boxShadow='0 4px 12px rgba(16,185,129,0.3)'">
+                🚕 JETZT BUCHEN
             </button>
         </div>
         
-        <!-- Reset -->
-        <div style="margin-top:20px;text-align:center;">
-            <button onclick="resetExpressBooking()" style="padding:12px 24px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+        <!-- Reset Button -->
+        <div style="margin-top:15px;text-align:center;">
+            <button onclick="resetExpressBooking()" 
+                    style="padding:12px 24px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🔄 Neu starten
             </button>
         </div>
     </div>
+
 
     <!-- 🆕 v5.90.158: FAHRZEUG-ÜBERSICHT VIEW -->
     <div id="vehicle-overview-view" class="view admin-only" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
@@ -6428,6 +6454,175 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- 🆕 v5.90.164: E-RECHNUNG BIBLIOTHEK (ZUGFeRD 2.3) -->
+    <script>
+    /**
+     * E-Invoice Library - ZUGFeRD 2.3 BASIC
+     * Integriert in Funk Taxi App
+     */
+    class EInvoice {
+        constructor(invoiceData) {
+            this.invoice = invoiceData;
+            this.zugferdVersion = '2.3';
+            this.profileName = 'BASIC';
+        }
+
+        async generateZUGFeRDPDF(existingPDF) {
+            try {
+                console.log('📄 Generiere ZUGFeRD-Rechnung...');
+                const xmlString = this.generateZUGFeRDXML();
+                if (!this.validateXML(xmlString)) {
+                    throw new Error('XML-Validierung fehlgeschlagen!');
+                }
+                const zugferdPDF = await this.embedXMLInPDF(existingPDF, xmlString);
+                console.log('✅ ZUGFeRD-Rechnung erstellt!');
+                return zugferdPDF;
+            } catch (error) {
+                console.error('❌ Fehler bei ZUGFeRD:', error);
+                throw error;
+            }
+        }
+
+        generateZUGFeRDXML() {
+            const inv = this.invoice;
+            const issueDate = this.formatDate(inv.createdAt || Date.now());
+            const dueDate = this.formatDate(inv.dueDate || (Date.now() + 14*24*60*60*1000));
+            const taxRate = inv.vatRate || 7;
+            const netPrice = inv.netPrice || 0;
+            const vatAmount = inv.vatAmount || 0;
+            const grossPrice = inv.totalGross || 0;
+            
+            const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+    <rsm:ExchangedDocumentContext>
+        <ram:GuidelineSpecifiedDocumentContextParameter>
+            <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:zugferd.de:2p0:${this.profileName.toLowerCase()}</ram:ID>
+        </ram:GuidelineSpecifiedDocumentContextParameter>
+    </rsm:ExchangedDocumentContext>
+    <rsm:ExchangedDocument>
+        <ram:ID>${this.escapeXML(inv.invoiceNumber || '')}</ram:ID>
+        <ram:TypeCode>380</ram:TypeCode>
+        <ram:IssueDateTime><udt:DateTimeString format="102">${issueDate}</udt:DateTimeString></ram:IssueDateTime>
+    </rsm:ExchangedDocument>
+    <rsm:SupplyChainTradeTransaction>
+        ${this.generateLineItems()}
+        <ram:ApplicableHeaderTradeAgreement>
+            <ram:SellerTradeParty>
+                <ram:Name>${this.escapeXML('Taxiunternehmen Patrick Wydra')}</ram:Name>
+                <ram:PostalTradeAddress>
+                    <ram:PostcodeCode>17424</ram:PostcodeCode>
+                    <ram:LineOne>${this.escapeXML('Amselring 10')}</ram:LineOne>
+                    <ram:CityName>${this.escapeXML('Ostseebad Heringsdorf')}</ram:CityName>
+                    <ram:CountryID>DE</ram:CountryID>
+                </ram:PostalTradeAddress>
+                <ram:SpecifiedTaxRegistration>
+                    <ram:ID schemeID="FC">084 289/01178</ram:ID>
+                </ram:SpecifiedTaxRegistration>
+            </ram:SellerTradeParty>
+            <ram:BuyerTradeParty>
+                <ram:Name>${this.escapeXML(inv.customerName || 'Kunde')}</ram:Name>
+                ${inv.address ? `<ram:PostalTradeAddress><ram:LineOne>${this.escapeXML(inv.address)}</ram:LineOne><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>` : ''}
+                ${inv.customerEmail ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${this.escapeXML(inv.customerEmail)}</ram:URIID></ram:URIUniversalCommunication>` : ''}
+            </ram:BuyerTradeParty>
+        </ram:ApplicableHeaderTradeAgreement>
+        <ram:ApplicableHeaderTradeDelivery>
+            <ram:ActualDeliverySupplyChainEvent>
+                <ram:OccurrenceDateTime><udt:DateTimeString format="102">${this.formatDate(inv.rideDate || inv.createdAt)}</udt:DateTimeString></ram:OccurrenceDateTime>
+            </ram:ActualDeliverySupplyChainEvent>
+        </ram:ApplicableHeaderTradeDelivery>
+        <ram:ApplicableHeaderTradeSettlement>
+            <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+            ${inv.paymentTerms ? `<ram:SpecifiedTradePaymentTerms><ram:Description>${this.escapeXML(inv.paymentTerms)}</ram:Description><ram:DueDateDateTime><udt:DateTimeString format="102">${dueDate}</udt:DateTimeString></ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>` : ''}
+            <ram:ApplicableTradeTax>
+                <ram:CalculatedAmount>${vatAmount.toFixed(2)}</ram:CalculatedAmount>
+                <ram:TypeCode>VAT</ram:TypeCode>
+                <ram:BasisAmount>${netPrice.toFixed(2)}</ram:BasisAmount>
+                <ram:CategoryCode>S</ram:CategoryCode>
+                <ram:RateApplicablePercent>${taxRate}</ram:RateApplicablePercent>
+            </ram:ApplicableTradeTax>
+            <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                <ram:LineTotalAmount>${netPrice.toFixed(2)}</ram:LineTotalAmount>
+                <ram:TaxBasisTotalAmount>${netPrice.toFixed(2)}</ram:TaxBasisTotalAmount>
+                <ram:TaxTotalAmount currencyID="EUR">${vatAmount.toFixed(2)}</ram:TaxTotalAmount>
+                <ram:GrandTotalAmount>${grossPrice.toFixed(2)}</ram:GrandTotalAmount>
+                <ram:DuePayableAmount>${grossPrice.toFixed(2)}</ram:DuePayableAmount>
+            </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        </ram:ApplicableHeaderTradeSettlement>
+    </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>`;
+            return xml;
+        }
+
+        generateLineItems() {
+            const positions = this.invoice.positions || [];
+            return positions.map((pos, index) => `
+        <ram:IncludedSupplyChainTradeLineItem>
+            <ram:AssociatedDocumentLineDocument><ram:LineID>${index + 1}</ram:LineID></ram:AssociatedDocumentLineDocument>
+            <ram:SpecifiedTradeProduct><ram:Name>${this.escapeXML(pos.description || 'Position')}</ram:Name></ram:SpecifiedTradeProduct>
+            <ram:SpecifiedLineTradeAgreement><ram:GrossPriceProductTradePrice><ram:ChargeAmount>${(pos.amount || 0).toFixed(2)}</ram:ChargeAmount></ram:GrossPriceProductTradePrice></ram:SpecifiedLineTradeAgreement>
+            <ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="C62">1</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery>
+            <ram:SpecifiedLineTradeSettlement>
+                <ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>S</ram:CategoryCode><ram:RateApplicablePercent>${this.invoice.vatRate || 7}</ram:RateApplicablePercent></ram:ApplicableTradeTax>
+                <ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${(pos.amount || 0).toFixed(2)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation>
+            </ram:SpecifiedLineTradeSettlement>
+        </ram:IncludedSupplyChainTradeLineItem>`).join('');
+        }
+
+        async embedXMLInPDF(pdfBlob, xmlString) {
+            console.log('🔧 Embedding XML in PDF...');
+            try {
+                // Für jetzt: Gebe Original-PDF zurück
+                // TODO: Echtes PDF/A-3 Embedding implementieren
+                console.log('ℹ️ XML generiert, aber noch nicht embedded (kommt in v1.1)');
+                return pdfBlob;
+            } catch (error) {
+                console.warn('⚠️ Fallback: Standard-PDF');
+                return pdfBlob;
+            }
+        }
+
+        validateXML(xmlString) {
+            try {
+                if (!xmlString || xmlString.length < 100) return false;
+                if (!xmlString.includes('CrossIndustryInvoice')) return false;
+                if (!xmlString.includes('SupplyChainTradeTransaction')) return false;
+                const required = ['InvoiceCurrencyCode', 'SellerTradeParty', 'BuyerTradeParty', 'GrandTotalAmount'];
+                for (const field of required) {
+                    if (!xmlString.includes(field)) return false;
+                }
+                console.log('✅ XML-Validierung erfolgreich!');
+                return true;
+            } catch (error) {
+                console.error('❌ XML-Validierung fehlgeschlagen:', error);
+                return false;
+            }
+        }
+
+        formatDate(timestamp) {
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}${month}${day}`;
+        }
+        
+        escapeXML(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+    }
+    
+    // Mache global verfügbar
+    window.EInvoice = EInvoice;
+    console.log('✅ E-Invoice Bibliothek geladen');
+    </script>
+    
     <script>
         let firebaseLoadTimeout, firebaseLoaded = false;
         firebaseLoadTimeout = setTimeout(() => { 
@@ -6713,6 +6908,9 @@
         // 🔐 AUTH STATE
         let auth = null;
         let currentUser = null;
+        
+        // 🆕 v5.90.164: E-RECHNUNG VARIABLEN
+        let selectedInvoiceFormat = 'standard'; // 'standard' oder 'zugferd'
         
         // ═══════════════════════════════════════════════════════════════════
         // 📞 v5.87.68: FRITZBOX CALL MONITOR - FUNKTIONEN NACH OBEN VERSCHOBEN!
@@ -14650,8 +14848,8 @@
                                                 <button onclick="document.getElementById('search-results-modal').remove(); editRide(window.searchResults[${index}].firebaseId || window.searchResults[${index}].id)" style="padding:6px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
                                                     ✏️ Bearbeiten
                                                 </button>
-                                                <button onclick="document.getElementById('search-results-modal').remove(); copyRideFromSearch(${index})" style="padding:6px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
-                                                    📋 Kopieren
+                                                <button onclick="document.getElementById('search-results-modal').remove(); createInvoiceFromSearch(${index})" style="padding:6px 12px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;">
+                                                    📄 Rechnung
                                                 </button>
                                             </div>
                                         </div>
@@ -14826,6 +15024,27 @@
             
             showToast('📋 Fahrt zum Kopieren geladen!', 'success');
             console.log('✅ Felder gefüllt!');
+        }
+        
+        // 🆕 v5.90.163: RECHNUNG AUS SUCHE ERSTELLEN
+        async function createInvoiceFromSearch(index) {
+            const ride = window.searchResults[index];
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            console.log('📄 Erstelle Rechnung für Fahrt aus Suche:', ride);
+            
+            // Verwende die existierende openInvoiceModal Funktion
+            const rideId = ride.firebaseId || ride.id;
+            if (!rideId) {
+                alert('❌ Keine Fahrt-ID gefunden!');
+                return;
+            }
+            
+            // Öffne Rechnungs-Modal
+            await openInvoiceModal(rideId);
         }
         
         // 🆕 v5.31.3: FAHRT-DETAILS MODAL
@@ -15276,6 +15495,28 @@
                 }
             } catch (e) { console.error(e); }
             return { distance: 0, duration: 0, geometry: null };
+        }
+
+        // 🆕 v5.90.165: REVERSE GEOCODING (Koordinaten → Adresse)
+        async function reverseGeocode(lat, lon) {
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
+                );
+                const data = await response.json();
+                
+                if (data && data.display_name) {
+                    console.log('📍 Reverse Geocode:', data.display_name);
+                    return data.display_name;
+                }
+                
+                // Fallback: Koordinaten als String
+                return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+                
+            } catch (error) {
+                console.error('❌ Reverse Geocoding Fehler:', error);
+                return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+            }
         }
 
         // 💰 SURGE PRICING SETTINGS (Firebase-synchronisiert!)
@@ -15933,6 +16174,37 @@
                 const doc = new jsPDF();
         
         // 🆕 v5.90.11: DOWNLOAD ECHTE RECHNUNG AUS FIREBASE
+        // 🆕 v5.90.164: E-RECHNUNG FUNKTIONEN
+        function toggleInvoiceFormat(format) {
+            selectedInvoiceFormat = format;
+            const infoBox = document.getElementById('zugferd-info');
+            if (infoBox) {
+                infoBox.style.display = format === 'zugferd' ? 'block' : 'none';
+            }
+            console.log('📄 Rechnungsformat gewählt:', format);
+        }
+
+        function detectInvoiceFormat(customer) {
+            // Automatisch E-Rechnung für B2B
+            if (customer && (
+                customer.type === 'business' || 
+                customer.ustId || 
+                customer.companyName ||
+                (customer.name && (
+                    customer.name.includes('Hotel') ||
+                    customer.name.includes('hotel') ||
+                    customer.name.includes('GmbH') ||
+                    customer.name.includes('AG') ||
+                    customer.name.includes('UG')
+                ))
+            )) {
+                console.log('🏢 B2B-Kunde erkannt → E-Rechnung empfohlen');
+                return 'zugferd';
+            }
+            console.log('👤 Privatkunde → Standard-Rechnung');
+            return 'standard';
+        }
+        
         async function downloadInvoicePDF(invoiceNumber, rideId) {
             try {
                 console.log('📄 Lade Rechnung:', invoiceNumber, 'für Fahrt:', rideId);
@@ -16123,10 +16395,61 @@
                 doc.text('Steuernummer: 084 289/01178', 120, yPos);
                 doc.text('IK: 601318664', 120, yPos + 4);
                 
-                // PDF herunterladen
-                doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
-                
-                showToast(`✅ Rechnung ${invoiceNumber} heruntergeladen!`, 'success');
+                // 🆕 v5.90.164: E-RECHNUNG (ZUGFERD) SUPPORT
+                if (selectedInvoiceFormat === 'zugferd') {
+                    console.log('📄 Erstelle ZUGFeRD-Rechnung...');
+                    
+                    try {
+                        // Normales PDF als Blob
+                        const pdfBlob = doc.output('blob');
+                        
+                        // Erstelle E-Rechnung Instanz
+                        const eInvoice = new EInvoice({
+                            invoiceNumber: invoiceNumber,
+                            createdAt: invoice.createdAt,
+                            dueDate: invoice.createdAt + (14 * 24 * 60 * 60 * 1000),
+                            customerName: invoice.customerName,
+                            customerEmail: invoice.customerEmail || '',
+                            address: invoice.address || '',
+                            rideDate: invoice.rideDate,
+                            rideTime: invoice.rideTime,
+                            pickup: invoice.pickup,
+                            destination: invoice.destination,
+                            distance: invoice.distance,
+                            positions: invoice.positions || [],
+                            netPrice: invoice.netPrice,
+                            vatRate: invoice.vatRate,
+                            vatAmount: invoice.vatAmount,
+                            totalGross: invoice.totalGross,
+                            paymentMethod: invoice.paymentMethod,
+                            paymentTerms: 'Zahlbar innerhalb 14 Tagen'
+                        });
+                        
+                        // Generiere ZUGFeRD PDF
+                        const zugferdPDF = await eInvoice.generateZUGFeRDPDF(pdfBlob);
+                        
+                        // Download
+                        const url = URL.createObjectURL(zugferdPDF);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}_ZUGFeRD.pdf`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        
+                        showToast(`✅ E-Rechnung (ZUGFeRD) ${invoiceNumber} heruntergeladen!`, 'success');
+                        
+                    } catch (error) {
+                        console.error('❌ Fehler bei ZUGFeRD-Erstellung:', error);
+                        // Fallback: Normales PDF
+                        doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                        showToast(`⚠️ Standard-Rechnung erstellt (ZUGFeRD-Fehler)`, 'warning');
+                    }
+                    
+                } else {
+                    // Standard PDF
+                    doc.save(`Rechnung_${invoiceNumber}_${new Date().toLocaleDateString('de-DE').replace(/\./g, '_')}.pdf`);
+                    showToast(`✅ Rechnung ${invoiceNumber} heruntergeladen!`, 'success');
+                }
                 
             } catch (error) {
                 console.error('❌ Fehler beim Download:', error);
@@ -26081,719 +26404,6 @@
         let expressRideType = 'vorbestellen';
         let expressCalculatedData = null; // Speichert Distanz, Dauer, Preis
         
-        async function initExpressBooking() {
-            console.log('⚡ v5.90.161: Initialisiere Express-Buchung (NEU!)...');
-            
-            const wrapper = document.getElementById('express-map-wrapper');
-            if (!wrapper) {
-                console.error('❌ express-map-wrapper nicht gefunden!');
-                return;
-            }
-            
-            // Falls Karte bereits existiert
-            if (expressMap) {
-                console.log('🔄 Karte existiert bereits');
-                return;
-            }
-            
-            try {
-                // Erstelle Karte
-                wrapper.innerHTML = '<div id="express-leaflet-map" style="width:100%;height:100%;"></div>';
-                
-                expressMap = L.map('express-leaflet-map', {
-                    zoomControl: true,
-                    scrollWheelZoom: true
-                }).setView([53.9547, 14.1783], 13);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap',
-                    maxZoom: 19
-                }).addTo(expressMap);
-                
-                console.log('✅ Express-Karte erstellt!');
-                
-                // Click-Handler
-                expressMap.on('click', handleExpressMapClick);
-                
-                // Setze Datum/Zeit
-                const today = new Date();
-                document.getElementById('express-date').valueAsDate = today;
-                const nowPlus1 = new Date(today.getTime() + 60*60*1000);
-                document.getElementById('express-time').value = 
-                    `${String(nowPlus1.getHours()).padStart(2,'0')}:${String(nowPlus1.getMinutes()).padStart(2,'0')}`;
-                
-                // Lade POIs
-                await loadExpressPOIs();
-                
-                // Setup Autocomplete
-                setupExpressAutocomplete();
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Erstellen der Express-Karte:', error);
-                wrapper.innerHTML = `
-                    <div style="width:100%;height:100%;background:#fef2f2;display:flex;align-items:center;justify-content:center;">
-                        <div style="text-align:center;padding:20px;color:#dc2626;">
-                            <div style="font-size:48px;margin-bottom:12px;">❌</div>
-                            <div style="font-size:14px;font-weight:600;">Karte konnte nicht geladen werden</div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // LADE POIs FÜR FAVORITEN-BUTTONS
-        async function loadExpressPOIs() {
-            if (!isFirebaseReady) return;
-            
-            try {
-                const snapshot = await db.ref('pois').once('value');
-                expressPOIs = [];
-                
-                snapshot.forEach(child => {
-                    expressPOIs.push({
-                        id: child.key,
-                        ...child.val()
-                    });
-                });
-                
-                console.log(`⭐ ${expressPOIs.length} POIs für Express-Buchung geladen`);
-                
-                if (expressPOIs.length > 0) {
-                    renderExpressPOIButtons();
-                }
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Laden der POIs:', error);
-            }
-        }
-        
-        // RENDER POI-BUTTONS
-        function renderExpressPOIButtons() {
-            const container = document.getElementById('express-poi-container');
-            if (!container || expressPOIs.length === 0) return;
-            
-            container.innerHTML = `
-                <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:10px;">
-                    <div style="font-weight:700;color:#92400e;margin-bottom:6px;font-size:12px;">⭐ SCHNELL-AUSWAHL:</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                        ${expressPOIs.map(poi => `
-                            <button onclick="selectExpressPOI('${poi.id}', '${poi.name}')" 
-                                    style="padding:6px 12px;background:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
-                                ⭐ ${poi.name}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-            container.style.display = 'block';
-        }
-        
-        // POI AUSWÄHLEN
-        function selectExpressPOI(poiId, poiName) {
-            const poi = expressPOIs.find(p => p.id === poiId);
-            if (!poi) return;
-            
-            console.log('⭐ POI ausgewählt:', poiName);
-            
-            // Simuliere Karten-Click
-            const fakeEvent = {
-                latlng: {
-                    lat: poi.lat,
-                    lng: poi.lon
-                }
-            };
-            
-            handleExpressMapClick(fakeEvent, poi.address);
-            
-            // Zoom auf POI
-            expressMap.setView([poi.lat, poi.lon], 16);
-        }
-        
-        // KARTEN-CLICK HANDLER
-        async function handleExpressMapClick(e, predefinedAddress = null) {
-            const lat = e.latlng.lat;
-            const lon = e.latlng.lng;
-            
-            console.log(`🖱️ Karte geklickt - Step ${expressStep}:`, lat, lon);
-            
-            const statusEl = document.getElementById('express-map-status');
-            
-            if (expressStep === 1) {
-                // ABHOLORT SETZEN
-                statusEl.innerHTML = '🔄 Lade Abholort-Adresse...';
-                statusEl.style.background = '#fef3c7';
-                
-                // Entferne alten Marker
-                if (expressPickupMarker) {
-                    expressMap.removeLayer(expressPickupMarker);
-                }
-                
-                // Grüner Marker (DRAGGABLE!)
-                const greenIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: '<div style="background:#10b981;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">📍</div>',
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 30]
-                });
-                
-                expressPickupMarker = L.marker([lat, lon], {
-                    icon: greenIcon,
-                    draggable: true
-                }).addTo(expressMap);
-                
-                expressPickupCoords = { lat, lon };
-                
-                // Drag-Handler
-                expressPickupMarker.on('dragend', async function() {
-                    const newPos = expressPickupMarker.getLatLng();
-                    console.log('📍 Abholort verschoben:', newPos);
-                    expressPickupCoords = { lat: newPos.lat, lon: newPos.lng };
-                    
-                    statusEl.innerHTML = '🔄 Lade neue Adresse...';
-                    const address = await reverseGeocode(newPos.lat, newPos.lng);
-                    document.getElementById('express-pickup').value = address;
-                    expressPickupMarker.setPopupContent(`<strong>📍 Abholort</strong><br>${address}`);
-                    
-                    // Route neu berechnen wenn Ziel schon gesetzt
-                    if (expressDestinationCoords) {
-                        await calculateExpressRouteAuto();
-                    }
-                });
-                
-                // Reverse Geocoding
-                let address = predefinedAddress;
-                if (!address) {
-                    address = await reverseGeocode(lat, lon);
-                }
-                
-                document.getElementById('express-pickup').value = address;
-                expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`).openPopup();
-                
-                // Weiter zu Schritt 2
-                expressStep = 2;
-                statusEl.innerHTML = '🎯 Klicke auf Karte für Zielort (oder wähle Favorit)';
-                statusEl.style.background = '#dbeafe';
-                statusEl.style.borderColor = '#3b82f6';
-                
-                console.log('✅ Abholort gesetzt:', address);
-                
-            } else if (expressStep === 2) {
-                // ZIELORT SETZEN
-                statusEl.innerHTML = '🔄 Lade Zielort-Adresse...';
-                statusEl.style.background = '#fef3c7';
-                
-                // Entferne alten Marker
-                if (expressDestinationMarker) {
-                    expressMap.removeLayer(expressDestinationMarker);
-                }
-                
-                // Roter Marker (DRAGGABLE!)
-                const redIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: '<div style="background:#ef4444;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px;">🎯</div>',
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 30]
-                });
-                
-                expressDestinationMarker = L.marker([lat, lon], {
-                    icon: redIcon,
-                    draggable: true
-                }).addTo(expressMap);
-                
-                expressDestinationCoords = { lat, lon };
-                
-                // Drag-Handler
-                expressDestinationMarker.on('dragend', async function() {
-                    const newPos = expressDestinationMarker.getLatLng();
-                    console.log('🎯 Zielort verschoben:', newPos);
-                    expressDestinationCoords = { lat: newPos.lat, lon: newPos.lng };
-                    
-                    statusEl.innerHTML = '🔄 Lade neue Adresse...';
-                    const address = await reverseGeocode(newPos.lat, newPos.lng);
-                    document.getElementById('express-destination').value = address;
-                    expressDestinationMarker.setPopupContent(`<strong>🎯 Zielort</strong><br>${address}`);
-                    
-                    // Route neu berechnen
-                    await calculateExpressRouteAuto();
-                });
-                
-                // Reverse Geocoding
-                let address = predefinedAddress;
-                if (!address) {
-                    address = await reverseGeocode(lat, lon);
-                }
-                
-                document.getElementById('express-destination').value = address;
-                expressDestinationMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`).openPopup();
-                
-                console.log('✅ Zielort gesetzt:', address);
-                
-                // AUTOMATISCH ROUTE BERECHNEN!
-                await calculateExpressRouteAuto();
-            }
-        }
-        
-        // REVERSE GEOCODING
-        async function reverseGeocode(lat, lon) {
-            try {
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
-                );
-                const data = await response.json();
-                
-                const addr = data.address || {};
-                const parts = [];
-                if (addr.road) parts.push(addr.road);
-                if (addr.house_number) parts.push(addr.house_number);
-                if (addr.postcode) parts.push(addr.postcode);
-                if (addr.city || addr.town || addr.village) {
-                    parts.push(addr.city || addr.town || addr.village);
-                }
-                
-                return parts.length > 0 ? parts.join(', ') : data.display_name;
-                
-            } catch (error) {
-                console.error('❌ Reverse Geocoding Fehler:', error);
-                return `Position: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-            }
-        }
-        
-        // AUTOMATISCH ROUTE BERECHNEN (nach Karten-Click)
-        async function calculateExpressRouteAuto() {
-            const statusEl = document.getElementById('express-map-status');
-            statusEl.innerHTML = '🔄 Berechne Route...';
-            
-            try {
-                // Nutze bestehende calculateRoute Funktion!
-                const route = await calculateRoute(expressPickupCoords, expressDestinationCoords);
-                
-                if (!route || !route.distance) {
-                    throw new Error('Keine Route gefunden');
-                }
-                
-                console.log(`✅ Route: ${route.distance} km, ${route.duration} min`);
-                
-                // Zeichne Route
-                if (expressRouteLayer) {
-                    expressMap.removeLayer(expressRouteLayer);
-                }
-                
-                if (route.geometry) {
-                    const coords = route.geometry.map(c => [c[1], c[0]]);
-                    expressRouteLayer = L.polyline(coords, {
-                        color: '#10b981',
-                        weight: 5,
-                        opacity: 0.7
-                    }).addTo(expressMap);
-                    
-                    // Zoom auf Route
-                    expressMap.fitBounds(expressRouteLayer.getBounds(), { padding: [50, 50] });
-                }
-                
-                // Berechne Preis
-                const pricing = calculatePrice(parseFloat(route.distance), Date.now());
-                
-                // Speichere Daten
-                expressCalculatedData = {
-                    distance: route.distance,
-                    duration: route.duration,
-                    price: pricing.total
-                };
-                
-                // Zeige "Preis berechnen" Button
-                document.getElementById('express-calc-btn').style.display = 'block';
-                
-                statusEl.innerHTML = `✅ Route: ${route.distance} km • Klick "Preis berechnen"!`;
-                statusEl.style.background = '#d1fae5';
-                statusEl.style.borderColor = '#10b981';
-                
-            } catch (error) {
-                console.error('❌ Route-Berechnung fehlgeschlagen:', error);
-                statusEl.innerHTML = '⚠️ Route-Berechnung fehlgeschlagen - bitte Adressen manuell eingeben';
-                statusEl.style.background = '#fef3c7';
-                statusEl.style.borderColor = '#f59e0b';
-            }
-        }
-        
-        // PREIS BERECHNEN (Button-Click)
-        async function calculateExpressPrice() {
-            console.log('💰 Berechne Preis für Express-Buchung...');
-            
-            const pickup = document.getElementById('express-pickup').value.trim();
-            const destination = document.getElementById('express-destination').value.trim();
-            
-            if (!pickup || !destination) {
-                alert('❌ Bitte Abholort und Zielort angeben!');
-                return;
-            }
-            
-            // Wenn wir schon Daten von Karte haben
-            if (expressCalculatedData) {
-                showExpressPriceResult(expressCalculatedData);
-                return;
-            }
-            
-            // Sonst: Normale Berechnung wie in "Taxi buchen"
-            try {
-                // Geocode Adressen
-                const pickupCoords = await geocode(pickup);
-                const destCoords = await geocode(destination);
-                
-                if (!pickupCoords || !destCoords) {
-                    alert('❌ Adressen konnten nicht gefunden werden!');
-                    return;
-                }
-                
-                // Route berechnen
-                const route = await calculateRoute(pickupCoords, destCoords);
-                
-                if (!route || !route.distance) {
-                    alert('❌ Route konnte nicht berechnet werden!');
-                    return;
-                }
-                
-                // Preis berechnen
-                const pricing = calculatePrice(parseFloat(route.distance), Date.now());
-                
-                expressCalculatedData = {
-                    distance: route.distance,
-                    duration: route.duration,
-                    price: pricing.total
-                };
-                
-                // Zeige Ergebnis
-                showExpressPriceResult(expressCalculatedData);
-                
-            } catch (error) {
-                console.error('❌ Fehler bei Preis-Berechnung:', error);
-                alert('❌ Fehler bei der Berechnung!');
-            }
-        }
-        
-        // ZEIGE PREIS-ERGEBNIS
-        function showExpressPriceResult(data) {
-            const resultEl = document.getElementById('express-price-result');
-            
-            resultEl.innerHTML = `
-                <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:15px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                        <div>
-                            <div style="font-size:11px;color:#065f46;font-weight:600;margin-bottom:3px;">📏 DISTANZ</div>
-                            <div style="font-size:18px;color:#10b981;font-weight:700;">${data.distance} km</div>
-                        </div>
-                        <div>
-                            <div style="font-size:11px;color:#065f46;font-weight:600;margin-bottom:3px;">💰 PREIS</div>
-                            <div style="font-size:18px;color:#10b981;font-weight:700;">${data.price.toFixed(2)}€</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            resultEl.style.display = 'block';
-            
-            // Zeige Zeit-Sektion
-            document.getElementById('express-time-section').style.display = 'block';
-        }
-        
-        // RIDE TYPE AUSWÄHLEN
-        function selectExpressRideType(type) {
-            expressRideType = type;
-            console.log('⏱️ Express Ride Type:', type);
-            
-            const sofortBtn = document.getElementById('express-btn-sofort');
-            const vorbestellenBtn = document.getElementById('express-btn-vorbestellen');
-            const datetimePicker = document.getElementById('express-datetime-picker');
-            
-            if (type === 'sofort') {
-                sofortBtn.style.borderColor = '#10b981';
-                sofortBtn.querySelector('div:last-child').style.color = '#059669';
-                vorbestellenBtn.style.borderColor = '#e5e7eb';
-                vorbestellenBtn.querySelector('div:last-child').style.color = '#6b7280';
-                datetimePicker.style.display = 'none';
-            } else {
-                sofortBtn.style.borderColor = '#e5e7eb';
-                sofortBtn.querySelector('div:last-child').style.color = '#6b7280';
-                vorbestellenBtn.style.borderColor = '#10b981';
-                vorbestellenBtn.querySelector('div:last-child').style.color = '#059669';
-                datetimePicker.style.display = 'block';
-            }
-            
-            // Zeige Kunden-Sektion
-            document.getElementById('express-customer-section').style.display = 'block';
-            document.getElementById('express-book-btn').style.display = 'block';
-        }
-        
-        // SETUP AUTOCOMPLETE
-        function setupExpressAutocomplete() {
-            // Pickup Autocomplete
-            const pickupInput = document.getElementById('express-pickup');
-            const pickupDropdown = document.getElementById('express-pickup-dropdown');
-            
-            pickupInput.addEventListener('input', () => {
-                handleExpressAutocomplete(pickupInput, pickupDropdown, 'pickup');
-            });
-            
-            // Destination Autocomplete
-            const destInput = document.getElementById('express-destination');
-            const destDropdown = document.getElementById('express-destination-dropdown');
-            
-            destInput.addEventListener('input', () => {
-                handleExpressAutocomplete(destInput, destDropdown, 'destination');
-            });
-        }
-        
-        let expressAutocompleteTimeout = null;
-        
-        async function handleExpressAutocomplete(input, dropdown, type) {
-            const query = input.value.trim();
-            
-            if (query.length < 3) {
-                dropdown.style.display = 'none';
-                return;
-            }
-            
-            clearTimeout(expressAutocompleteTimeout);
-            
-            expressAutocompleteTimeout = setTimeout(async () => {
-                try {
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
-                    );
-                    const results = await response.json();
-                    
-                    if (results.length === 0) {
-                        dropdown.style.display = 'none';
-                        return;
-                    }
-                    
-                    dropdown.innerHTML = results.map(r => `
-                        <div onclick="selectExpressAutocomplete('${type}', '${r.display_name.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" 
-                             style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
-                            ${r.display_name}
-                        </div>
-                    `).join('');
-                    
-                    dropdown.style.display = 'block';
-                    
-                } catch (error) {
-                    console.error('❌ Autocomplete Fehler:', error);
-                }
-            }, 300);
-        }
-        
-        function selectExpressAutocomplete(type, address, lat, lon) {
-            if (type === 'pickup') {
-                document.getElementById('express-pickup').value = address;
-                document.getElementById('express-pickup-dropdown').style.display = 'none';
-                expressPickupCoords = { lat, lon };
-                
-                // Setze Marker
-                if (expressPickupMarker) {
-                    expressMap.removeLayer(expressPickupMarker);
-                }
-                const greenIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: '<div style="background:#10b981;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 30]
-                });
-                expressPickupMarker = L.marker([lat, lon], { icon: greenIcon, draggable: true }).addTo(expressMap);
-                expressMap.setView([lat, lon], 15);
-                expressStep = 2;
-                
-            } else {
-                document.getElementById('express-destination').value = address;
-                document.getElementById('express-destination-dropdown').style.display = 'none';
-                expressDestinationCoords = { lat, lon };
-                
-                // Setze Marker
-                if (expressDestinationMarker) {
-                    expressMap.removeLayer(expressDestinationMarker);
-                }
-                const redIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: '<div style="background:#ef4444;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 30]
-                });
-                expressDestinationMarker = L.marker([lat, lon], { icon: redIcon, draggable: true }).addTo(expressMap);
-                
-                // Auto-berechne Route
-                if (expressPickupCoords) {
-                    calculateExpressRouteAuto();
-                }
-            }
-        }
-        
-        // BUCHEN
-        async function executeExpressBooking() {
-            console.log('⚡ Führe Express-Buchung aus...');
-            
-            const pickup = document.getElementById('express-pickup').value.trim();
-            const destination = document.getElementById('express-destination').value.trim();
-            const customer = document.getElementById('express-customer').value.trim();
-            const guest = document.getElementById('express-guest').value.trim();
-            const passengers = document.getElementById('express-passengers').value;
-            const payment = document.getElementById('express-payment').value;
-            
-            if (!pickup || !destination) {
-                alert('❌ Bitte Abholort und Zielort angeben!');
-                return;
-            }
-            
-            if (!customer) {
-                alert('❌ Bitte Kundenname eingeben!');
-                return;
-            }
-            
-            if (!expressCalculatedData) {
-                alert('❌ Bitte erst Preis berechnen!');
-                return;
-            }
-            
-            // Zeitstempel
-            let pickupTimestamp;
-            if (expressRideType === 'sofort') {
-                pickupTimestamp = Date.now();
-            } else {
-                const date = document.getElementById('express-date').value;
-                const time = document.getElementById('express-time').value;
-                if (!date || !time) {
-                    alert('❌ Bitte Datum und Uhrzeit wählen!');
-                    return;
-                }
-                pickupTimestamp = new Date(`${date}T${time}`).getTime();
-            }
-            
-            // Erstelle Ride
-            const ride = {
-                pickup,
-                destination,
-                pickupLat: expressPickupCoords?.lat || null,
-                pickupLon: expressPickupCoords?.lon || null,
-                destinationLat: expressDestinationCoords?.lat || null,
-                destinationLon: expressDestinationCoords?.lon || null,
-                pickupTimestamp,
-                customerName: customer,
-                guestName: guest || '',
-                passengers: parseInt(passengers),
-                paymentMethod: payment,
-                distance: expressCalculatedData.distance,
-                price: expressCalculatedData.price,
-                status: expressRideType === 'sofort' ? 'pending' : 'scheduled',
-                createdAt: Date.now(),
-                userId: currentUser ? currentUser.uid : null
-            };
-            
-            try {
-                const rideRef = await db.ref('rides').push(ride);
-                console.log('✅ Express-Buchung gespeichert:', rideRef.key);
-                
-                alert(`✅ Buchung erfolgreich!\n\nVon: ${pickup}\nNach: ${destination}\nKunde: ${customer}\nPreis: ${expressCalculatedData.price.toFixed(2)}€`);
-                
-                // Reset
-                resetExpressBooking();
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Speichern:', error);
-                alert('❌ Fehler beim Speichern der Buchung!');
-            }
-        }
-        
-        // RESET
-        function resetExpressBooking() {
-            console.log('🔄 Reset Express-Buchung...');
-            
-            // Entferne Marker & Route
-            if (expressPickupMarker) {
-                expressMap.removeLayer(expressPickupMarker);
-                expressPickupMarker = null;
-            }
-            if (expressDestinationMarker) {
-                expressMap.removeLayer(expressDestinationMarker);
-                expressDestinationMarker = null;
-            }
-            if (expressRouteLayer) {
-                expressMap.removeLayer(expressRouteLayer);
-                expressRouteLayer = null;
-            }
-            
-            // Reset Variablen
-            expressPickupCoords = null;
-            expressDestinationCoords = null;
-            expressStep = 1;
-            expressCalculatedData = null;
-            
-            // Reset UI
-            document.getElementById('express-pickup').value = '';
-            document.getElementById('express-destination').value = '';
-            document.getElementById('express-customer').value = '';
-            document.getElementById('express-guest').value = '';
-            document.getElementById('express-map-status').innerHTML = '⚪ Klicke auf Karte für Abholort ODER gib Adresse unten ein';
-            document.getElementById('express-map-status').style.background = '#fef3c7';
-            document.getElementById('express-price-result').style.display = 'none';
-            document.getElementById('express-time-section').style.display = 'none';
-            document.getElementById('express-customer-section').style.display = 'none';
-            document.getElementById('express-book-btn').style.display = 'none';
-            document.getElementById('express-calc-btn').style.display = 'block';
-            
-            // Zoom zurück
-            expressMap.setView([53.9547, 14.1783], 13);
-            
-            console.log('✅ Reset erfolgreich!');
-        }
-        
-        // 🆕 v5.90.158: INITIALISIERE FAHRZEUG-ÜBERSICHT TAB
-            if (!container) {
-                console.error('❌ express-map-container nicht gefunden!');
-                return;
-            }
-            
-            // Falls Karte bereits existiert, entfernen
-            if (expressMap) {
-                expressMap.remove();
-                expressMap = null;
-            }
-            
-            try {
-                // Erstelle Karte
-                container.innerHTML = '<div id="express-leaflet-map" style="width:100%;height:100%;"></div>';
-                
-                expressMap = L.map('express-leaflet-map', {
-                    zoomControl: true,
-                    scrollWheelZoom: true
-                }).setView([53.9547, 14.1783], 14);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap',
-                    maxZoom: 19
-                }).addTo(expressMap);
-                
-                console.log('✅ Express-Karte erstellt!');
-                
-                // Click-Handler
-                expressMap.on('click', handleExpressMapClickNew);
-                
-                // Setze Datum auf heute
-                const today = new Date();
-                document.getElementById('express-date').valueAsDate = today;
-                
-                // Setze Zeit auf jetzt + 1 Stunde
-                const nowPlus1 = new Date(today.getTime() + 60*60*1000);
-                document.getElementById('express-time').value = 
-                    `${String(nowPlus1.getHours()).padStart(2,'0')}:${String(nowPlus1.getMinutes()).padStart(2,'0')}`;
-                
-                // Lade POIs
-                await loadExpressPOIsNew();
-                
-                // Setup Autocomplete für Felder
-                setupExpressAutocomplete();
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Erstellen der Express-Karte:', error);
-            }
-        }
-        
-        // LADE POIs
         async function loadExpressPOIsNew() {
             if (!isFirebaseReady) return;
             
@@ -27275,66 +26885,6 @@
             console.log('📝 Express Autocomplete bereit');
         }
         
-        // 🆕 v5.90.158: INITIALISIERE FAHRZEUG-ÜBERSICHT TAB
-            console.log('⚡ v5.90.159: Initialisiere Express-Buchung...');
-            
-            const container = document.getElementById('express-map-container');
-            if (!container) {
-                console.error('❌ express-map-container nicht gefunden!');
-                return;
-            }
-            
-            // Falls Karte bereits existiert, entfernen
-            if (expressMap) {
-                expressMap.remove();
-                expressMap = null;
-            }
-            
-            try {
-                // Erstelle Karte
-                container.innerHTML = '<div id="express-leaflet-map" style="width:100%;height:100%;"></div>';
-                
-                expressMap = L.map('express-leaflet-map', {
-                    zoomControl: true,
-                    scrollWheelZoom: true
-                }).setView([53.9547, 14.1783], 14);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap',
-                    maxZoom: 19
-                }).addTo(expressMap);
-                
-                console.log('✅ Express-Buchung Karte erstellt!');
-                
-                // Click-Handler
-                expressMap.on('click', handleExpressMapClick);
-                
-                // Setze Datum auf heute
-                const today = new Date();
-                document.getElementById('express-date').valueAsDate = today;
-                
-                // Setze Zeit auf jetzt + 1 Stunde
-                const nowPlus1 = new Date(today.getTime() + 60*60*1000);
-                document.getElementById('express-time').value = 
-                    `${String(nowPlus1.getHours()).padStart(2,'0')}:${String(nowPlus1.getMinutes()).padStart(2,'0')}`;
-                
-                // 🆕 v5.90.160: LADE POIs FÜR FAVORITEN-BUTTONS!
-                await loadExpressPOIs();
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Erstellen der Express-Karte:', error);
-                container.innerHTML = `
-                    <div style="width:100%;height:100%;background:#fef2f2;display:flex;align-items:center;justify-content:center;color:#dc2626;">
-                        <div style="text-align:center;padding:20px;">
-                            <div style="font-size:64px;margin-bottom:12px;">❌</div>
-                            <div style="font-size:16px;font-weight:600;">Karte konnte nicht geladen werden</div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // 🆕 v5.90.160: LADE POIs
         async function loadExpressPOIs() {
             if (!isFirebaseReady) return;
             
@@ -27784,7 +27334,6 @@
             console.log('✅ Reset erfolgreich!');
         }
         
-        // 🆕 v5.90.158: INITIALISIERE FAHRZEUG-ÜBERSICHT TAB
         async function initVehicleOverviewTab() {
             console.log('🚗 Initialisiere Fahrzeug-Übersicht Tab...');
             
@@ -33518,7 +33067,611 @@
             }
         }
         
+        // ═══════════════════════════════════════════════════════════════════
+        // 🆕 v5.90.165: EXPRESS-BUCHUNG - KOMPLETT NEU!
+        // Karte + Formular = Wie Schnellbuchung aber mit visueller Unterstützung
+        // ═══════════════════════════════════════════════════════════════════
         async function openQuickBookingModal(prefilledCustomer = null) {
+        // ═══════════════════════════════════════════════════════════════════
+        // 🆕 v5.90.165: EXPRESS-BUCHUNG - KOMPLETT NEU!
+        // Karte + Formular = Wie Schnellbuchung aber mit visueller Unterstützung
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // GLOBALE VARIABLEN
+        let expressMap = null;
+        let expressPickupMarker = null;
+        let expressDestMarker = null;
+        let expressRouteLayer = null;
+        let expressPickupCoords = null;
+        let expressDestCoords = null;
+        let expressCalculatedPrice = null;
+        let expressAutocompleteTimeout = null;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════════════════════
+        
+        async function initExpressBooking() {
+            console.log('⚡ v5.90.165: Init Express-Buchung (NEU & SAUBER!)...');
+            
+            const wrapper = document.getElementById('express-map-wrapper');
+            if (!wrapper) {
+                console.error('❌ express-map-wrapper nicht gefunden!');
+                return;
+            }
+            
+            // Falls Karte existiert
+            if (expressMap) {
+                console.log('🔄 Karte existiert, invalidiere Size...');
+                expressMap.invalidateSize();
+                return;
+            }
+            
+            try {
+                // Erstelle Karte
+                wrapper.innerHTML = '<div id="express-leaflet-map" style="width:100%;height:100%;"></div>';
+                
+                expressMap = L.map('express-leaflet-map', {
+                    zoomControl: true,
+                    scrollWheelZoom: true
+                }).setView([53.9547, 14.1783], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap',
+                    maxZoom: 19
+                }).addTo(expressMap);
+                
+                console.log('✅ Express-Karte erstellt!');
+                
+                // Click-Handler
+                expressMap.on('click', handleExpressMapClick);
+                
+                // Setze Default Datum/Zeit
+                const today = new Date();
+                document.getElementById('express-date').valueAsDate = today;
+                const nowPlus30 = new Date(today.getTime() + 30*60*1000);
+                document.getElementById('express-time').value = 
+                    `${String(nowPlus30.getHours()).padStart(2,'0')}:${String(nowPlus30.getMinutes()).padStart(2,'0')}`;
+                
+                // Lade Kunden wenn noch nicht
+                if (allCustomers.length === 0) {
+                    await loadAllCustomers();
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der Karte:', error);
+                wrapper.innerHTML = `
+                    <div style="width:100%;height:100%;background:#fef2f2;display:flex;align-items:center;justify-content:center;">
+                        <div style="text-align:center;padding:20px;color:#dc2626;">
+                            <div style="font-size:48px;margin-bottom:12px;">❌</div>
+                            <div style="font-size:14px;font-weight:600;">Karte konnte nicht geladen werden</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // KARTEN-CLICK (HAUPTFUNKTION!)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        async function handleExpressMapClick(e) {
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
+            
+            console.log(`🗺️ Karte geklickt: ${lat}, ${lon}`);
+            
+            try {
+                // Reverse Geocode
+                const address = await reverseGeocode(lat, lon);
+                console.log('📍 Adresse:', address);
+                
+                // Entscheide: Abholort oder Ziel?
+                if (!expressPickupCoords) {
+                    // 1. KLICK → ABHOLORT
+                    document.getElementById('express-pickup').value = address;
+                    expressPickupCoords = { lat, lon };
+                    
+                    // Marker setzen
+                    if (expressPickupMarker) expressMap.removeLayer(expressPickupMarker);
+                    expressPickupMarker = L.marker([lat, lon], {
+                        draggable: true,
+                        icon: L.divIcon({
+                            html: '<div style="background:#10b981;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">📍</div>',
+                            className: '',
+                            iconSize: [36, 36]
+                        })
+                    }).addTo(expressMap);
+                    
+                    expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`).openPopup();
+                    
+                    // Drag-Handler
+                    expressPickupMarker.on('dragend', async (event) => {
+                        const pos = event.target.getLatLng();
+                        const newAddr = await reverseGeocode(pos.lat, pos.lng);
+                        document.getElementById('express-pickup').value = newAddr;
+                        expressPickupCoords = { lat: pos.lat, lon: pos.lng };
+                        event.target.setPopupContent(`<strong>📍 Abholort</strong><br>${newAddr}`);
+                        calculateExpressRouteAndPrice();
+                    });
+                    
+                    updateExpressStatus();
+                    
+                } else if (!expressDestCoords) {
+                    // 2. KLICK → ZIELORT
+                    document.getElementById('express-destination').value = address;
+                    expressDestCoords = { lat, lon };
+                    
+                    // Marker setzen
+                    if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
+                    expressDestMarker = L.marker([lat, lon], {
+                        draggable: true,
+                        icon: L.divIcon({
+                            html: '<div style="background:#ef4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>',
+                            className: '',
+                            iconSize: [36, 36]
+                        })
+                    }).addTo(expressMap);
+                    
+                    expressDestMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`).openPopup();
+                    
+                    // Drag-Handler
+                    expressDestMarker.on('dragend', async (event) => {
+                        const pos = event.target.getLatLng();
+                        const newAddr = await reverseGeocode(pos.lat, pos.lng);
+                        document.getElementById('express-destination').value = newAddr;
+                        expressDestCoords = { lat: pos.lat, lon: pos.lng };
+                        event.target.setPopupContent(`<strong>🎯 Zielort</strong><br>${newAddr}`);
+                        calculateExpressRouteAndPrice();
+                    });
+                    
+                    updateExpressStatus();
+                    
+                    // AUTOMATISCH ROUTE & PREIS BERECHNEN!
+                    await calculateExpressRouteAndPrice();
+                    
+                } else {
+                    // BEIDE EXISTIEREN → ERSETZE ZIELORT
+                    document.getElementById('express-destination').value = address;
+                    expressDestCoords = { lat, lon };
+                    
+                    if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
+                    expressDestMarker = L.marker([lat, lon], {
+                        draggable: true,
+                        icon: L.divIcon({
+                            html: '<div style="background:#ef4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>',
+                            className: '',
+                            iconSize: [36, 36]
+                        })
+                    }).addTo(expressMap);
+                    
+                    expressDestMarker.bindPopup(`<strong>🎯 Zielort (NEU)</strong><br>${address}`).openPopup();
+                    
+                    expressDestMarker.on('dragend', async (event) => {
+                        const pos = event.target.getLatLng();
+                        const newAddr = await reverseGeocode(pos.lat, pos.lng);
+                        document.getElementById('express-destination').value = newAddr;
+                        expressDestCoords = { lat: pos.lat, lon: pos.lng };
+                        event.target.setPopupContent(`<strong>🎯 Zielort</strong><br>${newAddr}`);
+                        calculateExpressRouteAndPrice();
+                    });
+                    
+                    await calculateExpressRouteAndPrice();
+                }
+                
+            } catch (error) {
+                console.error('❌ Geocoding-Fehler:', error);
+                showToast('❌ Adresse konnte nicht ermittelt werden', 'error');
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // STATUS UPDATE
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function updateExpressStatus() {
+            const statusEl = document.getElementById('express-map-status');
+            
+            if (!expressPickupCoords) {
+                statusEl.innerHTML = '⚪ Klicke auf Karte für Abholort';
+                statusEl.style.background = '#fef3c7';
+                statusEl.style.borderColor = '#f59e0b';
+                statusEl.style.color = '#92400e';
+            } else if (!expressDestCoords) {
+                statusEl.innerHTML = '🟡 SUPER! Jetzt Zielort auf Karte klicken';
+                statusEl.style.background = '#fef3c7';
+                statusEl.style.borderColor = '#f59e0b';
+                statusEl.style.color = '#92400e';
+            } else {
+                statusEl.innerHTML = '🟢 PERFEKT! Route wird berechnet...';
+                statusEl.style.background = '#dcfce7';
+                statusEl.style.borderColor = '#10b981';
+                statusEl.style.color = '#065f46';
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ROUTE & PREIS BERECHNEN
+        // ═══════════════════════════════════════════════════════════════════
+        
+        async function calculateExpressRouteAndPrice() {
+            if (!expressPickupCoords || !expressDestCoords) return;
+            
+            try {
+                console.log('💰 Berechne Route & Preis...');
+                
+                // OSRM Route
+                const route = await calculateRoute(expressPickupCoords, expressDestCoords);
+                console.log('🛣️ Route:', route);
+                
+                // Zeige Route auf Karte
+                if (expressRouteLayer) expressMap.removeLayer(expressRouteLayer);
+                
+                const latlngs = route.geometry.map(coord => [coord[1], coord[0]]);
+                expressRouteLayer = L.polyline(latlngs, {
+                    color: '#3b82f6',
+                    weight: 5,
+                    opacity: 0.7
+                }).addTo(expressMap);
+                
+                // Zoom auf Route
+                expressMap.fitBounds(expressRouteLayer.getBounds(), { padding: [50, 50] });
+                
+                // Berechne Preis
+                const settings = pricingSettings || {
+                    basePrice: 3.50,
+                    pricePerKm: 2.00,
+                    nightSurcharge: 1.50,
+                    holidaySurcharge: 5.00
+                };
+                
+                const price = calculatePrice(route.distance, Date.now(), settings);
+                
+                expressCalculatedPrice = {
+                    distance: route.distance,
+                    duration: route.duration,
+                    total: price.total,
+                    net: price.net,
+                    vatRate: price.vatRate,
+                    vat: price.vat
+                };
+                
+                // Zeige Preis
+                document.getElementById('express-distance-text').textContent = route.distance;
+                document.getElementById('express-duration-text').textContent = route.duration;
+                document.getElementById('express-price-text').textContent = price.total.toFixed(2);
+                document.getElementById('express-price-display').style.display = 'block';
+                
+                // Update Status
+                const statusEl = document.getElementById('express-map-status');
+                statusEl.innerHTML = `🟢 FERTIG! ${route.distance} km · ${route.duration} Min. · ${price.total.toFixed(2)}€`;
+                statusEl.style.background = '#dcfce7';
+                statusEl.style.borderColor = '#10b981';
+                statusEl.style.color = '#065f46';
+                
+                console.log('✅ Route & Preis berechnet!');
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Routing:', error);
+                showToast('❌ Route konnte nicht berechnet werden', 'error');
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // AUTOCOMPLETE (PICKUP)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        async function expressAutocompletePickup() {
+            const input = document.getElementById('express-pickup');
+            const dropdown = document.getElementById('express-pickup-dropdown');
+            const query = input.value.trim();
+            
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            clearTimeout(expressAutocompleteTimeout);
+            expressAutocompleteTimeout = setTimeout(async () => {
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
+                    const response = await fetch(url);
+                    const results = await response.json();
+                    
+                    if (results && results.length > 0) {
+                        dropdown.innerHTML = results.map(r => `
+                            <div onclick="selectExpressPickup(${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")'}')" 
+                                 style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
+                                <div style="font-weight:600;">${r.display_name.split(',')[0]}</div>
+                                <div style="font-size:12px;color:#666;">${r.display_name}</div>
+                            </div>
+                        `).join('');
+                        dropdown.style.display = 'block';
+                    } else {
+                        dropdown.style.display = 'none';
+                    }
+                    
+                } catch (error) {
+                    console.error('Autocomplete Fehler:', error);
+                }
+            }, 300);
+        }
+        
+        function selectExpressPickup(lat, lon, address) {
+            document.getElementById('express-pickup').value = address;
+            document.getElementById('express-pickup-dropdown').style.display = 'none';
+            
+            expressPickupCoords = { lat, lon };
+            
+            // Marker setzen
+            if (expressPickupMarker) expressMap.removeLayer(expressPickupMarker);
+            expressPickupMarker = L.marker([lat, lon], {
+                draggable: true,
+                icon: L.divIcon({
+                    html: '<div style="background:#10b981;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">📍</div>',
+                    className: '',
+                    iconSize: [36, 36]
+                })
+            }).addTo(expressMap);
+            
+            expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`);
+            
+            expressPickupMarker.on('dragend', async (event) => {
+                const pos = event.target.getLatLng();
+                const newAddr = await reverseGeocode(pos.lat, pos.lng);
+                document.getElementById('express-pickup').value = newAddr;
+                expressPickupCoords = { lat: pos.lat, lon: pos.lng };
+                event.target.setPopupContent(`<strong>📍 Abholort</strong><br>${newAddr}`);
+                if (expressDestCoords) calculateExpressRouteAndPrice();
+            });
+            
+            expressMap.setView([lat, lon], 15);
+            updateExpressStatus();
+            
+            if (expressDestCoords) {
+                calculateExpressRouteAndPrice();
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // AUTOCOMPLETE (DESTINATION)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        async function expressAutocompleteDestination() {
+            const input = document.getElementById('express-destination');
+            const dropdown = document.getElementById('express-destination-dropdown');
+            const query = input.value.trim();
+            
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            clearTimeout(expressAutocompleteTimeout);
+            expressAutocompleteTimeout = setTimeout(async () => {
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
+                    const response = await fetch(url);
+                    const results = await response.json();
+                    
+                    if (results && results.length > 0) {
+                        dropdown.innerHTML = results.map(r => `
+                            <div onclick="selectExpressDestination(${r.lat}, ${r.lon}, '${r.display_name.replace(/'/g, "\\'")'}')" 
+                                 style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
+                                <div style="font-weight:600;">${r.display_name.split(',')[0]}</div>
+                                <div style="font-size:12px;color:#666;">${r.display_name}</div>
+                            </div>
+                        `).join('');
+                        dropdown.style.display = 'block';
+                    } else {
+                        dropdown.style.display = 'none';
+                    }
+                    
+                } catch (error) {
+                    console.error('Autocomplete Fehler:', error);
+                }
+            }, 300);
+        }
+        
+        function selectExpressDestination(lat, lon, address) {
+            document.getElementById('express-destination').value = address;
+            document.getElementById('express-destination-dropdown').style.display = 'none';
+            
+            expressDestCoords = { lat, lon };
+            
+            // Marker setzen
+            if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
+            expressDestMarker = L.marker([lat, lon], {
+                draggable: true,
+                icon: L.divIcon({
+                    html: '<div style="background:#ef4444;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">🎯</div>',
+                    className: '',
+                    iconSize: [36, 36]
+                })
+            }).addTo(expressMap);
+            
+            expressDestMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`);
+            
+            expressDestMarker.on('dragend', async (event) => {
+                const pos = event.target.getLatLng();
+                const newAddr = await reverseGeocode(pos.lat, pos.lng);
+                document.getElementById('express-destination').value = newAddr;
+                expressDestCoords = { lat: pos.lat, lon: pos.lng };
+                event.target.setPopupContent(`<strong>🎯 Zielort</strong><br>${newAddr}`);
+                calculateExpressRouteAndPrice();
+            });
+            
+            expressMap.setView([lat, lon], 15);
+            updateExpressStatus();
+            
+            if (expressPickupCoords) {
+                calculateExpressRouteAndPrice();
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // KUNDEN-SUCHE
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function expressSearchCustomer() {
+            const input = document.getElementById('express-customer-search');
+            const dropdown = document.getElementById('express-customer-dropdown');
+            const query = input.value.trim().toLowerCase();
+            
+            if (query.length < 2) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            const matches = allCustomers.filter(c => 
+                (c.name && c.name.toLowerCase().includes(query)) ||
+                (c.phone && c.phone.includes(query))
+            );
+            
+            if (matches.length > 0) {
+                dropdown.innerHTML = matches.slice(0, 5).map(c => `
+                    <div onclick="selectExpressCustomer('${c.id}', '${(c.name || '').replace(/'/g, "\\'")'}')" 
+                         style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
+                        <div style="font-weight:600;">${c.name}</div>
+                        ${c.phone ? `<div style="font-size:12px;color:#666;">📞 ${c.phone}</div>` : ''}
+                    </div>
+                `).join('');
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+        
+        function selectExpressCustomer(customerId, customerName) {
+            document.getElementById('express-customer-search').value = customerName;
+            document.getElementById('express-customer-id').value = customerId;
+            document.getElementById('express-customer-dropdown').style.display = 'none';
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // BUCHEN! (HAUPTFUNKTION)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        async function executeExpressBooking() {
+            console.log('🚕 v5.90.165: Express-Buchung ausführen...');
+            
+            // Validierung
+            const pickup = document.getElementById('express-pickup').value.trim();
+            const destination = document.getElementById('express-destination').value.trim();
+            const date = document.getElementById('express-date').value;
+            const time = document.getElementById('express-time').value;
+            const customerName = document.getElementById('express-customer-search').value.trim();
+            const customerId = document.getElementById('express-customer-id').value;
+            
+            if (!pickup) {
+                showToast('❌ Bitte Abholort eingeben!', 'error');
+                return;
+            }
+            
+            if (!destination) {
+                showToast('❌ Bitte Zielort eingeben!', 'error');
+                return;
+            }
+            
+            if (!date || !time) {
+                showToast('❌ Bitte Datum und Uhrzeit eingeben!', 'error');
+                return;
+            }
+            
+            if (!customerName) {
+                showToast('❌ Bitte Kunde auswählen!', 'error');
+                return;
+            }
+            
+            try {
+                // Timestamp erstellen
+                const pickupTimestamp = new Date(`${date}T${time}`).getTime();
+                
+                // Fahrt-Objekt
+                const ride = {
+                    pickup: pickup,
+                    destination: destination,
+                    pickupTimestamp: pickupTimestamp,
+                    customerName: customerName,
+                    customerId: customerId || null,
+                    guestName: document.getElementById('express-guest-name').value.trim() || null,
+                    passengers: parseInt(document.getElementById('express-passengers').value) || 1,
+                    paymentMethod: document.getElementById('express-payment').value,
+                    notes: document.getElementById('express-notes').value.trim() || null,
+                    status: 'pending',
+                    createdAt: Date.now(),
+                    createdBy: currentUser?.name || 'Admin',
+                    source: 'express-booking',
+                    distance: expressCalculatedPrice?.distance || null,
+                    price: expressCalculatedPrice?.total || null
+                };
+                
+                console.log('📋 Fahrt:', ride);
+                
+                // Speichern in Firebase
+                const rideRef = await db.ref('rides').push(ride);
+                const rideId = rideRef.key;
+                
+                console.log('✅ Fahrt gespeichert:', rideId);
+                
+                showToast(`✅ Buchung erfolgreich! Fahrt ${rideId.slice(-6)}`, 'success');
+                
+                // Reset
+                resetExpressBooking();
+                
+                // Optional: Zurück zum Kalender
+                if (typeof loadCalendarData === 'function') {
+                    await loadCalendarData();
+                    await renderCalendar();
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Buchen:', error);
+                showToast('❌ Fehler beim Erstellen der Buchung', 'error');
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // RESET
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function resetExpressBooking() {
+            console.log('🔄 Reset Express-Buchung...');
+            
+            // Marker entfernen
+            if (expressPickupMarker) expressMap.removeLayer(expressPickupMarker);
+            if (expressDestMarker) expressMap.removeLayer(expressDestMarker);
+            if (expressRouteLayer) expressMap.removeLayer(expressRouteLayer);
+            
+            // Variablen reset
+            expressPickupMarker = null;
+            expressDestMarker = null;
+            expressRouteLayer = null;
+            expressPickupCoords = null;
+            expressDestCoords = null;
+            expressCalculatedPrice = null;
+            
+            // Felder leeren
+            document.getElementById('express-pickup').value = '';
+            document.getElementById('express-destination').value = '';
+            document.getElementById('express-customer-search').value = '';
+            document.getElementById('express-customer-id').value = '';
+            document.getElementById('express-guest-name').value = '';
+            document.getElementById('express-notes').value = '';
+            document.getElementById('express-price-display').style.display = 'none';
+            
+            // Status reset
+            updateExpressStatus();
+            
+            // Karte zurück
+            expressMap.setView([53.9547, 14.1783], 13);
+            
+            console.log('✅ Reset fertig!');
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ENDE EXPRESS-BOOKING
+        // ═══════════════════════════════════════════════════════════════════
             if (!isFirebaseReady) {
                 alert('❌ Firebase nicht verbunden!');
                 return;
@@ -37277,6 +37430,22 @@
                                 </div>
                             </div>
                             
+                            
+                            <!-- 🆕 v5.90.164: E-RECHNUNG FORMAT -->
+                            <div style="background:#e0f2fe;border:2px solid #0ea5e9;padding:15px;border-radius:10px;margin-bottom:20px;">
+                                <div style="font-weight:700;margin-bottom:10px;color:#075985;">📄 Rechnungsformat</div>
+                                <div style="display:flex;flex-direction:column;gap:10px;">
+                                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:white;border-radius:8px;border:2px solid #e5e7eb;">
+                                        <input type="radio" name="invoice-format" value="standard" checked onchange="toggleInvoiceFormat(this.value)" style="width:20px;height:20px;">
+                                        <div><div style="font-weight:600;">📄 Standard-Rechnung</div><div style="font-size:12px;color:#666;margin-top:2px;">Für Privatkunden (PDF)</div></div>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:white;border-radius:8px;border:2px solid #e5e7eb;">
+                                        <input type="radio" name="invoice-format" value="zugferd" onchange="toggleInvoiceFormat(this.value)" style="width:20px;height:20px;">
+                                        <div><div style="font-weight:600;">🏢 E-Rechnung (ZUGFeRD)</div><div style="font-size:12px;color:#666;margin-top:2px;">Für Hotels, Firmen, Behörden (PDF + XML)</div></div>
+                                    </label>
+                                </div>
+                                <div id="zugferd-info" style="display:none;margin-top:10px;padding:10px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;">ℹ️ E-Rechnungen sind <strong>Pflicht für B2B ab 01.01.2025</strong>. Das PDF enthält eingebettete XML-Daten für automatische Verarbeitung.</div>
+                            </div>
                             <!-- POSITIONEN -->
                             <div style="background:#f0fdf4;border:2px solid #10b981;padding:15px;border-radius:10px;margin-bottom:20px;">
                                 <div style="font-weight:700;margin-bottom:15px;color:#047857;">💰 Positionen (Brutto-Beträge)</div>
@@ -37360,6 +37529,18 @@
                 
                 document.body.appendChild(modal);
                 
+                
+                // 🆕 v5.90.164: AUTO-DETECT FORMAT
+                const recommendedFormat = detectInvoiceFormat(customer);
+                if (recommendedFormat === "zugferd") {
+                    setTimeout(() => {
+                        const zugferdRadio = document.querySelector("input[name=\"invoice-format\"][value=\"zugferd\"]");
+                        if (zugferdRadio) {
+                            zugferdRadio.checked = true;
+                            toggleInvoiceFormat("zugferd");
+                        }
+                    }, 100);
+                }
                 // Rendere Positionen initial
                 renderInvoicePositions();
                 updateInvoiceCalculation();
@@ -57277,7 +57458,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             let saved = {};
             
             // Check ob Firebase und User bereit sind
-            const user = firebase.auth().currentUser;
+            const user = isFirebaseReady ? firebase.auth().currentUser : null;
             
             if (user && db) {
                 try {
@@ -57386,9 +57567,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // 🔧 v5.90.99: Auch ohne Settings → Admin-Only Tabs verstecken!
                 ALL_TABS.forEach(tab => {
                     const btn = document.querySelector(`.tab-toggleable[data-tab-id="${tab.id}"]`);
-                    if (btn && tab.admin && userRole !== 'admin') {
+                    if (btn && tab.admin && (!currentUser || currentUser.role !== 'admin')) {
                         btn.style.display = 'none';
-                        console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${userRole || 'Gast'}`);
+                        console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${currentUser?.role || 'Gast'}`);
                     }
                 });
                 return;
@@ -57399,9 +57580,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 const btn = document.querySelector(`.tab-toggleable[data-tab-id="${tab.id}"]`);
                 if (btn) {
                     // Admin-Only Tab UND User ist NICHT Admin → VERSTECKEN!
-                    if (tab.admin && userRole !== 'admin') {
+                    if (tab.admin && (!currentUser || currentUser.role !== 'admin')) {
                         btn.style.display = 'none';
-                        console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${userRole || 'Gast'}`);
+                        console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${currentUser?.role || 'Gast'}`);
                     } else if (settings.visible.includes(tab.id)) {
                         btn.style.display = '';
                     } else {

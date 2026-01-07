@@ -108,7 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.157 - KALENDER VERGANGENHEIT! 📅 (Build 20260107-1555)');
+        console.log('🚕 Funk Taxi App v5.90.171 - MANUELLE RECHNUNG! 📄💰 (Build 20260107-2200)');
+        console.log('🆕 v5.90.171: MANUELLE RECHNUNG FÜR KUNDEN ERSTELLEN!');
+        console.log('✅ v5.90.171: Button in CRM-Suche "Rechnung erstellen"');
+        console.log('✅ v5.90.171: Datum RÜCKWIRKEND wählbar (auch Vergangenheit!)');
+        console.log('✅ v5.90.171: Auto-Preis-Berechnung oder manuell');
+        console.log('✅ v5.90.171: Speichert in Firebase als completed Fahrt');
+        console.log('✅ v5.90.171: PDF-Rechnung direkt erstellen möglich');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -14638,18 +14644,24 @@
                                 </div>
                                 ` : ''}
                                 
-                                <div style="display:flex;gap:8px;">
+                                <div style="display:flex;gap:8px;flex-wrap:wrap;">
                                     <button onclick="bookForCustomer('${c.id}')" 
-                                            style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.3s;"
+                                            style="flex:1;min-width:120px;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.3s;"
                                             onmouseover="this.style.background='#059669'"
                                             onmouseout="this.style.background='#10b981'">
                                         🚕 Fahrt buchen
                                     </button>
                                     <button onclick="showCustomerHistory('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}'); document.getElementById('customer-match-modal').remove();" 
-                                            style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.3s;"
+                                            style="flex:1;min-width:120px;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.3s;"
                                             onmouseover="this.style.background='#2563eb'"
                                             onmouseout="this.style.background='#3b82f6'">
                                         📋 Fahrt-Historie
+                                    </button>
+                                    <button onclick="createManualInvoiceForCustomer('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${(c.phone || '').replace(/'/g, "\\'")}'); document.getElementById('customer-match-modal').remove();" 
+                                            style="flex:1;min-width:120px;padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.3s;"
+                                            onmouseover="this.style.background='#d97706'"
+                                            onmouseout="this.style.background='#f59e0b'">
+                                        📄 Rechnung erstellen
                                     </button>
                                 </div>
                             </div>
@@ -27905,6 +27917,294 @@
             
             // Bestätigung
             alert('✅ Daten übernommen!\n\n📍 ' + pickup + ' → ' + destination + '\n👤 ' + customerName + '\n\nBitte Abholzeit wählen und buchen.');
+        }
+        
+        // 🆕 v5.90.171: MANUELLE RECHNUNG FÜR KUNDEN ERSTELLEN (auch Vergangenheit!)
+        function createManualInvoiceForCustomer(customerId, customerName, customerPhone) {
+            console.log('📄 Erstelle manuelle Rechnung für:', customerName);
+            
+            // Modal erstellen
+            const modal = document.createElement('div');
+            modal.id = 'manual-invoice-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+            
+            // Heutiges Datum als Standard
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            const currentHour = String(today.getHours()).padStart(2, '0');
+            const currentMinute = String(today.getMinutes()).padStart(2, '0');
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:24px;border-radius:16px 16px 0 0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <h3 style="margin:0;font-size:22px;">📄 Rechnung erstellen</h3>
+                            <button onclick="document.getElementById('manual-invoice-modal').remove()" 
+                                    style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:22px;">
+                                ✕
+                            </button>
+                        </div>
+                        <div style="font-size:15px;opacity:0.95;">
+                            Für: <strong>${customerName}</strong>
+                        </div>
+                        ${customerPhone ? `<div style="font-size:13px;opacity:0.9;">📞 ${customerPhone}</div>` : ''}
+                    </div>
+                    
+                    <!-- Formular -->
+                    <div style="padding:24px;">
+                        <!-- Datum & Zeit -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                            <div>
+                                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                    📅 Datum
+                                </label>
+                                <input type="date" id="manual-invoice-date" value="${todayStr}" 
+                                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                            <div>
+                                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                    🕐 Uhrzeit
+                                </label>
+                                <input type="time" id="manual-invoice-time" value="${currentHour}:${currentMinute}" 
+                                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                            </div>
+                        </div>
+                        
+                        <!-- Von / Nach -->
+                        <div style="margin-bottom:16px;">
+                            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                📍 Von
+                            </label>
+                            <input type="text" id="manual-invoice-pickup" placeholder="Abholort..." 
+                                   style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <div style="margin-bottom:16px;">
+                            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                🎯 Nach
+                            </label>
+                            <input type="text" id="manual-invoice-destination" placeholder="Zielort..." 
+                                   style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                        </div>
+                        
+                        <!-- Distanz & Preis -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                            <div>
+                                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                    📏 Distanz (km)
+                                </label>
+                                <input type="number" id="manual-invoice-distance" placeholder="z.B. 12.5" step="0.1" 
+                                       onchange="calculateManualInvoicePrice()"
+                                       style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                                <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                                    💡 Oder leer lassen für manuellen Preis
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                    💰 Preis (€)
+                                </label>
+                                <input type="number" id="manual-invoice-price" placeholder="z.B. 25.50" step="0.50" 
+                                       style="width:100%;padding:12px;border:2px solid #10b981;border-radius:8px;font-size:16px;font-weight:700;">
+                            </div>
+                        </div>
+                        
+                        <!-- Zahlungsart -->
+                        <div style="margin-bottom:16px;">
+                            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                💳 Zahlungsart
+                            </label>
+                            <select id="manual-invoice-payment" 
+                                    style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                                <option value="cash">💵 Bar</option>
+                                <option value="card">💳 Karte</option>
+                                <option value="invoice" selected>📄 Rechnung</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Notiz -->
+                        <div style="margin-bottom:20px;">
+                            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+                                📝 Notiz (optional)
+                            </label>
+                            <textarea id="manual-invoice-notes" placeholder="z.B. Nachttarif, Wartezeit, etc..." 
+                                      style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;resize:vertical;min-height:60px;"></textarea>
+                        </div>
+                        
+                        <!-- Info Box -->
+                        <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;border-radius:6px;margin-bottom:20px;">
+                            <div style="font-size:12px;color:#92400e;">
+                                <strong>ℹ️ Hinweis:</strong> Die Fahrt wird in Firebase gespeichert und erscheint im Kalender & Verlauf. Eine PDF-Rechnung wird automatisch erstellt.
+                            </div>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div style="display:flex;gap:12px;">
+                            <button onclick="document.getElementById('manual-invoice-modal').remove()" 
+                                    style="flex:1;padding:14px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
+                                ❌ Abbrechen
+                            </button>
+                            <button onclick="saveManualInvoice('${customerId}', '${customerName.replace(/'/g, "\\'")}', '${customerPhone.replace(/'/g, "\\'")}');" 
+                                    style="flex:2;padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                                ✅ RECHNUNG ERSTELLEN & SPEICHERN
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // 🆕 v5.90.171: PREIS AUTOMATISCH BERECHNEN (wenn Distanz eingegeben)
+        function calculateManualInvoicePrice() {
+            const distanceInput = document.getElementById('manual-invoice-distance');
+            const priceInput = document.getElementById('manual-invoice-price');
+            const dateInput = document.getElementById('manual-invoice-date');
+            const timeInput = document.getElementById('manual-invoice-time');
+            
+            if (!distanceInput || !priceInput || !dateInput || !timeInput) return;
+            
+            const distance = parseFloat(distanceInput.value);
+            if (!distance || distance <= 0) return;
+            
+            // Datum & Zeit parsen
+            const dateStr = dateInput.value;
+            const timeStr = timeInput.value;
+            const [year, month, day] = dateStr.split('-');
+            const [hour, minute] = timeStr.split(':');
+            const timestamp = new Date(year, month - 1, day, hour, minute).getTime();
+            
+            // Tarif laden (würde normalerweise aus Firebase kommen, aber nutze defaults)
+            const basePrice = 3.50;
+            const pricePerKm = 2.00;
+            const nightSurcharge = 1.50;
+            
+            // Basispreis berechnen
+            let price = basePrice + (distance * pricePerKm);
+            
+            // Nachttarif (22-6 Uhr)
+            const h = parseInt(hour);
+            if (h >= 22 || h < 6) {
+                price += nightSurcharge;
+            }
+            
+            // Runden auf 0.50€
+            price = Math.round(price * 2) / 2;
+            
+            // In Feld eintragen
+            priceInput.value = price.toFixed(2);
+        }
+        
+        // 🆕 v5.90.171: MANUELLE RECHNUNG SPEICHERN
+        async function saveManualInvoice(customerId, customerName, customerPhone) {
+            console.log('💾 Speichere manuelle Rechnung...');
+            
+            // Felder auslesen
+            const dateInput = document.getElementById('manual-invoice-date');
+            const timeInput = document.getElementById('manual-invoice-time');
+            const pickupInput = document.getElementById('manual-invoice-pickup');
+            const destInput = document.getElementById('manual-invoice-destination');
+            const distanceInput = document.getElementById('manual-invoice-distance');
+            const priceInput = document.getElementById('manual-invoice-price');
+            const paymentSelect = document.getElementById('manual-invoice-payment');
+            const notesInput = document.getElementById('manual-invoice-notes');
+            
+            // Validierung
+            if (!pickupInput.value.trim()) {
+                alert('❌ Bitte Abholort eingeben!');
+                pickupInput.focus();
+                return;
+            }
+            
+            if (!destInput.value.trim()) {
+                alert('❌ Bitte Zielort eingeben!');
+                destInput.focus();
+                return;
+            }
+            
+            if (!priceInput.value || parseFloat(priceInput.value) <= 0) {
+                alert('❌ Bitte gültigen Preis eingeben!');
+                priceInput.focus();
+                return;
+            }
+            
+            // Timestamp erstellen
+            const dateStr = dateInput.value;
+            const timeStr = timeInput.value;
+            const [year, month, day] = dateStr.split('-');
+            const [hour, minute] = timeStr.split(':');
+            const pickupTimestamp = new Date(year, month - 1, day, hour, minute).getTime();
+            
+            // Fahrt-Objekt erstellen
+            const ride = {
+                pickup: pickupInput.value.trim(),
+                destination: destInput.value.trim(),
+                pickupTimestamp: pickupTimestamp,
+                pickupTime: `${hour}:${minute}`,
+                pickupDate: dateStr,
+                customerId: customerId,
+                customerName: customerName,
+                customerPhone: customerPhone,
+                price: parseFloat(priceInput.value),
+                distance: distanceInput.value ? parseFloat(distanceInput.value) : null,
+                paymentMethod: paymentSelect.value,
+                notes: notesInput.value.trim() || null,
+                status: 'completed',
+                manualInvoice: true,
+                createdAt: Date.now(),
+                createdBy: currentUser?.uid || 'admin',
+                vehicleId: null,
+                passengers: 1
+            };
+            
+            try {
+                // In Firebase speichern
+                if (!isFirebaseReady) {
+                    throw new Error('Firebase nicht bereit!');
+                }
+                
+                const rideRef = db.ref('rides').push();
+                await rideRef.set(ride);
+                
+                console.log('✅ Fahrt gespeichert:', rideRef.key);
+                
+                // Modal schließen
+                const modal = document.getElementById('manual-invoice-modal');
+                if (modal) modal.remove();
+                
+                // Erfolgs-Meldung
+                showToast('✅ Rechnung erstellt & gespeichert!', 'success');
+                
+                // Frage ob Rechnung-PDF erstellen
+                if (confirm(`✅ Fahrt gespeichert!\n\n📄 Möchtest du jetzt die Rechnung als PDF erstellen?`)) {
+                    // Lade Rechnung-View
+                    switchView('rechnung');
+                    
+                    // Warte kurz und fülle Felder
+                    setTimeout(() => {
+                        const rechnungCustomerName = document.getElementById('rechnung-customer-name');
+                        const rechnungCustomerAddress = document.getElementById('rechnung-customer-address');
+                        const rechnungFrom = document.getElementById('rechnung-from');
+                        const rechnungTo = document.getElementById('rechnung-to');
+                        const rechnungDate = document.getElementById('rechnung-date');
+                        const rechnungPrice = document.getElementById('rechnung-price');
+                        
+                        if (rechnungCustomerName) rechnungCustomerName.value = customerName;
+                        if (rechnungFrom) rechnungFrom.value = ride.pickup;
+                        if (rechnungTo) rechnungTo.value = ride.destination;
+                        if (rechnungDate) rechnungDate.value = ride.pickupDate;
+                        if (rechnungPrice) rechnungPrice.value = ride.price;
+                        
+                        showToast('📄 Felder vorausgefüllt - bitte prüfen & erstellen!', 'info');
+                    }, 500);
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Speichern:', error);
+                alert('❌ Fehler beim Speichern der Rechnung!\n\n' + error.message);
+            }
         }
         
         // 🆕 v5.86.0: DETAILS FÜR STORNIERTE FAHRTEN

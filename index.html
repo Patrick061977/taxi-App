@@ -108,14 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.159 - EXPRESS-BUCHUNG + KARTEN-CLICK! ⚡🗺️ (Build 20260107-1700)');
-        console.log('✅ v5.90.159: EXPRESS-BUCHUNG TAB - Klick Klack Fertig!');
-        console.log('✅ v5.90.159: Klick 1: Abholort (grün 📍) → Klick 2: Zielort (rot 🎯)');
-        console.log('✅ v5.90.159: Route-Berechnung mit OSRM (wie immer!)');
-        console.log('✅ v5.90.159: Preis automatisch + Kunde + Zeit → BUCHEN!');
-        console.log('✅ v5.90.159: Fahrzeug-Übersicht: Karten-Click für Adresssuche!');
-        console.log('✅ v5.90.158: POI-Verwaltung: Karte + Adresse parallel!');
-        console.log('✅ v5.90.157: Kalender Vergangenheit für Admins!');
+        console.log('🚕 Funk Taxi App v5.90.160 - FAVORITEN + VERSCHIEBBAR + FALLBACK! ⭐📍 (Build 20260107-1730)');
+        console.log('✅ v5.90.160: ⭐ POI-FAVORITEN-BUTTONS unter Karte!');
+        console.log('✅ v5.90.160: 📍 MARKER VERSCHIEBBAR (draggable)!');
+        console.log('✅ v5.90.160: ✈️ FALLBACK auf Luftlinie bei OSRM-Fehler (Polen!)');
+        console.log('✅ v5.90.160: Marker ziehen → Adresse neu laden → Route neu!');
+        console.log('✅ v5.90.159: Express-Buchung Klick Klack!');
+        console.log('✅ v5.90.158: POI-Karte + Fahrzeuge Tab!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -976,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.159 - EXPRESS-BUCHUNG! Klick Klack Fertig! ⚡🗺️ (Build 20260107-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.160 - Favoriten + Verschiebbar + Polen-Fix! ⭐📍 (Build 20260107-1730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -26055,8 +26054,9 @@
         let expressPickupCoords = null;
         let expressDestinationCoords = null;
         let expressStep = 1; // 1 = Abholort, 2 = Zielort
+        let expressPOIs = []; // 🆕 v5.90.160: POI-Liste
         
-        function initExpressBooking() {
+        async function initExpressBooking() {
             console.log('⚡ v5.90.159: Initialisiere Express-Buchung...');
             
             const container = document.getElementById('express-map-container');
@@ -26099,6 +26099,9 @@
                 document.getElementById('express-time').value = 
                     `${String(nowPlus1.getHours()).padStart(2,'0')}:${String(nowPlus1.getMinutes()).padStart(2,'0')}`;
                 
+                // 🆕 v5.90.160: LADE POIs FÜR FAVORITEN-BUTTONS!
+                await loadExpressPOIs();
+                
             } catch (error) {
                 console.error('❌ Fehler beim Erstellen der Express-Karte:', error);
                 container.innerHTML = `
@@ -26112,7 +26115,86 @@
             }
         }
         
-        async function handleExpressMapClick(e) {
+        // 🆕 v5.90.160: LADE POIs
+        async function loadExpressPOIs() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const snapshot = await db.ref('pois').once('value');
+                expressPOIs = [];
+                
+                snapshot.forEach(child => {
+                    expressPOIs.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                
+                console.log(`⭐ ${expressPOIs.length} POIs geladen für Express-Buchung`);
+                
+                // Render POI-Buttons unter Status
+                renderExpressPOIButtons();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der POIs:', error);
+            }
+        }
+        
+        // 🆕 v5.90.160: RENDER POI-BUTTONS
+        function renderExpressPOIButtons() {
+            const statusEl = document.getElementById('express-status');
+            if (!statusEl) return;
+            
+            if (expressPOIs.length === 0) return;
+            
+            // Erstelle POI-Buttons-Container nach Status
+            let poiContainer = document.getElementById('express-poi-buttons');
+            if (!poiContainer) {
+                poiContainer = document.createElement('div');
+                poiContainer.id = 'express-poi-buttons';
+                poiContainer.style.cssText = 'margin-top:10px;';
+                statusEl.parentNode.insertBefore(poiContainer, statusEl.nextSibling);
+            }
+            
+            poiContainer.innerHTML = `
+                <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:12px;">
+                    <div style="font-weight:700;color:#92400e;margin-bottom:8px;font-size:13px;">⭐ FAVORITEN SCHNELL-AUSWAHL:</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        ${expressPOIs.map(poi => `
+                            <button onclick="selectExpressPOI('${poi.id}')" 
+                                    style="padding:8px 14px;background:#fbbf24;color:#78350f;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;"
+                                    onmouseover="this.style.background='#f59e0b'"
+                                    onmouseout="this.style.background='#fbbf24'">
+                                ⭐ ${poi.name}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 🆕 v5.90.160: POI AUSWÄHLEN
+        function selectExpressPOI(poiId) {
+            const poi = expressPOIs.find(p => p.id === poiId);
+            if (!poi) return;
+            
+            console.log('⭐ POI ausgewählt:', poi.name);
+            
+            // Simuliere Karten-Click an POI-Position
+            const fakeEvent = {
+                latlng: {
+                    lat: poi.lat,
+                    lng: poi.lon
+                }
+            };
+            
+            handleExpressMapClick(fakeEvent, poi.address);
+            
+            // Zoom auf POI
+            expressMap.setView([poi.lat, poi.lon], 16);
+        }
+        
+        async function handleExpressMapClick(e, predefinedAddress = null) {
             const lat = e.latlng.lat;
             const lon = e.latlng.lng;
             
@@ -26131,7 +26213,7 @@
                     expressMap.removeLayer(expressPickupMarker);
                 }
                 
-                // Setze grünen Marker
+                // 🆕 v5.90.160: DRAGGABLE MARKER!
                 const greenIcon = L.divIcon({
                     className: 'custom-div-icon',
                     html: `<div style="background:#10b981;width:32px;height:32px;border-radius:50%;border:4px solid white;box-shadow:0 2px 12px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;">📍</div>`,
@@ -26139,35 +26221,52 @@
                     iconAnchor: [16, 32]
                 });
                 
-                expressPickupMarker = L.marker([lat, lon], { icon: greenIcon }).addTo(expressMap);
+                expressPickupMarker = L.marker([lat, lon], { 
+                    icon: greenIcon,
+                    draggable: true // 🆕 VERSCHIEBBAR!
+                }).addTo(expressMap);
+                
                 expressPickupCoords = { lat, lon };
                 
-                // Reverse Geocoding
-                try {
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
-                    );
-                    const data = await response.json();
-                    const address = buildAddressFromNominatim(data);
+                // 🆕 v5.90.160: DRAG-HANDLER!
+                expressPickupMarker.on('dragend', async function() {
+                    const newPos = expressPickupMarker.getLatLng();
+                    console.log('📍 Abholort verschoben:', newPos);
+                    expressPickupCoords = { lat: newPos.lat, lon: newPos.lng };
                     
+                    // Lade neue Adresse
+                    statusEl.innerHTML = '🔄 Lade neue Adresse...';
+                    const address = await loadAddressForCoords(newPos.lat, newPos.lng);
                     document.getElementById('express-pickup-address').textContent = address;
+                    expressPickupMarker.setPopupContent(`<strong>📍 Abholort</strong><br>${address}`);
                     
-                    expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`).openPopup();
-                    
-                    // Weiter zu Schritt 2
-                    expressStep = 2;
-                    statusEl.innerHTML = '🎯 Klicke auf die Karte um den Zielort zu setzen';
-                    statusEl.style.background = '#dbeafe';
-                    statusEl.style.borderColor = '#3b82f6';
-                    
-                    console.log('✅ Abholort gesetzt:', address);
-                    
-                } catch (error) {
-                    console.error('❌ Reverse Geocoding Fehler:', error);
-                    statusEl.innerHTML = '❌ Fehler beim Laden der Adresse - versuche es erneut';
-                    statusEl.style.background = '#fee2e2';
-                    statusEl.style.borderColor = '#dc2626';
+                    // Route neu berechnen wenn Ziel schon gesetzt
+                    if (expressDestinationCoords) {
+                        await calculateExpressRoute();
+                    }
+                });
+                
+                // Reverse Geocoding
+                let address = predefinedAddress;
+                if (!address) {
+                    try {
+                        address = await loadAddressForCoords(lat, lon);
+                    } catch (error) {
+                        console.error('❌ Reverse Geocoding Fehler:', error);
+                        address = `Position: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+                    }
                 }
+                
+                document.getElementById('express-pickup-address').textContent = address;
+                expressPickupMarker.bindPopup(`<strong>📍 Abholort</strong><br>${address}`).openPopup();
+                
+                // Weiter zu Schritt 2
+                expressStep = 2;
+                statusEl.innerHTML = '🎯 Klicke auf die Karte um den Zielort zu setzen (oder wähle Favorit)';
+                statusEl.style.background = '#dbeafe';
+                statusEl.style.borderColor = '#3b82f6';
+                
+                console.log('✅ Abholort gesetzt:', address);
                 
             } else if (expressStep === 2) {
                 // SCHRITT 2: ZIELORT
@@ -26180,7 +26279,7 @@
                     expressMap.removeLayer(expressDestinationMarker);
                 }
                 
-                // Setze roten Marker
+                // 🆕 v5.90.160: DRAGGABLE MARKER!
                 const redIcon = L.divIcon({
                     className: 'custom-div-icon',
                     html: `<div style="background:#ef4444;width:32px;height:32px;border-radius:50%;border:4px solid white;box-shadow:0 2px 12px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;">🎯</div>`,
@@ -26188,33 +26287,57 @@
                     iconAnchor: [16, 32]
                 });
                 
-                expressDestinationMarker = L.marker([lat, lon], { icon: redIcon }).addTo(expressMap);
+                expressDestinationMarker = L.marker([lat, lon], { 
+                    icon: redIcon,
+                    draggable: true // 🆕 VERSCHIEBBAR!
+                }).addTo(expressMap);
+                
                 expressDestinationCoords = { lat, lon };
                 
-                // Reverse Geocoding
-                try {
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
-                    );
-                    const data = await response.json();
-                    const address = buildAddressFromNominatim(data);
+                // 🆕 v5.90.160: DRAG-HANDLER!
+                expressDestinationMarker.on('dragend', async function() {
+                    const newPos = expressDestinationMarker.getLatLng();
+                    console.log('🎯 Zielort verschoben:', newPos);
+                    expressDestinationCoords = { lat: newPos.lat, lon: newPos.lng };
                     
+                    // Lade neue Adresse
+                    statusEl.innerHTML = '🔄 Lade neue Adresse...';
+                    const address = await loadAddressForCoords(newPos.lat, newPos.lng);
                     document.getElementById('express-destination-address').textContent = address;
+                    expressDestinationMarker.setPopupContent(`<strong>🎯 Zielort</strong><br>${address}`);
                     
-                    expressDestinationMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`).openPopup();
-                    
-                    console.log('✅ Zielort gesetzt:', address);
-                    
-                    // BERECHNE ROUTE MIT OSRM!
+                    // Route neu berechnen
                     await calculateExpressRoute();
-                    
-                } catch (error) {
-                    console.error('❌ Reverse Geocoding Fehler:', error);
-                    statusEl.innerHTML = '❌ Fehler beim Laden der Adresse - versuche es erneut';
-                    statusEl.style.background = '#fee2e2';
-                    statusEl.style.borderColor = '#dc2626';
+                });
+                
+                // Reverse Geocoding
+                let address = predefinedAddress;
+                if (!address) {
+                    try {
+                        address = await loadAddressForCoords(lat, lon);
+                    } catch (error) {
+                        console.error('❌ Reverse Geocoding Fehler:', error);
+                        address = `Position: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+                    }
                 }
+                
+                document.getElementById('express-destination-address').textContent = address;
+                expressDestinationMarker.bindPopup(`<strong>🎯 Zielort</strong><br>${address}`).openPopup();
+                
+                console.log('✅ Zielort gesetzt:', address);
+                
+                // BERECHNE ROUTE MIT OSRM!
+                await calculateExpressRoute();
             }
+        }
+        
+        // 🆕 v5.90.160: HELPER - LADE ADRESSE FÜR KOORDINATEN
+        async function loadAddressForCoords(lat, lon) {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+            return buildAddressFromNominatim(data);
         }
         
         async function calculateExpressRoute() {
@@ -26277,10 +26400,56 @@
                 console.log('✅ Express-Buchung bereit!');
                 
             } catch (error) {
-                console.error('❌ Fehler bei Route-Berechnung:', error);
-                statusEl.innerHTML = '❌ Fehler bei Route-Berechnung - bitte neu starten';
-                statusEl.style.background = '#fee2e2';
-                statusEl.style.borderColor = '#dc2626';
+                console.error('❌ OSRM Fehler:', error);
+                
+                // 🆕 v5.90.160: FALLBACK AUF LUFTLINIE!
+                console.log('⚠️ OSRM fehlgeschlagen - verwende Luftlinie-Distanz');
+                
+                // Berechne Luftlinie mit Haversine
+                const R = 6371; // Erdradius in km
+                const dLat = (expressDestinationCoords.lat - expressPickupCoords.lat) * Math.PI / 180;
+                const dLon = (expressDestinationCoords.lon - expressPickupCoords.lon) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                         Math.cos(expressPickupCoords.lat * Math.PI / 180) * 
+                         Math.cos(expressDestinationCoords.lat * Math.PI / 180) *
+                         Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distanceKm = (R * c * 1.3).toFixed(1); // *1.3 für Straßen-Faktor
+                
+                console.log(`✅ Luftlinie-Distanz: ${distanceKm} km`);
+                
+                // Zeichne gerade Linie
+                if (expressRouteLayer) {
+                    expressMap.removeLayer(expressRouteLayer);
+                }
+                
+                expressRouteLayer = L.polyline([
+                    [expressPickupCoords.lat, expressPickupCoords.lon],
+                    [expressDestinationCoords.lat, expressDestinationCoords.lon]
+                ], {
+                    color: '#f59e0b',
+                    weight: 4,
+                    opacity: 0.6,
+                    dashArray: '10, 10'
+                }).addTo(expressMap);
+                
+                // Zoom auf Route
+                expressMap.fitBounds(expressRouteLayer.getBounds(), { padding: [50, 50] });
+                
+                // Berechne Preis
+                const price = calculateTaxiPrice(parseFloat(distanceKm), new Date());
+                
+                // Update UI
+                document.getElementById('express-distance').textContent = `~${distanceKm} km (geschätzt)`;
+                document.getElementById('express-price').textContent = `~${price.toFixed(2)}€`;
+                document.getElementById('express-route-info').style.display = 'block';
+                document.getElementById('express-booking-fields').style.display = 'block';
+                
+                statusEl.innerHTML = `⚠️ Route-Berechnung fehlgeschlagen (z.B. Grenze nach Polen). Distanz geschätzt: ~${distanceKm} km`;
+                statusEl.style.background = '#fef3c7';
+                statusEl.style.borderColor = '#f59e0b';
+                
+                console.log('✅ Fallback erfolgreich!');
             }
         }
         

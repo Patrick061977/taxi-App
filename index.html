@@ -108,12 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.148 - CRM AUS RECHNUNG! 📄 (Build 20260107-1400)');
-        console.log('✅ v5.90.148: "✏️ CRM" Button im Rechnungs-Modal!');
-        console.log('✅ v5.90.148: Springe direkt ins CRM um Kundendaten zu bearbeiten!');
-        console.log('✅ v5.90.148: E-Mail, Adresse etc. direkt aus Rechnung editierbar!');
-        console.log('✅ v5.90.147: Tab-Verwaltung zurück!');
-        console.log('✅ v5.90.146: Rolling Window Ziffernblock!');
+        console.log('🚕 Funk Taxi App v5.90.149 - CRM ÜBERALL! 🌍 (Build 20260107-1410)');
+        console.log('✅ v5.90.149: CRM-Button in Rechnungs-Liste!');
+        console.log('✅ v5.90.149: CRM-Button im Kalender!');
+        console.log('✅ v5.90.149: CRM-Button im Rechnungs-Modal!');
+        console.log('✅ v5.90.149: Von überall direkt ins CRM springen!');
+        console.log('✅ v5.90.148: CRM aus Rechnung!');
+        console.log('✅ v5.90.147: Tab-Verwaltung!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -974,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.148 - CRM AUS RECHNUNG! 📄 (Build 20260107-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.149 - CRM ÜBERALL! 🌍 (Build 20260107-1410)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -35136,6 +35137,108 @@
             }
         }
         
+        // 🆕 v5.90.149: ÖFFNE KUNDEN-BEARBEITUNG AUS RECHNUNGS-LISTE
+        async function openCustomerEditFromInvoiceList(customerId, customerName, invoiceId) {
+            console.log('✏️ v5.90.149: Öffne CRM aus Rechnungs-Liste');
+            console.log('   Customer ID:', customerId);
+            console.log('   Customer Name:', customerName);
+            console.log('   Invoice ID:', invoiceId);
+            
+            // 1. Prüfe ob Customer ID vorhanden
+            if (customerId && customerId !== '') {
+                console.log('✅ Customer ID vorhanden:', customerId);
+                await editCustomer(customerId);
+                return;
+            }
+            
+            // 2. Suche nach Name
+            if (!customerName || customerName.trim() === '') {
+                alert('❌ Kein Kundenname gefunden!\n\nBitte erst im CRM anlegen.');
+                return;
+            }
+            
+            console.log('🔍 Suche Kunde nach Name:', customerName);
+            
+            try {
+                const snapshot = await db.ref('customers').orderByChild('name').equalTo(customerName).once('value');
+                
+                if (!snapshot.exists()) {
+                    alert('❌ Kunde "' + customerName + '" nicht im CRM gefunden!\n\nBitte erst im Admin-Bereich anlegen.');
+                    return;
+                }
+                
+                // Nimm den ersten Match
+                let foundId = null;
+                snapshot.forEach(child => {
+                    if (!foundId) {
+                        foundId = child.key;
+                    }
+                });
+                
+                if (foundId) {
+                    console.log('✅ Kunde gefunden:', foundId);
+                    await editCustomer(foundId);
+                } else {
+                    alert('❌ Kunde konnte nicht gefunden werden!');
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Suche:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.149: ÖFFNE KUNDEN-BEARBEITUNG AUS KALENDER
+        async function openCustomerEditFromCalendar(customerId, customerName, rideId) {
+            console.log('✏️ v5.90.149: Öffne CRM aus Kalender');
+            console.log('   Customer ID:', customerId);
+            console.log('   Customer Name:', customerName);
+            console.log('   Ride ID:', rideId);
+            
+            // 1. Prüfe ob Customer ID vorhanden
+            if (customerId && customerId !== '') {
+                console.log('✅ Customer ID vorhanden:', customerId);
+                await editCustomer(customerId);
+                return;
+            }
+            
+            // 2. Suche nach Name
+            if (!customerName || customerName.trim() === '') {
+                alert('❌ Kein Kundenname gefunden!\n\nBitte erst im CRM anlegen.');
+                return;
+            }
+            
+            console.log('🔍 Suche Kunde nach Name:', customerName);
+            
+            try {
+                const snapshot = await db.ref('customers').orderByChild('name').equalTo(customerName).once('value');
+                
+                if (!snapshot.exists()) {
+                    alert('❌ Kunde "' + customerName + '" nicht im CRM gefunden!\n\nBitte erst im Admin-Bereich anlegen.');
+                    return;
+                }
+                
+                // Nimm den ersten Match
+                let foundId = null;
+                snapshot.forEach(child => {
+                    if (!foundId) {
+                        foundId = child.key;
+                    }
+                });
+                
+                if (foundId) {
+                    console.log('✅ Kunde gefunden:', foundId);
+                    await editCustomer(foundId);
+                } else {
+                    alert('❌ Kunde konnte nicht gefunden werden!');
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Suche:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         // 🆕 v5.90.24: LEERE RECHNUNG ERSTELLEN (ohne Fahrt)
         async function openInvoiceModalEmpty() {
             console.log('📄 Öffne leeres Rechnungsmodal');
@@ -36306,7 +36409,13 @@
                         <td style="padding:12px;text-align:center;">
                             <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">
                                 <button onclick="editInvoice('${inv.id}')" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Bearbeiten">✏️</button>
-                                <button onclick="regenerateInvoicePDF('${inv.id}')" style="padding:6px 10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="PDF neu erstellen">📥</button>
+                                
+                                <!-- 🆕 v5.90.148: CRM BUTTON! -->
+                                <button onclick="openCustomerEditFromInvoiceList('${inv.customerId || ''}', '${(inv.customerName || '').replace(/'/g, "\\'")}', '${inv.id}')" 
+                                        style="padding:6px 10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;" 
+                                        title="Kunde im CRM bearbeiten">CRM</button>
+                                
+                                <button onclick="regenerateInvoicePDF('${inv.id}')" style="padding:6px 10px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="PDF neu erstellen">📥</button>
                                 
                                 <!-- 🆕 v5.90.128: E-MAIL VERSAND -->
                                 <button onclick="sendSingleInvoiceViaEmail('${inv.id}')" style="padding:6px 10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;" title="Per E-Mail senden">📧</button>
@@ -43120,6 +43229,14 @@ Stack: ${err.stack}
                                         onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
                                     ✏️ Bearbeiten
                                 </button>
+                                
+                                <!-- 🆕 v5.90.149: CRM BUTTON IM KALENDER! -->
+                                <button onclick="event.stopPropagation(); openCustomerEditFromCalendar('${ride.customerId || ''}', '${(ride.customerName || '').replace(/'/g, "\\'")}', '${ride.firebaseId || ride.id}')" 
+                                        style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                                        onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    👤 CRM
+                                </button>
+                                
                                 ${ride.status !== 'completed' && ride.status !== 'abgeschlossen' && ride.status !== 'cancelled' && ride.status !== 'storniert' ? `
                                 <button onclick="event.stopPropagation(); completeRideWithPrice('${ride.firebaseId || ride.id}')" 
                                         style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"

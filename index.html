@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.145 - ZIFFERNBLOCK FINAL FIX! 🎯 (Build 20260107-1330)');
-        console.log('✅ v5.90.145: ECHTER FEHLER: Input war voll (4 Zeichen)!');
-        console.log('✅ v5.90.145: LÖSUNG: Leere Input beim ersten Klick!');
-        console.log('✅ v5.90.145: Jetzt kann man Ziffern eingeben!');
-        console.log('✅ v5.90.144: updateDisplay() → keypadUpdateDisplay()!');
+        console.log('🚕 Funk Taxi App v5.90.146 - ROLLING WINDOW! 🔄 (Build 20260107-1340)');
+        console.log('✅ v5.90.146: UNENDLICH WEITER TIPPEN!');
+        console.log('✅ v5.90.146: Rolling Window - Letzte 4 Ziffern zählen!');
+        console.log('✅ v5.90.146: Führende Nullen bleiben erhalten!');
+        console.log('✅ v5.90.146: "0815" → "08:15" ✅');
+        console.log('✅ v5.90.145: Leere beim ersten Klick!');
         console.log('✅ v5.90.142: Zentrale getCustomer()!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
@@ -974,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.145 - ZIFFERNBLOCK FINAL FIX! 🎯 (Build 20260107-1330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.146 - ROLLING WINDOW! 🔄 (Build 20260107-1340)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6906,26 +6907,30 @@
         let keypadDisplay = null;
         let keypadCallback = null;
         
-        // 🆕 v5.90.145: FIXE Ziffern-Eingabe - Leere beim ersten Klick!
+        // 🆕 v5.90.146: ROLLING WINDOW - Immer weiter tippen!
         let keypadFirstInput = true;  // Flag ob erster Input
         
         function keypadDigit(digit) {
-            console.log('✅ v5.90.145: Ziffer:', digit);
+            console.log('✅ v5.90.146: Ziffer:', digit);
             
-            // 🆕 v5.90.145: Beim ERSTEN Klick → Leere Input!
+            // 🆕 v5.90.146: Beim ERSTEN Klick → Leere Input!
             if (keypadFirstInput) {
-                console.log('🔧 v5.90.145: Erster Input - leere keypadCurrentInput!');
+                console.log('🔧 v5.90.146: Erster Input - leere keypadCurrentInput!');
                 keypadCurrentInput = '';
                 keypadFirstInput = false;
             }
             
-            if (keypadCurrentInput.length < 4) {
-                keypadCurrentInput += digit;
-                console.log('🔧 v5.90.145: Neuer Input:', keypadCurrentInput);
-                keypadUpdateDisplay();
-            } else {
-                console.warn('⚠️ v5.90.145: Input voll (4 Ziffern)!');
+            // 🆕 v5.90.146: IMMER WEITER TIPPEN - Nimm nur die letzten 4!
+            keypadCurrentInput += digit;
+            
+            // Wenn mehr als 4 Ziffern → Nimm nur die letzten 4!
+            if (keypadCurrentInput.length > 4) {
+                keypadCurrentInput = keypadCurrentInput.slice(-4);  // Letzte 4!
+                console.log('🔄 v5.90.146: Rolling Window → Letzte 4 Ziffern:', keypadCurrentInput);
             }
+            
+            console.log('🔧 v5.90.146: Aktueller Input:', keypadCurrentInput);
+            keypadUpdateDisplay();
         }
         
         function keypadBackspace() {
@@ -6945,13 +6950,10 @@
         }
         
         function keypadUpdateDisplay() {
-            // 🆕 v5.90.143: MEHR DEBUG!
-            console.log('🔧 v5.90.143: keypadUpdateDisplay() aufgerufen');
+            console.log('🔧 v5.90.146: keypadUpdateDisplay() aufgerufen');
             console.log('   keypadCurrentInput:', keypadCurrentInput);
             
-            // 🆕 v5.90.139: Hole Display DIREKT (nicht von globaler Variable!)
             const display = document.querySelector('#time-keypad-modal #keypad-display');
-            
             console.log('   display gefunden:', display ? 'JA' : 'NEIN');
             
             if (!display) {
@@ -6961,44 +6963,57 @@
             
             let newText = '';
             
+            // 🆕 v5.90.146: BEHALTE FÜHRENDE NULLEN!
             if (keypadCurrentInput.length === 0) {
                 newText = '0:00';
             } else if (keypadCurrentInput.length === 1) {
+                // "8" → "8:00"
                 newText = keypadCurrentInput + ':00';
             } else if (keypadCurrentInput.length === 2) {
+                // "08" → "08:00"
                 newText = keypadCurrentInput + ':00';
             } else if (keypadCurrentInput.length === 3) {
-                const hour = keypadCurrentInput.substring(0, 1);
-                const min = keypadCurrentInput.substring(1, 3);
+                // "081" → "08:1" (erste 2 = Stunde, letzte 1 = Minute)
+                const hour = keypadCurrentInput.substring(0, 2);
+                const min = keypadCurrentInput.substring(2, 3);
                 newText = hour + ':' + min;
             } else if (keypadCurrentInput.length === 4) {
+                // "0815" → "08:15"
                 const hour = keypadCurrentInput.substring(0, 2);
                 const min = keypadCurrentInput.substring(2, 4);
                 newText = hour + ':' + min;
             }
             
-            console.log('   Setze Display auf:', newText);
+            console.log('   Display Text:', newText);
             display.textContent = newText;
-            console.log('   Display textContent nach Update:', display.textContent);
+            console.log('   Display aktualisiert!');
         }
         
         function keypadOk() {
-            console.log('✅ OK geklickt');
+            console.log('✅ v5.90.146: OK geklickt');
             
-            // Parse Eingabe
+            // Parse Eingabe - 🆕 v5.90.146: KONSISTENT mit Display!
             let hour = 0;
             let minute = 0;
             
-            if (keypadCurrentInput.length === 1) {
+            if (keypadCurrentInput.length === 0) {
+                // Leer → 0:00
+                hour = 0;
+                minute = 0;
+            } else if (keypadCurrentInput.length === 1) {
+                // "8" → 8:00
                 hour = parseInt(keypadCurrentInput);
                 minute = 0;
             } else if (keypadCurrentInput.length === 2) {
+                // "08" → 08:00
                 hour = parseInt(keypadCurrentInput);
                 minute = 0;
             } else if (keypadCurrentInput.length === 3) {
-                hour = parseInt(keypadCurrentInput.substring(0, 1));
-                minute = parseInt(keypadCurrentInput.substring(1, 3));
+                // "081" → 08:1 → Parse als 08:10 (füge 0 hinten an)
+                hour = parseInt(keypadCurrentInput.substring(0, 2));
+                minute = parseInt(keypadCurrentInput.substring(2, 3) + '0');
             } else if (keypadCurrentInput.length === 4) {
+                // "0815" → 08:15
                 hour = parseInt(keypadCurrentInput.substring(0, 2));
                 minute = parseInt(keypadCurrentInput.substring(2, 4));
             }
@@ -7015,9 +7030,9 @@
                 if (hour > 23) hour = 0;
             }
             
-            // Format
+            // Format mit führenden Nullen!
             const timeString = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
-            console.log('✅ Zeit gewählt:', timeString);
+            console.log('✅ v5.90.146: Zeit gewählt:', timeString);
             
             // Callback aufrufen
             if (keypadCallback) keypadCallback(timeString);

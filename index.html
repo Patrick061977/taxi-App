@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.147 - TAB-VERWALTUNG ZURÜCK! 📱 (Build 20260107-1350)');
-        console.log('✅ v5.90.147: TAB-VERWALTUNG im Admin wieder hinzugefügt!');
-        console.log('✅ v5.90.147: Tabs ein/ausblenden + Standard-Tab wählen!');
+        console.log('🚕 Funk Taxi App v5.90.148 - CRM AUS RECHNUNG! 📄 (Build 20260107-1400)');
+        console.log('✅ v5.90.148: "✏️ CRM" Button im Rechnungs-Modal!');
+        console.log('✅ v5.90.148: Springe direkt ins CRM um Kundendaten zu bearbeiten!');
+        console.log('✅ v5.90.148: E-Mail, Adresse etc. direkt aus Rechnung editierbar!');
+        console.log('✅ v5.90.147: Tab-Verwaltung zurück!');
         console.log('✅ v5.90.146: Rolling Window Ziffernblock!');
-        console.log('✅ v5.90.145: Leere beim ersten Klick!');
-        console.log('✅ v5.90.142: Zentrale getCustomer()!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -974,7 +974,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.147 - TAB-VERWALTUNG ZURÜCK! 📱 (Build 20260107-1350)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.148 - CRM AUS RECHNUNG! 📄 (Build 20260107-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -34882,8 +34882,15 @@
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
                                     <div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Kundenname:</label>
-                                        <input type="text" id="inv-customer-name" value="${customerName}"
-                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                        <div style="display:flex;gap:8px;">
+                                            <input type="text" id="inv-customer-name" value="${customerName}"
+                                                   style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                            <button onclick="openCustomerEditFromInvoice()" 
+                                                    style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:13px;"
+                                                    title="Kunde im CRM bearbeiten">
+                                                ✏️ CRM
+                                            </button>
+                                        </div>
                                     </div>
                                     <div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Gastname (optional):</label>
@@ -35073,6 +35080,62 @@
             invoiceSelectedBillingAddress = null; // 🆕 v5.52.5
         }
         
+        // 🆕 v5.90.148: ÖFFNE KUNDEN-BEARBEITUNG AUS RECHNUNG
+        async function openCustomerEditFromInvoice() {
+            console.log('✏️ v5.90.148: Öffne CRM-Bearbeitung aus Rechnung');
+            
+            let customerId = null;
+            
+            // 1. Prüfe ob wir eine Customer ID haben (von Fahrt)
+            if (invoiceRideData && invoiceRideData.customerId) {
+                customerId = invoiceRideData.customerId;
+                console.log('✅ Customer ID von Fahrt:', customerId);
+            } 
+            // 2. Wenn nicht, suche nach Name
+            else {
+                const customerName = document.getElementById('inv-customer-name')?.value?.trim();
+                
+                if (!customerName) {
+                    alert('⚠️ Bitte erst einen Kundennamen eingeben!');
+                    return;
+                }
+                
+                console.log('🔍 Suche Kunde nach Name:', customerName);
+                
+                // Suche in Firebase
+                try {
+                    const snapshot = await db.ref('customers').orderByChild('name').equalTo(customerName).once('value');
+                    
+                    if (!snapshot.exists()) {
+                        alert('❌ Kunde nicht gefunden!\n\nBitte erst im CRM (Admin-Bereich) anlegen.');
+                        return;
+                    }
+                    
+                    // Nimm den ersten Match
+                    snapshot.forEach(child => {
+                        if (!customerId) {
+                            customerId = child.key;
+                        }
+                    });
+                    
+                    console.log('✅ Kunde gefunden:', customerId);
+                    
+                } catch (error) {
+                    console.error('❌ Fehler bei Suche:', error);
+                    alert('❌ Fehler beim Suchen: ' + error.message);
+                    return;
+                }
+            }
+            
+            // 3. Öffne Edit-Modal
+            if (customerId) {
+                console.log('📝 Öffne Edit-Modal für:', customerId);
+                await editCustomer(customerId);
+            } else {
+                alert('❌ Kunde konnte nicht gefunden werden!');
+            }
+        }
+        
         // 🆕 v5.90.24: LEERE RECHNUNG ERSTELLEN (ohne Fahrt)
         async function openInvoiceModalEmpty() {
             console.log('📄 Öffne leeres Rechnungsmodal');
@@ -35124,8 +35187,15 @@
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
                                     <div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Kundenname:</label>
-                                        <input type="text" id="inv-customer-name" value=""
-                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" placeholder="Name eingeben">
+                                        <div style="display:flex;gap:8px;">
+                                            <input type="text" id="inv-customer-name" value=""
+                                                   style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;" placeholder="Name eingeben">
+                                            <button onclick="openCustomerEditFromInvoice()" 
+                                                    style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap;font-size:13px;"
+                                                    title="Kunde im CRM bearbeiten">
+                                                ✏️ CRM
+                                            </button>
+                                        </div>
                                     </div>
                                     <div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Gastname (optional):</label>

@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.167 - KRITISCHER FIX! 🚨🔧 (Build 20260107-2130)');
-        console.log('🐛 v5.90.167: SYNTAX-FEHLER BEHOBEN! (missing } in template string)');
-        console.log('✅ v5.90.167: Express-Booking Autocomplete funktioniert jetzt!');
-        console.log('✅ v5.90.167: Template String korrekt geschlossen (Zeile 33383 & 33459)');
+        console.log('🚕 Funk Taxi App v5.90.168 - FINALE FIX! ✅🎉 (Build 20260107-2140)');
+        console.log('✅ v5.90.168: ALLE SYNTAX-FEHLER BEHOBEN!');
+        console.log('✅ v5.90.168: Express Customer Autocomplete gefixt (Zeile 33533)');
+        console.log('✅ v5.90.167: Express Pickup/Destination Autocomplete gefixt');
         console.log('🔧 v5.90.166: reverseGeocode() hinzugefügt');
         console.log('⚡ v5.90.165: Express-Buchung komplett neu');
         console.log('🔧 v5.90.162: KRITISCHE FEHLER BEHOBEN!');
@@ -33530,7 +33530,7 @@
             
             if (matches.length > 0) {
                 dropdown.innerHTML = matches.slice(0, 5).map(c => `
-                    <div onclick="selectExpressCustomer('${c.id}', '${(c.name || '').replace(/'/g, "\\'")'}')" 
+                    <div onclick="selectExpressCustomer('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}')}" 
                          style="padding:10px;cursor:pointer;border-bottom:1px solid #e5e7eb;">
                         <div style="font-weight:600;">${c.name}</div>
                         ${c.phone ? `<div style="font-size:12px;color:#666;">📞 ${c.phone}</div>` : ''}

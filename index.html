@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.143 - ZIFFERNBLOCK DEBUG! 🔍 (Build 20260107-1310)');
-        console.log('✅ v5.90.143: MASSIVE Debug-Logs für Ziffernblock!');
-        console.log('✅ v5.90.143: Initial Display korrekt formatiert!');
-        console.log('✅ v5.90.143: Zeige textContent nach Update!');
-        console.log('✅ v5.90.142: Zentrale getCustomer() Funktion!');
+        console.log('🚕 Funk Taxi App v5.90.144 - ZIFFERNBLOCK GEFIXT! ✅ (Build 20260107-1320)');
+        console.log('✅ v5.90.144: FEHLER GEFUNDEN: updateDisplay() existiert nicht!');
+        console.log('✅ v5.90.144: GEFIXT: updateDisplay() → keypadUpdateDisplay()!');
+        console.log('✅ v5.90.144: Ziffernblock sollte jetzt funktionieren!');
+        console.log('✅ v5.90.143: Massive Debug-Logs!');
+        console.log('✅ v5.90.142: Zentrale getCustomer()!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -973,7 +974,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.143 - ZIFFERNBLOCK DEBUG! 🔍 (Build 20260107-1310)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.144 - ZIFFERNBLOCK GEFIXT! ✅ (Build 20260107-1320)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -7116,8 +7117,8 @@
             };
             document.addEventListener('keydown', escHandler);
             
-            // Initial display update
-            updateDisplay();
+            // 🆕 v5.90.144: Initial display update - RICHTIGER FUNKTIONSNAME!
+            keypadUpdateDisplay();
         }
         
         console.log('✅ v5.90.121: Ziffernblock-Interface geladen!');

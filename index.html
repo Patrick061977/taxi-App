@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.168 - FINALE FIX! ✅🎉 (Build 20260107-2140)');
-        console.log('✅ v5.90.168: ALLE SYNTAX-FEHLER BEHOBEN!');
-        console.log('✅ v5.90.168: Express Customer Autocomplete gefixt (Zeile 33533)');
-        console.log('✅ v5.90.167: Express Pickup/Destination Autocomplete gefixt');
+        console.log('🚕 Funk Taxi App v5.90.169 - ADMIN TAB FIX! 👨‍💼✅ (Build 20260107-2150)');
+        console.log('✅ v5.90.169: Admin Tab IMMER sichtbar für Admins!');
+        console.log('✅ v5.90.169: initExpressBooking Fix - Prüft ob Funktion existiert');
+        console.log('✅ v5.90.168: Alle Syntax-Fehler behoben');
         console.log('🔧 v5.90.166: reverseGeocode() hinzugefügt');
         console.log('⚡ v5.90.165: Express-Buchung komplett neu');
         console.log('🔧 v5.90.162: KRITISCHE FEHLER BEHOBEN!');
@@ -12054,7 +12054,19 @@
             if (view === 'express-booking') {
                 setTimeout(() => {
                     console.log('⚡ v5.90.159: Initialisiere Express-Buchung Tab...');
-                    initExpressBooking();
+                    if (typeof initExpressBooking === 'function') {
+                        initExpressBooking();
+                    } else {
+                        console.error('❌ initExpressBooking ist noch nicht definiert! Warte...');
+                        // Retry nach 1 Sekunde
+                        setTimeout(() => {
+                            if (typeof initExpressBooking === 'function') {
+                                initExpressBooking();
+                            } else {
+                                console.error('❌ initExpressBooking existiert nicht!');
+                            }
+                        }, 1000);
+                    }
                 }, 100);
             }
             
@@ -57583,7 +57595,13 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     if (tab.admin && (!currentUser || currentUser.role !== 'admin')) {
                         btn.style.display = 'none';
                         console.log(`🔒 v5.90.99: Tab "${tab.name}" nur für Admin - versteckt für ${currentUser?.role || 'Gast'}`);
-                    } else if (settings.visible.includes(tab.id)) {
+                    } 
+                    // 🆕 v5.90.169: Admin Tab IMMER sichtbar für Admins!
+                    else if (tab.id === 'admin' && currentUser && currentUser.role === 'admin') {
+                        btn.style.display = '';
+                        console.log(`✅ v5.90.169: Admin Tab erzwungen sichtbar!`);
+                    }
+                    else if (settings.visible.includes(tab.id)) {
                         btn.style.display = '';
                     } else {
                         btn.style.display = 'none';

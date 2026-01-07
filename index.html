@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.144 - ZIFFERNBLOCK GEFIXT! ✅ (Build 20260107-1320)');
-        console.log('✅ v5.90.144: FEHLER GEFUNDEN: updateDisplay() existiert nicht!');
-        console.log('✅ v5.90.144: GEFIXT: updateDisplay() → keypadUpdateDisplay()!');
-        console.log('✅ v5.90.144: Ziffernblock sollte jetzt funktionieren!');
-        console.log('✅ v5.90.143: Massive Debug-Logs!');
+        console.log('🚕 Funk Taxi App v5.90.145 - ZIFFERNBLOCK FINAL FIX! 🎯 (Build 20260107-1330)');
+        console.log('✅ v5.90.145: ECHTER FEHLER: Input war voll (4 Zeichen)!');
+        console.log('✅ v5.90.145: LÖSUNG: Leere Input beim ersten Klick!');
+        console.log('✅ v5.90.145: Jetzt kann man Ziffern eingeben!');
+        console.log('✅ v5.90.144: updateDisplay() → keypadUpdateDisplay()!');
         console.log('✅ v5.90.142: Zentrale getCustomer()!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
@@ -974,7 +974,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.144 - ZIFFERNBLOCK GEFIXT! ✅ (Build 20260107-1320)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.145 - ZIFFERNBLOCK FINAL FIX! 🎯 (Build 20260107-1330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6906,19 +6906,40 @@
         let keypadDisplay = null;
         let keypadCallback = null;
         
-        // 🆕 v5.90.138: GLOBALE Ziffernblock-Funktionen (wie alle anderen Buttons!)
+        // 🆕 v5.90.145: FIXE Ziffern-Eingabe - Leere beim ersten Klick!
+        let keypadFirstInput = true;  // Flag ob erster Input
+        
         function keypadDigit(digit) {
-            console.log('✅ Ziffer:', digit);
+            console.log('✅ v5.90.145: Ziffer:', digit);
+            
+            // 🆕 v5.90.145: Beim ERSTEN Klick → Leere Input!
+            if (keypadFirstInput) {
+                console.log('🔧 v5.90.145: Erster Input - leere keypadCurrentInput!');
+                keypadCurrentInput = '';
+                keypadFirstInput = false;
+            }
+            
             if (keypadCurrentInput.length < 4) {
                 keypadCurrentInput += digit;
+                console.log('🔧 v5.90.145: Neuer Input:', keypadCurrentInput);
                 keypadUpdateDisplay();
+            } else {
+                console.warn('⚠️ v5.90.145: Input voll (4 Ziffern)!');
             }
         }
         
         function keypadBackspace() {
-            console.log('⌫ Backspace');
+            console.log('⌫ v5.90.145: Backspace');
+            
+            // 🆕 v5.90.145: Backspace deaktiviert First-Input Flag!
+            if (keypadFirstInput) {
+                console.log('🔧 v5.90.145: First-Input deaktiviert');
+                keypadFirstInput = false;
+            }
+            
             if (keypadCurrentInput.length > 0) {
                 keypadCurrentInput = keypadCurrentInput.slice(0, -1);
+                console.log('🔧 v5.90.145: Nach Backspace:', keypadCurrentInput);
                 keypadUpdateDisplay();
             }
         }
@@ -7009,6 +7030,7 @@
             keypadCurrentInput = '';
             keypadDisplay = null;
             keypadCallback = null;
+            keypadFirstInput = true;  // 🆕 v5.90.145: Reset Flag!
         }
         
         function keypadCancel() {
@@ -7022,10 +7044,14 @@
             keypadCurrentInput = '';
             keypadDisplay = null;
             keypadCallback = null;
+            keypadFirstInput = true;  // 🆕 v5.90.145: Reset Flag!
         }
         
         function showTimeKeypad(currentValue, callback) {
             console.log('⌨️ Ziffernblock öffnen mit:', currentValue);
+            
+            // 🆕 v5.90.145: Reset First-Input Flag!
+            keypadFirstInput = true;
             
             // Setze globale Variablen
             keypadCallback = callback;

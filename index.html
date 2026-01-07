@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.154 - VERGANGENHEIT FÜR ADMINS! ⏰ (Build 20260107-1500)');
-        console.log('✅ v5.90.154: ADMINS DÜRFEN JETZT VERGANGENHEITSTERMINE EINGEBEN!');
-        console.log('✅ v5.90.154: Rechnungen für vergangene Fahrten erstellen möglich!');
-        console.log('✅ v5.90.154: Normale User: Nur Zukunft (wie bisher)');
-        console.log('✅ v5.90.154: Admins: Auch Vergangenheit erlaubt!');
+        console.log('🚕 Funk Taxi App v5.90.155 - POI-NAMEN IM KALENDER! ⭐ (Build 20260107-1530)');
+        console.log('✅ v5.90.155: POI-Button übernimmt jetzt POI-NAME statt Adresse!');
+        console.log('✅ v5.90.155: "Bahnhof Ahlbeck" wird korrekt im Kalender angezeigt!');
+        console.log('✅ v5.90.155: Koordinaten werden mitgespeichert für genaue Navigation!');
+        console.log('✅ v5.90.155: Fahrer sieht exakten POI-Namen!');
+        console.log('✅ v5.90.154: Vergangenheit für Admins!');
         console.log('✅ v5.90.153: Bessere CRM-Suche!');
-        console.log('✅ v5.90.152: E-Mail im Modal!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -975,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.154 - VERGANGENHEIT FÜR ADMINS! ⏰ (Build 20260107-1500)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.155 - POI-NAMEN IM KALENDER! ⭐ (Build 20260107-1530)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -8398,6 +8398,28 @@
             // TODO: Favoriten-Anzeige implementieren
         }
         
+        // 🆕 v5.90.155: POI MIT KOORDINATEN AUSWÄHLEN!
+        function selectPOIForEdit(type, address, lat, lon, name) {
+            console.log(`⭐ v5.90.155: POI ausgewählt für ${type}:`, name, address, lat, lon);
+            
+            // 🆕 v5.90.155: VERWENDE NAME statt Adresse!
+            const displayName = name || address;
+            
+            if (type === 'pickup') {
+                document.getElementById('edit-pickup').value = displayName;
+                document.getElementById('edit-pickup-lat').value = lat;
+                document.getElementById('edit-pickup-lon').value = lon;
+                document.getElementById('edit-pickup').focus();
+                console.log('✅ Abholort gesetzt:', displayName);
+            } else if (type === 'destination') {
+                document.getElementById('edit-destination').value = displayName;
+                document.getElementById('edit-destination-lat').value = lat;
+                document.getElementById('edit-destination-lon').value = lon;
+                document.getElementById('edit-destination').focus();
+                console.log('✅ Zielort gesetzt:', displayName);
+            }
+        }
+        
         // ✏️ FAHRT BEARBEITEN
         async function editRide(rideId) {
             // 🆕 v5.86.17: ENTFERNE ALTE MODALS ZUERST!
@@ -8450,6 +8472,10 @@
                         <label style="display:block;margin-bottom:5px;font-weight:600;">📍 Abholort</label>
                         <input type="text" id="edit-pickup" value="${ride.pickup}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;" autocomplete="off">
                         
+                        <!-- 🆕 v5.90.155: KOORDINATEN FÜR POI-GENAUIGKEIT -->
+                        <input type="hidden" id="edit-pickup-lat" value="${ride.pickupLat || ''}">
+                        <input type="hidden" id="edit-pickup-lon" value="${ride.pickupLon || ''}">
+                        
                         <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
                         <div class="autocomplete-dropdown" id="edit-pickup-dropdown" style="position:relative;z-index:10001;"></div>
                         
@@ -8464,7 +8490,11 @@
                     
                     <div style="margin-bottom:15px;">
                         <label style="display:block;margin-bottom:5px;font-weight:600;">🎯 Zielort</label>
-                        <input type="text" id="edit-destination" value="${ride.destination}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;" autocomplete="off">
+                        <input type="text" id="edit-destination" value="${ride.destination}" style="width:100%;padding:10px;border:2px solid#e0e0e0;border-radius:6px;" autocomplete="off">
+                        
+                        <!-- 🆕 v5.90.155: KOORDINATEN FÜR POI-GENAUIGKEIT -->
+                        <input type="hidden" id="edit-destination-lat" value="${ride.destinationLat || ''}">
+                        <input type="hidden" id="edit-destination-lon" value="${ride.destinationLon || ''}">
                         
                         <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
                         <div class="autocomplete-dropdown" id="edit-destination-dropdown" style="position:relative;z-index:10001;"></div>
@@ -8623,7 +8653,7 @@
                             <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
                             <div style="display:flex;flex-wrap:wrap;gap:6px;">
                                 ${pois.map(poi => `
-                                    <button onclick="document.getElementById('edit-pickup').value='${poi.address.replace(/'/g, "\\'")}';document.getElementById('edit-pickup').focus();" 
+                                    <button onclick="selectPOIForEdit('pickup', '${poi.address.replace(/'/g, "\\'")}', ${poi.lat}, ${poi.lon}, '${poi.name.replace(/'/g, "\\'")}');" 
                                             style="padding:6px 12px;background:#fef3c7;color:#d97706;border:1px solid #f59e0b;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">
                                         ⭐ ${poi.name}
                                     </button>
@@ -8645,7 +8675,7 @@
                             <div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">⭐ FAVORITEN:</div>
                             <div style="display:flex;flex-wrap:wrap;gap:6px;">
                                 ${pois.map(poi => `
-                                    <button onclick="document.getElementById('edit-destination').value='${poi.address.replace(/'/g, "\\'")}';document.getElementById('edit-destination').focus();" 
+                                    <button onclick="selectPOIForEdit('destination', '${poi.address.replace(/'/g, "\\'")}', ${poi.lat}, ${poi.lon}, '${poi.name.replace(/'/g, "\\'")}');" 
                                             style="padding:6px 12px;background:#fef3c7;color:#d97706;border:1px solid #f59e0b;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">
                                         ⭐ ${poi.name}
                                     </button>

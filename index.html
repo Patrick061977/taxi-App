@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.155 - POI-NAMEN IM KALENDER! ⭐ (Build 20260107-1530)');
-        console.log('✅ v5.90.155: POI-Button übernimmt jetzt POI-NAME statt Adresse!');
-        console.log('✅ v5.90.155: "Bahnhof Ahlbeck" wird korrekt im Kalender angezeigt!');
-        console.log('✅ v5.90.155: Koordinaten werden mitgespeichert für genaue Navigation!');
-        console.log('✅ v5.90.155: Fahrer sieht exakten POI-Namen!');
+        console.log('🚕 Funk Taxi App v5.90.156 - RECHNUNG-MODAL FIX! 📄 (Build 20260107-1545)');
+        console.log('✅ v5.90.156: "Neue Rechnung (leer)" Modal funktioniert jetzt!');
+        console.log('✅ v5.90.156: Robuste Element-Prüfung - kein Crash mehr!');
+        console.log('✅ v5.90.156: Rechnungen für vergangene Fahrten erstellen!');
+        console.log('✅ v5.90.155: POI-Namen im Kalender!');
         console.log('✅ v5.90.154: Vergangenheit für Admins!');
         console.log('✅ v5.90.153: Bessere CRM-Suche!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
@@ -975,7 +975,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.155 - POI-NAMEN IM KALENDER! ⭐ (Build 20260107-1530)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.156 - RECHNUNG-MODAL FIX! 📄 (Build 20260107-1545)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -35868,7 +35868,7 @@
         
         // 🆕 v5.52.4: NEUE Berechnung - Brutto → Netto + MwSt
         function updateInvoiceCalculation() {
-            const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 0;
+            const vatRate = parseFloat(document.getElementById('invoice-vat-rate')?.value) || 0;
             
             // Summiere alle Positionen (BRUTTO!)
             const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
@@ -35877,11 +35877,20 @@
             const netPrice = totalGross / (1 + (vatRate / 100));
             const vatAmount = totalGross - netPrice;
             
-            // Update Display
-            document.getElementById('invoice-gross-total').textContent = totalGross.toFixed(2) + '€';
-            document.getElementById('invoice-net-display').textContent = netPrice.toFixed(2) + '€';
-            document.getElementById('invoice-vat-display').textContent = vatAmount.toFixed(2) + '€';
-            document.getElementById('invoice-vat-rate-display').textContent = vatRate;
+            // 🆕 v5.90.156: ROBUSTE UPDATE - prüfe ob Elemente existieren!
+            const grossEl = document.getElementById('invoice-gross-total');
+            const netEl = document.getElementById('invoice-net-display');
+            const vatEl = document.getElementById('invoice-vat-display');
+            const vatRateEl = document.getElementById('invoice-vat-rate-display');
+            const totalEl = document.getElementById('invoice-total');
+            
+            if (grossEl) grossEl.textContent = totalGross.toFixed(2) + '€';
+            if (netEl) netEl.textContent = netPrice.toFixed(2) + '€';
+            if (vatEl) vatEl.textContent = vatAmount.toFixed(2) + '€';
+            if (vatRateEl) vatRateEl.textContent = vatRate;
+            if (totalEl) totalEl.textContent = totalGross.toFixed(2) + ' €';
+            
+            console.log('💰 Rechnung aktualisiert: Brutto=' + totalGross.toFixed(2) + '€');
         }
         
         // 🆕 v5.90.10: DISTANZ NEU BERECHNEN

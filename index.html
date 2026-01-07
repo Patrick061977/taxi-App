@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.142 - ZENTRALE FIX! 🎯 (Build 20260107-1300)');
-        console.log('✅ v5.90.142: ZENTRALE getCustomer() Funktion erstellt!');
-        console.log('✅ v5.90.142: ALLE Funktionen verwenden jetzt getCustomer()!');
-        console.log('✅ v5.90.142: bookForCustomer, editQuickBookingCustomer, editCustomer, deleteCustomer gefixt!');
-        console.log('✅ v5.90.142: GRUND: Intelligente Suche umgeht allCustomers!');
+        console.log('🚕 Funk Taxi App v5.90.143 - ZIFFERNBLOCK DEBUG! 🔍 (Build 20260107-1310)');
+        console.log('✅ v5.90.143: MASSIVE Debug-Logs für Ziffernblock!');
+        console.log('✅ v5.90.143: Initial Display korrekt formatiert!');
+        console.log('✅ v5.90.143: Zeige textContent nach Update!');
+        console.log('✅ v5.90.142: Zentrale getCustomer() Funktion!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -973,7 +973,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.142 - ZENTRALE FIX! 🎯 (Build 20260107-1300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.143 - ZIFFERNBLOCK DEBUG! 🔍 (Build 20260107-1310)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6923,32 +6923,41 @@
         }
         
         function keypadUpdateDisplay() {
+            // 🆕 v5.90.143: MEHR DEBUG!
+            console.log('🔧 v5.90.143: keypadUpdateDisplay() aufgerufen');
+            console.log('   keypadCurrentInput:', keypadCurrentInput);
+            
             // 🆕 v5.90.139: Hole Display DIREKT (nicht von globaler Variable!)
             const display = document.querySelector('#time-keypad-modal #keypad-display');
+            
+            console.log('   display gefunden:', display ? 'JA' : 'NEIN');
+            
             if (!display) {
                 console.warn('⚠️ Display nicht gefunden!');
                 return;
             }
             
-            if (keypadCurrentInput.length === 0) {
-                display.textContent = '0:00';
-                return;
-            }
+            let newText = '';
             
-            // Format als Zeit
-            if (keypadCurrentInput.length === 1) {
-                display.textContent = keypadCurrentInput + ':00';
+            if (keypadCurrentInput.length === 0) {
+                newText = '0:00';
+            } else if (keypadCurrentInput.length === 1) {
+                newText = keypadCurrentInput + ':00';
             } else if (keypadCurrentInput.length === 2) {
-                display.textContent = keypadCurrentInput + ':00';
+                newText = keypadCurrentInput + ':00';
             } else if (keypadCurrentInput.length === 3) {
                 const hour = keypadCurrentInput.substring(0, 1);
                 const min = keypadCurrentInput.substring(1, 3);
-                display.textContent = hour + ':' + min;
+                newText = hour + ':' + min;
             } else if (keypadCurrentInput.length === 4) {
                 const hour = keypadCurrentInput.substring(0, 2);
                 const min = keypadCurrentInput.substring(2, 4);
-                display.textContent = hour + ':' + min;
+                newText = hour + ':' + min;
             }
+            
+            console.log('   Setze Display auf:', newText);
+            display.textContent = newText;
+            console.log('   Display textContent nach Update:', display.textContent);
         }
         
         function keypadOk() {
@@ -7028,6 +7037,23 @@
             }
             keypadCurrentInput = displayValue;
             
+            // 🆕 v5.90.143: Format initial Display richtig!
+            let initialDisplayText = '0:00';
+            if (displayValue.length === 1) {
+                initialDisplayText = displayValue + ':00';
+            } else if (displayValue.length === 2) {
+                initialDisplayText = displayValue + ':00';
+            } else if (displayValue.length === 3) {
+                const hour = displayValue.substring(0, 1);
+                const min = displayValue.substring(1, 3);
+                initialDisplayText = hour + ':' + min;
+            } else if (displayValue.length === 4) {
+                const hour = displayValue.substring(0, 2);
+                const min = displayValue.substring(2, 4);
+                initialDisplayText = hour + ':' + min;
+            }
+            console.log('🔧 v5.90.143: Initial Display Text:', initialDisplayText);
+            
             // Modal erstellen
             const modal = document.createElement('div');
             modal.id = 'time-keypad-modal';
@@ -7041,7 +7067,7 @@
                     
                     <!-- Zeit-Anzeige -->
                     <div id="keypad-display" style="font-size:48px;font-weight:bold;color:#667eea;text-align:center;margin-bottom:20px;font-family:'Courier New', monospace;min-height:60px;display:flex;align-items:center;justify-content:center;">
-                        ${displayValue || '0:00'}
+                        ${initialDisplayText}
                     </div>
                     
                     <!-- Ziffernblock -->

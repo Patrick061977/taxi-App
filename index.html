@@ -108,12 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.133 - CRM-LOGIN FIX! 🎯 (Build 20260107-1000)');
-        console.log('✅ v5.90.133: KRITISCHER FIX - Kunden werden beim Login erkannt!');
-        console.log('✅ v5.90.133: Prüft CRM BEVOR neuer Kunde angelegt wird!');
-        console.log('✅ v5.90.133: Keine Duplikate mehr!');
-        console.log('✅ v5.90.132: Migrations-Script!');
-        console.log('✅ v5.90.130: Ziffernblock Mobile!');
+        console.log('🚕 Funk Taxi App v5.90.142 - ZENTRALE FIX! 🎯 (Build 20260107-1300)');
+        console.log('✅ v5.90.142: ZENTRALE getCustomer() Funktion erstellt!');
+        console.log('✅ v5.90.142: ALLE Funktionen verwenden jetzt getCustomer()!');
+        console.log('✅ v5.90.142: bookForCustomer, editQuickBookingCustomer, editCustomer, deleteCustomer gefixt!');
+        console.log('✅ v5.90.142: GRUND: Intelligente Suche umgeht allCustomers!');
         console.log('✅ v5.90.119: Warnung wenn Zielort in Kalender fehlt');
         console.log('✅ v5.90.118: Grüner Haken prüft Slot-Verfügbarkeit!');
         console.log('✅ v5.90.111: Liste lädt neu nach Speichern');
@@ -974,7 +973,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.109 - RECHNUNGSNUMMER FIX! 🧾 (Build 20260105-1405)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⭐ Version 5.90.142 - ZENTRALE FIX! 🎯 (Build 20260107-1300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -6901,8 +6900,125 @@
         // 🆕 v5.90.121: ZIFFERNBLOCK ZEIT-EINGABE (wie Google Calendar)
         // ═══════════════════════════════════════════════════════════════════
         
+        // 🆕 v5.90.138: GLOBALE Ziffernblock-Variablen (wie alle anderen Modals!)
+        let keypadCurrentInput = '';
+        let keypadDisplay = null;
+        let keypadCallback = null;
+        
+        // 🆕 v5.90.138: GLOBALE Ziffernblock-Funktionen (wie alle anderen Buttons!)
+        function keypadDigit(digit) {
+            console.log('✅ Ziffer:', digit);
+            if (keypadCurrentInput.length < 4) {
+                keypadCurrentInput += digit;
+                keypadUpdateDisplay();
+            }
+        }
+        
+        function keypadBackspace() {
+            console.log('⌫ Backspace');
+            if (keypadCurrentInput.length > 0) {
+                keypadCurrentInput = keypadCurrentInput.slice(0, -1);
+                keypadUpdateDisplay();
+            }
+        }
+        
+        function keypadUpdateDisplay() {
+            // 🆕 v5.90.139: Hole Display DIREKT (nicht von globaler Variable!)
+            const display = document.querySelector('#time-keypad-modal #keypad-display');
+            if (!display) {
+                console.warn('⚠️ Display nicht gefunden!');
+                return;
+            }
+            
+            if (keypadCurrentInput.length === 0) {
+                display.textContent = '0:00';
+                return;
+            }
+            
+            // Format als Zeit
+            if (keypadCurrentInput.length === 1) {
+                display.textContent = keypadCurrentInput + ':00';
+            } else if (keypadCurrentInput.length === 2) {
+                display.textContent = keypadCurrentInput + ':00';
+            } else if (keypadCurrentInput.length === 3) {
+                const hour = keypadCurrentInput.substring(0, 1);
+                const min = keypadCurrentInput.substring(1, 3);
+                display.textContent = hour + ':' + min;
+            } else if (keypadCurrentInput.length === 4) {
+                const hour = keypadCurrentInput.substring(0, 2);
+                const min = keypadCurrentInput.substring(2, 4);
+                display.textContent = hour + ':' + min;
+            }
+        }
+        
+        function keypadOk() {
+            console.log('✅ OK geklickt');
+            
+            // Parse Eingabe
+            let hour = 0;
+            let minute = 0;
+            
+            if (keypadCurrentInput.length === 1) {
+                hour = parseInt(keypadCurrentInput);
+                minute = 0;
+            } else if (keypadCurrentInput.length === 2) {
+                hour = parseInt(keypadCurrentInput);
+                minute = 0;
+            } else if (keypadCurrentInput.length === 3) {
+                hour = parseInt(keypadCurrentInput.substring(0, 1));
+                minute = parseInt(keypadCurrentInput.substring(1, 3));
+            } else if (keypadCurrentInput.length === 4) {
+                hour = parseInt(keypadCurrentInput.substring(0, 2));
+                minute = parseInt(keypadCurrentInput.substring(2, 4));
+            }
+            
+            // Validierung
+            if (hour > 23) hour = 23;
+            if (minute > 59) minute = 59;
+            
+            // Auto-Rundung auf 5-Min
+            minute = Math.round(minute / 5) * 5;
+            if (minute === 60) {
+                minute = 0;
+                hour++;
+                if (hour > 23) hour = 0;
+            }
+            
+            // Format
+            const timeString = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+            console.log('✅ Zeit gewählt:', timeString);
+            
+            // Callback aufrufen
+            if (keypadCallback) keypadCallback(timeString);
+            
+            // Modal schließen
+            const modal = document.getElementById('time-keypad-modal');
+            if (modal) modal.remove();
+            
+            // Cleanup
+            keypadCurrentInput = '';
+            keypadDisplay = null;
+            keypadCallback = null;
+        }
+        
+        function keypadCancel() {
+            console.log('❌ Abgebrochen');
+            
+            // Modal schließen
+            const modal = document.getElementById('time-keypad-modal');
+            if (modal) modal.remove();
+            
+            // Cleanup
+            keypadCurrentInput = '';
+            keypadDisplay = null;
+            keypadCallback = null;
+        }
+        
         function showTimeKeypad(currentValue, callback) {
             console.log('⌨️ Ziffernblock öffnen mit:', currentValue);
+            
+            // Setze globale Variablen
+            keypadCallback = callback;
             
             // Parse aktuelle Zeit
             let displayValue = '';
@@ -6910,16 +7026,17 @@
                 // Entferne alle nicht-Ziffern
                 displayValue = currentValue.replace(/[^0-9]/g, '');
             }
+            keypadCurrentInput = displayValue;
             
             // Modal erstellen
             const modal = document.createElement('div');
+            modal.id = 'time-keypad-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
             
             modal.innerHTML = `
                 <div style="background:white;border-radius:16px;padding:20px;max-width:350px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:2px solid #3b82f6;padding-bottom:10px;">
-                        <div style="font-size:14px;font-weight:600;color:#667eea;">Ziffernblock</div>
-                        <div style="font-size:14px;font-weight:600;color:#667eea;">Liste</div>
+                        <div style="font-size:14px;font-weight:600;color:#667eea;">⌨️ Zeit eingeben</div>
                     </div>
                     
                     <!-- Zeit-Anzeige -->
@@ -6929,25 +7046,25 @@
                     
                     <!-- Ziffernblock -->
                     <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:15px;">
-                        <button class="keypad-btn" data-value="1" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">1</button>
-                        <button class="keypad-btn" data-value="2" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">2</button>
-                        <button class="keypad-btn" data-value="3" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">3</button>
-                        <button class="keypad-btn" data-value="4" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">4</button>
-                        <button class="keypad-btn" data-value="5" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">5</button>
-                        <button class="keypad-btn" data-value="6" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">6</button>
-                        <button class="keypad-btn" data-value="7" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">7</button>
-                        <button class="keypad-btn" data-value="8" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">8</button>
-                        <button class="keypad-btn" data-value="9" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">9</button>
-                        <button class="keypad-btn" data-value="0" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;grid-column:2;">0</button>
-                        <button id="keypad-backspace" style="padding:15px;font-size:20px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;transition:all 0.2s;">⌫</button>
+                        <button onclick="keypadDigit('1')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">1</button>
+                        <button onclick="keypadDigit('2')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">2</button>
+                        <button onclick="keypadDigit('3')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">3</button>
+                        <button onclick="keypadDigit('4')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">4</button>
+                        <button onclick="keypadDigit('5')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">5</button>
+                        <button onclick="keypadDigit('6')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">6</button>
+                        <button onclick="keypadDigit('7')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">7</button>
+                        <button onclick="keypadDigit('8')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">8</button>
+                        <button onclick="keypadDigit('9')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">9</button>
+                        <button onclick="keypadDigit('0')" style="padding:15px;font-size:24px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;grid-column:2;">0</button>
+                        <button onclick="keypadBackspace()" style="padding:15px;font-size:20px;font-weight:600;border:2px solid #e0e0e0;border-radius:8px;background:white;cursor:pointer;">⌫</button>
                     </div>
                     
                     <!-- Buttons -->
                     <div style="display:flex;gap:10px;">
-                        <button id="keypad-ok" style="flex:1;padding:15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;">
+                        <button onclick="keypadOk()" style="flex:1;padding:15px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;">
                             Ok
                         </button>
-                        <button id="keypad-cancel" style="flex:1;padding:15px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;">
+                        <button onclick="keypadCancel()" style="flex:1;padding:15px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;">
                             Abbrechen
                         </button>
                     </div>
@@ -6956,187 +7073,11 @@
             
             document.body.appendChild(modal);
             
-            // Event Listeners
-            const display = modal.querySelector('#keypad-display');
-            let currentInput = displayValue;
+            // Setze Display-Referenz
+            keypadDisplay = modal.querySelector('#keypad-display');
             
-            // Update Display
-            function updateDisplay() {
-                if (currentInput.length === 0) {
-                    display.textContent = '0:00';
-                    return;
-                }
-                
-                // Format als Zeit
-                if (currentInput.length === 1) {
-                    display.textContent = currentInput + ':00';
-                } else if (currentInput.length === 2) {
-                    display.textContent = currentInput + ':00';
-                } else if (currentInput.length === 3) {
-                    const hour = currentInput.substring(0, 1);
-                    const min = currentInput.substring(1, 3);
-                    display.textContent = hour + ':' + min;
-                } else if (currentInput.length === 4) {
-                    const hour = currentInput.substring(0, 2);
-                    const min = currentInput.substring(2, 4);
-                    display.textContent = hour + ':' + min;
-                } else {
-                    // Max 4 Ziffern
-                    currentInput = currentInput.substring(0, 4);
-                    const hour = currentInput.substring(0, 2);
-                    const min = currentInput.substring(2, 4);
-                    display.textContent = hour + ':' + min;
-                }
-            }
-            
-            // Ziffern-Buttons
-            modal.querySelectorAll('.keypad-btn').forEach(btn => {
-                // 🆕 v5.90.130: Touch-Events für Mobile!
-                const handleInput = () => {
-                    const value = btn.getAttribute('data-value');
-                    if (currentInput.length < 4) {
-                        currentInput += value;
-                        updateDisplay();
-                    }
-                };
-                
-                btn.addEventListener('click', handleInput);
-                
-                // 🆕 v5.90.130: Touch-Feedback + Input für Mobile
-                btn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    btn.style.background = '#667eea';
-                    btn.style.color = 'white';
-                    btn.style.borderColor = '#667eea';
-                    btn.style.transform = 'scale(1.05)';
-                });
-                
-                btn.addEventListener('touchend', (e) => {
-                    e.preventDefault(); // Verhindere click Event danach
-                    handleInput(); // Führe Input aus
-                    // Visual Feedback zurücksetzen
-                    setTimeout(() => {
-                        btn.style.background = 'white';
-                        btn.style.color = 'black';
-                        btn.style.borderColor = '#e0e0e0';
-                        btn.style.transform = 'scale(1)';
-                    }, 100);
-                });
-                
-                // Hover Effekt (nur für Desktop)
-                btn.addEventListener('mouseenter', () => {
-                    btn.style.background = '#667eea';
-                    btn.style.color = 'white';
-                    btn.style.borderColor = '#667eea';
-                    btn.style.transform = 'scale(1.05)';
-                });
-                btn.addEventListener('mouseleave', () => {
-                    btn.style.background = 'white';
-                    btn.style.color = 'black';
-                    btn.style.borderColor = '#e0e0e0';
-                    btn.style.transform = 'scale(1)';
-                });
-            });
-            
-            // Backspace
-            const backspaceBtn = modal.querySelector('#keypad-backspace');
-            const handleBackspace = () => {
-                if (currentInput.length > 0) {
-                    currentInput = currentInput.slice(0, -1);
-                    updateDisplay();
-                }
-            };
-            backspaceBtn.addEventListener('click', handleBackspace);
-            backspaceBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                backspaceBtn.style.background = '#667eea';
-                backspaceBtn.style.color = 'white';
-                backspaceBtn.style.borderColor = '#667eea';
-            });
-            backspaceBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                handleBackspace();
-                setTimeout(() => {
-                    backspaceBtn.style.background = 'white';
-                    backspaceBtn.style.color = 'black';
-                    backspaceBtn.style.borderColor = '#e0e0e0';
-                }, 100);
-            });
-            
-            // OK Button
-            const okBtn = modal.querySelector('#keypad-ok');
-            const handleOk = () => {
-                // Parse Eingabe
-                let hour = 0;
-                let minute = 0;
-                
-                if (currentInput.length === 1) {
-                    // "9" → "09:00"
-                    hour = parseInt(currentInput);
-                    minute = 0;
-                } else if (currentInput.length === 2) {
-                    // "14" → "14:00"
-                    hour = parseInt(currentInput);
-                    minute = 0;
-                } else if (currentInput.length === 3) {
-                    // "143" → "14:30"
-                    hour = parseInt(currentInput.substring(0, 1));
-                    minute = parseInt(currentInput.substring(1, 3));
-                } else if (currentInput.length === 4) {
-                    // "1430" → "14:30"
-                    hour = parseInt(currentInput.substring(0, 2));
-                    minute = parseInt(currentInput.substring(2, 4));
-                }
-                
-                // Validierung
-                if (hour > 23) hour = 23;
-                if (minute > 59) minute = 59;
-                
-                // 🆕 v5.90.121: AUTO-RUNDUNG AUF 5-MIN!
-                minute = Math.round(minute / 5) * 5;
-                if (minute === 60) {
-                    minute = 0;
-                    hour++;
-                    if (hour > 23) hour = 0;
-                }
-                
-                // Format
-                const timeString = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
-                
-                console.log('✅ Zeit gewählt:', timeString);
-                console.log('📊 Gerundet auf 5-Min:', minute);
-                
-                // Callback aufrufen
-                if (callback) callback(timeString);
-                
-                // Modal schließen
-                document.body.removeChild(modal);
-            };
-            okBtn.addEventListener('click', handleOk);
-            okBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                okBtn.style.background = '#059669'; // Dunkleres Grün
-            });
-            okBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                handleOk();
-            });
-            
-            // Cancel Button
-            const cancelBtn = modal.querySelector('#keypad-cancel');
-            const handleCancel = () => {
-                console.log('❌ Abgebrochen');
-                document.body.removeChild(modal);
-            };
-            cancelBtn.addEventListener('click', handleCancel);
-            cancelBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                cancelBtn.style.background = '#4b5563'; // Dunkleres Grau
-            });
-            cancelBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                handleCancel();
-            });
+            // Initial Display aktualisieren
+            keypadUpdateDisplay();
             
             // ESC zum Schließen
             const escHandler = (e) => {
@@ -27170,6 +27111,51 @@
         }
         
         // 📋 STAMMKUNDEN-CRM FUNKTIONEN
+        // 🆕 v5.90.142: ZENTRALE KUNDEN-LADE-FUNKTION!
+        // Diese Funktion wird von ALLEN anderen Funktionen verwendet!
+        async function getCustomer(customerId) {
+            console.log('🔍 v5.90.142: getCustomer aufgerufen für:', customerId);
+            
+            // 1. Prüfe ob Kunde in allCustomers ist
+            let customer = allCustomers.find(c => c.id === customerId);
+            
+            if (customer) {
+                console.log('✅ Kunde bereits in allCustomers:', customer.name);
+                return customer;
+            }
+            
+            // 2. Nicht gefunden? Lade aus Firebase!
+            console.log('⚠️ Kunde nicht in allCustomers - lade aus Firebase...');
+            
+            if (!isFirebaseReady) {
+                console.error('❌ Firebase nicht bereit!');
+                return null;
+            }
+            
+            try {
+                const snapshot = await db.ref(`customers/${customerId}`).once('value');
+                const customerData = snapshot.val();
+                
+                if (!customerData) {
+                    console.error('❌ Kunde nicht in Firebase gefunden:', customerId);
+                    return null;
+                }
+                
+                // 3. Füge ID hinzu
+                customer = { ...customerData, id: customerId };
+                
+                // 4. Füge zu allCustomers hinzu
+                allCustomers.push(customer);
+                console.log('✅ Kunde aus Firebase geladen und zu allCustomers hinzugefügt:', customer.name);
+                
+                return customer;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden:', error);
+                return null;
+            }
+        }
+        
         let allCustomers = [];
         let allAppUsers = [];
         let allPOIs = []; // 🆕 v5.87.75: FRÜH initialisieren für Autocomplete!
@@ -29796,13 +29782,28 @@
             }
         }
         
-        function bookForCustomer(customerId) {
-            const customer = allCustomers.find(c => c.id === customerId);
-            if (!customer) return;
+        // 🆕 v5.90.142: FAHRT FÜR KUNDEN BUCHEN - mit getCustomer!
+        async function bookForCustomer(customerId) {
+            console.log('🚕 bookForCustomer aufgerufen für:', customerId);
+            
+            // Verwende zentrale getCustomer Funktion
+            const customer = await getCustomer(customerId);
+            
+            if (!customer) {
+                alert('❌ Kunde nicht gefunden!');
+                return;
+            }
             
             console.log('🚕 Öffne Schnellbuchung für:', customer.name);
             
-            // 🆕 v5.64.9: Öffne direkt Schnellbuchung-Modal!
+            // Schließe Match-Modal (falls vorhanden)
+            const matchModal = document.getElementById('customer-match-modal');
+            if (matchModal) {
+                matchModal.remove();
+                console.log('✅ Match-Modal geschlossen');
+            }
+            
+            // Öffne Schnellbuchung-Modal
             openQuickBookingModal(customer);
         }
         
@@ -31335,6 +31336,19 @@
             // 🆕 v5.38.4: Setup Autocomplete für Schnellbuchung
             setupQuickBookingAutocomplete();
             
+            // 🆕 v5.90.134: Touch-Events für Edit-Button (Mobile Fix!)
+            setTimeout(() => {
+                const editBtn = document.querySelector('#quick-booking-edit-customer-btn button');
+                if (editBtn) {
+                    console.log('🔧 v5.90.134: Touch-Events für Edit-Button hinzugefügt');
+                    editBtn.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        console.log('👆 Edit-Button Touch!');
+                        editQuickBookingCustomer();
+                    });
+                }
+            }, 100);
+            
             // 🆕 v5.38.4: Lade Fahrzeuge
             loadQuickBookingVehicles();
             
@@ -32220,8 +32234,9 @@
             }
         }
         
-        // 🆕 v5.90.125: KUNDE AUS SCHNELLBUCHUNG BEARBEITEN
-        function editQuickBookingCustomer() {
+        // 🆕 v5.90.140: KUNDE AUS SCHNELLBUCHUNG BEARBEITEN - MIT FIREBASE!
+        // 🆕 v5.90.142: KUNDE AUS SCHNELLBUCHUNG BEARBEITEN - mit getCustomer!
+        async function editQuickBookingCustomer() {
             const editBtn = document.getElementById('quick-booking-edit-customer-btn');
             const customerId = editBtn ? editBtn.dataset.customerId : null;
             
@@ -32230,9 +32245,24 @@
                 return;
             }
             
-            console.log('✏️ Bearbeite Kunde aus Schnellbuchung:', customerId);
+            console.log('✏️ editQuickBookingCustomer aufgerufen für:', customerId);
             
-            // Rufe bestehende editCustomer Funktion auf
+            // Verwende zentrale getCustomer Funktion
+            const customer = await getCustomer(customerId);
+            
+            if (!customer) {
+                alert('❌ Kunde nicht gefunden!');
+                return;
+            }
+            
+            // Schließe Schnellbuchungs-Modal
+            const quickModal = document.getElementById('quick-booking-modal');
+            if (quickModal) {
+                quickModal.remove();
+                console.log('✅ Schnellbuchungs-Modal geschlossen');
+            }
+            
+            // Rufe editCustomer auf
             editCustomer(customerId);
         }
         
@@ -37551,9 +37581,20 @@
         // 🆕 v5.52.5: Globale Variable für Rechnungsadressen beim Bearbeiten
         let currentCustomerBillingAddresses = [];
         
-        function editCustomer(customerId) {
-            const customer = allCustomers.find(c => c.id === customerId);
-            if (!customer) return;
+        // 🆕 v5.90.142: KUNDE BEARBEITEN - mit getCustomer!
+        async function editCustomer(customerId) {
+            console.log('🔧 editCustomer() aufgerufen für:', customerId);
+            
+            // Verwende zentrale getCustomer Funktion
+            const customer = await getCustomer(customerId);
+            
+            if (!customer) {
+                console.error('❌ Kunde nicht gefunden!');
+                alert('❌ Kunde nicht gefunden!');
+                return;
+            }
+            
+            console.log('✅ Kunde geladen, erstelle Modal...');
             
             // 🆕 v5.52.5: Lade bestehende Rechnungsadressen oder erstelle Standard
             currentCustomerBillingAddresses = customer.billingAddresses ? [...customer.billingAddresses] : [];
@@ -37666,7 +37707,11 @@
                     <button onclick="deleteCustomer('${customerId}')" style="width:100%;margin-top:10px;padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">🗑️ Kunde löschen</button>
                 </div>
             `;
+            console.log('📄 Modal HTML erstellt, füge zum DOM hinzu...');
             document.body.appendChild(modal);
+            console.log('✅ v5.90.135: Modal zum DOM hinzugefügt!');
+            console.log('   Modal ID:', modal.id);
+            console.log('   Modal im DOM:', document.getElementById('edit-customer-modal') ? 'JA' : 'NEIN');
             
             // 🆕 v5.90.129: Setze Telefonnummer-Dropdowns und -Werte
             setTimeout(() => {
@@ -38021,11 +38066,12 @@
             }
         }
         
+        // 🆕 v5.90.142: KUNDE LÖSCHEN - mit getCustomer!
         async function deleteCustomer(customerId) {
             if (!confirm('⚠️ Kunde wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!')) return;
             
-            // 🚀 v5.52.8: Hole Namen VORHER für Toast
-            const customer = allCustomers.find(c => c.id === customerId);
+            // Verwende zentrale getCustomer Funktion
+            const customer = await getCustomer(customerId);
             const customerName = customer ? customer.name : 'Kunde';
             
             // 🚀 v5.52.8: OPTIMISTISCHES UI UPDATE - Modal SOFORT schließen!
@@ -46373,6 +46419,36 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 });
                 console.log('✅ Enter-Key für Suche aktiviert');
             }
+        });
+        
+        // 🆕 v5.90.135: TOUCH-EVENTS FÜR ZEIT-BUTTONS (MOBILE FIX!)
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🔧 v5.90.135: Installiere Touch-Events für Zeit-Buttons...');
+            
+            // Zeit-Display Button
+            const timeDisplayBtn = document.getElementById('time-display-btn');
+            if (timeDisplayBtn) {
+                timeDisplayBtn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    console.log('👆 Zeit-Display Button Touch!');
+                    openTimeKeypadForBooking();
+                });
+                console.log('✅ Touch-Events für time-display-btn hinzugefügt');
+            } else {
+                console.log('⚠️ time-display-btn nicht gefunden');
+            }
+            
+            // Suche auch andere Zeit-Buttons
+            const timeButtons = document.querySelectorAll('button[onclick*="openTimeKeypad"]');
+            console.log(`🔍 Gefunden: ${timeButtons.length} Zeit-Buttons`);
+            timeButtons.forEach((btn, index) => {
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    console.log(`👆 Zeit-Button ${index} Touch!`);
+                    openTimeKeypadForBooking();
+                });
+            });
+            console.log('✅ Touch-Events für alle Zeit-Buttons installiert');
         });
         
         // ═══════════════════════════════════════════════════════════════════

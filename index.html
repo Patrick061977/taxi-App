@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.221 - TELEGRAM + UPDATE! 📱✨ (Build 20260108-2145)');
-        console.log('📱 v5.90.221: Telegram-Benachrichtigung wie Schnellbuchen!');
-        console.log('🔄 v5.90.221: updateViews() nach Buchung!');
-        console.log('✅ v5.90.221: Kalender wird aktualisiert!');
-        console.log('💰 v5.90.220: Preis-Rundung!');
+        console.log('🚕 Funk Taxi App v5.90.222 - ALLE FEATURES! ⭐✨ (Build 20260108-2145)');
+        console.log('👥 v5.90.222: Personen-Dropdown im Floating Modal!');
+        console.log('🚗 v5.90.222: Fahrzeug-Dropdown im Floating Modal!');
+        console.log('💰 v5.90.222: Preis-Berechnung (Taxi/Krankenfahrt)!');
+        console.log('⏱️ v5.90.222: Fahrtdauer (Auto/15 Min)!');
+        console.log('📱 v5.90.221: Telegram + Update!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -27730,7 +27731,33 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // Update von Pins (falls schon gesetzt)
             updateFloatingBookingFromPins();
             
+            // 🆕 v5.90.222: Lade Fahrzeuge!
+            loadFloatingBookingVehicles();
+            
             console.log('✅ Modal geöffnet - Pins bereits gesetzt!');
+        }
+        
+        // 🆕 v5.90.222: FAHRZEUGE LADEN FÜR FLOATING MODAL!
+        async function loadFloatingBookingVehicles() {
+            const select = document.getElementById('fqb-vehicle');
+            if (!select) return;
+            
+            try {
+                const snapshot = await db.ref('vehicles').once('value');
+                select.innerHTML = '<option value="">Automatisch zuweisen</option>';
+                
+                snapshot.forEach(child => {
+                    const vehicle = child.val();
+                    const option = document.createElement('option');
+                    option.value = child.key;
+                    option.textContent = `${vehicle.kennzeichen || vehicle.name || child.key}`;
+                    select.appendChild(option);
+                });
+                
+                console.log('✅ Fahrzeuge geladen für Floating Modal');
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
+            }
         }
         
         // Modal schließen
@@ -28457,8 +28484,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     notes: notes || '',
                     
-                    passengers: 1, // Default
-                    vehicle: null, // Wird später zugewiesen
+                    // 🆕 v5.90.222: Personen aus Formular!
+                    passengers: parseInt(document.getElementById('fqb-passengers')?.value || 1),
+                    
+                    // 🆕 v5.90.222: Fahrzeug aus Formular!
+                    vehicleId: document.getElementById('fqb-vehicle')?.value || null,
+                    vehicle: null, // Wird später gefüllt wenn vehicleId gesetzt
                     
                     timestamp: Date.now(),
                     createdAt: Date.now(),
@@ -55707,6 +55738,56 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 <input type="number" id="fqb-time-hours" min="0" max="23" placeholder="HH" class="whatsapp-time-input" style="width:60px;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;text-align:center;font-weight:600;">
                 <span style="font-size:20px;font-weight:700;color:#6b7280;">:</span>
                 <input type="number" id="fqb-time-minutes" min="0" max="59" placeholder="MM" class="whatsapp-time-input" style="width:60px;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;text-align:center;font-weight:600;">
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.222: PERSONEN & FAHRZEUG -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+            <div>
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:13px;">👥 Personen</label>
+                <select id="fqb-passengers" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box;">
+                    <option value="1">1 Person</option>
+                    <option value="2">2 Personen</option>
+                    <option value="3">3 Personen</option>
+                    <option value="4">4 Personen</option>
+                    <option value="5">5+ Personen</option>
+                </select>
+            </div>
+            <div>
+                <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;font-size:13px;">🚗 Fahrzeug</label>
+                <select id="fqb-vehicle" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box;">
+                    <option value="">Automatisch</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.222: PREIS-BERECHNUNG -->
+        <div style="margin-bottom:15px;background:#dbeafe;border:2px solid #3b82f6;border-radius:8px;padding:10px;">
+            <div style="font-weight:600;margin-bottom:6px;color:#1e40af;font-size:13px;">💰 Preis-Berechnung:</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+                    <input type="radio" name="fqb-price-mode" value="taxi" checked style="width:14px;height:14px;">
+                    <span>🚕 Taxipreis berechnen</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+                    <input type="radio" name="fqb-price-mode" value="medical" style="width:14px;height:14px;">
+                    <span>🚑 Krankenfahrt (kein Preis)</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.222: FAHRTDAUER -->
+        <div style="margin-bottom:15px;background:#e0e7ff;border:2px solid #6366f1;border-radius:8px;padding:10px;">
+            <div style="font-weight:600;margin-bottom:6px;color:#4338ca;font-size:13px;">⏱️ Fahrtdauer:</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+                    <input type="radio" name="fqb-duration-mode" value="auto" checked style="width:14px;height:14px;">
+                    <span>🗺️ Aus Distanz berechnen</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+                    <input type="radio" name="fqb-duration-mode" value="fixed" style="width:14px;height:14px;">
+                    <span>⏱️ Feste Zeit (15 Min)</span>
+                </label>
             </div>
         </div>
         

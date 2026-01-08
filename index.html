@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.202 - FAHRZEUG-TAB OBEN! 🗺️🎯 (Build 20260108-1745)');
-        console.log('🎯 v5.90.202: Eigenes Tab für Fahrzeugübersicht!');
-        console.log('⚡ v5.90.202: Kein Admin-Scrollen mehr nötig!');
-        console.log('🗺️ v5.90.202: Standalone Karte mit POI-Funktion!');
-        console.log('📍 v5.90.201: POI auf Karte erstellen!');
+        console.log('🚕 Funk Taxi App v5.90.203 - POPUP KLEINER + AUTOCOMPLETE! 🗺️✅ (Build 20260108-1800)');
+        console.log('✅ v5.90.203: Popup kompakter (220-280px)!');
+        console.log('🔍 v5.90.203: Autocomplete für Suchfeld!');
+        console.log('📍 v5.90.203: Suche → Pin auf Karte!');
+        console.log('🎯 v5.90.202: Fahrzeug-Tab oben!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -26736,32 +26736,32 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 // Popup mit Optionen
                 const popupContent = `
-                    <div style="padding:12px;min-width:280px;">
-                        <div style="font-weight:700;font-size:16px;margin-bottom:12px;color:#1f2937;">
+                    <div style="padding:10px;min-width:220px;max-width:280px;">
+                        <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#1f2937;">
                             📍 Neue Position
                         </div>
                         
-                        <div style="background:#f3f4f6;padding:10px;border-radius:6px;margin-bottom:12px;font-size:13px;">
+                        <div style="background:#f3f4f6;padding:8px;border-radius:4px;margin-bottom:10px;font-size:12px;line-height:1.4;">
                             ${displayAddress}
                         </div>
                         
-                        <div style="font-size:12px;color:#6b7280;margin-bottom:12px;">
-                            📐 ${lat.toFixed(6)}, ${lon.toFixed(6)}
+                        <div style="font-size:11px;color:#6b7280;margin-bottom:10px;">
+                            📐 ${lat.toFixed(5)}, ${lon.toFixed(5)}
                         </div>
                         
-                        <div style="display:flex;flex-direction:column;gap:8px;">
+                        <div style="display:flex;flex-direction:column;gap:6px;">
                             <button onclick="createPOIFromPin('${displayAddress.replace(/'/g, "\\'")}', ${lat}, ${lon})" 
-                                style="width:100%;padding:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                style="width:100%;padding:8px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">
                                 ⭐ Als POI speichern
                             </button>
                             
                             <button onclick="quickBookingFromPin('${displayAddress.replace(/'/g, "\\'")}', ${lat}, ${lon})" 
-                                style="width:100%;padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                style="width:100%;padding:8px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">
                                 ⚡ Schnellbuchung
                             </button>
                             
                             <button onclick="copyPinAddress('${displayAddress.replace(/'/g, "\\'")}', ${lat}, ${lon})" 
-                                style="width:100%;padding:10px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                                style="width:100%;padding:8px;background:#6b7280;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">
                                 📋 Kopieren
                             </button>
                         </div>
@@ -27226,6 +27226,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             fleetMapStandaloneInitialized = true;
             console.log('🗺️ Standalone Fahrzeugübersicht initialisiert!');
             
+            // 🆕 v5.90.203: Autocomplete initialisieren!
+            initFleetSearchStandalone();
+            
             // Erste Daten laden
             refreshFleetMapStandalone();
         }
@@ -27349,6 +27352,135 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         function clearFleetSearchStandalone() {
             document.getElementById('fleet-address-search-standalone').value = '';
             document.getElementById('fleet-address-dropdown-standalone').style.display = 'none';
+        }
+        
+        // 🆕 v5.90.203: AUTOCOMPLETE FÜR STANDALONE SUCHFELD!
+        function initFleetSearchStandalone() {
+            const input = document.getElementById('fleet-address-search-standalone');
+            const dropdown = document.getElementById('fleet-address-dropdown-standalone');
+            
+            if (!input || !dropdown) return;
+            
+            let searchTimeout;
+            
+            input.addEventListener('input', async (e) => {
+                const query = e.target.value;
+                
+                clearTimeout(searchTimeout);
+                
+                if (query.length < 2) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                
+                dropdown.style.display = 'block';
+                dropdown.innerHTML = '<div style="padding:12px;color:#999;text-align:center;">🔍 Suche...</div>';
+                
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        // Suche mit Nominatim
+                        const response = await fetch(
+                            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=10&addressdetails=1`
+                        );
+                        const results = await response.json();
+                        
+                        if (results.length === 0) {
+                            dropdown.innerHTML = '<div style="padding:12px;color:#999;text-align:center;">Keine Ergebnisse</div>';
+                            return;
+                        }
+                        
+                        dropdown.innerHTML = results.map(r => {
+                            const address = r.address;
+                            let displayText = '';
+                            
+                            if (address.road) {
+                                displayText = address.road;
+                                if (address.house_number) displayText += ' ' + address.house_number;
+                            }
+                            if (address.postcode) displayText += ', ' + address.postcode;
+                            if (address.town || address.city) displayText += ' ' + (address.town || address.city);
+                            
+                            if (!displayText) displayText = r.display_name;
+                            
+                            return `
+                                <div onclick="selectFleetAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" style="
+                                    padding:12px;
+                                    cursor:pointer;
+                                    border-bottom:1px solid #f0f0f0;
+                                    transition:background 0.2s;
+                                    font-size:13px;
+                                " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                                    ${displayText}
+                                </div>
+                            `;
+                        }).join('');
+                        
+                    } catch (error) {
+                        console.error('❌ Autocomplete Fehler:', error);
+                        dropdown.innerHTML = '<div style="padding:12px;color:#ef4444;">Fehler bei der Suche</div>';
+                    }
+                }, 300);
+            });
+            
+            // Schließe bei Klick außerhalb
+            document.addEventListener('click', (e) => {
+                if (e.target !== input && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+        
+        function selectFleetAddress(address, lat, lon) {
+            const input = document.getElementById('fleet-address-search-standalone');
+            const dropdown = document.getElementById('fleet-address-dropdown-standalone');
+            
+            if (input) input.value = address;
+            if (dropdown) dropdown.style.display = 'none';
+            
+            // Zentriere Karte auf Position
+            if (fleetMapStandalone) {
+                fleetMapStandalone.setView([lat, lon], 16);
+                
+                // Entferne alten Pin
+                if (tempPinMarkerStandalone) {
+                    fleetMapStandalone.removeLayer(tempPinMarkerStandalone);
+                }
+                
+                // Setze Pin
+                tempPinMarkerStandalone = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'temp-pin-marker',
+                        html: `<div style="
+                            background:#10b981;
+                            color:white;
+                            width:40px;
+                            height:40px;
+                            border-radius:50% 50% 50% 0;
+                            transform:rotate(-45deg);
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            border:3px solid white;
+                            box-shadow:0 4px 12px rgba(16,185,129,0.5);
+                            font-size:20px;
+                        ">
+                            <span style="transform:rotate(45deg);">📍</span>
+                        </div>`,
+                        iconSize: [40, 40],
+                        iconAnchor: [20, 40]
+                    }),
+                    draggable: true
+                }).addTo(fleetMapStandalone);
+                
+                // Verschiebbar
+                tempPinMarkerStandalone.on('dragend', async function(event) {
+                    const newPos = event.target.getLatLng();
+                    await loadAddressForPin(newPos.lat, newPos.lng, tempPinMarkerStandalone);
+                });
+                
+                // Lade Popup
+                loadAddressForPin(lat, lon, tempPinMarkerStandalone);
+            }
         }
         
         async function drawRouteToDestination(vehicleId, driver, ride, color) {

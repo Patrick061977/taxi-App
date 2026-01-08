@@ -108,12 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.174 - SCHNELLBUCHUNG FIX! ⚡🔧 (Build 20260107-2225)');
-        console.log('🔧 v5.90.174: KRITISCHER FIX - Schnellbuchung wiederhergestellt!');
-        console.log('✅ v5.90.174: openQuickBookingModal() war versehentlich gelöscht');
-        console.log('✅ v5.90.174: Alle Schnellbuchungs-Funktionen wieder da!');
-        console.log('📄 v5.90.173: Rechnung mit bestehendem Modal');
-        console.log('📞 v5.90.172: Automatische Ländervorwahl +49');
+        console.log('🚕 Funk Taxi App v5.90.175 - LÄNDERVORWAHL ÜBERALL! 📞🌍✨ (Build 20260107-2235)');
+        console.log('🌍 v5.90.175: LÄNDERVORWAHL +49 ÜBERALL AUTOMATISCH!');
+        console.log('✅ v5.90.175: Schnellbuchung - Neuer Kunde');
+        console.log('✅ v5.90.175: Schnellbuchung - Fahrgast-Telefon');
+        console.log('✅ v5.90.175: Kunden bearbeiten - Telefon & Mobil');
+        console.log('✅ v5.90.175: Login - Telefon');
+        console.log('✅ v5.90.175: Alle anderen Telefon-Felder');
+        console.log('💡 v5.90.175: Überall +49 automatisch bei onblur!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -1304,6 +1306,7 @@
                             <option value="+48">🇵🇱 +48</option>
                         </select>
                         <input type="tel" id="phone-number-input" placeholder="173 1234567" 
+                            onblur="addCountryCode(this)"
                             style="flex: 1; padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; box-sizing: border-box; min-width: 0;"
                             oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>
@@ -28099,9 +28102,10 @@
                                 type="tel" 
                                 id="quick-booking-guest-phone" 
                                 placeholder="z.B. 0170 1234567" 
+                                onblur="addCountryCode(this)"
                                 style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;background:#f9fafb;">
                             <div style="font-size:12px;color:#6b7280;margin-top:4px;">
-                                ℹ️ Nur für Kontakt - wird NICHT als Kunde angelegt
+                                ℹ️ Nur für Kontakt - wird NICHT als Kunde angelegt | 💡 +49 automatisch
                             </div>
                         </div>
                         
@@ -28606,7 +28610,12 @@
                     
                     <div style="margin-bottom:12px;">
                         <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Telefon: <span style="color:#ef4444;">*</span></label>
-                        <input type="tel" id="new-qb-customer-phone" value="${prefillPhone}" placeholder="z.B. 0170 1234567" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <input type="tel" id="new-qb-customer-phone" value="${prefillPhone}" placeholder="z.B. 0170 1234567" 
+                               onblur="addCountryCode(this)"
+                               style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                            💡 Tipp: +49 wird automatisch hinzugefügt
+                        </div>
                     </div>
                     
                     <div style="margin-bottom:12px;">
@@ -28713,7 +28722,12 @@
                     
                     <div style="margin-bottom:12px;">
                         <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Telefon: <span style="color:#ef4444;">*</span></label>
-                        <input type="tel" id="new-qb-customer-phone" value="${phone}" placeholder="z.B. 0170 1234567" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <input type="tel" id="new-qb-customer-phone" value="${phone}" placeholder="z.B. 0170 1234567" 
+                               onblur="addCountryCode(this)"
+                               style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                            💡 Tipp: +49 wird automatisch hinzugefügt
+                        </div>
                     </div>
                     
                     <div style="margin-bottom:12px;">
@@ -35283,6 +35297,7 @@
                                     <option value="+48">🇵🇱 +48</option>
                                 </select>
                                 <input type="tel" id="edit-customer-phone" placeholder="170 1234567" 
+                                    onblur="addCountryCode(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
                                     oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
                             </div>
@@ -35299,6 +35314,7 @@
                                     <option value="+48">🇵🇱 +48</option>
                                 </select>
                                 <input type="tel" id="edit-customer-mobile" placeholder="170 1234567" 
+                                    onblur="addCountryCode(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
                                     oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
                             </div>
@@ -41922,7 +41938,9 @@ Stack: ${err.stack}
                             <option value="+43">🇦🇹 +43</option>
                             <option value="+41">🇨🇭 +41</option>
                         </select>
-                        <input type="tel" id="phone-number" class="modal-input" placeholder="170 1234567" style="flex:1;margin:0;">
+                        <input type="tel" id="phone-number" class="modal-input" placeholder="170 1234567" 
+                               onblur="addCountryCode(this)"
+                               style="flex:1;margin:0;">
                     </div>
                     
                     <!-- reCAPTCHA Container (invisible - läuft im Hintergrund) -->

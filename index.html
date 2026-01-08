@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.219 - STATUS FIX! ✅🔧 (Build 20260108-2125)');
-        console.log('✅ v5.90.219: Rides OHNE status werden angezeigt!');
-        console.log('🔧 v5.90.219: Leerer status = neue Buchung!');
-        console.log('🚫 v5.90.219: Cancelled/Storniert ausgeschlossen!');
-        console.log('🔄 v5.90.218: Auto-Reload!');
+        console.log('🚕 Funk Taxi App v5.90.220 - PREIS RUNDUNG! 💰✨ (Build 20260108-2130)');
+        console.log('💰 v5.90.220: Preis korrekt gerundet (kein 7.600000000000005)!');
+        console.log('🔧 v5.90.220: Math.round() auf 2 Dezimalstellen!');
+        console.log('✅ v5.90.220: Saubere Preise in Firebase!');
+        console.log('✅ v5.90.219: Status Fix!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -28403,8 +28403,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         // Preis berechnen
                         const pickupTimestamp = scheduledTime;
                         const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
-                        routeData.price = pricing.total;
-                        console.log('✅ Preis berechnet:', pricing.total, '€');
+                        // 🆕 v5.90.220: RUNDE PREIS um Floating Point Fehler zu vermeiden!
+                        routeData.price = Math.round(parseFloat(pricing.total) * 100) / 100;
+                        console.log('✅ Preis berechnet:', routeData.price, '€');
                         
                         // Validierung
                         if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
@@ -28444,8 +28445,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     destination: floatingBookingData.destination,
                     destCoords: floatingBookingData.destCoords,
                     
-                    price: parseFloat(routeData.price) || 0,
-                    calculatedPrice: parseFloat(routeData.price) || 0,
+                    // 🆕 v5.90.220: RUNDE PREISE korrekt!
+                    price: Math.round(parseFloat(routeData.price) * 100) / 100 || 0,
+                    calculatedPrice: Math.round(parseFloat(routeData.price) * 100) / 100 || 0,
                     distance: routeData.distance || '0',
                     duration: routeData.duration || '0',
                     

@@ -108,15 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.176 - RECHNUNG VERBESSERT! 📄✨🎯 (Build 20260108-0900)');
-        console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
-        console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
-        console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
-        console.log('✅ v5.90.176: Kundendaten fließen in Rechnung');
-        console.log('📦 v5.90.176: Lieferdatum hinzugefügt (auch Vergangenheit!)');
-        console.log('📦 v5.90.176: Lieferzeitraum (Von-Bis) hinzugefügt');
-        console.log('💡 v5.90.176: Änderungen in Rechnung → auch CRM speichern');
-        console.log('🌍 v5.90.175: Ländervorwahl +49 überall');
+        console.log('🚕 Funk Taxi App v5.90.177 - PDF MIT LIEFERDATUM! 📄📦✨ (Build 20260108-0915)');
+        console.log('📄 v5.90.177: PDF-RECHNUNG ZEIGT LIEFERDATUM & ZEITRAUM!');
+        console.log('✅ v5.90.177: Lieferdatum im PDF (DD.MM.YYYY)');
+        console.log('✅ v5.90.177: Lieferzeitraum im PDF (Von-Bis Uhr)');
+        console.log('✅ v5.90.177: Lieferdaten in Firebase gespeichert');
+        console.log('✅ v5.90.177: Automatisch im PDF-Layout integriert');
+        console.log('📦 v5.90.176: Lieferdatum-Felder im Modal');
+        console.log('🎯 v5.90.176: CRM über Rechnung-Modal');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -33464,6 +33463,38 @@
                 if (showDistance) {
                     doc.text(`Distanz: ${distance.toFixed(1)} km`, 20, yPos);
                     yPos += 5;
+                }
+                
+                // 🆕 v5.90.176: LIEFERDATUM & LIEFERZEITRAUM
+                const deliveryDate = document.getElementById('inv-delivery-date')?.value?.trim();
+                const deliveryFrom = document.getElementById('inv-delivery-from')?.value?.trim();
+                const deliveryTo = document.getElementById('inv-delivery-to')?.value?.trim();
+                
+                if (deliveryDate || deliveryFrom || deliveryTo) {
+                    yPos += 3;
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Lieferung:', 20, yPos);
+                    doc.setFont(undefined, 'normal');
+                    yPos += 5;
+                    
+                    if (deliveryDate) {
+                        // Konvertiere YYYY-MM-DD zu DD.MM.YYYY
+                        const [year, month, day] = deliveryDate.split('-');
+                        const germanDate = `${day}.${month}.${year}`;
+                        doc.text(`Datum: ${germanDate}`, 20, yPos);
+                        yPos += 5;
+                    }
+                    
+                    if (deliveryFrom && deliveryTo) {
+                        doc.text(`Zeitraum: ${deliveryFrom} - ${deliveryTo} Uhr`, 20, yPos);
+                        yPos += 5;
+                    } else if (deliveryFrom) {
+                        doc.text(`Ab: ${deliveryFrom} Uhr`, 20, yPos);
+                        yPos += 5;
+                    } else if (deliveryTo) {
+                        doc.text(`Bis: ${deliveryTo} Uhr`, 20, yPos);
+                        yPos += 5;
+                    }
                 }
                 
                 // POSITIONEN (IMMER)

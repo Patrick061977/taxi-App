@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.195 - EMAIL KORRIGIERT! 📧 (Build 20260108-1635)');
-        console.log('📧 v5.90.195: Email-Adresse → taxiwydra@googlemail.com!');
-        console.log('⭐ v5.90.194: CRM Favoriten-Filter!');
-        console.log('📧 v5.90.194: EMAIL-TAB hinzugefügt!');
+        console.log('🚕 Funk Taxi App v5.90.196 - CRM ADDRESS FIX! 🔧 (Build 20260108-1640)');
+        console.log('🔧 v5.90.196: setupCustomerAddressAutocomplete() hinzugefügt!');
+        console.log('✅ v5.90.196: CRM Kunden bearbeiten funktioniert wieder!');
+        console.log('📧 v5.90.195: Email → taxiwydra@googlemail.com!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -36306,6 +36306,98 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             setTimeout(() => {
                 setupCustomerAddressAutocomplete('edit-customer-address', 'edit-customer-address-dropdown');
             }, 100);
+        }
+        
+        // 🆕 v5.90.196: AUTOCOMPLETE FÜR KUNDEN-ADRESSE!
+        function setupCustomerAddressAutocomplete(inputId, dropdownId) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            
+            if (!input || !dropdown) {
+                console.warn('⚠️ Autocomplete Elements nicht gefunden:', inputId, dropdownId);
+                return;
+            }
+            
+            let autocompleteTimeout;
+            
+            input.addEventListener('input', (e) => {
+                const value = e.target.value;
+                
+                clearTimeout(autocompleteTimeout);
+                
+                if (value.length < 3) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                
+                dropdown.innerHTML = '<div style="padding:10px;color:#999;">Suche...</div>';
+                dropdown.style.display = 'block';
+                
+                autocompleteTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(
+                            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=10&addressdetails=1`
+                        );
+                        const results = await response.json();
+                        
+                        if (results.length === 0) {
+                            dropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Ergebnisse</div>';
+                            return;
+                        }
+                        
+                        dropdown.innerHTML = results.map(r => {
+                            const address = r.address;
+                            let displayText = r.display_name;
+                            
+                            // Baue schöne Adresse
+                            if (address.road) {
+                                displayText = address.road;
+                                if (address.house_number) displayText += ' ' + address.house_number;
+                                if (address.postcode) displayText += ', ' + address.postcode;
+                                if (address.town || address.city) displayText += ' ' + (address.town || address.city);
+                            }
+                            
+                            return `
+                                <div onclick="selectCustomerAddress('${displayText.replace(/'/g, "\\'")}', ${r.lat}, ${r.lon})" style="
+                                    padding:12px;
+                                    cursor:pointer;
+                                    border-bottom:1px solid #f0f0f0;
+                                    transition:background 0.2s;
+                                " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                                    ${displayText}
+                                </div>
+                            `;
+                        }).join('');
+                        
+                    } catch (error) {
+                        console.error('Autocomplete Fehler:', error);
+                        dropdown.innerHTML = '<div style="padding:10px;color:#ef4444;">Fehler bei der Suche</div>';
+                    }
+                }, 300);
+            });
+            
+            // Schließe Dropdown bei Klick außerhalb
+            document.addEventListener('click', (e) => {
+                if (e.target !== input && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+        
+        function selectCustomerAddress(address, lat, lon) {
+            const input = document.getElementById('edit-customer-address');
+            const dropdown = document.getElementById('edit-customer-address-dropdown');
+            
+            if (input) {
+                input.value = address;
+                // Speichere auch Koordinaten (optional)
+                input.dataset.lat = lat;
+                input.dataset.lon = lon;
+            }
+            
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
         }
         
         // 🆕 v5.52.5: Rendere Liste der Rechnungsadressen

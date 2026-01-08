@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.187 - WHATSAPP SHARE! 💬✨ (Build 20260108-1300)');
+        console.log('🚕 Funk Taxi App v5.90.188 - SYNTAX FIX! 🔧✨ (Build 20260108-1410)');
+        console.log('🔧 v5.90.188: WhatsApp Share Syntax Fix!');
+        console.log('✅ v5.90.188: Funktionen an richtiger Stelle!');
         console.log('💬 v5.90.187: WhatsApp Share für Fahrten!');
-        console.log('✅ v5.90.187: Teile Fahrten mit Kollegen!');
-        console.log('✅ v5.90.187: Schönes Format mit allen Details!');
         console.log('📞 v5.90.186: Tel Link direkt');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
@@ -23046,71 +23046,6 @@
             if (isFirebaseReady && rideId) {
                 // 🆕 v5.20.7: SOFORT zur cancelled-Liste hinzufügen BEVOR alles andere!
         
-        // 🆕 v5.90.187: WHATSAPP SHARE FÜR FAHRTEN! 💬
-        function shareRideViaWhatsApp(ride) {
-            console.log('💬 Teile Fahrt via WhatsApp:', ride);
-            
-            // Formatiere Zeitstempel
-            const pickupTime = ride.pickupTimestamp 
-                ? new Date(ride.pickupTimestamp).toLocaleString('de-DE', {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })
-                : 'Sofort';
-            
-            // Erstelle schöne WhatsApp Nachricht
-            const message = `🚕 *TAXI-FAHRT*
-
-📅 *Datum:* ${pickupTime}
-
-👤 *Kunde:*
-${ride.customerName || 'Unbekannt'}
-📞 ${ride.customerPhone || 'Keine Nummer'}
-
-📍 *Route:*
-Von: ${ride.pickup || 'Unbekannt'}
-Nach: ${ride.destination || 'Unbekannt'}
-
-${ride.price ? `💰 *Preis:* ${ride.price}€` : ''}
-${ride.distance ? `📏 *Distanz:* ${ride.distance} km` : ''}
-
-${ride.vehicle ? `🚗 *Fahrzeug:* ${ride.vehicle}` : ''}
-
-📋 *Status:* ${getStatusName(ride.status)}
-
-🔗 *Ride-ID:* ${ride.firebaseId || ride.id || 'unbekannt'}
-
----
-_Gesendet von Funk Taxi Heringsdorf App_`;
-            
-            // Encode für WhatsApp URL
-            const encodedMessage = encodeURIComponent(message);
-            
-            // Öffne WhatsApp (funktioniert auf Mobile & Desktop!)
-            const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
-            
-            console.log('📱 Öffne WhatsApp...');
-            window.open(whatsappUrl, '_blank');
-        }
-        
-        // Helper: Status Namen
-        function getStatusName(status) {
-            const statusNames = {
-                'new': '🆕 Neu',
-                'vorbestellt': '📅 Vorbestellt',
-                'accepted': '✅ Angenommen',
-                'picked_up': '🚗 Unterwegs',
-                'completed': '✅ Abgeschlossen',
-                'storniert': '🗑️ Storniert',
-                'cancelled': '🗑️ Storniert'
-            };
-            return statusNames[status] || status;
-        }
-        
             // 🆕 VEREINFACHT: Direkt auf 'cancelled' setzen - Fahrer wird nur benachrichtigt, muss nicht bestätigen
             if (isFirebaseReady && rideId) {
                 // 🆕 v5.20.7: SOFORT zur cancelled-Liste hinzufügen BEVOR alles andere!
@@ -23206,6 +23141,71 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // 🛡️ Reset Doppelklick-Schutz
             cancelInProgress = false;
+        }
+
+        // 🆕 v5.90.187: WHATSAPP SHARE FÜR FAHRTEN! 💬
+        function shareRideViaWhatsApp(ride) {
+            console.log('💬 Teile Fahrt via WhatsApp:', ride);
+            
+            // Formatiere Zeitstempel
+            const pickupTime = ride.pickupTimestamp 
+                ? new Date(ride.pickupTimestamp).toLocaleString('de-DE', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+                : 'Sofort';
+            
+            // Erstelle schöne WhatsApp Nachricht
+            const message = `🚕 *TAXI-FAHRT*
+
+📅 *Datum:* ${pickupTime}
+
+👤 *Kunde:*
+${ride.customerName || 'Unbekannt'}
+📞 ${ride.customerPhone || 'Keine Nummer'}
+
+📍 *Route:*
+Von: ${ride.pickup || 'Unbekannt'}
+Nach: ${ride.destination || 'Unbekannt'}
+
+${ride.price ? `💰 *Preis:* ${ride.price}€` : ''}
+${ride.distance ? `📏 *Distanz:* ${ride.distance} km` : ''}
+
+${ride.vehicle ? `🚗 *Fahrzeug:* ${ride.vehicle}` : ''}
+
+📋 *Status:* ${getStatusName(ride.status)}
+
+🔗 *Ride-ID:* ${ride.firebaseId || ride.id || 'unbekannt'}
+
+---
+_Gesendet von Funk Taxi Heringsdorf App_`;
+            
+            // Encode für WhatsApp URL
+            const encodedMessage = encodeURIComponent(message);
+            
+            // Öffne WhatsApp (funktioniert auf Mobile & Desktop!)
+            const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+            
+            console.log('📱 Öffne WhatsApp...');
+            window.open(whatsappUrl, '_blank');
+        }
+        
+        // Helper: Status Namen
+        function getStatusName(status) {
+            const statusNames = {
+                'new': '🆕 Neu',
+                'vorbestellt': '📅 Vorbestellt',
+                'accepted': '✅ Angenommen',
+                'picked_up': '🚗 Unterwegs',
+                'completed': '✅ Abgeschlossen',
+                'storniert': '🗑️ Storniert',
+                'cancelled': '🗑️ Storniert'
+            };
+            return statusNames[status] || status;
         }
 
         // 🆕 v5.64.40: STORNIERTE FAHRT WIEDERHERSTELLEN

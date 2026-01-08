@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.196 - CRM ADDRESS FIX! 🔧 (Build 20260108-1640)');
-        console.log('🔧 v5.90.196: setupCustomerAddressAutocomplete() hinzugefügt!');
-        console.log('✅ v5.90.196: CRM Kunden bearbeiten funktioniert wieder!');
-        console.log('📧 v5.90.195: Email → taxiwydra@googlemail.com!');
+        console.log('🚕 Funk Taxi App v5.90.197 - RECHNUNG VIEW FIX! 📄 (Build 20260108-1650)');
+        console.log('📄 v5.90.197: Fahrten werden jetzt im Rechnung-Tab angezeigt!');
+        console.log('✅ v5.90.197: loadRidesForInvoicing füllt beide Container!');
+        console.log('🔧 v5.90.196: CRM Address Autocomplete Fix!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -11789,13 +11789,23 @@
                     if (typeof loadRidesForInvoicing === 'function') {
                         console.log('🚕 Lade Fahrten für Rechnungs-Erstellung...');
                         loadRidesForInvoicing();
-                        // Update auch die Rechnung-View Container
-                        const list = document.getElementById('rechnung-single-invoices-list');
-                        const count = document.getElementById('rechnung-single-invoices-count');
-                        if (list && count) {
-                            list.innerHTML = document.getElementById('single-invoices-list')?.innerHTML || '';
-                            count.textContent = document.getElementById('single-invoices-count')?.textContent || '0';
-                        }
+                        
+                        // 🆕 v5.90.197: AUCH im rechnung-view aktualisieren!
+                        // Warte kurz bis loadRidesForInvoicing fertig ist
+                        setTimeout(() => {
+                            const list = document.getElementById('rechnung-single-invoices-list');
+                            const count = document.getElementById('rechnung-single-invoices-count');
+                            const sourceList = document.getElementById('single-invoices-list');
+                            const sourceCount = document.getElementById('single-invoices-count');
+                            
+                            if (list && sourceList) {
+                                list.innerHTML = sourceList.innerHTML;
+                                console.log('✅ Fahrten-Liste in rechnung-view aktualisiert!');
+                            }
+                            if (count && sourceCount) {
+                                count.textContent = sourceCount.textContent;
+                            }
+                        }, 500);
                     }
                 }, 100);
             }
@@ -34375,18 +34385,22 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         async function loadRidesForInvoicing() {
             console.log('🚕 Lade ALLE Fahrten aus Kalender für Rechnungs-Erstellung...');
             
+            // 🆕 v5.90.197: Beide Container füllen!
             const container = document.getElementById('single-invoices-list');
             const countEl = document.getElementById('single-invoices-count');
+            const rechnungContainer = document.getElementById('rechnung-single-invoices-list');
+            const rechnungCountEl = document.getElementById('rechnung-single-invoices-count');
             
-            if (!container) return;
-            
-            // Zeige Loading
-            container.innerHTML = `
+            // Zeige Loading in BEIDEN Containern
+            const loadingHTML = `
                 <div style="text-align:center;padding:40px;color:#6b7280;">
                     <div style="font-size:48px;margin-bottom:10px;">🚕</div>
                     <div style="font-weight:600;margin-bottom:6px;">Lade Fahrten...</div>
                 </div>
             `;
+            
+            if (container) container.innerHTML = loadingHTML;
+            if (rechnungContainer) rechnungContainer.innerHTML = loadingHTML;
             
             try {
                 // Lade ALLE Fahrten aus Firebase
@@ -34416,8 +34430,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 console.log(`✅ ${allRides.length} Kalender-Fahrten geladen (gefiltert)`);
                 
-                // Update Counter
+                // 🆕 v5.90.197: Update Counter in BEIDEN Views!
                 if (countEl) countEl.textContent = allRides.length;
+                if (rechnungCountEl) rechnungCountEl.textContent = allRides.length;
                 
                 // Rendere Liste
                 renderRidesForInvoicing(allRides);
@@ -34436,17 +34451,21 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         
         // 🆕 v5.90.178: RENDERE FAHRTEN-LISTE FÜR RECHNUNGS-ERSTELLUNG!
         function renderRidesForInvoicing(rides) {
+            // 🆕 v5.90.197: Beide Container füllen!
             const container = document.getElementById('single-invoices-list');
-            if (!container) return;
+            const rechnungContainer = document.getElementById('rechnung-single-invoices-list');
+            
+            const emptyHTML = `
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    <div style="font-size:48px;margin-bottom:10px;">🚕</div>
+                    <div style="font-weight:600;">Keine Fahrten gefunden</div>
+                    <div style="font-size:14px;margin-top:8px;color:#9ca3af;">Erstelle erst Fahrten im Kalender</div>
+                </div>
+            `;
             
             if (rides.length === 0) {
-                container.innerHTML = `
-                    <div style="text-align:center;padding:40px;color:#6b7280;">
-                        <div style="font-size:48px;margin-bottom:10px;">🚕</div>
-                        <div style="font-weight:600;">Keine Fahrten gefunden</div>
-                        <div style="font-size:14px;margin-top:8px;color:#9ca3af;">Erstelle erst Fahrten im Kalender</div>
-                    </div>
-                `;
+                if (container) container.innerHTML = emptyHTML;
+                if (rechnungContainer) rechnungContainer.innerHTML = emptyHTML;
                 return;
             }
             
@@ -34530,7 +34549,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             });
             
             html += '</div>';
-            container.innerHTML = html;
+            
+            // 🆕 v5.90.197: Beide Container füllen!
+            if (container) container.innerHTML = html;
+            if (rechnungContainer) rechnungContainer.innerHTML = html;
+            
+            console.log('✅ Fahrten-Liste gerendert in', container ? 'Admin' : '', rechnungContainer ? 'Rechnung-View' : '');
         }
         
         // ALTE FUNKTION (für Rechnungs-Liste in anderen Views)

@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.210 - TAUSCH + ZEIT + LÖSCHBAR! 🔄⏰❌ (Build 20260108-2000)');
-        console.log('🔄 v5.90.210: Adressen tauschbar!');
-        console.log('⏰ v5.90.210: WhatsApp-Style Zeit (HH:MM)!');
-        console.log('❌ v5.90.210: Adressen löschbar!');
-        console.log('🔍 v5.90.209: Live Kunden-Suche!');
+        console.log('🚕 Funk Taxi App v5.90.212 - KARTE KLICK AUTO-ÖFFNEN! 🗺️💳 (Build 20260108-2020)');
+        console.log('🗺️ v5.90.212: Klick auf Karte → Modal öffnet automatisch!');
+        console.log('💳 v5.90.212: Sofort bereit zum Buchen!');
+        console.log('⚡ v5.90.212: Kein manuelles Modal-Öffnen mehr!');
+        console.log('📍 v5.90.211: Klick auf Pins → Modal öffnet!');
+        console.log('🔄 v5.90.210: Adressen tauschbar + löschbar!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -26650,6 +26651,22 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 console.log('📍 Karte geklickt:', lat, lon);
                 
+                // 🆕 v5.90.211: MODAL AUTOMATISCH ÖFFNEN!
+                const modal = document.getElementById('floating-quick-booking');
+                if (modal.style.display !== 'block') {
+                    console.log('💳 Öffne Modal automatisch...');
+                    // Öffne Modal (aber ohne Kunde - nur leeres Modal)
+                    modal.style.display = 'block';
+                    
+                    // Datum + Zeit setzen
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('fqb-date').value = today;
+                    setFQBTimeNow();
+                    
+                    // Draggable aktivieren
+                    makeModalDraggable();
+                }
+                
                 // Entferne alten temporären Pin
                 if (tempPinMarker) {
                     fleetMap.removeLayer(tempPinMarker);
@@ -27310,6 +27327,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     </div>
                 `).openPopup();
                 
+                // 🆕 v5.90.211: KLICK AUF PIN → MODAL ÖFFNEN!
+                pickupPinStandalone.on('click', function() {
+                    openFloatingQuickBookingFromPins();
+                });
+                
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Adresse:', error);
                 pickupData = {
@@ -27514,6 +27536,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             </div>
                             
                             <div style="display:flex;flex-direction:column;gap:6px;">
+                                <button onclick="openFloatingQuickBookingFromPins()" 
+                                    style="width:100%;padding:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:14px;box-shadow:0 4px 12px rgba(102,126,234,0.4);">
+                                    🚕 JETZT BUCHEN
+                                </button>
                                 <button onclick="resetPinsStandalone()" 
                                     style="width:100%;padding:8px;background:#6b7280;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">
                                     🔄 Neu starten
@@ -27521,6 +27547,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             </div>
                         </div>
                     `).openPopup();
+                    
+                    // 🆕 v5.90.211: KLICK AUF PIN → MODAL ÖFFNEN!
+                    destinationPinStandalone.on('click', function() {
+                        openFloatingQuickBookingFromPins();
+                    });
                     
                     // Zoom auf Route
                     fleetMapStandalone.fitBounds(routeLineStandalone.getBounds(), { padding: [50, 50] });
@@ -27628,6 +27659,35 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // Draggable initialisieren
             makeModalDraggable();
+        }
+        
+        // 🆕 v5.90.211: MODAL ÖFFNEN VON PINS (ohne Kunde)!
+        function openFloatingQuickBookingFromPins() {
+            console.log('💳 Öffne Floating Quick Booking von Pins...');
+            
+            const modal = document.getElementById('floating-quick-booking');
+            modal.style.display = 'block';
+            
+            // KEIN Kunde vorausgefüllt - nur Adressen!
+            // Adressen werden automatisch von updateFloatingBookingFromPins() gefüllt
+            
+            // Datum auf heute
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('fqb-date').value = today;
+            
+            // Zeit auf jetzt
+            setFQBTimeNow();
+            
+            // Draggable initialisieren (nur wenn noch nicht initialisiert)
+            if (!modal.getAttribute('data-draggable')) {
+                makeModalDraggable();
+                modal.setAttribute('data-draggable', 'true');
+            }
+            
+            // Update von Pins (falls schon gesetzt)
+            updateFloatingBookingFromPins();
+            
+            console.log('✅ Modal geöffnet - Pins bereits gesetzt!');
         }
         
         // Modal schließen

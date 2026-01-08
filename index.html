@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.223 - DEBUG FIX! 🔍✨ (Build 20260108-2200)');
-        console.log('🔍 v5.90.223: Debug-Log für Kunden-Anzeige!');
-        console.log('👥 v5.90.222: Alle Features im Modal!');
-        console.log('📱 v5.90.221: Telegram + Update!');
+        console.log('🚕 Funk Taxi App v5.90.224 - ERROR HANDLING! 🛡️✨ (Build 20260108-2205)');
+        console.log('🛡️ v5.90.224: Try-Catch + Element-Checks!');
+        console.log('⚠️ v5.90.224: Bessere Error-Meldungen!');
+        console.log('🔍 v5.90.223: Debug-Logs!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -27949,30 +27949,57 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         function selectCustomerFromDropdown(customerId, customerName, customerPhone, defaultPickup, defaultPickupCoordsStr) {
             console.log('✅ Kunde ausgewählt:', customerName);
             
-            // Schließe Dropdown
-            document.getElementById('fqb-customer-dropdown').style.display = 'none';
-            
-            // Fülle Suchfeld
-            document.getElementById('fqb-customer-search').value = customerName + ' (' + customerPhone + ')';
-            
-            // Zeige Kunde-Info
-            document.getElementById('fqb-customer-info').innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:start;">
-                    <div>
-                        <strong style="color:#065f46;">✅ ${customerName}</strong><br>
-                        📱 ${customerPhone}
-                    </div>
-                    <button onclick="clearSelectedCustomer()" style="background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">❌</button>
-                </div>
-            `;
-            document.getElementById('fqb-customer-info').style.display = 'block';
-            console.log('✅ fqb-customer-info angezeigt für:', customerName);
-            document.getElementById('fqb-new-customer-btn').style.display = 'none';
-            
-            // Speichere Daten
-            floatingBookingData.customerId = customerId;
-            floatingBookingData.customerName = customerName;
-            floatingBookingData.customerPhone = customerPhone;
+            try {
+                // Schließe Dropdown
+                const dropdown = document.getElementById('fqb-customer-dropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                } else {
+                    console.warn('⚠️ fqb-customer-dropdown nicht gefunden!');
+                }
+                
+                // Fülle Suchfeld
+                const searchField = document.getElementById('fqb-customer-search');
+                if (searchField) {
+                    searchField.value = customerName + ' (' + customerPhone + ')';
+                } else {
+                    console.warn('⚠️ fqb-customer-search nicht gefunden!');
+                }
+                
+                // Zeige Kunde-Info
+                const customerInfo = document.getElementById('fqb-customer-info');
+                if (customerInfo) {
+                    customerInfo.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:start;">
+                            <div>
+                                <strong style="color:#065f46;">✅ ${customerName}</strong><br>
+                                📱 ${customerPhone}
+                            </div>
+                            <button onclick="clearSelectedCustomer()" style="background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">❌</button>
+                        </div>
+                    `;
+                    customerInfo.style.display = 'block';
+                    console.log('✅ fqb-customer-info angezeigt für:', customerName);
+                } else {
+                    console.error('❌ fqb-customer-info Element NICHT gefunden!');
+                }
+                
+                // Hide new customer button
+                const newCustomerBtn = document.getElementById('fqb-new-customer-btn');
+                if (newCustomerBtn) {
+                    newCustomerBtn.style.display = 'none';
+                }
+                
+                // Speichere Daten
+                floatingBookingData.customerId = customerId;
+                floatingBookingData.customerName = customerName;
+                floatingBookingData.customerPhone = customerPhone;
+                
+                console.log('✅ Kunde gespeichert in floatingBookingData');
+                
+            } catch (error) {
+                console.error('❌ FEHLER in selectCustomerFromDropdown:', error);
+            }
             
             // 🆕 v5.90.208: ABHOLORT AUS CRM LADEN!
             if (defaultPickup && defaultPickup !== 'null' && defaultPickup !== '') {

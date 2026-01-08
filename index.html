@@ -108,12 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.212 - KARTE KLICK AUTO-ÖFFNEN! 🗺️💳 (Build 20260108-2020)');
-        console.log('🗺️ v5.90.212: Klick auf Karte → Modal öffnet automatisch!');
-        console.log('💳 v5.90.212: Sofort bereit zum Buchen!');
-        console.log('⚡ v5.90.212: Kein manuelles Modal-Öffnen mehr!');
-        console.log('📍 v5.90.211: Klick auf Pins → Modal öffnet!');
-        console.log('🔄 v5.90.210: Adressen tauschbar + löschbar!');
+        console.log('🚕 Funk Taxi App v5.90.214 - KRITISCHER BUGFIX! 🐛🔧 (Build 20260108-2035)');
+        console.log('🐛 v5.90.214: customerSearchTimeout Doppel-Deklaration gefixt!');
+        console.log('✅ v5.90.214: Kein SyntaxError mehr!');
+        console.log('💰 v5.90.213: Korrekte Preisberechnung!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -27459,41 +27457,71 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     console.log('✅ Route gezeichnet:', distance, 'km,', duration, 'Min');
                     
-                    // 🆕 v5.90.205: PREIS BERECHNEN!
+                    // 🆕 v5.90.213: KORREKTE GESTAFFELTE PREISBERECHNUNG!
                     const distanceNum = parseFloat(distance);
                     const now = Date.now();
-                    const hour = new Date(now).getHours();
+                    const calcTime = new Date(now);
+                    const hour = calcTime.getHours();
+                    const day = calcTime.getDay();
                     
-                    // Basis-Preis
-                    let price = pricingSettings.basePrice || 3.50;
-                    price += distanceNum * (pricingSettings.pricePerKm || 2.00);
+                    // Prüfe Feiertag
+                    const istFeiertag = isFeiertag(calcTime);
                     
-                    // Nacht-Tarif (22:00 - 06:00)
+                    // Prüfe ob Nachttarif (Mo-Sa 22-6 Uhr, Sonntag ganztägig, ODER Feiertag!)
+                    const isNight = (hour >= 22 || hour < 6) || (day === 0) || istFeiertag;
+                    
+                    // Wähle Tarif
+                    const grundgebuehr = isNight ? TARIF.nacht_grundgebuehr : TARIF.grundgebuehr;
+                    const km_1_2 = isNight ? TARIF.nacht_km_1_2 : TARIF.km_1_2;
+                    const km_3_4 = isNight ? TARIF.nacht_km_3_4 : TARIF.km_3_4;
+                    const km_ab_5 = isNight ? TARIF.nacht_km_ab_5 : TARIF.km_ab_5;
+                    
+                    // Gestaffelte Berechnung
+                    let kmPreis = 0;
+                    if (distanceNum <= 2) {
+                        // 0-2 km: 3,30€ pro km
+                        kmPreis = distanceNum * km_1_2;
+                    } else if (distanceNum <= 4) {
+                        // 2-4 km: erste 2 km à 3,30€ + Rest à 2,80€
+                        kmPreis = (2 * km_1_2) + ((distanceNum - 2) * km_3_4);
+                    } else {
+                        // >4 km: erste 2 km à 3,30€ + nächste 2 km à 2,80€ + Rest à 2,20€
+                        kmPreis = (2 * km_1_2) + (2 * km_3_4) + ((distanceNum - 4) * km_ab_5);
+                    }
+                    
+                    let price = grundgebuehr + kmPreis;
+                    
+                    // Tarif-Text für Anzeige
                     let surchargeText = '';
-                    if (hour >= 22 || hour < 6) {
-                        price += pricingSettings.nightSurcharge || 1.50;
-                        surchargeText = ' (Nachttarif)';
+                    if (istFeiertag) {
+                        surchargeText = ' 🎉 Feiertag (Nachttarif)';
+                    } else if (day === 0) {
+                        surchargeText = ' (Sonntag - Nachttarif)';
+                    } else if (isNight) {
+                        surchargeText = ' (Nachttarif 22-6 Uhr)';
                     }
                     
-                    // Feiertag
-                    const holidays = [
-                        '2025-01-01', '2025-04-18', '2025-04-21', '2025-05-01',
-                        '2025-05-29', '2025-06-09', '2025-10-03', '2025-10-31',
-                        '2025-12-25', '2025-12-26',
-                        '2026-01-01', '2026-04-03', '2026-04-06', '2026-05-01',
-                        '2026-05-14', '2026-05-25', '2026-10-03', '2026-10-31',
-                        '2026-12-25', '2026-12-26'
-                    ];
-                    const dateStr = new Date(now).toISOString().split('T')[0];
-                    if (holidays.includes(dateStr)) {
-                        price += pricingSettings.holidaySurcharge || 5.00;
-                        surchargeText = ' (Feiertag)';
+                    // 💰 SURGE PRICING ANWENDEN
+                    const surge = getCurrentMultiplier();
+                    let finalPrice = price * surge.factor;
+                    
+                    // Surge-Hinweis
+                    if (surge.multiplier > 100) {
+                        surchargeText += ` 📈 +${surge.multiplier - 100}% Nachfrage`;
+                    } else if (surge.multiplier < 100) {
+                        surchargeText += ` 🎉 ${100 - surge.multiplier}% Rabatt`;
                     }
                     
-                    // Runde auf 2 Dezimalstellen
-                    price = Math.round(price * 100) / 100;
+                    // Runde auf 10 Cent
+                    price = Math.round(finalPrice / 0.1) * 0.1;
                     
-                    console.log('💰 Preis berechnet:', price, '€', surchargeText);
+                    console.log('💰 KORREKTE Preisberechnung:');
+                    console.log('   Distanz:', distanceNum, 'km');
+                    console.log('   Grundgebühr:', grundgebuehr, '€');
+                    console.log('   KM-Preis:', kmPreis.toFixed(2), '€');
+                    console.log('   Basis:', (grundgebuehr + kmPreis).toFixed(2), '€');
+                    console.log('   Surge:', surge.multiplier + '%');
+                    console.log('   FINAL:', price.toFixed(2), '€', surchargeText);
                     
                     // 🆕 v5.90.206: GLOBALE VARIABLEN FÜR MODAL!
                     window.calculatedPrice = price;
@@ -28138,7 +28166,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         // 🆕 v5.90.208: LIVE KUNDEN-SUCHE IM MODAL!
-        let customerSearchTimeout = null;
+        // 🆕 v5.90.209: LIVE SUCHE (nutzt customerSearchTimeout von oben!)
         async function liveSearchCustomers() {
             clearTimeout(customerSearchTimeout);
             

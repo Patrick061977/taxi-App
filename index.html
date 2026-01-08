@@ -108,14 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.178 - FAHRTEN FÜR RECHNUNGEN! 🚕📄✨ (Build 20260108-0930)');
-        console.log('🚕 v5.90.178: ZEIGE ALLE FAHRTEN FÜR RECHNUNGS-ERSTELLUNG!');
-        console.log('✅ v5.90.178: Fahrt-Liste statt Rechnungs-Liste');
-        console.log('✅ v5.90.178: Chronologisch sortiert (neueste zuerst)');
-        console.log('✅ v5.90.178: Status-Badge: Rechnung vorhanden/fehlend');
-        console.log('✅ v5.90.178: Button "Rechnung erstellen" für jede Fahrt');
-        console.log('✅ v5.90.178: Partner können auch Rechnungen erstellen');
-        console.log('📄 v5.90.177: PDF mit Lieferdatum & Zeitraum');
+        console.log('🚕 Funk Taxi App v5.90.182 - ALLE FAHRTEN (außer Hotel)! 🚕📄✨ (Build 20260108-1045)');
+        console.log('✅ v5.90.182: ALLE FAHRTEN DIE IM KALENDER SICHTBAR SIND!');
+        console.log('✅ v5.90.182: Email-Buchungen → JA ✅');
+        console.log('✅ v5.90.182: Telegram-Buchungen → JA ✅');
+        console.log('✅ v5.90.182: CSV/ICS/Google-Imports → JA ✅');
+        console.log('✅ v5.90.182: Manuelle/Schnellbuchung → JA ✅');
+        console.log('❌ v5.90.182: Hotel-Kalender → NEIN (eigenes Programm)');
+        console.log('🎯 v5.90.182: Einfache Logik: Alles außer Hotel!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -33721,16 +33721,26 @@
                 const allRides = [];
                 snapshot.forEach(child => {
                     const ride = child.val();
-                    allRides.push({
-                        id: child.key,
-                        ...ride
-                    });
+                    
+                    // 🆕 v5.90.182: ALLE FAHRTEN DIE IM KALENDER SICHTBAR SIND!
+                    // AUSNAHME: Hotel-Kalender hat eigenes Programm
+                    const isHotelRide = ride.source === 'hotel_calendar_import' 
+                                     || ride.source === 'hotel_booking'
+                                     || ride.hotelBooking === true;
+                    
+                    // Wenn NICHT Hotel-Fahrt → Zeige in Liste!
+                    if (!isHotelRide) {
+                        allRides.push({
+                            id: child.key,
+                            ...ride
+                        });
+                    }
                 });
                 
                 // Neueste zuerst (umgekehrt chronologisch)
                 allRides.reverse();
                 
-                console.log(`✅ ${allRides.length} Fahrten geladen`);
+                console.log(`✅ ${allRides.length} Kalender-Fahrten geladen (gefiltert)`);
                 
                 // Update Counter
                 if (countEl) countEl.textContent = allRides.length;
@@ -33805,8 +33815,8 @@
                     `;
                 }
                 
-                // Preis
-                const price = ride.price ? `${ride.price.toFixed(2)}€` : '-';
+                // Preis - sicher behandeln (kann String, Number oder null sein!)
+                const price = ride.price ? `${parseFloat(ride.price).toFixed(2)}€` : '-';
                 
                 html += `
                     <div style="background:white;border:2px solid #e5e7eb;border-radius:10px;padding:14px;transition:all 0.2s;" 

@@ -108,10 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.214 - KRITISCHER BUGFIX! 🐛🔧 (Build 20260108-2035)');
-        console.log('🐛 v5.90.214: customerSearchTimeout Doppel-Deklaration gefixt!');
-        console.log('✅ v5.90.214: Kein SyntaxError mehr!');
-        console.log('💰 v5.90.213: Korrekte Preisberechnung!');
+        console.log('🚕 Funk Taxi App v5.90.215 - KOMPLETTES BUCHUNGS-SYSTEM! ✅🎯 (Build 20260108-2045)');
+        console.log('✅ v5.90.215: Alle Features vom Schnellbuchungs-Modal!');
+        console.log('🗺️ v5.90.215: Auto-Geocoding wenn Coords fehlen!');
+        console.log('💰 v5.90.215: Route + Preis automatisch berechnen!');
+        console.log('🔍 v5.90.215: userId-Suche integriert!');
+        console.log('🔒 v5.90.215: Doppelklick-Schutz!');
+        console.log('📍 v5.90.215: Abholort IMMER aus CRM laden!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -28277,78 +28280,211 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             console.log('❌ Zielort gelöscht');
         }
         
-        // Buchung abschicken
+        // 🆕 v5.90.215: BUCHUNG ABSCHICKEN (MIT ALLEN FEATURES VOM SCHNELLBUCHUNGS-MODAL!)
         async function submitFloatingQuickBooking() {
             console.log('🚕 Erstelle Buchung...', floatingBookingData);
             
-            // Validierung
-            if (!floatingBookingData.customerName || !floatingBookingData.customerPhone) {
-                alert('❌ Bitte Kunde eingeben!');
+            // 🔒 DOPPELKLICK-SCHUTZ!
+            if (window.isSubmittingFloatingBooking) {
+                console.log('⚠️ Submit bereits in Bearbeitung - ignoriere Klick');
                 return;
             }
             
-            if (!floatingBookingData.pickup || !floatingBookingData.destination) {
-                alert('❌ Bitte Pins auf Karte setzen!');
-                return;
-            }
-            
-            const date = document.getElementById('fqb-date').value;
-            const hours = document.getElementById('fqb-time-hours').value;
-            const minutes = document.getElementById('fqb-time-minutes').value;
-            const notes = document.getElementById('fqb-notes').value;
-            
-            if (!date || !hours || !minutes) {
-                alert('❌ Bitte Datum und Zeit eingeben!');
-                return;
-            }
-            
-            // Timestamp erstellen
-            const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-            const scheduledTime = new Date(`${date}T${timeString}`).getTime();
-            
-            // Buchung erstellen
-            const rideId = 'ride_' + Date.now();
-            const ride = {
-                customerId: floatingBookingData.customerId,
-                customerName: floatingBookingData.customerName,
-                customerPhone: floatingBookingData.customerPhone,
-                
-                pickup: floatingBookingData.pickup,
-                pickupCoords: floatingBookingData.pickupCoords,
-                
-                destination: floatingBookingData.destination,
-                destCoords: floatingBookingData.destCoords,
-                
-                price: floatingBookingData.price || 0,
-                distance: floatingBookingData.distance || '0',
-                duration: floatingBookingData.duration || '0',
-                
-                scheduledTime: scheduledTime,
-                status: 'pending',
-                
-                notes: notes || '',
-                
-                createdAt: Date.now(),
-                createdBy: currentUser.uid,
-                source: 'floating-quick-booking'
-            };
+            window.isSubmittingFloatingBooking = true;
+            console.log('🔒 Submit gesperrt (Doppelklick-Schutz)');
             
             try {
-                await db.ref(`rides/${rideId}`).set(ride);
+                // Validierung
+                if (!floatingBookingData.customerName || !floatingBookingData.customerPhone) {
+                    alert('❌ Bitte Kunde eingeben!');
+                    window.isSubmittingFloatingBooking = false;
+                    return;
+                }
                 
-                alert(`✅ Buchung erstellt!\n\n${floatingBookingData.customerName}\n${floatingBookingData.pickup} → ${floatingBookingData.destination}\n\n💰 ${floatingBookingData.price.toFixed(2)} €`);
+                if (!floatingBookingData.pickup || !floatingBookingData.destination) {
+                    alert('❌ Bitte Pins auf Karte setzen!');
+                    window.isSubmittingFloatingBooking = false;
+                    return;
+                }
                 
-                // Modal schließen
-                closeFloatingQuickBooking();
+                const date = document.getElementById('fqb-date').value;
+                const hours = document.getElementById('fqb-time-hours').value;
+                const minutes = document.getElementById('fqb-time-minutes').value;
+                const notes = document.getElementById('fqb-notes').value;
                 
-                // Pins zurücksetzen
-                resetPinsStandalone();
+                if (!date || !hours || !minutes) {
+                    alert('❌ Bitte Datum und Zeit eingeben!');
+                    window.isSubmittingFloatingBooking = false;
+                    return;
+                }
                 
-                console.log('✅ Buchung erfolgreich erstellt:', rideId);
+                // Timestamp erstellen
+                const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                const datetime = `${date}T${timeString}`;
+                const scheduledTime = new Date(datetime).getTime();
                 
-            } catch (error) {
-                alert('❌ Fehler beim Erstellen der Buchung!');
-                console.error('❌ Fehler:', error);
+                // 🆕 v5.90.215: AUTO-GEOCODE WENN COORDS FEHLEN!
+                if (!floatingBookingData.pickupCoords || !floatingBookingData.destCoords) {
+                    console.log('⚠️ Koordinaten fehlen - versuche Auto-Geocode...');
+                    
+                    const tasks = [];
+                    if (!floatingBookingData.pickupCoords && floatingBookingData.pickup) {
+                        tasks.push(
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(floatingBookingData.pickup)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=1`)
+                                .then(r => r.json())
+                                .then(results => {
+                                    if (results.length > 0) {
+                                        floatingBookingData.pickupCoords = { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+                                        console.log('✅ Abholort geocoded:', floatingBookingData.pickupCoords);
+                                    }
+                                })
+                        );
+                    }
+                    if (!floatingBookingData.destCoords && floatingBookingData.destination) {
+                        tasks.push(
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(floatingBookingData.destination)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=1`)
+                                .then(r => r.json())
+                                .then(results => {
+                                    if (results.length > 0) {
+                                        floatingBookingData.destCoords = { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+                                        console.log('✅ Zielort geocoded:', floatingBookingData.destCoords);
+                                    }
+                                })
+                        );
+                    }
+                    
+                    if (tasks.length > 0) {
+                        const toast = document.createElement('div');
+                        toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;';
+                        toast.innerHTML = '🗺️ Suche Koordinaten...';
+                        document.body.appendChild(toast);
+                        
+                        await Promise.all(tasks);
+                        toast.remove();
+                    }
+                    
+                    // Prüfe erneut
+                    if (!floatingBookingData.pickupCoords || !floatingBookingData.destCoords) {
+                        alert('❌ Koordinaten konnten nicht gefunden werden!');
+                        window.isSubmittingFloatingBooking = false;
+                        return;
+                    }
+                }
+                
+                // 🆕 v5.90.215: BERECHNE ROUTE + PREIS (falls noch nicht berechnet!)
+                let routeData = {
+                    distance: floatingBookingData.distance,
+                    duration: floatingBookingData.duration,
+                    price: floatingBookingData.price
+                };
+                
+                if (!routeData.price || !routeData.distance) {
+                    console.log('💰 Berechne Route + Preis...');
+                    try {
+                        routeData = await calculateRoute(floatingBookingData.pickupCoords, floatingBookingData.destCoords);
+                        console.log('✅ Route berechnet:', routeData);
+                        
+                        // Preis berechnen
+                        const pickupTimestamp = scheduledTime;
+                        const pricing = calculatePrice(parseFloat(routeData.distance), pickupTimestamp);
+                        routeData.price = pricing.total;
+                        console.log('✅ Preis berechnet:', pricing.total, '€');
+                        
+                        // Validierung
+                        if (!routeData.price || routeData.price <= 0 || isNaN(routeData.price)) {
+                            console.error('❌ KRITISCHER FEHLER: Ungültiger Preis!', routeData.price);
+                            alert('❌ FEHLER: Preis konnte nicht berechnet werden!');
+                            window.isSubmittingFloatingBooking = false;
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('❌ Fehler beim Berechnen der Route:', err);
+                        alert('❌ Fehler beim Berechnen der Route: ' + err.message);
+                        window.isSubmittingFloatingBooking = false;
+                        return;
+                    }
+                }
+                
+                // 🆕 v5.90.215: SUCHE userId (wie im Schnellbuchungs-Modal!)
+                let userId = null;
+                try {
+                    userId = await findUserIdForCustomer(floatingBookingData.customerName, floatingBookingData.customerPhone);
+                    console.log('✅ userId gefunden:', userId);
+                } catch (err) {
+                    console.log('ℹ️ Kein userId gefunden (nicht schlimm)');
+                }
+                
+                // Buchung erstellen
+                const rideId = 'ride_' + Date.now();
+                const ride = {
+                    customerId: floatingBookingData.customerId,
+                    customerName: floatingBookingData.customerName,
+                    customerPhone: floatingBookingData.customerPhone,
+                    userId: userId, // 🆕 userId!
+                    
+                    pickup: floatingBookingData.pickup,
+                    pickupCoords: floatingBookingData.pickupCoords,
+                    
+                    destination: floatingBookingData.destination,
+                    destCoords: floatingBookingData.destCoords,
+                    
+                    price: parseFloat(routeData.price) || 0,
+                    calculatedPrice: parseFloat(routeData.price) || 0,
+                    distance: routeData.distance || '0',
+                    duration: routeData.duration || '0',
+                    
+                    scheduledTime: scheduledTime,
+                    status: 'pending',
+                    
+                    notes: notes || '',
+                    
+                    passengers: 1, // Default
+                    vehicle: null, // Wird später zugewiesen
+                    
+                    timestamp: Date.now(),
+                    createdAt: Date.now(),
+                    createdBy: currentUser.uid,
+                    source: 'floating-quick-booking'
+                };
+                
+                try {
+                    await db.ref(`rides/${rideId}`).set(ride);
+                    
+                    alert(`✅ Buchung erstellt!\n\n${floatingBookingData.customerName}\n${floatingBookingData.pickup} → ${floatingBookingData.destination}\n\n💰 ${parseFloat(routeData.price).toFixed(2)} €`);
+                    
+                    // Modal schließen
+                    closeFloatingQuickBooking();
+                    
+                    // Pins zurücksetzen
+                    resetPinsStandalone();
+                    
+                    // floatingBookingData zurücksetzen
+                    floatingBookingData = {
+                        customerId: null,
+                        customerName: null,
+                        customerPhone: null,
+                        pickup: null,
+                        pickupCoords: null,
+                        destination: null,
+                        destCoords: null,
+                        price: null,
+                        distance: null,
+                        duration: null
+                    };
+                    
+                    console.log('✅ Buchung erfolgreich erstellt:', rideId);
+                    
+                } catch (error) {
+                    alert('❌ Fehler beim Erstellen der Buchung!');
+                    console.error('❌ Fehler:', error);
+                } finally {
+                    window.isSubmittingFloatingBooking = false;
+                    console.log('🔓 Submit entsperrt');
+                }
+            } catch (err) {
+                alert('❌ Fehler: ' + err.message);
+                console.error('❌ Fehler:', err);
+                window.isSubmittingFloatingBooking = false;
             }
         }
         

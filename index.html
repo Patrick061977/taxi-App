@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.220 - PREIS RUNDUNG! 💰✨ (Build 20260108-2130)');
-        console.log('💰 v5.90.220: Preis korrekt gerundet (kein 7.600000000000005)!');
-        console.log('🔧 v5.90.220: Math.round() auf 2 Dezimalstellen!');
-        console.log('✅ v5.90.220: Saubere Preise in Firebase!');
-        console.log('✅ v5.90.219: Status Fix!');
+        console.log('🚕 Funk Taxi App v5.90.221 - TELEGRAM + UPDATE! 📱✨ (Build 20260108-2145)');
+        console.log('📱 v5.90.221: Telegram-Benachrichtigung wie Schnellbuchen!');
+        console.log('🔄 v5.90.221: updateViews() nach Buchung!');
+        console.log('✅ v5.90.221: Kalender wird aktualisiert!');
+        console.log('💰 v5.90.220: Preis-Rundung!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -28469,7 +28469,32 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 try {
                     await db.ref(`rides/${rideId}`).set(ride);
                     
+                    console.log('✅ Buchung erfolgreich erstellt:', rideId);
+                    
+                    // 🆕 v5.90.221: TELEGRAM AN ADMIN!
+                    console.log('═══════════════════════════════════════');
+                    console.log('📱 TELEGRAM: Sende Benachrichtigung...');
+                    
+                    try {
+                        const rideForTelegram = {
+                            firebaseId: rideId,
+                            id: rideId,
+                            ...ride
+                        };
+                        
+                        await sendTelegramForNewRide(rideForTelegram);
+                        console.log('✅ TELEGRAM: Benachrichtigung gesendet!');
+                    } catch (telegramError) {
+                        console.error('❌ TELEGRAM-Fehler:', telegramError);
+                    }
+                    
+                    console.log('═══════════════════════════════════════');
+                    
                     alert(`✅ Buchung erstellt!\n\n${floatingBookingData.customerName}\n${floatingBookingData.pickup} → ${floatingBookingData.destination}\n\n💰 ${parseFloat(routeData.price).toFixed(2)} €`);
+                    
+                    // 🆕 v5.90.221: UPDATE VIEWS (wie Schnellbuchen)!
+                    updateViews();
+                    console.log('✅ Views aktualisiert!');
                     
                     // 🆕 v5.90.218: KALENDER AUTO-RELOAD!
                     if (typeof renderCalendar === 'function') {

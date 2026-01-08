@@ -108,12 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.204 - 2-PIN WORKFLOW! 📍🎯 (Build 20260108-1815)');
-        console.log('📍 v5.90.204: ERSTER KLICK → Abholort (grün)!');
-        console.log('🎯 v5.90.204: ZWEITER KLICK → Zielort (blau)!');
-        console.log('🗺️ v5.90.204: Route wird automatisch gezeichnet!');
-        console.log('📏 v5.90.204: Distanz + Zeit angezeigt!');
-        console.log('✅ v5.90.203: Popup kleiner + Autocomplete!');
+        console.log('🚕 Funk Taxi App v5.90.206 - FLOATING QUICK BOOKING! 💳🗺️ (Build 20260108-1900)');
+        console.log('💳 v5.90.206: Schwebendes Schnellbuchungs-Modal!');
+        console.log('🎯 v5.90.206: Aus CRM öffnen → Karte wechseln → Pins setzen!');
+        console.log('✨ v5.90.206: Modal bleibt über allen Tabs!');
+        console.log('🔄 v5.90.206: Verschiebbar (Drag & Drop)!');
+        console.log('📍 v5.90.206: Pins → Auto-Fill ins Modal!');
+        console.log('💰 v5.90.205: Preis-Berechnung!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -23877,6 +23878,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         ` : ''}
                         
                         <div style="display:flex;gap:6px;">
+                            <button onclick="openFloatingQuickBooking('${customer.id}', '${customer.name}', '${customer.phone}')" style="flex:1;padding:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">
+                                🚕 Buchen
+                            </button>
                             <button onclick="viewCustomerDetails('${customer.id}')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">
                                 👁️ Details
                             </button>
@@ -27282,6 +27286,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 console.log('✅ Abholort gesetzt:', displayAddress);
                 
+                // 🆕 v5.90.206: UPDATE FLOATING MODAL!
+                updateFloatingBookingFromPins();
+                
                 // Popup
                 pickupPinStandalone.bindPopup(`
                     <div style="padding:10px;min-width:200px;">
@@ -27427,9 +27434,57 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     console.log('✅ Route gezeichnet:', distance, 'km,', duration, 'Min');
                     
+                    // 🆕 v5.90.205: PREIS BERECHNEN!
+                    const distanceNum = parseFloat(distance);
+                    const now = Date.now();
+                    const hour = new Date(now).getHours();
+                    
+                    // Basis-Preis
+                    let price = pricingSettings.basePrice || 3.50;
+                    price += distanceNum * (pricingSettings.pricePerKm || 2.00);
+                    
+                    // Nacht-Tarif (22:00 - 06:00)
+                    let surchargeText = '';
+                    if (hour >= 22 || hour < 6) {
+                        price += pricingSettings.nightSurcharge || 1.50;
+                        surchargeText = ' (Nachttarif)';
+                    }
+                    
+                    // Feiertag
+                    const holidays = [
+                        '2025-01-01', '2025-04-18', '2025-04-21', '2025-05-01',
+                        '2025-05-29', '2025-06-09', '2025-10-03', '2025-10-31',
+                        '2025-12-25', '2025-12-26',
+                        '2026-01-01', '2026-04-03', '2026-04-06', '2026-05-01',
+                        '2026-05-14', '2026-05-25', '2026-10-03', '2026-10-31',
+                        '2026-12-25', '2026-12-26'
+                    ];
+                    const dateStr = new Date(now).toISOString().split('T')[0];
+                    if (holidays.includes(dateStr)) {
+                        price += pricingSettings.holidaySurcharge || 5.00;
+                        surchargeText = ' (Feiertag)';
+                    }
+                    
+                    // Runde auf 2 Dezimalstellen
+                    price = Math.round(price * 100) / 100;
+                    
+                    console.log('💰 Preis berechnet:', price, '€', surchargeText);
+                    
+                    // 🆕 v5.90.206: GLOBALE VARIABLEN FÜR MODAL!
+                    window.calculatedPrice = price;
+                    window.calculatedTariffText = surchargeText;
+                    
+                    // 🆕 v5.90.206: SPEICHERE IN floatingBookingData!
+                    floatingBookingData.distance = distance;
+                    floatingBookingData.duration = duration;
+                    floatingBookingData.price = price;
+                    
+                    // 🆕 v5.90.206: UPDATE FLOATING MODAL!
+                    updateFloatingBookingFromPins();
+                    
                     // Popup am Zielort
                     destinationPinStandalone.bindPopup(`
-                        <div style="padding:10px;min-width:220px;">
+                        <div style="padding:10px;min-width:240px;">
                             <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:#3b82f6;">
                                 🎯 ZIELORT
                             </div>
@@ -27449,6 +27504,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 <div style="flex:1;background:#f3f4f6;padding:6px;border-radius:4px;text-align:center;">
                                     ⏱️ <strong>${duration} Min</strong>
                                 </div>
+                            </div>
+                            
+                            <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:10px;border-radius:6px;text-align:center;margin-bottom:10px;font-weight:700;font-size:16px;box-shadow:0 2px 8px rgba(16,185,129,0.3);">
+                                💰 ${price.toFixed(2)} €${surchargeText}
                             </div>
                             
                             <div style="display:flex;flex-direction:column;gap:6px;">
@@ -27492,6 +27551,303 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             destinationData = null;
             
             console.log('✅ Pins zurückgesetzt - bereit für neue Eingabe!');
+        }
+        
+        // 🆕 v5.90.206: FLOATING QUICK BOOKING FUNKTIONEN!
+        let floatingBookingData = {
+            customerId: null,
+            customerName: null,
+            customerPhone: null,
+            pickup: null,
+            pickupCoords: null,
+            destination: null,
+            destCoords: null,
+            price: null,
+            distance: null,
+            duration: null
+        };
+        
+        // Modal öffnen (z.B. aus CRM)
+        function openFloatingQuickBooking(customerId, customerName, customerPhone) {
+            console.log('💳 Öffne Floating Quick Booking:', customerName);
+            
+            const modal = document.getElementById('floating-quick-booking');
+            modal.style.display = 'block';
+            
+            // Kunde vorausfüllen
+            if (customerName && customerPhone) {
+                document.getElementById('fqb-customer-phone').value = customerPhone;
+                document.getElementById('fqb-customer-info').innerHTML = `
+                    <strong style="color:#065f46;">✅ ${customerName}</strong><br>
+                    📱 ${customerPhone}
+                `;
+                document.getElementById('fqb-customer-info').style.display = 'block';
+                
+                floatingBookingData.customerId = customerId;
+                floatingBookingData.customerName = customerName;
+                floatingBookingData.customerPhone = customerPhone;
+            }
+            
+            // Datum auf heute
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('fqb-date').value = today;
+            
+            // Zeit auf jetzt
+            setTimeNow();
+            
+            // Draggable initialisieren
+            makeModalDraggable();
+        }
+        
+        // Modal schließen
+        function closeFloatingQuickBooking() {
+            document.getElementById('floating-quick-booking').style.display = 'none';
+            console.log('❌ Floating Quick Booking geschlossen');
+        }
+        
+        // Draggable machen
+        function makeModalDraggable() {
+            const modal = document.getElementById('floating-quick-booking');
+            const header = document.getElementById('fqb-header');
+            
+            let isDragging = false;
+            let startX, startY, startLeft, startTop;
+            
+            header.onmousedown = function(e) {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = modal.offsetLeft;
+                startTop = modal.offsetTop;
+                header.style.cursor = 'grabbing';
+                e.preventDefault();
+            };
+            
+            document.onmousemove = function(e) {
+                if (!isDragging) return;
+                
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                
+                modal.style.left = (startLeft + dx) + 'px';
+                modal.style.top = (startTop + dy) + 'px';
+                modal.style.right = 'auto'; // Remove right positioning
+            };
+            
+            document.onmouseup = function() {
+                isDragging = false;
+                header.style.cursor = 'move';
+            };
+            
+            console.log('✅ Modal ist jetzt verschiebbar!');
+        }
+        
+        // 🆕 v5.90.206: PINS → AUTO-FILL INS MODAL!
+        function updateFloatingBookingFromPins() {
+            const modal = document.getElementById('floating-quick-booking');
+            if (modal.style.display !== 'block') return; // Nur wenn Modal offen!
+            
+            console.log('🔄 Update Modal von Pins...');
+            
+            // Abholort
+            if (pickupData) {
+                document.getElementById('fqb-pickup-display').innerHTML = `
+                    <strong>✅ ${pickupData.address}</strong>
+                `;
+                document.getElementById('fqb-pickup-display').style.background = '#f0fdf4';
+                document.getElementById('fqb-pickup-display').style.borderColor = '#10b981';
+                
+                floatingBookingData.pickup = pickupData.address;
+                floatingBookingData.pickupCoords = { lat: pickupData.lat, lon: pickupData.lon };
+            }
+            
+            // Zielort
+            if (destinationData) {
+                document.getElementById('fqb-destination-display').innerHTML = `
+                    <strong>✅ ${destinationData.address}</strong>
+                `;
+                document.getElementById('fqb-destination-display').style.background = '#eff6ff';
+                document.getElementById('fqb-destination-display').style.borderColor = '#3b82f6';
+                
+                floatingBookingData.destination = destinationData.address;
+                floatingBookingData.destCoords = { lat: destinationData.lat, lon: destinationData.lon };
+            }
+            
+            // Distanz + Zeit + Preis (wenn beide Pins gesetzt)
+            if (pickupData && destinationData && calculatedPrice) {
+                // Distanz + Zeit
+                document.getElementById('fqb-route-info').style.display = 'flex';
+                document.getElementById('fqb-distance').textContent = floatingBookingData.distance || '-';
+                document.getElementById('fqb-duration').textContent = floatingBookingData.duration || '-';
+                
+                // Preis
+                const tariffText = calculatedTariffText || '';
+                document.getElementById('fqb-price-display').innerHTML = `
+                    ${calculatedPrice.toFixed(2)} € ${tariffText}
+                `;
+                
+                floatingBookingData.price = calculatedPrice;
+            }
+            
+            console.log('✅ Modal aktualisiert!', floatingBookingData);
+        }
+        
+        // Zeit: JETZT
+        function setTimeNow() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('fqb-time').value = `${hours}:${minutes}`;
+        }
+        
+        // Zeit: +30 Minuten
+        function setTimePlus30() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 30);
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('fqb-time').value = `${hours}:${minutes}`;
+        }
+        
+        // Kunde suchen
+        async function searchCustomerForBooking() {
+            const phone = document.getElementById('fqb-customer-phone').value.trim();
+            if (!phone) {
+                alert('Bitte Telefonnummer eingeben!');
+                return;
+            }
+            
+            console.log('🔍 Suche Kunde:', phone);
+            
+            // Suche in /customers
+            const snapshot = await db.ref('customers').orderByChild('phone').equalTo(phone).once('value');
+            const customers = snapshot.val();
+            
+            if (customers) {
+                const customerId = Object.keys(customers)[0];
+                const customer = customers[customerId];
+                
+                document.getElementById('fqb-customer-info').innerHTML = `
+                    <strong style="color:#065f46;">✅ ${customer.name}</strong><br>
+                    📱 ${customer.phone}
+                `;
+                document.getElementById('fqb-customer-info').style.display = 'block';
+                document.getElementById('fqb-new-customer-btn').style.display = 'none';
+                
+                floatingBookingData.customerId = customerId;
+                floatingBookingData.customerName = customer.name;
+                floatingBookingData.customerPhone = customer.phone;
+                
+                console.log('✅ Kunde gefunden:', customer.name);
+            } else {
+                document.getElementById('fqb-customer-info').style.display = 'none';
+                document.getElementById('fqb-new-customer-btn').style.display = 'block';
+                console.log('❌ Kunde nicht gefunden');
+            }
+        }
+        
+        // Neuer Kunde
+        function createNewCustomerInBooking() {
+            const phone = document.getElementById('fqb-customer-phone').value.trim();
+            const name = prompt('Name des neuen Kunden:');
+            
+            if (!name) return;
+            
+            const customerId = 'cust_' + Date.now();
+            const customer = {
+                name: name,
+                phone: phone,
+                createdAt: Date.now(),
+                source: 'floating-quick-booking'
+            };
+            
+            db.ref(`customers/${customerId}`).set(customer).then(() => {
+                alert('✅ Kunde angelegt: ' + name);
+                
+                document.getElementById('fqb-customer-info').innerHTML = `
+                    <strong style="color:#065f46;">✅ ${name}</strong><br>
+                    📱 ${phone}
+                `;
+                document.getElementById('fqb-customer-info').style.display = 'block';
+                document.getElementById('fqb-new-customer-btn').style.display = 'none';
+                
+                floatingBookingData.customerId = customerId;
+                floatingBookingData.customerName = name;
+                floatingBookingData.customerPhone = phone;
+            });
+        }
+        
+        // Buchung abschicken
+        async function submitFloatingQuickBooking() {
+            console.log('🚕 Erstelle Buchung...', floatingBookingData);
+            
+            // Validierung
+            if (!floatingBookingData.customerName || !floatingBookingData.customerPhone) {
+                alert('❌ Bitte Kunde eingeben!');
+                return;
+            }
+            
+            if (!floatingBookingData.pickup || !floatingBookingData.destination) {
+                alert('❌ Bitte Pins auf Karte setzen!');
+                return;
+            }
+            
+            const date = document.getElementById('fqb-date').value;
+            const time = document.getElementById('fqb-time').value;
+            const notes = document.getElementById('fqb-notes').value;
+            
+            if (!date || !time) {
+                alert('❌ Bitte Datum und Zeit eingeben!');
+                return;
+            }
+            
+            // Timestamp erstellen
+            const scheduledTime = new Date(`${date}T${time}`).getTime();
+            
+            // Buchung erstellen
+            const rideId = 'ride_' + Date.now();
+            const ride = {
+                customerId: floatingBookingData.customerId,
+                customerName: floatingBookingData.customerName,
+                customerPhone: floatingBookingData.customerPhone,
+                
+                pickup: floatingBookingData.pickup,
+                pickupCoords: floatingBookingData.pickupCoords,
+                
+                destination: floatingBookingData.destination,
+                destCoords: floatingBookingData.destCoords,
+                
+                price: floatingBookingData.price || 0,
+                distance: floatingBookingData.distance || '0',
+                duration: floatingBookingData.duration || '0',
+                
+                scheduledTime: scheduledTime,
+                status: 'pending',
+                
+                notes: notes || '',
+                
+                createdAt: Date.now(),
+                createdBy: currentUser.uid,
+                source: 'floating-quick-booking'
+            };
+            
+            try {
+                await db.ref(`rides/${rideId}`).set(ride);
+                
+                alert(`✅ Buchung erstellt!\n\n${floatingBookingData.customerName}\n${floatingBookingData.pickup} → ${floatingBookingData.destination}\n\n💰 ${floatingBookingData.price.toFixed(2)} €`);
+                
+                // Modal schließen
+                closeFloatingQuickBooking();
+                
+                // Pins zurücksetzen
+                resetPinsStandalone();
+                
+                console.log('✅ Buchung erfolgreich erstellt:', rideId);
+                
+            } catch (error) {
+                alert('❌ Fehler beim Erstellen der Buchung!');
+                console.error('❌ Fehler:', error);
+            }
         }
         
         async function refreshFleetMapStandalone() {
@@ -54534,6 +54890,102 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             setTimeout(() => loadAssignmentMode(), 2000);
         });
     </script>
+
+
+<!-- 🆕 v5.90.206: SCHWEBENDES SCHNELLBUCHUNGS-MODAL -->
+<div id="floating-quick-booking" style="display:none;position:fixed;top:80px;right:20px;width:380px;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:99999;max-height:calc(100vh - 100px);overflow-y:auto;">
+    <!-- Header (DRAG & DROP!) -->
+    <div id="fqb-header" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:15px;border-radius:12px 12px 0 0;cursor:move;user-select:none;display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:18px;">⋮⋮</span>
+            <span style="font-weight:700;font-size:16px;">💳 SCHNELLBUCHUNG</span>
+        </div>
+        <button onclick="closeFloatingQuickBooking()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:bold;">×</button>
+    </div>
+    
+    <!-- Content -->
+    <div style="padding:20px;">
+        <!-- Kunde -->
+        <div style="margin-bottom:15px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">👤 Kunde</label>
+            <div style="display:flex;gap:8px;">
+                <input type="text" id="fqb-customer-phone" placeholder="📱 Telefonnummer..." style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+                <button onclick="searchCustomerForBooking()" style="padding:10px 16px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                    🔍
+                </button>
+            </div>
+            <div id="fqb-customer-info" style="display:none;margin-top:8px;padding:10px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;font-size:13px;"></div>
+            <button id="fqb-new-customer-btn" onclick="createNewCustomerInBooking()" style="display:none;margin-top:8px;width:100%;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                ➕ Neuer Kunde
+            </button>
+        </div>
+        
+        <!-- Abholort -->
+        <div style="margin-bottom:15px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">📍 Abholort</label>
+            <div id="fqb-pickup-display" style="padding:10px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;font-size:13px;color:#065f46;">
+                Warte auf Karte...
+            </div>
+        </div>
+        
+        <!-- Zielort -->
+        <div style="margin-bottom:15px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">🎯 Zielort</label>
+            <div id="fqb-destination-display" style="padding:10px;background:#eff6ff;border:2px solid #3b82f6;border-radius:8px;font-size:13px;color:#1e40af;">
+                Warte auf Karte...
+            </div>
+        </div>
+        
+        <!-- Distanz + Zeit -->
+        <div id="fqb-route-info" style="display:none;margin-bottom:15px;display:flex;gap:10px;">
+            <div style="flex:1;background:#f3f4f6;padding:8px;border-radius:6px;text-align:center;font-size:12px;">
+                📏 <strong id="fqb-distance">-</strong> km
+            </div>
+            <div style="flex:1;background:#f3f4f6;padding:8px;border-radius:6px;text-align:center;font-size:12px;">
+                ⏱️ <strong id="fqb-duration">-</strong> Min
+            </div>
+        </div>
+        
+        <!-- Preis -->
+        <div style="margin-bottom:15px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">💰 Preis</label>
+            <div id="fqb-price-display" style="padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:8px;text-align:center;font-size:18px;font-weight:700;">
+                -,-- €
+            </div>
+        </div>
+        
+        <!-- Datum -->
+        <div style="margin-bottom:15px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">📅 Datum</label>
+            <input type="date" id="fqb-date" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+        </div>
+        
+        <!-- Zeit -->
+        <div style="margin-bottom:15px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">🕐 Uhrzeit</label>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+                <button onclick="setTimeNow()" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    JETZT
+                </button>
+                <button onclick="setTimePlus30()" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    +30 MIN
+                </button>
+            </div>
+            <input type="time" id="fqb-time" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+        </div>
+        
+        <!-- Notiz -->
+        <div style="margin-bottom:15px;">
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">💬 Notiz (optional)</label>
+            <textarea id="fqb-notes" placeholder="z.B. 2 Personen, Kindersitz, Rollstuhl..." style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;min-height:60px;resize:vertical;"></textarea>
+        </div>
+        
+        <!-- Buchen Button -->
+        <button onclick="submitFloatingQuickBooking()" style="width:100%;padding:15px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(102,126,234,0.4);">
+            🚕 JETZT BUCHEN
+        </button>
+    </div>
+</div>
 
 </body>
 </html>

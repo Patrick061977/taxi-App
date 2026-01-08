@@ -108,13 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.185 - TEL: FALLBACK! 📞✨ (Build 20260108-1220)');
-        console.log('📞 v5.90.185: AUTOMATISCHER FALLBACK ZU TEL: LINK!');
-        console.log('✅ v5.90.185: FritzBox nicht erreichbar? → Telefon-App!');
-        console.log('✅ v5.90.185: Funktioniert auf Smartphone!');
-        console.log('✅ v5.90.185: Bessere Fehlerbehandlung!');
-        console.log('🎯 v5.90.185: Anrufen funktioniert IMMER!');
-        console.log('📞 v5.90.184: Buttons in Anrufhistorie');
+        console.log('🚕 Funk Taxi App v5.90.186 - TEL: LINK DIREKT! 📞✨ (Build 20260108-1245)');
+        console.log('📞 v5.90.186: DIREKT TEL: LINK OHNE AUTO-DIAL!');
+        console.log('✅ v5.90.186: Plus (+) bleibt erhalten!');
+        console.log('✅ v5.90.186: MicroSIP öffnet mit Nummer!');
+        console.log('✅ v5.90.186: DU entscheidest wann gewählt wird!');
+        console.log('✅ v5.90.186: Keine FritzBox API mehr (CORS Problem)');
+        console.log('🎯 v5.90.186: Einfach & funktioniert immer!');
+        console.log('📞 v5.90.185: Tel Fallback');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -45590,49 +45591,13 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         // Rufe Kunde an (Click-to-Call)
         async function callCustomer(phoneNumber) {
-            if (!FRITZBOX_CONFIG.enabled) {
-                // Direkt tel: Link nutzen wenn deaktiviert
-                window.location.href = `tel:${phoneNumber}`;
-                return;
-            }
+            // 🆕 v5.90.186: DIREKT TEL: LINK - KEIN AUTO-DIAL!
+            // Plus (+) bleibt erhalten, MicroSIP/Softphone übernimmt!
             
-            if (!FRITZBOX_CONFIG.password) {
-                alert('⚠️ FritzBox Passwort fehlt!\n\nBitte in den Einstellungen konfigurieren.');
-                return;
-            }
+            console.log('📞 Öffne Telefon-App mit:', phoneNumber);
             
-            console.log('📞 Rufe an:', phoneNumber);
-            
-            try {
-                // Zeige Loading
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = '📞 Wähle...';
-                btn.disabled = true;
-                
-                // FritzBox API Call
-                const success = await fritzboxDialNumber(phoneNumber);
-                
-                if (success) {
-                    alert(`✅ Anruf wird hergestellt!\n\n${FRITZBOX_CONFIG.phone} klingelt gleich.\nBitte abheben, dann wird ${phoneNumber} angerufen.`);
-                } else {
-                    // Fallback: tel: Link
-                    if (confirm('❌ FritzBox nicht erreichbar.\n\n📱 Telefon-App öffnen stattdessen?')) {
-                        window.location.href = `tel:${phoneNumber}`;
-                    }
-                }
-                
-                // Reset Button
-                btn.textContent = originalText;
-                btn.disabled = false;
-                
-            } catch (error) {
-                console.error('❌ Click-to-Call Fehler:', error);
-                // Automatischer Fallback zu tel: Link
-                if (confirm('❌ FritzBox nicht erreichbar.\n\n📱 Telefon-App öffnen stattdessen?')) {
-                    window.location.href = `tel:${phoneNumber}`;
-                }
-            }
+            // Direkt tel: Link öffnen (MicroSIP/Zoiper übernimmt automatisch!)
+            window.location.href = `tel:${phoneNumber}`;
         }
         
         // FritzBox TR-064 API: Nummer wählen

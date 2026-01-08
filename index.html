@@ -108,13 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.215 - KOMPLETTES BUCHUNGS-SYSTEM! ✅🎯 (Build 20260108-2045)');
-        console.log('✅ v5.90.215: Alle Features vom Schnellbuchungs-Modal!');
-        console.log('🗺️ v5.90.215: Auto-Geocoding wenn Coords fehlen!');
-        console.log('💰 v5.90.215: Route + Preis automatisch berechnen!');
-        console.log('🔍 v5.90.215: userId-Suche integriert!');
-        console.log('🔒 v5.90.215: Doppelklick-Schutz!');
-        console.log('📍 v5.90.215: Abholort IMMER aus CRM laden!');
+        console.log('🚕 Funk Taxi App v5.90.217 - KALENDER FIX! 📅✅ (Build 20260108-2100)');
+        console.log('📅 v5.90.217: Status = new (statt pending)!');
+        console.log('⏰ v5.90.217: pickupTimestamp hinzugefügt!');
+        console.log('✅ v5.90.217: Termine erscheinen im Kalender!');
+        console.log('📍 v5.90.216: Address Support!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -27657,25 +27655,36 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 floatingBookingData.customerName = customerName;
                 floatingBookingData.customerPhone = customerPhone;
                 
-                // 🆕 v5.90.208: LADE ABHOLORT AUS CRM!
+                // 🆕 v5.90.216: LADE ABHOLORT AUS CRM (address ODER defaultPickup!)
                 if (customerId) {
                     db.ref(`customers/${customerId}`).once('value', (snapshot) => {
                         const customer = snapshot.val();
-                        if (customer && customer.defaultPickup) {
-                            // Abholort vorhanden!
-                            document.getElementById('fqb-pickup-display').innerHTML = `
-                                <div style="display:flex;justify-content:space-between;align-items:start;">
-                                    <strong>✅ ${customer.defaultPickup}</strong>
-                                    <button onclick="clearPickupAddress()" style="background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">❌</button>
-                                </div>
-                            `;
-                            document.getElementById('fqb-pickup-display').style.background = '#f0fdf4';
-                            document.getElementById('fqb-pickup-display').style.borderColor = '#10b981';
+                        if (customer) {
+                            // Prüfe BEIDE Felder: defaultPickup (neu) ODER address (alt)
+                            const pickupAddress = customer.defaultPickup || customer.address;
+                            const pickupCoords = customer.defaultPickupCoords || customer.addressCoords || null;
                             
-                            floatingBookingData.pickup = customer.defaultPickup;
-                            floatingBookingData.pickupCoords = customer.defaultPickupCoords || null;
-                            
-                            console.log('✅ Abholort aus CRM geladen:', customer.defaultPickup);
+                            if (pickupAddress) {
+                                // Abholort vorhanden!
+                                document.getElementById('fqb-pickup-display').innerHTML = `
+                                    <div style="display:flex;justify-content:space-between;align-items:start;">
+                                        <strong>✅ ${pickupAddress}</strong>
+                                        <button onclick="clearPickupAddress()" style="background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">❌</button>
+                                    </div>
+                                `;
+                                document.getElementById('fqb-pickup-display').style.background = '#f0fdf4';
+                                document.getElementById('fqb-pickup-display').style.borderColor = '#10b981';
+                                document.getElementById('fqb-pickup-display').style.color = '#065f46';
+                                document.getElementById('fqb-pickup-clear').style.display = 'block';
+                                
+                                floatingBookingData.pickup = pickupAddress;
+                                floatingBookingData.pickupCoords = pickupCoords;
+                                
+                                console.log('✅ Abholort aus CRM geladen:', pickupAddress);
+                                console.log('   Quelle:', customer.defaultPickup ? 'defaultPickup' : 'address');
+                            } else {
+                                console.log('ℹ️ Kein Abholort im CRM gefunden (weder address noch defaultPickup)');
+                            }
                         }
                     });
                 }
@@ -27865,12 +27874,16 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     const phoneMatch = (customer.phone || '').toLowerCase().includes(searchTerm);
                     
                     if (nameMatch || phoneMatch) {
+                        // 🆕 v5.90.216: Nutze address ODER defaultPickup!
+                        const pickupAddress = customer.defaultPickup || customer.address || null;
+                        const pickupCoords = customer.defaultPickupCoords || customer.addressCoords || null;
+                        
                         customers.push({
                             id: customerId,
                             name: customer.name || 'Unbekannt',
                             phone: customer.phone || '',
-                            defaultPickup: customer.defaultPickup || null,
-                            defaultPickupCoords: customer.defaultPickupCoords || null
+                            defaultPickup: pickupAddress,
+                            defaultPickupCoords: pickupCoords
                         });
                     }
                 });
@@ -28434,7 +28447,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     duration: routeData.duration || '0',
                     
                     scheduledTime: scheduledTime,
-                    status: 'pending',
+                    pickupTimestamp: scheduledTime, // 🆕 v5.90.217: Für Kalender-Sortierung!
+                    status: 'new', // 🆕 v5.90.217: 'new' statt 'pending' für Kalender!
                     
                     notes: notes || '',
                     

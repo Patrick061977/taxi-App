@@ -108,10 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.197 - RECHNUNG VIEW FIX! 📄 (Build 20260108-1650)');
-        console.log('📄 v5.90.197: Fahrten werden jetzt im Rechnung-Tab angezeigt!');
-        console.log('✅ v5.90.197: loadRidesForInvoicing füllt beide Container!');
-        console.log('🔧 v5.90.196: CRM Address Autocomplete Fix!');
+        console.log('🚕 Funk Taxi App v5.90.198 - AUTOCOMPLETE KOMPLETT FIX! 🔧 (Build 20260108-1700)');
+        console.log('✅ v5.90.198: Bekannte Orte (Polen) wieder im Dropdown!');
+        console.log('✅ v5.90.198: knownPlacesHTML wird jetzt angezeigt!');
+        console.log('✅ v5.90.198: Sowohl Fahrgast ALS AUCH Admin!');
+        console.log('📄 v5.90.197: Rechnung-View Fix!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -19100,7 +19101,8 @@
                 const resultsToShow = results;
                 console.log('📊 Zeige ALLE Ergebnisse (kein Filter):', resultsToShow.length);
                 
-                dropdown.innerHTML = poiHTML + resultsToShow.map(r => {
+                // 🆕 v5.90.198: REIHENFOLGE: Bekannte Orte + POIs + Nominatim!
+                dropdown.innerHTML = knownPlacesHTML + poiHTML + resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
                     let fullAddress = '';
@@ -30481,6 +30483,15 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 console.log('🔍 Admin POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
                 
+                // 🆕 v5.90.198: Bekannte Orte auch im Admin!
+                const matchingKnownPlaces = [];
+                for (const [key, place] of Object.entries(KNOWN_PLACES)) {
+                    if (key.includes(lowerQuery) || place.name.toLowerCase().includes(lowerQuery)) {
+                        matchingKnownPlaces.push(place);
+                    }
+                }
+                console.log('🏙️ Bekannte Orte gefunden:', matchingKnownPlaces.length);
+                
                 // 🆕 v5.88.24: PARALLELE SUCHE - deutsch UND polnisch gleichzeitig!
                 const polishQuery = typeof convertGermanToPolish === 'function' ? convertGermanToPolish(query) : null;
                 const queriesAreDifferent = polishQuery && polishQuery.toLowerCase() !== query.toLowerCase();
@@ -30518,10 +30529,34 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 console.log('✅ Schnellbuchung kombinierte Ergebnisse:', results.length);
                 
-                // 🆕 v5.64.48: Wenn BEIDE leer → Keine Ergebnisse
-                if (matchingPOIs.length === 0 && results.length === 0) {
+                // 🆕 v5.90.198: Wenn ALLE leer → Keine Ergebnisse
+                if (matchingPOIs.length === 0 && matchingKnownPlaces.length === 0 && results.length === 0) {
                     dropdown.innerHTML = '<div style="padding:10px;color:#999;">Keine Ergebnisse</div>';
                     return;
+                }
+                
+                // 🆕 v5.90.198: BEKANNTE ORTE ZUERST!
+                let knownPlacesHTML = '';
+                if (matchingKnownPlaces.length > 0) {
+                    knownPlacesHTML = `
+                        <div style="padding:8px;background:#dbeafe;border-bottom:2px solid #3b82f6;font-weight:600;font-size:12px;color:#1e40af;">
+                            🇵🇱 BEKANNTE ORTE
+                        </div>
+                    `;
+                    knownPlacesHTML += matchingKnownPlaces.map(place => {
+                        return `
+                            <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${place.fullAddress.replace(/'/g, "\\'")}', ${place.lat}, ${place.lon})" style="
+                                padding:12px;
+                                cursor:pointer;
+                                border-bottom:1px solid #bfdbfe;
+                                background:#eff6ff;
+                                transition:background 0.2s;
+                            " onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                                <div style="font-weight:600;color:#3b82f6;">🏙️ ${place.name}</div>
+                                <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${place.fullAddress}</div>
+                            </div>
+                        `;
+                    }).join('');
                 }
                 
                 // 🆕 v5.64.44: KEIN FILTER! Zeige ALLES wie im Fahrgast-Tab!
@@ -30565,7 +30600,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     }
                 }
                 
-                dropdown.innerHTML = poiHTML + resultsToShow.map(r => {
+                // 🆕 v5.90.198: REIHENFOLGE: Bekannte Orte + POIs + Nominatim!
+                dropdown.innerHTML = knownPlacesHTML + poiHTML + resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
                     let fullAddress = '';

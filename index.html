@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.198 - AUTOCOMPLETE KOMPLETT FIX! 🔧 (Build 20260108-1700)');
-        console.log('✅ v5.90.198: Bekannte Orte (Polen) wieder im Dropdown!');
-        console.log('✅ v5.90.198: knownPlacesHTML wird jetzt angezeigt!');
-        console.log('✅ v5.90.198: Sowohl Fahrgast ALS AUCH Admin!');
-        console.log('📄 v5.90.197: Rechnung-View Fix!');
+        console.log('🚕 Funk Taxi App v5.90.199 - RECHNUNG PERFORMANCE! ⚡ (Build 20260108-1710)');
+        console.log('⚡ v5.90.199: Nur noch 50 statt 3000+ Fahrten laden!');
+        console.log('✅ v5.90.199: limitToLast(50) für schnelles Laden!');
+        console.log('💡 v5.90.199: Info-Box für Nutzer hinzugefügt!');
+        console.log('✅ v5.90.198: Autocomplete komplett fix!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -2057,6 +2057,10 @@
         <div id="rechnung-single-invoices-container" style="background:white;padding:20px;border-radius:12px;border:2px solid #e5e7eb;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
                 <span style="font-weight:600;font-size:15px;">📄 Einzel-Rechnungen <span id="rechnung-single-invoices-count" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+            </div>
+            <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;color:#065f46;">
+                💡 <strong>Performance-Optimierung:</strong> Es werden nur die letzten 50 Fahrten angezeigt.<br>
+                <span style="font-size:12px;opacity:0.8;">Für ältere Fahrten nutze bitte den Kalender-Verlauf.</span>
             </div>
             <div id="rechnung-single-invoices-list"></div>
         </div>
@@ -34439,8 +34443,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (rechnungContainer) rechnungContainer.innerHTML = loadingHTML;
             
             try {
-                // Lade ALLE Fahrten aus Firebase
-                const snapshot = await db.ref('rides').orderByChild('pickupTimestamp').once('value');
+                // 🆕 v5.90.199: NUR die letzten 50 Fahrten laden (nicht 3000+!)
+                console.log('🚕 Lade letzte 50 Fahrten für Rechnungen...');
+                const snapshot = await db.ref('rides')
+                    .orderByChild('pickupTimestamp')
+                    .limitToLast(50)  // ← NUR 50 statt ALLE!
+                    .once('value');
                 
                 const allRides = [];
                 snapshot.forEach(child => {
@@ -34464,7 +34472,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 // Neueste zuerst (umgekehrt chronologisch)
                 allRides.reverse();
                 
-                console.log(`✅ ${allRides.length} Kalender-Fahrten geladen (gefiltert)`);
+                console.log(`✅ ${allRides.length} Kalender-Fahrten geladen (gefiltert, letzte 50)`);
                 
                 // 🆕 v5.90.197: Update Counter in BEIDEN Views!
                 if (countEl) countEl.textContent = allRides.length;

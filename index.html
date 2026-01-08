@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.183 - ANRUFEN AUS CRM! 📞✨ (Build 20260108-1050)');
-        console.log('📞 v5.90.183: ANRUF-BUTTON IN CRM-LISTE!');
-        console.log('✅ v5.90.183: "📞 Anrufen" Button bei jedem Kunden');
-        console.log('✅ v5.90.183: Nutzt FritzBox Click-to-Call');
-        console.log('✅ v5.90.183: Zurückrufen aus CallPopup funktioniert!');
-        console.log('🎯 v5.90.183: Direkter Anruf aus CRM & CallPopup!');
-        console.log('✅ v5.90.182: Alle Fahrten außer Hotel');
+        console.log('🚕 Funk Taxi App v5.90.184 - BUTTONS IN ANRUFHISTORIE! 📞✏️✨ (Build 20260108-1130)');
+        console.log('📞 v5.90.184: NEUE BUTTONS IN ANRUFHISTORIE!');
+        console.log('✅ v5.90.184: "📞 Anrufen" Button in Call History');
+        console.log('✅ v5.90.184: "✏️ Bearbeiten" Button in Call History');
+        console.log('✅ v5.90.184: Direkter Zugriff auf Kundendaten!');
+        console.log('🎯 v5.90.184: Alle Aktionen aus Anrufhistorie!');
+        console.log('📞 v5.90.183: Anrufen aus CRM');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -6799,8 +6799,16 @@
                                 </div>
                             </div>
                         </div>
-                        <div style="display:flex;gap:8px;align-items:center;">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                             ${call.customerFound ? `
+                                <button onclick="callCustomer('${call.caller.replace(/'/g, "\\'")}')" 
+                                        style="padding:8px 12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(59,130,246,0.3);">
+                                    📞 Anrufen
+                                </button>
+                                <button onclick="editCustomer('${call.customerId}')" 
+                                        style="padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                    ✏️ Bearbeiten
+                                </button>
                                 <button onclick="openQuickBookingWithCustomer('${call.customerId}')" 
                                         style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;white-space:nowrap;">
                                     🚕 Buchen

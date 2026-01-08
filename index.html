@@ -108,12 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.191 - FUZZY SEARCH! 🎯✨ (Build 20260108-1500)');
-        console.log('🎯 v5.90.191: FUZZY SEARCH mit Levenshtein Distance!');
-        console.log('✅ v5.90.191: Findet auch bei Tippfehlern!');
-        console.log('📊 v5.90.191: Ähnlichkeit in % angezeigt!');
-        console.log('⚡ v5.90.191: "Ahlbec" → "Ahlbeck" (90% Match)!');
-        console.log('👥 v5.90.190: CRM TAB in der Leiste!');
+        console.log('🚕 Funk Taxi App v5.90.194 - EMAIL + CRM FAVORITEN! 📧⭐ (Build 20260108-1630)');
+        console.log('📧 v5.90.194: EMAIL-TAB hinzugefügt!');
+        console.log('⭐ v5.90.194: CRM Favoriten-Filter!');
+        console.log('✅ v5.90.194: Schnellzugriff auf oft angerufene Kunden!');
+        console.log('✅ v5.90.193: Fuzzy-Search entfernt - zurück zu includes!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -1160,6 +1159,20 @@
                 transition: all 0.2s;
             ">
                 👥 CRM
+            </button>
+            <button onclick="switchView('email-inbox')" class="admin-tab-btn admin-only tab-toggleable" data-view="email-inbox" data-tab-id="email-inbox" style="
+                padding: 10px 16px;
+                border: 2px solid #3b82f6;
+                background: white;
+                color: #3b82f6;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                📧 Email
             </button>
             <button onclick="switchView('admin')" class="admin-tab-btn admin-only tab-toggleable" data-view="admin" data-tab-id="admin" style="
                 padding: 10px 16px;
@@ -2323,7 +2336,8 @@
             
             <select id="crm-filter-category" onchange="filterCRMCustomers()" style="padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;background:white;">
                 <option value="">Alle Kategorien</option>
-                <option value="vip">⭐ VIP</option>
+                <option value="favorites">⭐ Favoriten</option>
+                <option value="vip">👑 VIP</option>
                 <option value="regular">✅ Stammkunde</option>
                 <option value="business">💼 Geschäftlich</option>
                 <option value="hotel">🏨 Hotel</option>
@@ -2337,6 +2351,69 @@
         <!-- Kunden-Liste -->
         <div id="crm-customers-list" style="display:grid;gap:10px;">
             <!-- Wird dynamisch gefüllt -->
+        </div>
+    </div>
+
+    <!-- 📧 EMAIL INBOX VIEW -->
+    <div id="email-inbox-view" class="view admin-only">
+        <h2 style="margin-bottom:15px;">📧 Email-Postfach</h2>
+        
+        <div style="background:#dbeafe;border:2px solid #3b82f6;border-radius:8px;padding:15px;margin-bottom:15px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#1e40af;">📬 Automatische Email-Weiterleitung</div>
+            <div style="font-size:13px;color:#1e3a8a;line-height:1.6;">
+                Alle Emails an <strong>funk-taxi-heringsdorf@web.de</strong> werden automatisch hier angezeigt<br>
+                ✅ Buchungsanfragen erkennen<br>
+                ✅ Direkt in Buchung umwandeln<br>
+                ✅ Auto-Antwort senden
+            </div>
+        </div>
+        
+        <!-- Email-Statistiken -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:15px;">
+            <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);padding:15px;border-radius:8px;color:white;">
+                <div style="font-size:24px;font-weight:bold;" id="email-total">0</div>
+                <div style="font-size:13px;opacity:0.9;">Gesamt Emails</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:15px;border-radius:8px;color:white;">
+                <div style="font-size:24px;font-weight:bold;" id="email-unread">0</div>
+                <div style="font-size:13px;opacity:0.9;">Ungelesen</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#10b981,#059669);padding:15px;border-radius:8px;color:white;">
+                <div style="font-size:24px;font-weight:bold;" id="email-bookings">0</div>
+                <div style="font-size:13px;opacity:0.9;">Buchungen</div>
+            </div>
+        </div>
+        
+        <!-- Filter & Suche -->
+        <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+            <input 
+                type="text" 
+                id="email-search-input" 
+                placeholder="🔍 Suche in Emails..."
+                oninput="filterEmails()"
+                style="flex:1;min-width:200px;padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;">
+            
+            <select id="email-filter-type" onchange="filterEmails()" style="padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;background:white;">
+                <option value="all">Alle Emails</option>
+                <option value="unread">Ungelesen</option>
+                <option value="bookings">Buchungsanfragen</option>
+                <option value="replies">Antworten</option>
+            </select>
+            
+            <button onclick="refreshEmails()" style="padding:12px 20px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                🔄 Aktualisieren
+            </button>
+        </div>
+        
+        <!-- Email-Liste -->
+        <div id="email-list" style="display:grid;gap:10px;">
+            <div style="padding:40px;text-align:center;color:#9ca3af;">
+                <div style="font-size:64px;margin-bottom:15px;">📧</div>
+                <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Noch keine Emails</div>
+                <div style="font-size:14px;">
+                    Emails werden automatisch synchronisiert sobald welche eingehen
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2748,7 +2825,41 @@
                             <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
                             <span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">✅ Fertig</span>
                         </div>
-                        ${r.customerName ? `<div style="font-weight:600;color:#065f46;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        ${r.customerName ? `
+                        <div style="font-weight:600;color:#065f46;margin-bottom:5px;">👤 ${r.customerName}</div>
+                        ${r.customerPhone ? `
+                        <div style="margin-bottom:8px;display:flex;gap:6px;">
+                            <a href="tel:${r.customerPhone}" style="
+                                flex:1;
+                                display:flex;
+                                align-items:center;
+                                justify-content:center;
+                                gap:4px;
+                                padding:6px 10px;
+                                background:#10b981;
+                                color:white;
+                                text-decoration:none;
+                                border-radius:6px;
+                                font-weight:600;
+                                font-size:12px;
+                            ">
+                                📞 ${r.customerPhone}
+                            </a>
+                            <button onclick="event.stopPropagation(); shareRideViaWhatsApp('${r.firebaseId || r.id}')" style="
+                                padding:6px 10px;
+                                background:#25D366;
+                                color:white;
+                                border:none;
+                                border-radius:6px;
+                                font-weight:600;
+                                font-size:12px;
+                                cursor:pointer;
+                            ">
+                                📤
+                            </button>
+                        </div>
+                        ` : ''}
+                        ` : ''}
                         <div style="font-size:13px;color:#666;">
                             Von: ${r.pickup}<br>
                             Nach: ${r.destination}<br>
@@ -2809,7 +2920,41 @@
                             <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
                             <span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">🚨 Storniert</span>
                         </div>
-                        ${r.customerName ? `<div style="font-weight:600;color:#991b1b;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        ${r.customerName ? `
+                        <div style="font-weight:600;color:#991b1b;margin-bottom:5px;">👤 ${r.customerName}</div>
+                        ${r.customerPhone ? `
+                        <div style="margin-bottom:8px;display:flex;gap:6px;">
+                            <a href="tel:${r.customerPhone}" style="
+                                flex:1;
+                                display:flex;
+                                align-items:center;
+                                justify-content:center;
+                                gap:4px;
+                                padding:6px 10px;
+                                background:#10b981;
+                                color:white;
+                                text-decoration:none;
+                                border-radius:6px;
+                                font-weight:600;
+                                font-size:12px;
+                            ">
+                                📞 ${r.customerPhone}
+                            </a>
+                            <button onclick="event.stopPropagation(); shareRideViaWhatsApp('${r.firebaseId || r.id}')" style="
+                                padding:6px 10px;
+                                background:#25D366;
+                                color:white;
+                                border:none;
+                                border-radius:6px;
+                                font-weight:600;
+                                font-size:12px;
+                                cursor:pointer;
+                            ">
+                                📤
+                            </button>
+                        </div>
+                        ` : ''}
+                        ` : ''}
                         <div style="font-size:13px;color:#666;">
                             📍 Von: ${r.pickup}<br>
                             🎯 Nach: ${r.destination}<br>
@@ -11547,7 +11692,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -12548,6 +12693,41 @@
                             <div style="font-size:16px;font-weight:600;color:#1e40af;margin-bottom:8px;">
                                 👤 ${r.customerName}
                             </div>
+                            ${r.customerPhone ? `
+                            <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+                                <a href="tel:${r.customerPhone}" style="
+                                    flex:1;
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:center;
+                                    gap:6px;
+                                    padding:8px 12px;
+                                    background:#10b981;
+                                    color:white;
+                                    text-decoration:none;
+                                    border-radius:6px;
+                                    font-weight:600;
+                                    font-size:14px;
+                                    transition:all 0.2s;
+                                " onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    📞 ${r.customerPhone}
+                                </a>
+                                <button onclick="event.stopPropagation(); shareRideViaWhatsApp('${r.firebaseId || r.id}')" style="
+                                    padding:8px 12px;
+                                    background:#25D366;
+                                    color:white;
+                                    border:none;
+                                    border-radius:6px;
+                                    font-weight:600;
+                                    font-size:14px;
+                                    cursor:pointer;
+                                    transition:all 0.2s;
+                                    white-space:nowrap;
+                                " onmouseover="this.style.background='#128C7E'" onmouseout="this.style.background='#25D366'">
+                                    📤 WhatsApp
+                                </button>
+                            </div>
+                            ` : ''}
                             <div style="font-size:14px;color:#0369a1;">
                                 🕐 Abholung: <strong>${r.pickupTime || 'Sofort'}</strong>
                             </div>
@@ -18793,10 +18973,13 @@
                 dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">🔍 Suche...</div>';
                 console.log('✅ Dropdown geöffnet mit "Suche..."');
                 
-                // 🆕 v5.90.191: FUZZY SEARCH für Fahrgast auch!
+                // 🔧 v5.90.193: EINFACHE SUCHE - includes wie vorher!
                 const lowerQuery = query.toLowerCase();
-                const matchingPOIs = fuzzyMatch(query, frequentDestinations, 60); // Min 60% Ähnlichkeit
-                console.log('🔍 POI-Fuzzy-Matching:', matchingPOIs.length, 'Treffer für:', query);
+                const matchingPOIs = frequentDestinations.filter(dest => 
+                    dest.name.toLowerCase().includes(lowerQuery) || 
+                    (dest.address && dest.address.toLowerCase().includes(lowerQuery))
+                );
+                console.log('🔍 POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
                 
                 // 🆕 v5.88.11: Bekannte Orte (Swinemünde, Misdroy, Stettin etc.) prüfen
                 const matchingKnownPlaces = [];
@@ -18878,24 +19061,17 @@
                 if (matchingPOIs.length > 0) {
                     poiHTML = `
                         <div style="padding:8px;background:#fef3c7;border-bottom:2px solid #f59e0b;font-weight:600;font-size:12px;color:#92400e;">
-                            🎯 VORSCHLÄGE (Fuzzy-Search)
+                            🏥 BEKANNTE ORTE
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        // 🔧 v5.90.191: Zeige Ähnlichkeit!
+                        // 🔧 v5.90.91: SAUBERE Lösung - address oder name
                         const addressString = dest.address || dest.name;
                         const displayLabel = dest.label || dest.address || '';
-                        const matchIcon = dest.isSubstring ? '✅' : '🎯';
-                        const matchText = dest.isSubstring 
-                            ? 'Exakt' 
-                            : `${dest.similarity}%`;
                         
                         return `
                             <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="background:#fffbeb;">
-                                <div style="font-weight:600;color:#f59e0b;">
-                                    ${matchIcon} ${dest.name}
-                                    <span style="font-size:10px;font-weight:normal;color:#92400e;margin-left:6px;">${matchText}</span>
-                                </div>
+                                <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
                                 <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
                             </div>
                         `;
@@ -23274,6 +23450,73 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             window.open(whatsappUrl, '_blank');
         }
         
+        // 🆕 v5.90.193: INTELLIGENTE HAUSNUMMERN-ERKENNUNG!
+        function extractStreetAndNumber(query) {
+            // Erkenne Muster wie:
+            // "Kulmstraße 22" → {street: "Kulmstraße", number: "22"}
+            // "Goethestr. 15" → {street: "Goethestr.", number: "15"}
+            // "Am Markt 3a" → {street: "Am Markt", number: "3a"}
+            
+            // Regex: Alles bis zur letzten Zahl
+            const match = query.match(/^(.+?)\s+(\d+[a-zA-Z]?)$/);
+            
+            if (match) {
+                return {
+                    street: match[1].trim(),
+                    number: match[2].trim(),
+                    hasNumber: true
+                };
+            }
+            
+            return {
+                street: query.trim(),
+                number: null,
+                hasNumber: false
+            };
+        }
+        
+        function enhanceNominatimResults(results, originalQuery) {
+            // Wenn User eine Hausnummer eingegeben hat, aber Nominatim nur Straße findet:
+            // Füge die Hausnummer hinzu!
+            
+            const parsed = extractStreetAndNumber(originalQuery);
+            
+            if (!parsed.hasNumber) {
+                // Keine Hausnummer eingegeben → keine Anpassung nötig
+                return results;
+            }
+            
+            console.log('🏠 Hausnummer erkannt:', parsed.number, 'für Straße:', parsed.street);
+            
+            const enhanced = results.map(r => {
+                const address = r.address || {};
+                
+                // Wenn Result keine Hausnummer hat, füge die eingegebene hinzu
+                if (!address.house_number && address.road) {
+                    // Prüfe ob die Straße passt
+                    const roadLower = address.road.toLowerCase();
+                    const streetLower = parsed.street.toLowerCase();
+                    
+                    if (roadLower.includes(streetLower) || streetLower.includes(roadLower)) {
+                        // Match! Füge Hausnummer hinzu
+                        return {
+                            ...r,
+                            display_name: `${address.road} ${parsed.number}, ${address.postcode || ''} ${address.town || address.village || address.city || ''}`.trim(),
+                            address: {
+                                ...address,
+                                house_number: parsed.number
+                            },
+                            isEnhanced: true // Markierung für Display
+                        };
+                    }
+                }
+                
+                return r;
+            });
+            
+            return enhanced;
+        }
+        
         // 🆕 v5.90.191: FUZZY SEARCH - LEVENSHTEIN DISTANCE!
         function levenshteinDistance(str1, str2) {
             // Konvertiere zu Lowercase für case-insensitive Vergleich
@@ -23511,8 +23754,15 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         (customer.phone && customer.phone.includes(searchTerm)) ||
                         (customer.email && customer.email.toLowerCase().includes(searchTerm));
                     
-                    // Filter nach Kategorie
-                    const matchesCategory = !category || customer.category === category;
+                    // 🆕 v5.90.194: Filter nach Kategorie ODER Favoriten!
+                    let matchesCategory = true;
+                    if (category === 'favorites') {
+                        // Nur Favoriten anzeigen
+                        matchesCategory = customer.isFavorite === true;
+                    } else if (category) {
+                        // Normale Kategorie-Filter
+                        matchesCategory = customer.category === category;
+                    }
                     
                     if (matchesSearch && matchesCategory) {
                         customers.push(customer);
@@ -30211,18 +30461,16 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
             
             try {
-                // 🆕 v5.90.191: FUZZY SEARCH statt einfachem includes!
+                // 🔧 v5.90.193: EINFACHE SUCHE - includes wie vorher!
                 const lowerQuery = query.toLowerCase();
                 
-                // Nutze Fuzzy-Matching für POIs
-                const matchingPOIs = fuzzyMatch(query, frequentDestinations, 60); // Min 60% Ähnlichkeit
+                // Einfaches Matching in POIs (wie vorher - hat funktioniert!)
+                const matchingPOIs = frequentDestinations.filter(dest => 
+                    dest.name.toLowerCase().includes(lowerQuery) || 
+                    (dest.address && dest.address.toLowerCase().includes(lowerQuery))
+                );
                 
-                console.log('🔍 Admin POI-Fuzzy-Matching:', matchingPOIs.length, 'Treffer für:', query);
-                if (matchingPOIs.length > 0) {
-                    console.log('   Top 3 Matches:', matchingPOIs.slice(0, 3).map(m => 
-                        `${m.name} (${m.similarity}% / ${m.isSubstring ? 'Substring' : 'Fuzzy'})`
-                    ));
-                }
+                console.log('🔍 Admin POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
                 
                 // 🆕 v5.88.24: PARALLELE SUCHE - deutsch UND polnisch gleichzeitig!
                 const polishQuery = typeof convertGermanToPolish === 'function' ? convertGermanToPolish(query) : null;
@@ -30277,17 +30525,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 if (matchingPOIs.length > 0) {
                     poiHTML = `
                         <div style="padding:8px;background:#fef3c7;border-bottom:2px solid #f59e0b;font-weight:600;font-size:12px;color:#92400e;">
-                            🎯 VORSCHLÄGE (Fuzzy-Search)
+                            🏥 BEKANNTE ORTE
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        // 🔧 v5.90.191: Zeige Ähnlichkeit!
+                        // 🔧 v5.90.91: SAUBERE Lösung - address oder name
                         const addressString = dest.address || dest.name;
                         const displayLabel = dest.label || dest.address || '';
-                        const matchIcon = dest.isSubstring ? '✅' : '🎯';
-                        const matchText = dest.isSubstring 
-                            ? 'Exakte Übereinstimmung' 
-                            : `${dest.similarity}% Ähnlichkeit`;
                         
                         return `
                             <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
@@ -30296,10 +30540,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 border-bottom: 1px solid #e5e7eb;
                                 background:#fffbeb;
                             ">
-                                <div style="font-weight:600;color:#f59e0b;">
-                                    ${matchIcon} ${dest.name}
-                                    <span style="font-size:11px;font-weight:normal;color:#92400e;margin-left:8px;">${matchText}</span>
-                                </div>
+                                <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
                                 <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
                             </div>
                         `;

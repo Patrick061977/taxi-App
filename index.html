@@ -108,14 +108,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.175 - LÄNDERVORWAHL ÜBERALL! 📞🌍✨ (Build 20260107-2235)');
-        console.log('🌍 v5.90.175: LÄNDERVORWAHL +49 ÜBERALL AUTOMATISCH!');
-        console.log('✅ v5.90.175: Schnellbuchung - Neuer Kunde');
-        console.log('✅ v5.90.175: Schnellbuchung - Fahrgast-Telefon');
-        console.log('✅ v5.90.175: Kunden bearbeiten - Telefon & Mobil');
-        console.log('✅ v5.90.175: Login - Telefon');
-        console.log('✅ v5.90.175: Alle anderen Telefon-Felder');
-        console.log('💡 v5.90.175: Überall +49 automatisch bei onblur!');
+        console.log('🚕 Funk Taxi App v5.90.176 - RECHNUNG VERBESSERT! 📄✨🎯 (Build 20260108-0900)');
+        console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
+        console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
+        console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
+        console.log('✅ v5.90.176: Kundendaten fließen in Rechnung');
+        console.log('📦 v5.90.176: Lieferdatum hinzugefügt (auch Vergangenheit!)');
+        console.log('📦 v5.90.176: Lieferzeitraum (Von-Bis) hinzugefügt');
+        console.log('💡 v5.90.176: Änderungen in Rechnung → auch CRM speichern');
+        console.log('🌍 v5.90.175: Ländervorwahl +49 überall');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -32031,6 +32032,31 @@
                                 </div>
                             </div>
                             
+                                
+                                <!-- 🆕 v5.90.176: LIEFERDATUM & LIEFERZEITRAUM -->
+                                <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:12px;border-radius:8px;margin-top:10px;">
+                                    <div style="font-weight:600;margin-bottom:10px;color:#1e40af;">📦 Lieferung (optional)</div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                                        <div>
+                                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">📅 Lieferdatum:</label>
+                                            <input type="date" id="inv-delivery-date" 
+                                                   style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">
+                                                💡 Auch Vergangenheit möglich
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">🕐 Von:</label>
+                                            <input type="time" id="inv-delivery-from" 
+                                                   style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                        </div>
+                                        <div>
+                                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">🕐 Bis:</label>
+                                            <input type="time" id="inv-delivery-to" 
+                                                   style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                        </div>
+                                    </div>
+                                </div>
                             <!-- 🆕 CHECKBOXEN: WAS SOLL AUF DIE RECHNUNG? -->
                             <div style="background:#fefce8;border:2px solid #eab308;padding:15px;border-radius:10px;margin-bottom:20px;">
                                 <div style="font-weight:700;margin-bottom:15px;color:#854d0e;">📋 Was soll auf die Rechnung?</div>
@@ -32495,6 +32521,31 @@
                                 
                                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-top:10px;">
                                     <div>
+                                
+                                <!-- 🆕 v5.90.176: LIEFERDATUM & LIEFERZEITRAUM -->
+                                <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:12px;border-radius:8px;margin-top:10px;">
+                                    <div style="font-weight:600;margin-bottom:10px;color:#1e40af;">📦 Lieferung (optional)</div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                                        <div>
+                                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">📅 Lieferdatum:</label>
+                                            <input type="date" id="inv-delivery-date" 
+                                                   style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                            <div style="font-size:10px;color:#6b7280;margin-top:2px;">
+                                                💡 Auch Vergangenheit möglich
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">🕐 Von:</label>
+                                            <input type="time" id="inv-delivery-from" 
+                                                   style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                        </div>
+                                        <div>
+                                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">🕐 Bis:</label>
+                                            <input type="time" id="inv-delivery-to" 
+                                                   style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                        </div>
+                                    </div>
+                                </div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Datum:</label>
                                         <input type="text" id="inv-date" value="${rideDate}"
                                                style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
@@ -35279,7 +35330,7 @@
             
             const modal = document.createElement('div');
             modal.id = 'edit-customer-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100000;';
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;">
                     <h3 style="margin:0 0 15px 0;">✏️ Kunde bearbeiten</h3>
@@ -35349,6 +35400,7 @@
                     </div>
                     <div style="display:flex;gap:10px;margin-top:15px;">
                         <button onclick="updateCustomer('${customerId}')" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Speichern</button>
+                        <button onclick="applyCustomerDataToInvoice('${customerId}')" style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">📄 Daten übernehmen</button>
                         <button onclick="closeEditCustomerModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
                     </div>
                     <button onclick="deleteCustomer('${customerId}')" style="width:100%;margin-top:10px;padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">🗑️ Kunde löschen</button>
@@ -35627,6 +35679,63 @@
                 invoiceSelectedBillingAddress = selectedAddr.address;
                 console.log('📬 Rechnungsadresse gewählt:', selectedAddr.label, '-', selectedAddr.address);
             }
+        }
+        
+        // 🆕 v5.90.176: KUNDENDATEN IN RECHNUNG ÜBERNEHMEN!
+        async function applyCustomerDataToInvoice(customerId) {
+            console.log('📄 Übernehme Kundendaten in Rechnung:', customerId);
+            
+            // Lade aktuelle Werte aus CRM-Modal
+            const name = document.getElementById('edit-customer-name')?.value?.trim() || '';
+            const email = document.getElementById('edit-customer-email')?.value?.trim() || '';
+            const address = document.getElementById('edit-customer-address')?.value?.trim() || '';
+            const notes = document.getElementById('edit-customer-notes')?.value?.trim() || '';
+            
+            // Telefon zusammensetzen
+            const phoneCountry = document.getElementById('edit-customer-phone-country')?.value || '+49';
+            const phoneNumber = document.getElementById('edit-customer-phone')?.value?.trim() || '';
+            const phone = phoneCountry + phoneNumber;
+            
+            // Mobil zusammensetzen
+            const mobileCountry = document.getElementById('edit-customer-mobile-country')?.value || '+49';
+            const mobileNumber = document.getElementById('edit-customer-mobile')?.value?.trim() || '';
+            const mobile = mobileCountry + mobileNumber;
+            
+            console.log('📝 Daten aus CRM-Modal:', { name, email, address, phone, mobile });
+            
+            // Übernehme in Rechnung-Modal (wenn offen)
+            const invName = document.getElementById('inv-customer-name');
+            const invAddress = document.getElementById('inv-address');
+            
+            if (invName) {
+                invName.value = name;
+                console.log('✅ Name übernommen:', name);
+            }
+            
+            if (invAddress) {
+                invAddress.value = address;
+                console.log('✅ Adresse übernommen:', address);
+            }
+            
+            // Speichere in globalem invoiceCustomerData
+            if (!window.invoiceCustomerData) {
+                window.invoiceCustomerData = {};
+            }
+            window.invoiceCustomerData.id = customerId;
+            window.invoiceCustomerData.name = name;
+            window.invoiceCustomerData.email = email;
+            window.invoiceCustomerData.address = address;
+            window.invoiceCustomerData.phone = phone;
+            window.invoiceCustomerData.mobile = mobile;
+            window.invoiceCustomerData.notes = notes;
+            
+            console.log('✅ invoiceCustomerData aktualisiert:', window.invoiceCustomerData);
+            
+            // Schließe CRM-Modal
+            closeEditCustomerModal();
+            
+            // Erfolgs-Meldung
+            showToast('✅ Kundendaten übernommen!', 'success');
         }
         
         function closeEditCustomerModal() {

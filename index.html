@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.189 - WIRKLICH GEFIXT! 🔧✅ (Build 20260108-1420)');
+        console.log('🚕 Funk Taxi App v5.90.190 - CRM TAB! 👥✨ (Build 20260108-1445)');
+        console.log('👥 v5.90.190: CRM TAB in der Leiste!');
+        console.log('✅ v5.90.190: Eigener CRM View mit Statistiken!');
+        console.log('📊 v5.90.190: Kunden-Übersicht & Favoriten!');
         console.log('✅ v5.90.189: DOPPELTE ZEILEN ENTFERNT!');
-        console.log('✅ v5.90.189: Syntax 100% korrekt!');
-        console.log('🔧 v5.90.188: WhatsApp Share Syntax Fix!');
-        console.log('💬 v5.90.187: WhatsApp Share für Fahrten!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -1144,6 +1144,21 @@
                 transition: all 0.2s;
             ">
                 🚗 Fahrer
+            </button>
+            <!-- 🆕 v5.90.190: CRM TAB! -->
+            <button onclick="switchView('crm')" class="admin-tab-btn admin-only tab-toggleable" data-view="crm" data-tab-id="crm" style="
+                padding: 10px 16px;
+                border: 2px solid #10b981;
+                background: white;
+                color: #10b981;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                👥 CRM
             </button>
             <button onclick="switchView('admin')" class="admin-tab-btn admin-only tab-toggleable" data-view="admin" data-tab-id="admin" style="
                 padding: 10px 16px;
@@ -2262,6 +2277,64 @@
         
         <!-- Statistik -->
         <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
+            <!-- Wird dynamisch gefüllt -->
+        </div>
+    </div>
+
+    <!-- 🆕 v5.90.190: CRM VIEW! -->
+    <div id="crm-view" class="view admin-only">
+        <h2 style="margin-bottom:15px;">👥 Kunden-CRM</h2>
+        
+        <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:15px;margin-bottom:15px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#065f46;">📋 Kunden-Datenbank</div>
+            <div style="font-size:13px;color:#047857;line-height:1.6;">
+                • Alle Kunden aus Buchungen<br>
+                • Telefonnummern & Adressen<br>
+                • Buchungshistorie & Favoriten<br>
+                • Notizen & Kategorien
+            </div>
+        </div>
+        
+        <!-- Statistiken -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:15px;">
+            <div style="background:linear-gradient(135deg,#10b981,#059669);padding:15px;border-radius:8px;color:white;">
+                <div style="font-size:24px;font-weight:bold;" id="crm-total-customers">0</div>
+                <div style="font-size:13px;opacity:0.9;">Gesamt Kunden</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);padding:15px;border-radius:8px;color:white;">
+                <div style="font-size:24px;font-weight:bold;" id="crm-this-month">0</div>
+                <div style="font-size:13px;opacity:0.9;">Diesen Monat</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:15px;border-radius:8px;color:white;">
+                <div style="font-size:24px;font-weight:bold;" id="crm-favorites">0</div>
+                <div style="font-size:13px;opacity:0.9;">Favoriten</div>
+            </div>
+        </div>
+        
+        <!-- Suche & Filter -->
+        <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+            <input 
+                type="text" 
+                id="crm-search-input" 
+                placeholder="🔍 Name, Telefon oder Adresse suchen..."
+                oninput="filterCRMCustomers()"
+                style="flex:1;min-width:200px;padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;">
+            
+            <select id="crm-filter-category" onchange="filterCRMCustomers()" style="padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;background:white;">
+                <option value="">Alle Kategorien</option>
+                <option value="vip">⭐ VIP</option>
+                <option value="regular">✅ Stammkunde</option>
+                <option value="business">💼 Geschäftlich</option>
+                <option value="hotel">🏨 Hotel</option>
+            </select>
+            
+            <button onclick="showAddCustomerModal()" style="padding:12px 20px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                ➕ Neuer Kunde
+            </button>
+        </div>
+        
+        <!-- Kunden-Liste -->
+        <div id="crm-customers-list" style="display:grid;gap:10px;">
             <!-- Wird dynamisch gefüllt -->
         </div>
     </div>
@@ -11473,7 +11546,7 @@
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
+            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -11658,6 +11731,11 @@
             // 🆕 v5.86.14: Backup-Liste laden
             if (view === 'backup') {
                 setTimeout(() => updateBackupList(), 100);
+            }
+            
+            // 🆕 v5.90.190: CRM View laden
+            if (view === 'crm') {
+                setTimeout(() => loadCRMView(), 100);
             }
             
             // 🆕 v5.86.30: POI-Management laden
@@ -23202,6 +23280,180 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 'cancelled': '🗑️ Storniert'
             };
             return statusNames[status] || status;
+        }
+        
+        // 🆕 v5.90.190: CRM VIEW LADEN
+        function loadCRMView() {
+            console.log('📋 Lade CRM View...');
+            
+            if (!isFirebaseReady) {
+                console.warn('⚠️ Firebase nicht bereit!');
+                return;
+            }
+            
+            // Lade Kunden aus Firebase
+            db.ref('customers').once('value', (snapshot) => {
+                const customers = [];
+                snapshot.forEach((childSnapshot) => {
+                    const customer = childSnapshot.val();
+                    customer.id = childSnapshot.key;
+                    customers.push(customer);
+                });
+                
+                console.log('✅ Kunden geladen:', customers.length);
+                
+                // Update Statistiken
+                document.getElementById('crm-total-customers').textContent = customers.length;
+                
+                const thisMonth = new Date().getMonth();
+                const thisMonthCustomers = customers.filter(c => {
+                    if (c.createdAt) {
+                        const created = new Date(c.createdAt);
+                        return created.getMonth() === thisMonth;
+                    }
+                    return false;
+                });
+                document.getElementById('crm-this-month').textContent = thisMonthCustomers.length;
+                
+                const favorites = customers.filter(c => c.category === 'vip').length;
+                document.getElementById('crm-favorites').textContent = favorites;
+                
+                // Render Kunden-Liste
+                renderCRMCustomers(customers);
+            });
+        }
+        
+        function renderCRMCustomers(customers) {
+            const container = document.getElementById('crm-customers-list');
+            if (!container) return;
+            
+            if (customers.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:12px;">👥</div>
+                        <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Noch keine Kunden</div>
+                        <div style="font-size:14px;">Kunden werden automatisch bei Buchungen angelegt</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sortiere nach letztem Kontakt
+            customers.sort((a, b) => {
+                const dateA = a.lastContactAt ? new Date(a.lastContactAt) : new Date(0);
+                const dateB = b.lastContactAt ? new Date(b.lastContactAt) : new Date(0);
+                return dateB - dateA;
+            });
+            
+            container.innerHTML = customers.map(customer => {
+                const categoryIcons = {
+                    'vip': '⭐',
+                    'regular': '✅',
+                    'business': '💼',
+                    'hotel': '🏨'
+                };
+                const categoryIcon = categoryIcons[customer.category] || '👤';
+                
+                const lastContact = customer.lastContactAt 
+                    ? new Date(customer.lastContactAt).toLocaleDateString('de-DE')
+                    : 'Nie';
+                
+                return `
+                    <div style="background:white;border:2px solid #e5e7eb;border-radius:8px;padding:15px;">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:16px;color:#111827;margin-bottom:4px;">
+                                    ${categoryIcon} ${customer.name || 'Unbekannt'}
+                                </div>
+                                <div style="font-size:13px;color:#6b7280;">
+                                    📞 ${customer.phone || 'Keine Nummer'}<br>
+                                    ${customer.email ? `✉️ ${customer.email}<br>` : ''}
+                                    📅 Letzter Kontakt: ${lastContact}
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:20px;font-weight:700;color:#10b981;">
+                                    ${customer.totalRides || 0}
+                                </div>
+                                <div style="font-size:11px;color:#6b7280;">Fahrten</div>
+                            </div>
+                        </div>
+                        
+                        ${customer.favoriteRoutes && customer.favoriteRoutes.length > 0 ? `
+                            <div style="background:#f0fdf4;border-radius:6px;padding:8px;margin-bottom:10px;font-size:12px;">
+                                <div style="font-weight:600;color:#065f46;margin-bottom:4px;">⭐ Top Route:</div>
+                                <div style="color:#047857;">
+                                    ${customer.favoriteRoutes[0].pickup} → ${customer.favoriteRoutes[0].destination}
+                                    <span style="opacity:0.7;">(${customer.favoriteRoutes[0].count}x)</span>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <div style="display:flex;gap:6px;">
+                            <button onclick="viewCustomerDetails('${customer.id}')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">
+                                👁️ Details
+                            </button>
+                            <button onclick="editCustomer('${customer.id}')" style="flex:1;padding:8px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">
+                                ✏️ Bearbeiten
+                            </button>
+                            <button onclick="callCustomer('${customer.phone}')" style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">
+                                📞
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function filterCRMCustomers() {
+            const searchTerm = document.getElementById('crm-search-input').value.toLowerCase();
+            const category = document.getElementById('crm-filter-category').value;
+            
+            db.ref('customers').once('value', (snapshot) => {
+                const customers = [];
+                snapshot.forEach((childSnapshot) => {
+                    const customer = childSnapshot.val();
+                    customer.id = childSnapshot.key;
+                    
+                    // Filter nach Suchbegriff
+                    const matchesSearch = !searchTerm || 
+                        (customer.name && customer.name.toLowerCase().includes(searchTerm)) ||
+                        (customer.phone && customer.phone.includes(searchTerm)) ||
+                        (customer.email && customer.email.toLowerCase().includes(searchTerm));
+                    
+                    // Filter nach Kategorie
+                    const matchesCategory = !category || customer.category === category;
+                    
+                    if (matchesSearch && matchesCategory) {
+                        customers.push(customer);
+                    }
+                });
+                
+                renderCRMCustomers(customers);
+            });
+        }
+        
+        function callCustomer(phone) {
+            if (!phone) {
+                alert('❌ Keine Telefonnummer hinterlegt!');
+                return;
+            }
+            window.location.href = `tel:${phone}`;
+        }
+        
+        function viewCustomerDetails(customerId) {
+            alert('🚧 Kunde-Details kommen bald!');
+            // TODO: Modal mit vollständigen Details
+        }
+        
+        function editCustomer(customerId) {
+            alert('🚧 Kunde bearbeiten kommt bald!');
+            // TODO: Edit-Modal
+        }
+        
+        function showAddCustomerModal() {
+            alert('🚧 Neuer Kunde kommt bald!');
+            // TODO: Add-Modal
         }
 
         // 🆕 v5.64.40: STORNIERTE FAHRT WIEDERHERSTELLEN

@@ -108,10 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.224 - ERROR HANDLING! 🛡️✨ (Build 20260108-2205)');
-        console.log('🛡️ v5.90.224: Try-Catch + Element-Checks!');
-        console.log('⚠️ v5.90.224: Bessere Error-Meldungen!');
-        console.log('🔍 v5.90.223: Debug-Logs!');
+        console.log('🚕 Funk Taxi App v5.90.225 - NORMALES MODAL! 🎯✨ (Build 20260108-2210)');
+        console.log('🎯 v5.90.225: Pins öffnen NORMALES Schnellbuchungs-Modal!');
+        console.log('✅ v5.90.225: Adressen werden automatisch eingefüllt!');
+        console.log('📍 v5.90.225: Route wird automatisch berechnet!');
+        console.log('🎉 v5.90.225: ALLES funktioniert wie gewohnt!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -27704,35 +27705,56 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         // 🆕 v5.90.211: MODAL ÖFFNEN VON PINS (ohne Kunde)!
-        function openFloatingQuickBookingFromPins() {
-            console.log('💳 Öffne Floating Quick Booking von Pins...');
+        async function openFloatingQuickBookingFromPins() {
+            console.log('💳 Öffne Schnellbuchung von Pins...');
             
-            const modal = document.getElementById('floating-quick-booking');
-            modal.style.display = 'block';
-            
-            // KEIN Kunde vorausgefüllt - nur Adressen!
-            // Adressen werden automatisch von updateFloatingBookingFromPins() gefüllt
-            
-            // Datum auf heute
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('fqb-date').value = today;
-            
-            // Zeit auf jetzt
-            setFQBTimeNow();
-            
-            // Draggable initialisieren (nur wenn noch nicht initialisiert)
-            if (!modal.getAttribute('data-draggable')) {
-                makeModalDraggable();
-                modal.setAttribute('data-draggable', 'true');
+            // 🆕 v5.90.225: NUTZE NORMALES SCHNELLBUCHUNGS-MODAL!
+            // Speichere Pin-Daten für Auto-Fill
+            if (pickupData && destinationData) {
+                // Setze globale Variablen für Autocomplete
+                window.quickBookingPickupCoords = { lat: pickupData.lat, lon: pickupData.lon };
+                window.quickBookingDestCoords = { lat: destinationData.lat, lon: destinationData.lon };
+                
+                console.log('📍 Pin-Daten gespeichert für Schnellbuchung');
+                console.log('   Abholort:', pickupData.address);
+                console.log('   Zielort:', destinationData.address);
             }
             
-            // Update von Pins (falls schon gesetzt)
-            updateFloatingBookingFromPins();
+            // Öffne normales Schnellbuchungs-Modal (OHNE prefilled customer)
+            await openQuickBookingModal(null);
             
-            // 🆕 v5.90.222: Lade Fahrzeuge!
-            loadFloatingBookingVehicles();
+            // Nach Modal-Erstellung: Fülle Adressen ein!
+            setTimeout(() => {
+                if (pickupData) {
+                    const pickupField = document.getElementById('quick-booking-pickup');
+                    if (pickupField) {
+                        pickupField.value = pickupData.address;
+                        console.log('✅ Abholort eingefüllt:', pickupData.address);
+                    }
+                }
+                
+                if (destinationData) {
+                    const destField = document.getElementById('quick-booking-destination');
+                    if (destField) {
+                        destField.value = destinationData.address;
+                        console.log('✅ Zielort eingefüllt:', destinationData.address);
+                    }
+                }
+                
+                // Triggere Route-Berechnung wenn beide Felder gefüllt
+                if (pickupData && destinationData) {
+                    console.log('🗺️ Berechne Route automatisch...');
+                    // Auto-Berechnung triggern
+                    const destField = document.getElementById('quick-booking-destination');
+                    if (destField) {
+                        // Triggere blur event um Route-Berechnung zu starten
+                        const event = new Event('blur');
+                        destField.dispatchEvent(event);
+                    }
+                }
+            }, 100);
             
-            console.log('✅ Modal geöffnet - Pins bereits gesetzt!');
+            console.log('✅ Schnellbuchungs-Modal geöffnet mit Pin-Daten!');
         }
         
         // 🆕 v5.90.222: FAHRZEUGE LADEN FÜR FLOATING MODAL!

@@ -108,14 +108,14 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.177 - PDF MIT LIEFERDATUM! 📄📦✨ (Build 20260108-0915)');
-        console.log('📄 v5.90.177: PDF-RECHNUNG ZEIGT LIEFERDATUM & ZEITRAUM!');
-        console.log('✅ v5.90.177: Lieferdatum im PDF (DD.MM.YYYY)');
-        console.log('✅ v5.90.177: Lieferzeitraum im PDF (Von-Bis Uhr)');
-        console.log('✅ v5.90.177: Lieferdaten in Firebase gespeichert');
-        console.log('✅ v5.90.177: Automatisch im PDF-Layout integriert');
-        console.log('📦 v5.90.176: Lieferdatum-Felder im Modal');
-        console.log('🎯 v5.90.176: CRM über Rechnung-Modal');
+        console.log('🚕 Funk Taxi App v5.90.178 - FAHRTEN FÜR RECHNUNGEN! 🚕📄✨ (Build 20260108-0930)');
+        console.log('🚕 v5.90.178: ZEIGE ALLE FAHRTEN FÜR RECHNUNGS-ERSTELLUNG!');
+        console.log('✅ v5.90.178: Fahrt-Liste statt Rechnungs-Liste');
+        console.log('✅ v5.90.178: Chronologisch sortiert (neueste zuerst)');
+        console.log('✅ v5.90.178: Status-Badge: Rechnung vorhanden/fehlend');
+        console.log('✅ v5.90.178: Button "Rechnung erstellen" für jede Fahrt');
+        console.log('✅ v5.90.178: Partner können auch Rechnungen erstellen');
+        console.log('📄 v5.90.177: PDF mit Lieferdatum & Zeitraum');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -11563,9 +11563,9 @@
             // 🆕 v5.90.24: Rechnungsliste laden bei Rechnung-View!
             if (view === 'rechnung') {
                 setTimeout(() => {
-                    if (typeof loadInvoicesList === 'function') {
-                        console.log('📄 Lade Rechnungsliste in Rechnung-View...');
-                        loadInvoicesList();
+                    if (typeof loadRidesForInvoicing === 'function') {
+                        console.log('🚕 Lade Fahrten für Rechnungs-Erstellung...');
+                        loadRidesForInvoicing();
                         // Update auch die Rechnung-View Container
                         const list = document.getElementById('rechnung-single-invoices-list');
                         const count = document.getElementById('rechnung-single-invoices-count');
@@ -33697,6 +33697,159 @@
         
         let allInvoices = [];
         
+        // 🆕 v5.90.178: ZEIGE ALLE FAHRTEN FÜR RECHNUNGS-ERSTELLUNG!
+        async function loadRidesForInvoicing() {
+            console.log('🚕 Lade ALLE Fahrten aus Kalender für Rechnungs-Erstellung...');
+            
+            const container = document.getElementById('single-invoices-list');
+            const countEl = document.getElementById('single-invoices-count');
+            
+            if (!container) return;
+            
+            // Zeige Loading
+            container.innerHTML = `
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    <div style="font-size:48px;margin-bottom:10px;">🚕</div>
+                    <div style="font-weight:600;margin-bottom:6px;">Lade Fahrten...</div>
+                </div>
+            `;
+            
+            try {
+                // Lade ALLE Fahrten aus Firebase
+                const snapshot = await db.ref('rides').orderByChild('pickupTimestamp').once('value');
+                
+                const allRides = [];
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    allRides.push({
+                        id: child.key,
+                        ...ride
+                    });
+                });
+                
+                // Neueste zuerst (umgekehrt chronologisch)
+                allRides.reverse();
+                
+                console.log(`✅ ${allRides.length} Fahrten geladen`);
+                
+                // Update Counter
+                if (countEl) countEl.textContent = allRides.length;
+                
+                // Rendere Liste
+                renderRidesForInvoicing(allRides);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Fahrten:', error);
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#ef4444;">
+                        <div style="font-size:48px;margin-bottom:10px;">❌</div>
+                        <div style="font-weight:600;">Fehler beim Laden!</div>
+                        <div style="font-size:14px;margin-top:8px;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // 🆕 v5.90.178: RENDERE FAHRTEN-LISTE FÜR RECHNUNGS-ERSTELLUNG!
+        function renderRidesForInvoicing(rides) {
+            const container = document.getElementById('single-invoices-list');
+            if (!container) return;
+            
+            if (rides.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">🚕</div>
+                        <div style="font-weight:600;">Keine Fahrten gefunden</div>
+                        <div style="font-size:14px;margin-top:8px;color:#9ca3af;">Erstelle erst Fahrten im Kalender</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+            
+            rides.forEach(ride => {
+                // Datum & Zeit formatieren
+                const rideDate = ride.pickupDate || new Date(ride.pickupTimestamp).toLocaleDateString('de-DE');
+                const rideTime = ride.pickupTime || new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+                
+                // Status-Badge
+                let statusBadge = '';
+                let actionButton = '';
+                
+                if (ride.invoiceNumber) {
+                    // Hat schon Rechnung
+                    statusBadge = `
+                        <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#10b981;color:white;border-radius:20px;font-size:12px;font-weight:600;">
+                            ✅ Rechnung: ${ride.invoiceNumber}
+                        </div>
+                    `;
+                    actionButton = `
+                        <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')" 
+                                style="padding:8px 14px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
+                            📥 PDF laden
+                        </button>
+                    `;
+                } else {
+                    // Noch keine Rechnung
+                    statusBadge = `
+                        <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#f59e0b;color:white;border-radius:20px;font-size:12px;font-weight:600;">
+                            ⏳ Keine Rechnung
+                        </div>
+                    `;
+                    actionButton = `
+                        <button onclick="openInvoiceModal('${ride.id}')" 
+                                style="padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
+                            📄 Rechnung erstellen
+                        </button>
+                    `;
+                }
+                
+                // Preis
+                const price = ride.price ? `${ride.price.toFixed(2)}€` : '-';
+                
+                html += `
+                    <div style="background:white;border:2px solid #e5e7eb;border-radius:10px;padding:14px;transition:all 0.2s;" 
+                         onmouseover="this.style.borderColor='#8b5cf6';this.style.boxShadow='0 4px 12px rgba(139,92,246,0.15)'" 
+                         onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none'">
+                        
+                        <!-- Header: Datum, Zeit, Status -->
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-weight:700;font-size:15px;color:#1f2937;">📅 ${rideDate}</span>
+                                <span style="font-weight:600;font-size:15px;color:#6b7280;">🕐 ${rideTime}</span>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        
+                        <!-- Kunde -->
+                        <div style="margin-bottom:8px;">
+                            <span style="font-weight:700;font-size:16px;color:#8b5cf6;">👤 ${ride.customerName || 'Unbekannt'}</span>
+                            ${ride.guestName ? `<span style="font-size:13px;color:#6b7280;margin-left:8px;">(${ride.guestName})</span>` : ''}
+                        </div>
+                        
+                        <!-- Route -->
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#374151;font-size:14px;">
+                            <span style="font-weight:600;">📍 ${ride.pickup || 'Unbekannt'}</span>
+                            <span style="color:#9ca3af;">→</span>
+                            <span style="font-weight:600;">🎯 ${ride.destination || 'Unbekannt'}</span>
+                        </div>
+                        
+                        <!-- Preis & Action -->
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
+                            <div style="font-weight:700;font-size:18px;color:#10b981;">💰 ${price}</div>
+                            ${actionButton}
+                        </div>
+                        
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // ALTE FUNKTION (für Rechnungs-Liste in anderen Views)
         async function loadInvoicesList() {
             console.log('📄 Lade Einzel-Rechnungen...');
             

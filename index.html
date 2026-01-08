@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.190 - CRM TAB! 👥✨ (Build 20260108-1445)');
+        console.log('🚕 Funk Taxi App v5.90.191 - FUZZY SEARCH! 🎯✨ (Build 20260108-1500)');
+        console.log('🎯 v5.90.191: FUZZY SEARCH mit Levenshtein Distance!');
+        console.log('✅ v5.90.191: Findet auch bei Tippfehlern!');
+        console.log('📊 v5.90.191: Ähnlichkeit in % angezeigt!');
+        console.log('⚡ v5.90.191: "Ahlbec" → "Ahlbeck" (90% Match)!');
         console.log('👥 v5.90.190: CRM TAB in der Leiste!');
-        console.log('✅ v5.90.190: Eigener CRM View mit Statistiken!');
-        console.log('📊 v5.90.190: Kunden-Übersicht & Favoriten!');
-        console.log('✅ v5.90.189: DOPPELTE ZEILEN ENTFERNT!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -18792,13 +18793,10 @@
                 dropdown.innerHTML = '<div class="autocomplete-item" style="color:#999;text-align:center;padding:15px;">🔍 Suche...</div>';
                 console.log('✅ Dropdown geöffnet mit "Suche..."');
                 
-                // 🆕 v5.64.48: ERST EIGENE POI-LISTE DURCHSUCHEN!
+                // 🆕 v5.90.191: FUZZY SEARCH für Fahrgast auch!
                 const lowerQuery = query.toLowerCase();
-                const matchingPOIs = frequentDestinations.filter(dest => 
-                    dest.name.toLowerCase().includes(lowerQuery) || 
-                    dest.address.toLowerCase().includes(lowerQuery)
-                );
-                console.log('🔍 POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
+                const matchingPOIs = fuzzyMatch(query, frequentDestinations, 60); // Min 60% Ähnlichkeit
+                console.log('🔍 POI-Fuzzy-Matching:', matchingPOIs.length, 'Treffer für:', query);
                 
                 // 🆕 v5.88.11: Bekannte Orte (Swinemünde, Misdroy, Stettin etc.) prüfen
                 const matchingKnownPlaces = [];
@@ -18880,16 +18878,24 @@
                 if (matchingPOIs.length > 0) {
                     poiHTML = `
                         <div style="padding:8px;background:#fef3c7;border-bottom:2px solid #f59e0b;font-weight:600;font-size:12px;color:#92400e;">
-                            🏥 BEKANNTE ORTE
+                            🎯 VORSCHLÄGE (Fuzzy-Search)
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        // 🔧 v5.90.91: SAUBERE Lösung - address oder name
+                        // 🔧 v5.90.191: Zeige Ähnlichkeit!
                         const addressString = dest.address || dest.name;
                         const displayLabel = dest.label || dest.address || '';
+                        const matchIcon = dest.isSubstring ? '✅' : '🎯';
+                        const matchText = dest.isSubstring 
+                            ? 'Exakt' 
+                            : `${dest.similarity}%`;
+                        
                         return `
                             <div class="autocomplete-item" onclick="selectAddress('${inputId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="background:#fffbeb;">
-                                <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
+                                <div style="font-weight:600;color:#f59e0b;">
+                                    ${matchIcon} ${dest.name}
+                                    <span style="font-size:10px;font-weight:normal;color:#92400e;margin-left:6px;">${matchText}</span>
+                                </div>
                                 <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
                             </div>
                         `;
@@ -23266,6 +23272,90 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             console.log('📱 Öffne WhatsApp...');
             window.open(whatsappUrl, '_blank');
+        }
+        
+        // 🆕 v5.90.191: FUZZY SEARCH - LEVENSHTEIN DISTANCE!
+        function levenshteinDistance(str1, str2) {
+            // Konvertiere zu Lowercase für case-insensitive Vergleich
+            const s1 = str1.toLowerCase();
+            const s2 = str2.toLowerCase();
+            
+            const matrix = [];
+            
+            // Initialisiere erste Spalte
+            for (let i = 0; i <= s2.length; i++) {
+                matrix[i] = [i];
+            }
+            
+            // Initialisiere erste Zeile
+            for (let j = 0; j <= s1.length; j++) {
+                matrix[0][j] = j;
+            }
+            
+            // Fülle Matrix
+            for (let i = 1; i <= s2.length; i++) {
+                for (let j = 1; j <= s1.length; j++) {
+                    if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1, // Ersetzung
+                            matrix[i][j - 1] + 1,     // Einfügung
+                            matrix[i - 1][j] + 1      // Löschung
+                        );
+                    }
+                }
+            }
+            
+            return matrix[s2.length][s1.length];
+        }
+        
+        function calculateSimilarity(str1, str2) {
+            const distance = levenshteinDistance(str1, str2);
+            const maxLength = Math.max(str1.length, str2.length);
+            if (maxLength === 0) return 100;
+            return Math.round(((maxLength - distance) / maxLength) * 100);
+        }
+        
+        function fuzzyMatch(query, targets, minSimilarity = 60) {
+            // targets = Array von {name, address, ...}
+            // Gibt Array zurück sortiert nach Ähnlichkeit
+            
+            const results = [];
+            
+            for (const target of targets) {
+                // Prüfe Name
+                const nameSimilarity = calculateSimilarity(query, target.name || '');
+                
+                // Prüfe Adresse
+                const addressSimilarity = target.address 
+                    ? calculateSimilarity(query, target.address)
+                    : 0;
+                
+                // Beste Ähnlichkeit nehmen
+                const bestSimilarity = Math.max(nameSimilarity, addressSimilarity);
+                
+                // Auch Teilstring-Match prüfen (wichtig für "Goethestr" → "Goethestraße")
+                const nameContains = (target.name || '').toLowerCase().includes(query.toLowerCase());
+                const addressContains = (target.address || '').toLowerCase().includes(query.toLowerCase());
+                
+                if (bestSimilarity >= minSimilarity || nameContains || addressContains) {
+                    results.push({
+                        ...target,
+                        similarity: bestSimilarity,
+                        isSubstring: nameContains || addressContains
+                    });
+                }
+            }
+            
+            // Sortiere: Substring-Matches zuerst, dann nach Ähnlichkeit
+            results.sort((a, b) => {
+                if (a.isSubstring && !b.isSubstring) return -1;
+                if (!a.isSubstring && b.isSubstring) return 1;
+                return b.similarity - a.similarity;
+            });
+            
+            return results;
         }
         
         // Helper: Status Namen
@@ -30121,13 +30211,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
             
             try {
-                // 🆕 v5.64.48: ERST EIGENE POI-LISTE DURCHSUCHEN!
+                // 🆕 v5.90.191: FUZZY SEARCH statt einfachem includes!
                 const lowerQuery = query.toLowerCase();
-                const matchingPOIs = frequentDestinations.filter(dest => 
-                    dest.name.toLowerCase().includes(lowerQuery) || 
-                    dest.address.toLowerCase().includes(lowerQuery)
-                );
-                console.log('🔍 Admin POI-Matching:', matchingPOIs.length, 'Treffer für:', query);
+                
+                // Nutze Fuzzy-Matching für POIs
+                const matchingPOIs = fuzzyMatch(query, frequentDestinations, 60); // Min 60% Ähnlichkeit
+                
+                console.log('🔍 Admin POI-Fuzzy-Matching:', matchingPOIs.length, 'Treffer für:', query);
+                if (matchingPOIs.length > 0) {
+                    console.log('   Top 3 Matches:', matchingPOIs.slice(0, 3).map(m => 
+                        `${m.name} (${m.similarity}% / ${m.isSubstring ? 'Substring' : 'Fuzzy'})`
+                    ));
+                }
                 
                 // 🆕 v5.88.24: PARALLELE SUCHE - deutsch UND polnisch gleichzeitig!
                 const polishQuery = typeof convertGermanToPolish === 'function' ? convertGermanToPolish(query) : null;
@@ -30182,13 +30277,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 if (matchingPOIs.length > 0) {
                     poiHTML = `
                         <div style="padding:8px;background:#fef3c7;border-bottom:2px solid #f59e0b;font-weight:600;font-size:12px;color:#92400e;">
-                            🏥 BEKANNTE ORTE
+                            🎯 VORSCHLÄGE (Fuzzy-Search)
                         </div>
                     `;
                     poiHTML += matchingPOIs.map(dest => {
-                        // 🔧 v5.90.91: SAUBERE Lösung - address oder name
+                        // 🔧 v5.90.191: Zeige Ähnlichkeit!
                         const addressString = dest.address || dest.name;
                         const displayLabel = dest.label || dest.address || '';
+                        const matchIcon = dest.isSubstring ? '✅' : '🎯';
+                        const matchText = dest.isSubstring 
+                            ? 'Exakte Übereinstimmung' 
+                            : `${dest.similarity}% Ähnlichkeit`;
+                        
                         return `
                             <div class="autocomplete-item" onclick="selectQuickBookingAddress('${fieldId}', '${addressString.replace(/'/g, "\\'")}', ${dest.lat}, ${dest.lon})" style="
                                 padding: 12px;
@@ -30196,7 +30296,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 border-bottom: 1px solid #e5e7eb;
                                 background:#fffbeb;
                             ">
-                                <div style="font-weight:600;color:#f59e0b;">🏥 ${dest.name}</div>
+                                <div style="font-weight:600;color:#f59e0b;">
+                                    ${matchIcon} ${dest.name}
+                                    <span style="font-size:11px;font-weight:normal;color:#92400e;margin-left:8px;">${matchText}</span>
+                                </div>
                                 <div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">${displayLabel}</div>
                             </div>
                         `;

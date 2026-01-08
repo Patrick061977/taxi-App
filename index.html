@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.217 - KALENDER FIX! 📅✅ (Build 20260108-2100)');
-        console.log('📅 v5.90.217: Status = new (statt pending)!');
-        console.log('⏰ v5.90.217: pickupTimestamp hinzugefügt!');
-        console.log('✅ v5.90.217: Termine erscheinen im Kalender!');
-        console.log('📍 v5.90.216: Address Support!');
+        console.log('🚕 Funk Taxi App v5.90.219 - STATUS FIX! ✅🔧 (Build 20260108-2125)');
+        console.log('✅ v5.90.219: Rides OHNE status werden angezeigt!');
+        console.log('🔧 v5.90.219: Leerer status = neue Buchung!');
+        console.log('🚫 v5.90.219: Cancelled/Storniert ausgeschlossen!');
+        console.log('🔄 v5.90.218: Auto-Reload!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -2233,6 +2233,9 @@
             </button>
             <button id="fix-tracking-btn" onclick="fixMissingTrackingLinks()" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #8b5cf6; background: #8b5cf6; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);">
                 🔗 Links Nachholen
+            </button>
+            <button onclick="renderCalendar()" style="flex: 1; min-width: 140px; padding: 12px; border: 2px solid #10b981; background: #10b981; color: white; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+                🔄 Neu laden
             </button>
         </div>
         
@@ -28466,6 +28469,15 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     alert(`✅ Buchung erstellt!\n\n${floatingBookingData.customerName}\n${floatingBookingData.pickup} → ${floatingBookingData.destination}\n\n💰 ${parseFloat(routeData.price).toFixed(2)} €`);
                     
+                    // 🆕 v5.90.218: KALENDER AUTO-RELOAD!
+                    if (typeof renderCalendar === 'function') {
+                        console.log('🔄 Lade Kalender neu...');
+                        setTimeout(() => {
+                            renderCalendar();
+                            console.log('✅ Kalender aktualisiert!');
+                        }, 500);
+                    }
+                    
                     // Modal schließen
                     closeFloatingQuickBooking();
                     
@@ -43097,9 +43109,14 @@ Stack: ${err.stack}
                         // 🆕 v5.49.1: FILTERE STORNIERTE FAHRTEN RAUS!
                         // Nur echte Fahrten zählen für Statistik!
                         // 🆕 v5.90.151: SCHEDULED HINZUGEFÜGT (für AI-Buchungen!)
-                        const validStatuses = ['completed', 'new', 'assigned', 'accepted', 'scheduled', 'vorbestellt', 'in_progress'];
+                        // 🆕 v5.90.219: RIDES OHNE STATUS = 'new' (Fix für fehlenden Status!)
+                        const validStatuses = ['completed', 'new', 'assigned', 'accepted', 'scheduled', 'vorbestellt', 'in_progress', '']; // '' = kein Status = neue Buchung
                         allRides = firebaseRides.filter(ride => {
                             const status = (ride.status || '').toLowerCase();
+                            // Cancelled/Storniert ausschließen
+                            if (status.includes('cancel') || status.includes('storn')) {
+                                return false;
+                            }
                             return validStatuses.includes(status);
                         });
                         

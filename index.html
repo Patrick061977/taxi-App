@@ -108,13 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.209 - LIVE KUNDEN-SUCHE! 🔍✨ (Build 20260108-1945)');
-        console.log('🔍 v5.90.209: Live-Suche mit Dropdown!');
-        console.log('📋 v5.90.209: Alle Kunden durchsuchbar!');
-        console.log('✨ v5.90.209: Suche nach Name ODER Telefon!');
-        console.log('📍 v5.90.209: Abholort automatisch aus CRM!');
-        console.log('⚡ v5.90.209: 300ms Timeout für Performance!');
-        console.log('🔍 v5.90.208: Kunden-Suche im Modal!');
+        console.log('🚕 Funk Taxi App v5.90.210 - TAUSCH + ZEIT + LÖSCHBAR! 🔄⏰❌ (Build 20260108-2000)');
+        console.log('🔄 v5.90.210: Adressen tauschbar!');
+        console.log('⏰ v5.90.210: WhatsApp-Style Zeit (HH:MM)!');
+        console.log('❌ v5.90.210: Adressen löschbar!');
+        console.log('🔍 v5.90.209: Live Kunden-Suche!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -27626,7 +27624,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             document.getElementById('fqb-date').value = today;
             
             // Zeit auf jetzt
-            setTimeNow();
+            setFQBTimeNow();
             
             // Draggable initialisieren
             makeModalDraggable();
@@ -27686,10 +27684,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (pickupData) {
                 document.getElementById('fqb-pickup-display').innerHTML = `
                     <strong>✅ ${pickupData.address}</strong>
-                    <button onclick="clearPickupAddress()" style="float:right;background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">❌</button>
                 `;
                 document.getElementById('fqb-pickup-display').style.background = '#f0fdf4';
                 document.getElementById('fqb-pickup-display').style.borderColor = '#10b981';
+                document.getElementById('fqb-pickup-display').style.color = '#065f46';
+                document.getElementById('fqb-pickup-clear').style.display = 'block'; // ❌ Button zeigen!
                 
                 floatingBookingData.pickup = pickupData.address;
                 floatingBookingData.pickupCoords = { lat: pickupData.lat, lon: pickupData.lon };
@@ -27699,10 +27698,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (destinationData) {
                 document.getElementById('fqb-destination-display').innerHTML = `
                     <strong>✅ ${destinationData.address}</strong>
-                    <button onclick="clearDestinationAddress()" style="float:right;background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">❌</button>
                 `;
                 document.getElementById('fqb-destination-display').style.background = '#eff6ff';
                 document.getElementById('fqb-destination-display').style.borderColor = '#3b82f6';
+                document.getElementById('fqb-destination-display').style.color = '#1e40af';
+                document.getElementById('fqb-destination-clear').style.display = 'block'; // ❌ Button zeigen!
                 
                 floatingBookingData.destination = destinationData.address;
                 floatingBookingData.destCoords = { lat: destinationData.lat, lon: destinationData.lon };
@@ -27882,11 +27882,92 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             document.getElementById('fqb-pickup-display').innerHTML = 'Warte auf Karte...';
             document.getElementById('fqb-pickup-display').style.background = '#f9fafb';
             document.getElementById('fqb-pickup-display').style.borderColor = '#e5e7eb';
+            document.getElementById('fqb-pickup-display').style.color = '#6b7280';
+            document.getElementById('fqb-pickup-clear').style.display = 'none';
             
             floatingBookingData.pickup = null;
             floatingBookingData.pickupCoords = null;
             
             console.log('❌ Abholort gelöscht');
+        }
+        
+        // 🆕 v5.90.210: ZIELORT LÖSCHEN!
+        function clearDestinationAddress() {
+            document.getElementById('fqb-destination-display').innerHTML = 'Warte auf Karte...';
+            document.getElementById('fqb-destination-display').style.background = '#f9fafb';
+            document.getElementById('fqb-destination-display').style.borderColor = '#e5e7eb';
+            document.getElementById('fqb-destination-display').style.color = '#6b7280';
+            document.getElementById('fqb-destination-clear').style.display = 'none';
+            
+            floatingBookingData.destination = null;
+            floatingBookingData.destCoords = null;
+            floatingBookingData.price = null;
+            floatingBookingData.distance = null;
+            floatingBookingData.duration = null;
+            
+            // Preis zurücksetzen
+            document.getElementById('fqb-price-display').innerHTML = '-,-- €';
+            document.getElementById('fqb-route-info').style.display = 'none';
+            
+            console.log('❌ Zielort gelöscht');
+        }
+        
+        // 🆕 v5.90.210: ADRESSEN TAUSCHEN!
+        function swapAddresses() {
+            console.log('🔄 Tausche Adressen...');
+            
+            if (!floatingBookingData.pickup || !floatingBookingData.destination) {
+                alert('⚠️ Beide Adressen müssen gesetzt sein!');
+                return;
+            }
+            
+            // Speichere alte Werte
+            const tempPickup = floatingBookingData.pickup;
+            const tempPickupCoords = floatingBookingData.pickupCoords;
+            
+            // Tausche
+            floatingBookingData.pickup = floatingBookingData.destination;
+            floatingBookingData.pickupCoords = floatingBookingData.destCoords;
+            floatingBookingData.destination = tempPickup;
+            floatingBookingData.destCoords = tempPickupCoords;
+            
+            // Update UI
+            document.getElementById('fqb-pickup-display').innerHTML = `
+                <strong>✅ ${floatingBookingData.pickup}</strong>
+            `;
+            document.getElementById('fqb-pickup-display').style.background = '#f0fdf4';
+            document.getElementById('fqb-pickup-display').style.borderColor = '#10b981';
+            document.getElementById('fqb-pickup-display').style.color = '#065f46';
+            document.getElementById('fqb-pickup-clear').style.display = 'block';
+            
+            document.getElementById('fqb-destination-display').innerHTML = `
+                <strong>✅ ${floatingBookingData.destination}</strong>
+            `;
+            document.getElementById('fqb-destination-display').style.background = '#eff6ff';
+            document.getElementById('fqb-destination-display').style.borderColor = '#3b82f6';
+            document.getElementById('fqb-destination-display').style.color = '#1e40af';
+            document.getElementById('fqb-destination-clear').style.display = 'block';
+            
+            console.log('✅ Adressen getauscht!');
+            alert('✅ Adressen getauscht!');
+        }
+        
+        // 🆕 v5.90.210: ZEIT-FUNKTIONEN FÜR MODAL!
+        function setFQBTimeNow() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            document.getElementById('fqb-time-hours').value = String(hours).padStart(2, '0');
+            document.getElementById('fqb-time-minutes').value = String(minutes).padStart(2, '0');
+        }
+        
+        function setFQBTimePlus30() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 30);
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            document.getElementById('fqb-time-hours').value = String(hours).padStart(2, '0');
+            document.getElementById('fqb-time-minutes').value = String(minutes).padStart(2, '0');
         }
         
         // Neuer Kunde schnell anlegen
@@ -28124,16 +28205,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
             
             const date = document.getElementById('fqb-date').value;
-            const time = document.getElementById('fqb-time').value;
+            const hours = document.getElementById('fqb-time-hours').value;
+            const minutes = document.getElementById('fqb-time-minutes').value;
             const notes = document.getElementById('fqb-notes').value;
             
-            if (!date || !time) {
+            if (!date || !hours || !minutes) {
                 alert('❌ Bitte Datum und Zeit eingeben!');
                 return;
             }
             
             // Timestamp erstellen
-            const scheduledTime = new Date(`${date}T${time}`).getTime();
+            const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            const scheduledTime = new Date(`${date}T${timeString}`).getTime();
             
             // Buchung erstellen
             const rideId = 'ride_' + Date.now();
@@ -55273,17 +55356,32 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         <!-- Abholort -->
         <div style="margin-bottom:15px;">
-            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">📍 Abholort</label>
-            <div id="fqb-pickup-display" style="padding:10px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;font-size:13px;color:#065f46;">
-                Warte auf Karte...
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <label style="font-weight:600;color:#374151;">📍 Abholort</label>
+                <button onclick="swapAddresses()" style="background:#f59e0b;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;">
+                    🔄 Tauschen
+                </button>
+            </div>
+            <div style="position:relative;">
+                <div id="fqb-pickup-display" style="padding:10px;background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;color:#6b7280;">
+                    Warte auf Karte...
+                </div>
+                <button id="fqb-pickup-clear" onclick="clearPickupAddress()" style="display:none;position:absolute;top:8px;right:8px;background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">
+                    ❌
+                </button>
             </div>
         </div>
         
         <!-- Zielort -->
         <div style="margin-bottom:15px;">
             <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">🎯 Zielort</label>
-            <div id="fqb-destination-display" style="padding:10px;background:#eff6ff;border:2px solid #3b82f6;border-radius:8px;font-size:13px;color:#1e40af;">
-                Warte auf Karte...
+            <div style="position:relative;">
+                <div id="fqb-destination-display" style="padding:10px;background:#f9fafb;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;color:#6b7280;">
+                    Warte auf Karte...
+                </div>
+                <button id="fqb-destination-clear" onclick="clearDestinationAddress()" style="display:none;position:absolute;top:8px;right:8px;background:#ef4444;color:white;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;">
+                    ❌
+                </button>
             </div>
         </div>
         
@@ -55315,14 +55413,19 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         <div style="margin-bottom:15px;">
             <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">🕐 Uhrzeit</label>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-                <button onclick="setTimeNow()" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                <button onclick="setFQBTimeNow()" style="flex:1;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
                     JETZT
                 </button>
-                <button onclick="setTimePlus30()" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                <button onclick="setFQBTimePlus30()" style="flex:1;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
                     +30 MIN
                 </button>
             </div>
-            <input type="time" id="fqb-time" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
+            <!-- 🆕 v5.90.210: WHATSAPP-STYLE ZEIT! -->
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="number" id="fqb-time-hours" min="0" max="23" placeholder="HH" class="whatsapp-time-input" style="width:60px;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;text-align:center;font-weight:600;">
+                <span style="font-size:20px;font-weight:700;color:#6b7280;">:</span>
+                <input type="number" id="fqb-time-minutes" min="0" max="59" placeholder="MM" class="whatsapp-time-input" style="width:60px;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;text-align:center;font-weight:600;">
+            </div>
         </div>
         
         <!-- Notiz -->

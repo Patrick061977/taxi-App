@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.237 - AUTO-CLEAN TELEFON! 📱✨ (Build 20260109-0745)');
+        console.log('🚕 Funk Taxi App v5.90.238 - SYNTAX FIX! 🔧✨ (Build 20260109-0750)');
+        console.log('🔧 v5.90.238: Syntax-Fehler behoben!');
+        console.log('✅ v5.90.238: addCountryCode() korrekt geschlossen!');
         console.log('📱 v5.90.237: Auto-Clean Telefonnummern!');
         console.log('✨ v5.90.237: Führende 0 wird automatisch entfernt!');
-        console.log('🔧 v5.90.237: 01715377241 → 1715377241 (mit +49 Dropdown)!');
         console.log('📍 v5.90.236: Zielort auf Karte wählen!');
-        console.log('🗺️ v5.90.236: Modal mit Karten-Picker!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱 Version 5.90.237 - AUTO-CLEAN TELEFON! ✨ (Build 20260109-0745)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.238 - SYNTAX FIX! ✨ (Build 20260109-0750)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31189,6 +31189,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 input.value = phone;
                 console.log('✅ + hinzugefügt:', phone);
             }
+            // Beginnt mit Ziffer (aber nicht 0 oder 49)? Dann füge +49 hinzu
+            else if (/^\d/.test(cleanPhone)) {
+                phone = '+49' + cleanPhone;
+                input.value = phone;
+                console.log('✅ +49 vorangestellt:', phone);
+            }
+        }
         
         // 🆕 v5.90.237: AUTO-CLEAN PHONE INPUT (während Eingabe!)
         function autoCleanPhoneInput(input) {
@@ -31206,13 +31213,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     input.value = val.substring(1);
                     console.log('✅ Auto-Clean: Führende 0 entfernt');
                 }
-            }
-        }
-            // Beginnt mit Ziffer (aber nicht 0 oder 49)? Dann füge +49 hinzu
-            else if (/^\d/.test(cleanPhone)) {
-                phone = '+49' + cleanPhone;
-                input.value = phone;
-                console.log('✅ +49 vorangestellt:', phone);
             }
         }
         

@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.238 - SYNTAX FIX! 🔧✨ (Build 20260109-0750)');
+        console.log('🚕 Funk Taxi App v5.90.239 - TELEFON-BUTTON NEU! 📞✨ (Build 20260109-1005)');
+        console.log('📞 v5.90.239: Telefon-Button links unten!');
+        console.log('✨ v5.90.239: Größer (70px) für besseren Griff!');
         console.log('🔧 v5.90.238: Syntax-Fehler behoben!');
-        console.log('✅ v5.90.238: addCountryCode() korrekt geschlossen!');
         console.log('📱 v5.90.237: Auto-Clean Telefonnummern!');
-        console.log('✨ v5.90.237: Führende 0 wird automatisch entfernt!');
         console.log('📍 v5.90.236: Zielort auf Karte wählen!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.238 - SYNTAX FIX! ✨ (Build 20260109-0750)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.239 - TELEFON-BUTTON NEU! ✨ (Build 20260109-1005)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -56562,8 +56562,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
 </div>
 
 <!-- 🆕 v5.90.227: ANRUF-FAVORITEN FLOATING BUTTON -->
-<div id="call-favorites-fab" style="position:fixed;bottom:80px;right:20px;z-index:9998;display:none;">
-    <button onclick="toggleCallFavorites()" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;box-shadow:0 4px 12px rgba(16,185,129,0.4);cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+<div id="call-favorites-fab" style="position:fixed;bottom:20px;left:20px;z-index:9998;display:none;">
+    <button onclick="toggleCallFavorites()" style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;box-shadow:0 6px 20px rgba(16,185,129,0.5);cursor:pointer;font-size:32px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 8px 24px rgba(16,185,129,0.6)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 6px 20px rgba(16,185,129,0.5)'">
         📞
     </button>
 </div>

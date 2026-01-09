@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.225 - NORMALES MODAL! 🎯✨ (Build 20260108-2210)');
-        console.log('🎯 v5.90.225: Pins öffnen NORMALES Schnellbuchungs-Modal!');
-        console.log('✅ v5.90.225: Adressen werden automatisch eingefüllt!');
-        console.log('📍 v5.90.225: Route wird automatisch berechnet!');
-        console.log('🎉 v5.90.225: ALLES funktioniert wie gewohnt!');
+        console.log('🚕 Funk Taxi App v5.90.229 - ADMIN ONLY! 👨‍💼📞 (Build 20260109-0650)');
+        console.log('👨‍💼 v5.90.229: Anruf-Favoriten NUR für Admin!');
+        console.log('🎯 v5.90.228: Intelligente Pin-Logik!');
+        console.log('📍 v5.90.228: Kunde → Abholort → Klick → Zielort!');
+        console.log('🔄 v5.90.227: Auto-Retry + Caching!');
+        console.log('📞 v5.90.227: Anruf-Favoriten!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -10865,6 +10866,180 @@
         }
 
         // INIT
+        // 🆕 v5.90.227: ANRUF-FAVORITEN SYSTEM
+        let callFavorites = [];
+        
+        // Lade Favoriten aus localStorage
+        function loadCallFavorites() {
+            try {
+                const saved = localStorage.getItem('call_favorites');
+                if (saved) {
+                    callFavorites = JSON.parse(saved);
+                    console.log('📞 Favoriten geladen:', callFavorites.length);
+                } else {
+                    // Standard-Favoriten wenn noch keine gespeichert
+                    callFavorites = [
+                        { name: 'Taxi-Zentrale', number: '+49170123456', icon: '🚕' },
+                        { name: 'Notruf', number: '112', icon: '🚑' },
+                        { name: 'Polizei', number: '110', icon: '👮' }
+                    ];
+                    saveCallFavorites();
+                }
+                renderCallFavorites();
+            } catch (e) {
+                console.error('❌ Fehler beim Laden der Favoriten:', e);
+            }
+        }
+        
+        // Speichere Favoriten
+        function saveCallFavorites() {
+            try {
+                localStorage.setItem('call_favorites', JSON.stringify(callFavorites));
+                console.log('💾 Favoriten gespeichert');
+            } catch (e) {
+                console.error('❌ Fehler beim Speichern:', e);
+            }
+        }
+        
+        // Zeige/Verstecke Modal
+        function toggleCallFavorites() {
+            const modal = document.getElementById('call-favorites-modal');
+            const backdrop = document.getElementById('call-favorites-backdrop');
+            
+            if (modal.style.display === 'none' || modal.style.display === '') {
+                modal.style.display = 'block';
+                backdrop.style.display = 'block';
+                renderCallFavorites();
+            } else {
+                modal.style.display = 'none';
+                backdrop.style.display = 'none';
+            }
+        }
+        
+        // Rendere Favoriten-Liste
+        function renderCallFavorites() {
+            const list = document.getElementById('call-favorites-list');
+            if (!list) return;
+            
+            if (callFavorites.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:10px;">📞</div>
+                        <div style="font-size:14px;">Noch keine Favoriten</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            list.innerHTML = callFavorites.map((fav, index) => `
+                <div style="display:flex;align-items:center;gap:12px;padding:15px;background:#f9fafb;border-radius:12px;margin-bottom:10px;border:2px solid #e5e7eb;">
+                    <div style="font-size:32px;min-width:40px;text-align:center;">${fav.icon || '📞'}</div>
+                    <div style="flex:1;">
+                        <div style="font-weight:600;color:#111827;font-size:15px;margin-bottom:2px;">${fav.name}</div>
+                        <div style="color:#6b7280;font-size:13px;font-family:monospace;">${fav.number}</div>
+                    </div>
+                    <button onclick="callNumber('${fav.number}', '${fav.name}')" style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;min-width:80px;">
+                        📞 Anrufen
+                    </button>
+                    <button onclick="editCallFavorite(${index})" style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;min-width:36px;">
+                        ✏️
+                    </button>
+                    <button onclick="deleteCallFavorite(${index})" style="padding:8px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;min-width:36px;">
+                        🗑️
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        // Rufe Nummer an
+        function callNumber(number, name) {
+            console.log('📞 Anrufen:', name, number);
+            
+            // Öffne Tel-Link
+            window.location.href = `tel:${number}`;
+            
+            // Optional: Speichere in Call-History
+            if (typeof saveToCallHistory === 'function') {
+                saveToCallHistory(number, name);
+            }
+            
+            // Schließe Modal
+            toggleCallFavorites();
+        }
+        
+        // Favorit hinzufügen
+        function addCallFavorite() {
+            const name = prompt('Name:', '');
+            if (!name) return;
+            
+            const number = prompt('Telefonnummer:', '+49');
+            if (!number) return;
+            
+            const icon = prompt('Emoji (optional):', '📞');
+            
+            callFavorites.push({
+                name: name.trim(),
+                number: number.trim(),
+                icon: icon.trim() || '📞'
+            });
+            
+            saveCallFavorites();
+            renderCallFavorites();
+            
+            console.log('✅ Favorit hinzugefügt:', name);
+        }
+        
+        // Favorit bearbeiten
+        function editCallFavorite(index) {
+            const fav = callFavorites[index];
+            
+            const name = prompt('Name:', fav.name);
+            if (name === null) return;
+            
+            const number = prompt('Telefonnummer:', fav.number);
+            if (number === null) return;
+            
+            const icon = prompt('Emoji:', fav.icon);
+            if (icon === null) return;
+            
+            callFavorites[index] = {
+                name: name.trim() || fav.name,
+                number: number.trim() || fav.number,
+                icon: icon.trim() || fav.icon
+            };
+            
+            saveCallFavorites();
+            renderCallFavorites();
+            
+            console.log('✅ Favorit bearbeitet:', name);
+        }
+        
+        // Favorit löschen
+        function deleteCallFavorite(index) {
+            const fav = callFavorites[index];
+            if (!confirm(`"${fav.name}" wirklich löschen?`)) return;
+            
+            callFavorites.splice(index, 1);
+            saveCallFavorites();
+            renderCallFavorites();
+            
+            console.log('🗑️ Favorit gelöscht:', fav.name);
+        }
+        
+        // Zeige FAB nur für admins
+        function updateCallFavoritesFAB() {
+            const fab = document.getElementById('call-favorites-fab');
+            if (!fab) return;
+            
+            // 🆕 v5.90.229: NUR FÜR ADMIN!
+            if (currentUser && currentUser.role === 'admin') {
+                fab.style.display = 'block';
+                console.log('📞 Anruf-Favoriten aktiviert (Admin)');
+            } else {
+                fab.style.display = 'none';
+            }
+        }
+        
         function initApp(hasFirebase) {
             clearTimeout(firebaseLoadTimeout);
             console.log('📱 App initialisiert');
@@ -11258,8 +11433,10 @@
                     showScheduleError('Standort nicht verfügbar. Bitte aktiviere GPS.');
                 } else if (error.code === 3) {
                     showScheduleError('GPS-Timeout (30 Sek überschritten). Bitte gehe nach draußen oder ans Fenster und versuche es erneut. Bei schlechtem GPS-Empfang kann es bis zu 30 Sekunden dauern.');
+                } else if (error.message && error.message.includes('Deutsche Bahn API')) {
+                    showScheduleError('⚠️ Die Deutsche Bahn API ist momentan nicht erreichbar.\n\nDies ist ein externes Problem der DB.\n\nBitte versuche es in ein paar Minuten erneut oder nutze direkt: https://reiseauskunft.bahn.de');
                 } else {
-                    showScheduleError('Fehler beim Laden der Fahrplandaten: ' + error.message);
+                    showScheduleError('Fehler beim Laden der Fahrplandaten: ' + (error.message || 'Unbekannter Fehler'));
                 }
             }
         }
@@ -11301,40 +11478,103 @@
         // Holt nahegelegene Haltestellen
         async function fetchNearbyStops(lat, lng) {
             try {
+                // 🆕 v5.90.227: CACHING! Prüfe Cache zuerst
+                const cacheKey = `transit_stops_${lat.toFixed(3)}_${lng.toFixed(3)}`;
+                const cached = localStorage.getItem(cacheKey);
+                
+                if (cached) {
+                    try {
+                        const { data, timestamp } = JSON.parse(cached);
+                        const age = Date.now() - timestamp;
+                        const maxAge = 3600000; // 1 Stunde
+                        
+                        if (age < maxAge) {
+                            const minutes = Math.round(age / 60000);
+                            console.log(`📦 Nutze Cache (${minutes} Min alt)`);
+                            return data;
+                        } else {
+                            console.log('📦 Cache zu alt, hole frische Daten...');
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Cache-Fehler:', e);
+                    }
+                }
+                
                 const url = `https://v6.db.transport.rest/locations/nearby?latitude=${lat}&longitude=${lng}&results=5&distance=2000`;
                 
                 console.log('🔍 DEBUG: Suche Haltestellen...');
                 console.log('📍 GPS:', lat, lng);
                 console.log('🌐 API-URL:', url);
                 
-                const response = await fetch(url);
-                
-                console.log('📡 Response Status:', response.status, response.statusText);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ API Error Response:', errorText);
-                    throw new Error(`API Error: ${response.status} - ${errorText}`);
+                // 🆕 v5.90.227: AUTO-RETRY (bis zu 3 Versuche)
+                let lastError = null;
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    try {
+                        console.log(`🔄 Versuch ${attempt}/3...`);
+                        
+                        // Timeout nach 5 Sekunden
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                        
+                        const response = await fetch(url, { signal: controller.signal });
+                        clearTimeout(timeoutId);
+                        
+                        console.log('📡 Response Status:', response.status, response.statusText);
+                        
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            console.error('❌ API Error Response:', errorText);
+                            throw new Error(`API Error: ${response.status} - ${errorText}`);
+                        }
+                        
+                        const data = await response.json();
+                        console.log('📦 Raw API Data:', data);
+                        
+                        const stops = Array.isArray(data) ? data : (data.stops || []);
+                        console.log(`✅ Haltestellen gefunden: ${stops.length} (Versuch ${attempt})`);
+                        
+                        if (stops.length > 0) {
+                            console.log('🚏 Nächste Haltestelle:', stops[0].name, '|', stops[0].distance, 'm');
+                            
+                            // 🆕 v5.90.227: SPEICHERE IM CACHE!
+                            try {
+                                localStorage.setItem(cacheKey, JSON.stringify({
+                                    data: stops,
+                                    timestamp: Date.now()
+                                }));
+                                console.log('💾 Im Cache gespeichert!');
+                            } catch (e) {
+                                console.warn('⚠️ Cache-Speichern fehlgeschlagen:', e);
+                            }
+                        }
+                        
+                        return stops;
+                        
+                    } catch (fetchError) {
+                        lastError = fetchError;
+                        
+                        if (fetchError.name === 'AbortError') {
+                            console.error(`❌ Timeout bei Versuch ${attempt}/3`);
+                            
+                            // Warte 2 Sekunden vor nächstem Versuch
+                            if (attempt < 3) {
+                                console.log('⏱️ Warte 2 Sekunden...');
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                            }
+                        } else {
+                            // Anderer Fehler - nicht retryable
+                            throw fetchError;
+                        }
+                    }
                 }
                 
-                const data = await response.json();
-                console.log('📦 Raw API Data:', data);
-                
-                const stops = Array.isArray(data) ? data : (data.stops || []);
-                console.log('✅ Haltestellen gefunden:', stops.length);
-                
-                if (stops.length > 0) {
-                    console.log('🚏 Nächste Haltestelle:', stops[0].name, '|', stops[0].distance, 'm');
-                    console.log('🔍 KOMPLETTES Stop-Objekt:', JSON.stringify(stops[0], null, 2));
-                    console.log('🆔 Stop.id:', stops[0].id);
-                    console.log('🆔 Stop.ibnr:', stops[0].ibnr);
-                    console.log('🆔 Stop.ids:', stops[0].ids);
-                }
-                
-                return stops;
+                // Alle 3 Versuche fehlgeschlagen
+                console.error('❌ Alle 3 Versuche fehlgeschlagen!');
+                throw new Error('Die Deutsche Bahn API antwortet nicht. Bitte versuche es später erneut.');
                 
             } catch (error) {
                 console.error('❌ FEHLER bei Haltestellen-Suche:', error);
+                console.error('💡 TIPP: Die DB API (v6.db.transport.rest) ist möglicherweise offline oder überlastet.');
                 throw error;
             }
         }
@@ -27209,22 +27449,39 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 attribution: '© OpenStreetMap'
             }).addTo(fleetMapStandalone);
             
-            // 🆕 v5.90.204: KLICK AUF KARTE → ABHOLORT + ZIELORT!
+            // 🆕 v5.90.228: INTELLIGENTE PIN-LOGIK!
             fleetMapStandalone.on('click', async function(e) {
                 const lat = e.latlng.lat;
                 const lon = e.latlng.lng;
                 
                 console.log('📍 Karte geklickt:', lat, lon);
                 
-                // WENN noch kein Abholort → Setze Abholort
-                if (!pickupPinStandalone) {
-                    console.log('📍 Setze ABHOLORT (grün)');
+                // 🆕 v5.90.228: Prüfe pickupData (nicht nur Pin!)
+                // Falls Kunde gewählt wurde → pickupData ist aus CRM!
+                
+                // WENN noch kein Abholort (weder Pin noch Data) → Setze Abholort
+                if (!pickupPinStandalone && !pickupData) {
+                    console.log('📍 Setze ABHOLORT (grün) - noch keiner vorhanden');
                     await setPickupPin(lat, lon);
                 }
-                // SONST → Setze Zielort
-                else {
-                    console.log('🎯 Setze ZIELORT (blau)');
+                // WENN Abholort VORHANDEN (Pin ODER Data) + kein Zielort → Setze Zielort
+                else if ((pickupPinStandalone || pickupData) && !destinationPinStandalone && !destinationData) {
+                    console.log('🎯 Setze ZIELORT (blau) - Abholort bereits da');
                     await setDestinationPin(lat, lon);
+                }
+                // WENN beide vorhanden → Frage was geändert werden soll
+                else {
+                    console.log('⚠️ Beide Pins vorhanden - frage Nutzer');
+                    
+                    const choice = confirm('Abholort (OK) oder Zielort (Abbrechen) ändern?');
+                    
+                    if (choice) {
+                        console.log('📍 Ändere ABHOLORT');
+                        await setPickupPin(lat, lon);
+                    } else {
+                        console.log('🎯 Ändere ZIELORT');
+                        await setDestinationPin(lat, lon);
+                    }
                 }
             });
             
@@ -28042,6 +28299,21 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 floatingBookingData.pickup = defaultPickup;
                 floatingBookingData.pickupCoords = coords;
                 
+                // 🆕 v5.90.228: SETZE AUCH pickupData für Karten-Logik!
+                if (coords && coords.lat && coords.lon) {
+                    pickupData = {
+                        address: defaultPickup,
+                        lat: coords.lat,
+                        lon: coords.lon
+                    };
+                    console.log('✅ pickupData gesetzt für Karten-Logik:', pickupData);
+                    
+                    // 🆕 v5.90.228: ZEIGE GRÜNEN PIN AUF KARTE!
+                    if (fleetMapStandalone && !pickupPinStandalone) {
+                        setPickupPin(coords.lat, coords.lon);
+                    }
+                }
+                
                 console.log('✅ Abholort aus CRM geladen:', defaultPickup);
             }
         }
@@ -28070,7 +28342,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             floatingBookingData.pickup = null;
             floatingBookingData.pickupCoords = null;
             
-            console.log('❌ Abholort gelöscht');
+            // 🆕 v5.90.228: LÖSCHE AUCH pickupData UND PIN!
+            pickupData = null;
+            if (pickupPinStandalone && fleetMapStandalone) {
+                fleetMapStandalone.removeLayer(pickupPinStandalone);
+                pickupPinStandalone = null;
+            }
+            
+            console.log('❌ Abholort gelöscht (inkl. Pin)');
         }
         
         // 🆕 v5.90.210: ZIELORT LÖSCHEN!
@@ -28087,11 +28366,24 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             floatingBookingData.distance = null;
             floatingBookingData.duration = null;
             
+            // 🆕 v5.90.228: LÖSCHE AUCH destinationData UND PIN!
+            destinationData = null;
+            if (destinationPinStandalone && fleetMapStandalone) {
+                fleetMapStandalone.removeLayer(destinationPinStandalone);
+                destinationPinStandalone = null;
+            }
+            
+            // Lösche Route
+            if (routeLineStandalone && fleetMapStandalone) {
+                fleetMapStandalone.removeLayer(routeLineStandalone);
+                routeLineStandalone = null;
+            }
+            
             // Preis zurücksetzen
             document.getElementById('fqb-price-display').innerHTML = '-,-- €';
             document.getElementById('fqb-route-info').style.display = 'none';
             
-            console.log('❌ Zielort gelöscht');
+            console.log('❌ Zielort gelöscht (inkl. Pin + Route)');
         }
         
         // 🆕 v5.90.210: ADRESSEN TAUSCHEN!
@@ -42606,6 +42898,10 @@ Stack: ${err.stack}
             
             // 🆕 v5.87.70: Update Login-Button nach Login!
             updateLoginButton();
+            
+            // 🆕 v5.90.227: Lade Anruf-Favoriten!
+            loadCallFavorites();
+            updateCallFavoritesFAB();
         }
         
         function onUserLoggedOut() {
@@ -55851,6 +56147,37 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         </button>
     </div>
 </div>
+
+<!-- 🆕 v5.90.227: ANRUF-FAVORITEN FLOATING BUTTON -->
+<div id="call-favorites-fab" style="position:fixed;bottom:80px;right:20px;z-index:9998;display:none;">
+    <button onclick="toggleCallFavorites()" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;box-shadow:0 4px 12px rgba(16,185,129,0.4);cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+        📞
+    </button>
+</div>
+
+<!-- 🆕 v5.90.227: ANRUF-FAVORITEN MODAL -->
+<div id="call-favorites-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:400px;background:white;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:9999;max-height:80vh;overflow:hidden;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;font-size:18px;font-weight:700;">📞 Schnellanruf</h3>
+        <button onclick="toggleCallFavorites()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;font-weight:bold;">×</button>
+    </div>
+    
+    <!-- Content -->
+    <div id="call-favorites-list" style="padding:15px;max-height:60vh;overflow-y:auto;">
+        <!-- Wird dynamisch gefüllt -->
+    </div>
+    
+    <!-- Add Button -->
+    <div style="padding:15px;border-top:2px solid #e5e7eb;">
+        <button onclick="addCallFavorite()" style="width:100%;padding:12px;background:#f3f4f6;color:#374151;border:2px dashed #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+            ➕ Favorit hinzufügen
+        </button>
+    </div>
+</div>
+
+<!-- Backdrop -->
+<div id="call-favorites-backdrop" onclick="toggleCallFavorites()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9998;"></div>
 
 </body>
 </html>

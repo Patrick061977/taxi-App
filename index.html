@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.232 - CRM ANRUF-BUTTONS! 📞👤 (Build 20260109-0710)');
-        console.log('📞 v5.90.232: Anruf-Buttons im CRM Edit-Modal!');
-        console.log('⭐ v5.90.232: Kategorie "Favorit" → Schnellanruf!');
-        console.log('👤 v5.90.232: CRM-Favoriten im Telefon-Button!');
-        console.log('🧪 v5.90.231: TEST - Telefon-Button für ALLE!');
-        console.log('📧 v5.90.230: Email-Bot Datum-Check!');
+        console.log('🚕 Funk Taxi App v5.90.233 - KATEGORIE-FIX! 🔧⭐ (Build 20260109-0720)');
+        console.log('🔧 v5.90.233: Kategorie "favorite" überall einheitlich!');
+        console.log('⭐ v5.90.233: Haupt-Filter + Edit-Modal + Code = "favorite"!');
+        console.log('🚗 v5.90.233: "Fahrer" Kategorie hinzugefügt!');
+        console.log('📞 v5.90.232: Anruf-Buttons im CRM!');
+        console.log('👤 v5.90.232: CRM-Favoriten → Telefon-Button!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.232 - CRM ANRUF-BUTTONS! 👤 (Build 20260109-0710)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.233 - KATEGORIE-FIX! ⭐ (Build 20260109-0720)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2358,11 +2358,11 @@
             
             <select id="crm-filter-category" onchange="filterCRMCustomers()" style="padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;background:white;">
                 <option value="">Alle Kategorien</option>
-                <option value="favorites">⭐ Favoriten</option>
-                <option value="vip">👑 VIP</option>
-                <option value="regular">✅ Stammkunde</option>
-                <option value="business">💼 Geschäftlich</option>
+                <option value="favorite">⭐ Favorit</option>
+                <option value="driver">🚗 Fahrer</option>
                 <option value="hotel">🏨 Hotel</option>
+                <option value="vip">👑 VIP</option>
+                <option value="business">💼 Geschäftskunde</option>
             </select>
             
             <button onclick="showAddCustomerModal()" style="padding:12px 20px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">

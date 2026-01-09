@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.244 - CRM IMPORT! 👥📞 (Build 20260109-1030)');
-        console.log('👥 v5.90.244: Aus CRM übernehmen!');
-        console.log('🔍 v5.90.244: Kunden-Suche im Modal!');
-        console.log('⚡ v5.90.244: Schneller als manuell!');
-        console.log('📞 v5.90.243: ANRUF-ZENTRALE mit Kategorien!');
-        console.log('🚗 v5.90.243: Fahrer / Wichtig / Notfall / Andere');
+        console.log('🚕 Funk Taxi App v5.90.249 - FAHRER-APP NEU! 🚗✨ (Build 20260109-1430)');
+        console.log('🔴 v5.90.249: AKTIVE FAHRT BANNER (Groß + Rot)!');
+        console.log('📋 v5.90.249: TAGESPROGRAMM für Fahrer!');
+        console.log('✅ v5.90.249: Abschließen-Button direkt!');
+        console.log('🗺️ v5.90.249: Navigation mit 1 Klick!');
+        console.log('🗺️ v5.90.248: Fahrzeug-Popup mit ALLEM!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👥 Version 5.90.244 - CRM IMPORT! 📞 (Build 20260109-1030)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚗 Version 5.90.249 - FAHRER-APP NEU! ✨ (Build 20260109-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2356,14 +2356,34 @@
                 oninput="filterCRMCustomers()"
                 style="flex:1;min-width:200px;padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;">
             
-            <select id="crm-filter-category" onchange="filterCRMCustomers()" style="padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;background:white;">
-                <option value="">Alle Kategorien</option>
-                <option value="favorite">⭐ Favorit</option>
-                <option value="driver">🚗 Fahrer</option>
-                <option value="hotel">🏨 Hotel</option>
-                <option value="vip">👑 VIP</option>
-                <option value="business">💼 Geschäftskunde</option>
-            </select>
+            <!-- 🆕 v5.90.245: CUSTOM DROPDOWN FÜR TESLA! -->
+            <div style="position:relative;">
+                <button id="crm-filter-category-btn" onclick="toggleCRMFilterDropdown()" style="padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;background:white;min-width:180px;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                    <span id="crm-filter-category-label">Alle Kategorien</span>
+                    <span>▼</span>
+                </button>
+                <div id="crm-filter-category-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #d1d5db;border-radius:8px;margin-top:4px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:300px;overflow-y:auto;">
+                    <div class="crm-filter-option" data-value="" onclick="selectCRMFilterCategory('', 'Alle Kategorien')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                        Alle Kategorien
+                    </div>
+                    <div class="crm-filter-option" data-value="favorite" onclick="selectCRMFilterCategory('favorite', '⭐ Favorit')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">
+                        ⭐ Favorit
+                    </div>
+                    <div class="crm-filter-option" data-value="driver" onclick="selectCRMFilterCategory('driver', '🚗 Fahrer')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='white'">
+                        🚗 Fahrer
+                    </div>
+                    <div class="crm-filter-option" data-value="hotel" onclick="selectCRMFilterCategory('hotel', '🏨 Hotel')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='white'">
+                        🏨 Hotel
+                    </div>
+                    <div class="crm-filter-option" data-value="vip" onclick="selectCRMFilterCategory('vip', '👑 VIP')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">
+                        👑 VIP
+                    </div>
+                    <div class="crm-filter-option" data-value="business" onclick="selectCRMFilterCategory('business', '💼 Geschäftskunde')" style="padding:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                        💼 Geschäftskunde
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" id="crm-filter-category" value="">
             
             <button onclick="showAddCustomerModal()" style="padding:12px 20px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                 ➕ Neuer Kunde
@@ -2510,11 +2530,7 @@
                 max-width: 140px;
             ">
                 <option value="">Fahrzeug wählen</option>
-                <option value="tesla_model3_1">🚗 PW-TX 111</option>
-                <option value="tesla_model3_2">🚗 PW-TX 222</option>
-                <option value="tesla_model3_3">🚗 PW-TX 333</option>
-                <option value="tesla_model_y_1">🚙 PW-MY 222</option>
-                <option value="tesla_model_y_2">🚙 PW-MY 333</option>
+                <!-- 🆕 v5.90.246: Wird dynamisch aus Firebase geladen! -->
             </select>
             
             <!-- Stats Mini -->
@@ -2706,6 +2722,45 @@
         <!-- 🆕 v5.42.8: AUTOCOMPLETE OVERLAY (wie Google Maps!) -->
         <!-- 🆕 v5.46.3: Overlay entfernt - nutzen nur noch Dropdowns! -->
         
+        <!-- 🆕 v5.90.249: AKTIVE FAHRT BANNER -->
+        <div id="driver-active-ride-banner" style="display:none;margin:10px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(239,68,68,0.4);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
+                <div style="background:rgba(255,255,255,0.3);padding:8px 16px;border-radius:20px;font-weight:700;font-size:13px;">
+                    🔴 DU BIST IN FAHRT!
+                </div>
+                <div id="active-ride-duration" style="font-size:12px;opacity:0.9;">⏱️ Seit 0 Min</div>
+            </div>
+            <div id="active-ride-customer" style="font-size:22px;font-weight:800;margin-bottom:10px;">👤 Kunde</div>
+            <div id="active-ride-time" style="font-size:14px;opacity:0.95;margin-bottom:15px;">📅 01.01.2026 · 🕐 12:00</div>
+            <div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);padding:15px;border-radius:12px;margin-bottom:15px;">
+                <div id="active-ride-from" style="font-size:14px;margin-bottom:8px;">📍 <strong>Von:</strong> ?</div>
+                <div id="active-ride-to" style="font-size:14px;">🎯 <strong>Nach:</strong> ?</div>
+            </div>
+            <div style="display:flex;gap:10px;margin-bottom:15px;">
+                <div style="flex:1;text-align:center;padding:12px;background:rgba(255,255,255,0.2);border-radius:10px;">
+                    <div style="font-size:11px;opacity:0.8;">Preis</div>
+                    <div id="active-ride-price" style="font-size:18px;font-weight:700;">0€</div>
+                </div>
+                <div style="flex:1;text-align:center;padding:12px;background:rgba(255,255,255,0.2);border-radius:10px;">
+                    <div style="font-size:11px;opacity:0.8;">Distanz</div>
+                    <div id="active-ride-distance" style="font-size:18px;font-weight:700;">0 km</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="openNavigationForCurrent()" style="flex:1;padding:14px;background:rgba(255,255,255,0.25);border:2px solid rgba(255,255,255,0.5);color:white;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">🗺️ Navigation</button>
+                <button onclick="completeCurrentRide()" style="flex:1;padding:14px;background:#10b981;border:none;color:white;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">✅ Abschließen</button>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.249: TAGESPROGRAMM -->
+        <div id="driver-schedule-panel" style="display:none;margin:10px;background:white;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <div style="font-weight:700;font-size:16px;color:#111827;">📋 Dein Tagesprogramm</div>
+                <div id="schedule-count" style="background:#3b82f6;color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">0</div>
+            </div>
+            <div id="driver-schedule-list"></div>
+        </div>
+        
         <!-- Neue Aufträge Slide-In Panel mit TABS! -->
         <div id="new-rides-panel" style="
             display: none;
@@ -2811,7 +2866,8 @@
             }
             
             function loadCompletedRides() {
-                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                // 🆕 v5.90.247: NUR vehicleId!
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
                 const completed = myRides.filter(r => r.status === 'completed');
                 
                 if (completed.length === 0) {
@@ -2895,12 +2951,8 @@
             }
             
             function loadCancelledRides() {
-                // 🆕 v5.20.8: Auch assignedTo prüfen (nicht nur vehicleId)!
-                const myRides = currentVehicle ? rides.filter(r => 
-                    r.vehicleId === currentVehicle || 
-                    r.assignedTo === currentVehicle ||
-                    r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)
-                ) : [];
+                // 🆕 v5.90.247: NUR vehicleId!
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
                 const cancelled = myRides.filter(r => r.status === 'cancelled' || r.status === 'cancelled_pending_driver' || r.status === 'storniert');
                 
                 if (cancelled.length === 0) {
@@ -3430,7 +3482,8 @@
             
             // 🚨 STORNIERUNG PANEL FUNKTIONEN
             function showCancellationPanel() {
-                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                // 🆕 v5.90.247: NUR vehicleId!
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
                 // 🆕 VEREINFACHT: Nur cancelled Fahrten die noch nicht gesehen wurden
                 const pendingCancellations = myRides.filter(r => 
                     r.status === 'cancelled' && r.driverNotified === false
@@ -12596,6 +12649,14 @@ Aktuell: ${currentNum}`;
                 setTimeout(() => loadPOIs(), 100);
             }
             
+            // 🆕 v5.90.246: Driver View - Fahrzeug-Dropdown aktualisieren!
+            if (view === 'driver') {
+                setTimeout(() => {
+                    console.log('🚗 Driver-View geladen - Update Fahrzeug-Dropdown...');
+                    updateVehicleDropdowns();
+                }, 100);
+            }
+            
             updateViews();
         }
 
@@ -13167,9 +13228,18 @@ Aktuell: ${currentNum}`;
                 return false;
             });
             
-            const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+            // 🆕 v5.90.247: NUR vehicleId-basiert! Keine Name-Vergleiche mehr!
+            const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
             const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
             const completed = myRides.filter(r => r.status === 'completed');
+            
+            // 🆕 v5.90.249: UPDATE AKTIVE FAHRT BANNER + TAGESPROGRAMM!
+            if (typeof updateActiveRideBanner === 'function') {
+                updateActiveRideBanner(current);
+            }
+            if (typeof updateDriverSchedule === 'function') {
+                updateDriverSchedule(myRides, current);
+            }
             
             // 🚨 CHECK FÜR STORNIERTE FAHRTEN DIE BESTÄTIGUNG BRAUCHEN
             const pendingCancellations = myRides.filter(r => 
@@ -24528,6 +24598,47 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }).join('');
         }
         
+        // 🆕 v5.90.245: CUSTOM DROPDOWN FUNKTIONEN FÜR EDIT CUSTOMER KATEGORIE
+        function toggleEditCustomerCategoryDropdown() {
+            const dropdown = document.getElementById('edit-customer-category-dropdown');
+            if (!dropdown) return;
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function selectEditCustomerCategory(value, label) {
+            document.getElementById('edit-customer-category').value = value;
+            document.getElementById('edit-customer-category-label').textContent = label;
+            document.getElementById('edit-customer-category-dropdown').style.display = 'none';
+        }
+        
+        // 🆕 v5.90.245: CUSTOM DROPDOWN FUNKTIONEN FÜR TESLA!
+        let crmFilterCategoryValue = '';
+        
+        function toggleCRMFilterDropdown() {
+            const dropdown = document.getElementById('crm-filter-category-dropdown');
+            if (dropdown.style.display === 'none') {
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+        
+        function selectCRMFilterCategory(value, label) {
+            crmFilterCategoryValue = value;
+            document.getElementById('crm-filter-category').value = value;
+            document.getElementById('crm-filter-category-label').textContent = label;
+            document.getElementById('crm-filter-category-dropdown').style.display = 'none';
+            filterCRMCustomers();
+        }
+        
+        // Schließe Dropdown bei Klick außerhalb
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#crm-filter-category-btn') && !e.target.closest('#crm-filter-category-dropdown')) {
+                const dropdown = document.getElementById('crm-filter-category-dropdown');
+                if (dropdown) dropdown.style.display = 'none';
+            }
+        });
+        
         function filterCRMCustomers() {
             const searchTerm = document.getElementById('crm-search-input').value.toLowerCase();
             const category = document.getElementById('crm-filter-category').value;
@@ -26137,6 +26248,24 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             alert('✅ Kunde eingestiegen! Navigation zum Ziel läuft.');
         }
 
+        // 🆕 v5.90.248: FAHRT VON KARTE ABSCHLIESSEN!
+        async function completeRideFromMap(rideId) {
+            if (!confirm('Fahrt als abgeschlossen markieren?')) return;
+            
+            try {
+                await completeRide(rideId);
+                alert('✅ Fahrt abgeschlossen!');
+                
+                // Aktualisiere Karte
+                if (typeof refreshFleetMapStandalone === 'function') {
+                    await refreshFleetMapStandalone();
+                }
+            } catch (e) {
+                console.error('❌ Fehler:', e);
+                alert('Fehler beim Abschließen: ' + e.message);
+            }
+        }
+        
         async function completeRide(rideId) {
             // Hole Fahrt-Daten vor dem Abschluss
             const rideSnapshot = await db.ref('rides/' + rideId).once('value');
@@ -29397,23 +29526,82 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             </div>
                     `;
                     
+                    // 🆕 v5.90.248: ALLE FAHRTEN FÜR DIESES FAHRZEUG!
+                    const allVehicleRides = Object.entries(ridesData)
+                        .filter(([id, r]) => r.vehicleId === vehicleId)
+                        .map(([id, r]) => ({ ...r, firebaseId: id }))
+                        .sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
+                    
                     if (ride) {
+                        // 🆕 v5.90.248: MIT UHRZEIT + DATUM + ABSCHLIESSEN!
+                        const pickupTime = ride.pickupTime || '-';
+                        const pickupDate = ride.pickupDate || '-';
+                        const statusColor = ride.status === 'assigned' ? '#f59e0b' : '#ef4444';
+                        const statusIcon = ride.status === 'assigned' ? '🟠' : '🔴';
+                        const statusText = ride.status === 'assigned' ? 'Zugewiesen' : 'Besetzt';
+                        
                         popupContent += `
-                            <div style="margin-top:10px;padding:10px;background:#f3f4f6;border-radius:6px;font-size:13px;">
-                                <div style="font-weight:600;color:#ef4444;margin-bottom:4px;">
-                                    ${ride.status === 'assigned' ? '🟠 Zugewiesen' : '🔴 Besetzt'}
+                            <div style="margin-top:10px;padding:12px;background:#f3f4f6;border-radius:8px;border-left:4px solid ${statusColor};">
+                                <div style="font-weight:700;color:${statusColor};margin-bottom:8px;font-size:14px;">
+                                    ${statusIcon} ${statusText}
                                 </div>
-                                <div style="color:#374151;">
-                                    ${ride.customerName || 'Unbekannt'}<br>
+                                <div style="color:#374151;font-size:13px;line-height:1.6;">
+                                    <strong>${ride.customerName || 'Unbekannt'}</strong><br>
                                     📍 ${ride.pickup}<br>
-                                    🎯 ${ride.destination}
+                                    🎯 ${ride.destination}<br>
+                                    ⏰ ${pickupTime} Uhr<br>
+                                    📅 ${pickupDate}
+                                    ${ride.price ? `<br>💰 ${ride.price}€` : ''}
                                 </div>
+                                <button onclick="completeRideFromMap('${ride.firebaseId}')" style="width:100%;margin-top:10px;padding:10px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    ✅ Fahrt abschließen
+                                </button>
                             </div>
                         `;
                     }
                     
+                    // 🆕 v5.90.248: TAGESPROGRAMM!
+                    const upcomingRides = allVehicleRides.filter(r => 
+                        r.status !== 'completed' && 
+                        r.status !== 'cancelled' && 
+                        r.firebaseId !== (ride?.firebaseId)
+                    );
+                    
+                    if (upcomingRides.length > 0) {
+                        popupContent += `
+                            <div style="margin-top:12px;padding:12px;background:#eff6ff;border-radius:8px;border-left:4px solid #3b82f6;">
+                                <div style="font-weight:700;color:#3b82f6;margin-bottom:8px;font-size:13px;">
+                                    📋 Tagesprogramm (${upcomingRides.length})
+                                </div>
+                        `;
+                        
+                        upcomingRides.slice(0, 3).forEach(r => {
+                            const time = r.pickupTime || '-';
+                            const date = r.pickupDate || '-';
+                            const statusDot = r.status === 'new' ? '🟢' : r.status === 'assigned' ? '🟡' : '⚪';
+                            
+                            popupContent += `
+                                <div style="padding:8px;background:white;border-radius:6px;margin-bottom:6px;font-size:12px;">
+                                    ${statusDot} <strong>${date} ${time}</strong><br>
+                                    <span style="color:#6b7280;">${r.customerName || 'Unbekannt'}</span><br>
+                                    <span style="color:#9ca3af;font-size:11px;">${r.pickup?.substring(0, 30)}...</span>
+                                </div>
+                            `;
+                        });
+                        
+                        if (upcomingRides.length > 3) {
+                            popupContent += `
+                                <div style="text-align:center;color:#6b7280;font-size:11px;margin-top:4px;">
+                                    + ${upcomingRides.length - 3} weitere
+                                </div>
+                            `;
+                        }
+                        
+                        popupContent += '</div>';
+                    }
+                    
                     popupContent += '</div>';
-                    marker.bindPopup(popupContent);
+                    marker.bindPopup(popupContent, { maxWidth: 350, minWidth: 250 });
                 }
                 
                 // Update Status
@@ -29663,7 +29851,421 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const marker = fleetMarkers[vehicleId];
             if (marker && fleetMap) {
                 fleetMap.setView(marker.getLatLng(), 14);
-                marker.openPopup();
+                // marker.openPopup(); // Altes Popup nicht mehr
+            }
+            
+            // 🆕 v5.90.248: ZEIGE ERWEITERTES MODAL!
+            showVehicleDetailsModal(vehicleId);
+        }
+        
+        // 🆕 v5.90.248: FAHRZEUG-DETAILS MODAL MIT TAGESPROGRAMM!
+        function showVehicleDetailsModal(vehicleId) {
+            const vehicle = VEHICLES[vehicleId];
+            if (!vehicle) {
+                console.error('Fahrzeug nicht gefunden:', vehicleId);
+                return;
+            }
+            
+            // Finde alle Fahrten für dieses Fahrzeug
+            const vehicleRides = rides.filter(r => r.vehicleId === vehicleId);
+            
+            // Aktuelle Fahrt (accepted oder picked_up)
+            const currentRide = vehicleRides.find(r => 
+                r.status === 'accepted' || r.status === 'picked_up'
+            );
+            
+            // Zukünftige Fahrten (new, assigned) - sortiert nach Zeit
+            const upcomingRides = vehicleRides
+                .filter(r => 
+                    r.status === 'new' || 
+                    r.status === 'assigned' ||
+                    (r.status === 'accepted' && !currentRide) // Falls mehrere accepted
+                )
+                .sort((a, b) => {
+                    const timeA = a.pickupTimestamp || a.timestamp || 0;
+                    const timeB = b.pickupTimestamp || b.timestamp || 0;
+                    return timeA - timeB;
+                });
+            
+            // Erstelle Modal
+            const modal = document.createElement('div');
+            modal.id = 'vehicle-details-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10001;padding:20px;';
+            
+            let currentRideHtml = '';
+            if (currentRide) {
+                const pickupTime = currentRide.pickupTime || '?';
+                const pickupDate = currentRide.pickupDate || new Date(currentRide.pickupTimestamp || currentRide.timestamp).toLocaleDateString('de-DE');
+                const duration = currentRide.timestamp ? Math.round((Date.now() - currentRide.timestamp) / 60000) : 0;
+                
+                currentRideHtml = `
+                    <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:12px;padding:15px;margin-bottom:15px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                            <div style="background:#ef4444;color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
+                                🔴 AKTIVE FAHRT
+                            </div>
+                            <div style="font-size:12px;color:#991b1b;">
+                                ⏱️ Seit ${duration} Min
+                            </div>
+                        </div>
+                        
+                        <div style="font-weight:700;font-size:16px;color:#111827;margin-bottom:8px;">
+                            👤 ${currentRide.customerName || 'Unbekannt'}
+                        </div>
+                        
+                        <div style="font-size:13px;color:#4b5563;margin-bottom:6px;">
+                            📅 ${pickupDate} · 🕐 ${pickupTime}
+                        </div>
+                        
+                        <div style="background:white;padding:10px;border-radius:8px;margin:10px 0;font-size:13px;color:#374151;">
+                            <div style="margin-bottom:4px;">
+                                📍 <strong>Von:</strong> ${currentRide.pickup || '?'}
+                            </div>
+                            <div>
+                                🎯 <strong>Nach:</strong> ${currentRide.destination || '?'}
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex;gap:8px;margin-top:10px;">
+                            <div style="flex:1;text-align:center;padding:8px;background:white;border-radius:6px;">
+                                💰 <strong>${currentRide.price || '?'}€</strong>
+                            </div>
+                            <div style="flex:1;text-align:center;padding:8px;background:white;border-radius:6px;">
+                                📏 <strong>${currentRide.distance || '?'} km</strong>
+                            </div>
+                        </div>
+                        
+                        <button onclick="completeRideFromModal('${currentRide.firebaseId}')" style="width:100%;margin-top:12px;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                            ✅ Fahrt abschließen
+                        </button>
+                    </div>
+                `;
+            }
+            
+            let upcomingHtml = '';
+            if (upcomingRides.length > 0) {
+                upcomingHtml = `
+                    <div style="margin-bottom:10px;">
+                        <div style="font-weight:700;font-size:14px;color:#374151;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+                            📋 TAGESPROGRAMM
+                            <span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:12px;font-size:11px;">
+                                ${upcomingRides.length}
+                            </span>
+                        </div>
+                        
+                        <div style="max-height:300px;overflow-y:auto;">
+                            ${upcomingRides.map(ride => {
+                                const pickupTime = ride.pickupTime || '?';
+                                const pickupDate = ride.pickupDate || new Date(ride.pickupTimestamp || ride.timestamp).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'});
+                                
+                                // Status-Farbe
+                                let statusColor = '#10b981';
+                                let statusIcon = '🟢';
+                                let statusText = 'Geplant';
+                                
+                                if (ride.status === 'assigned') {
+                                    statusColor = '#f59e0b';
+                                    statusIcon = '🟡';
+                                    statusText = 'Zugeteilt';
+                                } else if (ride.status === 'accepted') {
+                                    statusColor = '#3b82f6';
+                                    statusIcon = '🔵';
+                                    statusText = 'Angenommen';
+                                }
+                                
+                                return `
+                                    <div style="background:#f9fafb;border:2px solid #e5e7eb;border-left:4px solid ${statusColor};border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='${statusColor}'" onmouseout="this.style.background='#f9fafb';this.style.borderColor='#e5e7eb'" onclick="showRideDetailsFromVehicle('${ride.firebaseId}')">
+                                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                                            <div>
+                                                <div style="font-weight:600;font-size:14px;color:#111827;">
+                                                    👤 ${ride.customerName || 'Unbekannt'}
+                                                </div>
+                                                <div style="font-size:12px;color:#6b7280;margin-top:2px;">
+                                                    📅 ${pickupDate} · 🕐 ${pickupTime}
+                                                </div>
+                                            </div>
+                                            <div style="background:${statusColor}15;color:${statusColor};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">
+                                                ${statusIcon} ${statusText}
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="font-size:12px;color:#4b5563;">
+                                            <div style="margin-bottom:3px;">📍 ${ride.pickup || '?'}</div>
+                                            <div>🎯 ${ride.destination || '?'}</div>
+                                        </div>
+                                        
+                                        <div style="display:flex;gap:8px;margin-top:8px;">
+                                            <div style="font-size:11px;color:#6b7280;">
+                                                💰 ${ride.price || '?'}€
+                                            </div>
+                                            <div style="font-size:11px;color:#6b7280;">
+                                                📏 ${ride.distance || '?'} km
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            } else if (!currentRide) {
+                upcomingHtml = `
+                    <div style="text-align:center;padding:40px 20px;color:#9ca3af;">
+                        <div style="font-size:48px;margin-bottom:10px;">✅</div>
+                        <div style="font-size:14px;">Keine Fahrten geplant</div>
+                    </div>
+                `;
+            }
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;width:100%;max-width:500px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <h3 style="margin:0;font-size:18px;font-weight:700;">🚗 ${vehicle.name}</h3>
+                            <div style="font-size:13px;opacity:0.9;margin-top:4px;">
+                                🚙 ${vehicle.plate || '?'}
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('vehicle-details-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:20px;font-weight:bold;">×</button>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="flex:1;overflow-y:auto;padding:20px;">
+                        ${currentRideHtml}
+                        ${upcomingHtml}
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="padding:15px;border-top:2px solid #e5e7eb;background:#f9fafb;text-align:center;color:#6b7280;font-size:12px;">
+                        ${currentRide ? '🔴 In Fahrt' : upcomingRides.length > 0 ? `📋 ${upcomingRides.length} Fahrten geplant` : '✅ Verfügbar'}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Schließen bei Klick auf Backdrop
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+        
+        // 🆕 v5.90.248: FAHRT ABSCHLIESSEN AUS MODAL
+        async function completeRideFromModal(rideId) {
+            if (!confirm('Fahrt wirklich abschließen?')) return;
+            
+            try {
+                await updateRide(rideId, {
+                    status: 'completed',
+                    completedAt: Date.now()
+                });
+                
+                console.log('✅ Fahrt abgeschlossen:', rideId);
+                
+                // Schließe Modal
+                const modal = document.getElementById('vehicle-details-modal');
+                if (modal) modal.remove();
+                
+                // Aktualisiere Fleet Map
+                setTimeout(() => refreshFleetMap(), 500);
+                
+                alert('✅ Fahrt erfolgreich abgeschlossen!');
+                
+            } catch (e) {
+                console.error('❌ Fehler:', e);
+                alert('❌ Fehler beim Abschließen: ' + e.message);
+            }
+        }
+        
+        // 🆕 v5.90.248: ZEIGE FAHRT-DETAILS AUS FAHRZEUG-MODAL
+        function showRideDetailsFromVehicle(rideId) {
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) {
+                alert('Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // Schließe Fahrzeug-Modal
+            const vehicleModal = document.getElementById('vehicle-details-modal');
+            if (vehicleModal) vehicleModal.remove();
+            
+            // Zeige Fahrt-Details (nutze existierende Funktion wenn vorhanden)
+            if (typeof showRideDetails === 'function') {
+                showRideDetails(ride);
+            } else {
+                alert(`📋 Fahrt-Details:\n\n👤 ${ride.customerName}\n📍 ${ride.pickup}\n🎯 ${ride.destination}\n💰 ${ride.price}€\n🕐 ${ride.pickupTime || '?'}`);
+            }
+        }
+        
+        // 🆕 v5.90.249: UPDATE AKTIVE FAHRT BANNER
+        function updateActiveRideBanner(currentRide) {
+            const banner = document.getElementById('driver-active-ride-banner');
+            if (!banner) return;
+            
+            if (!currentRide) {
+                banner.style.display = 'none';
+                return;
+            }
+            
+            banner.style.display = 'block';
+            
+            // Dauer berechnen
+            const duration = currentRide.timestamp ? Math.round((Date.now() - currentRide.timestamp) / 60000) : 0;
+            document.getElementById('active-ride-duration').textContent = `⏱️ Seit ${duration} Min`;
+            
+            // Kunde
+            document.getElementById('active-ride-customer').textContent = `👤 ${currentRide.customerName || 'Unbekannt'}`;
+            
+            // Zeit & Datum
+            const pickupTime = currentRide.pickupTime || '?';
+            const pickupDate = currentRide.pickupDate || new Date(currentRide.pickupTimestamp || currentRide.timestamp).toLocaleDateString('de-DE');
+            document.getElementById('active-ride-time').textContent = `📅 ${pickupDate} · 🕐 ${pickupTime}`;
+            
+            // Route
+            document.getElementById('active-ride-from').innerHTML = `📍 <strong>Von:</strong> ${currentRide.pickup || '?'}`;
+            document.getElementById('active-ride-to').innerHTML = `🎯 <strong>Nach:</strong> ${currentRide.destination || '?'}`;
+            
+            // Preis & Distanz
+            document.getElementById('active-ride-price').textContent = `${currentRide.price || '?'}€`;
+            document.getElementById('active-ride-distance').textContent = `${currentRide.distance || '?'} km`;
+            
+            // Speichere aktuelle Fahrt ID global
+            window.currentActiveRideId = currentRide.firebaseId;
+        }
+        
+        // 🆕 v5.90.249: UPDATE TAGESPROGRAMM
+        function updateDriverSchedule(myRides, currentRide) {
+            const panel = document.getElementById('driver-schedule-panel');
+            const list = document.getElementById('driver-schedule-list');
+            const countBadge = document.getElementById('schedule-count');
+            
+            if (!panel || !list) return;
+            
+            // Filtere: Alle Fahrten außer current, completed, cancelled
+            const upcomingRides = myRides
+                .filter(r => {
+                    if (r === currentRide) return false;
+                    if (r.status === 'completed' || r.status === 'cancelled') return false;
+                    return true;
+                })
+                .sort((a, b) => {
+                    const timeA = a.pickupTimestamp || a.timestamp || 0;
+                    const timeB = b.pickupTimestamp || b.timestamp || 0;
+                    return timeA - timeB;
+                });
+            
+            if (upcomingRides.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            panel.style.display = 'block';
+            countBadge.textContent = upcomingRides.length;
+            
+            // Render Liste
+            list.innerHTML = upcomingRides.map(ride => {
+                const pickupTime = ride.pickupTime || '?';
+                const pickupDate = ride.pickupDate || new Date(ride.pickupTimestamp || ride.timestamp).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'});
+                
+                // Status-Farbe
+                let statusColor = '#10b981';
+                let statusIcon = '🟢';
+                let statusText = 'Geplant';
+                
+                if (ride.status === 'assigned') {
+                    statusColor = '#f59e0b';
+                    statusIcon = '🟡';
+                    statusText = 'Zugeteilt';
+                } else if (ride.status === 'accepted') {
+                    statusColor = '#3b82f6';
+                    statusIcon = '🔵';
+                    statusText = 'Angenommen';
+                }
+                
+                return `
+                    <div style="background:#f9fafb;border:2px solid #e5e7eb;border-left:4px solid ${statusColor};border-radius:10px;padding:15px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f9fafb'">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:15px;color:#111827;margin-bottom:4px;">
+                                    👤 ${ride.customerName || 'Unbekannt'}
+                                </div>
+                                <div style="font-size:13px;color:#6b7280;">
+                                    📅 ${pickupDate} · 🕐 ${pickupTime}
+                                </div>
+                            </div>
+                            <div style="background:${statusColor}15;color:${statusColor};padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">
+                                ${statusIcon} ${statusText}
+                            </div>
+                        </div>
+                        
+                        <div style="font-size:13px;color:#4b5563;margin-bottom:10px;">
+                            <div style="margin-bottom:4px;">📍 ${ride.pickup || '?'}</div>
+                            <div>🎯 ${ride.destination || '?'}</div>
+                        </div>
+                        
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div style="display:flex;gap:15px;font-size:12px;color:#6b7280;">
+                                <span>💰 ${ride.price || '?'}€</span>
+                                <span>📏 ${ride.distance || '?'} km</span>
+                            </div>
+                            <button onclick="event.stopPropagation();acceptRide('${ride.firebaseId}')" style="padding:8px 14px;background:${statusColor};color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:12px;transition:all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                ${ride.status === 'new' ? '✅ Annehmen' : '🗺️ Details'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 🆕 v5.90.249: NAVIGATION FÜR AKTIVE FAHRT ÖFFNEN
+        function openNavigationForCurrent() {
+            if (!window.currentActiveRideId) {
+                alert('Keine aktive Fahrt!');
+                return;
+            }
+            
+            const ride = rides.find(r => r.firebaseId === window.currentActiveRideId);
+            if (!ride || !ride.destCoords) {
+                alert('Ziel-Koordinaten fehlen!');
+                return;
+            }
+            
+            // Öffne Google Maps Navigation
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${ride.destCoords.lat},${ride.destCoords.lon}`;
+            window.open(url, '_blank');
+        }
+        
+        // 🆕 v5.90.249: AKTIVE FAHRT ABSCHLIESSEN
+        async function completeCurrentRide() {
+            if (!window.currentActiveRideId) {
+                alert('Keine aktive Fahrt!');
+                return;
+            }
+            
+            if (!confirm('Fahrt wirklich abschließen?')) return;
+            
+            try {
+                await updateRide(window.currentActiveRideId, {
+                    status: 'completed',
+                    completedAt: Date.now()
+                });
+                
+                console.log('✅ Fahrt abgeschlossen:', window.currentActiveRideId);
+                window.currentActiveRideId = null;
+                
+                alert('✅ Fahrt erfolgreich abgeschlossen!');
+                
+                // Update View
+                if (typeof updateDriverView === 'function') {
+                    updateDriverView();
+                }
+                
+            } catch (e) {
+                console.error('❌ Fehler:', e);
+                alert('❌ Fehler beim Abschließen: ' + e.message);
             }
         }
         
@@ -30428,6 +31030,30 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         function updateVehicleDropdowns() {
+            console.log('🔄 Update Vehicle Dropdowns, Fahrzeuge:', Object.keys(VEHICLES).length);
+            
+            // 🆕 v5.90.246: FAHRER-DROPDOWN (Haupt-Select!)
+            const driverSelect = document.getElementById('vehicle');
+            if (driverSelect) {
+                const currentValue = driverSelect.value;
+                driverSelect.innerHTML = '<option value="">Fahrzeug wählen</option>';
+                
+                // Sortiere nach Priorität (niedrigere Zahl = höhere Prio)
+                const sortedVehicles = Object.values(VEHICLES).sort((a, b) => {
+                    const prioA = a.priority || 5;
+                    const prioB = b.priority || 5;
+                    return prioA - prioB;
+                });
+                
+                sortedVehicles.forEach(v => {
+                    const icon = v.name.toLowerCase().includes('bus') || v.name.toLowerCase().includes('pax') ? '🚐' : 
+                                v.name.toLowerCase().includes('model y') ? '🚙' : '🚗';
+                    driverSelect.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.plate || v.name}</option>`;
+                });
+                
+                console.log('✅ Fahrer-Dropdown aktualisiert mit', sortedVehicles.length, 'Fahrzeugen');
+            }
+            
             // Aktualisiere alle Fahrzeug-Dropdowns in der App
             const selects = document.querySelectorAll('#edit-ride-modal select, .vehicle-select');
             selects.forEach(select => {
@@ -39559,17 +40185,36 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         
                         <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
                         
-                        <!-- 🆕 v5.90.232: KATEGORIE MIT FAVORIT! -->
+                        <!-- 🆕 v5.90.245: KATEGORIE MIT CUSTOM DROPDOWN FÜR TESLA! -->
                         <div>
                             <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📂 Kategorie</label>
-                            <select id="edit-customer-category" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
-                                <option value="">Keine Kategorie</option>
-                                <option value="favorite">⭐ Favorit (Schnellwahl)</option>
-                                <option value="driver">🚗 Fahrer</option>
-                                <option value="hotel">🏨 Hotel</option>
-                                <option value="vip">👑 VIP</option>
-                                <option value="business">💼 Geschäftskunde</option>
-                            </select>
+                            <div style="position:relative;">
+                                <button id="edit-customer-category-btn" onclick="toggleEditCustomerCategoryDropdown()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;background:white;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                                    <span id="edit-customer-category-label">Keine Kategorie</span>
+                                    <span>▼</span>
+                                </button>
+                                <div id="edit-customer-category-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e0e0e0;border-radius:8px;margin-top:4px;z-index:1001;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:300px;overflow-y:auto;">
+                                    <div onclick="selectEditCustomerCategory('', 'Keine Kategorie')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                                        Keine Kategorie
+                                    </div>
+                                    <div onclick="selectEditCustomerCategory('favorite', '⭐ Favorit (Schnellwahl)')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">
+                                        ⭐ Favorit (Schnellwahl)
+                                    </div>
+                                    <div onclick="selectEditCustomerCategory('driver', '🚗 Fahrer')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='white'">
+                                        🚗 Fahrer
+                                    </div>
+                                    <div onclick="selectEditCustomerCategory('hotel', '🏨 Hotel')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='white'">
+                                        🏨 Hotel
+                                    </div>
+                                    <div onclick="selectEditCustomerCategory('vip', '👑 VIP')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">
+                                        👑 VIP
+                                    </div>
+                                    <div onclick="selectEditCustomerCategory('business', '💼 Geschäftskunde')" style="padding:12px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
+                                        💼 Geschäftskunde
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="edit-customer-category" value="">
                             <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
                                 ℹ️ "Favorit" erscheint im Schnellanruf-Button 📞
                             </div>
@@ -39610,10 +40255,24 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     mobileInput.value = mobile.number;
                 }
                 
-                // 🆕 v5.90.232: Setze Kategorie
-                const categorySelect = document.getElementById('edit-customer-category');
-                if (categorySelect && customer.category) {
-                    categorySelect.value = customer.category;
+                // 🆕 v5.90.245: Setze Kategorie (Custom Dropdown!)
+                const categoryInput = document.getElementById('edit-customer-category');
+                if (categoryInput && customer.category) {
+                    categoryInput.value = customer.category;
+                    
+                    // Setze auch Label
+                    const labels = {
+                        'favorite': '⭐ Favorit (Schnellwahl)',
+                        'driver': '🚗 Fahrer',
+                        'hotel': '🏨 Hotel',
+                        'vip': '👑 VIP',
+                        'business': '💼 Geschäftskunde'
+                    };
+                    const label = labels[customer.category] || 'Keine Kategorie';
+                    const labelElement = document.getElementById('edit-customer-category-label');
+                    if (labelElement) {
+                        labelElement.textContent = label;
+                    }
                 }
             }, 10);
             

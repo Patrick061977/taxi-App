@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.250 - DEBUG LOGS! 🔍✨ (Build 20260109-1445)');
+        console.log('🚕 Funk Taxi App v5.90.251 - ANRUF-MODAL SUCHE FIX! 📞🔍 (Build 20260109-1500)');
+        console.log('🔍 v5.90.251: Anruf-Modal sucht jetzt auch Telefonnummer!');
+        console.log('📞 v5.90.251: Suche nach "0849" findet Nummer!');
+        console.log('✅ v5.90.251: Name UND Telefonnummer durchsuchbar!');
         console.log('🔍 v5.90.250: Detaillierte Logs für CRM-Suche!');
-        console.log('⭐ v5.90.250: Detaillierte Logs für POI-Speichern!');
-        console.log('🐛 v5.90.250: Problem-Diagnose aktiviert!');
         console.log('🔴 v5.90.249: AKTIVE FAHRT BANNER (Groß + Rot)!');
-        console.log('📋 v5.90.249: TAGESPROGRAMM für Fahrer!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.250 - DEBUG LOGS! 🐛 (Build 20260109-1445)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.251 - ANRUF-SUCHE FIX! 🔍 (Build 20260109-1500)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11183,7 +11183,7 @@
                         <!-- Liste -->
                         <div id="crm-customer-list" style="flex:1;overflow-y:auto;padding:15px;">
                             ${customersWithPhone.map(c => `
-                                <div class="crm-customer-item" data-name="${(c.name || '').toLowerCase()}" onclick="selectCustomerForCall('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${c.phone}')" style="padding:15px;background:#f9fafb;border-radius:10px;margin-bottom:10px;cursor:pointer;border:2px solid #e5e7eb;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#3b82f6'" onmouseout="this.style.background='#f9fafb';this.style.borderColor='#e5e7eb'">
+                                <div class="crm-customer-item" data-name="${(c.name || '').toLowerCase()}" data-phone="${(c.phone || '').replace(/\s/g, '')}" onclick="selectCustomerForCall('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${c.phone}')" style="padding:15px;background:#f9fafb;border-radius:10px;margin-bottom:10px;cursor:pointer;border:2px solid #e5e7eb;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#3b82f6'" onmouseout="this.style.background='#f9fafb';this.style.borderColor='#e5e7eb'">
                                     <div style="font-weight:600;color:#111827;font-size:15px;margin-bottom:4px;">
                                         ${c.name || 'Unbekannt'}
                                         ${c.category === 'favorite' ? ' ⭐' : ''}
@@ -11208,17 +11208,26 @@
                 // Suche
                 const searchInput = document.getElementById('crm-search-input');
                 searchInput.addEventListener('input', (e) => {
-                    const query = e.target.value.toLowerCase();
+                    const query = e.target.value.toLowerCase().replace(/\s/g, ''); // Entferne Leerzeichen
                     const items = document.querySelectorAll('.crm-customer-item');
                     
+                    console.log('🔍 Anruf-Modal Suche:', query);
+                    let foundCount = 0;
+                    
                     items.forEach(item => {
-                        const name = item.dataset.name;
-                        if (name.includes(query)) {
+                        const name = item.dataset.name || '';
+                        const phone = item.dataset.phone || '';
+                        
+                        // Suche in Name ODER Telefonnummer
+                        if (name.includes(query) || phone.includes(query)) {
                             item.style.display = 'block';
+                            foundCount++;
                         } else {
                             item.style.display = 'none';
                         }
                     });
+                    
+                    console.log(`✅ ${foundCount} Kunden gefunden`);
                 });
                 
                 // Focus auf Suche

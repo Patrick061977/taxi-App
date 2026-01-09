@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.243 - ANRUF-ZENTRALE! 📞🎯 (Build 20260109-1025)');
+        console.log('🚕 Funk Taxi App v5.90.244 - CRM IMPORT! 👥📞 (Build 20260109-1030)');
+        console.log('👥 v5.90.244: Aus CRM übernehmen!');
+        console.log('🔍 v5.90.244: Kunden-Suche im Modal!');
+        console.log('⚡ v5.90.244: Schneller als manuell!');
         console.log('📞 v5.90.243: ANRUF-ZENTRALE mit Kategorien!');
         console.log('🚗 v5.90.243: Fahrer / Wichtig / Notfall / Andere');
-        console.log('⚡ v5.90.243: Schwebendes Icon IMMER sichtbar!');
-        console.log('✅ v5.90.243: Schneller Zugriff auf Telefonnummern!');
-        console.log('⭐ v5.90.242: Favoriten (POIs) immer ZUERST!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.243 - ANRUF-ZENTRALE! 🎯 (Build 20260109-1025)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👥 Version 5.90.244 - CRM IMPORT! 📞 (Build 20260109-1030)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11075,6 +11075,171 @@
             
             // Schließe Modal
             toggleCallFavorites();
+        }
+        
+        // 🆕 v5.90.244: AUS CRM ÜBERNEHMEN!
+        async function addCallFavoriteFromCRM() {
+            if (!isFirebaseReady) {
+                alert('❌ Firebase nicht bereit!');
+                return;
+            }
+            
+            console.log('👥 Lade CRM-Kunden...');
+            
+            try {
+                // Lade alle Kunden
+                const snapshot = await db.ref('customers').once('value');
+                const customers = snapshot.val();
+                
+                if (!customers) {
+                    alert('Keine Kunden gefunden!');
+                    return;
+                }
+                
+                // Filtere Kunden mit Telefonnummer
+                const customersWithPhone = Object.entries(customers)
+                    .filter(([id, c]) => c.phone)
+                    .map(([id, c]) => ({ id, ...c }))
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                
+                if (customersWithPhone.length === 0) {
+                    alert('Keine Kunden mit Telefonnummer gefunden!');
+                    return;
+                }
+                
+                console.log('✅ Gefunden:', customersWithPhone.length, 'Kunden');
+                
+                // Erstelle Auswahl-Modal
+                const modal = document.createElement('div');
+                modal.id = 'crm-select-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+                
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:16px;width:100%;max-width:500px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                        <!-- Header -->
+                        <div style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
+                            <h3 style="margin:0;font-size:18px;font-weight:700;">👥 Kunde auswählen</h3>
+                            <button onclick="document.getElementById('crm-select-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;font-weight:bold;">×</button>
+                        </div>
+                        
+                        <!-- Suche -->
+                        <div style="padding:15px;border-bottom:2px solid #e5e7eb;">
+                            <input type="text" id="crm-search-input" placeholder="🔍 Suchen..." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        </div>
+                        
+                        <!-- Liste -->
+                        <div id="crm-customer-list" style="flex:1;overflow-y:auto;padding:15px;">
+                            ${customersWithPhone.map(c => `
+                                <div class="crm-customer-item" data-name="${(c.name || '').toLowerCase()}" onclick="selectCustomerForCall('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}', '${c.phone}')" style="padding:15px;background:#f9fafb;border-radius:10px;margin-bottom:10px;cursor:pointer;border:2px solid #e5e7eb;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#3b82f6'" onmouseout="this.style.background='#f9fafb';this.style.borderColor='#e5e7eb'">
+                                    <div style="font-weight:600;color:#111827;font-size:15px;margin-bottom:4px;">
+                                        ${c.name || 'Unbekannt'}
+                                        ${c.category === 'favorite' ? ' ⭐' : ''}
+                                        ${c.category === 'driver' ? ' 🚗' : ''}
+                                    </div>
+                                    <div style="color:#6b7280;font-size:13px;font-family:monospace;">
+                                        📞 ${c.phone}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <!-- Footer -->
+                        <div style="padding:15px;border-top:2px solid #e5e7eb;background:#f9fafb;text-align:center;color:#6b7280;font-size:12px;">
+                            ${customersWithPhone.length} Kunden mit Telefonnummer
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Suche
+                const searchInput = document.getElementById('crm-search-input');
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase();
+                    const items = document.querySelectorAll('.crm-customer-item');
+                    
+                    items.forEach(item => {
+                        const name = item.dataset.name;
+                        if (name.includes(query)) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+                
+                // Focus auf Suche
+                setTimeout(() => searchInput.focus(), 100);
+                
+            } catch (e) {
+                console.error('❌ Fehler:', e);
+                alert('Fehler beim Laden: ' + e.message);
+            }
+        }
+        
+        // Kunde für Anruf auswählen
+        function selectCustomerForCall(customerId, name, phone) {
+            console.log('✅ Kunde ausgewählt:', name, phone);
+            
+            // Schließe Modal
+            const modal = document.getElementById('crm-select-modal');
+            if (modal) modal.remove();
+            
+            // Frage Kategorie
+            const categoryPrompt = `"${name}" hinzufügen als:
+
+1 = 🚗 Fahrer
+2 = ⭐ Wichtig
+3 = 🚨 Notfall
+4 = 📞 Andere
+
+Nummer eingeben (1-4):`;
+            
+            const categoryInput = prompt(categoryPrompt, '2');
+            if (!categoryInput) return;
+            
+            let category = 'other';
+            let icon = '📞';
+            
+            switch(categoryInput) {
+                case '1':
+                    category = 'driver';
+                    icon = '🚗';
+                    break;
+                case '2':
+                    category = 'important';
+                    icon = '⭐';
+                    break;
+                case '3':
+                    category = 'emergency';
+                    icon = '🚨';
+                    break;
+                default:
+                    category = 'other';
+                    icon = '📞';
+            }
+            
+            // Prüfe ob schon vorhanden
+            const exists = callFavorites.find(f => f.number === phone);
+            if (exists) {
+                alert(`"${name}" ist bereits in der Anruf-Zentrale!`);
+                return;
+            }
+            
+            // Hinzufügen
+            callFavorites.push({
+                name: name,
+                number: phone,
+                icon: icon,
+                category: category,
+                customerId: customerId
+            });
+            
+            saveCallFavorites();
+            renderCallFavorites();
+            
+            console.log('✅ Zur Anruf-Zentrale hinzugefügt:', name);
+            alert(`✅ "${name}" wurde hinzugefügt!`);
         }
         
         // Favorit hinzufügen
@@ -56817,9 +56982,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
     </div>
     
     <!-- Add Button -->
-    <div style="padding:15px;border-top:2px solid #e5e7eb;background:#f9fafb;">
-        <button onclick="addCallFavorite()" style="width:100%;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-            ➕ Nummer hinzufügen
+    <div style="padding:15px;border-top:2px solid #e5e7eb;background:#f9fafb;display:flex;gap:10px;">
+        <button onclick="addCallFavoriteFromCRM()" style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+            👥 Aus CRM
+        </button>
+        <button onclick="addCallFavorite()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+            ➕ Manuell
         </button>
     </div>
 </div>

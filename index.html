@@ -108,12 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.229 - ADMIN ONLY! 👨‍💼📞 (Build 20260109-0650)');
-        console.log('👨‍💼 v5.90.229: Anruf-Favoriten NUR für Admin!');
+        console.log('🚕 Funk Taxi App v5.90.231 - TELEFON-BUTTON TEST! 📞🧪 (Build 20260109-0700)');
+        console.log('🧪 v5.90.231: TEST - Telefon-Button für ALLE User (nicht nur Admin)!');
+        console.log('📧 v5.90.230: Bot-API lehnt Emails >7 Tage ab!');
+        console.log('⏰ v5.90.230: Datum-Check für alte Emails!');
+        console.log('❌ v5.90.230: Keine Antworten auf 2019-Emails!');
+        console.log('👨‍💼 v5.90.229: Anruf-Favoriten Admin-Only!');
         console.log('🎯 v5.90.228: Intelligente Pin-Logik!');
-        console.log('📍 v5.90.228: Kunde → Abholort → Klick → Zielort!');
-        console.log('🔄 v5.90.227: Auto-Retry + Caching!');
-        console.log('📞 v5.90.227: Anruf-Favoriten!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -11026,15 +11027,15 @@
             console.log('🗑️ Favorit gelöscht:', fav.name);
         }
         
-        // Zeige FAB nur für admins
+        // 🆕 v5.90.230: TEST - IMMER ANZEIGEN!
         function updateCallFavoritesFAB() {
             const fab = document.getElementById('call-favorites-fab');
             if (!fab) return;
             
-            // 🆕 v5.90.229: NUR FÜR ADMIN!
-            if (currentUser && currentUser.role === 'admin') {
+            // 🧪 TEST: IMMER ANZEIGEN (auch für nicht-admin)
+            if (currentUser) {
                 fab.style.display = 'block';
-                console.log('📞 Anruf-Favoriten aktiviert (Admin)');
+                console.log('📞 Anruf-Favoriten aktiviert (TEST-MODUS: für ALLE!)');
             } else {
                 fab.style.display = 'none';
             }
@@ -22248,8 +22249,32 @@
         
         // 🆕 v5.90.20: API FÜR EMAIL-BOT / TELEGRAM-BOT
         // Prüft Slot-Verfügbarkeit und gibt Alternativen zurück
-        window.checkSlotForBot = async function(dateTimeStr, pickupAddress) {
+        window.checkSlotForBot = async function(dateTimeStr, pickupAddress, emailReceivedDate = null) {
             console.log('🤖 BOT Slot-Check:', dateTimeStr, pickupAddress);
+            
+            // 🆕 v5.90.230: DATUM-CHECK! Lehne alte Emails ab!
+            if (emailReceivedDate) {
+                const emailDate = new Date(emailReceivedDate);
+                const now = new Date();
+                const daysDiff = (now - emailDate) / (1000 * 60 * 60 * 24);
+                
+                console.log('📧 Email Datum:', emailDate.toLocaleString('de-DE'));
+                console.log('📆 Tage alt:', daysDiff.toFixed(1));
+                
+                // Lehne Emails ab die älter als 7 Tage sind
+                if (daysDiff > 7) {
+                    console.error('❌ EMAIL ZU ALT! (', daysDiff.toFixed(1), 'Tage)');
+                    return {
+                        available: false,
+                        error: 'EMAIL_TOO_OLD',
+                        errorMessage: `Diese Email ist ${Math.round(daysDiff)} Tage alt und wird nicht bearbeitet. Bitte senden Sie eine neue Anfrage.`,
+                        requestedTime: dateTimeStr,
+                        alternatives: []
+                    };
+                }
+                
+                console.log('✅ Email ist aktuell (', daysDiff.toFixed(1), 'Tage alt)');
+            }
             
             try {
                 // 1. Parse DateTime String (z.B. "2026-01-02 14:00")
@@ -22324,14 +22349,25 @@
         };
         
         // 🆕 v5.90.20: EINFACHE API - Nur JA/NEIN
-        window.isSlotAvailable = async function(dateTimeStr, pickupAddress) {
-            const result = await window.checkSlotForBot(dateTimeStr, pickupAddress);
+        window.isSlotAvailable = async function(dateTimeStr, pickupAddress, emailReceivedDate = null) {
+            const result = await window.checkSlotForBot(dateTimeStr, pickupAddress, emailReceivedDate);
+            
+            // 🆕 v5.90.230: Bei zu alter Email → false
+            if (result.error === 'EMAIL_TOO_OLD') {
+                return false;
+            }
+            
             return result.available;
         };
         
         // 🆕 v5.90.20: API MIT ALTERNATIVEN ALS TEXT
-        window.checkSlotWithText = async function(dateTimeStr, pickupAddress) {
-            const result = await window.checkSlotForBot(dateTimeStr, pickupAddress);
+        window.checkSlotWithText = async function(dateTimeStr, pickupAddress, emailReceivedDate = null) {
+            const result = await window.checkSlotForBot(dateTimeStr, pickupAddress, emailReceivedDate);
+            
+            // 🆕 v5.90.230: Bei zu alter Email → Fehlermeldung
+            if (result.error === 'EMAIL_TOO_OLD') {
+                return `❌ FEHLER: ${result.errorMessage}`;
+            }
             
             if (result.available) {
                 return `✅ ${dateTimeStr} ist verfügbar!`;

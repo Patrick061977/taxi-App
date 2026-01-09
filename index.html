@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.239 - TELEFON-BUTTON NEU! 📞✨ (Build 20260109-1005)');
+        console.log('🚕 Funk Taxi App v5.90.240 - ABHOLORT AUF KARTE! 📍✨ (Build 20260109-1010)');
+        console.log('📍 v5.90.240: Abholort AUCH auf Karte wählen!');
+        console.log('🟢 v5.90.240: Grüner Button für Abholort!');
+        console.log('🔵 v5.90.240: Blauer Button für Zielort!');
         console.log('📞 v5.90.239: Telefon-Button links unten!');
         console.log('✨ v5.90.239: Größer (70px) für besseren Griff!');
-        console.log('🔧 v5.90.238: Syntax-Fehler behoben!');
-        console.log('📱 v5.90.237: Auto-Clean Telefonnummern!');
-        console.log('📍 v5.90.236: Zielort auf Karte wählen!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.239 - TELEFON-BUTTON NEU! ✨ (Build 20260109-1005)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📍 Version 5.90.240 - ABHOLORT AUF KARTE! ✨ (Build 20260109-1010)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31374,6 +31374,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Von wo soll der Kunde abgeholt werden?">📍 Abholort</label>
                             <input type="text" id="quick-booking-pickup" placeholder="Adresse eingeben..." title="Tippe Adresse ein - Dropdown mit Vorschlägen erscheint" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            
+                            <!-- 🆕 v5.90.240: AUF KARTE WÄHLEN FÜR ABHOLORT! -->
+                            <button onclick="openQuickBookingMapPickerForPickup()" title="Abholort auf Karte auswählen" style="margin-top:8px;width:100%;padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                📍 Auf Karte wählen
+                            </button>
                         </div>
                         
                         <!-- Swap Button -->
@@ -33732,6 +33737,94 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 // Entferne Modal
                 modal.remove();
             }
+        }
+        
+        // 🆕 v5.90.240: KARTEN-PICKER FÜR ABHOLORT!
+        // ═══════════════════════════════════════════════════════════════════════════
+        
+        function openQuickBookingMapPickerForPickup() {
+            console.log('📍 Öffne Karten-Picker für ABHOLORT...');
+            
+            // Modal erstellen
+            const modal = document.createElement('div');
+            modal.id = 'quick-booking-map-picker-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10002;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- Header -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;background:linear-gradient(135deg,#10b981,#059669);color:white;">
+                        <h3 style="margin:0;font-size:18px;font-weight:700;">📍 Abholort auf Karte wählen</h3>
+                        <button onclick="closeQuickBookingMapPicker()" style="background:none;border:none;font-size:28px;cursor:pointer;color:white;line-height:1;padding:0;opacity:0.9;">×</button>
+                    </div>
+                    
+                    <!-- Info -->
+                    <div style="padding:15px;background:#d1fae5;border-bottom:2px solid #10b981;">
+                        <div style="font-size:13px;color:#065f46;font-weight:600;">
+                            💡 Klicke auf die Karte um den Abholort auszuwählen
+                        </div>
+                    </div>
+                    
+                    <!-- Karte -->
+                    <div id="quick-booking-map-picker" style="flex:1;min-height:400px;"></div>
+                    
+                    <!-- Ausgewählte Adresse -->
+                    <div id="quick-booking-map-picker-selected" style="display:none;padding:15px;background:#d1fae5;border-top:2px solid#10b981;">
+                        <div style="font-size:12px;color:#065f46;font-weight:600;margin-bottom:4px;">✅ Ausgewählt:</div>
+                        <div id="quick-booking-map-picker-address" style="font-size:14px;color:#1f2937;font-weight:600;"></div>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div style="padding:20px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:10px;">
+                        <button onclick="closeQuickBookingMapPicker()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                            Abbrechen
+                        </button>
+                        <button id="quick-booking-map-picker-confirm" onclick="confirmQuickBookingMapPickerForPickup()" disabled style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;">
+                            ✅ Übernehmen
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Initialisiere Karte nach kurzer Verzögerung
+            setTimeout(() => {
+                initQuickBookingMapPicker();
+            }, 100);
+        }
+        
+        function confirmQuickBookingMapPickerForPickup() {
+            if (!quickBookingMapPickerMarker || !quickBookingMapPickerMarker.pickedAddress) {
+                alert('❌ Bitte erst einen Ort auf der Karte auswählen!');
+                return;
+            }
+            
+            console.log('✅ Übernehme ABHOLORT:', quickBookingMapPickerMarker.pickedAddress);
+            
+            // Fülle ABHOLORT-Feld
+            const pickupField = document.getElementById('quick-booking-pickup');
+            if (pickupField) {
+                pickupField.value = quickBookingMapPickerMarker.pickedAddress;
+                
+                // Speichere Koordinaten
+                quickBookingPickupCoords = {
+                    lat: quickBookingMapPickerMarker.pickedLat,
+                    lon: quickBookingMapPickerMarker.pickedLon
+                };
+                
+                console.log('✅ Abholort-Koordinaten gespeichert:', quickBookingPickupCoords);
+            }
+            
+            // Schließe Modal
+            closeQuickBookingMapPicker();
+            
+            // Trigger Preis-Berechnung falls Zielort schon da ist
+            setTimeout(() => {
+                if (pickupField) {
+                    pickupField.dispatchEvent(new Event('change'));
+                }
+            }, 100);
         }
         
         // 🆕 v5.38.6: SCHNELLBUCHUNG-PANEL IM KALENDER

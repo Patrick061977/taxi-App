@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.240 - ABHOLORT AUF KARTE! 📍✨ (Build 20260109-1010)');
-        console.log('📍 v5.90.240: Abholort AUCH auf Karte wählen!');
-        console.log('🟢 v5.90.240: Grüner Button für Abholort!');
-        console.log('🔵 v5.90.240: Blauer Button für Zielort!');
-        console.log('📞 v5.90.239: Telefon-Button links unten!');
-        console.log('✨ v5.90.239: Größer (70px) für besseren Griff!');
+        console.log('🚕 Funk Taxi App v5.90.243 - ANRUF-ZENTRALE! 📞🎯 (Build 20260109-1025)');
+        console.log('📞 v5.90.243: ANRUF-ZENTRALE mit Kategorien!');
+        console.log('🚗 v5.90.243: Fahrer / Wichtig / Notfall / Andere');
+        console.log('⚡ v5.90.243: Schwebendes Icon IMMER sichtbar!');
+        console.log('✅ v5.90.243: Schneller Zugriff auf Telefonnummern!');
+        console.log('⭐ v5.90.242: Favoriten (POIs) immer ZUERST!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📍 Version 5.90.240 - ABHOLORT AUF KARTE! ✨ (Build 20260109-1010)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.243 - ANRUF-ZENTRALE! 🎯 (Build 20260109-1025)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10978,30 +10978,87 @@
                 list.innerHTML = `
                     <div style="text-align:center;padding:40px;color:#6b7280;">
                         <div style="font-size:48px;margin-bottom:10px;">📞</div>
-                        <div style="font-size:14px;">Noch keine Favoriten</div>
+                        <div style="font-size:14px;">Noch keine Nummern</div>
+                        <div style="font-size:12px;color:#9ca3af;margin-top:8px;">Klicke unten auf "Nummer hinzufügen"</div>
                     </div>
                 `;
                 return;
             }
             
-            list.innerHTML = callFavorites.map((fav, index) => `
-                <div style="display:flex;align-items:center;gap:12px;padding:15px;background:#f9fafb;border-radius:12px;margin-bottom:10px;border:2px solid #e5e7eb;">
-                    <div style="font-size:32px;min-width:40px;text-align:center;">${fav.icon || '📞'}</div>
-                    <div style="flex:1;">
-                        <div style="font-weight:600;color:#111827;font-size:15px;margin-bottom:2px;">${fav.name}</div>
-                        <div style="color:#6b7280;font-size:13px;font-family:monospace;">${fav.number}</div>
+            // 🆕 v5.90.243: KATEGORIEN!
+            // Kategorisiere Favoriten
+            const categories = {
+                driver: { title: '🚗 FAHRER', items: [], color: '#3b82f6' },
+                important: { title: '⭐ WICHTIG', items: [], color: '#f59e0b' },
+                emergency: { title: '🚨 NOTFALL', items: [], color: '#ef4444' },
+                other: { title: '📞 ANDERE', items: [], color: '#6b7280' }
+            };
+            
+            // Sortiere Favoriten in Kategorien
+            callFavorites.forEach((fav, index) => {
+                fav.index = index; // Merke Original-Index
+                
+                // Kategorie erkennen
+                if (fav.category === 'driver' || fav.name.toLowerCase().includes('fahrer')) {
+                    categories.driver.items.push(fav);
+                } else if (fav.category === 'important' || fav.category === 'favorite') {
+                    categories.important.items.push(fav);
+                } else if (fav.number === '112' || fav.number === '110' || fav.name.toLowerCase().includes('notruf')) {
+                    categories.emergency.items.push(fav);
+                } else {
+                    categories.other.items.push(fav);
+                }
+            });
+            
+            // Render Kategorien
+            let html = '';
+            
+            Object.values(categories).forEach(cat => {
+                if (cat.items.length === 0) return; // Skip leere Kategorien
+                
+                html += `
+                    <div style="margin-bottom:20px;">
+                        <!-- Kategorie-Header -->
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;background:${cat.color}15;border-left:4px solid ${cat.color};border-radius:6px;">
+                            <div style="font-weight:700;font-size:13px;color:${cat.color};letter-spacing:0.5px;">
+                                ${cat.title}
+                            </div>
+                            <div style="background:${cat.color};color:white;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;">
+                                ${cat.items.length}
+                            </div>
+                        </div>
+                        
+                        <!-- Items -->
+                        ${cat.items.map(fav => `
+                            <div style="display:flex;align-items:center;gap:10px;padding:12px;background:white;border-radius:10px;margin-bottom:8px;border:2px solid #e5e7eb;transition:all 0.2s;" onmouseover="this.style.background='#f9fafb';this.style.borderColor='${cat.color}'" onmouseout="this.style.background='white';this.style.borderColor='#e5e7eb'">
+                                <!-- Icon -->
+                                <div style="font-size:28px;min-width:36px;text-align:center;">${fav.icon || '📞'}</div>
+                                
+                                <!-- Info -->
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-weight:600;color:#111827;font-size:14px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${fav.name}</div>
+                                    <div style="color:#6b7280;font-size:12px;font-family:monospace;">${fav.number}</div>
+                                </div>
+                                
+                                <!-- Buttons -->
+                                <div style="display:flex;gap:6px;">
+                                    <button onclick="callNumber('${fav.number}', '${fav.name.replace(/'/g, "\\'")}')" title="Anrufen" style="padding:10px 14px;background:${cat.color};color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                        📞
+                                    </button>
+                                    <button onclick="editCallFavorite(${fav.index})" title="Bearbeiten" style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                        ✏️
+                                    </button>
+                                    <button onclick="deleteCallFavorite(${fav.index})" title="Löschen" style="padding:8px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
-                    <button onclick="callNumber('${fav.number}', '${fav.name}')" style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;min-width:80px;">
-                        📞 Anrufen
-                    </button>
-                    <button onclick="editCallFavorite(${index})" style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;min-width:36px;">
-                        ✏️
-                    </button>
-                    <button onclick="deleteCallFavorite(${index})" style="padding:8px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;min-width:36px;">
-                        🗑️
-                    </button>
-                </div>
-            `).join('');
+                `;
+            });
+            
+            list.innerHTML = html;
         }
         
         // Rufe Nummer an
@@ -11022,24 +11079,61 @@
         
         // Favorit hinzufügen
         function addCallFavorite() {
-            const name = prompt('Name:', '');
+            const name = prompt('Name (z.B. "Fahrer 1"):', '');
             if (!name) return;
             
             const number = prompt('Telefonnummer:', '+49');
             if (!number) return;
             
-            const icon = prompt('Emoji (optional):', '📞');
+            // 🆕 v5.90.243: KATEGORIE AUSWÄHLEN!
+            const categoryPrompt = `Kategorie wählen:
+1 = 🚗 Fahrer
+2 = ⭐ Wichtig
+3 = 🚨 Notfall
+4 = 📞 Andere
+
+Nummer eingeben (1-4):`;
+            
+            const categoryInput = prompt(categoryPrompt, '2');
+            
+            let category = 'other';
+            let icon = '📞';
+            
+            switch(categoryInput) {
+                case '1':
+                    category = 'driver';
+                    icon = '🚗';
+                    break;
+                case '2':
+                    category = 'important';
+                    icon = '⭐';
+                    break;
+                case '3':
+                    category = 'emergency';
+                    icon = '🚨';
+                    break;
+                default:
+                    category = 'other';
+                    icon = '📞';
+            }
+            
+            // Optional: Eigenes Icon
+            const customIcon = prompt('Emoji ändern? (leer = Standard)', icon);
+            if (customIcon && customIcon.trim()) {
+                icon = customIcon.trim();
+            }
             
             callFavorites.push({
                 name: name.trim(),
                 number: number.trim(),
-                icon: icon.trim() || '📞'
+                icon: icon,
+                category: category
             });
             
             saveCallFavorites();
             renderCallFavorites();
             
-            console.log('✅ Favorit hinzugefügt:', name);
+            console.log('✅ Favorit hinzugefügt:', name, category);
         }
         
         // Favorit bearbeiten
@@ -11052,13 +11146,52 @@
             const number = prompt('Telefonnummer:', fav.number);
             if (number === null) return;
             
-            const icon = prompt('Emoji:', fav.icon);
+            // 🆕 v5.90.243: KATEGORIE ÄNDERN!
+            const currentCat = fav.category || 'other';
+            const catMap = { driver: '1', important: '2', emergency: '3', other: '4' };
+            const currentNum = catMap[currentCat] || '4';
+            
+            const categoryPrompt = `Kategorie wählen:
+1 = 🚗 Fahrer
+2 = ⭐ Wichtig
+3 = 🚨 Notfall
+4 = 📞 Andere
+
+Aktuell: ${currentNum}`;
+            
+            const categoryInput = prompt(categoryPrompt, currentNum);
+            
+            let category = currentCat;
+            let defaultIcon = fav.icon;
+            
+            if (categoryInput) {
+                switch(categoryInput) {
+                    case '1':
+                        category = 'driver';
+                        defaultIcon = '🚗';
+                        break;
+                    case '2':
+                        category = 'important';
+                        defaultIcon = '⭐';
+                        break;
+                    case '3':
+                        category = 'emergency';
+                        defaultIcon = '🚨';
+                        break;
+                    default:
+                        category = 'other';
+                        defaultIcon = '📞';
+                }
+            }
+            
+            const icon = prompt('Emoji:', fav.icon || defaultIcon);
             if (icon === null) return;
             
             callFavorites[index] = {
                 name: name.trim() || fav.name,
                 number: number.trim() || fav.number,
-                icon: icon.trim() || fav.icon
+                icon: icon.trim() || defaultIcon,
+                category: category
             };
             
             saveCallFavorites();
@@ -19544,8 +19677,8 @@
                 const resultsToShow = results;
                 console.log('📊 Zeige ALLE Ergebnisse (kein Filter):', resultsToShow.length);
                 
-                // 🆕 v5.90.198: REIHENFOLGE: Bekannte Orte + POIs + Nominatim!
-                dropdown.innerHTML = knownPlacesHTML + poiHTML + resultsToShow.map(r => {
+                // 🆕 v5.90.242: REIHENFOLGE: Favoriten (POIs) ZUERST, dann Bekannte Orte, dann Nominatim!
+                dropdown.innerHTML = poiHTML + knownPlacesHTML + resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
                     let fullAddress = '';
@@ -33148,12 +33281,21 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     }).join('');
                 }
                 
-                // 🆕 v5.64.44: KEIN FILTER! Zeige ALLES wie im Fahrgast-Tab!
-                // Damit werden auch Krankenhäuser, Uniklinik Greifswald, etc. gefunden!
-                const resultsToShow = results;
-                console.log('📊 Schnellbuchung: Zeige ALLE Ergebnisse (kein Filter):', resultsToShow.length);
+                // 🆕 v5.90.241: DUPLIKATE ENTFERNEN!
+                // Wenn "Seebrücke Ahlbeck" in knownPlaces ist, nicht nochmal in Nominatim zeigen!
+                const knownPlaceNames = matchingKnownPlaces.map(p => p.name.toLowerCase());
+                const poiNames = matchingPOIs.map(p => p.name.toLowerCase());
+                const allKnownNames = [...knownPlaceNames, ...poiNames];
                 
-                // 🆕 v5.64.48: EIGENE POIs AM ANFANG!
+                // Filtere Nominatim-Ergebnisse: Entferne wenn Name schon in bekannten Orten
+                const resultsToShow = results.filter(r => {
+                    const poiName = (r.address?.amenity || r.address?.tourism || r.address?.building || r.name || '').toLowerCase();
+                    return !allKnownNames.includes(poiName);
+                });
+                
+                console.log('📊 Schnellbuchung: Zeige Ergebnisse nach Duplikat-Entfernung:', resultsToShow.length);
+                
+                // 🆕 v5.90.198: BEKANNTE ORTE ZUERST!
                 let poiHTML = '';
                 if (matchingPOIs.length > 0) {
                     poiHTML = `
@@ -33189,8 +33331,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     }
                 }
                 
-                // 🆕 v5.90.198: REIHENFOLGE: Bekannte Orte + POIs + Nominatim!
-                dropdown.innerHTML = knownPlacesHTML + poiHTML + resultsToShow.map(r => {
+                // 🆕 v5.90.242: REIHENFOLGE: Favoriten (POIs) ZUERST, dann Bekannte Orte, dann Nominatim!
+                dropdown.innerHTML = poiHTML + knownPlacesHTML + resultsToShow.map(r => {
                     const address = r.address;
                     let displayText = '';
                     let fullAddress = '';
@@ -56655,29 +56797,29 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
 </div>
 
 <!-- 🆕 v5.90.227: ANRUF-FAVORITEN FLOATING BUTTON -->
-<div id="call-favorites-fab" style="position:fixed;bottom:20px;left:20px;z-index:9998;display:none;">
+<div id="call-favorites-fab" style="position:fixed;bottom:20px;left:20px;z-index:9998;display:block;">
     <button onclick="toggleCallFavorites()" style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;box-shadow:0 6px 20px rgba(16,185,129,0.5);cursor:pointer;font-size:32px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 8px 24px rgba(16,185,129,0.6)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 6px 20px rgba(16,185,129,0.5)'">
         📞
     </button>
 </div>
 
-<!-- 🆕 v5.90.227: ANRUF-FAVORITEN MODAL -->
-<div id="call-favorites-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:400px;background:white;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:9999;max-height:80vh;overflow:hidden;">
+<!-- 🆕 v5.90.243: ANRUF-ZENTRALE MODAL -->
+<div id="call-favorites-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:450px;background:white;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:9999;max-height:90vh;overflow:hidden;">
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
-        <h3 style="margin:0;font-size:18px;font-weight:700;">📞 Schnellanruf</h3>
+        <h3 style="margin:0;font-size:18px;font-weight:700;">📞 Anruf-Zentrale</h3>
         <button onclick="toggleCallFavorites()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;font-weight:bold;">×</button>
     </div>
     
     <!-- Content -->
-    <div id="call-favorites-list" style="padding:15px;max-height:60vh;overflow-y:auto;">
+    <div id="call-favorites-list" style="padding:15px;max-height:65vh;overflow-y:auto;">
         <!-- Wird dynamisch gefüllt -->
     </div>
     
     <!-- Add Button -->
-    <div style="padding:15px;border-top:2px solid #e5e7eb;">
-        <button onclick="addCallFavorite()" style="width:100%;padding:12px;background:#f3f4f6;color:#374151;border:2px dashed #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
-            ➕ Favorit hinzufügen
+    <div style="padding:15px;border-top:2px solid #e5e7eb;background:#f9fafb;">
+        <button onclick="addCallFavorite()" style="width:100%;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+            ➕ Nummer hinzufügen
         </button>
     </div>
 </div>

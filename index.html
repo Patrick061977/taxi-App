@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.254 - DEV MODE FIX! 📌✨ (Build 20260109-1545)');
-        console.log('📌 v5.90.254: Rechtsklick = Tooltip FIXIEREN!');
-        console.log('📸 v5.90.254: Tooltip bleibt → Screenshot möglich!');
-        console.log('🔄 v5.90.254: Nochmal Rechtsklick = Tooltip lösen!');
-        console.log('🔍 v5.90.253: Dev Mode Button - An/Aus!');
-        console.log('🚗 v5.90.252: Fahrzeuge nur BESETZT wenn Fahrt HEUTE!');
+        console.log('🚕 Funk Taxi App v5.90.255 - ANRUF-FAVORITEN FIREBASE! ☁️✨ (Build 20260109-1615)');
+        console.log('☁️ v5.90.255: Anruf-Favoriten in Firebase speichern!');
+        console.log('💾 v5.90.255: Persistent über Cache-Clearing!');
+        console.log('🔄 v5.90.255: Synchronisiert zwischen Geräten!');
+        console.log('✅ v5.90.255: Lädt aus Firebase → localStorage Backup!');
+        console.log('📌 v5.90.254: Tooltip mit Rechtsklick fixieren!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📌 Version 5.90.254 - TOOLTIP FIXIEREN! 📸 (Build 20260109-1545)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">☁️ Version 5.90.255 - FIREBASE FAVORITEN! 💾 (Build 20260109-1615)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10943,28 +10943,58 @@
         // Lade Favoriten aus localStorage
         function loadCallFavorites() {
             try {
-                // Lade gespeicherte Favoriten
-                const saved = localStorage.getItem('call_favorites');
-                if (saved) {
-                    callFavorites = JSON.parse(saved);
-                    console.log('📞 Favoriten geladen:', callFavorites.length);
+                // 🆕 v5.90.255: ERST aus Firebase laden! (persistent!)
+                if (currentUser && currentUser.uid && isFirebaseReady) {
+                    db.ref(`users/${currentUser.uid}/callFavorites`).once('value')
+                        .then(snapshot => {
+                            if (snapshot.exists()) {
+                                callFavorites = snapshot.val();
+                                console.log('☁️ Favoriten aus Firebase geladen:', callFavorites.length, '✅');
+                                
+                                // Speichere auch in localStorage (Backup)
+                                localStorage.setItem('call_favorites', JSON.stringify(callFavorites));
+                            } else {
+                                console.log('📂 Keine Firebase-Favoriten, lade aus localStorage...');
+                                loadFromLocalStorage();
+                            }
+                            
+                            // Lade CRM-Favoriten
+                            loadCRMFavoritesIntoCallList();
+                            renderCallFavorites();
+                        })
+                        .catch(err => {
+                            console.error('❌ Firebase Fehler beim Laden:', err);
+                            loadFromLocalStorage();
+                        });
                 } else {
-                    // Standard-Favoriten wenn noch keine gespeichert
-                    callFavorites = [
-                        { name: 'Taxi-Zentrale', number: '+49170123456', icon: '🚕' },
-                        { name: 'Notruf', number: '112', icon: '🚑' },
-                        { name: 'Polizei', number: '110', icon: '👮' }
-                    ];
-                    saveCallFavorites();
+                    // Fallback: localStorage
+                    loadFromLocalStorage();
                 }
-                
-                // 🆕 v5.90.232: LADE CRM-FAVORITEN!
-                loadCRMFavoritesIntoCallList();
-                
-                renderCallFavorites();
             } catch (e) {
                 console.error('❌ Fehler beim Laden der Favoriten:', e);
+                loadFromLocalStorage();
             }
+        }
+        
+        // 🆕 v5.90.255: Fallback localStorage
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('call_favorites');
+            if (saved) {
+                callFavorites = JSON.parse(saved);
+                console.log('💾 Favoriten aus localStorage geladen:', callFavorites.length);
+            } else {
+                // Standard-Favoriten wenn noch keine gespeichert
+                callFavorites = [
+                    { name: 'Taxi-Zentrale', number: '+49170123456', icon: '🚕' },
+                    { name: 'Notruf', number: '112', icon: '🚑' },
+                    { name: 'Polizei', number: '110', icon: '👮' }
+                ];
+                saveCallFavorites();
+            }
+            
+            // Lade CRM-Favoriten
+            loadCRMFavoritesIntoCallList();
+            renderCallFavorites();
         }
         
         // 🆕 v5.90.232: LADE KUNDEN MIT KATEGORIE "FAVORIT"
@@ -11018,8 +11048,20 @@
         // Speichere Favoriten
         function saveCallFavorites() {
             try {
+                // 🆕 v5.90.255: Speichern in localStorage UND Firebase!
                 localStorage.setItem('call_favorites', JSON.stringify(callFavorites));
-                console.log('💾 Favoriten gespeichert');
+                console.log('💾 Favoriten in localStorage gespeichert');
+                
+                // Speichern in Firebase (persistent!)
+                if (currentUser && currentUser.uid) {
+                    db.ref(`users/${currentUser.uid}/callFavorites`).set(callFavorites)
+                        .then(() => {
+                            console.log('☁️ Favoriten in Firebase gespeichert! ✅');
+                        })
+                        .catch(err => {
+                            console.error('❌ Firebase Fehler:', err);
+                        });
+                }
             } catch (e) {
                 console.error('❌ Fehler beim Speichern:', e);
             }

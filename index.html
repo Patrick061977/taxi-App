@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.236 - KARTEN-PICKER! 📍🗺️ (Build 20260109-0740)');
+        console.log('🚕 Funk Taxi App v5.90.237 - AUTO-CLEAN TELEFON! 📱✨ (Build 20260109-0745)');
+        console.log('📱 v5.90.237: Auto-Clean Telefonnummern!');
+        console.log('✨ v5.90.237: Führende 0 wird automatisch entfernt!');
+        console.log('🔧 v5.90.237: 01715377241 → 1715377241 (mit +49 Dropdown)!');
         console.log('📍 v5.90.236: Zielort auf Karte wählen!');
         console.log('🗺️ v5.90.236: Modal mit Karten-Picker!');
-        console.log('✅ v5.90.236: Zwischen Modal und Karte wechseln!');
-        console.log('⭐ v5.90.235: Fahrzeug-Priorität System!');
-        console.log('🚗 v5.90.235: Wichtige Fahrzeuge zuerst!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📍 Version 5.90.236 - KARTEN-PICKER! 🗺️ (Build 20260109-0740)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱 Version 5.90.237 - AUTO-CLEAN TELEFON! ✨ (Build 20260109-0745)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31162,6 +31162,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 return;
             }
             
+            // 🆕 v5.90.237: Prüfe ob Dropdown vorhanden ist (neue Kunden-Modals)
+            const phoneCountrySelect = input.previousElementSibling;
+            if (phoneCountrySelect && phoneCountrySelect.tagName === 'SELECT') {
+                // Dropdown vorhanden! → Entferne führende 0
+                const cleanPhone = phone.replace(/[\s\-]/g, '');
+                if (cleanPhone.startsWith('0')) {
+                    input.value = cleanPhone.substring(1); // Entferne 0
+                    console.log('✅ Führende 0 entfernt:', input.value);
+                }
+                return; // Dropdown kümmert sich um +49
+            }
+            
             // Entferne Leerzeichen und Bindestriche für Check
             const cleanPhone = phone.replace(/[\s\-]/g, '');
             
@@ -31177,6 +31189,25 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 input.value = phone;
                 console.log('✅ + hinzugefügt:', phone);
             }
+        
+        // 🆕 v5.90.237: AUTO-CLEAN PHONE INPUT (während Eingabe!)
+        function autoCleanPhoneInput(input) {
+            if (!input) return;
+            
+            // Erlaube nur Zahlen und Leerzeichen
+            input.value = input.value.replace(/[^0-9 ]/g, '');
+            
+            // Prüfe ob Dropdown vorhanden
+            const phoneCountrySelect = input.previousElementSibling;
+            if (phoneCountrySelect && phoneCountrySelect.tagName === 'SELECT') {
+                // Dropdown vorhanden → Entferne führende 0 automatisch
+                let val = input.value.trim();
+                if (val.startsWith('0')) {
+                    input.value = val.substring(1);
+                    console.log('✅ Auto-Clean: Führende 0 entfernt');
+                }
+            }
+        }
             // Beginnt mit Ziffer (aber nicht 0 oder 49)? Dann füge +49 hinzu
             else if (/^\d/.test(cleanPhone)) {
                 phone = '+49' + cleanPhone;
@@ -39080,8 +39111,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 </select>
                                 <input type="tel" id="edit-customer-phone" placeholder="170 1234567" 
                                     onblur="addCountryCode(this)"
-                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
-                                    oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                                    oninput="autoCleanPhoneInput(this)"
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
                                 ${customer.phone ? `<button onclick="window.location.href='tel:${customer.phone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;">📞</button>` : ''}
                             </div>
                         </div>
@@ -39098,8 +39129,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 </select>
                                 <input type="tel" id="edit-customer-mobile" placeholder="170 1234567" 
                                     onblur="addCountryCode(this)"
-                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
-                                    oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                                    oninput="autoCleanPhoneInput(this)"
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
                                 ${customer.mobilePhone ? `<button onclick="window.location.href='tel:${customer.mobilePhone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;">📞</button>` : ''}
                             </div>
                             <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">

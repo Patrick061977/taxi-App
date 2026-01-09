@@ -108,12 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.255 - ANRUF-FAVORITEN FIREBASE! ☁️✨ (Build 20260109-1615)');
-        console.log('☁️ v5.90.255: Anruf-Favoriten in Firebase speichern!');
-        console.log('💾 v5.90.255: Persistent über Cache-Clearing!');
-        console.log('🔄 v5.90.255: Synchronisiert zwischen Geräten!');
-        console.log('✅ v5.90.255: Lädt aus Firebase → localStorage Backup!');
-        console.log('📌 v5.90.254: Tooltip mit Rechtsklick fixieren!');
+        console.log('🚕 Funk Taxi App v5.90.257 - ANRUF-ZENTRALE FIX! 📞✨ (Build 20260109-1640)');
+        console.log('📞 v5.90.257: Lädt Favoriten BEIM ÖFFNEN der Anruf-Zentrale!');
+        console.log('⭐ v5.90.257: CRM-Favoriten erscheinen automatisch!');
+        console.log('✅ v5.90.257: Keine doppelte Speicherung mehr!');
+        console.log('🔍 v5.90.256: Debug Logs für Call Favoriten!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +979,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">☁️ Version 5.90.255 - FIREBASE FAVORITEN! 💾 (Build 20260109-1615)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.257 - ANRUF-ZENTRALE FIX! ⭐ (Build 20260109-1640)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10942,9 +10941,14 @@
         
         // Lade Favoriten aus localStorage
         function loadCallFavorites() {
+            console.log('📞 loadCallFavorites() aufgerufen!');
+            console.log('   currentUser:', currentUser?.uid || 'NICHT EINGELOGGT');
+            console.log('   isFirebaseReady:', isFirebaseReady);
+            
             try {
                 // 🆕 v5.90.255: ERST aus Firebase laden! (persistent!)
                 if (currentUser && currentUser.uid && isFirebaseReady) {
+                    console.log('☁️ Versuche Firebase zu laden...');
                     db.ref(`users/${currentUser.uid}/callFavorites`).once('value')
                         .then(snapshot => {
                             if (snapshot.exists()) {
@@ -10967,6 +10971,8 @@
                             loadFromLocalStorage();
                         });
                 } else {
+                    console.log('⚠️ Firebase nicht bereit oder User nicht eingeloggt → Fallback localStorage');
+                    console.log('   Grund: currentUser =', !!currentUser, ', isFirebaseReady =', isFirebaseReady);
                     // Fallback: localStorage
                     loadFromLocalStorage();
                 }
@@ -11073,6 +11079,10 @@
             const backdrop = document.getElementById('call-favorites-backdrop');
             
             if (modal.style.display === 'none' || modal.style.display === '') {
+                // 🆕 v5.90.257: LADE FAVORITEN BEIM ÖFFNEN!
+                console.log('📞 Anruf-Zentrale wird geöffnet → Lade Favoriten...');
+                loadCallFavorites();
+                
                 modal.style.display = 'block';
                 backdrop.style.display = 'block';
                 renderCallFavorites();

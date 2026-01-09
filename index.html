@@ -108,13 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.231 - TELEFON-BUTTON TEST! 📞🧪 (Build 20260109-0700)');
-        console.log('🧪 v5.90.231: TEST - Telefon-Button für ALLE User (nicht nur Admin)!');
-        console.log('📧 v5.90.230: Bot-API lehnt Emails >7 Tage ab!');
-        console.log('⏰ v5.90.230: Datum-Check für alte Emails!');
-        console.log('❌ v5.90.230: Keine Antworten auf 2019-Emails!');
-        console.log('👨‍💼 v5.90.229: Anruf-Favoriten Admin-Only!');
-        console.log('🎯 v5.90.228: Intelligente Pin-Logik!');
+        console.log('🚕 Funk Taxi App v5.90.232 - CRM ANRUF-BUTTONS! 📞👤 (Build 20260109-0710)');
+        console.log('📞 v5.90.232: Anruf-Buttons im CRM Edit-Modal!');
+        console.log('⭐ v5.90.232: Kategorie "Favorit" → Schnellanruf!');
+        console.log('👤 v5.90.232: CRM-Favoriten im Telefon-Button!');
+        console.log('🧪 v5.90.231: TEST - Telefon-Button für ALLE!');
+        console.log('📧 v5.90.230: Email-Bot Datum-Check!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -981,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.231 - TELEFON-BUTTON TEST! 🧪 (Build 20260109-0700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.232 - CRM ANRUF-BUTTONS! 👤 (Build 20260109-0710)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10873,6 +10872,7 @@
         // Lade Favoriten aus localStorage
         function loadCallFavorites() {
             try {
+                // Lade gespeicherte Favoriten
                 const saved = localStorage.getItem('call_favorites');
                 if (saved) {
                     callFavorites = JSON.parse(saved);
@@ -10886,10 +10886,62 @@
                     ];
                     saveCallFavorites();
                 }
+                
+                // 🆕 v5.90.232: LADE CRM-FAVORITEN!
+                loadCRMFavoritesIntoCallList();
+                
                 renderCallFavorites();
             } catch (e) {
                 console.error('❌ Fehler beim Laden der Favoriten:', e);
             }
+        }
+        
+        // 🆕 v5.90.232: LADE KUNDEN MIT KATEGORIE "FAVORIT"
+        async function loadCRMFavoritesIntoCallList() {
+            if (!isFirebaseReady) return;
+            
+            try {
+                const snapshot = await db.ref('customers').once('value');
+                const customers = snapshot.val();
+                
+                if (!customers) return;
+                
+                // Filtere Kunden mit category="favorite"
+                const favorites = Object.entries(customers)
+                    .filter(([id, c]) => c.category === 'favorite' && c.phone)
+                    .map(([id, c]) => ({
+                        name: c.name,
+                        number: c.phone,
+                        icon: getCategoryIcon(c.category) || '⭐',
+                        source: 'crm',
+                        customerId: id
+                    }));
+                
+                console.log('⭐ CRM-Favoriten geladen:', favorites.length);
+                
+                // Füge zu callFavorites hinzu (aber nicht doppelt!)
+                favorites.forEach(fav => {
+                    const exists = callFavorites.find(f => f.number === fav.number);
+                    if (!exists) {
+                        callFavorites.push(fav);
+                    }
+                });
+                
+            } catch (e) {
+                console.error('❌ Fehler beim Laden CRM-Favoriten:', e);
+            }
+        }
+        
+        // Hilfsfunktion: Icon für Kategorie
+        function getCategoryIcon(category) {
+            const icons = {
+                'favorite': '⭐',
+                'driver': '🚗',
+                'hotel': '🏨',
+                'vip': '👑',
+                'business': '💼'
+            };
+            return icons[category] || '📞';
         }
         
         // Speichere Favoriten
@@ -38761,6 +38813,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                     onblur="addCountryCode(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
                                     oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                                ${customer.phone ? `<button onclick="window.location.href='tel:${customer.phone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;">📞</button>` : ''}
                             </div>
                         </div>
                         
@@ -38778,6 +38831,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                     onblur="addCountryCode(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;"
                                     oninput="this.value = this.value.replace(/[^0-9 ]/g, '')">
+                                ${customer.mobilePhone ? `<button onclick="window.location.href='tel:${customer.mobilePhone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;">📞</button>` : ''}
                             </div>
                             <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
                                 ℹ️ Optional: Wird für Google Kalender-Synchronisation verwendet
@@ -38804,6 +38858,22 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         </div>
                         
                         <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;">${customer.notes || ''}</textarea>
+                        
+                        <!-- 🆕 v5.90.232: KATEGORIE MIT FAVORIT! -->
+                        <div>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📂 Kategorie</label>
+                            <select id="edit-customer-category" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                <option value="">Keine Kategorie</option>
+                                <option value="favorite">⭐ Favorit (Schnellwahl)</option>
+                                <option value="driver">🚗 Fahrer</option>
+                                <option value="hotel">🏨 Hotel</option>
+                                <option value="vip">👑 VIP</option>
+                                <option value="business">💼 Geschäftskunde</option>
+                            </select>
+                            <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
+                                ℹ️ "Favorit" erscheint im Schnellanruf-Button 📞
+                            </div>
+                        </div>
                     </div>
                     <div style="font-size:12px;color:#666;margin-top:10px;padding:10px;background:#f9fafb;border-radius:6px;">
                         🚕 ${customer.totalRides || 0} Fahrten · 💰 ${(customer.totalRevenue || 0).toFixed(2)}€
@@ -38838,6 +38908,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 if (mobileCountrySelect && mobileInput) {
                     mobileCountrySelect.value = mobile.country;
                     mobileInput.value = mobile.number;
+                }
+                
+                // 🆕 v5.90.232: Setze Kategorie
+                const categorySelect = document.getElementById('edit-customer-category');
+                if (categorySelect && customer.category) {
+                    categorySelect.value = customer.category;
                 }
             }, 10);
             
@@ -39283,7 +39359,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 email: document.getElementById('edit-customer-email').value.trim(),
                 address: address,
                 billingAddresses: currentCustomerBillingAddresses, // 🆕 v5.52.5: Array!
-                notes: document.getElementById('edit-customer-notes').value.trim()
+                notes: document.getElementById('edit-customer-notes').value.trim(),
+                category: document.getElementById('edit-customer-category')?.value || '' // 🆕 v5.90.232: Kategorie!
             };
             
             // 🚀 v5.52.8: OPTIMISTISCHES UI UPDATE - Modal SOFORT schließen!

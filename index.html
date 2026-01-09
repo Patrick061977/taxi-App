@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.251 - ANRUF-MODAL SUCHE FIX! 📞🔍 (Build 20260109-1500)');
-        console.log('🔍 v5.90.251: Anruf-Modal sucht jetzt auch Telefonnummer!');
-        console.log('📞 v5.90.251: Suche nach "0849" findet Nummer!');
-        console.log('✅ v5.90.251: Name UND Telefonnummer durchsuchbar!');
-        console.log('🔍 v5.90.250: Detaillierte Logs für CRM-Suche!');
-        console.log('🔴 v5.90.249: AKTIVE FAHRT BANNER (Groß + Rot)!');
+        console.log('🚕 Funk Taxi App v5.90.253 - DEV MODE! 🔍✨ (Build 20260109-1530)');
+        console.log('🔍 v5.90.253: Dev Mode Button - An/Aus!');
+        console.log('🎯 v5.90.253: Hover über Buttons → Zeigt Namen + Funktionen!');
+        console.log('🪟 v5.90.253: Hover über Modals → Zeigt IDs!');
+        console.log('💡 v5.90.253: Perfekt für Kommunikation!');
+        console.log('🚗 v5.90.252: Fahrzeuge nur BESETZT wenn Fahrt HEUTE!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.251 - ANRUF-SUCHE FIX! 🔍 (Build 20260109-1500)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.253 - DEV MODE! 🎯 (Build 20260109-1530)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -998,6 +998,24 @@
                 gap: 4px;
             ">
                 🔄 Cache & Daten leeren
+            </button>
+            
+            <!-- 🆕 v5.90.253: DEV MODE BUTTON! -->
+            <button id="dev-mode-toggle" onclick="toggleDevMode()" style="
+                margin-top: 8px;
+                padding: 6px 12px;
+                background: rgba(255,255,255,0.2);
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 6px;
+                color: white;
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+            ">
+                🔍 Dev Mode: <span id="dev-mode-status">AUS</span>
             </button>
             
             <div class="status-row" id="header-status-row">
@@ -27711,11 +27729,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const vehicleRides = {};
                 for (const rideId in ridesData) {
                     const ride = ridesData[rideId];
-                    if (ride.vehicleId && ['accepted', 'picked_up', 'assigned'].includes(ride.status)) {
+                    // 🆕 v5.90.252: Nur Fahrten die HEUTE sind!
+                    if (isRideActiveToday(ride)) {
                         vehicleRides[ride.vehicleId] = {
                             ...ride,
                             firebaseId: rideId
                         };
+                        console.log(`🚗 Fahrzeug ${ride.vehicleId} hat aktive Fahrt HEUTE:`, ride.customerName);
                     }
                 }
                 
@@ -29490,7 +29510,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const vehicleRides = {};
                 for (const rideId in ridesData) {
                     const ride = ridesData[rideId];
-                    if (ride.vehicleId && ['accepted', 'picked_up', 'assigned'].includes(ride.status)) {
+                    // 🆕 v5.90.252: Nur Fahrten die HEUTE sind!
+                    if (isRideActiveToday(ride)) {
                         vehicleRides[ride.vehicleId] = {
                             ...ride,
                             firebaseId: rideId
@@ -34311,6 +34332,217 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         
         // 🆕 v5.38.4: FAVORITEN SYSTEM
         // ═══════════════════════════════════════════════════════════════════════════
+        
+        // 🆕 v5.90.252: HELPER - IST FAHRT HEUTE/AKTIV?
+        function isRideActiveToday(ride) {
+            if (!ride || !ride.vehicleId) return false;
+            if (!['accepted', 'picked_up', 'assigned'].includes(ride.status)) return false;
+            
+            // Zeit-Check: Nur HEUTE oder früher!
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+            
+            const rideTime = ride.pickupTimestamp || ride.timestamp || 0;
+            
+            // Fahrt ist HEUTE oder in Vergangenheit?
+            const isToday = rideTime <= todayEnd.getTime();
+            
+            if (!isToday) {
+                console.log(`⏰ Fahrt für ${ride.vehicleId} ist in Zukunft (${new Date(rideTime).toLocaleDateString('de-DE')}) → NICHT als aktiv markiert`);
+            }
+            
+            return isToday;
+        }
+        
+        // 🆕 v5.90.253: DEV MODE SYSTEM! 🔍
+        let devModeActive = false;
+        let devTooltip = null;
+        
+        function toggleDevMode() {
+            devModeActive = !devModeActive;
+            
+            const statusSpan = document.getElementById('dev-mode-status');
+            const toggleBtn = document.getElementById('dev-mode-toggle');
+            
+            if (devModeActive) {
+                statusSpan.textContent = 'AN';
+                statusSpan.style.color = '#10b981';
+                toggleBtn.style.background = 'rgba(16, 185, 129, 0.3)';
+                toggleBtn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+                
+                // Erstelle Tooltip Element
+                createDevTooltip();
+                
+                // Aktiviere Hover Events
+                activateDevMode();
+                
+                console.log('🔍 Dev Mode AKTIVIERT!');
+                
+                // Toast
+                showToast('🔍 Dev Mode aktiviert!', 'Bewege Maus über Elemente', '#10b981');
+            } else {
+                statusSpan.textContent = 'AUS';
+                statusSpan.style.color = 'white';
+                toggleBtn.style.background = 'rgba(255,255,255,0.2)';
+                toggleBtn.style.borderColor = 'rgba(255,255,255,0.3)';
+                
+                // Deaktiviere
+                deactivateDevMode();
+                
+                console.log('🔍 Dev Mode DEAKTIVIERT!');
+                
+                showToast('🔍 Dev Mode deaktiviert', '', '#6b7280');
+            }
+        }
+        
+        function createDevTooltip() {
+            if (devTooltip) return;
+            
+            devTooltip = document.createElement('div');
+            devTooltip.id = 'dev-tooltip';
+            devTooltip.style.cssText = `
+                position: fixed;
+                background: rgba(0, 0, 0, 0.95);
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-size: 12px;
+                font-family: monospace;
+                pointer-events: none;
+                z-index: 999999;
+                display: none;
+                max-width: 400px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+                border: 2px solid #10b981;
+            `;
+            document.body.appendChild(devTooltip);
+        }
+        
+        function activateDevMode() {
+            // Füge Hover Events zu allen interaktiven Elementen hinzu
+            document.addEventListener('mouseover', handleDevHover);
+            document.addEventListener('mouseout', handleDevOut);
+        }
+        
+        function deactivateDevMode() {
+            document.removeEventListener('mouseover', handleDevHover);
+            document.removeEventListener('mouseout', handleDevOut);
+            
+            if (devTooltip) {
+                devTooltip.style.display = 'none';
+            }
+        }
+        
+        function handleDevHover(e) {
+            if (!devModeActive || !devTooltip) return;
+            
+            const target = e.target;
+            
+            // Ignoriere Tooltip selbst
+            if (target.id === 'dev-tooltip') return;
+            
+            // Sammle Infos
+            let info = [];
+            
+            // Element Type
+            info.push(`📦 <strong>Tag:</strong> ${target.tagName.toLowerCase()}`);
+            
+            // ID
+            if (target.id) {
+                info.push(`🆔 <strong>ID:</strong> ${target.id}`);
+            }
+            
+            // Klassen
+            if (target.className && typeof target.className === 'string' && target.className.trim()) {
+                info.push(`🎨 <strong>Class:</strong> ${target.className}`);
+            }
+            
+            // onclick Funktion
+            if (target.onclick) {
+                const funcStr = target.onclick.toString();
+                const funcName = funcStr.match(/function\s+(\w+)|(\w+)\s*\(/);
+                if (funcName) {
+                    info.push(`⚡ <strong>onClick:</strong> ${funcName[1] || funcName[2] || 'anonymous'}()`);
+                } else {
+                    // Extrahiere ersten Teil der Funktion
+                    const snippet = funcStr.substring(0, 50).replace(/\n/g, ' ');
+                    info.push(`⚡ <strong>onClick:</strong> ${snippet}...`);
+                }
+            }
+            
+            // oninput Funktion
+            if (target.oninput) {
+                const funcStr = target.oninput.toString();
+                const funcName = funcStr.match(/(\w+)\s*\(/);
+                if (funcName) {
+                    info.push(`⌨️ <strong>onInput:</strong> ${funcName[1]}()`);
+                }
+            }
+            
+            // Value (für Inputs)
+            if (target.value !== undefined && target.tagName.toLowerCase() !== 'button') {
+                info.push(`💬 <strong>Value:</strong> "${target.value}"`);
+            }
+            
+            // Placeholder
+            if (target.placeholder) {
+                info.push(`📝 <strong>Placeholder:</strong> "${target.placeholder}"`);
+            }
+            
+            // data-* Attribute
+            for (const attr of target.attributes) {
+                if (attr.name.startsWith('data-')) {
+                    info.push(`📊 <strong>${attr.name}:</strong> ${attr.value}`);
+                }
+            }
+            
+            // Parent View (suche nach view Container)
+            let viewParent = target.closest('.view');
+            if (viewParent && viewParent.id) {
+                info.push(`🖥️ <strong>View:</strong> ${viewParent.id}`);
+            }
+            
+            // Modal?
+            let modalParent = target.closest('[id*="modal"]');
+            if (modalParent && modalParent.id) {
+                info.push(`🪟 <strong>Modal:</strong> ${modalParent.id}`);
+            }
+            
+            // Nur anzeigen wenn wir Infos haben
+            if (info.length > 1) {
+                devTooltip.innerHTML = info.join('<br>');
+                devTooltip.style.display = 'block';
+                
+                // Position bei Maus
+                devTooltip.style.left = (e.clientX + 15) + 'px';
+                devTooltip.style.top = (e.clientY + 15) + 'px';
+            }
+        }
+        
+        function handleDevOut(e) {
+            if (!devModeActive || !devTooltip) return;
+            devTooltip.style.display = 'none';
+        }
+        
+        function showToast(title, message, color) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: ${color};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 99999;
+                font-weight: 600;
+                font-size: 14px;
+            `;
+            toast.innerHTML = `<div>${title}</div>${message ? '<div style="font-size:12px;opacity:0.9;margin-top:4px;">' + message + '</div>' : ''}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
         
         function showQuickBookingFavorites() {
             const favorites = JSON.parse(localStorage.getItem('quickBookingFavorites') || '[]');

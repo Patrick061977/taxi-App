@@ -108,12 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.249 - FAHRER-APP NEU! 🚗✨ (Build 20260109-1430)');
+        console.log('🚕 Funk Taxi App v5.90.250 - DEBUG LOGS! 🔍✨ (Build 20260109-1445)');
+        console.log('🔍 v5.90.250: Detaillierte Logs für CRM-Suche!');
+        console.log('⭐ v5.90.250: Detaillierte Logs für POI-Speichern!');
+        console.log('🐛 v5.90.250: Problem-Diagnose aktiviert!');
         console.log('🔴 v5.90.249: AKTIVE FAHRT BANNER (Groß + Rot)!');
         console.log('📋 v5.90.249: TAGESPROGRAMM für Fahrer!');
-        console.log('✅ v5.90.249: Abschließen-Button direkt!');
-        console.log('🗺️ v5.90.249: Navigation mit 1 Klick!');
-        console.log('🗺️ v5.90.248: Fahrzeug-Popup mit ALLEM!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚗 Version 5.90.249 - FAHRER-APP NEU! ✨ (Build 20260109-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.250 - DEBUG LOGS! 🐛 (Build 20260109-1445)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -24640,12 +24640,25 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         });
         
         function filterCRMCustomers() {
-            const searchTerm = document.getElementById('crm-search-input').value.toLowerCase();
-            const category = document.getElementById('crm-filter-category').value;
+            const searchInput = document.getElementById('crm-search-input');
+            if (!searchInput) {
+                console.error('❌ CRM Search Input nicht gefunden!');
+                return;
+            }
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            console.log('🔍 CRM Suche:', searchTerm);
+            
+            const categoryDropdownBtn = document.getElementById('crm-filter-category-btn');
+            const category = categoryDropdownBtn ? categoryDropdownBtn.dataset.value : '';
+            console.log('📂 Kategorie-Filter:', category || 'Alle');
             
             db.ref('customers').once('value', (snapshot) => {
                 const customers = [];
+                let totalCount = 0;
+                
                 snapshot.forEach((childSnapshot) => {
+                    totalCount++;
                     const customer = childSnapshot.val();
                     customer.id = childSnapshot.key;
                     
@@ -24669,6 +24682,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         customers.push(customer);
                     }
                 });
+                
+                console.log(`✅ CRM Suche: ${customers.length} von ${totalCount} Kunden gefunden`);
+                if (searchTerm) {
+                    console.log(`   Suchbegriff: "${searchTerm}"`);
+                }
+                if (category) {
+                    console.log(`   Kategorie: "${category}"`);
+                }
                 
                 renderCRMCustomers(customers);
             });
@@ -34392,32 +34413,48 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         
         // 🆕 v5.90.105: ZIELORT ALS POI SPEICHERN
         async function saveDestinationAsPOI() {
-            const destination = document.getElementById('quick-booking-destination').value.trim();
+            console.log('⭐ saveDestinationAsPOI() aufgerufen');
+            
+            const destinationInput = document.getElementById('quick-booking-destination');
+            if (!destinationInput) {
+                console.error('❌ quick-booking-destination Input nicht gefunden!');
+                alert('❌ Fehler: Zielort-Feld nicht gefunden!');
+                return;
+            }
+            
+            const destination = destinationInput.value.trim();
+            console.log('📍 Zielort:', destination);
             
             if (!destination) {
+                console.warn('⚠️ Kein Zielort eingegeben');
                 alert('❌ Bitte erst einen Zielort eingeben!');
                 return;
             }
             
             // Frage nach POI-Name
             const poiName = prompt('⭐ POI-Name eingeben:\n\nWie soll dieser Ort gespeichert werden?\n(z.B. "Hotel Ahlbeck", "Flughafen", "Bahnhof")', '');
+            console.log('📝 POI-Name eingegeben:', poiName);
             
             if (!poiName || !poiName.trim()) {
+                console.log('❌ POI-Speichern abgebrochen (kein Name)');
                 return; // Abgebrochen
             }
             
             try {
                 // Hole Koordinaten
                 let coords = quickBookingDestCoords;
+                console.log('📍 Aktuelle Coords:', coords);
                 
                 // Falls noch keine Coords → geocode jetzt
                 if (!coords || !coords.lat || !coords.lon) {
                     console.log('🔍 Geocode Zielort für POI...');
                     coords = await geocode(destination);
                     if (!coords) {
+                        console.error('❌ Geocoding fehlgeschlagen');
                         alert('❌ Konnte Koordinaten nicht ermitteln!');
                         return;
                     }
+                    console.log('✅ Geocoding erfolgreich:', coords);
                 }
                 
                 // Speichere in Firebase
@@ -34432,7 +34469,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     source: 'manual'
                 };
                 
+                console.log('💾 Speichere POI in Firebase:', poiData);
                 await db.ref('pois').push(poiData);
+                console.log('✅ POI erfolgreich in Firebase gespeichert!');
                 
                 // Erfolgsmeldung
                 const toast = document.createElement('div');
@@ -34447,10 +34486,15 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 3000);
                 
-                console.log('✅ POI gespeichert:', poiName, destination);
+                console.log('✅ Toast angezeigt - POI gespeichert:', poiName, destination);
                 
             } catch (error) {
                 console.error('❌ Fehler beim POI speichern:', error);
+                console.error('   Error Details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                });
                 alert('❌ Fehler beim Speichern: ' + error.message);
             }
         }

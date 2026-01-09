@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.253 - DEV MODE! 🔍✨ (Build 20260109-1530)');
+        console.log('🚕 Funk Taxi App v5.90.254 - DEV MODE FIX! 📌✨ (Build 20260109-1545)');
+        console.log('📌 v5.90.254: Rechtsklick = Tooltip FIXIEREN!');
+        console.log('📸 v5.90.254: Tooltip bleibt → Screenshot möglich!');
+        console.log('🔄 v5.90.254: Nochmal Rechtsklick = Tooltip lösen!');
         console.log('🔍 v5.90.253: Dev Mode Button - An/Aus!');
-        console.log('🎯 v5.90.253: Hover über Buttons → Zeigt Namen + Funktionen!');
-        console.log('🪟 v5.90.253: Hover über Modals → Zeigt IDs!');
-        console.log('💡 v5.90.253: Perfekt für Kommunikation!');
         console.log('🚗 v5.90.252: Fahrzeuge nur BESETZT wenn Fahrt HEUTE!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
@@ -980,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.253 - DEV MODE! 🎯 (Build 20260109-1530)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📌 Version 5.90.254 - TOOLTIP FIXIEREN! 📸 (Build 20260109-1545)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -34422,27 +34422,87 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // Füge Hover Events zu allen interaktiven Elementen hinzu
             document.addEventListener('mouseover', handleDevHover);
             document.addEventListener('mouseout', handleDevOut);
+            // 🆕 v5.90.254: Rechtsklick fixiert Tooltip!
+            document.addEventListener('contextmenu', handleDevRightClick);
         }
         
         function deactivateDevMode() {
             document.removeEventListener('mouseover', handleDevHover);
             document.removeEventListener('mouseout', handleDevOut);
+            document.removeEventListener('contextmenu', handleDevRightClick);
             
             if (devTooltip) {
                 devTooltip.style.display = 'none';
             }
         }
         
+        let tooltipPinned = false;
+        let pinnedElement = null;
+        
+        function handleDevRightClick(e) {
+            if (!devModeActive || !devTooltip) return;
+            
+            // Wenn Tooltip angeklickt wird, ignoriere
+            if (e.target === devTooltip || devTooltip.contains(e.target)) {
+                return;
+            }
+            
+            // Verhindere Standard Context Menu
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Toggle Pin
+            if (tooltipPinned && pinnedElement === e.target) {
+                // Unpin
+                tooltipPinned = false;
+                pinnedElement = null;
+                devTooltip.style.borderColor = '#10b981';
+                console.log('📍 Tooltip gelöst');
+            } else {
+                // Pin
+                tooltipPinned = true;
+                pinnedElement = e.target;
+                devTooltip.style.borderColor = '#f59e0b'; // Orange = Gepinnt
+                console.log('📌 Tooltip fixiert! (Nochmal Rechtsklick zum Lösen)');
+                
+                // Zeige Info im Tooltip
+                showDevInfo(e.target, e.clientX, e.clientY, true);
+            }
+            
+            return false;
+        }
+        
         function handleDevHover(e) {
             if (!devModeActive || !devTooltip) return;
             
-            const target = e.target;
+            // Wenn gepinnt, ignoriere Hover
+            if (tooltipPinned) return;
+            
+            showDevInfo(e.target, e.clientX, e.clientY, false);
+        }
+        
+        function handleDevOut(e) {
+            if (!devModeActive || !devTooltip) return;
+            
+            // Wenn gepinnt, nicht ausblenden
+            if (tooltipPinned) return;
+            
+            devTooltip.style.display = 'none';
+        }
+        
+        function showDevInfo(target, x, y, isPinned) {
+            if (!devTooltip) return;
             
             // Ignoriere Tooltip selbst
             if (target.id === 'dev-tooltip') return;
             
             // Sammle Infos
             let info = [];
+            
+            // 🆕 Pinned Status
+            if (isPinned) {
+                info.push(`📌 <strong style="color:#f59e0b;">FIXIERT (Rechtsklick zum Lösen)</strong>`);
+            }
             
             // Element Type
             info.push(`📦 <strong>Tag:</strong> ${target.tagName.toLowerCase()}`);
@@ -34514,14 +34574,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 devTooltip.style.display = 'block';
                 
                 // Position bei Maus
-                devTooltip.style.left = (e.clientX + 15) + 'px';
-                devTooltip.style.top = (e.clientY + 15) + 'px';
+                devTooltip.style.left = (x + 15) + 'px';
+                devTooltip.style.top = (y + 15) + 'px';
             }
-        }
-        
-        function handleDevOut(e) {
-            if (!devModeActive || !devTooltip) return;
-            devTooltip.style.display = 'none';
         }
         
         function showToast(title, message, color) {

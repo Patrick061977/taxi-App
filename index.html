@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.298 - KARTE MIT ROUTE! 🗺️🔵 (Build 20260110-2145)');
-        console.log('🗺️ v5.90.298: Karte zeigt Fahrer-Position!');
-        console.log('📍 v5.90.298: Kunde-Marker (rot)!');
-        console.log('🔵 v5.90.298: Route-Linie!');
-        console.log('🎯 v5.90.298: Auto-Zoom auf beide Punkte!');
+        console.log('🚕 Funk Taxi App v5.90.299 - SAUBER! ✨🎯 (Build 20260110-2200)');
+        console.log('✨ v5.90.299: Modal als POPUP (nicht fullscreen)!');
+        console.log('🗺️ v5.90.299: Karte im Hintergrund sichtbar!');
+        console.log('🎯 v5.90.299: Tabs WEG im Fahrer-View!');
+        console.log('📞 v5.90.299: Anruf-Button WEG im Fahrer-View!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -984,7 +984,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.298 - ROUTE! 🗺️ (Build 20260110-2145)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.299 - SAUBER! ✨ (Build 20260110-2200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2482,7 +2482,7 @@
     </div>
 
     <div id="driver-view" class="view">
-        <!-- 🆕 v5.90.297: MINIMAL FAHRER-VIEW! -->
+        <!-- 🆕 v5.90.299: SAUBER & MINIMAL! -->
         
         <!-- FULLSCREEN KARTE -->
         <div id="driver-map-container" style="
@@ -2524,7 +2524,7 @@
             </div>
         </div>
         
-        <!-- FAHRZEUG-AUSWAHL MODAL (wenn kein Fahrzeug) -->
+        <!-- FAHRZEUG-AUSWAHL MODAL (POPUP - nicht fullscreen!) -->
         <div id="driver-vehicle-selector-new" style="
             position: absolute;
             top: 0;
@@ -2532,14 +2532,26 @@
             right: 0;
             bottom: 0;
             z-index: 100;
-            background: white;
+            background: rgba(0,0,0,0.5);
             display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         ">
-            <div style="padding: 24px;">
+            <div style="
+                background: white;
+                border-radius: 20px;
+                padding: 24px;
+                max-width: 500px;
+                width: 100%;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            ">
                 <div style="font-size: 24px; font-weight: 900; color: #1f2937; margin-bottom: 8px; text-align: center;">
                     🚗 Fahrzeug wählen
                 </div>
-                <div style="font-size: 14px; color: #6b7280; margin-bottom: 24px; text-align: center;">
+                <div style="font-size: 14px; color: #6b7280; margin-bottom: 20px; text-align: center;">
                     Wähle dein Fahrzeug um loszulegen
                 </div>
                 <div id="vehicle-button-grid-new" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
@@ -13695,12 +13707,14 @@ Aktuell: ${currentNum}`;
         function updateDriverViewV295() {
             if (!currentVehicle) {
                 // Zeige Fahrzeug-Auswahl Modal
-                document.getElementById('driver-vehicle-selector-new').style.display = 'block';
+                const modal = document.getElementById('driver-vehicle-selector-new');
+                if (modal) modal.style.display = 'flex'; // 🆕 v5.90.299: flex statt block!
                 document.getElementById('driver-go-button').disabled = true;
                 document.getElementById('driver-go-button').style.opacity = '0.5';
                 return;
             } else {
-                document.getElementById('driver-vehicle-selector-new').style.display = 'none';
+                const modal = document.getElementById('driver-vehicle-selector-new');
+                if (modal) modal.style.display = 'none';
                 document.getElementById('driver-go-button').disabled = false;
                 document.getElementById('driver-go-button').style.opacity = '1';
             }

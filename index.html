@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.273 - MODAL CRASH FIX! 📞✅ (Build 20260110-1150)');
-        console.log('✅ v5.90.273: backdrop null check!');
-        console.log('📞 v5.90.273: Anruf-Zentrale crasht nicht mehr!');
-        console.log('🔧 v5.90.273: FIXIEST Modal-Bug behoben!');
+        console.log('🚕 Funk Taxi App v5.90.274 - TELEFON-NORMALISIERUNG! 📞🔧 (Build 20260110-1200)');
+        console.log('📞 v5.90.274: Entfernt "00" Prefix bei Telefonnummern!');
+        console.log('✅ v5.90.274: 00491715377241 → 491715377241!');
+        console.log('🔧 v5.90.274: Erkennt Kunden jetzt korrekt!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -978,7 +978,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.273 - MODAL FIX! ✅ (Build 20260110-1150)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.274 - TELEFON FIX! 🔧 (Build 20260110-1200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -7377,7 +7377,14 @@
                 callsSnapshot.forEach(child => {
                     const call = child.val();
                     const callId = child.key;
-                    const callerDigits = (call.caller || '').replace(/\D/g, '');
+                    
+                    // 🆕 v5.90.274: NORMALISIERE TELEFONNUMMER!
+                    let callerDigits = (call.caller || '').replace(/\D/g, ''); // Nur Ziffern
+                    
+                    // Entferne führende "00" (internationale Vorwahl)
+                    if (callerDigits.startsWith('00')) {
+                        callerDigits = callerDigits.substring(2);
+                    }
                     
                     // 🆕 v5.88.18: Ignoriere ungültige Anrufer-Nummern
                     if (callerDigits.length < 6) {
@@ -7389,7 +7396,14 @@
                     const matchingCustomers = customers.filter(c => {
                         if (!c.phone) return false;
                         // Prüfe alle Telefonnummern (getrennt durch /)
-                        const phones = c.phone.split('/').map(p => p.replace(/\D/g, ''));
+                        const phones = c.phone.split('/').map(p => {
+                            let digits = p.replace(/\D/g, ''); // Nur Ziffern
+                            // 🆕 v5.90.274: Entferne führende "00"
+                            if (digits.startsWith('00')) {
+                                digits = digits.substring(2);
+                            }
+                            return digits;
+                        });
                         return phones.some(p => {
                             // 🆕 v5.88.18: Ignoriere zu kurze Kunden-Nummern (min 6 Ziffern)
                             if (p.length < 6) return false;

@@ -108,10 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.274 - TELEFON-NORMALISIERUNG! 📞🔧 (Build 20260110-1200)');
-        console.log('📞 v5.90.274: Entfernt "00" Prefix bei Telefonnummern!');
-        console.log('✅ v5.90.274: 00491715377241 → 491715377241!');
-        console.log('🔧 v5.90.274: Erkennt Kunden jetzt korrekt!');
+        console.log('🚕 Funk Taxi App v5.90.275 - TELEFON IMMER MIT +! 📞✅ (Build 20260110-1210)');
+        console.log('📞 v5.90.275: Alle Telefonnummern werden normalisiert!');
+        console.log('✅ v5.90.275: Immer mit + gespeichert!');
+        console.log('🔧 v5.90.275: 00491715377241 → +491715377241!');
+        console.log('🔧 v5.90.275: 0491715377241 → +491715377241!');
+        console.log('🔧 v5.90.275: 491715377241 → +491715377241!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -978,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.274 - TELEFON FIX! 🔧 (Build 20260110-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.275 - TELEFON MIT +! ✅ (Build 20260110-1210)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -16724,6 +16726,12 @@ Aktuell: ${currentNum}`;
                 ride.id = generateRideId();
             }
             
+            // 🆕 v5.90.275: NORMALISIERE TELEFONNUMMER!
+            if (ride.customerPhone) {
+                ride.customerPhone = normalizePhoneNumber(ride.customerPhone);
+                console.log('📱 customerPhone normalisiert:', ride.customerPhone);
+            }
+            
             // 🔐 Füge userId hinzu (für Firebase Query)
             // 🆕 v5.90.11: Bei Admin-Buchung für Kunden → nutze customerPhone!
             // 🆕 v5.90.12: NORMALISIERE PHONE zu International Format!
@@ -16816,8 +16824,13 @@ Aktuell: ${currentNum}`;
                 clean = '+49' + clean.substring(1);
             }
             
-            // Wenn nicht startet mit + → füge +49 hinzu (default Deutschland)
-            else if (!clean.startsWith('+')) {
+            // 🆕 v5.90.275: Wenn startet mit 49 (ohne +) → füge + hinzu
+            else if (clean.startsWith('49') && !clean.startsWith('+')) {
+                clean = '+' + clean;
+            }
+            
+            // Wenn nicht startet mit + UND nicht mit 49 → füge +49 hinzu (default Deutschland)
+            else if (!clean.startsWith('+') && !clean.startsWith('49')) {
                 clean = '+49' + clean;
             }
             
@@ -41012,11 +41025,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     console.log('📍 Adresse:', pickup); // 🆕 v5.87.73
                     
                     try {
+                        // 🆕 v5.90.275: NORMALISIERE TELEFONNUMMER!
+                        const normalizedPhone = normalizePhoneNumber(newCustomerPhone);
+                        
                         // Speichere Kunde in Firebase CRM
                         const newCustomerRef = db.ref('customers').push();
                         await newCustomerRef.set({
                             name: newCustomerName,
-                            phone: newCustomerPhone,
+                            phone: normalizedPhone, // ✅ Normalisiert!
                             address: pickup || '', // 🆕 v5.87.73: ADRESSE SPEICHERN!
                             email: '',
                             createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -41031,7 +41047,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         finalCustomer = {
                             id: finalCustomerId,
                             name: newCustomerName,
-                            phone: newCustomerPhone,
+                            phone: normalizedPhone, // ✅ Normalisiert!
                             address: pickup || '', // 🆕 v5.87.73
                             email: ''
                         };
@@ -41100,11 +41116,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     }
                     
                     try {
+                        // 🆕 v5.90.275: NORMALISIERE TELEFONNUMMER!
+                        const normalizedPhone = normalizePhoneNumber(finalCustomer.phone);
+                        
                         // Speichere Kunde in Firebase CRM
                         const newCustomerRef = db.ref('customers').push();
                         await newCustomerRef.set({
                             name: customerName,
-                            phone: finalCustomer.phone,
+                            phone: normalizedPhone, // ✅ Normalisiert!
                             address: pickup || '', // 🆕 v5.87.73: ADRESSE SPEICHERN!
                             email: '',
                             createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -41119,7 +41138,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         finalCustomer = {
                             id: finalCustomerId,
                             name: customerName,
-                            phone: finalCustomer.phone,
+                            phone: normalizedPhone, // ✅ Normalisiert!
                             address: pickup || '', // 🆕 v5.87.73
                             email: ''
                         };

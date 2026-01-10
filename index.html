@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.299 - SAUBER! ✨🎯 (Build 20260110-2200)');
-        console.log('✨ v5.90.299: Modal als POPUP (nicht fullscreen)!');
-        console.log('🗺️ v5.90.299: Karte im Hintergrund sichtbar!');
-        console.log('🎯 v5.90.299: Tabs WEG im Fahrer-View!');
-        console.log('📞 v5.90.299: Anruf-Button WEG im Fahrer-View!');
+        console.log('🚕 Funk Taxi App v5.90.300 - CLEAN! 🧹✨ (Build 20260110-2230)');
+        console.log('🧹 v5.90.300: Header VERSTECKT im Fahrer-View!');
+        console.log('✨ v5.90.300: Tabs VERSTECKT im Fahrer-View!');
+        console.log('📞 v5.90.300: Anruf-Button VERSTECKT im Fahrer-View!');
+        console.log('🎯 v5.90.300: NUR Karte + GO-Button sichtbar!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -984,7 +984,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.299 - SAUBER! ✨ (Build 20260110-2200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.300 - CLEAN! 🧹 (Build 20260110-2230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -13051,6 +13051,16 @@ Aktuell: ${currentNum}`;
             if (view === 'driver') {
                 if (gpsIndicator) gpsIndicator.style.display = 'flex';
                 
+                // 🆕 v5.90.300: VERSTECKE Header + Tabs + Anruf-Button!
+                const mainHeader = document.getElementById('main-header');
+                if (mainHeader) mainHeader.style.display = 'none';
+                
+                const tabButtons = document.querySelectorAll('.tab-toggleable');
+                tabButtons.forEach(btn => btn.style.display = 'none');
+                
+                const callButton = document.getElementById('call-favorites-fab');
+                if (callButton) callButton.style.display = 'none';
+                
                 // 🆕 v5.90.295: Init Uber-Style Map!
                 setTimeout(() => {
                     initDriverMapV295();
@@ -13086,6 +13096,19 @@ Aktuell: ${currentNum}`;
                 }, 500);
             } else {
                 if (gpsIndicator) gpsIndicator.style.display = 'none';
+                
+                // 🆕 v5.90.300: ZEIGE Header + Tabs + Anruf-Button wieder!
+                const mainHeader = document.getElementById('main-header');
+                if (mainHeader) mainHeader.style.display = 'block';
+                
+                const tabButtons = document.querySelectorAll('.tab-toggleable');
+                tabButtons.forEach(btn => btn.style.display = 'inline-block');
+                
+                const callButton = document.getElementById('call-favorites-fab');
+                if (callButton && currentUser && currentUser.role !== 'driver') {
+                    callButton.style.display = 'block';
+                }
+                
                 // ✅ Stoppe GPS-Monitoring UND GPS-Tracking wenn Ansicht gewechselt wird
                 stopGPSMonitoring();
                 stopDriverTracking();  // ← FIX: GPS auch stoppen!

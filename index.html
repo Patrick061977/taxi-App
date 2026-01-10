@@ -108,15 +108,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.280 - KALENDER + TEL FIX! 📅📞 (Build 20260110-1405)');
+        console.log('🚕 Funk Taxi App v5.90.281 - KALENDER CRASH FIX! 🔧📅 (Build 20260110-1500)');
+        console.log('🔧 v5.90.281: KRITISCHER FIX - Kalender crashed nicht mehr!');
+        console.log('✅ v5.90.281: loadSchedule → renderCalendar gefixed!');
+        console.log('📅 v5.90.281: Kalender braucht kein GPS mehr!');
+        console.log('🎯 v5.90.281: Mein Fehler - SORRY! 😅');
         console.log('✅ v5.90.280: Kalender-Button funktioniert!');
         console.log('📞 v5.90.280: Telefonnummer klickbar im Modal!');
         console.log('🔧 v5.90.280: calendar → schedule gefixed!');
         console.log('📅 v5.90.280: Auto-Scroll zu heute!');
-        console.log('🚦 v5.90.279: Fahrer sieht NUR zugewiesene Fahrten!');
-        console.log('↩️ v5.90.279: Admin kann Zuweisung aufheben!');
-        console.log('🧹 v5.90.279: Driver-View aufgeräumt!');
-        console.log('✅ v5.90.279: Workflow perfekt!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -983,7 +983,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.280 - KALENDER FIX! 📞 (Build 20260110-1405)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.281 - KALENDER FIX! 📅 (Build 20260110-1500)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -12973,7 +12973,7 @@ Aktuell: ${currentNum}`;
                 console.log('📅 Kalender öffnet bei:', currentCalendarDate.toLocaleDateString('de-DE'));
                 
                 setTimeout(() => {
-                    loadSchedule();
+                    renderCalendar(); // 🔧 v5.90.281: RENDER KALENDER (nicht öffentliche Verkehrsmittel!)
                     
                     // 🆕 v5.90.278: SCROLL ZUM HEUTIGEN TAG!
                     setTimeout(() => {

@@ -108,14 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.282 - KALENDER FINALLY! 🎉📅 (Build 20260110-1530)');
-        console.log('🎊 v5.90.282: ENDLICH DER RICHTIGE FIX!');
-        console.log('📅 v5.90.282: schedule → calendar gefixed!');
-        console.log('✅ v5.90.282: Kalender ist calendar-view, nicht schedule-view!');
-        console.log('🚌 v5.90.282: schedule-view = Fahrplan (Bus/Bahn)');
-        console.log('📅 v5.90.282: calendar-view = Kalender (Taxi-Fahrten)');
-        console.log('🤦 v5.90.282: Mein Fehler x2 - Jetzt richtig!');
-        console.log('🔧 v5.90.281: loadSchedule → renderCalendar gefixed!');
+        console.log('🚕 Funk Taxi App v5.90.283 - RESET BUTTON! 🔄 (Build 20260110-1545)');
+        console.log('🔄 v5.90.283: Reset-Button für aktive Fahrten!');
+        console.log('✅ v5.90.283: Fahrt zurücksetzen + Tracking-Link löschen!');
+        console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
+        console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
+        console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
+        console.log('📅 v5.90.282: calendar-view statt schedule-view!');
         console.log('✅ v5.90.280: Telefonnummer klickbar!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
@@ -983,7 +982,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.90.282 - KALENDER FIXED! 📅 (Build 20260110-1530)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.283 - RESET BUTTON! 🎯 (Build 20260110-1545)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31181,9 +31180,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             </div>
                         </div>
                         
-                        <button onclick="completeRideFromModal('${currentRide.firebaseId}')" style="width:100%;margin-top:12px;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                            ✅ Fahrt abschließen
-                        </button>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+                            <button onclick="completeRideFromModal('${currentRide.firebaseId}')" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                ✅ Abschließen
+                            </button>
+                            <button onclick="resetActiveRide('${currentRide.firebaseId}')" style="padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                                🔄 Zurücksetzen
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -31323,6 +31327,47 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (e) {
                 console.error('❌ Fehler:', e);
                 alert('❌ Fehler beim Abschließen: ' + e.message);
+            }
+        }
+        
+        // 🆕 v5.90.283: RESET AKTIVE FAHRT
+        async function resetActiveRide(rideId) {
+            if (!confirm('⚠️ Fahrt wirklich zurücksetzen?\n\nDie Fahrt wird wieder auf "new" gesetzt und das Fahrzeug wird freigegeben.')) return;
+            
+            try {
+                // 1. Fahrt zurücksetzen
+                await updateRide(rideId, {
+                    status: 'new',
+                    vehicle: null,
+                    vehiclePlate: null,
+                    vehicleDriver: null,
+                    driverAssignedAt: null,
+                    acceptedAt: null,
+                    pickedUpAt: null,
+                    completedAt: null
+                });
+                
+                console.log('🔄 Fahrt zurückgesetzt:', rideId);
+                
+                // 2. Tracking-Link löschen (falls vorhanden)
+                const ride = rides.find(r => r.firebaseId === rideId);
+                if (ride && ride.trackingLink) {
+                    await db.ref(`rides/${rideId}/trackingLink`).remove();
+                    console.log('🗑️ Tracking-Link gelöscht');
+                }
+                
+                // 3. Schließe Modal
+                const modal = document.getElementById('vehicle-details-modal');
+                if (modal) modal.remove();
+                
+                // 4. Aktualisiere Fleet Map
+                setTimeout(() => refreshFleetMap(), 500);
+                
+                alert('✅ Fahrt wurde zurückgesetzt!\n\nDie Fahrt ist jetzt wieder verfügbar und kann neu zugewiesen werden.');
+                
+            } catch (e) {
+                console.error('❌ Fehler beim Zurücksetzen:', e);
+                alert('❌ Fehler beim Zurücksetzen: ' + e.message);
             }
         }
         

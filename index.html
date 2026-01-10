@@ -108,11 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.291 - FAHRER-VIEW FIX! 🚗🔧 (Build 20260110-2000)');
-        console.log('🔧 v5.90.291: Element-IDs in updateDriverViewV268 gefixt!');
-        console.log('🚗 v5.90.291: Fahrer sieht jetzt Fahrten!');
-        console.log('✅ v5.90.291: accepted = angenommen, on_way = aktiv!');
-        console.log('🎯 v5.90.291: Kein NULL-Element-Fehler mehr!');
+        console.log('🚕 Funk Taxi App v5.90.292 - SETTINGS FIX! 💾🔧 (Build 20260110-2010)');
+        console.log('💾 v5.90.292: Einstellungen speichern gefixt!');
+        console.log('🔧 v5.90.292: Fehlende Elemente werden abgefangen!');
+        console.log('✅ v5.90.292: Kein Crash mehr beim Speichern!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -984,7 +983,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.291 - FAHRER-VIEW FIX! 🚗 (Build 20260110-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.292 - SETTINGS FIX! 💾 (Build 20260110-2010)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -28068,25 +28067,30 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 return;
             }
             
-            // Lese Checkbox-Werte
-            const settings = {
-                showCustomerName: document.getElementById('cal-setting-customer-name').checked,
-                showGuestName: document.getElementById('cal-setting-guest-name').checked,
-                showGuestPhone: document.getElementById('cal-setting-guest-phone').checked,
-                showPhone: document.getElementById('cal-setting-phone').checked,
-                showPickup: document.getElementById('cal-setting-pickup').checked,
-                showDestination: document.getElementById('cal-setting-destination').checked,
-                showPassengers: document.getElementById('cal-setting-passengers').checked,
-                showPrice: document.getElementById('cal-setting-price').checked,
-                showDistance: document.getElementById('cal-setting-distance').checked,
-                showVehicle: document.getElementById('cal-setting-vehicle').checked,
-                showNotes: document.getElementById('cal-setting-notes').checked,
-                showReminder: document.getElementById('cal-setting-reminder').checked
-            };
-            
-            console.log('💾 Speichere Settings:', settings);
-            
             try {
+                // Lese Checkbox-Werte mit Fallback
+                const getCheckboxValue = (id) => {
+                    const el = document.getElementById(id);
+                    return el ? el.checked : false;
+                };
+                
+                const settings = {
+                    showCustomerName: getCheckboxValue('cal-setting-customer-name'),
+                    showGuestName: getCheckboxValue('cal-setting-guest-name'),
+                    showGuestPhone: getCheckboxValue('cal-setting-guest-phone'),
+                    showPhone: getCheckboxValue('cal-setting-phone'),
+                    showPickup: getCheckboxValue('cal-setting-pickup'),
+                    showDestination: getCheckboxValue('cal-setting-destination'),
+                    showPassengers: getCheckboxValue('cal-setting-passengers'),
+                    showPrice: getCheckboxValue('cal-setting-price'),
+                    showDistance: getCheckboxValue('cal-setting-distance'),
+                    showVehicle: getCheckboxValue('cal-setting-vehicle'),
+                    showNotes: getCheckboxValue('cal-setting-notes'),
+                    showReminder: getCheckboxValue('cal-setting-reminder')
+                };
+                
+                console.log('💾 Speichere Settings:', settings);
+                
                 await db.ref('settings/calendarExport').set(settings);
                 
                 // Erfolgs-Meldung

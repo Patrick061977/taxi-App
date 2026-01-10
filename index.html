@@ -108,10 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.265 - CRASH FIX! 🛡️✅ (Build 20260110-0935)');
-        console.log('🛡️ v5.90.265: updateDriverView Crash gefixt!');
-        console.log('✅ v5.90.265: Prüfung ob Elemente existieren!');
-        console.log('📍 v5.90.264: GPS schreibt in vehicles/!');
+        console.log('🚕 Funk Taxi App v5.90.267 - NEUE FAHRER-VIEW! 🎨📱 (Build 20260110-1010)');
+        console.log('🎨 v5.90.267: Komplett neue Fahrer-View!');
+        console.log('📱 v5.90.267: Mobile-friendly & übersichtlich!');
+        console.log('🚗 v5.90.267: Kennzeichen GROß & DEUTLICH!');
+        console.log('✅ v5.90.267: Fahrzeug-Name immer sichtbar!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -978,7 +979,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛡️ Version 5.90.265 - CRASH FIX! ✅ (Build 20260110-0935)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎨 Version 5.90.267 - NEUE FAHRER-VIEW! 📱✅ (Build 20260110-1010)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2476,125 +2477,129 @@
     </div>
 
     <div id="driver-view" class="view">
-        <!-- 🎯 DESIGN C: FULLSCREEN MAP - Google Maps Style -->
+        <!-- 🆕 v5.90.267: NEUE ÜBERSICHTLICHE MOBILE-FRIENDLY FAHRER-VIEW! -->
         
-        <!-- Ultra-Mini Top Bar (transparent, sticky) -->
-        <div id="driver-top-bar" style="
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            padding: 8px 10px;
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        <!-- Header mit Fahrzeug-Info -->
+        <div style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         ">
-            <!-- GPS Status Indicator -->
-            <div id="gps-status-compact" style="
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                padding: 4px 8px;
-                background: rgba(239,68,68,0.1);
-                border-radius: 12px;
-                font-size: 11px;
-                color: #ef4444;
+            <!-- Fahrzeug groß & deutlich -->
+            <div id="driver-vehicle-header" style="
+                background: rgba(255,255,255,0.15);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                padding: 16px;
+                margin-bottom: 12px;
             ">
-                <span id="gps-icon-compact">❌</span>
-                <span id="gps-text-compact">GPS</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">Ausgewähltes Fahrzeug:</div>
+                        <div id="driver-current-plate" style="font-size: 24px; font-weight: 900; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                            ---
+                        </div>
+                        <div id="driver-current-name" style="font-size: 14px; opacity: 0.9; margin-top: 2px;">
+                            Kein Fahrzeug gewählt
+                        </div>
+                    </div>
+                    <button onclick="toggleDebugPanel()" style="
+                        background: rgba(255,255,255,0.2);
+                        border: 2px solid rgba(255,255,255,0.5);
+                        color: white;
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 12px;
+                        font-size: 20px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">⚙️</button>
+                </div>
+                
+                <!-- Fahrzeug-Auswahl Dropdown -->
+                <select id="vehicle" onchange="setVehicle()" style="
+                    width: 100%;
+                    padding: 14px;
+                    border: 2px solid rgba(255,255,255,0.3);
+                    background: rgba(255,255,255,0.95);
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: #1f2937;
+                    cursor: pointer;
+                    margin-bottom: 12px;
+                ">
+                    <option value="">🚗 Fahrzeug wählen...</option>
+                    <!-- Wird dynamisch geladen -->
+                </select>
+                
+                <!-- Online/Offline Toggle -->
+                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.2); border-radius: 12px; padding: 12px;">
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600;">GPS-Tracking</div>
+                        <div id="driver-status-text" style="font-size: 12px; opacity: 0.85; margin-top: 2px;">Offline</div>
+                    </div>
+                    <label class="toggle-switch" style="transform: scale(1.1);">
+                        <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
             
-            <!-- Stornierung Badge (NEU!) -->
-            <button id="cancellation-badge" onclick="showCancellationPanel()" style="
-                display: none;
-                background: #ef4444;
-                color: white;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 20px;
-                font-weight: bold;
-                cursor: pointer;
-                font-size: 13px;
-                animation: pulse 1s infinite;
-            ">
-                🚨 <span id="cancellation-count">0</span>
-            </button>
-            
-            <!-- Neue Aufträge Button -->
-            <button onclick="toggleNewRidesPanel()" style="
-                background: #667eea;
-                color: white;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 20px;
-                font-weight: bold;
-                cursor: pointer;
-                font-size: 13px;
-            ">
-                📋 <span id="new-rides-count">0</span>
-            </button>
-            
-            <!-- Fahrzeug Select -->
-            <select id="vehicle" onchange="setVehicle()" style="
-                padding: 6px;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                font-size: 12px;
-                flex: 1;
-                max-width: 140px;
-            ">
-                <option value="">Fahrzeug wählen</option>
-                <!-- 🆕 v5.90.246: Wird dynamisch aus Firebase geladen! -->
-            </select>
-            
-            <!-- Stats Mini -->
-            <div style="font-size: 10px; color: #666; white-space: nowrap;">
-                <span id="d-rides">0</span>↑ <span id="d-money">0€</span>
+            <!-- GPS & Stats Bar -->
+            <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center;">
+                <div id="gps-status-compact" style="
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 10px 12px;
+                    background: rgba(239,68,68,0.2);
+                    border: 2px solid rgba(239,68,68,0.3);
+                    border-radius: 10px;
+                    font-size: 13px;
+                    font-weight: 600;
+                ">
+                    <span id="gps-icon-compact">❌</span>
+                    <span id="gps-text-compact">GPS Aus</span>
+                </div>
+                
+                <div style="
+                    display: flex;
+                    gap: 12px;
+                    padding: 10px 12px;
+                    background: rgba(255,255,255,0.15);
+                    border-radius: 10px;
+                    font-size: 13px;
+                    font-weight: 600;
+                ">
+                    <div><span id="d-rides">0</span>🚕</div>
+                    <div><span id="d-money">0</span>€</div>
+                </div>
             </div>
-            
-            <!-- Online Toggle Mini -->
-            <label class="toggle-switch" style="transform: scale(0.6);">
-                <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
-                <span class="slider"></span>
-            </label>
-            
-            <!-- Menu Button -->
-            <button onclick="toggleDebugPanel()" style="
-                background: rgba(102,126,234,0.2);
-                color: #667eea;
-                border: none;
-                padding: 6px 10px;
-                border-radius: 6px;
-                cursor: pointer;
-                font-weight: bold;
-            ">
-                ≡
-            </button>
         </div>
         
-        <!-- 🆕 v5.61.0: GPS-WARNUNG FÜR FAHRER! -->
+        <!-- 🆕 GPS-Warnung Banner -->
         <div id="gps-warning-banner" style="display:none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 15px; margin: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); animation: shake 0.5s;">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="flex: 1;">
                     <div style="font-size: 16px; font-weight: 700; margin-bottom: 6px;">
-                        🚨 GPS-PROBLEM ERKANNT!
+                        🚨 GPS-PROBLEM!
                     </div>
-                    <div id="gps-warning-text" style="font-size: 13px; opacity: 0.95; margin-bottom: 8px;">
-                        GPS sendet keine Updates mehr!
-                    </div>
-                    <div style="font-size: 12px; opacity: 0.85;">
-                        ⚠️ Patrick sieht möglicherweise alte Position!
+                    <div id="gps-warning-text" style="font-size: 13px; opacity: 0.95;">
+                        GPS sendet keine Updates!
                     </div>
                 </div>
-                <button onclick="location.reload()" style="background: white; color: #ef4444; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; margin-left: 10px;">
-                    🔄 Neu laden
+                <button onclick="location.reload()" style="background: white; color: #ef4444; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                    🔄 Neu
                 </button>
             </div>
         </div>
         
-        <!-- Debug Panel (versteckt by default) -->
+        <!-- Content Bereich -->
         <div id="debug-panel" style="
             display: none;
             padding: 10px;
@@ -7049,18 +7054,18 @@
                     </button>
                 `;
             } else {
-                // 🆕 v5.87.85: NEUER KUNDE - AUTO-MODAL ÖFFNEN!
-                console.log('🆕 Unbekannter Anruf → Öffne automatisch Neuer-Kunde-Modal!');
+                // 🆕 v5.90.266: NEUER KUNDE → Schnellbuchung mit Telefon!
+                console.log('🆕 Unbekannter Anruf → Öffne Schnellbuchung mit Telefonnummer!');
                 
                 // Schließe Popup
                 closeCallPopup();
                 
-                // Öffne "Neuer Kunde" Modal mit Telefonnummer
+                // 🆕 v5.90.266: Öffne Schnellbuchung mit Telefonnummer (nicht Neuer-Kunde-Modal!)
                 setTimeout(() => {
-                    openNewCustomerModalWithPhone(caller);
+                    openQuickBookingWithPhone(caller);
                 }, 300);
                 
-                return; // Popup wird nicht angezeigt - direkt zum Modal!
+                return; // Popup wird nicht angezeigt - direkt zur Schnellbuchung!
             }
             
             popupHTML += `
@@ -25721,6 +25726,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     });
                 }
             }
+            
+            // 🆕 v5.90.267: Update Header-Anzeige!
+            updateDriverHeader();
         }
 
         function setVehicle() {
@@ -25800,8 +25808,31 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             updateViews();
             
+            // 🆕 v5.90.267: Update Header-Anzeige!
+            updateDriverHeader();
+            
             // 🆕 v5.90.261: Lade Fahrten für diesen Fahrer
             loadDriverRides();
+        }
+        
+        // 🆕 v5.90.267: UPDATE DRIVER HEADER (Fahrzeug-Anzeige)
+        function updateDriverHeader() {
+            const plateEl = document.getElementById('driver-current-plate');
+            const nameEl = document.getElementById('driver-current-name');
+            const statusEl = document.getElementById('driver-status-text');
+            
+            if (!plateEl || !nameEl || !statusEl) return;
+            
+            if (currentVehicle && VEHICLES[currentVehicle]) {
+                const vehicle = VEHICLES[currentVehicle];
+                plateEl.textContent = vehicle.plate || '---';
+                nameEl.textContent = vehicle.name || 'Unbekannt';
+                statusEl.textContent = isOnline ? '🟢 Online & GPS aktiv' : '⚪ Offline';
+            } else {
+                plateEl.textContent = '---';
+                nameEl.textContent = 'Kein Fahrzeug gewählt';
+                statusEl.textContent = 'Offline';
+            }
         }
 
         // 🆕 v5.90.261: LADE FAHRTEN FÜR AKTUELLEN FAHRER

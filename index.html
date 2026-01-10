@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.277 - TESLA GPS! 🚗📡 (Build 20260110-1230)');
-        console.log('📡 v5.90.277: GPS-Button ist klickbar!');
-        console.log('🚗 v5.90.277: Tesla GPS wird automatisch genutzt!');
-        console.log('✅ v5.90.277: Click auf GPS → Position vom Auto!');
-        console.log('🎯 v5.90.277: Perfekt für Tesla Browser!');
+        console.log('🚕 Funk Taxi App v5.90.278 - KALENDER + TELEFON! 📅📞 (Build 20260110-1250)');
+        console.log('📞 v5.90.278: Telefonnummer bei Kundenname (klickbar!)');
+        console.log('📅 v5.90.278: Kalender springt automatisch zu heute!');
+        console.log('✅ v5.90.278: Admin kann Kunden anrufen!');
+        console.log('🎯 v5.90.278: Kein Scrollen mehr nötig!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -979,7 +979,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚗 Version 5.90.277 - TESLA GPS! 📡 (Build 20260110-1230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.278 - KALENDER FIX! 📅 (Build 20260110-1250)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3624,6 +3624,13 @@
                                 <div style="font-size:18px;font-weight:600;color:#1e40af;">
                                     👤 ${ride.customerName}
                                 </div>
+                                ${ride.customerPhone ? `
+                                <div style="margin-top:8px;">
+                                    <a href="tel:${ride.customerPhone}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#10b981;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                        📞 ${ride.customerPhone}
+                                    </a>
+                                </div>
+                                ` : ''}
                             </div>
                             ` : ''}
                             
@@ -12911,7 +12918,25 @@ Aktuell: ${currentNum}`;
             
             // 🆕 v5.32.6: Fahrplan laden bei Schedule-Tab
             if (view === 'schedule') {
-                setTimeout(() => loadSchedule(), 100);
+                // 🆕 v5.90.278: SPRINGE ZUM HEUTIGEN TAG!
+                currentCalendarDate = new Date(); // Setze auf heute
+                console.log('📅 Kalender öffnet bei:', currentCalendarDate.toLocaleDateString('de-DE'));
+                
+                setTimeout(() => {
+                    loadSchedule();
+                    
+                    // 🆕 v5.90.278: SCROLL ZUM HEUTIGEN TAG!
+                    setTimeout(() => {
+                        const today = new Date();
+                        const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+                        const todayElement = document.querySelector(`[data-date="${todayStr}"]`);
+                        
+                        if (todayElement) {
+                            todayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            console.log('✅ Zu heute gescrollt!', todayStr);
+                        }
+                    }, 500);
+                }, 100);
             }
             
             // 🆕 v5.39.8: Debug-Logs neu laden bei Debug-View!

@@ -108,15 +108,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.281 - KALENDER CRASH FIX! 🔧📅 (Build 20260110-1500)');
-        console.log('🔧 v5.90.281: KRITISCHER FIX - Kalender crashed nicht mehr!');
-        console.log('✅ v5.90.281: loadSchedule → renderCalendar gefixed!');
-        console.log('📅 v5.90.281: Kalender braucht kein GPS mehr!');
-        console.log('🎯 v5.90.281: Mein Fehler - SORRY! 😅');
-        console.log('✅ v5.90.280: Kalender-Button funktioniert!');
-        console.log('📞 v5.90.280: Telefonnummer klickbar im Modal!');
-        console.log('🔧 v5.90.280: calendar → schedule gefixed!');
-        console.log('📅 v5.90.280: Auto-Scroll zu heute!');
+        console.log('🚕 Funk Taxi App v5.90.282 - KALENDER FINALLY! 🎉📅 (Build 20260110-1530)');
+        console.log('🎊 v5.90.282: ENDLICH DER RICHTIGE FIX!');
+        console.log('📅 v5.90.282: schedule → calendar gefixed!');
+        console.log('✅ v5.90.282: Kalender ist calendar-view, nicht schedule-view!');
+        console.log('🚌 v5.90.282: schedule-view = Fahrplan (Bus/Bahn)');
+        console.log('📅 v5.90.282: calendar-view = Kalender (Taxi-Fahrten)');
+        console.log('🤦 v5.90.282: Mein Fehler x2 - Jetzt richtig!');
+        console.log('🔧 v5.90.281: loadSchedule → renderCalendar gefixed!');
+        console.log('✅ v5.90.280: Telefonnummer klickbar!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -983,7 +983,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.281 - KALENDER FIX! 📅 (Build 20260110-1500)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.90.282 - KALENDER FIXED! 📅 (Build 20260110-1530)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1095,7 +1095,7 @@
                 📖 Verlauf
             </button>
             <!-- 🆕 v5.89: KALENDER-TAB (Direkt-Sprung zu Vorbestellungen!) -->
-            <button onclick="switchView('schedule')" class="admin-tab-btn admin-only tab-toggleable" data-view="schedule" data-tab-id="schedule" style="
+            <button onclick="switchView('calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="calendar" data-tab-id="calendar" style="
                 padding: 10px 16px;
                 border: 2px solid #3b82f6;
                 background: white;
@@ -12967,7 +12967,7 @@ Aktuell: ${currentNum}`;
             }
             
             // 🆕 v5.32.6: Fahrplan laden bei Schedule-Tab
-            if (view === 'schedule') {
+            if (view === 'calendar') {
                 // 🆕 v5.90.278: SPRINGE ZUM HEUTIGEN TAG!
                 currentCalendarDate = new Date(); // Setze auf heute
                 console.log('📅 Kalender öffnet bei:', currentCalendarDate.toLocaleDateString('de-DE'));
@@ -50197,7 +50197,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 
                 // 5. Wechsle zum Kalender
                 setTimeout(() => {
-                    switchView('schedule');
+                    switchView('calendar');
                 }, 1000);
                 
             } catch (error) {

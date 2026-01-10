@@ -108,11 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.270 - STATUS-SYSTEM TEST! ✅🔧 (Build 20260110-1120)');
-        console.log('✅ v5.90.270: acceptedBy implementiert!');
-        console.log('👤 v5.90.270: Fahrer kann annehmen!');
-        console.log('🔧 v5.90.270: Admin kann akzeptieren!');
-        console.log('📋 v5.90.270: Kalender zeigt wer akzeptiert hat!');
+        console.log('🚕 Funk Taxi App v5.90.272 - ANRUFHISTORIE FIX! 📞✅ (Build 20260110-1140)');
+        console.log('📞 v5.90.272: Anrufhistorie aktualisiert nach Kunde anlegen!');
+        console.log('✅ v5.90.272: customerFound=false wird erkannt!');
+        console.log('🔄 v5.90.272: Refresh erkennt neue Kunden!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -979,7 +978,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.270 - STATUS-SYSTEM! 👤🔧 (Build 20260110-1120)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.272 - ANRUFHISTORIE FIX! ✅ (Build 20260110-1140)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -7421,8 +7420,9 @@
                         console.log(`✅ Bevorzuge: ${matchedCustomer.name}`);
                     }
                     
-                    // Update wenn Kunde gefunden aber nicht markiert
-                    if (matchedCustomer && !call.customerFound) {
+                    // Update wenn Kunde gefunden (egal ob schon markiert oder nicht!)
+                    // 🆕 v5.90.272: Auch aktualisieren wenn customerFound=false!
+                    if (matchedCustomer && (!call.customerFound || call.customerFound === false)) {
                         console.log(`✅ Kunde erkannt: ${call.caller} → ${matchedCustomer.name}`);
                         updates[`callHistory/${callId}/customerFound`] = true;
                         updates[`callHistory/${callId}/customerName`] = matchedCustomer.name;
@@ -30625,9 +30625,17 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         .sort((a, b) => (a.pickupTimestamp || 0) - (b.pickupTimestamp || 0));
                     
                     if (ride) {
-                        // 🆕 v5.90.248: MIT UHRZEIT + DATUM + ABSCHLIESSEN!
-                        const pickupTime = ride.pickupTime || '-';
-                        const pickupDate = ride.pickupDate || '-';
+                        // 🆕 v5.90.271: FORMATIERE ZEIT RICHTIG (Deutsche Zeit statt UTC!)
+                        let pickupTime = ride.pickupTime || '-';
+                        let pickupDate = ride.pickupDate || '-';
+                        
+                        // Falls keine formatierten Felder → aus Timestamp erstellen!
+                        if ((!ride.pickupTime || ride.pickupTime === '-') && ride.pickupTimestamp) {
+                            const date = new Date(ride.pickupTimestamp);
+                            pickupTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                            pickupDate = date.toLocaleDateString('de-DE');
+                        }
+                        
                         const statusColor = ride.status === 'assigned' ? '#f59e0b' : '#ef4444';
                         const statusIcon = ride.status === 'assigned' ? '🟠' : '🔴';
                         const statusText = ride.status === 'assigned' ? 'Zugewiesen' : 'Besetzt';
@@ -30668,8 +30676,17 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         `;
                         
                         upcomingRides.slice(0, 3).forEach(r => {
-                            const time = r.pickupTime || '-';
-                            const date = r.pickupDate || '-';
+                            // 🆕 v5.90.271: FORMATIERE ZEIT (Deutsche Zeit!)
+                            let time = r.pickupTime || '-';
+                            let date = r.pickupDate || '-';
+                            
+                            // Falls nicht formatiert → aus Timestamp erstellen!
+                            if ((!r.pickupTime || r.pickupTime === '-') && r.pickupTimestamp) {
+                                const d = new Date(r.pickupTimestamp);
+                                time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                date = d.toLocaleDateString('de-DE');
+                            }
+                            
                             const statusDot = r.status === 'new' ? '🟢' : r.status === 'assigned' ? '🟡' : '⚪';
                             
                             popupContent += `

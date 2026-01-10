@@ -108,9 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.296 - MODAL X-BUTTON! ✕📱 (Build 20260110-2110)');
-        console.log('✕ v5.90.296: X-Button im Customer Modal!');
-        console.log('📱 v5.90.296: Schnell schließen - Tesla-friendly!');
+        console.log('🚕 Funk Taxi App v5.90.298 - KARTE MIT ROUTE! 🗺️🔵 (Build 20260110-2145)');
+        console.log('🗺️ v5.90.298: Karte zeigt Fahrer-Position!');
+        console.log('📍 v5.90.298: Kunde-Marker (rot)!');
+        console.log('🔵 v5.90.298: Route-Linie!');
+        console.log('🎯 v5.90.298: Auto-Zoom auf beide Punkte!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -982,7 +984,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.296 - X-BUTTON! ✕ (Build 20260110-2110)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.298 - ROUTE! 🗺️ (Build 20260110-2145)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2480,7 +2482,7 @@
     </div>
 
     <div id="driver-view" class="view">
-        <!-- 🆕 v5.90.295: UBER-STYLE FAHRER-VIEW! -->
+        <!-- 🆕 v5.90.297: MINIMAL FAHRER-VIEW! -->
         
         <!-- FULLSCREEN KARTE -->
         <div id="driver-map-container" style="
@@ -2494,34 +2496,31 @@
             <div id="driver-map" style="width: 100%; height: 100%;"></div>
         </div>
         
-        <!-- TOP HEADER (über Karte) -->
+        <!-- MINI TOP BAR (über Karte) -->
         <div style="
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             z-index: 10;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
-            padding: 16px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+            padding: 8px 12px;
         ">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="color: white;">
-                    <div id="driver-current-plate-new" style="font-size: 20px; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">---</div>
-                    <div id="driver-current-name-new" style="font-size: 12px; opacity: 0.9; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Kein Fahrzeug</div>
+                    <div id="driver-current-plate-new" style="font-size: 16px; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">---</div>
                 </div>
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <button onclick="toggleDebugPanel()" style="
-                        background: rgba(255,255,255,0.3);
-                        border: 2px solid rgba(255,255,255,0.5);
-                        color: white;
-                        width: 44px;
-                        height: 44px;
-                        border-radius: 50%;
-                        font-size: 20px;
-                        cursor: pointer;
-                        backdrop-filter: blur(10px);
-                    ">⚙️</button>
-                </div>
+                <button onclick="toggleDebugPanel()" style="
+                    background: rgba(255,255,255,0.25);
+                    border: none;
+                    color: white;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    font-size: 16px;
+                    cursor: pointer;
+                    backdrop-filter: blur(10px);
+                ">⚙️</button>
             </div>
         </div>
         
@@ -2558,15 +2557,15 @@
         <div id="gps-warning-banner-new" style="
             display: none;
             position: absolute;
-            top: 80px;
-            left: 16px;
-            right: 16px;
+            top: 50px;
+            left: 12px;
+            right: 12px;
             z-index: 20;
             background: #ef4444;
             color: white;
-            padding: 16px;
-            border-radius: 12px;
-            font-size: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
             font-weight: 700;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         ">
@@ -2575,27 +2574,29 @@
                 background: white;
                 color: #ef4444;
                 border: none;
-                padding: 8px 16px;
-                border-radius: 8px;
-                font-size: 13px;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
                 font-weight: 700;
                 cursor: pointer;
-                margin-left: 12px;
-            ">🔄 Neu laden</button>
+                margin-left: 8px;
+            ">🔄</button>
         </div>
         
         <!-- AKTIVE FAHRT CARD (über Karte, aber unter Bottom Panel) -->
         <div id="driver-active-ride-card-new" style="
             display: none;
             position: absolute;
-            top: 100px;
-            left: 16px;
-            right: 16px;
+            top: 60px;
+            left: 12px;
+            right: 12px;
             z-index: 15;
             background: white;
-            border-radius: 20px;
-            padding: 20px;
+            border-radius: 16px;
+            padding: 16px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            max-height: 50vh;
+            overflow-y: auto;
         ">
             <!-- Wird dynamisch gefüllt -->
         </div>
@@ -2608,28 +2609,28 @@
             right: 0;
             z-index: 20;
             background: white;
-            border-radius: 24px 24px 0 0;
-            padding: 20px;
-            box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+            border-radius: 16px 16px 0 0;
+            padding: 12px;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
         ">
             <!-- GO BUTTON / ONLINE TOGGLE -->
-            <div id="driver-go-button-container" style="margin-bottom: 16px;">
+            <div id="driver-go-button-container" style="margin-bottom: 12px;">
                 <button id="driver-go-button" onclick="toggleOnlineNew()" style="
                     width: 100%;
-                    padding: 20px;
+                    padding: 14px;
                     background: linear-gradient(135deg, #10b981, #059669);
                     color: white;
                     border: none;
-                    border-radius: 16px;
-                    font-size: 24px;
+                    border-radius: 12px;
+                    font-size: 18px;
                     font-weight: 900;
                     cursor: pointer;
-                    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
                     transition: all 0.3s;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 12px;
+                    gap: 8px;
                 " disabled>
                     <span id="go-button-text">🚗 GO</span>
                 </button>
@@ -2638,23 +2639,23 @@
             <!-- STATS -->
             <div style="
                 display: flex;
-                gap: 12px;
-                padding: 16px;
+                gap: 8px;
+                padding: 10px;
                 background: #f9fafb;
-                border-radius: 12px;
+                border-radius: 8px;
             ">
                 <div style="flex: 1; text-align: center;">
-                    <div style="font-size: 28px; font-weight: 900; color: #1f2937;"><span id="driver-stats-rides">0</span></div>
-                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">FAHRTEN</div>
+                    <div style="font-size: 20px; font-weight: 900; color: #1f2937;"><span id="driver-stats-rides">0</span></div>
+                    <div style="font-size: 9px; color: #6b7280; margin-top: 2px; font-weight: 600;">FAHRTEN</div>
                 </div>
                 <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
-                    <div style="font-size: 28px; font-weight: 900; color: #10b981;"><span id="driver-stats-money">0</span>€</div>
-                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">UMSATZ</div>
+                    <div style="font-size: 20px; font-weight: 900; color: #10b981;"><span id="driver-stats-money">0</span>€</div>
+                    <div style="font-size: 9px; color: #6b7280; margin-top: 2px; font-weight: 600;">UMSATZ</div>
                 </div>
                 <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                        <div id="driver-stats-gps-icon" style="font-size: 24px;">❌</div>
-                        <div id="driver-stats-gps-text" style="font-size: 10px; color: #6b7280; margin-top: 4px; font-weight: 600;">GPS AUS</div>
+                        <div id="driver-stats-gps-icon" style="font-size: 18px;">❌</div>
+                        <div id="driver-stats-gps-text" style="font-size: 8px; color: #6b7280; margin-top: 2px; font-weight: 600;">GPS AUS</div>
                     </div>
                 </div>
             </div>
@@ -44491,6 +44492,8 @@ Stack: ${err.stack}
         // 🆕 v5.90.295: UBER-STYLE DRIVER MAP!
         let driverMapV295 = null;
         let driverMarkerV295 = null;
+        let customerMarkerV295 = null;
+        let routeLineV295 = null;
         
         function initDriverMapV295() {
             if (driverMapV295) return; // Schon initialisiert
@@ -44510,7 +44513,7 @@ Stack: ${err.stack}
             console.log('✅ Uber-Style Map initialisiert!');
         }
         
-        function updateDriverMapV295() {
+        async function updateDriverMapV295() {
             if (!driverMapV295) {
                 initDriverMapV295();
             }
@@ -44521,7 +44524,13 @@ Stack: ${err.stack}
             const vehicle = VEHICLES[currentVehicle];
             if (!vehicle.lat || !vehicle.lon) return;
             
-            // Update oder Erstelle Marker
+            // 🆕 v5.90.298: Hole aktive Fahrt!
+            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            const activeRide = myRides.find(r => 
+                r.status === 'on_way' || r.status === 'picked_up' || r.status === 'accepted'
+            );
+            
+            // Update oder Erstelle Fahrer-Marker
             if (driverMarkerV295) {
                 driverMarkerV295.setLatLng([vehicle.lat, vehicle.lon]);
             } else {
@@ -44535,8 +44544,85 @@ Stack: ${err.stack}
                 driverMarkerV295 = L.marker([vehicle.lat, vehicle.lon], { icon }).addTo(driverMapV295);
             }
             
-            // Zentriere Karte auf Fahrer
-            driverMapV295.setView([vehicle.lat, vehicle.lon], 15);
+            // 🆕 v5.90.298: Zeige Kunde + Route wenn aktive Fahrt!
+            if (activeRide && activeRide.pickupCoords && activeRide.destCoords) {
+                // Entscheide: Zum Abholort oder zum Ziel?
+                let targetCoords, targetLabel, markerColor;
+                if (activeRide.status === 'picked_up') {
+                    // Kunde drin → Zum Ziel!
+                    targetCoords = activeRide.destCoords;
+                    targetLabel = '🎯 ZIEL';
+                    markerColor = '#10b981';
+                } else {
+                    // Fahrt angenommen → Zum Kunden!
+                    targetCoords = activeRide.pickupCoords;
+                    targetLabel = '📍 KUNDE';
+                    markerColor = '#ef4444';
+                }
+                
+                // Kunde-Marker
+                if (customerMarkerV295) {
+                    customerMarkerV295.setLatLng([targetCoords.lat, targetCoords.lon]);
+                } else {
+                    const customerIcon = L.divIcon({
+                        html: `<div style="background: ${markerColor}; color: white; padding: 8px 12px; border-radius: 20px; font-weight: 900; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); white-space: nowrap;">${targetLabel}</div>`,
+                        className: '',
+                        iconSize: [100, 40],
+                        iconAnchor: [50, 40]
+                    });
+                    customerMarkerV295 = L.marker([targetCoords.lat, targetCoords.lon], { icon: customerIcon }).addTo(driverMapV295);
+                }
+                
+                // Route berechnen
+                try {
+                    const response = await fetch(
+                        `https://router.project-osrm.org/route/v1/driving/${vehicle.lon},${vehicle.lat};${targetCoords.lon},${targetCoords.lat}?overview=full&geometries=geojson`
+                    );
+                    const data = await response.json();
+                    
+                    if (data.routes && data.routes.length > 0) {
+                        const coords = data.routes[0].geometry.coordinates;
+                        const latLngs = coords.map(c => [c[1], c[0]]);
+                        
+                        // Entferne alte Route
+                        if (routeLineV295) {
+                            driverMapV295.removeLayer(routeLineV295);
+                        }
+                        
+                        // Zeichne neue Route
+                        routeLineV295 = L.polyline(latLngs, {
+                            color: '#3b82f6',
+                            weight: 5,
+                            opacity: 0.7
+                        }).addTo(driverMapV295);
+                        
+                        // Zentriere Karte auf beide Punkte
+                        const bounds = L.latLngBounds([
+                            [vehicle.lat, vehicle.lon],
+                            [targetCoords.lat, targetCoords.lon]
+                        ]);
+                        driverMapV295.fitBounds(bounds, { padding: [50, 50] });
+                        
+                        console.log('✅ Route auf Karte gezeichnet!');
+                    }
+                } catch (error) {
+                    console.error('❌ Route-Fehler:', error);
+                }
+                
+            } else {
+                // Keine aktive Fahrt → Entferne Kunde-Marker + Route
+                if (customerMarkerV295) {
+                    driverMapV295.removeLayer(customerMarkerV295);
+                    customerMarkerV295 = null;
+                }
+                if (routeLineV295) {
+                    driverMapV295.removeLayer(routeLineV295);
+                    routeLineV295 = null;
+                }
+                
+                // Zentriere nur auf Fahrer
+                driverMapV295.setView([vehicle.lat, vehicle.lon], 15);
+            }
         }
         
         let driverMap = null;
@@ -59925,7 +60011,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
 
 <!-- 🆕 v5.90.227: ANRUF-FAVORITEN FLOATING BUTTON -->
 <!-- 🆕 v5.90.259: TESLA-STYLE ANRUF-DROPDOWN! -->
-<div id="call-favorites-fab" style="position:fixed;bottom:0;left:0;right:0;z-index:9998;display:block;">
+<!-- 🆕 v5.90.297: Versteckt bei Fahrer! -->
+<div id="call-favorites-fab" class="admin-only" style="position:fixed;bottom:0;left:0;right:0;z-index:9998;display:block;">
     <button id="tesla-call-btn" onclick="toggleTeslaCallDropdown()" style="
         width:100%;
         height:70px;

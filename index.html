@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.268 - FOKUS AKTIVE FAHRT! 🎯🚗 (Build 20260110-1030)');
-        console.log('🎯 v5.90.268: Aktive Fahrt im FOKUS!');
-        console.log('🚗 v5.90.268: Große Navigation & Buttons!');
-        console.log('📱 v5.90.268: Kompaktes Design!');
-        console.log('✅ v5.90.268: Neue Aufträge übersichtlich!');
+        console.log('🚕 Funk Taxi App v5.90.270 - STATUS-SYSTEM TEST! ✅🔧 (Build 20260110-1120)');
+        console.log('✅ v5.90.270: acceptedBy implementiert!');
+        console.log('👤 v5.90.270: Fahrer kann annehmen!');
+        console.log('🔧 v5.90.270: Admin kann akzeptieren!');
+        console.log('📋 v5.90.270: Kalender zeigt wer akzeptiert hat!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -979,7 +979,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.268 - FOKUS AKTIVE FAHRT! 🚗✅ (Build 20260110-1030)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.270 - STATUS-SYSTEM! 👤🔧 (Build 20260110-1120)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2576,6 +2576,32 @@
                 </div>
                 
                 <div id="driver-new-rides-list">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+            
+            <!-- ━━━ AKZEPTIERTE FAHRTEN ━━━ -->
+            <div id="driver-accepted-rides-section" style="display: none; margin-top: 20px;">
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                ">
+                    <div style="font-size: 14px; font-weight: 700; color: #6b7280; letter-spacing: 1px;">
+                        ━━━ AKZEPTIERT ━━━
+                    </div>
+                    <div id="accepted-rides-badge" style="
+                        background: #10b981;
+                        color: white;
+                        padding: 4px 12px;
+                        border-radius: 12px;
+                        font-size: 13px;
+                        font-weight: 700;
+                    ">0</div>
+                </div>
+                
+                <div id="driver-accepted-rides-list">
                     <!-- Wird dynamisch gefüllt -->
                 </div>
             </div>
@@ -13577,19 +13603,58 @@ Aktuell: ${currentNum}`;
             // Meine Fahrten filtern
             const myRides = rides.filter(r => r.vehicleId === currentVehicle);
             
-            // Aktive Fahrt (accepted oder picked_up)
-            const activeRide = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
+            // Aktive Fahrt (accepted oder picked_up) - ABER NUR WENN ZEIT IST!
+            const now = Date.now();
+            const activeRide = myRides.find(r => {
+                if (r.status !== 'accepted' && r.status !== 'picked_up') return false;
+                
+                // Prüfe ob Fahrt jetzt oder in Vergangenheit ist (max. 1 Stunde in Zukunft)
+                const rideTime = r.pickupTimestamp || r.timestamp || now;
+                const oneHourFromNow = now + (60 * 60 * 1000); // +1 Stunde
+                
+                // Nur als aktiv zählen wenn Zeit in max. 1 Stunde oder schon vorbei
+                return rideTime <= oneHourFromNow;
+            });
             
-            // Zugewiesene Fahrten (assigned)
-            const assignedRides = myRides.filter(r => r.status === 'assigned');
+            // Zugewiesene Fahrten (assigned) - Nur zeigen wenn noch nicht angenommen UND nicht aktiv!
+            const assignedRides = myRides.filter(r => {
+                if (r.status !== 'assigned') return false;
+                // Nicht zeigen wenn schon als aktive Fahrt angezeigt
+                if (activeRide && (activeRide.firebaseId === r.firebaseId || activeRide.id === r.id)) return false;
+                return true;
+            });
             
-            // Geplante Fahrten (heute, später)
+            // 🆕 v5.90.270: AKZEPTIERTE FAHRTEN (accepted, aber noch nicht Zeit!)
+            const acceptedRides = myRides.filter(r => {
+                if (r.status !== 'accepted') return false;
+                // Nicht zeigen wenn schon als aktive Fahrt angezeigt
+                if (activeRide && (activeRide.firebaseId === r.firebaseId || activeRide.id === r.id)) return false;
+                // Nur zeigen wenn mehr als 1h in Zukunft
+                const rideTime = r.pickupTimestamp || r.timestamp || now;
+                const oneHourFromNow = now + (60 * 60 * 1000);
+                return rideTime > oneHourFromNow;
+            }).sort((a, b) => (a.pickupTimestamp || a.timestamp) - (b.pickupTimestamp || b.timestamp));
+            
+            // Geplante Fahrten (heute, später) - AUCH accepted Fahrten die weit weg sind!
             const today = new Date().toDateString();
+            const oneHourFromNow = now + (60 * 60 * 1000);
             const scheduledRides = myRides.filter(r => {
                 if (r.status === 'completed' || r.status === 'cancelled') return false;
-                if (r.status === 'accepted' || r.status === 'picked_up' || r.status === 'assigned') return false;
-                const rideDate = new Date(r.pickupTimestamp || r.timestamp).toDateString();
-                return rideDate === today;
+                
+                // Nicht zeigen wenn gerade als AKTIVE FAHRT angezeigt
+                if (activeRide && (activeRide.firebaseId === r.firebaseId || activeRide.id === r.id)) return false;
+                
+                // Zeige: assigned ODER accepted/picked_up die mehr als 1h in Zukunft sind
+                const rideTime = r.pickupTimestamp || r.timestamp || now;
+                const rideDate = new Date(rideTime).toDateString();
+                
+                if (rideDate !== today) return false; // Nur heute
+                
+                // Zeige wenn: assigned ODER (accepted aber weit weg)
+                if (r.status === 'assigned') return true;
+                if ((r.status === 'accepted' || r.status === 'picked_up') && rideTime > oneHourFromNow) return true;
+                
+                return false;
             }).sort((a, b) => (a.pickupTimestamp || a.timestamp) - (b.pickupTimestamp || b.timestamp));
             
             // ━━━ AKTIVE FAHRT ━━━
@@ -13614,6 +13679,19 @@ Aktuell: ${currentNum}`;
                 newRidesList.innerHTML = assignedRides.map(r => renderNewRideCard(r)).join('');
             } else {
                 newRidesSection.style.display = 'none';
+            }
+            
+            // ━━━ AKZEPTIERTE FAHRTEN ━━━
+            const acceptedSection = document.getElementById('driver-accepted-rides-section');
+            const acceptedList = document.getElementById('driver-accepted-rides-list');
+            const acceptedBadge = document.getElementById('accepted-rides-badge');
+            
+            if (acceptedRides.length > 0) {
+                acceptedSection.style.display = 'block';
+                acceptedBadge.textContent = acceptedRides.length;
+                acceptedList.innerHTML = acceptedRides.map(r => renderAcceptedRideCard(r)).join('');
+            } else {
+                acceptedSection.style.display = 'none';
             }
             
             // ━━━ TAGESPROGRAMM ━━━
@@ -13817,6 +13895,97 @@ Aktuell: ${currentNum}`;
                             cursor: pointer;
                         ">
                             ❌
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 🆕 v5.90.270: AKZEPTIERTE FAHRTEN (noch nicht aktiv)
+        function renderAcceptedRideCard(ride) {
+            const pickup = ride.pickup || 'Unbekannt';
+            const destination = ride.destination || 'Unbekannt';
+            const time = new Date(ride.pickupTimestamp || ride.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const price = ride.finalPrice || ride.price || '?';
+            const distance = ride.distance || '?';
+            const duration = ride.duration || '?';
+            
+            // Zeit bis Abholung
+            const timeUntil = ride.pickupTimestamp ? ride.pickupTimestamp - Date.now() : 0;
+            const hoursUntil = Math.floor(timeUntil / (1000 * 60 * 60));
+            const minutesUntil = Math.floor((timeUntil % (1000 * 60 * 60)) / (1000 * 60));
+            const timeUntilStr = hoursUntil > 0 ? `${hoursUntil}h ${minutesUntil}min` : `${minutesUntil}min`;
+            
+            // Wer hat akzeptiert?
+            let acceptedInfo = '';
+            if (ride.acceptedBy === 'driver') {
+                acceptedInfo = `<div style="font-size: 11px; color: #10b981; margin-top: 4px;">✅ Von mir angenommen</div>`;
+            } else if (ride.acceptedBy === 'admin') {
+                const adminName = ride.acceptedByName || 'Admin';
+                acceptedInfo = `<div style="font-size: 11px; color: #3b82f6; margin-top: 4px;">🔧 Admin-Akzeptiert (${adminName})</div>`;
+            }
+            
+            return `
+                <div style="
+                    background: white;
+                    border: 2px solid #10b981;
+                    border-radius: 12px;
+                    padding: 16px;
+                    margin-bottom: 12px;
+                    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="
+                            background: #d1fae5;
+                            color: #065f46;
+                            padding: 6px 12px;
+                            border-radius: 8px;
+                            font-size: 13px;
+                            font-weight: 700;
+                        ">
+                            ✅ ${time}
+                        </div>
+                        <div style="font-size: 16px; font-weight: 700; color: #10b981;">
+                            ${price}€
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 8px;">
+                        <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">📍 ${pickup}</div>
+                        <div style="text-align: center; color: #9ca3af; margin: 4px 0;">↓</div>
+                        <div style="font-size: 13px; color: #6b7280;">🎯 ${destination}</div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 8px;">
+                        <div style="font-size: 12px; color: #6b7280;">📏 ${distance} km • ⏱️ ${duration} Min</div>
+                        <div style="
+                            display: inline-block;
+                            background: #fef3c7;
+                            color: #92400e;
+                            padding: 4px 12px;
+                            border-radius: 8px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            margin-top: 6px;
+                        ">
+                            ⏰ In ${timeUntilStr}
+                        </div>
+                    </div>
+                    
+                    ${acceptedInfo}
+                    
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px;">
+                        <button onclick="showRideDetails('${ride.firebaseId || ride.id}')" style="
+                            padding: 10px;
+                            background: #f3f4f6;
+                            color: #1f2937;
+                            border: none;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            font-size: 13px;
+                            cursor: pointer;
+                        ">
+                            📍 DETAILS ANZEIGEN
                         </button>
                     </div>
                 </div>
@@ -16341,6 +16510,17 @@ Aktuell: ${currentNum}`;
             document.body.appendChild(modal);
         }
         
+        
+        // 🆕 v5.90.270: WRAPPER für showRideDetailsModal (mit ID)
+        function showRideDetails(rideId) {
+            const ride = rides.find(r => r.firebaseId === rideId || r.id === rideId);
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            showRideDetailsModal(ride);
+        }
+        
         function showRideDetailsModal(ride) {
             // Entferne altes Modal falls vorhanden
             const oldModal = document.getElementById('ride-details-modal');
@@ -16472,6 +16652,8 @@ Aktuell: ${currentNum}`;
                         ${(() => {
                             let buttonCount = 3; // Schließen + ID kopieren + WhatsApp
                             if (ride.status === 'cancelled') buttonCount++; // Wiederherstellen
+                            // 🆕 v5.90.270: Admin-Accept Button wenn assigned!
+                            if (ride.status === 'assigned') buttonCount++;
                             // 🆕 v5.87.58: Stornieren NUR wenn KEINE Hotel-Fahrt!
                             if (ride.status !== 'cancelled' && ride.status !== 'completed' && !ride.hotelCalendarId) buttonCount++;
                             const gridCols = 'repeat(' + buttonCount + ', 1fr)';
@@ -16484,6 +16666,16 @@ Aktuell: ${currentNum}`;
                             <button onclick="shareRideViaWhatsApp(${JSON.stringify(ride).replace(/"/g, '&quot;')})" style="padding:12px;background:#25D366;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
                                 💬
                             </button>
+                            ${ride.status === 'assigned' && ride.firebaseId ? `
+                            <button onclick="adminAcceptRide('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                👤 ALS ADMIN AKZEPTIEREN
+                            </button>
+                            ` : ''}
+                            ${ride.status === 'accepted' && ride.acceptedBy ? `
+                            <button disabled style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;opacity:0.7;">
+                                ✅ ${ride.acceptedBy === 'driver' ? 'Fahrer' : 'Admin'}-Akzeptiert
+                            </button>
+                            ` : ''}
                             ${ride.status === 'cancelled' && ride.firebaseId ? `
                             <button onclick="restoreRide('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 🔄 Wiederherstellen
@@ -27026,6 +27218,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 vehiclePlate: vehiclePlate,
                 driver: vehicleName,
                 acceptedAt: Date.now(),
+                acceptedBy: 'driver', // 🆕 v5.90.270: Fahrer hat angenommen!
+                acceptedByName: currentUser ? (currentUser.email || currentUser.phoneNumber || vehicleName) : vehicleName,
                 assignedTo: null, // Zurücksetzen
                 assignmentExpiresAt: null
             });
@@ -27057,6 +27251,63 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }, 100);
             
             alert('✅ Auftrag angenommen! GPS läuft...');
+        }
+
+        
+        // 🆕 v5.90.270: ADMIN KANN FAHRT FÜR FAHRER AKZEPTIEREN!
+        async function adminAcceptRide(rideId) {
+            if (currentUser?.role !== 'admin') {
+                alert('❌ Nur Admins können Fahrten akzeptieren!');
+                return;
+            }
+            
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            if (ride.status === 'accepted') {
+                alert('✅ Fahrt wurde bereits akzeptiert!');
+                return;
+            }
+            
+            const vehicleName = ride.vehicle || 'Unbekannt';
+            const confirm = window.confirm(
+                `🔧 ADMIN-AKZEPTIEREN\n\n` +
+                `Fahrt: ${ride.pickup} → ${ride.destination}\n` +
+                `Fahrzeug: ${vehicleName}\n` +
+                `Zeit: ${ride.pickupTime || '?'}\n\n` +
+                `Als Admin akzeptieren?\n` +
+                `(Fahrer sieht: "Admin-Akzeptiert")`
+            );
+            
+            if (!confirm) return;
+            
+            const adminName = currentUser.email || currentUser.phoneNumber || 'Admin';
+            
+            await updateRide(rideId, {
+                status: 'accepted',
+                acceptedAt: Date.now(),
+                acceptedBy: 'admin', // 🆕 Admin hat akzeptiert!
+                acceptedByName: adminName
+            });
+            
+            // 📜 PROTOKOLL
+            logActivity('status', 'accepted', `Fahrt akzeptiert von Admin ${adminName}`, {
+                customer: ride.customerName,
+                vehicle: vehicleName,
+                from: ride.pickup,
+                to: ride.destination,
+                price: ride.price,
+                acceptedBy: 'admin'
+            });
+            
+            alert('✅ Fahrt als Admin akzeptiert!');
+            
+            // Reload views
+            if (typeof loadCalendar === 'function') loadCalendar();
+            if (typeof updateDriverViewV268 === 'function') updateDriverViewV268();
         }
 
         async function pickupCustomer(rideId) {

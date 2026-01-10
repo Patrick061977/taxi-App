@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.257 - ANRUF-ZENTRALE FIX! 📞✨ (Build 20260109-1640)');
-        console.log('📞 v5.90.257: Lädt Favoriten BEIM ÖFFNEN der Anruf-Zentrale!');
-        console.log('⭐ v5.90.257: CRM-Favoriten erscheinen automatisch!');
-        console.log('✅ v5.90.257: Keine doppelte Speicherung mehr!');
-        console.log('🔍 v5.90.256: Debug Logs für Call Favoriten!');
+        console.log('🚕 Funk Taxi App v5.90.260 - CRM-KATEGORIEN 1:1! ✅ (Build 20260109-1933)');
+        console.log('✅ v5.90.260: EXAKT die CRM-Kategorien nutzen!');
+        console.log('⭐ v5.90.260: "Favorit" statt "FAVORIT"!');
+        console.log('🏨 v5.90.260: "Hotel" statt "HOTELS"!');
+        console.log('💼 v5.90.260: "Geschäftskunde" statt "GESCHÄFTSKUNDEN"!');
+        console.log('🚗 v5.90.259: Tesla-Style Dropdown!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -979,7 +980,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.257 - ANRUF-ZENTRALE FIX! ⭐ (Build 20260109-1640)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.260 - CRM-KATEGORIEN 1:1! 🎯 (Build 20260109-1933)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11003,7 +11004,7 @@
             renderCallFavorites();
         }
         
-        // 🆕 v5.90.232: LADE KUNDEN MIT KATEGORIE "FAVORIT"
+        // 🆕 v5.90.257: LADE **ALLE** CRM-KUNDEN MIT KATEGORIEN!
         async function loadCRMFavoritesIntoCallList() {
             if (!isFirebaseReady) return;
             
@@ -11013,21 +11014,23 @@
                 
                 if (!customers) return;
                 
-                // Filtere Kunden mit category="favorite"
-                const favorites = Object.entries(customers)
-                    .filter(([id, c]) => c.category === 'favorite' && c.phone)
+                // 🆕 v5.90.257: Lade ALLE Kunden mit Telefonnummer (alle Kategorien!)
+                const categorizedCustomers = Object.entries(customers)
+                    .filter(([id, c]) => c.phone && c.category) // Muss Telefon + Kategorie haben
                     .map(([id, c]) => ({
                         name: c.name,
                         number: c.phone,
-                        icon: getCategoryIcon(c.category) || '⭐',
+                        icon: getCategoryIcon(c.category),
+                        category: c.category,
                         source: 'crm',
                         customerId: id
                     }));
                 
-                console.log('⭐ CRM-Favoriten geladen:', favorites.length);
+                console.log('⭐ CRM-Kunden mit Kategorien geladen:', categorizedCustomers.length);
+                console.log('   Kategorien:', [...new Set(categorizedCustomers.map(c => c.category))].join(', '));
                 
                 // Füge zu callFavorites hinzu (aber nicht doppelt!)
-                favorites.forEach(fav => {
+                categorizedCustomers.forEach(fav => {
                     const exists = callFavorites.find(f => f.number === fav.number);
                     if (!exists) {
                         callFavorites.push(fav);
@@ -11046,9 +11049,15 @@
                 'driver': '🚗',
                 'hotel': '🏨',
                 'vip': '👑',
-                'business': '💼'
+                'business': '💼',
+                'emergency': '🚨',
+                'hospital': '🏥',
+                'restaurant': '🍽️',
+                'station': '🚉',
+                'airport': '✈️',
+                'company': '🏢'
             };
-            return icons[category] || '📞';
+            return icons[category?.toLowerCase()] || '📞';
         }
         
         // Speichere Favoriten
@@ -11074,6 +11083,182 @@
         }
         
         // Zeige/Verstecke Modal
+        // 🆕 v5.90.259: TESLA-STYLE DROPDOWN TOGGLE
+        function toggleTeslaCallDropdown() {
+            const dropdown = document.getElementById('tesla-call-dropdown');
+            const arrow = document.getElementById('tesla-dropdown-arrow');
+            
+            if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+                // Öffnen
+                console.log('🚗 Tesla-Dropdown wird geöffnet → Lade Favoriten...');
+                loadCallFavorites();
+                
+                dropdown.style.display = 'block';
+                arrow.textContent = '▲';
+                arrow.style.transform = 'rotate(180deg)';
+                
+                renderTeslaCallList();
+            } else {
+                // Schließen
+                dropdown.style.display = 'none';
+                arrow.textContent = '▼';
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+        
+        // 🆕 v5.90.259: TESLA-STYLE RENDER
+        function renderTeslaCallList() {
+            const list = document.getElementById('tesla-call-list');
+            if (!list) return;
+            
+            if (callFavorites.length === 0) {
+                list.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#6b7280;">
+                        <div style="font-size:48px;margin-bottom:15px;">📞</div>
+                        <div style="font-size:16px;font-weight:600;">Keine Kontakte</div>
+                        <div style="font-size:14px;margin-top:8px;">Füge Favoriten im CRM hinzu!</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 🆕 v5.90.260: EXAKT DIE CRM-KATEGORIEN!
+            const categories = {
+                favorite: { title: '⭐ Favorit', items: [], color: '#f59e0b' },
+                driver: { title: '🚗 Fahrer', items: [], color: '#3b82f6' },
+                hotel: { title: '🏨 Hotel', items: [], color: '#8b5cf6' },
+                vip: { title: '👑 VIP', items: [], color: '#eab308' },
+                business: { title: '💼 Geschäftskunde', items: [], color: '#06b6d4' },
+                emergency: { title: '🚨 Notfall', items: [], color: '#ef4444' },
+                other: { title: '📞 Andere', items: [], color: '#6b7280' }
+            };
+            
+            // Sortiere in Kategorien
+            callFavorites.forEach((fav, index) => {
+                fav.index = index;
+                
+                if (fav.category && categories[fav.category]) {
+                    categories[fav.category].items.push(fav);
+                } else if (fav.number === '112' || fav.number === '110') {
+                    categories.emergency.items.push(fav);
+                } else {
+                    categories.other.items.push(fav);
+                }
+            });
+            
+            // Render Tesla-Style
+            let html = '';
+            
+            Object.values(categories).forEach(cat => {
+                if (cat.items.length === 0) return;
+                
+                html += `
+                    <div style="margin-bottom:25px;">
+                        <!-- Kategorie-Header (Tesla-Style) -->
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:12px;
+                            margin-bottom:12px;
+                            padding:15px 20px;
+                            background:${cat.color}15;
+                            border-left:6px solid ${cat.color};
+                            border-radius:10px;
+                        ">
+                            <div style="
+                                font-weight:800;
+                                font-size:16px;
+                                color:${cat.color};
+                                letter-spacing:1px;
+                                flex:1;
+                            ">
+                                ${cat.title}
+                            </div>
+                            <div style="
+                                background:${cat.color};
+                                color:white;
+                                padding:4px 12px;
+                                border-radius:20px;
+                                font-size:13px;
+                                font-weight:700;
+                            ">
+                                ${cat.items.length}
+                            </div>
+                        </div>
+                        
+                        <!-- Items (Tesla Touch-Optimiert!) -->
+                        ${cat.items.map(fav => `
+                            <div onclick="callNumber('${fav.number}', '${fav.name.replace(/'/g, "\\'")}')" style="
+                                display:flex;
+                                align-items:center;
+                                gap:15px;
+                                padding:18px 20px;
+                                background:white;
+                                border-radius:12px;
+                                margin-bottom:10px;
+                                border:3px solid #e5e7eb;
+                                cursor:pointer;
+                                transition:all 0.2s;
+                                min-height:70px;
+                            " onmouseover="
+                                this.style.background='${cat.color}10';
+                                this.style.borderColor='${cat.color}';
+                                this.style.transform='translateX(5px)';
+                            " onmouseout="
+                                this.style.background='white';
+                                this.style.borderColor='#e5e7eb';
+                                this.style.transform='translateX(0)';
+                            ">
+                                <!-- Icon -->
+                                <div style="
+                                    font-size:36px;
+                                    min-width:48px;
+                                    text-align:center;
+                                ">${fav.icon || '📞'}</div>
+                                
+                                <!-- Info -->
+                                <div style="flex:1;min-width:0;">
+                                    <div style="
+                                        font-weight:700;
+                                        color:#111827;
+                                        font-size:18px;
+                                        margin-bottom:4px;
+                                        white-space:nowrap;
+                                        overflow:hidden;
+                                        text-overflow:ellipsis;
+                                    ">${fav.name}</div>
+                                    <div style="
+                                        color:#6b7280;
+                                        font-size:15px;
+                                        font-family:monospace;
+                                        letter-spacing:1px;
+                                    ">${fav.number}</div>
+                                </div>
+                                
+                                <!-- Call Button -->
+                                <div style="
+                                    background:${cat.color};
+                                    color:white;
+                                    width:60px;
+                                    height:60px;
+                                    border-radius:50%;
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:center;
+                                    font-size:28px;
+                                    box-shadow:0 4px 12px ${cat.color}40;
+                                ">
+                                    📞
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            });
+            
+            list.innerHTML = html;
+        }
+        
         function toggleCallFavorites() {
             const modal = document.getElementById('call-favorites-modal');
             const backdrop = document.getElementById('call-favorites-backdrop');
@@ -11108,24 +11293,24 @@
                 return;
             }
             
-            // 🆕 v5.90.243: KATEGORIEN!
-            // Kategorisiere Favoriten
+            // 🆕 v5.90.260: EXAKT DIE CRM-KATEGORIEN!
             const categories = {
-                driver: { title: '🚗 FAHRER', items: [], color: '#3b82f6' },
-                important: { title: '⭐ WICHTIG', items: [], color: '#f59e0b' },
-                emergency: { title: '🚨 NOTFALL', items: [], color: '#ef4444' },
-                other: { title: '📞 ANDERE', items: [], color: '#6b7280' }
+                favorite: { title: '⭐ Favorit', items: [], color: '#f59e0b' },
+                driver: { title: '🚗 Fahrer', items: [], color: '#3b82f6' },
+                hotel: { title: '🏨 Hotel', items: [], color: '#8b5cf6' },
+                vip: { title: '👑 VIP', items: [], color: '#eab308' },
+                business: { title: '💼 Geschäftskunde', items: [], color: '#06b6d4' },
+                emergency: { title: '🚨 Notfall', items: [], color: '#ef4444' },
+                other: { title: '📞 Andere', items: [], color: '#6b7280' }
             };
             
             // Sortiere Favoriten in Kategorien
             callFavorites.forEach((fav, index) => {
                 fav.index = index; // Merke Original-Index
                 
-                // Kategorie erkennen
-                if (fav.category === 'driver' || fav.name.toLowerCase().includes('fahrer')) {
-                    categories.driver.items.push(fav);
-                } else if (fav.category === 'important' || fav.category === 'favorite') {
-                    categories.important.items.push(fav);
+                // 🆕 v5.90.258: Nutze Kategorie aus CRM!
+                if (fav.category && categories[fav.category]) {
+                    categories[fav.category].items.push(fav);
                 } else if (fav.number === '112' || fav.number === '110' || fav.name.toLowerCase().includes('notruf')) {
                     categories.emergency.items.push(fav);
                 } else {
@@ -58013,11 +58198,69 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
 </div>
 
 <!-- 🆕 v5.90.227: ANRUF-FAVORITEN FLOATING BUTTON -->
-<div id="call-favorites-fab" style="position:fixed;bottom:20px;left:20px;z-index:9998;display:block;">
-    <button onclick="toggleCallFavorites()" style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;box-shadow:0 6px 20px rgba(16,185,129,0.5);cursor:pointer;font-size:32px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 8px 24px rgba(16,185,129,0.6)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 6px 20px rgba(16,185,129,0.5)'">
-        📞
+<!-- 🆕 v5.90.259: TESLA-STYLE ANRUF-DROPDOWN! -->
+<div id="call-favorites-fab" style="position:fixed;bottom:0;left:0;right:0;z-index:9998;display:block;">
+    <button id="tesla-call-btn" onclick="toggleTeslaCallDropdown()" style="
+        width:100%;
+        height:70px;
+        background:linear-gradient(135deg,#10b981,#059669);
+        color:white;
+        border:none;
+        border-top:3px solid rgba(255,255,255,0.3);
+        box-shadow:0 -4px 20px rgba(0,0,0,0.2);
+        cursor:pointer;
+        font-size:20px;
+        font-weight:700;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:15px;
+        transition:all 0.2s;
+        padding:0 30px;
+    " onmouseover="this.style.background='linear-gradient(135deg,#059669,#047857)'" onmouseout="this.style.background='linear-gradient(135deg,#10b981,#059669)'">
+        <span style="font-size:32px;">📞</span>
+        <span style="flex:1;text-align:left;">Anruf starten</span>
+        <span id="tesla-dropdown-arrow" style="font-size:24px;transition:transform 0.2s;">▼</span>
     </button>
 </div>
+
+<!-- 🆕 v5.90.259: TESLA DROPDOWN (öffnet nach OBEN!) -->
+<div id="tesla-call-dropdown" style="
+    display:none;
+    position:fixed;
+    bottom:70px;
+    left:0;
+    right:0;
+    max-height:calc(100vh - 140px);
+    background:white;
+    border-top:3px solid #10b981;
+    box-shadow:0 -8px 32px rgba(0,0,0,0.3);
+    z-index:9997;
+    overflow-y:auto;
+    animation:slideUp 0.2s ease-out;
+">
+    <div id="tesla-call-list" style="padding:20px;">
+        <!-- Wird dynamisch gefüllt -->
+    </div>
+</div>
+
+<style>
+@keyframes slideUp {
+    from {
+        transform:translateY(100%);
+        opacity:0;
+    }
+    to {
+        transform:translateY(0);
+        opacity:1;
+    }
+}
+
+/* Tesla Touch-Optimierung */
+#tesla-call-dropdown * {
+    -webkit-tap-highlight-color:transparent;
+}
+</style>
 
 <!-- 🆕 v5.90.243: ANRUF-ZENTRALE MODAL -->
 <div id="call-favorites-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:450px;background:white;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:9999;max-height:90vh;overflow:hidden;">

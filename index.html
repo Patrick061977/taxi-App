@@ -108,13 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.263 - ZUWEISEN → ANNEHMEN! 🟡→🟢 (Build 20260110-0830)');
-        console.log('🟡 v5.90.263: assigned = Zugewiesen (Taxi FREI!)');
-        console.log('🟢 v5.90.263: accepted = Angenommen (Taxi BESETZT!)');
-        console.log('📋 v5.90.263: Fahrer sieht ALLE zugewiesenen Fahrten!');
-        console.log('✅ v5.90.263: ANNEHMEN Button für assigned!');
-        console.log('🗺️ v5.90.263: Navigation nur bei accepted/picked_up!');
-        console.log('🎯 v5.90.262: Kennzeichen-basierte IDs!');
+        console.log('🚕 Funk Taxi App v5.90.264 - GPS FIX! 📍✅ (Build 20260110-0925)');
+        console.log('📍 v5.90.264: GPS schreibt in vehicles/ (nicht drivers/)!');
+        console.log('🔧 v5.90.264: GPS-Stop löscht nicht ganzes Fahrzeug!');
+        console.log('✅ v5.90.264: Korrekte GPS-Speicherung!');
+        console.log('🟡 v5.90.263: ZUWEISEN → ANNEHMEN System!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -981,7 +979,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🟡 Version 5.90.263 - ZUWEISEN → ANNEHMEN! ✅ (Build 20260110-0830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📍 Version 5.90.264 - GPS FIX! ✅ (Build 20260110-0925)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -26521,9 +26519,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 return;
             }
             
-            // Immer in drivers/ speichern
-            db.ref('drivers/' + currentVehicle).set(location).then(() => {
-                console.log('✅ GPS → drivers/' + currentVehicle);
+            // 🆕 v5.90.264: GPS in vehicles/ speichern (nicht mehr drivers/)!
+            db.ref('vehicles/' + currentVehicle).update({
+                lat: location.latitude,
+                lon: location.longitude,
+                lastUpdate: Date.now(),
+                accuracy: location.accuracy
+            }).then(() => {
+                console.log('✅ GPS → vehicles/' + currentVehicle);
             }).catch(err => {
                 console.error('❌ Fehler beim GPS-Upload:', err);
             });
@@ -26580,8 +26583,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
             
             if (isFirebaseReady && currentVehicle) {
-                db.ref('drivers/' + currentVehicle).remove();
-                console.log('🗑️ GPS aus drivers/ entfernt');
+                // 🆕 v5.90.264: Entferne nur GPS-Daten, nicht das ganze Fahrzeug!
+                db.ref('vehicles/' + currentVehicle).update({
+                    lat: null,
+                    lon: null,
+                    lastUpdate: null,
+                    accuracy: null
+                });
+                console.log('🗑️ GPS aus vehicles/ entfernt');
             }
         }
 

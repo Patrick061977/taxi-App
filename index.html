@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.290 - KALENDER SCROLL! 📅🎯 (Build 20260110-1930)');
-        console.log('📅 v5.90.290: Heute-Button scrollt zu aktueller Fahrt!');
-        console.log('🎯 v5.90.290: Auto-Highlight der nächsten Fahrt!');
-        console.log('⏰ v5.90.290: 2h-Puffer für laufende Fahrten!');
-        console.log('✨ v5.90.290: Smooth Scroll + Gelb-Highlight!');
+        console.log('🚕 Funk Taxi App v5.90.291 - FAHRER-VIEW FIX! 🚗🔧 (Build 20260110-2000)');
+        console.log('🔧 v5.90.291: Element-IDs in updateDriverViewV268 gefixt!');
+        console.log('🚗 v5.90.291: Fahrer sieht jetzt Fahrten!');
+        console.log('✅ v5.90.291: accepted = angenommen, on_way = aktiv!');
+        console.log('🎯 v5.90.291: Kein NULL-Element-Fehler mehr!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -13693,25 +13693,19 @@ Aktuell: ${currentNum}`;
             if (!currentVehicle) {
                 // Kein Fahrzeug gewählt
                 document.getElementById('driver-active-ride-section').style.display = 'none';
-                document.getElementById('driver-new-rides-section').style.display = 'none';
-                document.getElementById('driver-schedule-section').style.display = 'none';
+                document.getElementById('driver-assigned-rides-section').style.display = 'none';
+                document.getElementById('driver-accepted-rides-section').style.display = 'none';
                 return;
             }
             
             // Meine Fahrten filtern
             const myRides = rides.filter(r => r.vehicleId === currentVehicle);
             
-            // Aktive Fahrt (accepted oder picked_up) - ABER NUR WENN ZEIT IST!
+            // Aktive Fahrt (on_way oder picked_up) - NICHT accepted!
             const now = Date.now();
             const activeRide = myRides.find(r => {
-                if (r.status !== 'accepted' && r.status !== 'picked_up') return false;
-                
-                // Prüfe ob Fahrt jetzt oder in Vergangenheit ist (max. 1 Stunde in Zukunft)
-                const rideTime = r.pickupTimestamp || r.timestamp || now;
-                const oneHourFromNow = now + (60 * 60 * 1000); // +1 Stunde
-                
-                // Nur als aktiv zählen wenn Zeit in max. 1 Stunde oder schon vorbei
-                return rideTime <= oneHourFromNow;
+                // 🆕 v5.90.289: Nur on_way (unterwegs zum Kunden) oder picked_up (Gast an Bord)
+                return r.status === 'on_way' || r.status === 'picked_up';
             });
             
             // Zugewiesene Fahrten (assigned) - Nur zeigen wenn noch nicht angenommen UND nicht aktiv!
@@ -13722,15 +13716,12 @@ Aktuell: ${currentNum}`;
                 return true;
             });
             
-            // 🆕 v5.90.270: AKZEPTIERTE FAHRTEN (accepted, aber noch nicht Zeit!)
+            // 🆕 v5.90.289: AKZEPTIERTE FAHRTEN (accepted, aber noch nicht losgefahren!)
             const acceptedRides = myRides.filter(r => {
                 if (r.status !== 'accepted') return false;
                 // Nicht zeigen wenn schon als aktive Fahrt angezeigt
                 if (activeRide && (activeRide.firebaseId === r.firebaseId || activeRide.id === r.id)) return false;
-                // Nur zeigen wenn mehr als 1h in Zukunft
-                const rideTime = r.pickupTimestamp || r.timestamp || now;
-                const oneHourFromNow = now + (60 * 60 * 1000);
-                return rideTime > oneHourFromNow;
+                return true;
             }).sort((a, b) => (a.pickupTimestamp || a.timestamp) - (b.pickupTimestamp || b.timestamp));
             
             // Geplante Fahrten (heute, später) - AUCH accepted Fahrten die weit weg sind!
@@ -13766,17 +13757,17 @@ Aktuell: ${currentNum}`;
                 activeSection.style.display = 'none';
             }
             
-            // ━━━ NEUE AUFTRÄGE ━━━
-            const newRidesSection = document.getElementById('driver-new-rides-section');
-            const newRidesList = document.getElementById('driver-new-rides-list');
-            const newRidesBadge = document.getElementById('new-rides-badge');
+            // ━━━ ZUGEWIESENE FAHRTEN (ASSIGNED) ━━━
+            const assignedSection = document.getElementById('driver-assigned-rides-section');
+            const assignedList = document.getElementById('driver-assigned-rides-list');
+            const assignedBadge = document.getElementById('assigned-rides-badge');
             
             if (assignedRides.length > 0) {
-                newRidesSection.style.display = 'block';
-                newRidesBadge.textContent = assignedRides.length;
-                newRidesList.innerHTML = assignedRides.map(r => renderNewRideCard(r)).join('');
+                assignedSection.style.display = 'block';
+                assignedBadge.textContent = assignedRides.length;
+                assignedList.innerHTML = assignedRides.map(r => renderNewRideCard(r)).join('');
             } else {
-                newRidesSection.style.display = 'none';
+                assignedSection.style.display = 'none';
             }
             
             // ━━━ AKZEPTIERTE FAHRTEN ━━━

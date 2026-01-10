@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.285 - RESET STATUS FIX! 🔄📋 (Build 20260110-1700)');
-        console.log('🔄 v5.90.285: Zurückgesetzte Fahrt zeigt korrektes Label!');
-        console.log('📋 v5.90.285: Tagesprogramm lädt Fahrten neu nach Reset!');
-        console.log('🗑️ v5.90.285: Zurückgesetzte Fahrten können gelöscht werden!');
-        console.log('✅ v5.90.285: Keine "Fahrt nicht gefunden" Fehler mehr!');
+        console.log('🚕 Funk Taxi App v5.90.286 - ALARM-POPUP FIX! 🚨📵 (Build 20260110-1730)');
+        console.log('🚨 v5.90.286: Benachrichtigungs-Popup ignoriert zurückgesetzte Fahrten!');
+        console.log('📵 v5.90.286: Keine falschen "NEUE FAHRTEN" Alarme mehr!');
+        console.log('✅ v5.90.286: Filter nach vehicleId & driverAssignedAt!');
+        console.log('🔕 v5.90.286: Badge zählt nur echte neue Fahrten!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -12171,8 +12171,12 @@ Aktuell: ${currentNum}`;
                             }
                         });
                         
-                        const currentCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
-                        console.log(`📊 Fahrten geladen: ${loadedCount} total, ${currentCount} new/vorbestellt`);
+                        const currentCount = rides.filter(r => 
+                            (r.status === 'new' || r.status === 'vorbestellt') &&
+                            !r.vehicleId && // Ignoriere zurückgesetzte
+                            !r.driverAssignedAt // Ignoriere schon mal zugewiesene
+                        ).length;
+                        console.log(`📊 Fahrten geladen: ${loadedCount} total, ${currentCount} neue (nicht zurückgesetzte)`);
                         
                         // 🚨 ALARM für Admin bei neuen Fahrten!
                         if (currentCount > previousCount) {
@@ -18313,7 +18317,9 @@ Aktuell: ${currentNum}`;
             adminAlarmInterval = setInterval(() => {
                 const stillNewRides = rides.filter(r => 
                     (r.status === 'new' || r.status === 'vorbestellt') && 
-                    !acknowledgedRides.has(r.id)
+                    !acknowledgedRides.has(r.id) &&
+                    !r.vehicleId && // Ignoriere zurückgesetzte
+                    !r.driverAssignedAt // Ignoriere schon mal zugewiesene
                 ).length;
                 if (stillNewRides > 0) {
                     // Nur wenn nicht deaktiviert
@@ -18341,7 +18347,9 @@ Aktuell: ${currentNum}`;
             
             const newRides = rides.filter(r => 
                 (r.status === 'new' || r.status === 'vorbestellt') && 
-                !acknowledgedRides.has(r.id)
+                !acknowledgedRides.has(r.id) &&
+                !r.vehicleId && // Ignoriere Fahrten mit vehicleId (zurückgesetzte)
+                !r.driverAssignedAt // Ignoriere Fahrten die schon mal zugewiesen waren
             );
             if (newRides.length === 0) return;
             
@@ -18388,7 +18396,9 @@ Aktuell: ${currentNum}`;
         // Alarm bestätigen
         function acknowledgeAdminAlarm() {
             const newRides = rides.filter(r => 
-                r.status === 'new' || r.status === 'vorbestellt'
+                (r.status === 'new' || r.status === 'vorbestellt') &&
+                !r.vehicleId && // Ignoriere zurückgesetzte
+                !r.driverAssignedAt // Ignoriere schon mal zugewiesene
             );
             newRides.forEach(r => acknowledgedRides.add(r.id));
             

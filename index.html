@@ -108,10 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.292 - SETTINGS FIX! 💾🔧 (Build 20260110-2010)');
-        console.log('💾 v5.90.292: Einstellungen speichern gefixt!');
-        console.log('🔧 v5.90.292: Fehlende Elemente werden abgefangen!');
-        console.log('✅ v5.90.292: Kein Crash mehr beim Speichern!');
+        console.log('🚕 Funk Taxi App v5.90.293 - SETTINGS FIX 2! 💾✅ (Build 20260110-2015)');
+        console.log('💾 v5.90.293: Button-Feedback gefixt!');
+        console.log('✅ v5.90.293: Alert statt Button-Animation!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -983,7 +982,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.292 - SETTINGS FIX! 💾 (Build 20260110-2010)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.293 - SETTINGS FIX 2! ✅ (Build 20260110-2015)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -28094,16 +28093,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 await db.ref('settings/calendarExport').set(settings);
                 
                 // Erfolgs-Meldung
-                const btn = event.target;
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '✅ Gespeichert!';
-                btn.style.background = '#10b981';
-                
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                }, 2000);
-                
+                alert('✅ Einstellungen gespeichert!');
                 console.log('✅ Settings gespeichert!');
                 
             } catch (error) {

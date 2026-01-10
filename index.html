@@ -108,13 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.261 - FAHRER-VIEW NEU! 🚗✨ (Build 20260109-2000)');
-        console.log('🚗 v5.90.261: Fahrer sieht Liste seiner Fahrten!');
-        console.log('📋 v5.90.261: Heute zugeteilte Aufträge!');
-        console.log('✅ v5.90.261: Abschließen-Button!');
-        console.log('🗺️ v5.90.261: Navigation-Button!');
-        console.log('📞 v5.90.261: Kunden anrufen!');
-        console.log('✅ v5.90.260: CRM-Kategorien 1:1!');
+        console.log('🚕 Funk Taxi App v5.90.263 - ZUWEISEN → ANNEHMEN! 🟡→🟢 (Build 20260110-0830)');
+        console.log('🟡 v5.90.263: assigned = Zugewiesen (Taxi FREI!)');
+        console.log('🟢 v5.90.263: accepted = Angenommen (Taxi BESETZT!)');
+        console.log('📋 v5.90.263: Fahrer sieht ALLE zugewiesenen Fahrten!');
+        console.log('✅ v5.90.263: ANNEHMEN Button für assigned!');
+        console.log('🗺️ v5.90.263: Navigation nur bei accepted/picked_up!');
+        console.log('🎯 v5.90.262: Kennzeichen-basierte IDs!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -981,7 +981,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚗 Version 5.90.261 - FAHRER-VIEW NEU! 📋 (Build 20260109-2000)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🟡 Version 5.90.263 - ZUWEISEN → ANNEHMEN! ✅ (Build 20260110-0830)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2422,7 +2422,7 @@
         <div style="background:#dbeafe;border:2px solid #3b82f6;border-radius:8px;padding:15px;margin-bottom:15px;">
             <div style="font-weight:700;margin-bottom:8px;color:#1e40af;">📬 Automatische Email-Weiterleitung</div>
             <div style="font-size:13px;color:#1e3a8a;line-height:1.6;">
-                Alle Emails an <strong>taxiwydra@googlemail.com</strong> werden automatisch hier angezeigt<br>
+                Alle Emails an <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c584d54455b55485e4d6c4b43434b4049414d4540024f4341">[email&#160;protected]</a></strong> werden automatisch hier angezeigt<br>
                 ✅ Buchungsanfragen erkennen<br>
                 ✅ Direkt in Buchung umwandeln<br>
                 ✅ Auto-Antwort senden
@@ -2854,7 +2854,7 @@
             }
         </style>
         
-        <script>
+        <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
             function switchRidesTab(tab) {
                 // Hide all content
                 document.getElementById('new-rides').style.display = 'none';
@@ -6628,12 +6628,57 @@
         
         // CONFIGURATION
         // 🚗 FAHRZEUGE - werden aus Firebase geladen, Fallback auf Hardcoded
+        // 🆕 v5.90.262: KENNZEICHEN = ID! Zukunftssicher!
+        function normalizeVehicleId(plate) {
+            if (!plate) return '';
+            return plate.toLowerCase().trim().replace(/\s+/g, '-');
+        }
+        
+        function findVehicle(idOrPlate) {
+            if (!idOrPlate) return null;
+            if (VEHICLES[idOrPlate]) return VEHICLES[idOrPlate];
+            const normalized = normalizeVehicleId(idOrPlate);
+            if (VEHICLES[normalized]) return VEHICLES[normalized];
+            for (let id in VEHICLES) {
+                const v = VEHICLES[id];
+                if (normalizeVehicleId(v.plate) === normalized) return v;
+                if (v.legacyId === idOrPlate) return v;
+            }
+            return null;
+        }
+        
         const DEFAULT_VEHICLES = {
-            'tesla_model3_1': { name: 'Tesla Model 3 #1', id: 'tesla_model3_1', plate: 'PW-TX 111' },
-            'tesla_model3_2': { name: 'Tesla Model 3 #2', id: 'tesla_model3_2', plate: 'PW-TX 222' },
-            'tesla_model3_3': { name: 'Tesla Model 3 #3', id: 'tesla_model3_3', plate: 'PW-TX 333' },
-            'tesla_model_y_1': { name: 'Tesla Model Y #1', id: 'tesla_model_y_1', plate: 'PW-MY 222' },
-            'tesla_model_y_2': { name: 'Tesla Model Y #2', id: 'tesla_model_y_2', plate: 'PW-MY 333' }
+            'pw-my-222-e': { 
+                name: 'Tesla Model Y', 
+                id: 'pw-my-222-e', 
+                plate: 'PW-MY 222 E',
+                priority: 1,
+                legacyId: 'tesla_model_y_1'
+            },
+            'pw-ik-222': { 
+                name: 'Toyota Prius IK', 
+                id: 'pw-ik-222', 
+                plate: 'PW-IK 222',
+                priority: 2
+            },
+            'vg-lk-111': { 
+                name: 'Mercedes Vito 8 Pax', 
+                id: 'vg-lk-111', 
+                plate: 'VG-LK 111',
+                priority: 3
+            },
+            'pw-sk-222': { 
+                name: 'Taxi SK', 
+                id: 'pw-sk-222', 
+                plate: 'PW-SK 222',
+                priority: 4
+            },
+            'pw-ki-222': { 
+                name: 'Taxi KI', 
+                id: 'pw-ki-222', 
+                plate: 'PW-KI 222',
+                priority: 5
+            }
         };
         let VEHICLES = { ...DEFAULT_VEHICLES }; // Wird aus Firebase überschrieben
         const TARIF = { 
@@ -25769,21 +25814,49 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             try {
                 const today = new Date().toISOString().split('T')[0];
-                const snapshot = await db.ref('rides').orderByChild('vehicleId').equalTo(currentVehicle).once('value');
-                const rides = snapshot.val();
                 
-                if (!rides) {
+                // 🆕 v5.90.262: Lade ALLE Fahrten und filtere dann (wegen Legacy-IDs)
+                const snapshot = await db.ref('rides').once('value');
+                const allRides = snapshot.val();
+                
+                if (!allRides) {
                     document.getElementById('driver-no-rides').style.display = 'block';
                     document.getElementById('driver-rides-list').innerHTML = '';
                     return;
                 }
                 
-                // Filtere nur Fahrten von heute
-                const todayRides = Object.entries(rides)
+                // Finde aktuelles Fahrzeug
+                const vehicle = findVehicle(currentVehicle);
+                if (!vehicle) {
+                    console.error('❌ Fahrzeug nicht gefunden:', currentVehicle);
+                    document.getElementById('driver-no-rides').style.display = 'block';
+                    document.getElementById('driver-rides-list').innerHTML = '';
+                    return;
+                }
+                
+                // Mögliche IDs für dieses Fahrzeug
+                const possibleIds = [vehicle.id];
+                if (vehicle.legacyId) possibleIds.push(vehicle.legacyId);
+                if (vehicle.plate) possibleIds.push(normalizeVehicleId(vehicle.plate));
+                
+                console.log('🔍 Suche Fahrten für IDs:', possibleIds);
+                
+                // Filtere Fahrten
+                const todayRides = Object.entries(allRides)
                     .map(([id, ride]) => ({ id, ...ride }))
                     .filter(ride => {
+                        // Muss heute sein
                         const rideDate = new Date(ride.timestamp).toISOString().split('T')[0];
-                        return rideDate === today && ride.status !== 'completed' && ride.status !== 'cancelled';
+                        if (rideDate !== today) return false;
+                        
+                        // 🆕 v5.90.263: ALLE ZUGEWIESENEN FAHRTEN!
+                        // assigned = Dir zugewiesen, warte auf Annahme → ZEIGEN (gelb)
+                        // accepted = Du hast angenommen, fahr los! → ZEIGEN (grün)
+                        // picked_up = Kunde drin → ZEIGEN (blau)
+                        if (ride.status !== 'assigned' && ride.status !== 'accepted' && ride.status !== 'picked_up') return false;
+                        
+                        // Muss eine unserer IDs haben
+                        return possibleIds.includes(ride.vehicleId);
                     })
                     .sort((a, b) => a.timestamp - b.timestamp);
                 
@@ -25832,8 +25905,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         ${ride.customerName ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px;background:#f9fafb;border-radius:8px;"><span style="font-size:16px;">👤</span><span style="font-weight:600;color:#111827;">${ride.customerName}</span>${ride.customerPhone ? `<button onclick="window.open('tel:${ride.customerPhone}')" style="margin-left:auto;padding:8px 12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">📞 Anrufen</button>` : ''}</div>` : ''}
                         ${ride.estimatedPrice ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:15px;padding:12px;background:linear-gradient(135deg,#f59e0b15,#f59e0b10);border-left:4px solid #f59e0b;border-radius:8px;"><span style="font-size:20px;">💰</span><span style="font-weight:700;font-size:20px;color:#f59e0b;">${ride.estimatedPrice.toFixed(2)} €</span></div>` : ''}
                         <div style="display:flex;gap:10px;">
-                            <button onclick="openNavigation('${ride.pickup.replace(/'/g, "\\'")}','${ride.destination.replace(/'/g, "\\'")}','start')" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">🗺️ Navigation</button>
-                            ${ride.status === 'accepted' ? `<button onclick="completeDriverRide('${ride.id}')" style="flex:1;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">✅ Abschließen</button>` : ''}
+                            ${ride.status === 'assigned' ? `
+                                <button onclick="acceptRide('${ride.id}')" style="flex:1;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">✅ ANNEHMEN</button>
+                            ` : `
+                                <button onclick="openNavigation('${ride.pickup.replace(/'/g, "\\'")}','${ride.destination.replace(/'/g, "\\'")}','start')" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">🗺️ Navigation</button>
+                            `}
+                            ${ride.status === 'accepted' || ride.status === 'picked_up' ? `<button onclick="completeDriverRide('${ride.id}')" style="flex:1;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">✅ Abschließen</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -25856,11 +25933,27 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         function getStatusColor(status) {
-            return { 'pending': '#f59e0b', 'accepted': '#3b82f6', 'started': '#10b981', 'completed': '#6b7280', 'cancelled': '#ef4444' }[status] || '#6b7280';
+            return { 
+                'pending': '#f59e0b',      // Neu/Wartet (Orange)
+                'assigned': '#eab308',     // 🟡 Zugewiesen (Gelb)
+                'accepted': '#10b981',     // 🟢 Angenommen (Grün)
+                'picked_up': '#3b82f6',    // 🔵 Kunde drin (Blau)
+                'started': '#10b981',      // Unterwegs (Grün)
+                'completed': '#6b7280',    // Erledigt (Grau)
+                'cancelled': '#ef4444'     // Storniert (Rot)
+            }[status] || '#6b7280';
         }
         
         function getStatusText(status) {
-            return { 'pending': 'Wartet', 'accepted': 'Angenommen', 'started': 'Unterwegs', 'completed': 'Erledigt', 'cancelled': 'Storniert' }[status] || status;
+            return { 
+                'pending': 'Neu',
+                'assigned': '🟡 Zugewiesen',
+                'accepted': '🟢 Angenommen',
+                'picked_up': '🔵 Kunde drin',
+                'started': 'Unterwegs',
+                'completed': 'Erledigt',
+                'cancelled': 'Storniert'
+            }[status] || status;
         }
         
         function openNavigation(pickup, destination, type) {
@@ -31555,21 +31648,23 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const name = document.getElementById('vehicle-name').value.trim();
             const plate = document.getElementById('vehicle-plate').value.trim();
             const priority = parseInt(document.getElementById('vehicle-priority').value) || 5;
-            let id = document.getElementById('vehicle-id').value.trim();
             
             if (!name || !plate) {
                 alert('❌ Bitte Name und Kennzeichen eingeben!');
                 return;
             }
             
-            // Generiere ID falls nicht vorhanden
+            // 🆕 v5.90.262: ID = Normalisiertes Kennzeichen!
+            const id = normalizeVehicleId(plate);
+            
             if (!id) {
-                id = name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+                alert('❌ Ungültiges Kennzeichen!');
+                return;
             }
             
             // Prüfe ob ID schon existiert (nur bei neuem Fahrzeug)
             if (!existingId && VEHICLES[id]) {
-                alert('❌ Diese Fahrzeug-ID existiert bereits!');
+                alert('❌ Dieses Kennzeichen existiert bereits!');
                 return;
             }
             
@@ -34686,7 +34781,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         // 🆕 v5.90.252: HELPER - IST FAHRT HEUTE/AKTIV?
         function isRideActiveToday(ride) {
             if (!ride || !ride.vehicleId) return false;
-            if (!['accepted', 'picked_up', 'assigned'].includes(ride.status)) return false;
+            
+            // 🆕 v5.90.263: 'assigned' zählt NICHT als aktiv!
+            // assigned = Zugewiesen aber nicht angenommen → Taxi FREI
+            // accepted = Angenommen → Taxi BESETZT
+            // picked_up = Kunde drin → Taxi BESETZT
+            if (!['accepted', 'picked_up'].includes(ride.status)) return false;
             
             // Zeit-Check: Nur HEUTE oder früher!
             const todayEnd = new Date();
@@ -58396,11 +58496,3 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         <button onclick="addCallFavorite()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
             ➕ Manuell
         </button>
-    </div>
-</div>
-
-<!-- Backdrop -->
-<div id="call-favorites-backdrop" onclick="toggleCallFavorites()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9998;"></div>
-
-</body>
-</html>

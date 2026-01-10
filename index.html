@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.289 - FAHRT ZUM KUNDEN! 🚗📱 (Build 20260110-1900)');
-        console.log('🚗 v5.90.289: Neuer Status "on_way" - Fahrer unterwegs!');
-        console.log('📱 v5.90.289: SMS wird erst beim Losfahren gesendet!');
-        console.log('✅ v5.90.289: accepted = angenommen, on_way = unterwegs!');
-        console.log('🔴 v5.90.289: AKTIV = nur on_way + picked_up!');
+        console.log('🚕 Funk Taxi App v5.90.290 - KALENDER SCROLL! 📅🎯 (Build 20260110-1930)');
+        console.log('📅 v5.90.290: Heute-Button scrollt zu aktueller Fahrt!');
+        console.log('🎯 v5.90.290: Auto-Highlight der nächsten Fahrt!');
+        console.log('⏰ v5.90.290: 2h-Puffer für laufende Fahrten!');
+        console.log('✨ v5.90.290: Smooth Scroll + Gelb-Highlight!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -46745,7 +46745,68 @@ Stack: ${err.stack}
                 dateInput.value = new Date().toISOString().split('T')[0];
             }
             console.log('📅 Springe zu Heute');
-            renderCalendar();
+            
+            // Rendere Kalender
+            renderCalendar().then(() => {
+                // 🆕 v5.90.290: Scrolle zur aktuellen/nächsten Fahrt!
+                setTimeout(() => {
+                    scrollToCurrentRide();
+                }, 500); // Warte bis Kalender gerendert ist
+            });
+        }
+        
+        // 🆕 v5.90.290: SCROLLE ZUR AKTUELLEN/NÄCHSTEN FAHRT
+        function scrollToCurrentRide() {
+            const now = Date.now();
+            const allRideDivs = document.querySelectorAll('[data-ride-time]');
+            
+            if (allRideDivs.length === 0) {
+                console.log('📅 Keine Fahrten heute');
+                return;
+            }
+            
+            // Finde die nächste Fahrt (jetzt oder in der Zukunft)
+            let nextRide = null;
+            let nextRideTime = Infinity;
+            
+            allRideDivs.forEach(div => {
+                const rideTime = parseInt(div.getAttribute('data-ride-time'));
+                
+                // Finde die nächste Fahrt (entweder aktuell laufend oder in Zukunft)
+                if (rideTime >= now - (2 * 60 * 60 * 1000)) { // 2 Stunden Puffer für laufende Fahrten
+                    if (rideTime < nextRideTime) {
+                        nextRideTime = rideTime;
+                        nextRide = div;
+                    }
+                }
+            });
+            
+            // Fallback: Wenn keine zukünftige Fahrt, nimm die letzte Fahrt des Tages
+            if (!nextRide && allRideDivs.length > 0) {
+                nextRide = allRideDivs[allRideDivs.length - 1];
+                console.log('📅 Keine zukünftige Fahrt - scrolle zur letzten Fahrt');
+            }
+            
+            if (nextRide) {
+                console.log('📅 Scrolle zu Fahrt:', nextRide.getAttribute('data-ride-id'));
+                
+                // Highlight-Effekt
+                nextRide.style.transition = 'all 0.5s';
+                nextRide.style.background = '#fef3c7'; // Gelb highlighten
+                nextRide.style.boxShadow = '0 8px 16px rgba(251, 191, 36, 0.4)';
+                
+                // Scrolle sanft zur Fahrt
+                nextRide.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center'
+                });
+                
+                // Entferne Highlight nach 2 Sekunden
+                setTimeout(() => {
+                    nextRide.style.background = 'white';
+                    nextRide.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                }, 2000);
+            }
         }
         
         function getRideColor(status, ride = null) {
@@ -47261,14 +47322,16 @@ Stack: ${err.stack}
                     }[ride.status] || ride.status;
                     
                     html += `
-                        <div style="
+                        <div data-ride-time="${ride.pickupTimestamp || ride.createdAt || 0}" 
+                             data-ride-id="${ride.firebaseId || ride.id}"
+                             style="
                             background: white;
                             border-left: 4px solid ${color};
                             padding: 15px;
                             border-radius: 8px;
                             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                             transition: all 0.2s;
-                        " onmouseenter="this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
+                        " onmouseenter="this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">>
                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
                                 <div style="font-weight: 700; font-size: 18px; color: ${color};">${timeStr}</div>
                                 <div style="padding: 4px 10px; background: ${color}20; color: ${color}; border-radius: 6px; font-size: 12px; font-weight: 600;">

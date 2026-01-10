@@ -108,11 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.264 - GPS FIX! 📍✅ (Build 20260110-0925)');
-        console.log('📍 v5.90.264: GPS schreibt in vehicles/ (nicht drivers/)!');
-        console.log('🔧 v5.90.264: GPS-Stop löscht nicht ganzes Fahrzeug!');
-        console.log('✅ v5.90.264: Korrekte GPS-Speicherung!');
-        console.log('🟡 v5.90.263: ZUWEISEN → ANNEHMEN System!');
+        console.log('🚕 Funk Taxi App v5.90.265 - CRASH FIX! 🛡️✅ (Build 20260110-0935)');
+        console.log('🛡️ v5.90.265: updateDriverView Crash gefixt!');
+        console.log('✅ v5.90.265: Prüfung ob Elemente existieren!');
+        console.log('📍 v5.90.264: GPS schreibt in vehicles/!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -979,7 +978,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📍 Version 5.90.264 - GPS FIX! ✅ (Build 20260110-0925)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛡️ Version 5.90.265 - CRASH FIX! ✅ (Build 20260110-0935)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -13639,7 +13638,10 @@ Aktuell: ${currentNum}`;
                     `;
                 }
                 
-                document.getElementById('driver-current-ride').innerHTML = rideInfo;
+                const driverCurrentRide = document.getElementById('driver-current-ride');
+                if (driverCurrentRide) {
+                    driverCurrentRide.innerHTML = rideInfo;
+                }
                 
                 // Buttons im Bottom Panel
                 let buttonsHtml = '';
@@ -13720,10 +13722,13 @@ Aktuell: ${currentNum}`;
             }
             
             // New rides
+            const newRidesEl = document.getElementById('new-rides');
+            if (!newRidesEl) return; // Element fehlt, abbrechen
+            
             if (!currentVehicle) {
-                document.getElementById('new-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">⚠️ Bitte erst Fahrzeug wählen</div>';
+                newRidesEl.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">⚠️ Bitte erst Fahrzeug wählen</div>';
             } else if (newRides.length === 0) {
-                document.getElementById('new-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine neuen Aufträge</div>';
+                newRidesEl.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine neuen Aufträge</div>';
             } else {
                 let ridesHtml = newRides
                     // 🆕 v5.90.107: Sortiere nach pickupTimestamp (Tagesprogramm!)

@@ -108,10 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.284 - TELEFON & FAHRZEUG-FIX! 📞🚗 (Build 20260110-1630)');
-        console.log('📞 v5.90.284: Telefonnummer im Fahrzeug-Modal anzeigen!');
-        console.log('🚗 v5.90.284: Fahrzeug-Freigabe beim Reset gefixed!');
-        console.log('✅ v5.90.284: vehicleId wird jetzt auch zurückgesetzt!');
+        console.log('🚕 Funk Taxi App v5.90.285 - RESET STATUS FIX! 🔄📋 (Build 20260110-1700)');
+        console.log('🔄 v5.90.285: Zurückgesetzte Fahrt zeigt korrektes Label!');
+        console.log('📋 v5.90.285: Tagesprogramm lädt Fahrten neu nach Reset!');
+        console.log('🗑️ v5.90.285: Zurückgesetzte Fahrten können gelöscht werden!');
+        console.log('✅ v5.90.285: Keine "Fahrt nicht gefunden" Fehler mehr!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -31115,9 +31116,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // Finde alle Fahrten für dieses Fahrzeug
             const vehicleRides = rides.filter(r => r.vehicleId === vehicleId);
             
-            // Aktuelle Fahrt (accepted oder picked_up)
+            // Aktuelle Fahrt (accepted, picked_up, oder new mit vehicleId nach Reset)
             const currentRide = vehicleRides.find(r => 
-                r.status === 'accepted' || r.status === 'picked_up'
+                r.status === 'accepted' || 
+                r.status === 'picked_up' ||
+                (r.status === 'new' && r.vehicleId === vehicleId) // Nach Reset noch kurz 'new' mit vehicleId
             );
             
             // Zukünftige Fahrten (new, assigned) - sortiert nach Zeit
@@ -31144,11 +31147,26 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const pickupDate = currentRide.pickupDate || new Date(currentRide.pickupTimestamp || currentRide.timestamp).toLocaleDateString('de-DE');
                 const duration = currentRide.timestamp ? Math.round((Date.now() - currentRide.timestamp) / 60000) : 0;
                 
+                // Status-Label dynamisch
+                let statusLabel = '🔴 AKTIVE FAHRT';
+                let statusColor = '#ef4444';
+                let backgroundColor = '#fee2e2';
+                
+                if (currentRide.status === 'new') {
+                    statusLabel = '🔄 ZURÜCKGESETZTE FAHRT';
+                    statusColor = '#f59e0b';
+                    backgroundColor = '#fef3c7';
+                } else if (currentRide.status === 'cancelled' || currentRide.status === 'storniert') {
+                    statusLabel = '❌ STORNIERTE FAHRT';
+                    statusColor = '#6b7280';
+                    backgroundColor = '#f3f4f6';
+                }
+                
                 currentRideHtml = `
-                    <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:12px;padding:15px;margin-bottom:15px;">
+                    <div style="background:${backgroundColor};border:2px solid ${statusColor};border-radius:12px;padding:15px;margin-bottom:15px;">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                            <div style="background:#ef4444;color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
-                                🔴 AKTIVE FAHRT
+                            <div style="background:${statusColor};color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
+                                ${statusLabel}
                             </div>
                             <div style="font-size:12px;color:#991b1b;">
                                 ⏱️ Seit ${duration} Min
@@ -31189,6 +31207,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             </div>
                         </div>
                         
+                        ${currentRide.status === 'new' ? `
+                        <div style="margin-top:12px;">
+                            <button onclick="deleteResetRide('${currentRide.firebaseId}')" style="width:100%;padding:12px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                                🗑️ Fahrt löschen
+                            </button>
+                        </div>
+                        ` : `
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
                             <button onclick="completeRideFromModal('${currentRide.firebaseId}')" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
                                 ✅ Abschließen
@@ -31197,6 +31222,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 🔄 Zurücksetzen
                             </button>
                         </div>
+                        `}
                     </div>
                 `;
             }
@@ -31377,7 +31403,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const modal = document.getElementById('vehicle-details-modal');
                 if (modal) modal.remove();
                 
-                // 4. Aktualisiere Fleet Map
+                // 4. Lade Fahrten neu (WICHTIG: Vor refreshFleetMap!)
+                await loadAdminRides();
+                
+                // 5. Aktualisiere Fleet Map
                 setTimeout(() => refreshFleetMap(), 500);
                 
                 alert('✅ Fahrt wurde zurückgesetzt!\n\nDie Fahrt ist jetzt wieder verfügbar und kann neu zugewiesen werden.');
@@ -31385,6 +31414,33 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (e) {
                 console.error('❌ Fehler beim Zurücksetzen:', e);
                 alert('❌ Fehler beim Zurücksetzen: ' + e.message);
+            }
+        }
+        
+        // 🆕 v5.90.285: LÖSCHE ZURÜCKGESETZTE FAHRT
+        async function deleteResetRide(rideId) {
+            if (!confirm('⚠️ Zurückgesetzte Fahrt wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!')) return;
+            
+            try {
+                // Fahrt aus Firebase löschen
+                await db.ref(`rides/${rideId}`).remove();
+                console.log('🗑️ Fahrt gelöscht:', rideId);
+                
+                // Schließe Modal
+                const modal = document.getElementById('vehicle-details-modal');
+                if (modal) modal.remove();
+                
+                // Lade Fahrten neu
+                await loadAdminRides();
+                
+                // Aktualisiere Fleet Map
+                setTimeout(() => refreshFleetMap(), 500);
+                
+                alert('✅ Fahrt wurde gelöscht!');
+                
+            } catch (e) {
+                console.error('❌ Fehler beim Löschen:', e);
+                alert('❌ Fehler beim Löschen: ' + e.message);
             }
         }
         

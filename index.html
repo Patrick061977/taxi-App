@@ -108,11 +108,15 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.278 - KALENDER + TELEFON! 📅📞 (Build 20260110-1250)');
-        console.log('📞 v5.90.278: Telefonnummer bei Kundenname (klickbar!)');
-        console.log('📅 v5.90.278: Kalender springt automatisch zu heute!');
-        console.log('✅ v5.90.278: Admin kann Kunden anrufen!');
-        console.log('🎯 v5.90.278: Kein Scrollen mehr nötig!');
+        console.log('🚕 Funk Taxi App v5.90.280 - KALENDER + TEL FIX! 📅📞 (Build 20260110-1405)');
+        console.log('✅ v5.90.280: Kalender-Button funktioniert!');
+        console.log('📞 v5.90.280: Telefonnummer klickbar im Modal!');
+        console.log('🔧 v5.90.280: calendar → schedule gefixed!');
+        console.log('📅 v5.90.280: Auto-Scroll zu heute!');
+        console.log('🚦 v5.90.279: Fahrer sieht NUR zugewiesene Fahrten!');
+        console.log('↩️ v5.90.279: Admin kann Zuweisung aufheben!');
+        console.log('🧹 v5.90.279: Driver-View aufgeräumt!');
+        console.log('✅ v5.90.279: Workflow perfekt!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -979,7 +983,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.278 - KALENDER FIX! 📅 (Build 20260110-1250)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.280 - KALENDER FIX! 📞 (Build 20260110-1405)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1091,7 +1095,7 @@
                 📖 Verlauf
             </button>
             <!-- 🆕 v5.89: KALENDER-TAB (Direkt-Sprung zu Vorbestellungen!) -->
-            <button onclick="switchView('calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="calendar" data-tab-id="calendar" style="
+            <button onclick="switchView('schedule')" class="admin-tab-btn admin-only tab-toggleable" data-view="schedule" data-tab-id="schedule" style="
                 padding: 10px 16px;
                 border: 2px solid #3b82f6;
                 background: white;
@@ -2554,8 +2558,11 @@
                 </div>
             </div>
             
-            <!-- ━━━ NEUE AUFTRÄGE ━━━ -->
-            <div id="driver-new-rides-section" style="display: none;">
+            <!-- 🆕 v5.90.279: FAHRER SIEHT NUR ZUGEWIESENE FAHRTEN! -->
+            <!-- Keine "Neue Aufträge" mehr - nur was Admin zuweist! -->
+            
+            <!-- ━━━ ZUGEWIESENE FAHRTEN ━━━ -->
+            <div id="driver-assigned-rides-section" style="display: none;">
                 <div style="
                     display: flex;
                     justify-content: space-between;
@@ -2563,9 +2570,9 @@
                     margin-bottom: 12px;
                 ">
                     <div style="font-size: 14px; font-weight: 700; color: #6b7280; letter-spacing: 1px;">
-                        ━━━ NEUE AUFTRÄGE ━━━
+                        ━━━ DIR ZUGEWIESEN ━━━
                     </div>
-                    <div id="new-rides-badge" style="
+                    <div id="assigned-rides-badge" style="
                         background: #f59e0b;
                         color: white;
                         padding: 4px 12px;
@@ -2575,7 +2582,7 @@
                     ">0</div>
                 </div>
                 
-                <div id="driver-new-rides-list">
+                <div id="driver-assigned-rides-list">
                     <!-- Wird dynamisch gefüllt -->
                 </div>
             </div>
@@ -10247,6 +10254,49 @@
             }
         }
         
+        // 🆕 v5.90.279: ZUWEISUNG AUFHEBEN (Admin kann Fahrzeug-Zuweisung rückgängig machen!)
+        async function unassignVehicleFromRide(rideId) {
+            try {
+                // Bestätigung
+                if (!confirm('↩️ Zuweisung aufheben?\n\nDas Fahrzeug wird von der Fahrt entfernt.\nDer Fahrer sieht die Fahrt nicht mehr.\n\nFortfahren?')) {
+                    return;
+                }
+                
+                console.log('↩️ Hebe Zuweisung auf für Fahrt:', rideId);
+                
+                // Update in Firebase
+                await db.ref('rides/' + rideId).update({
+                    vehicleId: null,
+                    driverId: null,
+                    status: 'new', // Zurück auf "new"
+                    unassignedAt: Date.now(),
+                    unassignedBy: 'admin'
+                });
+                
+                console.log('✅ Zuweisung aufgehoben!');
+                
+                // Log Activity
+                const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                if (ride) {
+                    logActivity('admin', 'unassign', `Admin hat Zuweisung aufgehoben`, {
+                        customer: ride.customerName,
+                        pickup: ride.pickup,
+                        destination: ride.destination
+                    });
+                }
+                
+                alert('✅ Zuweisung aufgehoben!\n\nFahrt ist wieder verfügbar.');
+                
+                // Refresh Views
+                if (typeof loadCalendarRides === 'function') loadCalendarRides();
+                if (typeof loadRides === 'function') loadRides();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Aufheben:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         // 🔄 ROUTE UMDREHEN (Admin - direkt in Firebase)
         async function reverseRouteAdmin(rideId) {
             const confirmReverse = confirm('🔄 Route umdrehen?\n\nVon ⇄ Nach werden getauscht.');
@@ -14570,6 +14620,28 @@ Aktuell: ${currentNum}`;
                                     </button>
                                 </div>
                             `;
+                        } else if (r.status === 'assigned' && r.vehicleId) {
+                            // 🆕 v5.90.279: ZUWEISUNG AUFHEBEN für zugewiesene Fahrten!
+                            actionButtons = `
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">
+                                    <button onclick="unassignVehicleFromRide('${r.firebaseId || r.id}')" 
+                                        style="padding:10px;background:#f59e0b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">
+                                        ↩️ Zuweisung aufheben
+                                    </button>
+                                    <button onclick="editRide('${r.firebaseId || r.id}')" 
+                                        style="padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                        ✏️ Bearbeiten
+                                    </button>
+                                    <button onclick="reverseRouteAdmin('${r.firebaseId || r.id}')" 
+                                        style="padding:8px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                        🔄 Umdrehen
+                                    </button>
+                                    <button onclick="deleteRide('${r.firebaseId || r.id}')" 
+                                        style="padding:8px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">
+                                        🗑️ Löschen
+                                    </button>
+                                </div>
+                            `;
                         }
                         
                         html += `<div class="ride-card" style="border-left:4px solid ${borderColor};background:${bgColor};">
@@ -16633,7 +16705,13 @@ Aktuell: ${currentNum}`;
                         <div style="margin-bottom:15px;">
                             <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">KUNDE</div>
                             <div style="font-size:16px;font-weight:600;color:#1f2937;">👤 ${ride.customerName || 'Unbekannt'}</div>
-                            <div style="font-size:14px;color:#6b7280;margin-top:3px;">📞 ${ride.customerPhone || 'Keine Nummer'}</div>
+                            ${ride.customerPhone ? `
+                            <div style="margin-top:8px;">
+                                <a href="tel:${ride.customerPhone}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#10b981;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                    📞 ${ride.customerPhone}
+                                </a>
+                            </div>
+                            ` : '<div style="font-size:14px;color:#6b7280;margin-top:3px;">📞 Keine Nummer</div>'}
                         </div>
                         
                         <!-- Route -->
@@ -26431,13 +26509,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         const rideDate = new Date(ride.timestamp).toISOString().split('T')[0];
                         if (rideDate !== today) return false;
                         
-                        // 🆕 v5.90.263: ALLE ZUGEWIESENEN FAHRTEN!
+                        // 🆕 v5.90.279: NUR ZUGEWIESENE FAHRTEN!
+                        // Fahrer sieht NUR Fahrten die ihm explizit zugewiesen wurden!
+                        // NICHT "new" ohne vehicleId!
+                        if (!ride.vehicleId) return false; // ← WICHTIG!
+                        
+                        // Status Check
                         // assigned = Dir zugewiesen, warte auf Annahme → ZEIGEN (gelb)
                         // accepted = Du hast angenommen, fahr los! → ZEIGEN (grün)
                         // picked_up = Kunde drin → ZEIGEN (blau)
                         if (ride.status !== 'assigned' && ride.status !== 'accepted' && ride.status !== 'picked_up') return false;
                         
-                        // Muss eine unserer IDs haben
+                        // Muss MEIN Fahrzeug sein
                         return possibleIds.includes(ride.vehicleId);
                     })
                     .sort((a, b) => a.timestamp - b.timestamp);
@@ -50114,7 +50197,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 
                 // 5. Wechsle zum Kalender
                 setTimeout(() => {
-                    switchView('calendar');
+                    switchView('schedule');
                 }, 1000);
                 
             } catch (error) {

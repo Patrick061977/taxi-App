@@ -108,12 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.275 - TELEFON IMMER MIT +! 📞✅ (Build 20260110-1210)');
-        console.log('📞 v5.90.275: Alle Telefonnummern werden normalisiert!');
-        console.log('✅ v5.90.275: Immer mit + gespeichert!');
-        console.log('🔧 v5.90.275: 00491715377241 → +491715377241!');
-        console.log('🔧 v5.90.275: 0491715377241 → +491715377241!');
-        console.log('🔧 v5.90.275: 491715377241 → +491715377241!');
+        console.log('🚕 Funk Taxi App v5.90.277 - TESLA GPS! 🚗📡 (Build 20260110-1230)');
+        console.log('📡 v5.90.277: GPS-Button ist klickbar!');
+        console.log('🚗 v5.90.277: Tesla GPS wird automatisch genutzt!');
+        console.log('✅ v5.90.277: Click auf GPS → Position vom Auto!');
+        console.log('🎯 v5.90.277: Perfekt für Tesla Browser!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -980,7 +979,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.275 - TELEFON MIT +! ✅ (Build 20260110-1210)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚗 Version 5.90.277 - TESLA GPS! 📡 (Build 20260110-1230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9353,6 +9352,9 @@
                 return;
             }
             
+            // 🆕 v5.90.276: TIMESTAMP ZUERST BERECHNEN!
+            const newTimestamp = new Date(newDateTime).getTime();
+            
             // 🆕 v5.75.0: GEOCODE WENN PREIS/ZEIT BERECHNET WERDEN SOLL!
             let pickupCoords = null;
             let destCoords = null;
@@ -9431,7 +9433,7 @@
                 console.log('ℹ️ Keine Berechnung - Feste Werte verwendet');
             }
             
-            const newTimestamp = new Date(newDateTime).getTime();
+            // 🆕 v5.90.276: newTimestamp schon oben definiert!
             const now = Date.now();
             const minutesUntilPickup = (newTimestamp - now) / (1000 * 60);
             const newStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
@@ -47747,6 +47749,95 @@ Stack: ${err.stack}
             
             // 🤖 v5.32.5h: Lade Auto-Booking Einstellung
             loadAutoBookingSettings();
+            
+            // 🆕 v5.90.277: GPS-BUTTON CLICK HANDLER!
+            const gpsIndicator = document.getElementById('gps-indicator');
+            if (gpsIndicator) {
+                gpsIndicator.style.cursor = 'pointer';
+                gpsIndicator.title = 'Klicken um GPS zu aktivieren';
+                
+                gpsIndicator.addEventListener('click', () => {
+                    console.log('📍 GPS-Button geklickt!');
+                    
+                    // Prüfe ob bereits tracking läuft
+                    if (watchId) {
+                        // GPS läuft → Stoppe es
+                        console.log('🛑 Stoppe GPS...');
+                        if (watchId) {
+                            navigator.geolocation.clearWatch(watchId);
+                            watchId = null;
+                        }
+                        
+                        const gpsDot = document.getElementById('gps-dot');
+                        const gpsStatus = document.getElementById('gps-status');
+                        if (gpsDot) gpsDot.classList.remove('online');
+                        if (gpsStatus) gpsStatus.textContent = '📍 GPS Off';
+                        
+                        alert('✅ GPS gestoppt!');
+                    } else {
+                        // GPS aus → Starte es!
+                        console.log('🚀 Starte GPS...');
+                        
+                        // Prüfe ob Fahrzeug gewählt
+                        if (!currentVehicle) {
+                            alert('❌ Bitte zuerst Fahrzeug wählen!');
+                            return;
+                        }
+                        
+                        // Starte GPS Tracking
+                        const gpsStatus = document.getElementById('gps-status');
+                        if (gpsStatus) gpsStatus.textContent = '📍 GPS Suche...';
+                        
+                        // Nutze getCurrentPosition für sofortige Position
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                console.log('✅ GPS Position erhalten!', pos.coords);
+                                const gpsDot = document.getElementById('gps-dot');
+                                const gpsStatus = document.getElementById('gps-status');
+                                if (gpsDot) gpsDot.classList.add('online');
+                                if (gpsStatus) gpsStatus.textContent = '📍 GPS On';
+                                
+                                // Speichere in Firebase (wenn Fahrzeug gewählt)
+                                if (currentVehicle && isFirebaseReady) {
+                                    db.ref(`vehicles/${currentVehicle}`).update({
+                                        lat: pos.coords.latitude,
+                                        lon: pos.coords.longitude,
+                                        lastUpdate: Date.now(),
+                                        online: true
+                                    });
+                                }
+                                
+                                // Starte watchPosition für kontinuierliche Updates
+                                startDriverTracking(null);
+                                
+                                alert('✅ GPS aktiviert!\n\n📍 Position: ' + 
+                                      pos.coords.latitude.toFixed(6) + ', ' + 
+                                      pos.coords.longitude.toFixed(6));
+                            },
+                            (err) => {
+                                console.error('❌ GPS Fehler:', err);
+                                const gpsStatus = document.getElementById('gps-status');
+                                if (gpsStatus) gpsStatus.textContent = '📍 GPS Error';
+                                
+                                let errorMsg = 'GPS Fehler: ';
+                                if (err.code === 1) errorMsg += 'Berechtigung verweigert';
+                                else if (err.code === 2) errorMsg += 'Position nicht verfügbar';
+                                else if (err.code === 3) errorMsg += 'Timeout';
+                                else errorMsg += err.message;
+                                
+                                alert('❌ ' + errorMsg);
+                            },
+                            {
+                                enableHighAccuracy: true,
+                                timeout: 10000,
+                                maximumAge: 0
+                            }
+                        );
+                    }
+                });
+                
+                console.log('✅ GPS-Button Click-Handler registriert!');
+            }
             
             // 🆕 TRACKING-LINK: Prüfe ob ?ride=XXX in URL
             const urlParams = new URLSearchParams(window.location.search);

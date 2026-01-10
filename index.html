@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.286 - ALARM-POPUP FIX! 🚨📵 (Build 20260110-1730)');
-        console.log('🚨 v5.90.286: Benachrichtigungs-Popup ignoriert zurückgesetzte Fahrten!');
-        console.log('📵 v5.90.286: Keine falschen "NEUE FAHRTEN" Alarme mehr!');
-        console.log('✅ v5.90.286: Filter nach vehicleId & driverAssignedAt!');
-        console.log('🔕 v5.90.286: Badge zählt nur echte neue Fahrten!');
+        console.log('🚕 Funk Taxi App v5.90.289 - FAHRT ZUM KUNDEN! 🚗📱 (Build 20260110-1900)');
+        console.log('🚗 v5.90.289: Neuer Status "on_way" - Fahrer unterwegs!');
+        console.log('📱 v5.90.289: SMS wird erst beim Losfahren gesendet!');
+        console.log('✅ v5.90.289: accepted = angenommen, on_way = unterwegs!');
+        console.log('🔴 v5.90.289: AKTIV = nur on_way + picked_up!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -14121,7 +14121,7 @@ Aktuell: ${currentNum}`;
             
             // 🆕 v5.90.247: NUR vehicleId-basiert! Keine Name-Vergleiche mehr!
             const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
-            const current = myRides.find(r => r.status === 'accepted' || r.status === 'picked_up');
+            const current = myRides.find(r => r.status === 'on_way' || r.status === 'picked_up'); // 🆕 v5.90.289: NUR on_way oder picked_up!
             const completed = myRides.filter(r => r.status === 'completed');
             
             // 🆕 v5.90.249: UPDATE AKTIVE FAHRT BANNER + TAGESPROGRAMM!
@@ -14220,6 +14220,40 @@ Aktuell: ${currentNum}`;
                 // Buttons im Bottom Panel
                 let buttonsHtml = '';
                 if (current.status === 'accepted') {
+                    // 🆕 v5.90.289: Angenommen aber noch nicht losgefahren
+                    buttonsHtml = `
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                            <button onclick="startDrivingToCustomer('${current.firebaseId}')" style="
+                                width: 100%;
+                                padding: 16px;
+                                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                                color: white;
+                                border: none;
+                                border-radius: 12px;
+                                font-size: 18px;
+                                font-weight: bold;
+                                cursor: pointer;
+                                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                            ">
+                                🚗 FAHRT ZUM KUNDEN STARTEN
+                            </button>
+                            <button onclick="cancelAcceptedRide('${current.firebaseId}')" style="
+                                width: 100%;
+                                padding: 12px;
+                                background: #6b7280;
+                                color: white;
+                                border: none;
+                                border-radius: 10px;
+                                font-size: 14px;
+                                font-weight: 600;
+                                cursor: pointer;
+                            ">
+                                ❌ Stornieren
+                            </button>
+                        </div>
+                    `;
+                } else if (current.status === 'on_way') {
+                    // 🆕 v5.90.289: Unterwegs zum Kunden
                     buttonsHtml = `
                         <button onclick="pickupCustomer('${current.firebaseId}')" style="
                             width: 100%;
@@ -14232,7 +14266,7 @@ Aktuell: ${currentNum}`;
                             font-weight: bold;
                             cursor: pointer;
                         ">
-                            🚕 Kunde abgeholt
+                            👤 KUNDE ABGEHOLT
                         </button>
                     `;
                 } else if (current.status === 'picked_up') {
@@ -27372,9 +27406,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 assignmentExpiresAt: null
             });
             
-            // 🆕 v5.90.60: TRACKING-LINK ERSTELLEN!
-            console.log('🔗 Erstelle Tracking-Link nach acceptRide...');
-            await createTrackingLinkForRide(rideId, currentVehicle);
+            // 🆕 v5.90.289: TRACKING-LINK WIRD ERST BEI "FAHRT ZUM KUNDEN" ERSTELLT!
+            // Nicht mehr hier! Fahrer muss erst auf "🚗 Fahrt zum Kunden" klicken!
+            console.log('✅ Fahrt angenommen - Tracking-Link wird später erstellt');
             
             // 📜 PROTOKOLL: Fahrt angenommen
             logActivity('status', 'accepted', `Fahrt angenommen von ${vehicleName}`, {
@@ -27386,6 +27420,67 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 price: ride.price
             });
             
+            // GPS erstmal NICHT starten! Erst bei "Fahrt zum Kunden"!
+            // Fahrer bereitet sich vor, ist aber noch nicht unterwegs
+            
+            alert('✅ Auftrag angenommen!\n\nKlicke auf "🚗 FAHRT ZUM KUNDEN" wenn du losfährst!');
+        }
+
+        
+        // 🆕 v5.90.289: FAHRT ZUM KUNDEN STARTEN (JETZT AKTIV!)
+        async function startDrivingToCustomer(rideId) {
+            if (!currentVehicle) {
+                alert('❌ Kein Fahrzeug ausgewählt!');
+                return;
+            }
+            
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            if (ride.status !== 'accepted') {
+                alert('❌ Fahrt muss erst angenommen werden!');
+                return;
+            }
+            
+            const confirm = window.confirm(
+                `🚗 LOSFAHREN?\n\n` +
+                `Ziel: ${ride.pickup}\n` +
+                `Kunde: ${ride.customerName || 'Unbekannt'}\n\n` +
+                `✅ GPS-Tracking wird aktiviert\n` +
+                `📱 Kunde bekommt SMS mit Tracking-Link\n\n` +
+                `Jetzt losfahren?`
+            );
+            
+            if (!confirm) return;
+            
+            // Status auf "on_way" setzen (Fahrt zum Kunden)
+            await updateRide(rideId, {
+                status: 'on_way',
+                startedDrivingAt: Date.now()
+            });
+            
+            // 🔗 JETZT Tracking-Link erstellen und SMS senden!
+            console.log('🔗 Erstelle Tracking-Link und sende SMS...');
+            await createTrackingLinkForRide(rideId, currentVehicle);
+            
+            // 📜 PROTOKOLL
+            const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+            logActivity('status', 'on_way', `Fahrt zum Kunden gestartet von ${vehicleName}`, {
+                customer: ride.customerName,
+                driver: vehicleName,
+                from: ride.pickup,
+                to: ride.destination
+            });
+            
+            // 🆕 GPS-Tracking starten mit präzisem Modus
+            if (gpsMode !== 'active') {
+                console.log('🎯 Fahrt gestartet → Wechsle zu Aktiv-GPS');
+                startActiveTracking(rideId);
+            }
+            
             // GPS komplett neu starten mit rideId
             if (watchId) {
                 console.log('🛑 Stoppe altes GPS');
@@ -27395,10 +27490,45 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             setTimeout(() => {
                 startDriverTracking(rideId);
-                initDriverMap(rideId);  // Übergebe rideId - wird aus Firebase geladen
+                initDriverMap(rideId);
             }, 100);
             
-            alert('✅ Auftrag angenommen! GPS läuft...');
+            alert('✅ Losgefahren!\n\n📱 Kunde wurde per SMS benachrichtigt\n🗺️ GPS-Tracking läuft');
+        }
+        
+        // 🆕 v5.90.289: ANGENOMMENE FAHRT STORNIEREN
+        async function cancelAcceptedRide(rideId) {
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            const confirm = window.confirm(
+                `⚠️ FAHRT STORNIEREN?\n\n` +
+                `Ziel: ${ride.pickup}\n` +
+                `Kunde: ${ride.customerName || 'Unbekannt'}\n\n` +
+                `Die Fahrt wird wieder freigegeben.\n` +
+                `Stornieren?`
+            );
+            
+            if (!confirm) return;
+            
+            // Status zurück auf new, Fahrzeug freigeben
+            await updateRide(rideId, {
+                status: 'new',
+                vehicleId: null,
+                assignedVehicle: null,
+                vehicle: null,
+                vehiclePlate: null,
+                vehicleDriver: null,
+                acceptedAt: null,
+                acceptedBy: null,
+                acceptedByName: null
+            });
+            
+            console.log('🔄 Fahrt storniert und freigegeben:', rideId);
+            alert('✅ Fahrt wurde storniert und freigegeben');
         }
 
         
@@ -31123,23 +31253,30 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 return;
             }
             
-            // Finde alle Fahrten für dieses Fahrzeug
-            const vehicleRides = rides.filter(r => r.vehicleId === vehicleId);
-            
-            // Aktuelle Fahrt (accepted, picked_up, oder new mit vehicleId nach Reset)
-            const currentRide = vehicleRides.find(r => 
-                r.status === 'accepted' || 
-                r.status === 'picked_up' ||
-                (r.status === 'new' && r.vehicleId === vehicleId) // Nach Reset noch kurz 'new' mit vehicleId
+            // Finde alle Fahrten für dieses Fahrzeug (vehicleId ODER assignedVehicle)
+            const vehicleRides = rides.filter(r => 
+                r.vehicleId === vehicleId || r.assignedVehicle === vehicleId
             );
             
-            // Zukünftige Fahrten (new, assigned) - sortiert nach Zeit
+            // 🆕 v5.90.289: Aktuelle Fahrt = Fahrer fährt zum Kunden ODER hat Gast an Bord
+            // NUR on_way (unterwegs zum Kunden) oder picked_up (Gast an Bord)!
+            // NICHT accepted (nur angenommen, noch nicht losgefahren)!
+            const currentRide = vehicleRides.find(r => 
+                r.status === 'on_way' || r.status === 'picked_up'
+            );
+            
+            // Zukünftige Fahrten (vorbestellt, new, assigned, accepted)
             const upcomingRides = vehicleRides
-                .filter(r => 
-                    r.status === 'new' || 
-                    r.status === 'assigned' ||
-                    (r.status === 'accepted' && !currentRide) // Falls mehrere accepted
-                )
+                .filter(r => {
+                    // Nicht die aktuelle Fahrt
+                    if (r === currentRide) return false;
+                    
+                    // Alle geplanten Status
+                    return r.status === 'new' || 
+                           r.status === 'vorbestellt' ||
+                           r.status === 'assigned' ||
+                           r.status === 'accepted' // Angenommen aber noch nicht losgefahren
+                })
                 .sort((a, b) => {
                     const timeA = a.pickupTimestamp || a.timestamp || 0;
                     const timeB = b.pickupTimestamp || b.timestamp || 0;
@@ -31162,7 +31299,15 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 let statusColor = '#ef4444';
                 let backgroundColor = '#fee2e2';
                 
-                if (currentRide.status === 'new') {
+                if (currentRide.status === 'on_way') {
+                    statusLabel = '🚗 FAHRT ZUM KUNDEN';
+                    statusColor = '#3b82f6';
+                    backgroundColor = '#dbeafe';
+                } else if (currentRide.status === 'picked_up') {
+                    statusLabel = '👤 GAST AN BORD';
+                    statusColor = '#10b981';
+                    backgroundColor = '#d1fae5';
+                } else if (currentRide.status === 'new') {
                     statusLabel = '🔄 ZURÜCKGESETZTE FAHRT';
                     statusColor = '#f59e0b';
                     backgroundColor = '#fef3c7';
@@ -31391,6 +31536,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 await updateRide(rideId, {
                     status: 'new',
                     vehicleId: null,
+                    assignedVehicle: null, // Auch dieses Feld!
                     vehicle: null,
                     vehiclePlate: null,
                     vehicleDriver: null,
@@ -43846,9 +43992,10 @@ Stack: ${err.stack}
                         </div>
                     </div>
                 `;
-            } else if (ride.status === 'accepted' && ride.driverLocation) {
+            } else if (ride.status === 'on_way' && ride.driverLocation) {
+                // 🆕 v5.90.289: Fahrer ist unterwegs zum Kunden!
                 updateRideTracking(ride);
-            } else if (ride.status === 'accepted' && !ride.driverLocation) {
+            } else if ((ride.status === 'on_way' || ride.status === 'accepted') && !ride.driverLocation) {
                 container.innerHTML = `
                     <div class="ride-status-box" style="background:#dbeafe;border:2px solid #3b82f6;">
                         <div style="font-size: 28px; margin-bottom: 6px;">✅</div>

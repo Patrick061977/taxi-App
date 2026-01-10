@@ -108,9 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.283 - RESET BUTTON! 🔄 (Build 20260110-1545)');
-        console.log('🔄 v5.90.283: Reset-Button für aktive Fahrten!');
-        console.log('✅ v5.90.283: Fahrt zurücksetzen + Tracking-Link löschen!');
+        console.log('🚕 Funk Taxi App v5.90.284 - TELEFON & FAHRZEUG-FIX! 📞🚗 (Build 20260110-1630)');
+        console.log('📞 v5.90.284: Telefonnummer im Fahrzeug-Modal anzeigen!');
+        console.log('🚗 v5.90.284: Fahrzeug-Freigabe beim Reset gefixed!');
+        console.log('✅ v5.90.284: vehicleId wird jetzt auch zurückgesetzt!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -31158,6 +31159,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             👤 ${currentRide.customerName || 'Unbekannt'}
                         </div>
                         
+                        ${currentRide.customerPhone ? `
+                        <div style="margin-bottom:8px;">
+                            <a href="tel:${currentRide.customerPhone}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#10b981;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                📞 ${currentRide.customerPhone}
+                            </a>
+                        </div>
+                        ` : ''}
+                        
                         <div style="font-size:13px;color:#4b5563;margin-bottom:6px;">
                             📅 ${pickupDate} · 🕐 ${pickupTime}
                         </div>
@@ -31230,6 +31239,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                                 <div style="font-weight:600;font-size:14px;color:#111827;">
                                                     👤 ${ride.customerName || 'Unbekannt'}
                                                 </div>
+                                                ${ride.customerPhone ? `
+                                                <div style="margin-top:4px;">
+                                                    <a href="tel:${ride.customerPhone}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:11px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                                        📞 ${ride.customerPhone}
+                                                    </a>
+                                                </div>
+                                                ` : ''}
                                                 <div style="font-size:12px;color:#6b7280;margin-top:2px;">
                                                     📅 ${pickupDate} · 🕐 ${pickupTime}
                                                 </div>
@@ -31338,6 +31354,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 // 1. Fahrt zurücksetzen
                 await updateRide(rideId, {
                     status: 'new',
+                    vehicleId: null,
                     vehicle: null,
                     vehiclePlate: null,
                     vehicleDriver: null,

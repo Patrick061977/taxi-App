@@ -108,9 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.293 - SETTINGS FIX 2! 💾✅ (Build 20260110-2015)');
-        console.log('💾 v5.90.293: Button-Feedback gefixt!');
-        console.log('✅ v5.90.293: Alert statt Button-Animation!');
+        console.log('🚕 Funk Taxi App v5.90.296 - MODAL X-BUTTON! ✕📱 (Build 20260110-2110)');
+        console.log('✕ v5.90.296: X-Button im Customer Modal!');
+        console.log('📱 v5.90.296: Schnell schließen - Tesla-friendly!');
         console.log('🚗 v5.90.283: Fahrzeug wird freigegeben!');
         console.log('📅 v5.90.283: Fahrt wieder verfügbar zur Zuweisung!');
         console.log('🎊 v5.90.282: Kalender funktioniert endlich!');
@@ -982,7 +982,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.293 - SETTINGS FIX 2! ✅ (Build 20260110-2015)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.296 - X-BUTTON! ✕ (Build 20260110-2110)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2480,191 +2480,181 @@
     </div>
 
     <div id="driver-view" class="view">
-        <!-- 🆕 v5.90.268: FOKUS AUF AKTIVE FAHRT! -->
+        <!-- 🆕 v5.90.295: UBER-STYLE FAHRER-VIEW! -->
         
-        <!-- Kompakter Header -->
-        <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        <!-- FULLSCREEN KARTE -->
+        <div id="driver-map-container" style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
         ">
-            <div style="flex: 1;">
-                <div id="driver-current-plate" style="font-size: 18px; font-weight: 900; letter-spacing: 1px;">---</div>
-                <div id="driver-current-name" style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Kein Fahrzeug</div>
-            </div>
-            
-            <button onclick="toggleDebugPanel()" style="
-                background: rgba(255,255,255,0.2);
-                border: 2px solid rgba(255,255,255,0.4);
-                color: white;
-                width: 36px;
-                height: 36px;
-                border-radius: 8px;
-                font-size: 18px;
-                cursor: pointer;
-                margin: 0 8px;
-            ">⚙️</button>
-            
-            <label class="toggle-switch" style="transform: scale(0.8);">
-                <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled>
-                <span class="slider"></span>
-            </label>
+            <div id="driver-map" style="width: 100%; height: 100%;"></div>
         </div>
         
-        <!-- Fahrzeug-Auswahl (eingeklappt wenn Fahrzeug gewählt) -->
-        <div id="driver-vehicle-selector" style="padding: 12px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-            <select id="vehicle" onchange="setVehicle()" style="
-                width: 100%;
-                padding: 12px;
-                border: 2px solid #d1d5db;
+        <!-- TOP HEADER (über Karte) -->
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+            padding: 16px;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="color: white;">
+                    <div id="driver-current-plate-new" style="font-size: 20px; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">---</div>
+                    <div id="driver-current-name-new" style="font-size: 12px; opacity: 0.9; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Kein Fahrzeug</div>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button onclick="toggleDebugPanel()" style="
+                        background: rgba(255,255,255,0.3);
+                        border: 2px solid rgba(255,255,255,0.5);
+                        color: white;
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        font-size: 20px;
+                        cursor: pointer;
+                        backdrop-filter: blur(10px);
+                    ">⚙️</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- FAHRZEUG-AUSWAHL MODAL (wenn kein Fahrzeug) -->
+        <div id="driver-vehicle-selector-new" style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 100;
+            background: white;
+            display: none;
+        ">
+            <div style="padding: 24px;">
+                <div style="font-size: 24px; font-weight: 900; color: #1f2937; margin-bottom: 8px; text-align: center;">
+                    🚗 Fahrzeug wählen
+                </div>
+                <div style="font-size: 14px; color: #6b7280; margin-bottom: 24px; text-align: center;">
+                    Wähle dein Fahrzeug um loszulegen
+                </div>
+                <div id="vehicle-button-grid-new" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hidden Select für Kompatibilität -->
+        <select id="vehicle" style="display: none;">
+            <option value="">Fahrzeug wählen...</option>
+        </select>
+        
+        <!-- GPS WARNUNG -->
+        <div id="gps-warning-banner-new" style="
+            display: none;
+            position: absolute;
+            top: 80px;
+            left: 16px;
+            right: 16px;
+            z-index: 20;
+            background: #ef4444;
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        ">
+            🚨 GPS-Problem! 
+            <button onclick="location.reload()" style="
                 background: white;
+                color: #ef4444;
+                border: none;
+                padding: 8px 16px;
                 border-radius: 8px;
-                font-size: 14px;
-                font-weight: 600;
+                font-size: 13px;
+                font-weight: 700;
                 cursor: pointer;
-            ">
-                <option value="">🚗 Fahrzeug wählen...</option>
-            </select>
+                margin-left: 12px;
+            ">🔄 Neu laden</button>
         </div>
         
-        <!-- 🆕 GPS-Warnung -->
-        <div id="gps-warning-banner" style="display:none; background: #ef4444; color: white; padding: 12px; margin: 8px; border-radius: 8px; font-size: 13px; font-weight: 600;">
-            🚨 GPS-Problem! <button onclick="location.reload()" style="background: white; color: #ef4444; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; margin-left: 8px;">🔄</button>
+        <!-- AKTIVE FAHRT CARD (über Karte, aber unter Bottom Panel) -->
+        <div id="driver-active-ride-card-new" style="
+            display: none;
+            position: absolute;
+            top: 100px;
+            left: 16px;
+            right: 16px;
+            z-index: 15;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        ">
+            <!-- Wird dynamisch gefüllt -->
         </div>
         
-        <!-- HAUPT-CONTENT -->
-        <div id="driver-main-content" style="padding: 16px;">
-            
-            <!-- ━━━ AKTIVE FAHRT ━━━ -->
-            <div id="driver-active-ride-section" style="display: none;">
-                <div style="text-align: center; font-size: 14px; font-weight: 700; color: #6b7280; margin-bottom: 12px; letter-spacing: 1px;">
-                    ━━━ AKTIVE FAHRT ━━━
-                </div>
-                
-                <div id="driver-active-ride-card" style="
-                    background: white;
-                    border: 3px solid #10b981;
-                    border-radius: 16px;
+        <!-- BOTTOM PANEL (über Karte) -->
+        <div style="
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 20;
+            background: white;
+            border-radius: 24px 24px 0 0;
+            padding: 20px;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+        ">
+            <!-- GO BUTTON / ONLINE TOGGLE -->
+            <div id="driver-go-button-container" style="margin-bottom: 16px;">
+                <button id="driver-go-button" onclick="toggleOnlineNew()" style="
+                    width: 100%;
                     padding: 20px;
-                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-                    margin-bottom: 20px;
-                ">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-            </div>
-            
-            <!-- 🆕 v5.90.279: FAHRER SIEHT NUR ZUGEWIESENE FAHRTEN! -->
-            <!-- Keine "Neue Aufträge" mehr - nur was Admin zuweist! -->
-            
-            <!-- ━━━ ZUGEWIESENE FAHRTEN ━━━ -->
-            <div id="driver-assigned-rides-section" style="display: none;">
-                <div style="
+                    background: linear-gradient(135deg, #10b981, #059669);
+                    color: white;
+                    border: none;
+                    border-radius: 16px;
+                    font-size: 24px;
+                    font-weight: 900;
+                    cursor: pointer;
+                    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+                    transition: all 0.3s;
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 12px;
-                ">
-                    <div style="font-size: 14px; font-weight: 700; color: #6b7280; letter-spacing: 1px;">
-                        ━━━ DIR ZUGEWIESEN ━━━
-                    </div>
-                    <div id="assigned-rides-badge" style="
-                        background: #f59e0b;
-                        color: white;
-                        padding: 4px 12px;
-                        border-radius: 12px;
-                        font-size: 13px;
-                        font-weight: 700;
-                    ">0</div>
-                </div>
-                
-                <div id="driver-assigned-rides-list">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
+                    justify-content: center;
+                    gap: 12px;
+                " disabled>
+                    <span id="go-button-text">🚗 GO</span>
+                </button>
             </div>
             
-            <!-- ━━━ AKZEPTIERTE FAHRTEN ━━━ -->
-            <div id="driver-accepted-rides-section" style="display: none; margin-top: 20px;">
-                <div style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 12px;
-                ">
-                    <div style="font-size: 14px; font-weight: 700; color: #6b7280; letter-spacing: 1px;">
-                        ━━━ AKZEPTIERT ━━━
-                    </div>
-                    <div id="accepted-rides-badge" style="
-                        background: #10b981;
-                        color: white;
-                        padding: 4px 12px;
-                        border-radius: 12px;
-                        font-size: 13px;
-                        font-weight: 700;
-                    ">0</div>
-                </div>
-                
-                <div id="driver-accepted-rides-list">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-            </div>
-            
-            <!-- ━━━ TAGESPROGRAMM ━━━ -->
-            <div id="driver-schedule-section" style="margin-top: 20px;">
-                <div style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 12px;
-                ">
-                    <div style="font-size: 14px; font-weight: 700; color: #6b7280; letter-spacing: 1px;">
-                        ━━━ NOCH HEUTE ━━━
-                    </div>
-                    <div id="schedule-badge" style="
-                        background: #667eea;
-                        color: white;
-                        padding: 4px 12px;
-                        border-radius: 12px;
-                        font-size: 13px;
-                        font-weight: 700;
-                    ">0</div>
-                </div>
-                
-                <div id="driver-schedule-list" style="
-                    background: #f9fafb;
-                    border-radius: 12px;
-                    padding: 12px;
-                ">
-                    <div style="text-align: center; color: #9ca3af; font-size: 13px; padding: 20px;">
-                        Keine weiteren Fahrten heute
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Stats Footer -->
+            <!-- STATS -->
             <div style="
                 display: flex;
                 gap: 12px;
-                margin-top: 20px;
                 padding: 16px;
                 background: #f9fafb;
                 border-radius: 12px;
             ">
                 <div style="flex: 1; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700; color: #1f2937;"><span id="d-rides">0</span></div>
-                    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Fahrten</div>
+                    <div style="font-size: 28px; font-weight: 900; color: #1f2937;"><span id="driver-stats-rides">0</span></div>
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">FAHRTEN</div>
                 </div>
                 <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
-                    <div style="font-size: 24px; font-weight: 700; color: #10b981;"><span id="d-money">0</span>€</div>
-                    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Umsatz</div>
+                    <div style="font-size: 28px; font-weight: 900; color: #10b981;"><span id="driver-stats-money">0</span>€</div>
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">UMSATZ</div>
                 </div>
                 <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
-                    <div id="gps-status-compact" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                        <div id="gps-icon-compact" style="font-size: 20px;">❌</div>
-                        <div id="gps-text-compact" style="font-size: 11px; color: #6b7280; margin-top: 4px;">GPS Aus</div>
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                        <div id="driver-stats-gps-icon" style="font-size: 24px;">❌</div>
+                        <div id="driver-stats-gps-text" style="font-size: 10px; color: #6b7280; margin-top: 4px; font-weight: 600;">GPS AUS</div>
                     </div>
                 </div>
             </div>
@@ -13048,6 +13038,12 @@ Aktuell: ${currentNum}`;
             if (view === 'driver') {
                 if (gpsIndicator) gpsIndicator.style.display = 'flex';
                 
+                // 🆕 v5.90.295: Init Uber-Style Map!
+                setTimeout(() => {
+                    initDriverMapV295();
+                    updateDriverViewV295();
+                }, 100);
+                
                 // 🔋 Initialisiere Batterie-Spar-System
                 if (typeof PowerSaveManager !== 'undefined') {
                     setTimeout(() => PowerSaveManager.init(), 500);
@@ -13067,6 +13063,13 @@ Aktuell: ${currentNum}`;
                     }
                     // Starte GPS-Monitoring
                     startGPSMonitoring();
+                    
+                    // Update Map alle 3 Sekunden
+                    setInterval(() => {
+                        if (document.getElementById('driver-view').style.display !== 'none') {
+                            updateDriverMapV295();
+                        }
+                    }, 3000);
                 }, 500);
             } else {
                 if (gpsIndicator) gpsIndicator.style.display = 'none';
@@ -13687,6 +13690,206 @@ Aktuell: ${currentNum}`;
         }
 
         // 🆕 v5.90.268: NEUE FOKUSSIERTE DRIVER VIEW UPDATE!
+        // 🆕 v5.90.295: UBER-STYLE UPDATE FUNKTION!
+        function updateDriverViewV295() {
+            if (!currentVehicle) {
+                // Zeige Fahrzeug-Auswahl Modal
+                document.getElementById('driver-vehicle-selector-new').style.display = 'block';
+                document.getElementById('driver-go-button').disabled = true;
+                document.getElementById('driver-go-button').style.opacity = '0.5';
+                return;
+            } else {
+                document.getElementById('driver-vehicle-selector-new').style.display = 'none';
+                document.getElementById('driver-go-button').disabled = false;
+                document.getElementById('driver-go-button').style.opacity = '1';
+            }
+            
+            // Meine Fahrten filtern (nur für dieses Fahrzeug)
+            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            
+            // 🎯 AKTIVE FAHRT (on_way oder picked_up) - NUR JETZT!
+            const activeRide = myRides.find(r => 
+                r.status === 'on_way' || r.status === 'picked_up'
+            );
+            
+            // Zeige aktive Fahrt Card
+            const activeCard = document.getElementById('driver-active-ride-card-new');
+            if (activeRide) {
+                activeCard.style.display = 'block';
+                activeCard.innerHTML = renderActiveRideCardNew(activeRide);
+            } else {
+                activeCard.style.display = 'none';
+            }
+            
+            // 📊 STATISTIK
+            const today = new Date().toDateString();
+            const todayRides = myRides.filter(r => {
+                const rideDate = new Date(r.pickupTimestamp || r.timestamp).toDateString();
+                return rideDate === today && r.status === 'completed';
+            });
+            
+            const totalMoney = todayRides.reduce((sum, r) => sum + (parseFloat(r.finalPrice || r.price) || 0), 0);
+            
+            document.getElementById('driver-stats-rides').textContent = todayRides.length;
+            document.getElementById('driver-stats-money').textContent = totalMoney.toFixed(0);
+            
+            // GPS Status
+            const gpsIcon = document.getElementById('driver-stats-gps-icon');
+            const gpsText = document.getElementById('driver-stats-gps-text');
+            if (watchId) {
+                gpsIcon.textContent = '✅';
+                gpsText.textContent = 'GPS AN';
+                gpsText.style.color = '#10b981';
+            } else {
+                gpsIcon.textContent = '❌';
+                gpsText.textContent = 'GPS AUS';
+                gpsText.style.color = '#6b7280';
+            }
+        }
+        
+        // Render Active Ride Card (NEU)
+        function renderActiveRideCardNew(ride) {
+            const customerName = ride.customerName || ride.guestName || 'Kunde';
+            const customerPhone = ride.customerPhone || ride.guestPhone || '';
+            const pickup = ride.pickup || 'Unbekannt';
+            const destination = ride.destination || 'Unbekannt';
+            const time = new Date(ride.pickupTimestamp || ride.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const price = ride.finalPrice || ride.price || '?';
+            const distance = ride.distance || '?';
+            
+            const navUrl = `https://www.google.com/maps/dir/${encodeURIComponent(pickup)}/${encodeURIComponent(destination)}`;
+            
+            let actionButton = '';
+            if (ride.status === 'on_way') {
+                actionButton = `
+                    <button onclick="pickupCustomer('${ride.firebaseId || ride.id}')" style="
+                        width: 100%;
+                        padding: 18px;
+                        background: linear-gradient(135deg, #10b981, #059669);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 18px;
+                        font-weight: 900;
+                        cursor: pointer;
+                        margin-top: 16px;
+                    ">👤 KUNDE ABGEHOLT</button>
+                `;
+            } else if (ride.status === 'picked_up') {
+                actionButton = `
+                    <button onclick="completeRide('${ride.firebaseId || ride.id}')" style="
+                        width: 100%;
+                        padding: 18px;
+                        background: linear-gradient(135deg, #3b82f6, #2563eb);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 18px;
+                        font-weight: 900;
+                        cursor: pointer;
+                        margin-top: 16px;
+                    ">✓ FAHRT ABSCHLIESSEN</button>
+                `;
+            }
+            
+            return `
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="font-size: 28px; font-weight: 900; color: #1f2937;">
+                        ${customerName}
+                    </div>
+                    ${customerPhone ? `
+                        <a href="tel:${customerPhone}" style="
+                            display: inline-block;
+                            color: white;
+                            background: #10b981;
+                            text-decoration: none;
+                            font-size: 16px;
+                            font-weight: 700;
+                            padding: 12px 24px;
+                            border-radius: 12px;
+                            margin-top: 8px;
+                        ">📞 ${customerPhone}</a>
+                    ` : ''}
+                </div>
+                
+                <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ABHOLUNG</div>
+                        <div style="font-size: 15px; font-weight: 700; color: #1f2937;">📍 ${pickup}</div>
+                    </div>
+                    <div style="text-align: center; margin: 12px 0;">
+                        <div style="font-size: 20px;">↓</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ZIEL</div>
+                        <div style="font-size: 15px; font-weight: 700; color: #1f2937;">🎯 ${destination}</div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div style="flex: 1; text-align: center; background: #f9fafb; padding: 12px; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: 900; color: #10b981;">${price}€</div>
+                        <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">PREIS</div>
+                    </div>
+                    <div style="flex: 1; text-align: center; background: #f9fafb; padding: 12px; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: 900; color: #3b82f6;">${distance} km</div>
+                        <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">DISTANZ</div>
+                    </div>
+                </div>
+                
+                <a href="${navUrl}" target="_blank" style="
+                    display: block;
+                    width: 100%;
+                    padding: 18px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    font-size: 18px;
+                    font-weight: 900;
+                    text-align: center;
+                    text-decoration: none;
+                ">🗺️ NAVIGATION STARTEN</a>
+                
+                ${actionButton}
+            `;
+        }
+        
+        // Toggle Online/Offline (NEU)
+        function toggleOnlineNew() {
+            const button = document.getElementById('driver-go-button');
+            const text = document.getElementById('go-button-text');
+            
+            if (!watchId) {
+                // GO ONLINE
+                startGPSTracking();
+                button.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                text.textContent = '⏸️ OFFLINE GEHEN';
+            } else {
+                // GO OFFLINE
+                stopDriverTracking();
+                button.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                text.textContent = '🚗 GO';
+            }
+        }
+        
+        // Select Vehicle Button (NEU)
+        function selectVehicleButtonNew(vehicleId) {
+            console.log('🚗 Fahrzeug gewählt:', vehicleId);
+            
+            // Setze hidden select
+            const select = document.getElementById('vehicle');
+            if (select) {
+                select.value = vehicleId;
+            }
+            
+            // Rufe alte setVehicle auf
+            setVehicle();
+            
+            // Update View
+            updateDriverViewV295();
+        }
+        
         function updateDriverViewV268() {
             if (!currentVehicle) {
                 // Kein Fahrzeug gewählt
@@ -14080,6 +14283,9 @@ Aktuell: ${currentNum}`;
         }
 
         function updateDriverView() {
+            // 🆕 v5.90.295: Nutze UBER-STYLE View!
+            updateDriverViewV295();
+            
             // 🆕 v5.90.268: Nutze neue fokussierte View!
             updateDriverViewV268();
             
@@ -26481,17 +26687,29 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const nameEl = document.getElementById('driver-current-name');
             const statusEl = document.getElementById('driver-status-text');
             
-            if (!plateEl || !nameEl || !statusEl) return;
+            // 🆕 v5.90.295: Auch neue Elemente updaten!
+            const plateElNew = document.getElementById('driver-current-plate-new');
+            const nameElNew = document.getElementById('driver-current-name-new');
             
             if (currentVehicle && VEHICLES[currentVehicle]) {
                 const vehicle = VEHICLES[currentVehicle];
-                plateEl.textContent = vehicle.plate || '---';
-                nameEl.textContent = vehicle.name || 'Unbekannt';
-                statusEl.textContent = isOnline ? '🟢 Online & GPS aktiv' : '⚪ Offline';
+                const plate = vehicle.plate || '---';
+                const name = vehicle.name || 'Unbekannt';
+                const status = isOnline ? '🟢 Online & GPS aktiv' : '⚪ Offline';
+                
+                if (plateEl) plateEl.textContent = plate;
+                if (nameEl) nameEl.textContent = name;
+                if (statusEl) statusEl.textContent = status;
+                
+                if (plateElNew) plateElNew.textContent = plate;
+                if (nameElNew) nameElNew.textContent = name;
             } else {
-                plateEl.textContent = '---';
-                nameEl.textContent = 'Kein Fahrzeug gewählt';
-                statusEl.textContent = 'Offline';
+                if (plateEl) plateEl.textContent = '---';
+                if (nameEl) nameEl.textContent = 'Kein Fahrzeug gewählt';
+                if (statusEl) statusEl.textContent = 'Offline';
+                
+                if (plateElNew) plateElNew.textContent = '---';
+                if (nameElNew) nameElNew.textContent = 'Kein Fahrzeug';
             }
         }
 
@@ -32534,16 +32752,72 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
         }
         
+        // 🆕 v5.90.294: TESLA-BUTTON SELECT!
+        function selectVehicleButton(vehicleId) {
+            console.log('🚗 Tesla-Button geklickt:', vehicleId);
+            
+            // Setze hidden select
+            const select = document.getElementById('vehicle');
+            if (select) {
+                select.value = vehicleId;
+            }
+            
+            // Rufe setVehicle auf
+            setVehicle();
+            
+            // Update Button-Grid (neu rendern mit selected state)
+            updateVehicleDropdowns();
+        }
+        
         function updateVehicleDropdowns() {
             console.log('🔄 Update Vehicle Dropdowns, Fahrzeuge:', Object.keys(VEHICLES).length);
             
-            // 🆕 v5.90.246: FAHRER-DROPDOWN (Haupt-Select!)
+            // 🆕 v5.90.295: NEUE BUTTON-GRID für Modal!
+            const buttonGridNew = document.getElementById('vehicle-button-grid-new');
+            if (buttonGridNew) {
+                const sortedVehicles = Object.values(VEHICLES).sort((a, b) => {
+                    const prioA = a.priority || 5;
+                    const prioB = b.priority || 5;
+                    return prioA - prioB;
+                });
+                
+                buttonGridNew.innerHTML = sortedVehicles.map(v => {
+                    const icon = v.name.toLowerCase().includes('bus') || v.name.toLowerCase().includes('pax') ? '🚐' : 
+                                v.name.toLowerCase().includes('model y') ? '🚙' : 
+                                v.name.toLowerCase().includes('tesla') ? '⚡' : '🚗';
+                    return `
+                        <button onclick="selectVehicleButtonNew('${v.id}')" style="
+                            padding: 24px;
+                            background: white;
+                            color: #1f2937;
+                            border: 3px solid #e5e7eb;
+                            border-radius: 16px;
+                            font-size: 18px;
+                            font-weight: 700;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                            display: flex;
+                            align-items: center;
+                            gap: 16px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                        " onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='#10b981'" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='#e5e7eb'">
+                            <span style="font-size: 36px;">${icon}</span>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-size: 20px; font-weight: 900;">${v.plate || v.name}</div>
+                                <div style="font-size: 14px; opacity: 0.7;">${v.name}</div>
+                            </div>
+                            <span style="font-size: 24px; color: #10b981;">→</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+            
+            // Hidden Select für Kompatibilität
             const driverSelect = document.getElementById('vehicle');
             if (driverSelect) {
                 const currentValue = driverSelect.value;
                 driverSelect.innerHTML = '<option value="">Fahrzeug wählen</option>';
                 
-                // Sortiere nach Priorität (niedrigere Zahl = höhere Prio)
                 const sortedVehicles = Object.values(VEHICLES).sort((a, b) => {
                     const prioA = a.priority || 5;
                     const prioB = b.priority || 5;
@@ -32555,8 +32829,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 v.name.toLowerCase().includes('model y') ? '🚙' : '🚗';
                     driverSelect.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.plate || v.name}</option>`;
                 });
-                
-                console.log('✅ Fahrer-Dropdown aktualisiert mit', sortedVehicles.length, 'Fahrzeugen');
             }
             
             // Aktualisiere alle Fahrzeug-Dropdowns in der App
@@ -41927,8 +42199,28 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             modal.id = 'edit-customer-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100000;';
             modal.innerHTML = `
-                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;">
-                    <h3 style="margin:0 0 15px 0;">✏️ Kunde bearbeiten</h3>
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;">
+                    <!-- 🆕 v5.90.296: X-BUTTON zum Schließen! -->
+                    <button onclick="document.getElementById('edit-customer-modal').remove()" style="
+                        position: absolute;
+                        top: 16px;
+                        right: 16px;
+                        background: #ef4444;
+                        color: white;
+                        border: none;
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 50%;
+                        font-size: 20px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                        z-index: 10;
+                    ">✕</button>
+                    <h3 style="margin:0 0 15px 0;padding-right:50px;">✏️ Kunde bearbeiten</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <input type="text" id="edit-customer-name" value="${customer.name || ''}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         
@@ -44196,6 +44488,57 @@ Stack: ${err.stack}
         // ==========================================
         // DRIVER MAP FUNCTIONS
         // ==========================================
+        // 🆕 v5.90.295: UBER-STYLE DRIVER MAP!
+        let driverMapV295 = null;
+        let driverMarkerV295 = null;
+        
+        function initDriverMapV295() {
+            if (driverMapV295) return; // Schon initialisiert
+            
+            console.log('🗺️ Initialisiere Uber-Style Driver Map...');
+            
+            driverMapV295 = L.map('driver-map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([53.9547, 14.1783], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(driverMapV295);
+            
+            // Füge Zoom Controls rechts oben hinzu
+            L.control.zoom({ position: 'topright' }).addTo(driverMapV295);
+            
+            console.log('✅ Uber-Style Map initialisiert!');
+        }
+        
+        function updateDriverMapV295() {
+            if (!driverMapV295) {
+                initDriverMapV295();
+            }
+            
+            // Hole aktuelle GPS Position
+            if (!currentVehicle || !VEHICLES[currentVehicle]) return;
+            
+            const vehicle = VEHICLES[currentVehicle];
+            if (!vehicle.lat || !vehicle.lon) return;
+            
+            // Update oder Erstelle Marker
+            if (driverMarkerV295) {
+                driverMarkerV295.setLatLng([vehicle.lat, vehicle.lon]);
+            } else {
+                const icon = L.divIcon({
+                    html: '<div style="background: #10b981; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                    className: '',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+                
+                driverMarkerV295 = L.marker([vehicle.lat, vehicle.lon], { icon }).addTo(driverMapV295);
+            }
+            
+            // Zentriere Karte auf Fahrer
+            driverMapV295.setView([vehicle.lat, vehicle.lon], 15);
+        }
+        
         let driverMap = null;
         let driverMarker = null;
         let customerMarker = null;

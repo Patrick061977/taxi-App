@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.272 - ANRUFHISTORIE FIX! 📞✅ (Build 20260110-1140)');
-        console.log('📞 v5.90.272: Anrufhistorie aktualisiert nach Kunde anlegen!');
-        console.log('✅ v5.90.272: customerFound=false wird erkannt!');
-        console.log('🔄 v5.90.272: Refresh erkennt neue Kunden!');
+        console.log('🚕 Funk Taxi App v5.90.273 - MODAL CRASH FIX! 📞✅ (Build 20260110-1150)');
+        console.log('✅ v5.90.273: backdrop null check!');
+        console.log('📞 v5.90.273: Anruf-Zentrale crasht nicht mehr!');
+        console.log('🔧 v5.90.273: FIXIEST Modal-Bug behoben!');
         console.log('✅ v5.90.157: ADMINS KÖNNEN JETZT VERGANGENE TAGE IM KALENDER WÄHLEN!');
         console.log('✅ v5.90.157: Kalender-Picker blockiert Vergangenheit nicht mehr für Admins!');
         console.log('✅ v5.90.157: Vergangene Tage: Grau & kursiv (aber klickbar für Admin)!');
@@ -978,7 +978,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.272 - ANRUFHISTORIE FIX! ✅ (Build 20260110-1140)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.273 - MODAL FIX! ✅ (Build 20260110-1150)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11384,7 +11384,7 @@
         
         function toggleCallFavorites() {
             const modal = document.getElementById('call-favorites-modal');
-            const backdrop = document.getElementById('call-favorites-backdrop');
+            const backdrop = document.getElementById('call-favorites-backdrop'); // Kann null sein!
             
             if (modal.style.display === 'none' || modal.style.display === '') {
                 // 🆕 v5.90.257: LADE FAVORITEN BEIM ÖFFNEN!
@@ -11392,11 +11392,11 @@
                 loadCallFavorites();
                 
                 modal.style.display = 'block';
-                backdrop.style.display = 'block';
+                if (backdrop) backdrop.style.display = 'block'; // 🆕 v5.90.273: Nur wenn vorhanden!
                 renderCallFavorites();
             } else {
                 modal.style.display = 'none';
-                backdrop.style.display = 'none';
+                if (backdrop) backdrop.style.display = 'none'; // 🆕 v5.90.273: Nur wenn vorhanden!
             }
         }
         

@@ -108,9 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.321 - RECHNUNG BEARBEITEN FIX! 📝 (Build 20260111-1350)');
-        console.log('📝 v5.90.321: Bearbeiten lädt bestehende Rechnung!');
-        console.log('💾 v5.90.321: Positionen & Adresse aus DB!');
+        console.log('🚕 Funk Taxi App v5.90.323 - VORBESTELLUNG 1H VORLAUF! ⏰ (Build 20260111-1440)');
+        console.log('⚡ v5.90.323: Sofort = keine Beschränkung!');
+        console.log('⏰ v5.90.323: Vorbestellung = mindestens 1h Vorlauf!');
+        console.log('💡 v5.90.323: Klare Trennung zwischen Sofort & Vorbestellung!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
@@ -22081,6 +22082,41 @@ Aktuell: ${currentNum}`;
             // Slot ist frei wenn weniger Fahrten als Fahrzeuge
             return bookedCount < activeVehicleCount;
         }
+        
+        // 🆕 v5.90.322: PRÜFE OB FAHRER ONLINE SIND
+        async function checkOnlineDrivers() {
+            try {
+                const driversSnapshot = await db.ref('drivers').once('value');
+                const drivers = driversSnapshot.val() || {};
+                
+                const onlineDrivers = [];
+                const now = Date.now();
+                
+                Object.entries(drivers).forEach(([vehicleId, driver]) => {
+                    // Fahrer ist online wenn:
+                    // 1. online === true
+                    // 2. lastUpdate nicht älter als 5 Minuten
+                    const isOnline = driver.online === true;
+                    const lastUpdate = driver.lastUpdate || 0;
+                    const minutesSinceUpdate = (now - lastUpdate) / 60000;
+                    
+                    if (isOnline && minutesSinceUpdate < 5) {
+                        onlineDrivers.push({
+                            vehicleId,
+                            name: VEHICLES[vehicleId]?.name || vehicleId,
+                            lastUpdate: minutesSinceUpdate
+                        });
+                    }
+                });
+                
+                console.log('🚕 v5.90.322: Online Fahrer:', onlineDrivers);
+                return onlineDrivers;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Prüfen der Fahrer:', error);
+                return [];
+            }
+        }
 
         // 🆕 v5.90.121: ZIFFERNBLOCK FÜR TAXI BUCHEN TAB (DEAKTIVIERT in v5.90.122!)
         function openTimeKeypad() {
@@ -22145,14 +22181,24 @@ Aktuell: ${currentNum}`;
             let rideStatus = 'new';
             const now = new Date();
             
-            // 🚫 v5.90.112: SOFORT-BUCHUNG DEAKTIVIERT!
+            // 🆕 v5.90.322: SOFORT-BUCHUNG WIEDER AKTIVIERT!
             if (currentRideType === 'sofort' || !currentRideType) {
-                alert(
-                    '⏰ Nur Vorbestellung mit 1 Stunde Vorlauf möglich!\n\n' +
-                    '📞 Für kurzfristige Fahrten bitte anrufen:\n' +
-                    '03837822022'
-                );
-                return;
+                // Prüfe ob Fahrer online sind
+                const onlineDrivers = await checkOnlineDrivers();
+                
+                if (onlineDrivers.length === 0) {
+                    alert(
+                        '⏰ Aktuell kein Taxi verfügbar!\n\n' +
+                        'Bitte Vorbestellung nutzen oder anrufen:\n' +
+                        '📞 03837822022'
+                    );
+                    return;
+                }
+                
+                // SOFORT-Buchung OK!
+                pickupTime = 'Sofort';
+                pickupTimestamp = Date.now() + 5 * 60000; // +5 Min Puffer
+                rideStatus = 'new';
             }
             
             if (currentRideType === 'vorbestellen') {
@@ -22182,8 +22228,27 @@ Aktuell: ${currentNum}`;
                 
                 pickupTimestamp = selectedDate.getTime();
                 
-                // 🆕 v5.90.116: 1-Stunde-Regel ENTFERNT! Vorbestellung ohne Zeitbeschränkung!
-                // Kunden können jederzeit vorbestellen
+                // 🆕 v5.90.323: VORBESTELLUNG BRAUCHT MINDESTENS 1 STUNDE VORLAUF!
+                const nowTime = Date.now();
+                const minTime = nowTime + (60 * 60 * 1000); // +1 Stunde
+                
+                if (pickupTimestamp < minTime) {
+                    const minDate = new Date(minTime);
+                    const minTimeStr = minDate.toLocaleString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    alert(
+                        '⏰ Vorbestellung braucht mindestens 1 Stunde Vorlauf!\n\n' +
+                        `Früheste mögliche Zeit: ${minTimeStr}\n\n` +
+                        '💡 Für sofortige Fahrten nutze "SOFORT"'
+                    );
+                    return;
+                }
                 
                 // 🐛 DEBUG: Zeige was gespeichert wird
                 console.log('📅 VORBESTELLUNG - Eingabe:', {

@@ -108,9 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.320 - RECHNUNG ERSTELLEN BUTTON! 📄 (Build 20260111-1340)');
-        console.log('📄 v5.90.320: Rechnung erstellen OHNE WhatsApp-Zwang!');
-        console.log('📱 v5.90.320: 2 Buttons: Erstellen + WhatsApp!');
+        console.log('🚕 Funk Taxi App v5.90.321 - RECHNUNG BEARBEITEN FIX! 📝 (Build 20260111-1350)');
+        console.log('📝 v5.90.321: Bearbeiten lädt bestehende Rechnung!');
+        console.log('💾 v5.90.321: Positionen & Adresse aus DB!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
@@ -38320,8 +38320,23 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 invoiceRideData = ride;
                 invoiceCustomerData = customer;
                 
+                // 🆕 v5.90.321: WENN RECHNUNG EXISTIERT → LADE SIE!
+                let existingInvoice = null;
+                if (ride.invoiceNumber) {
+                    console.log('📄 v5.90.321: Lade bestehende Rechnung:', ride.invoiceNumber);
+                    const invoiceSnapshot = await db.ref(`invoices/${ride.invoiceNumber}`).once('value');
+                    existingInvoice = invoiceSnapshot.val();
+                    
+                    if (existingInvoice) {
+                        console.log('✅ v5.90.321: Rechnung geladen!', existingInvoice);
+                    }
+                }
+                
                 // 🆕 v5.52.5: Initialisiere Rechnungsadresse
-                if (customer?.billingAddresses && customer.billingAddresses.length > 0) {
+                if (existingInvoice && existingInvoice.customerAddress) {
+                    // 🆕 v5.90.321: Nutze Adresse aus Rechnung!
+                    invoiceSelectedBillingAddress = existingInvoice.customerAddress;
+                } else if (customer?.billingAddresses && customer.billingAddresses.length > 0) {
                     const defaultAddr = customer.billingAddresses.find(a => a.isDefault) || customer.billingAddresses[0];
                     invoiceSelectedBillingAddress = defaultAddr.address;
                 } else if (customer?.billingAddress) {
@@ -38333,19 +38348,31 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     invoiceSelectedBillingAddress = '';
                 }
                 
-                // 🆕 v5.90.306: Initialisiere Positionen mit Hauptfahrt + MwSt
-                const distance = parseFloat(ride.distance) || 0;
-                const vatRate = distance < 50 ? 7 : 19;
-                const grossPrice = parseFloat(ride.price) || 0;
-                
-                invoicePositions = [
-                    {
-                        id: 1,
-                        description: 'Taxifahrt',
-                        amount: grossPrice,
-                        vatRate: vatRate // 🆕 v5.90.306: MwSt basierend auf Distanz
-                    }
-                ];
+                // 🆕 v5.90.321: Initialisiere Positionen
+                if (existingInvoice && existingInvoice.positions && existingInvoice.positions.length > 0) {
+                    // Nutze bestehende Positionen!
+                    console.log('✅ v5.90.321: Nutze bestehende Positionen:', existingInvoice.positions);
+                    invoicePositions = existingInvoice.positions.map((pos, idx) => ({
+                        id: idx + 1,
+                        description: pos.description || 'Position',
+                        amount: parseFloat(pos.amount) || 0,
+                        vatRate: parseFloat(pos.vatRate) || 7
+                    }));
+                } else {
+                    // Neue Rechnung: v5.90.306: Initialisiere Positionen mit Hauptfahrt + MwSt
+                    const distance = parseFloat(ride.distance) || 0;
+                    const vatRate = distance < 50 ? 7 : 19;
+                    const grossPrice = parseFloat(ride.price) || 0;
+                    
+                    invoicePositions = [
+                        {
+                            id: 1,
+                            description: 'Taxifahrt',
+                            amount: grossPrice,
+                            vatRate: vatRate // 🆕 v5.90.306: MwSt basierend auf Distanz
+                        }
+                    ];
+                }
                 
                 // 🆕 v5.87.90: NEUES FLEXIBLES RECHNUNGS-MODAL
                 const customerName = ride.customerName || customer?.name || 'Unbekannt';

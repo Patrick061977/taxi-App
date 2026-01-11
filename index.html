@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.323 - VORBESTELLUNG 1H VORLAUF! ⏰ (Build 20260111-1440)');
-        console.log('⚡ v5.90.323: Sofort = keine Beschränkung!');
-        console.log('⏰ v5.90.323: Vorbestellung = mindestens 1h Vorlauf!');
-        console.log('💡 v5.90.323: Klare Trennung zwischen Sofort & Vorbestellung!');
+        console.log('🚕 Funk Taxi App v5.90.325 - DRIVER-CHECK UNIFIED! 🔧 (Build 20260111-1450)');
+        console.log('🔧 v5.90.325: checkOnlineDrivers nutzt TIMESTAMP statt lastUpdate!');
+        console.log('🔧 v5.90.325: Gleicher Check wie showAvailableTaxis!');
+        console.log('✅ v5.90.325: Sofort-Buchung sollte jetzt funktionieren!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
@@ -22093,14 +22093,22 @@ Aktuell: ${currentNum}`;
                 const now = Date.now();
                 
                 Object.entries(drivers).forEach(([vehicleId, driver]) => {
+                    // 🆕 v5.90.325: NUTZE TIMESTAMP WIE showAvailableTaxis!
                     // Fahrer ist online wenn:
                     // 1. online === true
-                    // 2. lastUpdate nicht älter als 5 Minuten
+                    // 2. timestamp existiert
+                    // 3. timestamp nicht älter als 20 Minuten (tolerant!)
                     const isOnline = driver.online === true;
-                    const lastUpdate = driver.lastUpdate || 0;
-                    const minutesSinceUpdate = (now - lastUpdate) / 60000;
+                    const timestamp = driver.timestamp || driver.lastUpdate || 0;
+                    const minutesSinceUpdate = (now - timestamp) / 60000;
                     
-                    if (isOnline && minutesSinceUpdate < 5) {
+                    console.log(`🔍 v5.90.325: Prüfe ${vehicleId}:`, {
+                        online: isOnline,
+                        timestamp: timestamp,
+                        minutesSince: minutesSinceUpdate.toFixed(1)
+                    });
+                    
+                    if (isOnline && timestamp && minutesSinceUpdate < 20) {
                         onlineDrivers.push({
                             vehicleId,
                             name: VEHICLES[vehicleId]?.name || vehicleId,
@@ -22109,7 +22117,7 @@ Aktuell: ${currentNum}`;
                     }
                 });
                 
-                console.log('🚕 v5.90.322: Online Fahrer:', onlineDrivers);
+                console.log('🚕 v5.90.325: Online Fahrer:', onlineDrivers);
                 return onlineDrivers;
                 
             } catch (error) {

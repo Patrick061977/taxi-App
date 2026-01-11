@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.317 - ONLINE-TOGGLE + WAKELOCK FIX! 🔘⚡ (Build 20260111-1310)');
-        console.log('🔘 v5.90.317: Online-Toggle im ISARFUNK-Header eingefügt!');
-        console.log('⚡ v5.90.317: WakeLock Check alle 5 Sek (vorher 30)!');
-        console.log('📱 v5.90.317: Bildschirm bleibt AN!');
+        console.log('🚕 Funk Taxi App v5.90.319 - GPS-STATUS FÜR FAHRER! 🟢🔴 (Build 20260111-1330)');
+        console.log('🟢 v5.90.319: GPS Status = GPS an/aus (KEIN Standby!)');
+        console.log('🔘 v5.90.319: Toggle mit AN/AUS Label!');
+        console.log('⚠️ v5.90.319: Hinweis wenn GPS aus!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
@@ -2632,20 +2632,23 @@
                     cursor: pointer;
                 ">☰ Quick</button>
                 
-                <!-- Mitte: GPS Status -->
-                <div style="text-align: center; flex: 1;">
-                    <div id="driver-gps-status-isarfunk" style="font-size: 11px; font-weight: 600;">
-                        <!-- 🆕 v5.90.310: Detaillierter GPS-Status -->
+                <!-- Mitte: GPS Status + Toggle -->
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center;">
+                    <!-- GPS Status -->
+                    <div id="driver-gps-status-isarfunk" style="font-size: 12px; font-weight: 600;">
                         <span id="driver-gps-icon">🔴</span>
                         <span id="driver-gps-text">GPS aus</span>
                     </div>
+                    
+                    <!-- 🆕 v5.90.319: TOGGLE MIT LABEL! -->
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <label class="toggle-switch" style="transform: scale(0.7);">
+                            <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="toggle-label" style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.8);">AUS</span>
+                    </div>
                 </div>
-                
-                <!-- 🆕 v5.90.317: ONLINE-TOGGLE! -->
-                <label class="toggle-switch" style="transform: scale(0.7);">
-                    <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
-                    <span class="slider"></span>
-                </label>
                 
                 <!-- User-Menü Rechts -->
                 <button onclick="toggleDebugPanel()" style="
@@ -2690,6 +2693,23 @@
                 <div style="font-size: 48px; margin-bottom: 12px;">🚕</div>
                 <div style="font-size: 16px; font-weight: 700; color: #6b7280;">Bereit für Aufträge</div>
                 <div style="font-size: 13px; margin-top: 8px; color: #9ca3af;">Warten auf Vermittlung...</div>
+                
+                <!-- 🆕 v5.90.319: HINWEIS WENN GPS AUS! -->
+                <div id="gps-hint" style="
+                    display: none;
+                    margin-top: 16px;
+                    padding: 12px;
+                    background: #fef3c7;
+                    border: 2px solid #f59e0b;
+                    border-radius: 8px;
+                ">
+                    <div style="font-size: 14px; font-weight: 700; color: #92400e; margin-bottom: 4px;">
+                        ⚠️ GPS ist ausgeschaltet!
+                    </div>
+                    <div style="font-size: 12px; color: #78350f;">
+                        Schalte GPS an um Aufträge zu empfangen
+                    </div>
+                </div>
             </div>
             
             <!-- STATISTIK -->
@@ -13708,8 +13728,12 @@ Aktuell: ${currentNum}`;
             
             // Show/Hide Map vs Ready State
             if (current) {
-                document.getElementById('driver-route-info').style.display = 'block';
-                document.getElementById('driver-ready').style.display = 'none';
+                // 🆕 v5.90.318: NULL-CHECK!
+                const routeInfo = document.getElementById('driver-route-info');
+                const driverReady = document.getElementById('driver-ready');
+                
+                if (routeInfo) routeInfo.style.display = 'block';
+                if (driverReady) driverReady.style.display = 'none';
                 
                 // Fahrt Info im Bottom Panel - mit Zeitstempel
                 let rideInfo = '';
@@ -13853,8 +13877,12 @@ Aktuell: ${currentNum}`;
                 actionsDiv.style.display = 'block';
                 
             } else {
-                document.getElementById('driver-route-info').style.display = 'none';
-                document.getElementById('driver-ready').style.display = 'block';
+                // 🆕 v5.90.318: NULL-CHECK!
+                const routeInfo = document.getElementById('driver-route-info');
+                const driverReady = document.getElementById('driver-ready');
+                
+                if (routeInfo) routeInfo.style.display = 'none';
+                if (driverReady) driverReady.style.display = 'block';
                 
                 // 🆕 v5.90.261: Zeige Fahrten-Liste statt "Bereit"
                 if (currentVehicle && typeof loadDriverRides === 'function') {
@@ -26025,6 +26053,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const gpsDot = document.getElementById('gps-dot');
             const gpsStatus = document.getElementById('gps-status');
             
+            // 🆕 v5.90.319: ISARFUNK GPS-STATUS!
+            const gpsIcon = document.getElementById('driver-gps-icon');
+            const gpsText = document.getElementById('driver-gps-text');
+            const toggleLabel = document.getElementById('toggle-label');
+            const gpsHint = document.getElementById('gps-hint');
+            
             if (isOnline) {
                 if (gpsIndicator) gpsIndicator.style.display = 'flex';
                 if (gpsDot) {
@@ -26032,6 +26066,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     gpsDot.classList.add('online');
                 }
                 if (gpsStatus) gpsStatus.textContent = '📍 GPS On';
+                
+                // 🆕 v5.90.319: ISARFUNK Status = GPS AN!
+                if (gpsIcon) gpsIcon.textContent = '🟢';
+                if (gpsText) gpsText.textContent = 'GPS an';
+                if (toggleLabel) toggleLabel.textContent = 'AN';
+                if (gpsHint) gpsHint.style.display = 'none'; // Hinweis verstecken
+                
                 requestWakeLock();
             } else {
                 if (gpsDot) {
@@ -26039,6 +26080,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     gpsDot.classList.remove('online');
                 }
                 if (gpsStatus) gpsStatus.textContent = '📍 GPS Off';
+                
+                // 🆕 v5.90.319: ISARFUNK Status = GPS AUS!
+                if (gpsIcon) gpsIcon.textContent = '🔴';
+                if (gpsText) gpsText.textContent = 'GPS aus';
+                if (toggleLabel) toggleLabel.textContent = 'AUS';
+                if (gpsHint) gpsHint.style.display = 'block'; // Hinweis zeigen!
+                
                 releaseWakeLock();
             }
             
@@ -26534,6 +26582,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 iconSpan.textContent = '📡';
                 textSpan.textContent = 'Standby';
             }
+            
+            // 🆕 v5.90.319: ISARFUNK GPS-Status bleibt "GPS an" (kein Standby!)
+            const gpsIcon = document.getElementById('driver-gps-icon');
+            const gpsText = document.getElementById('driver-gps-text');
+            if (gpsIcon) gpsIcon.textContent = '🟢';
+            if (gpsText) gpsText.textContent = 'GPS an';
             
             // 📜 PROTOKOLL
             const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
@@ -31020,8 +31074,20 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         return false;
                     }
                     
-                    // Alle Status außer completed
-                    return r.status !== 'completed';
+                    // 🆕 v5.90.318: Keine abgeschlossenen/stornierten Fahrten!
+                    if (r.status === 'completed' || r.status === 'cancelled') {
+                        console.log(`✅ v5.90.318: Abgeschlossene Fahrt ausgeblendet: ${r.customerName || 'Unbekannt'}`);
+                        return false;
+                    }
+                    
+                    // 🆕 v5.90.318: Keine VERGANGENEN Fahrten (älter als jetzt - 5 Min)!
+                    const now = Date.now();
+                    if (rideTime < (now - 5 * 60 * 1000)) {
+                        console.log(`⏰ v5.90.318: Vergangene Fahrt ausgeblendet: ${r.customerName || 'Unbekannt'} (${new Date(rideTime).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})})`);
+                        return false;
+                    }
+                    
+                    return true;
                 })
                 .sort((a, b) => {
                     const timeA = a.pickupTimestamp || a.timestamp || 0;
@@ -31504,11 +31570,19 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             if (!panel || !list) return;
             
-            // Filtere: Alle Fahrten außer current, completed, cancelled
+            // Filtere: Alle Fahrten außer current, completed, cancelled, vergangene
+            const now = Date.now();
             const upcomingRides = myRides
                 .filter(r => {
                     if (r === currentRide) return false;
                     if (r.status === 'completed' || r.status === 'cancelled') return false;
+                    
+                    // 🆕 v5.90.318: Keine VERGANGENEN Fahrten!
+                    const rideTime = r.pickupTimestamp || r.timestamp || 0;
+                    if (rideTime < (now - 5 * 60 * 1000)) {
+                        return false;
+                    }
+                    
                     return true;
                 })
                 .sort((a, b) => {
@@ -45021,8 +45095,12 @@ Stack: ${err.stack}
             updateDriverInfoTop(ride);
             
             // Verstecke Ready-State, Zeige Info-Container
-            document.getElementById('driver-ready').style.display = 'none';
-            document.getElementById('driver-route-info').style.display = 'block';
+            // 🆕 v5.90.318: NULL-CHECK!
+            const driverReady2 = document.getElementById('driver-ready');
+            const routeInfo2 = document.getElementById('driver-route-info');
+            
+            if (driverReady2) driverReady2.style.display = 'none';
+            if (routeInfo2) routeInfo2.style.display = 'block';
             
             // ❌ KEINE KARTE! Nur Info-Anzeige
         }
@@ -45215,8 +45293,12 @@ Stack: ${err.stack}
             }
             
             // Verstecke Container, Zeige Ready
-            document.getElementById('driver-route-info').style.display = 'none';
-            document.getElementById('driver-ready').style.display = 'block';
+            // 🆕 v5.90.318: NULL-CHECK!
+            const routeInfo3 = document.getElementById('driver-route-info');
+            const driverReady3 = document.getElementById('driver-ready');
+            
+            if (routeInfo3) routeInfo3.style.display = 'none';
+            if (driverReady3) driverReady3.style.display = 'block';
         }
 
         function openGoogleMapsNavigation(rideId, destination) {

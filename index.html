@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.331 - CRITICAL FIX! 🚨 (Build 20260111-1610)');
+        console.log('🚕 Funk Taxi App v5.90.332 - DEBOUNCE FIX! ⏱️ (Build 20260111-1620)');
+        console.log('⏱️ v5.90.332: loadDriverRides DEBOUNCED (300ms)!');
+        console.log('🛡️ v5.90.332: Verhindert Endlosschleife im Fahrer-View!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
-        console.log('✅ v5.90.331: Endlosschleife gestoppt!');
-        console.log('🔍 v5.90.330: Detailliertes Debug-Logging!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
         console.log('📋 v5.90.327: updateCustomerCRM Funktion hinzugefügt!');
         console.log('🔧 v5.90.325: Gleicher Check wie showAvailableTaxis!');
@@ -1004,7 +1004,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.331 - CRITICAL FIX! 🚨 (Build 20260111-1610)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.332 - DEBOUNCE! ⏱️ (Build 20260111-1620)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -26442,94 +26442,113 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
 
         // 🆕 v5.90.261: LADE FAHRTEN FÜR AKTUELLEN FAHRER
+        let loadDriverRidesTimeout = null;
         async function loadDriverRides() {
-            if (!currentVehicle) {
-                console.log('⚠️ Kein Fahrzeug gewählt');
-                document.getElementById('driver-no-rides').style.display = 'block';
-                document.getElementById('driver-rides-list').innerHTML = '';
-                return;
+            // 🆕 v5.90.332: DEBOUNCE! Verhindere Spam-Calls!
+            if (loadDriverRidesTimeout) {
+                clearTimeout(loadDriverRidesTimeout);
             }
             
-            console.log('📋 Lade Fahrten für Fahrzeug:', currentVehicle);
-            
-            try {
-                const today = new Date().toISOString().split('T')[0];
-                
-                // 🆕 v5.90.262: Lade ALLE Fahrten und filtere dann (wegen Legacy-IDs)
-                const snapshot = await db.ref('rides').once('value');
-                const allRides = snapshot.val();
-                
-                if (!allRides) {
-                    document.getElementById('driver-no-rides').style.display = 'block';
-                    document.getElementById('driver-rides-list').innerHTML = '';
+            loadDriverRidesTimeout = setTimeout(async () => {
+                if (!currentVehicle) {
+                    console.log('⚠️ Kein Fahrzeug gewählt');
+                    const noRidesEl = document.getElementById('driver-no-rides');
+                    const ridesListEl = document.getElementById('driver-rides-list');
+                    if (noRidesEl) noRidesEl.style.display = 'block';
+                    if (ridesListEl) ridesListEl.innerHTML = '';
                     return;
                 }
                 
-                // Finde aktuelles Fahrzeug
-                const vehicle = findVehicle(currentVehicle);
-                if (!vehicle) {
-                    console.error('❌ Fahrzeug nicht gefunden:', currentVehicle);
-                    document.getElementById('driver-no-rides').style.display = 'block';
-                    document.getElementById('driver-rides-list').innerHTML = '';
-                    return;
-                }
+                console.log('📋 v5.90.332: Lade Fahrten für Fahrzeug:', currentVehicle);
                 
-                // Mögliche IDs für dieses Fahrzeug
-                const possibleIds = [vehicle.id];
-                if (vehicle.legacyId) possibleIds.push(vehicle.legacyId);
-                if (vehicle.plate) possibleIds.push(normalizeVehicleId(vehicle.plate));
-                
-                console.log('🔍 Suche Fahrten für IDs:', possibleIds);
-                
-                // Filtere Fahrten
-                const now = Date.now();
-                const todayRides = Object.entries(allRides)
-                    .map(([id, ride]) => ({ id, ...ride }))
-                    .filter(ride => {
-                        // Muss heute sein
-                        const rideDate = new Date(ride.timestamp).toISOString().split('T')[0];
-                        if (rideDate !== today) return false;
-                        
-                        // 🆕 v5.90.279: NUR ZUGEWIESENE FAHRTEN!
-                        // Fahrer sieht NUR Fahrten die ihm explizit zugewiesen wurden!
-                        // NICHT "new" ohne vehicleId!
-                        if (!ride.vehicleId) return false; // ← WICHTIG!
-                        
-                        // Muss MEIN Fahrzeug sein
-                        if (!possibleIds.includes(ride.vehicleId)) return false;
-                        
-                        // Status Check
-                        // assigned = Dir zugewiesen, warte auf Annahme → ZEIGEN (gelb)
-                        // accepted = Du hast angenommen, fahr los! → ZEIGEN (grün)
-                        // picked_up = Kunde drin → ZEIGEN (blau)
-                        // on_way = Unterwegs → ZEIGEN
-                        const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
-                        if (!validStatuses.includes(ride.status)) return false;
-                        
-                        // 🆕 v5.90.305: BEI "assigned" → NUR < 30 MIN ZEIGEN!
-                        if (ride.status === 'assigned') {
-                            const pickupTime = ride.pickupTimestamp || ride.timestamp;
-                            const minutesUntil = (pickupTime - now) / 60000;
+                try {
+                    const today = new Date().toISOString().split('T')[0];
+                    
+                    // 🆕 v5.90.262: Lade ALLE Fahrten und filtere dann (wegen Legacy-IDs)
+                    const snapshot = await db.ref('rides').once('value');
+                    const allRides = snapshot.val();
+                    
+                    if (!allRides) {
+                        const noRidesEl = document.getElementById('driver-no-rides');
+                        const ridesListEl = document.getElementById('driver-rides-list');
+                        if (noRidesEl) noRidesEl.style.display = 'block';
+                        if (ridesListEl) ridesListEl.innerHTML = '';
+                        return;
+                    }
+                    
+                    // Finde aktuelles Fahrzeug
+                    const vehicle = findVehicle(currentVehicle);
+                    if (!vehicle) {
+                        console.error('❌ Fahrzeug nicht gefunden:', currentVehicle);
+                        const noRidesEl = document.getElementById('driver-no-rides');
+                        const ridesListEl = document.getElementById('driver-rides-list');
+                        if (noRidesEl) noRidesEl.style.display = 'block';
+                        if (ridesListEl) ridesListEl.innerHTML = '';
+                        return;
+                    }
+                    
+                    // Mögliche IDs für dieses Fahrzeug
+                    const possibleIds = [vehicle.id];
+                    if (vehicle.legacyId) possibleIds.push(vehicle.legacyId);
+                    if (vehicle.plate) possibleIds.push(normalizeVehicleId(vehicle.plate));
+                    
+                    console.log('🔍 Suche Fahrten für IDs:', possibleIds);
+                    
+                    // Filtere Fahrten
+                    const now = Date.now();
+                    const todayRides = Object.entries(allRides)
+                        .map(([id, ride]) => ({ id, ...ride }))
+                        .filter(ride => {
+                            // Muss heute sein
+                            const rideDate = new Date(ride.timestamp).toISOString().split('T')[0];
+                            if (rideDate !== today) return false;
                             
-                            if (minutesUntil > 30) {
-                                // Zu weit weg → NICHT anzeigen!
-                                console.log(`⏰ Fahrt ${ride.id} noch ${Math.round(minutesUntil)} Min entfernt - blende aus`);
-                                return false;
+                            // 🆕 v5.90.279: NUR ZUGEWIESENE FAHRTEN!
+                            // Fahrer sieht NUR Fahrten die ihm explizit zugewiesen wurden!
+                            // NICHT "new" ohne vehicleId!
+                            if (!ride.vehicleId) return false; // ← WICHTIG!
+                            
+                            // Muss MEIN Fahrzeug sein
+                            if (!possibleIds.includes(ride.vehicleId)) return false;
+                            
+                            // Status Check
+                            // assigned = Dir zugewiesen, warte auf Annahme → ZEIGEN (gelb)
+                            // accepted = Du hast angenommen, fahr los! → ZEIGEN (grün)
+                            // picked_up = Kunde drin → ZEIGEN (blau)
+                            // on_way = Unterwegs → ZEIGEN
+                            const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
+                            if (!validStatuses.includes(ride.status)) return false;
+                            
+                            // 🆕 v5.90.305: BEI "assigned" → NUR < 30 MIN ZEIGEN!
+                            if (ride.status === 'assigned') {
+                                const pickupTime = ride.pickupTimestamp || ride.timestamp;
+                                const minutesUntil = (pickupTime - now) / 60000;
+                                
+                                if (minutesUntil > 30) {
+                                    // Zu weit weg → NICHT anzeigen!
+                                    console.log(`⏰ Fahrt ${ride.id} noch ${Math.round(minutesUntil)} Min entfernt - blende aus`);
+                                    return false;
+                                }
+                                
+                                console.log(`✅ Fahrt ${ride.id} in ${Math.round(minutesUntil)} Min - zeige an`);
                             }
                             
-                            console.log(`✅ Fahrt ${ride.id} in ${Math.round(minutesUntil)} Min - zeige an`);
-                        }
-                        
-                        return true;
-                    })
-                    .sort((a, b) => a.timestamp - b.timestamp);
-                
-                console.log('✅ Gefilterte Fahrten:', todayRides.length);
-                renderDriverRides(todayRides);
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Laden der Fahrten:', error);
-            }
+                            return true;
+                        })
+                        .sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    console.log('✅ Gefilterte Fahrten:', todayRides.length);
+                    renderDriverRides(todayRides);
+                    
+                } catch (error) {
+                    console.error('❌ v5.90.332: Fehler beim Laden der Fahrten:', error);
+                    console.error('❌ v5.90.332: Error Details:', {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
+                    });
+                }
+            }, 300); // 300ms Debounce!
         }
         
         // 🆕 v5.90.261: RENDERE FAHRER-FAHRTEN

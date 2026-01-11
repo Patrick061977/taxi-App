@@ -108,7 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.335 - KALENDER FIX! 📅 (Build 20260111-1810)');
+        console.log('🚕 Funk Taxi App v5.90.336 - FAHRPLAN FIX! 🚌 (Build 20260111-1925)');
+        console.log('🚌 v5.90.336: Fahrplan (Schedule) lädt jetzt automatisch!');
+        console.log('🔧 v5.90.336: FIX - war "calendar", jetzt "schedule"!');
         console.log('📅 v5.90.335: Tracking-Link wird im Kalender wieder erstellt!');
         console.log('✅ v5.90.335: saveEditedRide() erstellt Link + sendet SMS!');
         console.log('🔗 v5.90.334: Tracking-Link wird bei acceptRide() erstellt!');
@@ -12029,6 +12031,19 @@ Aktuell: ${currentNum}`;
             }
             
             // 🆕 v5.32.6: Fahrplan laden bei Schedule-Tab
+            // 🔧 v5.90.336: FIX - war "calendar", muss "schedule" sein!
+            if (view === 'schedule') {
+                console.log('🚌 Schedule-View geöffnet - lade Fahrplan...');
+                setTimeout(() => {
+                    if (typeof loadSchedule === 'function') {
+                        loadSchedule();
+                    } else {
+                        console.error('❌ loadSchedule() Funktion nicht gefunden!');
+                    }
+                }, 100);
+            }
+            
+            // Kalender separat behandeln
             if (view === 'calendar') {
                 // 🆕 v5.90.278: SPRINGE ZUM HEUTIGEN TAG!
                 currentCalendarDate = new Date(); // Setze auf heute

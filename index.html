@@ -108,10 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.328 - VERMITTLUNG FIX! 🎯 (Build 20260111-1515)');
+        console.log('🚕 Funk Taxi App v5.90.329 - FAHRGAST LIVE-STATUS! 📱🗺️ (Build 20260111-1545)');
+        console.log('📱 v5.90.329: 5-Phasen Live-Tracking für Fahrgäste!');
+        console.log('🗺️ v5.90.329: Live-Karte zeigt Taxi in Echtzeit!');
+        console.log('🔄 v5.90.329: Firebase Listener für automatische Updates!');
+        console.log('✅ v5.90.329: Auto-Reset nach Fahrt-Ende!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
-        console.log('🚗 v5.90.328: Fahrer sehen zugewiesene Fahrten!');
-        console.log('✅ v5.90.328: Vermittlung funktioniert jetzt!');
         console.log('📋 v5.90.327: updateCustomerCRM Funktion hinzugefügt!');
         console.log('🔧 v5.90.325: Gleicher Check wie showAvailableTaxis!');
         console.log('✅ v5.90.325: Sofort-Buchung sollte jetzt funktionieren!');
@@ -44652,6 +44654,564 @@ Stack: ${err.stack}
         }
 
         // RIDE STATUS & TRACKING
+        // 🆕 v5.90.329: KOMPLETTES 5-PHASEN TRACKING FÜR FAHRGÄSTE!
+        let rideStatusListener = null; // Firebase Listener für Live-Updates
+        let rideTrackingMap = null; // Karte für Live-Tracking
+        let taxiMarkerTracking = null; // Taxi-Marker
+        let customerMarkerTracking = null; // Kunden-Marker
+        let trackingUpdateInterval = null; // Update-Interval
+        
+        function showRideStatus(ride) {
+            console.log('🔍 v5.90.329: showRideStatus für Status:', ride.status);
+            
+            const container = document.getElementById('ride-status-container');
+            
+            // 🔄 AKTIVIERE FIREBASE LISTENER für Live-Updates!
+            startRideStatusListener(ride.firebaseId);
+            
+            // 📅 CHECK: Ist die Fahrt in der Zukunft?
+            const now = Date.now();
+            const isFutureRide = ride.pickupTimestamp && ride.pickupTimestamp > now + (30 * 60000);
+            
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 0: VORBESTELLUNG (Zukunft)
+            // ═══════════════════════════════════════════════════════════
+            if (ride.status === 'vorbestellt' || (ride.status === 'new' && isFutureRide)) {
+                showPhasePrebooked(ride, container);
+                return;
+            }
+            
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 1: SUCHE FAHRER (new / assigned ohne Fahrer)
+            // ═══════════════════════════════════════════════════════════
+            if (ride.status === 'new' || (ride.status === 'assigned' && !ride.vehicleId)) {
+                showPhaseSearching(ride, container);
+                return;
+            }
+            
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 2: FAHRER GEFUNDEN (assigned mit vehicleId oder accepted)
+            // ═══════════════════════════════════════════════════════════
+            if ((ride.status === 'assigned' && ride.vehicleId) || ride.status === 'accepted') {
+                showPhaseDriverAssigned(ride, container);
+                return;
+            }
+            
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 3: FAHRER UNTERWEGS (on_way)
+            // ═══════════════════════════════════════════════════════════
+            if (ride.status === 'on_way') {
+                showPhaseDriverComing(ride, container);
+                return;
+            }
+            
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 4: FAHRT LÄUFT (picked_up)
+            // ═══════════════════════════════════════════════════════════
+            if (ride.status === 'picked_up') {
+                showPhaseDriving(ride, container);
+                return;
+            }
+            
+            // ═══════════════════════════════════════════════════════════
+            // PHASE 5: FERTIG (completed)
+            // ═══════════════════════════════════════════════════════════
+            if (ride.status === 'completed') {
+                showPhaseCompleted(ride, container);
+                return;
+            }
+        }
+        
+        // 🔄 FIREBASE LISTENER für Live-Updates
+        function startRideStatusListener(rideId) {
+            // Stoppe alten Listener
+            if (rideStatusListener) {
+                rideStatusListener.off();
+            }
+            
+            console.log('🔄 v5.90.329: Starte Live-Listener für Fahrt:', rideId);
+            
+            // Höre auf Änderungen
+            rideStatusListener = db.ref(`rides/${rideId}`);
+            rideStatusListener.on('value', (snapshot) => {
+                const ride = snapshot.val();
+                if (!ride) {
+                    console.log('⚠️ Fahrt nicht mehr in DB');
+                    return;
+                }
+                
+                ride.firebaseId = rideId; // Wichtig für andere Funktionen
+                
+                console.log('🔄 Status Update empfangen:', ride.status);
+                
+                // Update die Ansicht basierend auf neuem Status
+                showRideStatus(ride);
+            });
+        }
+        
+        // 🛑 STOPPE LISTENER
+        function stopRideStatusListener() {
+            if (rideStatusListener) {
+                rideStatusListener.off();
+                rideStatusListener = null;
+                console.log('🛑 Live-Listener gestoppt');
+            }
+            
+            // Stoppe Update-Interval
+            if (trackingUpdateInterval) {
+                clearInterval(trackingUpdateInterval);
+                trackingUpdateInterval = null;
+            }
+            
+            // Entferne Karte
+            if (rideTrackingMap) {
+                rideTrackingMap.remove();
+                rideTrackingMap = null;
+                taxiMarkerTracking = null;
+                customerMarkerTracking = null;
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PHASE 0: VORBESTELLUNG
+        // ═══════════════════════════════════════════════════════════
+        function showPhasePrebooked(ride, container) {
+            const pickupDate = new Date(ride.pickupTimestamp);
+            const formattedDate = pickupDate.toLocaleDateString('de-DE', { 
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+            });
+            const formattedTime = pickupDate.toLocaleTimeString('de-DE', { 
+                hour: '2-digit', minute: '2-digit' 
+            });
+            
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            
+            container.innerHTML = `
+                <div class="ride-status-box" style="background:#e0f2fe;border:2px solid #0ea5e9;max-width:500px;width:100%;margin:auto;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">📅</div>
+                    <h3 style="font-size: 20px; margin-bottom: 12px;">Vorbestellung bestätigt!</h3>
+                    
+                    <div style="margin-top: 16px; padding: 16px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                        <div style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">
+                            🕐 ${formattedDate}<br>um ${formattedTime} Uhr
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 16px; font-size: 14px; color: #0c4a6e; text-align: left;">
+                        <strong>📍 Von:</strong> ${ride.pickup}<br>
+                        <strong>🎯 Nach:</strong> ${ride.destination}<br>
+                        <strong>💰 Preis:</strong> ${ride.price}€
+                    </div>
+                    
+                    <div style="margin-top: 16px; padding: 12px; background: #dcfce7; border-radius: 6px; font-size: 13px; color: #14532d;">
+                        ✅ 15 Minuten vor der Abholung wird ein Fahrer zugewiesen.
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;margin-top:16px;">
+                        <button onclick="closeFutureRide('${ride.firebaseId}')" 
+                                style="flex:1;padding:12px;border:none;background:#10b981;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">
+                            ✓ OK
+                        </button>
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" 
+                                style="flex:1;padding:12px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">
+                            ❌ Stornieren
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PHASE 1: SUCHE FAHRER
+        // ═══════════════════════════════════════════════════════════
+        function showPhaseSearching(ride, container) {
+            const statusText = ride.status === 'assigned' ? 'Wird vermittelt...' : 'Suche Fahrer...';
+            const statusIcon = ride.status === 'assigned' ? '🔄' : '🔍';
+            
+            const createdTime = new Date(ride.createdAt || Date.now());
+            const createdTimeStr = createdTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            
+            container.innerHTML = `
+                <div class="ride-status-box" style="background:#fef3c7;border:2px solid #f59e0b;max-width:500px;width:100%;margin:auto;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">${statusIcon}</div>
+                    <h3 style="font-size: 20px; margin-bottom: 8px;">${statusText}</h3>
+                    <p style="font-size: 14px; color: #92400e; margin: 8px 0;">Bitte haben Sie einen Moment Geduld...</p>
+                    
+                    <div style="background:#fffbeb;padding:16px;border-radius:8px;margin:16px 0;text-align:left;">
+                        <div style="font-size:14px;line-height:1.8;color:#92400e;">
+                            <strong>📍 Von:</strong> ${ride.pickup}<br>
+                            <strong>🎯 Nach:</strong> ${ride.destination}<br>
+                            <strong>🕐 Bestellt:</strong> ${createdTimeStr} Uhr<br>
+                            <strong>💰 Preis:</strong> ${ride.price}€
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;margin-top:16px;">
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" 
+                                style="flex:1;padding:12px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">
+                            ❌ Abbrechen
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PHASE 2: FAHRER GEFUNDEN
+        // ═══════════════════════════════════════════════════════════
+        async function showPhaseDriverAssigned(ride, container) {
+            console.log('✅ v5.90.329: Fahrer gefunden Phase!', ride.vehicleId);
+            
+            // Hole Fahrzeug-Daten
+            let vehicleName = ride.vehicle || ride.assignedVehicleName || 'Taxi';
+            let vehiclePlate = ride.vehiclePlate || '';
+            let driverPhone = '';
+            
+            // Versuche Fahrzeug-Details zu laden
+            if (ride.vehicleId) {
+                try {
+                    const vehicleSnap = await db.ref(`vehicles/${ride.vehicleId}`).once('value');
+                    const vehicleData = vehicleSnap.val();
+                    if (vehicleData) {
+                        vehiclePlate = VEHICLES[ride.vehicleId]?.plate || vehiclePlate;
+                        driverPhone = vehicleData.phone || '';
+                    }
+                } catch (error) {
+                    console.error('❌ Fehler beim Laden des Fahrzeugs:', error);
+                }
+            }
+            
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            
+            container.innerHTML = `
+                <div class="ride-status-box" style="background:#dbeafe;border:2px solid #3b82f6;max-width:500px;width:100%;margin:auto;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+                    <h3 style="font-size: 20px; margin-bottom: 8px;">Fahrer gefunden!</h3>
+                    <p style="font-size: 14px; color: #1e40af; margin: 8px 0;">Ihr Taxi ist auf dem Weg zu Ihnen</p>
+                    
+                    <div style="background:#eff6ff;padding:16px;border-radius:8px;margin:16px 0;">
+                        <div style="font-size: 18px; font-weight: 700; color: #1e40af; margin-bottom: 8px;">
+                            🚗 ${vehicleName}
+                        </div>
+                        ${vehiclePlate ? `<div style="font-size: 14px; color: #3b82f6; font-weight: 600;">🚙 ${vehiclePlate}</div>` : ''}
+                        <div style="font-size: 13px; color: #1e3a8a; margin-top: 12px;">
+                            ⏱️ Ankunft: ca. 5 Minuten
+                        </div>
+                    </div>
+                    
+                    <div style="text-align:left; font-size:14px; color:#1e3a8a; margin-bottom:16px;">
+                        <strong>📍 Abholung:</strong> ${ride.pickup}<br>
+                        <strong>🎯 Ziel:</strong> ${ride.destination}<br>
+                        <strong>💰 Preis:</strong> ${ride.price}€
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;">
+                        ${driverPhone ? `
+                        <a href="tel:${driverPhone}" 
+                           style="flex:1;padding:12px;background:#10b981;color:white;text-align:center;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;">
+                            📞 Fahrer anrufen
+                        </a>
+                        ` : ''}
+                        <button onclick="cancelRideConfirm('${ride.firebaseId}')" 
+                                style="flex:1;padding:12px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">
+                            ❌ Abbrechen
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PHASE 3: FAHRER UNTERWEGS (MIT LIVE-KARTE!)
+        // ═══════════════════════════════════════════════════════════
+        async function showPhaseDriverComing(ride, container) {
+            console.log('🚗 v5.90.329: Fahrer unterwegs Phase!');
+            
+            // Prüfe ob GPS-Daten vorhanden
+            if (!ride.vehicleId || !ride.pickupCoords) {
+                // Fallback ohne Karte
+                showPhaseDriverAssigned(ride, container);
+                return;
+            }
+            
+            // Hole aktuelle Fahrer-Position
+            const vehicleSnap = await db.ref(`vehicles/${ride.vehicleId}`).once('value');
+            const vehicleData = vehicleSnap.val();
+            
+            if (!vehicleData || !vehicleData.lat || !vehicleData.lon) {
+                showPhaseDriverAssigned(ride, container);
+                return;
+            }
+            
+            const driverLoc = { lat: vehicleData.lat, lon: vehicleData.lon };
+            const customerLoc = ride.pickupCoords;
+            
+            // Berechne Route
+            const route = await calculateRoute(driverLoc, customerLoc);
+            const distanceKm = parseFloat(route.distance) || 0;
+            const durationMin = parseInt(route.duration) || 0;
+            
+            const eta = new Date(Date.now() + durationMin * 60000);
+            const etaTime = eta.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            
+            // Hole Fahrzeug-Details
+            const vehicleName = ride.vehicle || VEHICLES[ride.vehicleId]?.name || 'Taxi';
+            const vehiclePlate = VEHICLES[ride.vehicleId]?.plate || '';
+            const driverPhone = vehicleData.phone || '';
+            
+            container.style.display = 'block';
+            
+            container.innerHTML = `
+                <div class="ride-status-box" style="background:#dcfce7;border:2px solid #10b981;max-width:600px;width:100%;margin:auto;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">🚗</div>
+                    <h3 style="font-size: 20px; margin-bottom: 8px;">${vehicleName} kommt!</h3>
+                    
+                    <div style="background:#f0fdf4;padding:16px;border-radius:8px;margin:16px 0;">
+                        <div style="font-size: 16px; font-weight: 700; color: #065f46; margin-bottom: 8px;">
+                            📍 ${distanceKm} km entfernt
+                        </div>
+                        <div style="font-size: 14px; color: #047857;">
+                            ⏱️ Ankunft: ca. ${durationMin} Min (${etaTime} Uhr)
+                        </div>
+                        ${vehiclePlate ? `<div style="font-size: 13px; color: #065f46; margin-top: 8px;">🚙 ${vehiclePlate}</div>` : ''}
+                    </div>
+                    
+                    <div id="ride-tracking-map" style="width:100%;height:300px;border-radius:8px;margin:16px 0;"></div>
+                    
+                    <div style="text-align:left; font-size:14px; color:#065f46; margin-bottom:16px;">
+                        <strong>📍 Abholung:</strong> ${ride.pickup}<br>
+                        <strong>🎯 Ziel:</strong> ${ride.destination}<br>
+                        <strong>💰 Preis:</strong> ${ride.price}€
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;">
+                        ${driverPhone ? `
+                        <a href="tel:${driverPhone}" 
+                           style="flex:1;padding:12px;background:#10b981;color:white;text-align:center;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;">
+                            📞 Anrufen
+                        </a>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Initialisiere Karte
+            initTrackingMap(driverLoc, customerLoc, ride.vehicleId);
+        }
+        
+        // 🗺️ INITIALISIERE TRACKING-KARTE
+        function initTrackingMap(driverLoc, customerLoc, vehicleId) {
+            // Warte kurz bis DOM bereit ist
+            setTimeout(() => {
+                const mapContainer = document.getElementById('ride-tracking-map');
+                if (!mapContainer) return;
+                
+                // Entferne alte Karte
+                if (rideTrackingMap) {
+                    rideTrackingMap.remove();
+                }
+                
+                // Erstelle Karte
+                rideTrackingMap = L.map('ride-tracking-map').setView(
+                    [driverLoc.lat, driverLoc.lon], 
+                    14
+                );
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(rideTrackingMap);
+                
+                // Taxi-Marker
+                const taxiIcon = L.divIcon({
+                    html: '🚕',
+                    className: 'taxi-marker',
+                    iconSize: [30, 30]
+                });
+                taxiMarkerTracking = L.marker([driverLoc.lat, driverLoc.lon], { icon: taxiIcon })
+                    .addTo(rideTrackingMap)
+                    .bindPopup('Ihr Taxi');
+                
+                // Kunden-Marker
+                const customerIcon = L.divIcon({
+                    html: '📍',
+                    className: 'customer-marker',
+                    iconSize: [30, 30]
+                });
+                customerMarkerTracking = L.marker([customerLoc.lat, customerLoc.lon], { icon: customerIcon })
+                    .addTo(rideTrackingMap)
+                    .bindPopup('Sie sind hier');
+                
+                // Zoom auf beide Punkte
+                const bounds = L.latLngBounds([
+                    [driverLoc.lat, driverLoc.lon],
+                    [customerLoc.lat, customerLoc.lon]
+                ]);
+                rideTrackingMap.fitBounds(bounds, { padding: [50, 50] });
+                
+                // Starte Live-Updates (alle 5 Sek)
+                if (trackingUpdateInterval) {
+                    clearInterval(trackingUpdateInterval);
+                }
+                
+                trackingUpdateInterval = setInterval(async () => {
+                    const snap = await db.ref(`vehicles/${vehicleId}`).once('value');
+                    const vehicle = snap.val();
+                    if (vehicle && vehicle.lat && vehicle.lon) {
+                        // Update Marker-Position
+                        taxiMarkerTracking.setLatLng([vehicle.lat, vehicle.lon]);
+                        
+                        // Berechne neue Distanz
+                        const newRoute = await calculateRoute(
+                            { lat: vehicle.lat, lon: vehicle.lon },
+                            customerLoc
+                        );
+                        
+                        console.log('🔄 Position aktualisiert:', newRoute.distance, 'km');
+                    }
+                }, 5000); // Alle 5 Sekunden
+            }, 100);
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PHASE 4: FAHRT LÄUFT
+        // ═══════════════════════════════════════════════════════════
+        function showPhaseDriving(ride, container) {
+            const vehicleName = ride.vehicle || 'Ihr Taxi';
+            const vehiclePlate = ride.vehiclePlate || '';
+            
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            
+            container.innerHTML = `
+                <div class="ride-status-box" style="background:#fef3c7;border:2px solid #f59e0b;max-width:500px;width:100%;margin:auto;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">🎯</div>
+                    <h3 style="font-size: 20px; margin-bottom: 8px;">Gute Fahrt!</h3>
+                    <p style="font-size: 14px; color: #92400e; margin: 8px 0;">
+                        ${vehicleName} bringt Sie zu Ihrem Ziel
+                    </p>
+                    
+                    <div style="background:#fffbeb;padding:16px;border-radius:8px;margin:16px 0;text-align:left;">
+                        ${vehiclePlate ? `<div style="font-size: 16px; color: #92400e; font-weight: 600; margin-bottom: 8px;">🚙 ${vehiclePlate}</div>` : ''}
+                        <div style="font-size:14px;line-height:1.8;color:#92400e;">
+                            <strong>📍 Von:</strong> ${ride.pickup}<br>
+                            <strong>🎯 Nach:</strong> ${ride.destination}<br>
+                            ${ride.distance ? `<strong>📏 Strecke:</strong> ${ride.distance} km<br>` : ''}
+                            <strong>💰 Preis:</strong> ${ride.price}€
+                        </div>
+                    </div>
+                    
+                    <div style="font-size: 13px; color: #92400e; padding: 12px; background: #fef9c3; border-radius: 6px;">
+                        ⏱️ Sie kommen gleich an!
+                    </div>
+                </div>
+            `;
+            
+            // Sound abspielen (nur einmal)
+            if (!window.lastPickedUpRide || window.lastPickedUpRide !== ride.firebaseId) {
+                playArrivalSound();
+                window.lastPickedUpRide = ride.firebaseId;
+            }
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PHASE 5: FERTIG
+        // ═══════════════════════════════════════════════════════════
+        function showPhaseCompleted(ride, container) {
+            console.log('✅ v5.90.329: Fahrt abgeschlossen!');
+            
+            // Stoppe Listener
+            stopRideStatusListener();
+            
+            const vehicleName = ride.vehicle || 'Taxi';
+            const vehiclePlate = ride.vehiclePlate || '';
+            
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            
+            container.innerHTML = `
+                <div class="ride-status-box" style="background:#d1fae5;border:2px solid:#10b981;max-width:500px;width:100%;margin:auto;">
+                    <div style="font-size: 56px; margin-bottom: 16px;">✅</div>
+                    <h3 style="font-size: 22px; margin-bottom: 12px;">Fahrt abgeschlossen!</h3>
+                    <p style="font-size: 16px; color: #065f46; margin: 12px 0;">
+                        Vielen Dank für Ihre Fahrt! 🎉
+                    </p>
+                    
+                    <div style="background:#f0fdf4;padding:16px;border-radius:8px;margin:16px 0;text-align:left;">
+                        <div style="font-size:14px;line-height:1.8;color:#065f46;">
+                            <strong>🚗 Fahrzeug:</strong> ${vehicleName}${vehiclePlate ? ` (${vehiclePlate})` : ''}<br>
+                            <strong>📍 Von:</strong> ${ride.pickup}<br>
+                            <strong>🎯 Nach:</strong> ${ride.destination}<br>
+                            ${ride.distance ? `<strong>📏 Strecke:</strong> ${ride.distance} km<br>` : ''}
+                            <strong>💰 Preis:</strong> ${ride.price}€
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;margin-top:16px;">
+                        <button onclick="closeRide()" 
+                                style="flex:1;padding:14px;border:none;background:#10b981;color:white;border-radius:6px;cursor:pointer;font-weight:700;font-size:15px;">
+                            🚕 Neue Fahrt buchen
+                        </button>
+                    </div>
+                    
+                    <div style="margin-top:12px;font-size:12px;color:#065f46;">
+                        (Automatisch in 10 Sekunden...)
+                    </div>
+                </div>
+            `;
+            
+            // Speichere in Historie
+            saveToHistory(ride);
+            
+            // Auto-Reset nach 10 Sekunden
+            setTimeout(() => {
+                console.log('⏱️ v5.90.329: Auto-Reset nach 10 Sekunden');
+                closeRide();
+            }, 10000);
+        }
+        
+        // 🆕 v5.90.329: closeRide updated
+        function closeRide() {
+            stopRideStatusListener();
+            
+            const container = document.getElementById('ride-status-container');
+            if (container) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+            }
+            
+            // Zeige Buchungs-Formular wieder
+            const bookingForm = document.getElementById('booking-form');
+            if (bookingForm) {
+                bookingForm.style.display = 'block';
+            }
+            
+            // Reset Formular
+            resetBookingForm();
+            
+            console.log('✅ v5.90.329: Ride geschlossen, Formular zurückgesetzt');
+        }
+        
+        function closeFutureRide(rideId) {
+            console.log('📅 Schließe Vorbestellung:', rideId);
+            closeRide();
+        }
+        
+        // Alte updateRideTracking Funktion für Kompatibilität
+        async function updateRideTracking(ride) {
+            // Weiterleitungan neue showPhaseDriverComing
+            await showPhaseDriverComing(ride, document.getElementById('ride-status-container'));
+        }
+        
         function showRideStatus(ride) {
             const container = document.getElementById('ride-status-container');
             

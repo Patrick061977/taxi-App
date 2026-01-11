@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.316 - PDF-UPLOAD FUNKTIONIERT! 📦✅ (Build 20260111-1300)');
-        console.log('📦 v5.90.316: Firebase Storage RICHTIG initialisiert!');
-        console.log('✅ v5.90.316: PDF-Upload zu Storage funktioniert!');
-        console.log('🔗 v5.90.316: Download-URLs werden erstellt!');
+        console.log('🚕 Funk Taxi App v5.90.317 - ONLINE-TOGGLE + WAKELOCK FIX! 🔘⚡ (Build 20260111-1310)');
+        console.log('🔘 v5.90.317: Online-Toggle im ISARFUNK-Header eingefügt!');
+        console.log('⚡ v5.90.317: WakeLock Check alle 5 Sek (vorher 30)!');
+        console.log('📱 v5.90.317: Bildschirm bleibt AN!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
@@ -2618,8 +2618,8 @@
                 </div>
             </div>
             
-            <!-- Original Header (Buttons + GPS) -->
-            <div style="display: flex; align-items: center; justify-content: space-between;">
+            <!-- Original Header (Buttons + GPS + ONLINE-TOGGLE) -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                 <!-- Quick-Button Links -->
                 <button onclick="alert('Quick-Button Menü kommt später!')" style="
                     background: rgba(255,255,255,0.2);
@@ -2640,6 +2640,12 @@
                         <span id="driver-gps-text">GPS aus</span>
                     </div>
                 </div>
+                
+                <!-- 🆕 v5.90.317: ONLINE-TOGGLE! -->
+                <label class="toggle-switch" style="transform: scale(0.7);">
+                    <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
+                    <span class="slider"></span>
+                </label>
                 
                 <!-- User-Menü Rechts -->
                 <button onclick="toggleDebugPanel()" style="
@@ -25612,7 +25618,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
         }
         
-        // 🔄 Wake Lock alle 30 Sekunden checken & reaktivieren
+        // 🔄 v5.90.317: Wake Lock alle 5 Sekunden checken & reaktivieren (vorher 30!)
         setInterval(() => {
             if (isOnline && currentView === 'driver') {
                 if (wakeLock === null || wakeLock.released) {
@@ -25620,7 +25626,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     requestWakeLock();
                 }
             }
-        }, 30000); // Alle 30 Sekunden
+        }, 5000); // 🆕 v5.90.317: Alle 5 Sekunden statt 30!
 
         function releaseWakeLock() {
             if (wakeLock !== null) {

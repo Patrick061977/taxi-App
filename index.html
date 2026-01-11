@@ -108,9 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.313 - TAGESPROGRAMM-FIX! 📋⏰ (Build 20260111-1240)');
-        console.log('📋 v5.90.313: Tagesprogramm-Modal filtert vergangene Fahrten!');
-        console.log('⏰ v5.90.313: Tagesprogramm-Modal filtert Vorbestellungen!');
+        console.log('🚕 Funk Taxi App v5.90.315 - TAGESPROGRAMM NUR HEUTE! 📅 (Build 20260111-1255)');
+        console.log('📅 v5.90.315: Tagesprogramm zeigt NUR Fahrten von HEUTE!');
+        console.log('🔧 v5.90.315: Frau Seeger (15.01) wird ausgeblendet!');
+        console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
         console.log('📦 v5.90.311: Firebase Storage SDK hinzugefügt!');
@@ -30989,35 +30990,29 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             );
             
             // Zukünftige Fahrten (vorbestellt, new, assigned, accepted)
-            // 🆕 v5.90.312: MIT ZEIT-CHECK!
-            const now = Date.now();
-            const fifteenMinutes = 15 * 60 * 1000;
+            // 🆕 v5.90.314: NUR FAHRTEN VON HEUTE!
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Heute 00:00 Uhr
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1); // Morgen 00:00 Uhr
             
             const upcomingRides = vehicleRides
                 .filter(r => {
                     // Nicht die aktuelle Fahrt
                     if (r === currentRide) return false;
                     
-                    // 🆕 v5.90.312: ZEIT-CHECK!
-                    const pickupTime = r.pickupTimestamp || r.timestamp || 0;
+                    // 🆕 v5.90.314: NUR FAHRTEN VON HEUTE!
+                    const rideTime = r.pickupTimestamp || r.timestamp || 0;
+                    const rideDate = new Date(rideTime);
                     
-                    // Vergangene Fahrten rausfiltern (< jetzt - 5 Min Toleranz)
-                    if (pickupTime < (now - 5 * 60 * 1000)) {
-                        console.log(`⏰ v5.90.312: Vergangene Fahrt ausgeblendet (Tagesprogramm): ${r.customerName || 'Unbekannt'}`);
+                    // Muss zwischen heute 00:00 und morgen 00:00 sein
+                    if (rideDate < today || rideDate >= tomorrow) {
+                        console.log(`📅 v5.90.314: Fahrt ausgeblendet (nicht heute): ${r.customerName || 'Unbekannt'} - Datum: ${rideDate.toLocaleDateString('de-DE')}`);
                         return false;
                     }
                     
-                    // Vorbestellungen > 15 Min rausfiltern
-                    if (r.status === 'new' && pickupTime > (now + fifteenMinutes)) {
-                        console.log(`⏰ v5.90.312: Vorbestellung ausgeblendet (Tagesprogramm): ${r.customerName || 'Unbekannt'} - noch ${Math.round((pickupTime - now) / 60000)} Min`);
-                        return false;
-                    }
-                    
-                    // Alle geplanten Status
-                    return r.status === 'new' || 
-                           r.status === 'vorbestellt' ||
-                           r.status === 'assigned' ||
-                           r.status === 'accepted' // Angenommen aber noch nicht losgefahren
+                    // Alle Status außer completed
+                    return r.status !== 'completed';
                 })
                 .sort((a, b) => {
                     const timeA = a.pickupTimestamp || a.timestamp || 0;
@@ -31140,50 +31135,48 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 const pickupTime = ride.pickupTime || '?';
                                 const pickupDate = ride.pickupDate || new Date(ride.pickupTimestamp || ride.timestamp).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit'});
                                 
-                                // Status-Farbe
-                                let statusColor = '#10b981';
-                                let statusIcon = '🟢';
-                                let statusText = 'Geplant';
+                                // 🆕 v5.90.314: Status-Mapping mit ALLEN Status!
+                                const statusMap = {
+                                    'new': { color: '#10b981', icon: '🟢', text: 'Neu' },
+                                    'assigned': { color: '#f59e0b', icon: '🟡', text: 'Zugeteilt' },
+                                    'accepted': { color: '#3b82f6', icon: '🔵', text: 'Angenommen' },
+                                    'on_way': { color: '#8b5cf6', icon: '🟣', text: 'Unterwegs' },
+                                    'picked_up': { color: '#ec4899', icon: '🟠', text: 'Gast an Bord' },
+                                    'completed': { color: '#22c55e', icon: '✅', text: 'Abgeschlossen' },
+                                    'cancelled': { color: '#6b7280', icon: '❌', text: 'Storniert' }
+                                };
                                 
-                                if (ride.status === 'assigned') {
-                                    statusColor = '#f59e0b';
-                                    statusIcon = '🟡';
-                                    statusText = 'Zugeteilt';
-                                } else if (ride.status === 'accepted') {
-                                    statusColor = '#3b82f6';
-                                    statusIcon = '🔵';
-                                    statusText = 'Angenommen';
-                                }
+                                const currentStatus = statusMap[ride.status] || statusMap['new'];
+                                const statusColor = currentStatus.color;
+                                const statusIcon = currentStatus.icon;
+                                const statusText = currentStatus.text;
                                 
                                 return `
-                                    <div style="background:#f9fafb;border:2px solid #e5e7eb;border-left:4px solid ${statusColor};border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='${statusColor}'" onmouseout="this.style.background='#f9fafb';this.style.borderColor='#e5e7eb'" onclick="showRideDetailsFromVehicle('${ride.firebaseId}')">
+                                    <div style="background:#f9fafb;border:2px solid #e5e7eb;border-left:4px solid ${statusColor};border-radius:10px;padding:12px;margin-bottom:8px;">
                                         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
-                                            <div>
+                                            <div style="flex:1;">
                                                 <div style="font-weight:600;font-size:14px;color:#111827;">
                                                     👤 ${ride.customerName || 'Unbekannt'}
                                                 </div>
                                                 ${ride.customerPhone ? `
                                                 <div style="margin-top:4px;">
-                                                    <a href="tel:${ride.customerPhone}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:11px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                                    <a href="tel:${ride.customerPhone}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#10b981;color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:11px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'" onclick="event.stopPropagation()">
                                                         📞 ${ride.customerPhone}
                                                     </a>
                                                 </div>
                                                 ` : ''}
-                                                <div style="font-size:12px;color:#6b7280;margin-top:2px;">
+                                                <div style="font-size:12px;color:#6b7280;margin-top:4px;">
                                                     📅 ${pickupDate} · 🕐 ${pickupTime}
                                                 </div>
                                             </div>
-                                            <div style="background:${statusColor}15;color:${statusColor};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;">
-                                                ${statusIcon} ${statusText}
-                                            </div>
                                         </div>
                                         
-                                        <div style="font-size:12px;color:#4b5563;">
+                                        <div style="font-size:12px;color:#4b5563;margin-bottom:8px;">
                                             <div style="margin-bottom:3px;">📍 ${ride.pickup || '?'}</div>
                                             <div>🎯 ${ride.destination || '?'}</div>
                                         </div>
                                         
-                                        <div style="display:flex;gap:8px;margin-top:8px;">
+                                        <div style="display:flex;gap:8px;margin-bottom:8px;">
                                             <div style="font-size:11px;color:#6b7280;">
                                                 💰 ${ride.price || '?'}€
                                             </div>
@@ -31191,6 +31184,25 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                                 📏 ${ride.distance || '?'} km
                                             </div>
                                         </div>
+                                        
+                                        <!-- 🆕 v5.90.314: STATUS-DROPDOWN -->
+                                        <div style="margin-top:8px;">
+                                            <label style="font-size:11px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">Status:</label>
+                                            <select onchange="updateRideStatus('${ride.firebaseId}', this.value)" style="width:100%;padding:8px;border:2px solid ${statusColor};border-radius:6px;font-size:13px;font-weight:600;color:${statusColor};background:white;cursor:pointer;" onclick="event.stopPropagation()">
+                                                <option value="new" ${ride.status === 'new' ? 'selected' : ''}>🟢 Neu</option>
+                                                <option value="assigned" ${ride.status === 'assigned' ? 'selected' : ''}>🟡 Zugeteilt</option>
+                                                <option value="accepted" ${ride.status === 'accepted' ? 'selected' : ''}>🔵 Angenommen</option>
+                                                <option value="on_way" ${ride.status === 'on_way' ? 'selected' : ''}>🟣 Unterwegs</option>
+                                                <option value="picked_up" ${ride.status === 'picked_up' ? 'selected' : ''}>🟠 Gast an Bord</option>
+                                                <option value="completed" ${ride.status === 'completed' ? 'selected' : ''}>✅ Abgeschlossen</option>
+                                                <option value="cancelled" ${ride.status === 'cancelled' ? 'selected' : ''}>❌ Storniert</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- 🆕 v5.90.314: ZEIT-EDITOR BUTTON -->
+                                        <button onclick="editRideTime('${ride.firebaseId}', '${pickupTime}')" style="width:100%;margin-top:6px;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                                            📝 Zeit ändern
+                                        </button>
                                     </div>
                                 `;
                             }).join('')}
@@ -31396,6 +31408,83 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // Speichere aktuelle Fahrt ID global
             window.currentActiveRideId = currentRide.firebaseId;
+        }
+        
+        // 🆕 v5.90.314: STATUS ÄNDERN
+        async function updateRideStatus(rideId, newStatus) {
+            if (!rideId || !newStatus) return;
+            
+            console.log(`🔄 v5.90.314: Status ändern: ${rideId} → ${newStatus}`);
+            
+            try {
+                await db.ref('rides/' + rideId).update({
+                    status: newStatus,
+                    updatedAt: Date.now()
+                });
+                
+                alert(`✅ Status geändert zu: ${newStatus}`);
+                
+                // Modal neu laden
+                const modal = document.getElementById('vehicle-details-modal');
+                if (modal) {
+                    modal.remove();
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Status-Update:', error);
+                alert('❌ Fehler beim Status-Update!');
+            }
+        }
+        
+        // 🆕 v5.90.314: ZEIT ÄNDERN
+        function editRideTime(rideId, currentTime) {
+            if (!rideId) return;
+            
+            const ride = rides.find(r => r.firebaseId === rideId);
+            if (!ride) return;
+            
+            const newTime = prompt(`🕐 Neue Abholzeit (HH:MM):`, currentTime);
+            if (!newTime) return;
+            
+            // Zeit validieren
+            const timeMatch = newTime.match(/^(\d{1,2}):(\d{2})$/);
+            if (!timeMatch) {
+                alert('❌ Ungültige Zeit! Format: HH:MM');
+                return;
+            }
+            
+            const hours = parseInt(timeMatch[1]);
+            const minutes = parseInt(timeMatch[2]);
+            
+            if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+                alert('❌ Ungültige Zeit!');
+                return;
+            }
+            
+            // Neuen Timestamp berechnen
+            const rideDate = new Date(ride.pickupTimestamp || ride.timestamp);
+            rideDate.setHours(hours, minutes, 0, 0);
+            const newTimestamp = rideDate.getTime();
+            
+            console.log(`🕐 v5.90.314: Zeit ändern: ${rideId} → ${newTime}`);
+            
+            // In Firebase speichern
+            db.ref('rides/' + rideId).update({
+                pickupTime: newTime,
+                pickupTimestamp: newTimestamp,
+                updatedAt: Date.now()
+            }).then(() => {
+                alert(`✅ Zeit geändert zu: ${newTime}`);
+                
+                // Modal neu laden
+                const modal = document.getElementById('vehicle-details-modal');
+                if (modal) {
+                    modal.remove();
+                }
+            }).catch(error => {
+                console.error('❌ Fehler beim Zeit-Update:', error);
+                alert('❌ Fehler beim Zeit-Update!');
+            });
         }
         
         // 🆕 v5.90.249: UPDATE TAGESPROGRAMM

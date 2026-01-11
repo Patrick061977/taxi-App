@@ -108,7 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.311 - FIREBASE STORAGE + FAHRER-INFO! 📦👤 (Build 20260111-1200)');
+        console.log('🚕 Funk Taxi App v5.90.313 - TAGESPROGRAMM-FIX! 📋⏰ (Build 20260111-1240)');
+        console.log('📋 v5.90.313: Tagesprogramm-Modal filtert vergangene Fahrten!');
+        console.log('⏰ v5.90.313: Tagesprogramm-Modal filtert Vorbestellungen!');
+        console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
+        console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
         console.log('📦 v5.90.311: Firebase Storage SDK hinzugefügt!');
         console.log('👤 v5.90.311: Fahrer-Header mit Name + Rolle + Fahrzeug!');
         console.log('🎭 v5.90.311: System-Rolle überall sichtbar!');
@@ -12821,8 +12825,26 @@ Aktuell: ${currentNum}`;
                 }
             }
             
-            // Meine Fahrten
-            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            // 🆕 v5.90.311: ZEIT-CHECK FÜR VORBESTELLUNGEN!
+            const now = Date.now();
+            const fifteenMinutes = 15 * 60 * 1000; // 15 Min
+            
+            // Meine Fahrten (MIT ZEIT-CHECK!)
+            const myRides = rides.filter(r => {
+                if (r.vehicleId !== currentVehicle) return false;
+                
+                // 🆕 ZEIT-CHECK: Filtere Vorbestellungen > 15 Min raus!
+                const pickupTime = r.pickupTimestamp || r.timestamp || 0;
+                const isInFuture = pickupTime > (now + fifteenMinutes);
+                
+                // Wenn status = 'new' UND in Zukunft → NICHT anzeigen!
+                if (r.status === 'new' && isInFuture) {
+                    console.log(`⏰ v5.90.311: Vorbestellung ausgeblendet: ${r.customerName || r.guestName || 'Unbekannt'} - noch ${Math.round((pickupTime - now) / 60000)} Min`);
+                    return false;
+                }
+                
+                return true;
+            });
             
             // Aktive Fahrt (accepted, on_way, picked_up)
             const activeRide = myRides.find(r => 
@@ -30967,10 +30989,29 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             );
             
             // Zukünftige Fahrten (vorbestellt, new, assigned, accepted)
+            // 🆕 v5.90.312: MIT ZEIT-CHECK!
+            const now = Date.now();
+            const fifteenMinutes = 15 * 60 * 1000;
+            
             const upcomingRides = vehicleRides
                 .filter(r => {
                     // Nicht die aktuelle Fahrt
                     if (r === currentRide) return false;
+                    
+                    // 🆕 v5.90.312: ZEIT-CHECK!
+                    const pickupTime = r.pickupTimestamp || r.timestamp || 0;
+                    
+                    // Vergangene Fahrten rausfiltern (< jetzt - 5 Min Toleranz)
+                    if (pickupTime < (now - 5 * 60 * 1000)) {
+                        console.log(`⏰ v5.90.312: Vergangene Fahrt ausgeblendet (Tagesprogramm): ${r.customerName || 'Unbekannt'}`);
+                        return false;
+                    }
+                    
+                    // Vorbestellungen > 15 Min rausfiltern
+                    if (r.status === 'new' && pickupTime > (now + fifteenMinutes)) {
+                        console.log(`⏰ v5.90.312: Vorbestellung ausgeblendet (Tagesprogramm): ${r.customerName || 'Unbekannt'} - noch ${Math.round((pickupTime - now) / 60000)} Min`);
+                        return false;
+                    }
                     
                     // Alle geplanten Status
                     return r.status === 'new' || 
@@ -46731,6 +46772,13 @@ Stack: ${err.stack}
             
             // 🔐 Rolle laden und anwenden
             const role = await getUserRole(user);
+            
+            // 🆕 v5.90.312: Rolle zu currentUser hinzufügen!
+            if (currentUser) {
+                currentUser.role = role;
+                console.log('🎭 v5.90.312: Rolle gesetzt:', role);
+            }
+            
             applyRoleRestrictions(role);
             
             // 🆕 v5.33.6: Update Tab-Visibility nach Rolle

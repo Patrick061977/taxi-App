@@ -108,11 +108,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.308 - RECHNUNGS-FILTER! 🔍📱 (Build 20260111-0700)');
-        console.log('🔍 v5.90.308: Filter für Rechnungen!');
-        console.log('✅ v5.90.308: Abgeschlossen ohne Rechnung (Standard)');
-        console.log('📱 v5.90.308: WhatsApp-Button überall!');
-        console.log('🎯 v5.90.308: Rechnung erstellen & versenden mit 1 Klick!');
+        console.log('🚕 Funk Taxi App v5.90.309 - RECHNUNGS-ZENTRALE! 🏢📊 (Build 20260111-0800)');
+        console.log('🏢 v5.90.309: Komplettes Rechnungs-Zentrum!');
+        console.log('🔍 v5.90.309: Detailsuche (Text + Datum + Status)');
+        console.log('📊 v5.90.309: Live-Statistiken!');
+        console.log('✏️ v5.90.309: Bearbeiten-Button bei Rechnungen!');
+        console.log('🎯 v5.90.309: Alles an einem Ort!');
         console.log('🧹 v5.90.300: Header VERSTECKT im Fahrer-View!');
         console.log('✨ v5.90.300: Tabs VERSTECKT im Fahrer-View!');
         console.log('📞 v5.90.300: Anruf-Button VERSTECKT im Fahrer-View!');
@@ -988,7 +989,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.308 - RECHNUNGS-FILTER! 🔍 (Build 20260111-0700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.309 - RECHNUNGS-ZENTRALE! 🏢 (Build 20260111-0800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2069,13 +2070,13 @@
     <!-- 🆕 v5.90.24: RECHNUNG VIEW -->
     <div id="rechnung-view" class="view admin-only">
         <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
-            <h2 style="margin:0 0 10px 0;font-size:24px;">📄 Rechnung erstellen</h2>
-            <p style="margin:0;font-size:14px;opacity:0.95;">Erstelle manuelle Rechnungen für Kunden</p>
+            <h2 style="margin:0 0 10px 0;font-size:24px;">📄 Rechnungs-Zentrale</h2>
+            <p style="margin:0;font-size:14px;opacity:0.95;">Verwalte alle Rechnungen & Fahrten an einem Ort</p>
         </div>
         
-        <!-- 🆕 v5.90.308: FILTER BUTTONS! -->
-        <div style="background:white;padding:16px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:20px;">
-            <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:12px;">🔍 Filter:</div>
+        <!-- 🆕 v5.90.309: SCHNELL-FILTER -->
+        <div style="background:white;padding:16px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:15px;">
+            <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:12px;">⚡ Schnell-Filter:</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                 <button onclick="setInvoiceFilter('completed_no_invoice')" id="filter-completed-no-invoice"
                         style="padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
@@ -2104,35 +2105,92 @@
             </div>
         </div>
         
-        <div style="background:white;padding:20px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:20px;">
-            <div style="margin-bottom:20px;">
-                <h3 style="margin:0 0 15px 0;color:#1f2937;font-size:18px;">💡 Rechnungen erstellen</h3>
-                <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:15px;border-radius:8px;font-size:14px;color:#1e40af;">
-                    <strong>Zwei Wege:</strong><br>
-                    <br>
-                    <strong>1️⃣ Aus Fahrt (empfohlen):</strong><br>
-                    → Admin → Kalender → Verlauf → Fahrt auswählen → "📄 Rechnung"<br>
-                    <span style="font-size:12px;opacity:0.8;">✅ Alle Daten automatisch (Koordinaten, Preis, Route)</span>
-                    <br><br>
-                    <strong>2️⃣ Manuell/Neu:</strong><br>
-                    → Klicke unten auf "Neue Rechnung erstellen"<br>
-                    <span style="font-size:12px;opacity:0.8;">✏️ Für Rechnungen ohne bestehende Fahrt</span>
+        <!-- 🆕 v5.90.309: DETAILSUCHE -->
+        <div style="background:white;padding:16px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:15px;">
+            <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:12px;">🔎 Detailsuche:</div>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                <!-- Textsuche -->
+                <div style="grid-column:1/-1;">
+                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;font-weight:600;">🔍 Suche (Kunde, Rechnungsnr., Gast):</label>
+                    <input type="text" id="invoice-search-text" placeholder="z.B. Max, RE-2026-001, Mozart..." 
+                           style="width:100%;padding:10px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                </div>
+                
+                <!-- Status Dropdown -->
+                <div>
+                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;font-weight:600;">📊 Status:</label>
+                    <select id="invoice-search-status" style="width:100%;padding:10px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <option value="">Alle Status</option>
+                        <option value="completed">✅ Abgeschlossen</option>
+                        <option value="accepted">🚗 Angenommen</option>
+                        <option value="pending">⏳ Wartend</option>
+                        <option value="cancelled">❌ Storniert</option>
+                    </select>
+                </div>
+                
+                <!-- Datum Von -->
+                <div>
+                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;font-weight:600;">📅 Von:</label>
+                    <input type="date" id="invoice-search-date-from" 
+                           style="width:100%;padding:10px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                </div>
+                
+                <!-- Datum Bis -->
+                <div>
+                    <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;font-weight:600;">📅 Bis:</label>
+                    <input type="date" id="invoice-search-date-to" 
+                           style="width:100%;padding:10px;border:2px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;">
                 </div>
             </div>
             
-            <button onclick="openInvoiceModalEmpty()" style="width:100%;padding:16px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:16px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
+            <!-- Buttons -->
+            <div style="display:flex;gap:8px;">
+                <button onclick="applyDetailedSearch()" 
+                        style="flex:1;padding:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;box-shadow:0 2px 6px rgba(59,130,246,0.3);">
+                    🔍 Suchen
+                </button>
+                <button onclick="resetDetailedSearch()" 
+                        style="padding:10px 20px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+                    🔄 Zurücksetzen
+                </button>
+            </div>
+        </div>
+        
+        <!-- 🆕 v5.90.309: STATISTIKEN -->
+        <div id="invoice-statistics" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:16px;border-radius:12px;margin-bottom:15px;color:white;display:none;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:8px;">📊 Statistiken (aktueller Filter):</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:13px;">
+                <div style="background:rgba(255,255,255,0.1);padding:10px;border-radius:8px;text-align:center;">
+                    <div style="font-size:20px;font-weight:700;" id="stat-total-count">0</div>
+                    <div style="opacity:0.9;font-size:11px;">Fahrten gesamt</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.1);padding:10px;border-radius:8px;text-align:center;">
+                    <div style="font-size:20px;font-weight:700;" id="stat-total-amount">0,00€</div>
+                    <div style="opacity:0.9;font-size:11px;">Gesamtsumme</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.1);padding:10px;border-radius:8px;text-align:center;">
+                    <div style="font-size:20px;font-weight:700;" id="stat-with-invoice">0</div>
+                    <div style="opacity:0.9;font-size:11px;">Mit Rechnung</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Button: Neue Rechnung -->
+        <div style="background:white;padding:16px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:15px;">
+            <button onclick="openInvoiceModalEmpty()" style="width:100%;padding:14px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:15px;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
                 ✏️ Neue Rechnung erstellen (leer)
             </button>
         </div>
         
-        <!-- Einzel-Rechnungen Liste (aus Admin) -->
+        <!-- Fahrten Liste -->
         <div id="rechnung-single-invoices-container" style="background:white;padding:20px;border-radius:12px;border:2px solid #e5e7eb;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                <span style="font-weight:600;font-size:15px;">📄 Fahrten <span id="rechnung-single-invoices-count" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+                <span style="font-weight:600;font-size:15px;">📋 Fahrten <span id="rechnung-single-invoices-count" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
                 <span id="rechnung-filter-info" style="font-size:12px;color:#6b7280;font-weight:600;"></span>
             </div>
             <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;color:#065f46;">
-                💡 <strong>Performance-Optimierung:</strong> Es werden nur die letzten 50 Fahrten angezeigt.<br>
+                💡 <strong>Performance-Optimierung:</strong> Es werden nur die letzten 100 Fahrten durchsucht.<br>
                 <span style="font-size:12px;opacity:0.8;">Für ältere Fahrten nutze bitte den Kalender-Verlauf.</span>
             </div>
             <div id="rechnung-single-invoices-list"></div>
@@ -39996,11 +40054,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (rechnungContainer) rechnungContainer.innerHTML = loadingHTML;
             
             try {
-                // 🆕 v5.90.199: NUR die letzten 50 Fahrten laden (nicht 3000+!)
-                console.log('🚕 Lade letzte 50 Fahrten für Rechnungen...');
+                // 🆕 v5.90.309: 100 Fahrten laden für bessere Suche!
+                console.log('🚕 Lade letzte 100 Fahrten für Rechnungen...');
                 const snapshot = await db.ref('rides')
                     .orderByChild('pickupTimestamp')
-                    .limitToLast(50)  // ← NUR 50 statt ALLE!
+                    .limitToLast(100)  // ← 100 für bessere Detailsuche!
                     .once('value');
                 
                 const allRides = [];
@@ -40046,11 +40104,112 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
         }
         
+        // 🆕 v5.90.309: DETAILSUCHE VARIABLEN
+        let detailedSearchActive = false;
+        let detailedSearchParams = {};
+        
+        // 🆕 v5.90.309: DETAILSUCHE ANWENDEN
+        function applyDetailedSearch() {
+            const searchText = document.getElementById('invoice-search-text').value.toLowerCase().trim();
+            const searchStatus = document.getElementById('invoice-search-status').value;
+            const searchDateFrom = document.getElementById('invoice-search-date-from').value;
+            const searchDateTo = document.getElementById('invoice-search-date-to').value;
+            
+            // Prüfe ob irgendwas eingegeben wurde
+            if (!searchText && !searchStatus && !searchDateFrom && !searchDateTo) {
+                alert('⚠️ Bitte mindestens ein Suchkriterium eingeben!');
+                return;
+            }
+            
+            detailedSearchActive = true;
+            detailedSearchParams = {
+                text: searchText,
+                status: searchStatus,
+                dateFrom: searchDateFrom ? new Date(searchDateFrom).getTime() : null,
+                dateTo: searchDateTo ? new Date(searchDateTo + 'T23:59:59').getTime() : null
+            };
+            
+            console.log('🔍 Detailsuche aktiviert:', detailedSearchParams);
+            
+            // Schnell-Filter deaktivieren (grau machen)
+            const buttons = document.querySelectorAll('[id^="filter-"]');
+            buttons.forEach(btn => {
+                btn.style.background = '#9ca3af';
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+            });
+            
+            // Neu laden
+            loadRidesForInvoicing();
+        }
+        
+        // 🆕 v5.90.309: DETAILSUCHE ZURÜCKSETZEN
+        function resetDetailedSearch() {
+            document.getElementById('invoice-search-text').value = '';
+            document.getElementById('invoice-search-status').value = '';
+            document.getElementById('invoice-search-date-from').value = '';
+            document.getElementById('invoice-search-date-to').value = '';
+            
+            detailedSearchActive = false;
+            detailedSearchParams = {};
+            
+            console.log('🔄 Detailsuche zurückgesetzt');
+            
+            // Schnell-Filter wieder aktivieren
+            const buttons = document.querySelectorAll('[id^="filter-"]');
+            buttons.forEach(btn => {
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            });
+            
+            // Standard-Filter wiederherstellen
+            setInvoiceFilter('completed_no_invoice');
+        }
+        
+        // 🆕 v5.90.309: STATISTIKEN BERECHNEN & ANZEIGEN
+        function updateInvoiceStatistics(rides) {
+            const statsContainer = document.getElementById('invoice-statistics');
+            
+            if (rides.length === 0) {
+                statsContainer.style.display = 'none';
+                return;
+            }
+            
+            statsContainer.style.display = 'block';
+            
+            // Berechne Statistiken
+            const totalCount = rides.length;
+            let totalAmount = 0;
+            let withInvoiceCount = 0;
+            let withInvoiceAmount = 0;
+            
+            rides.forEach(ride => {
+                const price = parseFloat(ride.price) || 0;
+                totalAmount += price;
+                
+                if (ride.invoiceNumber) {
+                    withInvoiceCount++;
+                    withInvoiceAmount += price;
+                }
+            });
+            
+            // Update UI
+            document.getElementById('stat-total-count').textContent = totalCount;
+            document.getElementById('stat-total-amount').textContent = totalAmount.toFixed(2) + '€';
+            document.getElementById('stat-with-invoice').textContent = withInvoiceCount + ' (' + withInvoiceAmount.toFixed(2) + '€)';
+        }
+        
         // 🆕 v5.90.308: FILTER STATUS
         let currentInvoiceFilter = 'completed_no_invoice'; // Standard: Abgeschlossen ohne Rechnung
         
         // 🆕 v5.90.308: FILTER SETZEN
         function setInvoiceFilter(filter) {
+            // 🆕 v5.90.309: Nur wenn Detailsuche NICHT aktiv!
+            if (detailedSearchActive) {
+                alert('⚠️ Detailsuche ist aktiv!\n\nBitte erst zurücksetzen.');
+                return;
+            }
+            
             currentInvoiceFilter = filter;
             console.log('🔍 Filter gesetzt:', filter);
             
@@ -40177,56 +40336,118 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const rechnungContainer = document.getElementById('rechnung-single-invoices-list');
             const filterInfo = document.getElementById('rechnung-filter-info');
             
-            // 🆕 v5.90.308: FILTER ANWENDEN!
-            let filteredRides = rides;
-            let filterText = '';
-            
-            switch (currentInvoiceFilter) {
-                case 'completed_no_invoice':
-                    filteredRides = rides.filter(r => r.status === 'completed' && !r.invoiceNumber);
-                    filterText = '✅ Abgeschlossen ohne Rechnung';
-                    break;
-                case 'completed':
-                    filteredRides = rides.filter(r => r.status === 'completed');
-                    filterText = '✅ Nur Abgeschlossen';
-                    break;
-                case 'pending':
-                    filteredRides = rides.filter(r => r.status !== 'completed' && r.status !== 'cancelled');
-                    filterText = '⏳ Nur Offene';
-                    break;
-                case 'with_invoice':
-                    filteredRides = rides.filter(r => r.invoiceNumber);
-                    filterText = '💰 Mit Rechnung';
-                    break;
-                case 'no_invoice':
-                    filteredRides = rides.filter(r => !r.invoiceNumber);
-                    filterText = '❌ Ohne Rechnung';
-                    break;
-                case 'all':
-                default:
-                    filteredRides = rides;
-                    filterText = '📊 Alle Fahrten';
-                    break;
+            // 🆕 v5.90.309: DETAILSUCHE ZUERST!
+            if (detailedSearchActive) {
+                console.log('🔍 Wende Detailsuche an:', detailedSearchParams);
+                
+                rides = rides.filter(ride => {
+                    // Text-Suche
+                    if (detailedSearchParams.text) {
+                        const searchLower = detailedSearchParams.text;
+                        const customerName = (ride.customerName || '').toLowerCase();
+                        const guestName = (ride.guestName || '').toLowerCase();
+                        const invoiceNumber = (ride.invoiceNumber || '').toLowerCase();
+                        const pickup = (ride.pickup || '').toLowerCase();
+                        const destination = (ride.destination || '').toLowerCase();
+                        
+                        if (!customerName.includes(searchLower) && 
+                            !guestName.includes(searchLower) && 
+                            !invoiceNumber.includes(searchLower) &&
+                            !pickup.includes(searchLower) &&
+                            !destination.includes(searchLower)) {
+                            return false;
+                        }
+                    }
+                    
+                    // Status-Filter
+                    if (detailedSearchParams.status) {
+                        if (ride.status !== detailedSearchParams.status) {
+                            return false;
+                        }
+                    }
+                    
+                    // Datum Von
+                    if (detailedSearchParams.dateFrom) {
+                        const rideTime = ride.pickupTimestamp || 0;
+                        if (rideTime < detailedSearchParams.dateFrom) {
+                            return false;
+                        }
+                    }
+                    
+                    // Datum Bis
+                    if (detailedSearchParams.dateTo) {
+                        const rideTime = ride.pickupTimestamp || 0;
+                        if (rideTime > detailedSearchParams.dateTo) {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                });
+                
+                filterInfo.textContent = `🔍 Detailsuche (${rides.length} Treffer)`;
+                filterInfo.style.color = '#3b82f6';
+                filterInfo.style.fontWeight = '700';
+                
+            } else {
+                // 🆕 v5.90.308: SCHNELL-FILTER ANWENDEN!
+                let filteredRides = rides;
+                let filterText = '';
+                
+                switch (currentInvoiceFilter) {
+                    case 'completed_no_invoice':
+                        filteredRides = rides.filter(r => r.status === 'completed' && !r.invoiceNumber);
+                        filterText = '✅ Abgeschlossen ohne Rechnung';
+                        break;
+                    case 'completed':
+                        filteredRides = rides.filter(r => r.status === 'completed');
+                        filterText = '✅ Nur Abgeschlossen';
+                        break;
+                    case 'pending':
+                        filteredRides = rides.filter(r => r.status !== 'completed' && r.status !== 'cancelled');
+                        filterText = '⏳ Nur Offene';
+                        break;
+                    case 'with_invoice':
+                        filteredRides = rides.filter(r => r.invoiceNumber);
+                        filterText = '💰 Mit Rechnung';
+                        break;
+                    case 'no_invoice':
+                        filteredRides = rides.filter(r => !r.invoiceNumber);
+                        filterText = '❌ Ohne Rechnung';
+                        break;
+                    case 'all':
+                    default:
+                        filteredRides = rides;
+                        filterText = '📊 Alle Fahrten';
+                        break;
+                }
+                
+                rides = filteredRides;
+                
+                console.log(`🔍 Filter: ${filterText} → ${rides.length} Fahrten`);
+                
+                // Filter-Info anzeigen
+                if (filterInfo) {
+                    filterInfo.textContent = `${filterText} (${rides.length})`;
+                    filterInfo.style.color = '#6b7280';
+                    filterInfo.style.fontWeight = '600';
+                }
             }
             
-            console.log(`🔍 Filter: ${filterText} → ${filteredRides.length} von ${rides.length} Fahrten`);
-            
-            // Filter-Info anzeigen
-            if (filterInfo) {
-                filterInfo.textContent = `${filterText} (${filteredRides.length})`;
-            }
+            // 🆕 v5.90.309: STATISTIKEN UPDATE!
+            updateInvoiceStatistics(rides);
             
             const emptyHTML = `
                 <div style="text-align:center;padding:40px;color:#6b7280;">
                     <div style="font-size:48px;margin-bottom:10px;">🚕</div>
                     <div style="font-weight:600;">Keine Fahrten gefunden</div>
                     <div style="font-size:14px;margin-top:8px;color:#9ca3af;">
-                        ${currentInvoiceFilter === 'completed_no_invoice' ? 'Alle abgeschlossenen Fahrten haben bereits Rechnungen!' : 'Ändere den Filter um andere Fahrten zu sehen'}
+                        ${detailedSearchActive ? 'Versuche andere Suchkriterien' : (currentInvoiceFilter === 'completed_no_invoice' ? 'Alle abgeschlossenen Fahrten haben bereits Rechnungen!' : 'Ändere den Filter um andere Fahrten zu sehen')}
                     </div>
                 </div>
             `;
             
-            if (filteredRides.length === 0) {
+            if (rides.length === 0) {
                 if (container) container.innerHTML = emptyHTML;
                 if (rechnungContainer) rechnungContainer.innerHTML = emptyHTML;
                 return;
@@ -40234,7 +40455,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
             
-            filteredRides.forEach(ride => {
+            rides.forEach(ride => {
                 // Datum & Zeit formatieren
                 const rideDate = ride.pickupDate || new Date(ride.pickupTimestamp).toLocaleDateString('de-DE');
                 const rideTime = ride.pickupTime || new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
@@ -40247,20 +40468,24 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     // Hat schon Rechnung
                     statusBadge = `
                         <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#10b981;color:white;border-radius:20px;font-size:12px;font-weight:600;">
-                            ✅ Rechnung: ${ride.invoiceNumber}
+                            ✅ ${ride.invoiceNumber}
                         </div>
                     `;
                     
-                    // 🆕 v5.90.308: WHATSAPP BUTTON BEI VORHANDENER RECHNUNG!
+                    // 🆕 v5.90.309: ERWEITERTE BUTTONS!
                     actionButton = `
-                        <div style="display:flex;gap:6px;">
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
                             <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')" 
-                                    style="padding:8px 14px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
+                                    style="padding:8px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(139,92,246,0.3);">
                                 📥 PDF
                             </button>
                             <button onclick="resendInvoiceViaWhatsApp('${ride.id}', '${ride.invoiceNumber}')" 
-                                    style="padding:8px 14px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(37,211,102,0.3);">
+                                    style="padding:8px 12px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(37,211,102,0.3);">
                                 📱 WhatsApp
+                            </button>
+                            <button onclick="openInvoiceModal('${ride.id}')" 
+                                    style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;box-shadow:0 2px 4px rgba(245,158,11,0.3);">
+                                ✏️ Bearbeiten
                             </button>
                         </div>
                     `;
@@ -40275,7 +40500,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     // 🆕 v5.90.308: DIREKT WHATSAPP SENDEN!
                     actionButton = `
                         <button onclick="openInvoiceModalAndSendWhatsApp('${ride.id}')" 
-                                style="padding:8px 14px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(37,211,102,0.3);">
+                                style="padding:10px 16px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(37,211,102,0.3);">
                             📱 Rechnung per WhatsApp
                         </button>
                     `;

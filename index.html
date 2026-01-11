@@ -108,7 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.300 - CLEAN! 🧹✨ (Build 20260110-2230)');
+        console.log('🚕 Funk Taxi App v5.90.308 - RECHNUNGS-FILTER! 🔍📱 (Build 20260111-0700)');
+        console.log('🔍 v5.90.308: Filter für Rechnungen!');
+        console.log('✅ v5.90.308: Abgeschlossen ohne Rechnung (Standard)');
+        console.log('📱 v5.90.308: WhatsApp-Button überall!');
+        console.log('🎯 v5.90.308: Rechnung erstellen & versenden mit 1 Klick!');
         console.log('🧹 v5.90.300: Header VERSTECKT im Fahrer-View!');
         console.log('✨ v5.90.300: Tabs VERSTECKT im Fahrer-View!');
         console.log('📞 v5.90.300: Anruf-Button VERSTECKT im Fahrer-View!');
@@ -984,7 +988,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.300 - CLEAN! 🧹 (Build 20260110-2230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.308 - RECHNUNGS-FILTER! 🔍 (Build 20260111-0700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2069,6 +2073,37 @@
             <p style="margin:0;font-size:14px;opacity:0.95;">Erstelle manuelle Rechnungen für Kunden</p>
         </div>
         
+        <!-- 🆕 v5.90.308: FILTER BUTTONS! -->
+        <div style="background:white;padding:16px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:20px;">
+            <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:12px;">🔍 Filter:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <button onclick="setInvoiceFilter('completed_no_invoice')" id="filter-completed-no-invoice"
+                        style="padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
+                    ✅ Abgeschlossen ohne Rechnung
+                </button>
+                <button onclick="setInvoiceFilter('all')" id="filter-all"
+                        style="padding:8px 14px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    📊 Alle Fahrten
+                </button>
+                <button onclick="setInvoiceFilter('completed')" id="filter-completed"
+                        style="padding:8px 14px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    ✅ Nur Abgeschlossen
+                </button>
+                <button onclick="setInvoiceFilter('pending')" id="filter-pending"
+                        style="padding:8px 14px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    ⏳ Nur Offen
+                </button>
+                <button onclick="setInvoiceFilter('with_invoice')" id="filter-with-invoice"
+                        style="padding:8px 14px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    💰 Mit Rechnung
+                </button>
+                <button onclick="setInvoiceFilter('no_invoice')" id="filter-no-invoice"
+                        style="padding:8px 14px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    ❌ Ohne Rechnung
+                </button>
+            </div>
+        </div>
+        
         <div style="background:white;padding:20px;border-radius:12px;border:2px solid #e5e7eb;margin-bottom:20px;">
             <div style="margin-bottom:20px;">
                 <h3 style="margin:0 0 15px 0;color:#1f2937;font-size:18px;">💡 Rechnungen erstellen</h3>
@@ -2093,7 +2128,8 @@
         <!-- Einzel-Rechnungen Liste (aus Admin) -->
         <div id="rechnung-single-invoices-container" style="background:white;padding:20px;border-radius:12px;border:2px solid #e5e7eb;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                <span style="font-weight:600;font-size:15px;">📄 Einzel-Rechnungen <span id="rechnung-single-invoices-count" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+                <span style="font-weight:600;font-size:15px;">📄 Fahrten <span id="rechnung-single-invoices-count" style="background:#8b5cf6;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">0</span></span>
+                <span id="rechnung-filter-info" style="font-size:12px;color:#6b7280;font-weight:600;"></span>
             </div>
             <div style="background:#f0fdf4;border:2px solid #10b981;border-radius:8px;padding:12px;margin-bottom:15px;font-size:13px;color:#065f46;">
                 💡 <strong>Performance-Optimierung:</strong> Es werden nur die letzten 50 Fahrten angezeigt.<br>
@@ -2482,1290 +2518,159 @@
     </div>
 
     <div id="driver-view" class="view">
-        <!-- 🆕 v5.90.299: SAUBER & MINIMAL! -->
+        <!-- 🆕 v5.90.300: ISARFUNK-STYLE! -->
         
-        <!-- FULLSCREEN KARTE -->
-        <div id="driver-map-container" style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 1;
-        ">
-            <div id="driver-map" style="width: 100%; height: 100%;"></div>
-        </div>
-        
-        <!-- MINI TOP BAR (über Karte) -->
+        <!-- TOP HEADER -->
         <div style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 10;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
-            padding: 8px 12px;
-        ">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="color: white;">
-                    <div id="driver-current-plate-new" style="font-size: 16px; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">---</div>
-                </div>
-                <button onclick="toggleDebugPanel()" style="
-                    background: rgba(255,255,255,0.25);
-                    border: none;
-                    color: white;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 50%;
-                    font-size: 16px;
-                    cursor: pointer;
-                    backdrop-filter: blur(10px);
-                ">⚙️</button>
-            </div>
-        </div>
-        
-        <!-- FAHRZEUG-AUSWAHL MODAL (POPUP - nicht fullscreen!) -->
-        <div id="driver-vehicle-selector-new" style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 100;
-            background: rgba(0,0,0,0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        ">
-            <div style="
-                background: white;
-                border-radius: 20px;
-                padding: 24px;
-                max-width: 500px;
-                width: 100%;
-                max-height: 80vh;
-                overflow-y: auto;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            ">
-                <div style="font-size: 24px; font-weight: 900; color: #1f2937; margin-bottom: 8px; text-align: center;">
-                    🚗 Fahrzeug wählen
-                </div>
-                <div style="font-size: 14px; color: #6b7280; margin-bottom: 20px; text-align: center;">
-                    Wähle dein Fahrzeug um loszulegen
-                </div>
-                <div id="vehicle-button-grid-new" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-            </div>
-        </div>
-        
-        <!-- Hidden Select für Kompatibilität -->
-        <select id="vehicle" style="display: none;">
-            <option value="">Fahrzeug wählen...</option>
-        </select>
-        
-        <!-- GPS WARNUNG -->
-        <div id="gps-warning-banner-new" style="
-            display: none;
-            position: absolute;
-            top: 50px;
-            left: 12px;
-            right: 12px;
-            z-index: 20;
-            background: #ef4444;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
             color: white;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 700;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         ">
-            🚨 GPS-Problem! 
-            <button onclick="location.reload()" style="
-                background: white;
-                color: #ef4444;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-size: 12px;
+            <!-- Quick-Button Links -->
+            <button onclick="alert('Quick-Button Menü kommt später!')" style="
+                background: rgba(255,255,255,0.2);
+                border: 2px solid rgba(255,255,255,0.4);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-size: 13px;
                 font-weight: 700;
                 cursor: pointer;
-                margin-left: 8px;
-            ">🔄</button>
-        </div>
-        
-        <!-- AKTIVE FAHRT CARD (über Karte, aber unter Bottom Panel) -->
-        <div id="driver-active-ride-card-new" style="
-            display: none;
-            position: absolute;
-            top: 60px;
-            left: 12px;
-            right: 12px;
-            z-index: 15;
-            background: white;
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            max-height: 50vh;
-            overflow-y: auto;
-        ">
-            <!-- Wird dynamisch gefüllt -->
-        </div>
-        
-        <!-- BOTTOM PANEL (über Karte) -->
-        <div style="
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 20;
-            background: white;
-            border-radius: 16px 16px 0 0;
-            padding: 12px;
-            box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
-        ">
-            <!-- GO BUTTON / ONLINE TOGGLE -->
-            <div id="driver-go-button-container" style="margin-bottom: 12px;">
-                <button id="driver-go-button" onclick="toggleOnlineNew()" style="
-                    width: 100%;
-                    padding: 14px;
-                    background: linear-gradient(135deg, #10b981, #059669);
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    font-size: 18px;
-                    font-weight: 900;
-                    cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-                    transition: all 0.3s;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 8px;
-                " disabled>
-                    <span id="go-button-text">🚗 GO</span>
-                </button>
+            ">☰ Quick</button>
+            
+            <!-- Mitte: Fahrzeug + GPS -->
+            <div style="text-align: center; flex: 1;">
+                <div id="driver-plate-isarfunk" style="font-size: 18px; font-weight: 900; letter-spacing: 1px;">---</div>
+                <div style="font-size: 11px; opacity: 0.9; margin-top: 2px;">
+                    <span id="driver-gps-dots">○○○○</span>
+                </div>
             </div>
             
-            <!-- STATS -->
-            <div style="
-                display: flex;
-                gap: 8px;
-                padding: 10px;
-                background: #f9fafb;
+            <!-- User-Menü Rechts -->
+            <button onclick="toggleDebugPanel()" style="
+                background: rgba(255,255,255,0.2);
+                border: 2px solid rgba(255,255,255,0.4);
+                color: white;
+                padding: 8px 16px;
                 border-radius: 8px;
-            ">
-                <div style="flex: 1; text-align: center;">
-                    <div style="font-size: 20px; font-weight: 900; color: #1f2937;"><span id="driver-stats-rides">0</span></div>
-                    <div style="font-size: 9px; color: #6b7280; margin-top: 2px; font-weight: 600;">FAHRTEN</div>
-                </div>
-                <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
-                    <div style="font-size: 20px; font-weight: 900; color: #10b981;"><span id="driver-stats-money">0</span>€</div>
-                    <div style="font-size: 9px; color: #6b7280; margin-top: 2px; font-weight: 600;">UMSATZ</div>
-                </div>
-                <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                        <div id="driver-stats-gps-icon" style="font-size: 18px;">❌</div>
-                        <div id="driver-stats-gps-text" style="font-size: 8px; color: #6b7280; margin-top: 2px; font-weight: 600;">GPS AUS</div>
-                    </div>
-                </div>
-            </div>
+                font-size: 13px;
+                font-weight: 700;
+                cursor: pointer;
+            ">⚙️</button>
         </div>
         
-        <!-- Debug Panel (versteckt) -->
-        <div id="debug-panel" style="
+        <!-- FAHRZEUG-AUSWAHL (wenn nicht gewählt) -->
+        <div id="driver-vehicle-select-isarfunk" style="
             display: none;
-            padding: 10px;
-            background: #f3f4f6;
-            font-size: 11px;
-            color: #666;
-        ">
-            <!-- 🆕 v5.42.7: CONSOLE CONTROLS GANZ OBEN! -->
-            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <div style="font-size: 16px; font-weight: 700; color: #667eea; margin-bottom: 12px;">
-                    🎛️ Console Controls
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <button onclick="pauseConsole()" id="console-pause-btn" style="
-                        padding: 18px;
-                        background: #f59e0b;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        ⏸️ PAUSE
-                    </button>
-                    
-                    <button onclick="playConsole()" id="console-play-btn" style="
-                        padding: 18px;
-                        background: #10b981;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
-                        display: none;
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        ▶️ PLAY
-                    </button>
-                    
-                    <button onclick="copyConsole()" style="
-                        padding: 18px;
-                        background: #667eea;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        📋 COPY
-                    </button>
-                    
-                    <button onclick="exportConsole()" style="
-                        padding: 18px;
-                        background: #3b82f6;
-                        color: white;
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
-                        transition: transform 0.2s;
-                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                        💾 EXPORT
-                    </button>
-                </div>
-                <button onclick="clearConsoleLog()" style="
-                    width: 100%;
-                    padding: 18px;
-                    background: #ef4444;
-                    color: white;
-                    border: none;
-                    border-radius: 12px;
-                    font-size: 16px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
-                    margin-bottom: 10px;
-                    transition: transform 0.2s;
-                " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
-                    🗑️ CLEAR
-                </button>
-                <div id="console-status" style="text-align: center; font-size: 13px; color: #10b981; font-weight: 700; padding: 8px; background: #d1fae5; border-radius: 8px;">
-                    ▶️ Console läuft
-                </div>
-            </div>
-            
-            <div style="border-top: 2px solid #ddd; padding-top: 15px;">
-            FB: <span id="debug-firebase">❓</span> | 
-            Fahrten: <span id="debug-rides">❓</span> | 
-            Neu: <span id="debug-new">❓</span> | 
-            Sync: <span id="debug-sync">❓</span>
-            
-            <!-- 🆕 v5.18.0: TELEGRAM FÜR FAHRER -->
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
-                <b>📱 Telegram-Alarm aktivieren:</b>
-                <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
-                    <input type="text" id="driver-telegram-id" placeholder="Deine Chat-ID" style="
-                        flex: 1;
-                        padding: 8px;
-                        border: 1px solid #ccc;
-                        border-radius: 6px;
-                        font-size: 12px;
-                    ">
-                    <button onclick="saveDriverTelegramId()" style="
-                        padding: 8px 12px;
-                        background: #0088cc;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-size: 12px;
-                        cursor: pointer;
-                    ">💾</button>
-                    <button onclick="testDriverTelegram()" style="
-                        padding: 8px 12px;
-                        background: #10b981;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-size: 12px;
-                        cursor: pointer;
-                    ">📤 Test</button>
-                </div>
-                <div id="driver-telegram-status" style="margin-top: 6px; font-size: 10px; color: #888;">
-                    ❓ Noch nicht eingerichtet
-                </div>
-                <div style="margin-top: 6px; font-size: 10px; color: #666;">
-                    Hol dir deine Chat-ID: Schreibe /getid an <a href="https://t.me/myidbot" target="_blank" style="color: #0088cc;">@myidbot</a>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 🆕 v5.42.8: AUTOCOMPLETE OVERLAY (wie Google Maps!) -->
-        <!-- 🆕 v5.46.3: Overlay entfernt - nutzen nur noch Dropdowns! -->
-        
-        <!-- 🆕 v5.90.249: AKTIVE FAHRT BANNER -->
-        <div id="driver-active-ride-banner" style="display:none;margin:10px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(239,68,68,0.4);">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;">
-                <div style="background:rgba(255,255,255,0.3);padding:8px 16px;border-radius:20px;font-weight:700;font-size:13px;">
-                    🔴 DU BIST IN FAHRT!
-                </div>
-                <div id="active-ride-duration" style="font-size:12px;opacity:0.9;">⏱️ Seit 0 Min</div>
-            </div>
-            <div id="active-ride-customer" style="font-size:22px;font-weight:800;margin-bottom:10px;">👤 Kunde</div>
-            <div id="active-ride-time" style="font-size:14px;opacity:0.95;margin-bottom:15px;">📅 01.01.2026 · 🕐 12:00</div>
-            <div style="background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);padding:15px;border-radius:12px;margin-bottom:15px;">
-                <div id="active-ride-from" style="font-size:14px;margin-bottom:8px;">📍 <strong>Von:</strong> ?</div>
-                <div id="active-ride-to" style="font-size:14px;">🎯 <strong>Nach:</strong> ?</div>
-            </div>
-            <div style="display:flex;gap:10px;margin-bottom:15px;">
-                <div style="flex:1;text-align:center;padding:12px;background:rgba(255,255,255,0.2);border-radius:10px;">
-                    <div style="font-size:11px;opacity:0.8;">Preis</div>
-                    <div id="active-ride-price" style="font-size:18px;font-weight:700;">0€</div>
-                </div>
-                <div style="flex:1;text-align:center;padding:12px;background:rgba(255,255,255,0.2);border-radius:10px;">
-                    <div style="font-size:11px;opacity:0.8;">Distanz</div>
-                    <div id="active-ride-distance" style="font-size:18px;font-weight:700;">0 km</div>
-                </div>
-            </div>
-            <div style="display:flex;gap:10px;">
-                <button onclick="openNavigationForCurrent()" style="flex:1;padding:14px;background:rgba(255,255,255,0.25);border:2px solid rgba(255,255,255,0.5);color:white;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">🗺️ Navigation</button>
-                <button onclick="completeCurrentRide()" style="flex:1;padding:14px;background:#10b981;border:none;color:white;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;">✅ Abschließen</button>
-            </div>
-        </div>
-        
-        <!-- 🆕 v5.90.249: TAGESPROGRAMM -->
-        <div id="driver-schedule-panel" style="display:none;margin:10px;background:white;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                <div style="font-weight:700;font-size:16px;color:#111827;">📋 Dein Tagesprogramm</div>
-                <div id="schedule-count" style="background:#3b82f6;color:white;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">0</div>
-            </div>
-            <div id="driver-schedule-list"></div>
-        </div>
-        
-        <!-- Neue Aufträge Slide-In Panel mit TABS! -->
-        <div id="new-rides-panel" style="
-            display: none;
-            padding: 0;
             background: white;
-            max-height: 60vh;
-            overflow-y: auto;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            padding: 20px;
+            text-align: center;
         ">
-            <!-- Tabs -->
-            <div style="
-                display: flex;
-                background: #f3f4f6;
-                border-bottom: 2px solid #e0e0e0;
-                position: sticky;
-                top: 0;
-                z-index: 10;
-            ">
-                <button onclick="switchRidesTab('new')" id="rides-tab-new" class="rides-tab active" style="
-                    flex: 1;
-                    padding: 12px;
-                    background: white;
-                    border: none;
-                    border-bottom: 3px solid #667eea;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">
-                    📋 Neu
-                </button>
-                <button onclick="switchRidesTab('completed')" id="rides-tab-completed" class="rides-tab" style="
-                    flex: 1;
-                    padding: 12px;
-                    background: transparent;
-                    border: none;
-                    border-bottom: 3px solid transparent;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                    color: #666;
-                ">
-                    ✅ Fertig
-                </button>
-                <button onclick="switchRidesTab('cancelled')" id="rides-tab-cancelled" class="rides-tab" style="
-                    flex: 1;
-                    padding: 12px;
-                    background: transparent;
-                    border: none;
-                    border-bottom: 3px solid transparent;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                    color: #666;
-                ">
-                    🚨 Storniert
-                </button>
-            </div>
-            
-            <!-- Tab Content -->
-            <div style="padding: 10px;">
-                <div id="new-rides"></div>
-                <div id="completed-rides" style="display: none;"></div>
-                <div id="cancelled-rides" style="display: none;"></div>
+            <div style="font-size: 20px; font-weight: 900; margin-bottom: 16px;">🚗 Fahrzeug wählen</div>
+            <div id="vehicle-grid-isarfunk" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                <!-- Wird gefüllt -->
             </div>
         </div>
         
-        <style>
-            .rides-tab.active {
-                background: white !important;
-                border-bottom-color: #667eea !important;
-                color: #667eea !important;
-            }
-        </style>
-        
-        <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-            function switchRidesTab(tab) {
-                // Hide all content
-                document.getElementById('new-rides').style.display = 'none';
-                document.getElementById('completed-rides').style.display = 'none';
-                document.getElementById('cancelled-rides').style.display = 'none';
-                
-                // Remove active from all tabs
-                document.querySelectorAll('.rides-tab').forEach(t => {
-                    t.classList.remove('active');
-                    t.style.background = 'transparent';
-                    t.style.borderBottomColor = 'transparent';
-                    t.style.color = '#666';
-                });
-                
-                // Show selected content & activate tab
-                if (tab === 'new') {
-                    document.getElementById('new-rides').style.display = 'block';
-                    document.getElementById('rides-tab-new').classList.add('active');
-                } else if (tab === 'completed') {
-                    document.getElementById('completed-rides').style.display = 'block';
-                    document.getElementById('rides-tab-completed').classList.add('active');
-                    loadCompletedRides();
-                } else if (tab === 'cancelled') {
-                    document.getElementById('cancelled-rides').style.display = 'block';
-                    document.getElementById('rides-tab-cancelled').classList.add('active');
-                    loadCancelledRides();
-                }
-            }
+        <!-- HAUPT-CONTENT -->
+        <div id="driver-main-isarfunk" style="padding: 16px; background: #f5f5f5; min-height: calc(100vh - 200px);">
             
-            function loadCompletedRides() {
-                // 🆕 v5.90.247: NUR vehicleId!
-                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
-                const completed = myRides.filter(r => r.status === 'completed');
-                
-                if (completed.length === 0) {
-                    document.getElementById('completed-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine abgeschlossenen Fahrten</div>';
-                    return;
-                }
-                
-                // 🆕 v5.25.6: Mit Zeitstempel anzeigen
-                let html = completed.map(r => {
-                    // Buchungszeit formatieren
-                    let buchungZeit = '?';
-                    if (r.timestamp || r.createdAt) {
-                        const bookingDate = new Date(r.timestamp || r.createdAt);
-                        buchungZeit = bookingDate.toLocaleString('de-DE', {
-                            day: '2-digit', month: '2-digit', 
-                            hour: '2-digit', minute: '2-digit'
-                        });
-                    }
-                    
-                    // Abschlusszeit formatieren
-                    let abschlussZeit = '?';
-                    if (r.completedAt) {
-                        const completeDate = new Date(r.completedAt);
-                        abschlussZeit = completeDate.toLocaleString('de-DE', {
-                            day: '2-digit', month: '2-digit', 
-                            hour: '2-digit', minute: '2-digit'
-                        });
-                    }
-                    
-                    return `
-                    <div class="ride-card" style="background:#f0fdf4;border-left:4px solid #10b981;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
-                            <span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">✅ Fertig</span>
-                        </div>
-                        ${r.customerName ? `
-                        <div style="font-weight:600;color:#065f46;margin-bottom:5px;">👤 ${r.customerName}</div>
-                        ${r.customerPhone ? `
-                        <div style="margin-bottom:8px;display:flex;gap:6px;">
-                            <a href="tel:${r.customerPhone}" style="
-                                flex:1;
-                                display:flex;
-                                align-items:center;
-                                justify-content:center;
-                                gap:4px;
-                                padding:6px 10px;
-                                background:#10b981;
-                                color:white;
-                                text-decoration:none;
-                                border-radius:6px;
-                                font-weight:600;
-                                font-size:12px;
-                            ">
-                                📞 ${r.customerPhone}
-                            </a>
-                            <button onclick="event.stopPropagation(); shareRideViaWhatsApp('${r.firebaseId || r.id}')" style="
-                                padding:6px 10px;
-                                background:#25D366;
-                                color:white;
-                                border:none;
-                                border-radius:6px;
-                                font-weight:600;
-                                font-size:12px;
-                                cursor:pointer;
-                            ">
-                                📤
-                            </button>
-                        </div>
-                        ` : ''}
-                        ` : ''}
-                        <div style="font-size:13px;color:#666;">
-                            Von: ${r.pickup}<br>
-                            Nach: ${r.destination}<br>
-                            Preis: <strong>${r.price}€</strong> • ${r.distance} km<br>
-                            <span style="font-size:11px;color:#10b981;">✅ Abgeschlossen: ${abschlussZeit}</span>
-                        </div>
-                    </div>
-                `}).join('');
-                
-                document.getElementById('completed-rides').innerHTML = html;
-            }
+            <!-- AKTUELLER AUFTRAG (wenn vorhanden) -->
+            <div id="driver-current-order-isarfunk" style="display: none; margin-bottom: 16px;"></div>
             
-            function loadCancelledRides() {
-                // 🆕 v5.90.247: NUR vehicleId!
-                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
-                const cancelled = myRides.filter(r => r.status === 'cancelled' || r.status === 'cancelled_pending_driver' || r.status === 'storniert');
-                
-                if (cancelled.length === 0) {
-                    document.getElementById('cancelled-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine stornierten Fahrten</div>';
-                    return;
-                }
-                
-                // 🆕 v5.20.7: Mit Uhrzeiten anzeigen
-                let html = cancelled.map(r => {
-                    // Buchungszeit formatieren
-                    let buchungZeit = '?';
-                    if (r.timestamp || r.createdAt) {
-                        const bookingDate = new Date(r.timestamp || r.createdAt);
-                        buchungZeit = bookingDate.toLocaleString('de-DE', {
-                            day: '2-digit', month: '2-digit', 
-                            hour: '2-digit', minute: '2-digit'
-                        });
-                    }
-                    
-                    // Stornierungszeit formatieren
-                    let stornoZeit = '?';
-                    if (r.cancelledAt) {
-                        const cancelDate = new Date(r.cancelledAt);
-                        stornoZeit = cancelDate.toLocaleString('de-DE', {
-                            day: '2-digit', month: '2-digit', 
-                            hour: '2-digit', minute: '2-digit'
-                        });
-                    }
-                    
-                    // Abholzeit formatieren (falls Vorbestellung)
-                    let abholZeit = '';
-                    if (r.pickupTime && r.pickupTime !== 'Sofort') {
-                        abholZeit = `⏰ Geplant: ${r.pickupTime}<br>`;
-                    }
-                    
-                    return `
-                    <div class="ride-card" style="background:#fef2f2;border-left:4px solid #ef4444;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
-                            <span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">🚨 Storniert</span>
-                        </div>
-                        ${r.customerName ? `
-                        <div style="font-weight:600;color:#991b1b;margin-bottom:5px;">👤 ${r.customerName}</div>
-                        ${r.customerPhone ? `
-                        <div style="margin-bottom:8px;display:flex;gap:6px;">
-                            <a href="tel:${r.customerPhone}" style="
-                                flex:1;
-                                display:flex;
-                                align-items:center;
-                                justify-content:center;
-                                gap:4px;
-                                padding:6px 10px;
-                                background:#10b981;
-                                color:white;
-                                text-decoration:none;
-                                border-radius:6px;
-                                font-weight:600;
-                                font-size:12px;
-                            ">
-                                📞 ${r.customerPhone}
-                            </a>
-                            <button onclick="event.stopPropagation(); shareRideViaWhatsApp('${r.firebaseId || r.id}')" style="
-                                padding:6px 10px;
-                                background:#25D366;
-                                color:white;
-                                border:none;
-                                border-radius:6px;
-                                font-weight:600;
-                                font-size:12px;
-                                cursor:pointer;
-                            ">
-                                📤
-                            </button>
-                        </div>
-                        ` : ''}
-                        ` : ''}
-                        <div style="font-size:13px;color:#666;">
-                            📍 Von: ${r.pickup}<br>
-                            🎯 Nach: ${r.destination}<br>
-                            ${abholZeit}
-                            💰 Preis: ${r.price || '?'}€<br>
-                            ${r.cancellationFee ? `<strong style="color:#dc2626;">💶 Stornogebühr: ${r.cancellationFee.toFixed(2)}€</strong><br>` : ''}
-                            ❌ Storniert: ${stornoZeit}<br>
-                            ${r.cancellationReason ? `📝 Grund: ${r.cancellationReason}` : ''}
-                        </div>
-                    </div>
-                `;
-                }).join('');
-                
-                document.getElementById('cancelled-rides').innerHTML = html;
-            }
-        </script>
-        
-        <!-- 🚨 STORNIERUNG PANEL (NEU!) -->
-        <div id="cancellation-panel" style="
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            z-index: 9999;
-            padding: 20px;
-            overflow-y: auto;
-        ">
-            <div id="cancellation-list" style="
+            <!-- BEREIT-STATUS -->
+            <div id="driver-ready-isarfunk" style="
                 background: white;
                 border-radius: 12px;
-                padding: 20px;
-                max-width: 500px;
-                margin: 0 auto;
-            "></div>
+                padding: 40px 20px;
+                text-align: center;
+            ">
+                <div style="font-size: 48px; margin-bottom: 12px;">🚕</div>
+                <div style="font-size: 16px; font-weight: 700; color: #6b7280;">Bereit für Aufträge</div>
+                <div style="font-size: 13px; margin-top: 8px; color: #9ca3af;">Warten auf Vermittlung...</div>
+            </div>
+            
+            <!-- STATISTIK -->
+            <div style="
+                display: flex;
+                gap: 12px;
+                margin-top: 20px;
+                padding: 16px;
+                background: white;
+                border-radius: 12px;
+            ">
+                <div style="flex: 1; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 900; color: #1f2937;"><span id="stats-rides-isarfunk">0</span></div>
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">FAHRTEN</div>
+                </div>
+                <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
+                    <div style="font-size: 28px; font-weight: 900; color: #10b981;"><span id="stats-money-isarfunk">0</span>€</div>
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">UMSATZ</div>
+                </div>
+            </div>
         </div>
         
-        <!-- 🚕 NEUER AUFTRAG FULLSCREEN POPUP (NEU!) -->
-        <div id="new-ride-fullscreen" style="
-            display: none;
+        <!-- BOTTOM BAR -->
+        <div style="
             position: fixed;
-            top: 0;
+            bottom: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.85);
-            z-index: 10002;
-            padding: 15px;
-            overflow-y: auto;
-            display: none;
-            align-items: center;
-            justify-content: center;
+            background: white;
+            border-top: 2px solid #e5e7eb;
+            display: flex;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
+            z-index: 1000;
         ">
-            <div style="
+            <!-- Fahrten -->
+            <button onclick="alert('Fahrten-Historie kommt später!')" style="
+                flex: 1;
+                padding: 16px;
                 background: white;
-                border-radius: 16px;
-                padding: 0;
-                max-width: 380px;
-                width: 100%;
-                margin: 20px auto;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-                overflow: hidden;
+                border: none;
+                border-right: 1px solid #e5e7eb;
+                cursor: pointer;
             ">
-                <!-- Header - kompakter -->
-                <div style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    padding: 15px;
-                    text-align: center;
-                    position: relative;
-                ">
-                    <button onclick="closeNewRideFullscreen()" style="
-                        position: absolute;
-                        top: 8px;
-                        right: 8px;
-                        background: rgba(0,0,0,0.4);
-                        color: white;
-                        border: 2px solid white;
-                        width: 36px;
-                        height: 36px;
-                        border-radius: 50%;
-                        font-size: 20px;
-                        cursor: pointer;
-                        font-weight: bold;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    ">✕</button>
-                    
-                    <div style="font-size: 40px; margin-bottom: 5px;">🚕</div>
-                    <div style="font-size: 22px; font-weight: bold; color: white;">
-                        NEUE FAHRT!
-                    </div>
-                </div>
-                
-                <!-- Content -->
-                <div id="new-ride-fullscreen-content" style="padding: 15px;">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-                </div>
-            </div>
+                <div style="font-size: 20px; margin-bottom: 4px;">📋</div>
+                <div style="font-size: 11px; color: #6b7280; font-weight: 600;">FAHRTEN</div>
+            </button>
+            
+            <!-- STATUS -->
+            <button id="status-button-isarfunk" onclick="cycleStatusIsarfunk()" style="
+                flex: 1;
+                padding: 16px;
+                background: #10b981;
+                border: none;
+                cursor: pointer;
+            ">
+                <div style="font-size: 20px; margin-bottom: 4px; color: white;">✓</div>
+                <div id="status-text-isarfunk" style="font-size: 12px; color: white; font-weight: 900;">FREI</div>
+            </button>
+            
+            <!-- Nachrichten -->
+            <button onclick="alert('Nachrichten kommen später!')" style="
+                flex: 1;
+                padding: 16px;
+                background: white;
+                border: none;
+                border-left: 1px solid #e5e7eb;
+                cursor: pointer;
+                position: relative;
+            ">
+                <div style="font-size: 20px; margin-bottom: 4px;">💬</div>
+                <div style="font-size: 11px; color: #6b7280; font-weight: 600;">NACHRICHTEN</div>
+            </button>
         </div>
         
-        <!-- FULLSCREEN KARTE Container -->
-        <div id="driver-route-info" style="
-            display: none;
-            position: relative;
-            height: calc(100vh - 150px);
-        ">
-            <!-- 🎴 CARDS INFO TOP (A3/B3 Design) -->
-            <div id="driver-cards-container" style="
-                padding: 10px;
-                background: white;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-                display: grid;
-                gap: 8px;
-            ">
-                <!-- Kunde Card (mit Telefon) -->
-                <div id="driver-customer-card" style="
-                    background: #f8f9fa;
-                    padding: 10px;
-                    border-radius: 8px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    border-left: 4px solid #667eea;
-                ">
-                    <div style="flex: 1;">
-                        <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
-                            Kunde
-                        </div>
-                        <div id="driver-customer-name" style="font-size: 14px; font-weight: 600; color: #333;">
-                            👤 Kunde
-                        </div>
-                    </div>
-                    <button id="driver-call-button" onclick="callCustomer()" style="
-                        background: #10b981;
-                        color: white;
-                        border: none;
-                        padding: 8px 12px;
-                        border-radius: 16px;
-                        font-size: 12px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        display: none;
-                    ">📞</button>
-                </div>
-                
-                <!-- Preis Card (nur bei picked_up) -->
-                <div id="driver-price-card" style="
-                    background: #f8f9fa;
-                    padding: 10px;
-                    border-radius: 8px;
-                    border-left: 4px solid #10b981;
-                    display: none;
-                ">
-                    <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
-                        Preis
-                    </div>
-                    <div id="driver-price-value" style="font-size: 14px; font-weight: 600; color: #333;">
-                        💰 -
-                    </div>
-                </div>
-                
-                <!-- Pickup Card (nur bei accepted) -->
-                <div id="driver-pickup-card" style="
-                    background: #f8f9fa;
-                    padding: 10px;
-                    border-radius: 8px;
-                    border-left: 4px solid #667eea;
-                    display: none;
-                ">
-                    <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
-                        📍 Abholen
-                    </div>
-                    <div id="driver-pickup-value" style="font-size: 14px; font-weight: 600; color: #333;">
-                        -
-                    </div>
-                </div>
-                
-                <!-- Destination Card -->
-                <div id="driver-dest-card" style="
-                    background: #ecfdf5;
-                    padding: 10px;
-                    border-radius: 8px;
-                    border-left: 4px solid #10b981;
-                ">
-                    <div style="font-size: 10px; color: #059669; text-transform: uppercase; margin-bottom: 3px;">
-                        🎯 Ziel
-                    </div>
-                    <div id="driver-dest-value" style="font-size: 14px; font-weight: 600; color: #065f46;">
-                        -
-                    </div>
-                </div>
-                
-                <!-- Action Button -->
-                <button id="driver-action-button" style="
-                    width: 100%;
-                    padding: 12px;
-                    background: #667eea;
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    font-size: 14px;
-                    cursor: pointer;
-                ">🚗 Beim Kunden angekommen</button>
-            </div>
-            
-            <!-- ❌ KARTE ENTFERNT - NUR INFO! -->
-            
-            <!-- Turn-by-Turn Central Overlay (GROß in der Mitte) -->
-            <div id="turn-by-turn" style="
-                display: none;
-                position: absolute;
-                top: 60px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: rgba(255,255,255,0.98);
-                border-radius: 16px;
-                padding: 20px 30px;
-                text-align: center;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-                backdrop-filter: blur(10px);
-                border: 3px solid #667eea;
-                z-index: 900;
-            ">
-                <div style="font-size: 56px; color: #667eea; margin-bottom: 8px;" id="turn-icon">↑</div>
-                <div style="font-size: 36px; font-weight: bold; color: #333; margin-bottom: 5px;" id="turn-distance">150m</div>
-                <div style="font-size: 18px; color: #666;" id="turn-instruction">Geradeaus</div>
-            </div>
-            
-            <!-- Bottom Panel - Nur ETA -->
-            <div id="bottom-panel" style="
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                background: white;
-                padding: 10px;
-                box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
-                text-align: center;
-                font-size: 12px;
-                color: #666;
-                z-index: 900;
-            ">
-                <span><b id="route-distance">-</b>km</span>
-                <span> • </span>
-                <span><b id="route-duration">-</b>min</span>
-                <span> • </span>
-                <span>ETA <b id="route-eta">-</b></span>
-            </div>
-        </div>
+        <!-- Hidden Select -->
+        <select id="vehicle" style="display: none;"></select>
         
-        <!-- 🆕 v5.90.261: FAHRTEN-LISTE FÜR FAHRER -->
-        <div id="driver-ready" style="display:none;padding:20px;">
-            <!-- Header -->
-            <div style="margin-bottom:20px;">
-                <h2 style="margin:0;font-size:24px;color:#111827;">🚕 Meine Fahrten</h2>
-                <p style="margin:5px 0 0 0;color:#6b7280;font-size:14px;">Heute zugeteilte Aufträge</p>
-            </div>
-            
-            <!-- Fahrten-Liste -->
-            <div id="driver-rides-list" style="display:flex;flex-direction:column;gap:15px;">
-                <!-- Wird dynamisch gefüllt -->
-            </div>
-            
-            <!-- Leer-State -->
-            <div id="driver-no-rides" style="display:none;padding:60px 20px;text-align:center;">
-                <div style="font-size:80px;margin-bottom:20px;">🚕</div>
-                <div style="font-size:24px;font-weight:600;color:#667eea;margin-bottom:10px;">Bereit!</div>
-                <div style="font-size:14px;color:#999;">Keine Fahrten zugewiesen</div>
-            </div>
-        </div>
-        
-        <script>
-            // 📱 HEADER TOGGLE
-            let headerCollapsed = false;
-            function toggleHeader() {
-                const header = document.getElementById('main-header');
-                const content = document.getElementById('header-content');
-                const toggle = document.getElementById('header-toggle');
-                
-                headerCollapsed = !headerCollapsed;
-                
-                if (headerCollapsed) {
-                    content.style.display = 'none';
-                    toggle.textContent = '▶';
-                    header.style.padding = '8px 15px';
-                } else {
-                    content.style.display = 'block';
-                    toggle.textContent = '▼';
-                    header.style.padding = '15px';
-                }
-            }
-            
-            // 🔄 CACHE & DATEN LEEREN
-            function clearAppCache(event) {
-                // Verhindere dass Header collapsed wird
-                if (event) event.stopPropagation();
-                
-                console.log('🔄 CACHE LEEREN GESTARTET...');
-                
-                const confirmed = confirm(
-                    '🔄 Cache & Daten leeren?\n\n' +
-                    'Das löscht:\n' +
-                    '✓ LocalStorage (gespeicherte Daten)\n' +
-                    '✓ SessionStorage\n' +
-                    '✓ Service Worker\n\n' +
-                    'Die Seite wird neu geladen.\n\n' +
-                    'Fortfahren?'
-                );
-                
-                if (!confirmed) {
-                    console.log('❌ Abgebrochen');
-                    return;
-                }
-                
-                let cleared = [];
-                
-                try {
-                    // 🆕 v5.86.12: SELECTIVE CLEAR - Behalte wichtige App-Config!
-                    console.log('🔄 LocalStorage wird selektiv geleert...');
-                    
-                    // ✅ DIESE KEYS BLEIBEN ERHALTEN (App-Config):
-                    const keysToKeep = [
-                        'anthropic_api_key',           // AI-Assistent API Key
-                        'telegram_bot_token',          // Telegram Bot Token
-                        'telegram_admin_chat_id',      // Admin Telegram Chat ID
-                        'google_calendar_id',          // Google Calendar ID
-                        'fritzbox_config',             // FritzBox Config
-                        'app_settings'                 // App-Einstellungen
-                    ];
-                    
-                    // Speichere wichtige Keys temporär
-                    const savedData = {};
-                    keysToKeep.forEach(key => {
-                        const value = localStorage.getItem(key);
-                        if (value) {
-                            savedData[key] = value;
-                            console.log('💾 Behalte:', key);
-                        }
-                    });
-                    
-                    // Lösche ALLES
-                    localStorage.clear();
-                    
-                    // Stelle wichtige Keys wieder her
-                    Object.keys(savedData).forEach(key => {
-                        localStorage.setItem(key, savedData[key]);
-                        console.log('✅ Wiederhergestellt:', key);
-                    });
-                    
-                    console.log('✅ LocalStorage selektiv gelöscht (Config behalten)');
-                    cleared.push('LocalStorage (User-Daten)');
-                } catch (e) {
-                    console.error('❌ LocalStorage Fehler:', e);
-                }
-                
-                try {
-                    // 2. SessionStorage leeren
-                    sessionStorage.clear();
-                    console.log('✅ SessionStorage gelöscht');
-                    cleared.push('SessionStorage');
-                } catch (e) {
-                    console.error('❌ SessionStorage Fehler:', e);
-                }
-                
-                try {
-                    // 3. Service Worker deregistrieren
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.getRegistrations().then(registrations => {
-                            registrations.forEach(registration => {
-                                registration.unregister();
-                                console.log('✅ Service Worker deregistriert');
-                            });
-                            cleared.push('Service Worker');
-                        });
-                    }
-                } catch (e) {
-                    console.error('❌ Service Worker Fehler:', e);
-                }
-                
-                // 4. IndexedDB leeren (falls vorhanden)
-                try {
-                    if (window.indexedDB) {
-                        indexedDB.databases().then(databases => {
-                            databases.forEach(db => {
-                                indexedDB.deleteDatabase(db.name);
-                                console.log('✅ IndexedDB gelöscht:', db.name);
-                            });
-                        });
-                        cleared.push('IndexedDB');
-                    }
-                } catch (e) {
-                    console.error('❌ IndexedDB Fehler:', e);
-                }
-                
-                console.log('✅ Gelöscht:', cleared.join(', '));
-                
-                // Zeige Erfolg + Anleitung für Browser-Cache
-                alert(
-                    '✅ App-Daten gelöscht!\n\n' +
-                    'Gelöscht: ' + cleared.join(', ') + '\n\n' +
-                    '⚠️ BROWSER-CACHE:\n' +
-                    'Muss manuell gelöscht werden:\n\n' +
-                    'Desktop: Strg+Shift+R\n' +
-                    'Android: Chrome Menü → Verlauf →\n' +
-                    'Browserdaten löschen → Cache\n\n' +
-                    'Seite wird jetzt neu geladen...'
-                );
-                
-                // Hard Reload
-                setTimeout(() => {
-                    console.log('🔄 Hard Reload...');
-                    window.location.reload(true);
-                }, 500);
-            }
-            
-            // 🆕 v5.38.5: DEBUG-MODUS TOGGLE
-            function toggleDebugMode() {
-                debugMode = !debugMode;
-                localStorage.setItem('debugMode', debugMode);
-                
-                const icon = document.getElementById('debug-icon');
-                
-                if (debugMode) {
-                    // Aktiviere Console
-                    if (console._originalLog) {
-                        console.log = console._originalLog;
-                        console.error = console._originalError;
-                        console.warn = console._originalWarn;
-                    }
-                    
-                    icon.textContent = '🟢';
-                    console.log('═══════════════════════════════════════════════════════════════════');
-                    console.log('✅ DEBUG-MODUS AKTIVIERT!');
-                    console.log('📊 Console-Logs sind jetzt sichtbar!');
-                    console.log('═══════════════════════════════════════════════════════════════════');
-                } else {
-                    console.log('═══════════════════════════════════════════════════════════════════');
-                    console.log('🔴 DEBUG-MODUS DEAKTIVIERT!');
-                    console.log('═══════════════════════════════════════════════════════════════════');
-                    
-                    // Deaktiviere Console
-                    console.log = function() {};
-                    console.error = function() {};
-                    console.warn = function() {};
-                    
-                    icon.textContent = '🐛';
-                }
-            }
-            
-            
-            function toggleNewRidesPanel() {
-                const panel = document.getElementById('new-rides-panel');
-                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-            }
-            
-            
-            // 🚨 STORNIERUNG PANEL FUNKTIONEN
-            function showCancellationPanel() {
-                // 🆕 v5.90.247: NUR vehicleId!
-                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle) : [];
-                // 🆕 VEREINFACHT: Nur cancelled Fahrten die noch nicht gesehen wurden
-                const pendingCancellations = myRides.filter(r => 
-                    r.status === 'cancelled' && r.driverNotified === false
-                );
-                
-                if (pendingCancellations.length === 0) {
-                    alert('Keine Stornierungen!');
-                    return;
-                }
-                
-                let html = `
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                        <h2 style="margin:0;color:#ef4444;">🚨 Stornierungen</h2>
-                        <button onclick="closeCancellationPanel()" style="
-                            background:#ef4444;
-                            color:white;
-                            border:none;
-                            padding:8px 16px;
-                            border-radius:8px;
-                            cursor:pointer;
-                            font-weight:600;
-                        ">✕ Schließen</button>
-                    </div>
-                `;
-                
-                pendingCancellations.forEach(ride => {
-                    const cancellationFee = calculateCancellationFee(ride);
-                    html += `
-                        <div style="
-                            background:#fef2f2;
-                            border:3px solid #ef4444;
-                            border-radius:12px;
-                            padding:20px;
-                            margin-bottom:15px;
-                        ">
-                            <div style="font-size:24px;font-weight:bold;color:#ef4444;margin-bottom:15px;">
-                                Fahrt #${ride.id}
-                            </div>
-                            
-                            ${ride.customerName ? `
-                            <div style="padding:12px;background:#dbeafe;border-radius:8px;margin-bottom:12px;">
-                                <div style="font-size:18px;font-weight:600;color:#1e40af;">
-                                    👤 ${ride.customerName}
-                                </div>
-                                ${ride.customerPhone ? `
-                                <div style="margin-top:8px;">
-                                    <a href="tel:${ride.customerPhone}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#10b981;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                                        📞 ${ride.customerPhone}
-                                    </a>
-                                </div>
-                                ` : ''}
-                            </div>
-                            ` : ''}
-                            
-                            <div style="margin-bottom:12px;font-size:14px;">
-                                <strong>Von:</strong> ${ride.pickup}<br>
-                                <strong>Nach:</strong> ${ride.destination}<br>
-                                <strong>Abholung:</strong> ${ride.pickupTime || 'Sofort'}<br>
-                                <strong>Preis:</strong> ${ride.price}€
-                            </div>
-                            
-                            ${ride.cancellationReason ? `
-                            <div style="
-                                padding:12px;
-                                background:#fff7ed;
-                                border-left:4px solid #f59e0b;
-                                border-radius:6px;
-                                margin-bottom:12px;
-                            ">
-                                <strong>Grund:</strong> ${ride.cancellationReason}
-                            </div>
-                            ` : ''}
-                            
-                            <div style="
-                                padding:15px;
-                                background:white;
-                                border-radius:8px;
-                                margin-bottom:15px;
-                                text-align:center;
-                            ">
-                                <div style="font-size:12px;color:#666;margin-bottom:5px;">
-                                    Stornierungsgebühr
-                                </div>
-                                <div style="font-size:32px;font-weight:bold;color:#ef4444;">
-                                    ${cancellationFee.toFixed(2)}€
-                                </div>
-                            </div>
-                            
-                            <button onclick="confirmCancellation('${ride.firebaseId || ride.id}')" style="
-                                width:100%;
-                                padding:16px;
-                                background:#ef4444;
-                                color:white;
-                                border:none;
-                                border-radius:12px;
-                                font-size:16px;
-                                font-weight:bold;
-                                cursor:pointer;
-                            ">
-                                ✓ OK, verstanden
-                            </button>
-                            
-                            <button onclick="showRideDetails('${ride.firebaseId || ride.id}')" style="
-                                width:100%;
-                                padding:12px;
-                                background:white;
-                                color:#ef4444;
-                                border:2px solid #ef4444;
-                                border-radius:12px;
-                                font-size:14px;
-                                font-weight:600;
-                                cursor:pointer;
-                                margin-top:10px;
-                            ">
-                                Details ansehen
-                            </button>
-                        </div>
-                    `;
-                });
-                
-                document.getElementById('cancellation-list').innerHTML = html;
-                document.getElementById('cancellation-panel').style.display = 'block';
-            }
-            
-            function closeCancellationPanel() {
-                document.getElementById('cancellation-panel').style.display = 'none';
-            }
-            
-            async function confirmCancellation(rideId) {
-                try {
-                    const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
-                    if (!ride) {
-                        alert('❌ Fahrt nicht gefunden!');
-                        return;
-                    }
-                    
-                    // 🆕 VEREINFACHT: Nur als "gesehen" markieren, kein Status-Wechsel nötig
-                    const updates = {
-                        driverNotified: true,
-                        driverConfirmedAt: new Date().toISOString()
-                    };
-                    
-                    if (isFirebaseReady) {
-                        await db.ref('rides/' + rideId).update(updates);
-                        console.log('✅ Stornierung zur Kenntnis genommen:', rideId);
-                    }
-                    
-                    // Update lokal
-                    Object.assign(ride, updates);
-                    saveRides();
-                    
-                    // ✅ Panel schließen
-                    closeCancellationPanel();
-                    
-                    // UI Update
-                    updateViews();
-                    
-                    // 🆕 Einfache Bestätigung
-                    const feeText = ride.cancellationFee ? ` (Gebühr: ${ride.cancellationFee.toFixed(2)}€)` : '';
-                    alert('✅ OK!' + feeText);
-                    
-                } catch (error) {
-                    console.error('❌ Fehler:', error);
-                    alert('❌ Fehler: ' + error.message);
-                }
-            }
-            
-            function calculateCancellationFee(ride) {
-                // Stornierungsgebühr = Grundpreis (4€) + 10% vom Fahrpreis
-                const baseFee = 4.00;
-                const percentageFee = ride.price ? ride.price * 0.1 : 0;
-                const total = baseFee + percentageFee;
-                
-                // Runde auf 10 Cent
-                return Math.round(total * 10) / 10;
-            }
-        </script>
+        <!-- Debug Panel -->
+        <div id="debug-panel" style="display: none;"></div>
     </div>
 
     <div id="admin-view" class="view admin-only">
@@ -11976,6 +10881,10 @@ Aktuell: ${currentNum}`;
                     // 💰 Preis-Einstellungen aus Firebase laden
                     setTimeout(() => loadPricingSettings(), 0);
                     
+                    // 🆕 v5.90.304: SCHEDULER FÜR VORBESTELLUNGEN!
+                    console.log('⏰ Starte Vorbestell-Scheduler...');
+                    startPreorderScheduler();
+                    
                     // 🔴 Buchungssystem-Status aus Firebase laden
                     setTimeout(() => loadBookingSystemStatus(), 0);
                     
@@ -13727,6 +12636,198 @@ Aktuell: ${currentNum}`;
 
         // 🆕 v5.90.268: NEUE FOKUSSIERTE DRIVER VIEW UPDATE!
         // 🆕 v5.90.295: UBER-STYLE UPDATE FUNKTION!
+        // 🆕 v5.90.300: ISARFUNK-STYLE UPDATE!
+        function updateDriverViewIsarfunk() {
+            if (!currentVehicle) {
+                // Zeige Fahrzeug-Auswahl
+                document.getElementById('driver-vehicle-select-isarfunk').style.display = 'block';
+                document.getElementById('driver-main-isarfunk').style.display = 'none';
+                return;
+            } else {
+                document.getElementById('driver-vehicle-select-isarfunk').style.display = 'none';
+                document.getElementById('driver-main-isarfunk').style.display = 'block';
+            }
+            
+            // Update Header
+            const vehicle = VEHICLES[currentVehicle];
+            if (vehicle) {
+                document.getElementById('driver-plate-isarfunk').textContent = vehicle.plate || vehicle.name;
+            }
+            
+            // GPS Dots
+            const dots = document.getElementById('driver-gps-dots');
+            if (watchId && dots) {
+                dots.textContent = '●●●●';
+                dots.style.color = '#10b981';
+            } else if (dots) {
+                dots.textContent = '○○○○';
+                dots.style.color = '#ef4444';
+            }
+            
+            // Meine Fahrten
+            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            
+            // Aktive Fahrt (accepted, on_way, picked_up)
+            const activeRide = myRides.find(r => 
+                r.status === 'accepted' || 
+                r.status === 'on_way' || 
+                r.status === 'picked_up'
+            );
+            
+            const currentOrderDiv = document.getElementById('driver-current-order-isarfunk');
+            const readyDiv = document.getElementById('driver-ready-isarfunk');
+            
+            if (activeRide) {
+                // Zeige aktiven Auftrag
+                currentOrderDiv.style.display = 'block';
+                readyDiv.style.display = 'none';
+                currentOrderDiv.innerHTML = renderIsarfunkOrder(activeRide);
+                
+                // Update Status-Button
+                updateStatusButton(activeRide.status);
+            } else {
+                // Zeige Bereit-Status
+                currentOrderDiv.style.display = 'none';
+                readyDiv.style.display = 'block';
+                
+                // Status: FREI
+                updateStatusButton('free');
+            }
+            
+            // Statistik
+            const today = new Date().toDateString();
+            const todayRides = myRides.filter(r => {
+                const rideDate = new Date(r.pickupTimestamp || r.timestamp).toDateString();
+                return rideDate === today && r.status === 'completed';
+            });
+            
+            const totalMoney = todayRides.reduce((sum, r) => sum + (parseFloat(r.finalPrice || r.price) || 0), 0);
+            
+            document.getElementById('stats-rides-isarfunk').textContent = todayRides.length;
+            document.getElementById('stats-money-isarfunk').textContent = totalMoney.toFixed(0);
+        }
+        
+        // Render Auftrag
+        function renderIsarfunkOrder(ride) {
+            const pickup = ride.pickup || 'Unbekannt';
+            const destination = ride.destination || 'Unbekannt';
+            const time = new Date(ride.pickupTimestamp || ride.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const price = ride.finalPrice || ride.price || '?';
+            const customerName = ride.customerName || ride.guestName || 'Kunde';
+            const customerPhone = ride.customerPhone || ride.guestPhone || '';
+            
+            return `
+                <div style="
+                    background: white;
+                    border: 3px solid #10b981;
+                    border-radius: 12px;
+                    padding: 16px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="font-size: 16px; font-weight: 900; color: #10b981;">🚖 AKTIVER AUFTRAG</div>
+                        <div style="font-size: 14px; font-weight: 700; color: #1f2937;">${time} Uhr</div>
+                    </div>
+                    
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 18px; font-weight: 900; color: #1f2937; margin-bottom: 8px;">${customerName}</div>
+                        ${customerPhone ? `
+                            <a href="tel:${customerPhone}" style="
+                                display: inline-block;
+                                color: white;
+                                background: #10b981;
+                                text-decoration: none;
+                                font-size: 14px;
+                                font-weight: 700;
+                                padding: 8px 16px;
+                                border-radius: 8px;
+                            ">📞 ${customerPhone}</a>
+                        ` : ''}
+                    </div>
+                    
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                        <div style="margin-bottom: 8px;">
+                            <div style="font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ABHOLUNG</div>
+                            <div style="font-size: 14px; font-weight: 700; color: #1f2937;">📍 ${pickup}</div>
+                        </div>
+                        <div style="text-align: center; margin: 8px 0;">
+                            <div style="font-size: 16px; color: #10b981;">↓</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ZIEL</div>
+                            <div style="font-size: 14px; font-weight: 700; color: #1f2937;">🎯 ${destination}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <div style="font-size: 18px; font-weight: 900; color: #10b981;">${price}€</div>
+                            <div style="font-size: 9px; color: #6b7280; margin-top: 2px;">PREIS</div>
+                        </div>
+                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                            <div style="font-size: 18px; font-weight: 900; color: #3b82f6;">${ride.distance || '?'} km</div>
+                            <div style="font-size: 9px; color: #6b7280; margin-top: 2px;">DISTANZ</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update Status-Button
+        function updateStatusButton(status) {
+            const btn = document.getElementById('status-button-isarfunk');
+            const txt = document.getElementById('status-text-isarfunk');
+            
+            if (!btn || !txt) return;
+            
+            switch(status) {
+                case 'free':
+                    btn.style.background = '#10b981';
+                    txt.textContent = 'FREI';
+                    break;
+                case 'accepted':
+                    btn.style.background = '#f59e0b';
+                    txt.textContent = 'LOSFAHREN';
+                    break;
+                case 'on_way':
+                    btn.style.background = '#ef4444';
+                    txt.textContent = 'EINGESTIEGEN';
+                    break;
+                case 'picked_up':
+                    btn.style.background = '#3b82f6';
+                    txt.textContent = 'ABSCHLIESSEN';
+                    break;
+            }
+        }
+        
+        // Cycle Status (Button-Klick)
+        function cycleStatusIsarfunk() {
+            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            const activeRide = myRides.find(r => 
+                r.status === 'accepted' || 
+                r.status === 'on_way' || 
+                r.status === 'picked_up'
+            );
+            
+            if (!activeRide) {
+                alert('ℹ️ Keine aktive Fahrt!');
+                return;
+            }
+            
+            const rideId = activeRide.firebaseId || activeRide.id;
+            
+            if (activeRide.status === 'accepted') {
+                // Losfahren zum Kunden
+                startDriving(rideId);
+            } else if (activeRide.status === 'on_way') {
+                // Kunde eingestiegen
+                pickupCustomer(rideId);
+            } else if (activeRide.status === 'picked_up') {
+                // Fahrt abschließen
+                completeRide(rideId);
+            }
+        }
+        
         function updateDriverViewV295() {
             if (!currentVehicle) {
                 // Zeige Fahrzeug-Auswahl Modal
@@ -14321,11 +13422,11 @@ Aktuell: ${currentNum}`;
         }
 
         function updateDriverView() {
-            // 🆕 v5.90.295: Nutze UBER-STYLE View!
-            updateDriverViewV295();
+            // 🆕 v5.90.300: ISARFUNK-STYLE!
+            updateDriverViewIsarfunk();
             
-            // 🆕 v5.90.268: Nutze neue fokussierte View!
-            updateDriverViewV268();
+            // Alte Logik für Kompatibilität
+            // updateDriverViewV268();
             
             // Alte Logik für Kompatibilität (Benachrichtigungen etc.)
             // 🆕 v5.90.107: ZEIGE ALLE ZUGETEILTEN FAHRTEN (TAGESPROGRAMM)!
@@ -22244,6 +21345,115 @@ Aktuell: ${currentNum}`;
             console.log('🗺️ Route-Karte angezeigt');
         }
 
+        // 🆕 v5.90.304: SCHEDULER FÜR VORBESTELLUNGEN!
+        // Läuft jede Minute und aktiviert Fahrten 30 Min vorher
+        let preorderSchedulerInterval = null;
+        
+        function startPreorderScheduler() {
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('⏰ VORBESTELL-SCHEDULER GESTARTET');
+            console.log('   Prüft jede Minute ob Vorbestellungen aktiviert werden');
+            console.log('   Regel: 30 Minuten vor Abholzeit → Status "new"');
+            console.log('═══════════════════════════════════════════════════════════');
+            
+            // Stoppe alten Interval falls vorhanden
+            if (preorderSchedulerInterval) {
+                clearInterval(preorderSchedulerInterval);
+            }
+            
+            // Erste Prüfung sofort
+            checkPreorders();
+            
+            // Dann jede Minute
+            preorderSchedulerInterval = setInterval(() => {
+                checkPreorders();
+            }, 60000); // 60 Sekunden
+        }
+        
+        async function checkPreorders() {
+            if (!isFirebaseReady) {
+                console.log('⏸️ Scheduler: Firebase nicht bereit');
+                return;
+            }
+            
+            const now = Date.now();
+            
+            try {
+                // Hole alle Fahrten aus Firebase
+                const snapshot = await db.ref('rides').once('value');
+                const allRides = [];
+                
+                snapshot.forEach(child => {
+                    const ride = child.val();
+                    ride.firebaseId = child.key;
+                    allRides.push(ride);
+                });
+                
+                // Filtere Vorbestellungen
+                const preorders = allRides.filter(r => r.status === 'vorbestellt' && r.pickupTimestamp);
+                
+                if (preorders.length === 0) {
+                    console.log('⏰ Scheduler: Keine Vorbestellungen');
+                    return;
+                }
+                
+                console.log(`⏰ Scheduler: ${preorders.length} Vorbestellung(en) gefunden`);
+                
+                for (const ride of preorders) {
+                    const pickupTime = ride.pickupTimestamp;
+                    const timeUntilPickup = pickupTime - now;
+                    const minutesUntilPickup = Math.round(timeUntilPickup / 60000);
+                    
+                    // 30 Minuten vorher?
+                    if (minutesUntilPickup <= 30 && minutesUntilPickup > 0) {
+                        console.log('═══════════════════════════════════════════════════════════');
+                        console.log('🔔 VORBESTELLUNG AKTIVIEREN!');
+                        console.log('   Fahrt ID:', ride.firebaseId);
+                        console.log('   Kunde:', ride.customerName);
+                        console.log('   Abholzeit:', new Date(pickupTime).toLocaleTimeString('de-DE'));
+                        console.log('   Minuten bis Abholung:', minutesUntilPickup);
+                        console.log('   Von:', ride.pickup);
+                        console.log('   Nach:', ride.destination);
+                        console.log('═══════════════════════════════════════════════════════════');
+                        
+                        // Status ändern: vorbestellt → new
+                        await db.ref('rides/' + ride.firebaseId).update({
+                            status: 'new',
+                            activatedAt: Date.now(),
+                            activatedBy: 'scheduler'
+                        });
+                        
+                        console.log('✅ Status geändert: vorbestellt → new');
+                        
+                        // Lade aktualisierte Fahrt
+                        const updatedSnapshot = await db.ref('rides/' + ride.firebaseId).once('value');
+                        const updatedRide = updatedSnapshot.val();
+                        updatedRide.firebaseId = ride.firebaseId;
+                        
+                        // Auto-Assign starten!
+                        console.log('🎯 Starte Auto-Assignment...');
+                        await startAutoAssignment(ride.firebaseId, updatedRide);
+                        
+                        // Protokoll
+                        logActivity('scheduler', 'preorder_activated', `Vorbestellung aktiviert (${minutesUntilPickup} Min vorher)`, {
+                            customer: ride.customerName,
+                            from: ride.pickup,
+                            to: ride.destination,
+                            pickupTime: new Date(pickupTime).toLocaleString('de-DE')
+                        });
+                        
+                    } else if (minutesUntilPickup > 30) {
+                        console.log(`⏰ Vorbestellung ${ride.firebaseId}: Noch ${minutesUntilPickup} Min (wartet...)`);
+                    } else if (minutesUntilPickup <= 0) {
+                        console.log(`⚠️ Vorbestellung ${ride.firebaseId}: Abholzeit überschritten! (${Math.abs(minutesUntilPickup)} Min zu spät)`);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Scheduler Fehler:', error);
+            }
+        }
+        
         // 🎯 INTELLIGENTE AUTO-ZUWEISUNG MIT 30-SEK-TIMER
         async function startAutoAssignment(rideId, ride) {
             console.log('🎯 startAutoAssignment aufgerufen für Fahrt:', rideId, 'Status:', ride?.status);
@@ -22400,6 +21610,14 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.25.6: Temporäre Sperre prüfen
         // Findet Fahrer auch wenn GPS nicht ganz aktuell (< 10 Min)
         function findNearestAvailableVehicle(pickupCoords, blacklist = []) {
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🔍 findNearestAvailableVehicle AUFGERUFEN!');
+            console.log('   pickupCoords:', pickupCoords);
+            console.log('   blacklist:', blacklist);
+            console.log('   drivers Objekt:', drivers);
+            console.log('   drivers Anzahl:', Object.keys(drivers || {}).length);
+            console.log('═══════════════════════════════════════════════════════════');
+            
             const availableVehicles = [];
             const now = Date.now();
             const MAX_GPS_AGE = 10 * 60 * 1000; // 10 Minuten
@@ -22407,6 +21625,7 @@ Aktuell: ${currentNum}`;
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
                 const driver = drivers[vehicleId];
+                console.log(`   Prüfe Fahrzeug: ${vehicleId}`, driver);
                 
                 // 🆕 v5.21.8: Blacklist-Check ZUERST!
                 if (blacklist.includes(vehicleId)) {
@@ -24653,8 +23872,22 @@ Aktuell: ${currentNum}`;
             }
             
             // Auto-Assignment für Sofort-Fahrten
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🔍 AUTO-ASSIGN DEBUG:');
+            console.log('   isFirebaseReady:', isFirebaseReady);
+            console.log('   bookingData.firebaseId:', bookingData.firebaseId);
+            console.log('   bookingData.status:', bookingData.status);
+            console.log('   BEDINGUNG erfüllt?', isFirebaseReady && bookingData.firebaseId && bookingData.status === 'new');
+            console.log('═══════════════════════════════════════════════════════════');
+            
             if (isFirebaseReady && bookingData.firebaseId && bookingData.status === 'new') {
+                console.log('✅ RUFE startAutoAssignment AUF!');
                 startAutoAssignment(bookingData.firebaseId, bookingData);
+            } else {
+                console.log('❌ AUTO-ASSIGN WIRD NICHT AUFGERUFEN!');
+                if (!isFirebaseReady) console.log('   → Firebase nicht bereit!');
+                if (!bookingData.firebaseId) console.log('   → Keine Firebase ID!');
+                if (bookingData.status !== 'new') console.log('   → Status ist:', bookingData.status, '(erwartet: new)');
             }
         }
         
@@ -26792,6 +26025,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 console.log('🔍 Suche Fahrten für IDs:', possibleIds);
                 
                 // Filtere Fahrten
+                const now = Date.now();
                 const todayRides = Object.entries(allRides)
                     .map(([id, ride]) => ({ id, ...ride }))
                     .filter(ride => {
@@ -26804,14 +26038,32 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         // NICHT "new" ohne vehicleId!
                         if (!ride.vehicleId) return false; // ← WICHTIG!
                         
+                        // Muss MEIN Fahrzeug sein
+                        if (!possibleIds.includes(ride.vehicleId)) return false;
+                        
                         // Status Check
                         // assigned = Dir zugewiesen, warte auf Annahme → ZEIGEN (gelb)
                         // accepted = Du hast angenommen, fahr los! → ZEIGEN (grün)
                         // picked_up = Kunde drin → ZEIGEN (blau)
-                        if (ride.status !== 'assigned' && ride.status !== 'accepted' && ride.status !== 'picked_up') return false;
+                        // on_way = Unterwegs → ZEIGEN
+                        const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
+                        if (!validStatuses.includes(ride.status)) return false;
                         
-                        // Muss MEIN Fahrzeug sein
-                        return possibleIds.includes(ride.vehicleId);
+                        // 🆕 v5.90.305: BEI "assigned" → NUR < 30 MIN ZEIGEN!
+                        if (ride.status === 'assigned') {
+                            const pickupTime = ride.pickupTimestamp || ride.timestamp;
+                            const minutesUntil = (pickupTime - now) / 60000;
+                            
+                            if (minutesUntil > 30) {
+                                // Zu weit weg → NICHT anzeigen!
+                                console.log(`⏰ Fahrt ${ride.id} noch ${Math.round(minutesUntil)} Min entfernt - blende aus`);
+                                return false;
+                            }
+                            
+                            console.log(`✅ Fahrt ${ride.id} in ${Math.round(minutesUntil)} Min - zeige an`);
+                        }
+                        
+                        return true;
                     })
                     .sort((a, b) => a.timestamp - b.timestamp);
                 
@@ -27858,6 +27110,35 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
             
             alert('✅ Kunde eingestiegen! Navigation zum Ziel läuft.');
+            updateDriverView();
+        }
+        
+        // 🆕 v5.90.300: LOSFAHREN ZUM KUNDEN (Isarfunk-Style!)
+        async function startDriving(rideId) {
+            console.log('🚗 Fahre los zum Kunden:', rideId);
+            
+            await updateRide(rideId, { 
+                status: 'on_way',
+                startedDrivingAt: Date.now() 
+            });
+            
+            // Lade ride NEU
+            const snapshot = await db.ref('rides/' + rideId).once('value');
+            const ride = snapshot.val();
+            if (ride) {
+                ride.firebaseId = rideId;
+                
+                // 📜 PROTOKOLL
+                const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
+                logActivity('status', 'on_way', `Fahre zum Kunden`, {
+                    customer: ride.customerName,
+                    driver: vehicleName,
+                    pickup: ride.pickup
+                });
+            }
+            
+            alert('✅ Fahre zum Kunden!');
+            updateDriverView();
         }
 
         // 🆕 v5.90.248: FAHRT VON KARTE ABSCHLIESSEN!
@@ -32790,6 +32071,19 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
         }
         
+        // 🆕 v5.90.300: ISARFUNK Vehicle Select!
+        function selectVehicleIsarfunk(vehicleId) {
+            console.log('🚗 Isarfunk: Fahrzeug gewählt:', vehicleId);
+            
+            const select = document.getElementById('vehicle');
+            if (select) {
+                select.value = vehicleId;
+            }
+            
+            setVehicle();
+            updateDriverViewIsarfunk();
+        }
+        
         // 🆕 v5.90.294: TESLA-BUTTON SELECT!
         function selectVehicleButton(vehicleId) {
             console.log('🚗 Tesla-Button geklickt:', vehicleId);
@@ -32809,6 +32103,43 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         
         function updateVehicleDropdowns() {
             console.log('🔄 Update Vehicle Dropdowns, Fahrzeuge:', Object.keys(VEHICLES).length);
+            
+            // 🆕 v5.90.300: ISARFUNK BUTTON-GRID!
+            const buttonGridIsarfunk = document.getElementById('vehicle-grid-isarfunk');
+            if (buttonGridIsarfunk) {
+                const sortedVehicles = Object.values(VEHICLES).sort((a, b) => {
+                    const prioA = a.priority || 5;
+                    const prioB = b.priority || 5;
+                    return prioA - prioB;
+                });
+                
+                buttonGridIsarfunk.innerHTML = sortedVehicles.map(v => {
+                    const icon = v.name.toLowerCase().includes('bus') ? '🚐' : 
+                                v.name.toLowerCase().includes('tesla') ? '⚡' : '🚗';
+                    return `
+                        <button onclick="selectVehicleIsarfunk('${v.id}')" style="
+                            padding: 20px;
+                            background: white;
+                            color: #1f2937;
+                            border: 3px solid #e5e7eb;
+                            border-radius: 12px;
+                            font-size: 16px;
+                            font-weight: 700;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                        ">
+                            <span style="font-size: 32px;">${icon}</span>
+                            <div style="flex: 1; text-align: left;">
+                                <div style="font-size: 18px; font-weight: 900;">${v.plate || v.name}</div>
+                                <div style="font-size: 13px; opacity: 0.7;">${v.name}</div>
+                            </div>
+                            <span style="font-size: 20px; color: #10b981;">→</span>
+                        </button>
+                    `;
+                }).join('');
+            }
             
             // 🆕 v5.90.295: NEUE BUTTON-GRID für Modal!
             const buttonGridNew = document.getElementById('vehicle-button-grid-new');
@@ -38611,7 +37942,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     invoiceSelectedBillingAddress = '';
                 }
                 
-                // 🆕 v5.52.4: Initialisiere Positionen mit Hauptfahrt
+                // 🆕 v5.90.306: Initialisiere Positionen mit Hauptfahrt + MwSt
                 const distance = parseFloat(ride.distance) || 0;
                 const vatRate = distance < 50 ? 7 : 19;
                 const grossPrice = parseFloat(ride.price) || 0;
@@ -38620,7 +37951,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     {
                         id: 1,
                         description: 'Taxifahrt',
-                        amount: grossPrice
+                        amount: grossPrice,
+                        vatRate: vatRate // 🆕 v5.90.306: MwSt basierend auf Distanz
                     }
                 ];
                 
@@ -39129,12 +38461,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 invoiceCustomerData = null;
                 invoiceSelectedBillingAddress = '';
                 
-                // 🆕 Initialisiere leere Position
+                // 🆕 v5.90.306: Initialisiere leere Position MIT MwSt
                 invoicePositions = [
                     {
                         id: 1,
                         description: '',
-                        amount: 0
+                        amount: 0,
+                        vatRate: 7 // 🆕 Standard 7%
                     }
                 ];
                 
@@ -39368,63 +38701,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         // 🆕 v5.90.14: RECHNUNG PER WHATSAPP TEILEN
+        // 🆕 v5.90.307: WHATSAPP MIT PDF-LINK!
         async function shareInvoiceViaWhatsApp() {
-            try {
-                console.log('📤 Starte WhatsApp-Versand...');
-                
-                // Hole aktuelle Rechnung-Daten
-                const rideId = document.getElementById('invoice-ride-id')?.value;
-                if (!rideId) {
-                    alert('❌ Keine Fahrt ausgewählt!');
-                    return;
-                }
-                
-                // Lade Fahrt
-                const rideSnapshot = await db.ref('rides/' + rideId).once('value');
-                const ride = rideSnapshot.val();
-                
-                if (!ride) {
-                    alert('❌ Fahrt nicht gefunden!');
-                    return;
-                }
-                
-                // Hole Customer Phone
-                let customerPhone = ride.customerPhone;
-                if (!customerPhone && ride.customerId) {
-                    const customerSnapshot = await db.ref('customers/' + ride.customerId).once('value');
-                    const customer = customerSnapshot.val();
-                    if (customer) customerPhone = customer.phone;
-                }
-                
-                if (!customerPhone) {
-                    alert('❌ Keine Telefonnummer für diesen Kunden gefunden!\n\nBitte trage die Nummer im CRM ein.');
-                    return;
-                }
-                
-                // Normalisiere Phone zu WhatsApp-Format
-                const normalizedPhone = normalizePhoneNumber(customerPhone);
-                const whatsappPhone = normalizedPhone.replace(/[^0-9]/g, ''); // Nur Zahlen für WhatsApp
-                
-                console.log('📱 Kunden-Phone:', customerPhone, '→', whatsappPhone);
-                
-                // Hole Rechnungs-Daten
-                const invoiceNumber = document.getElementById('invoice-number')?.textContent || 'Unbekannt';
-                const totalGross = parseFloat(document.getElementById('invoice-total-gross')?.textContent?.replace('€', '') || '0');
-                const customerName = ride.customerName || 'Kunde';
-                
-                // Öffne WhatsApp Web mit Nachricht
-                const message = `Hallo ${customerName},\n\nhier ist Ihre Rechnung ${invoiceNumber} über ${totalGross.toFixed(2)}€.\n\nVielen Dank für Ihre Fahrt! 🚕\n\nMit freundlichen Grüßen\nFunk Taxi Heringsdorf`;
-                
-                const url = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
-                
-                window.open(url, '_blank');
-                
-                alert('💬 WhatsApp wurde geöffnet!\n\n⚠️ Bitte PDF manuell erstellen und anhängen:\n1. Klicke "PDF erstellen"\n2. In WhatsApp Chat anhängen');
-                
-            } catch (error) {
-                console.error('❌ Fehler beim WhatsApp-Versand:', error);
-                alert('❌ Fehler: ' + error.message);
-            }
+            // Rufe neue Funktion auf!
+            await generateInvoicePDFAndSendWhatsApp();
         }
         
         // 🆕 v5.90.14: RECHNUNG TEILEN (MIT PDF)
@@ -39563,11 +38843,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (!container) return;
             
             container.innerHTML = invoicePositions.map((pos, index) => `
-                <div style="display:grid;grid-template-columns:1fr 120px 40px;gap:10px;margin-bottom:10px;align-items:center;">
+                <div style="display:grid;grid-template-columns:1fr 120px 100px 40px;gap:10px;margin-bottom:10px;align-items:center;">
                     <input type="text" 
                            value="${pos.description}" 
                            onchange="updateInvoicePositionDescription(${index}, this.value)"
-                           placeholder="Beschreibung"
+                           placeholder="Beschreibung (z.B. Trinkgeld)"
                            style="padding:8px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
                     <input type="number" 
                            value="${pos.amount.toFixed(2)}" 
@@ -39576,6 +38856,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                            min="0"
                            placeholder="Betrag"
                            style="padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
+                    <select onchange="updateInvoicePositionVat(${index}, this.value)"
+                            style="padding:8px;border:2px solid #3b82f6;border-radius:8px;font-size:13px;font-weight:600;background:white;cursor:pointer;">
+                        <option value="0" ${pos.vatRate === 0 ? 'selected' : ''}>0% MwSt</option>
+                        <option value="7" ${pos.vatRate === 7 ? 'selected' : ''}>7% MwSt</option>
+                        <option value="19" ${pos.vatRate === 19 ? 'selected' : ''}>19% MwSt</option>
+                    </select>
                     ${index > 0 ? `
                         <button onclick="removeInvoicePosition(${index})" 
                                 style="padding:8px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-size:16px;">
@@ -39594,7 +38880,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             invoicePositions.push({
                 id: nextId,
                 description: '',
-                amount: 0
+                amount: 0,
+                vatRate: 7 // 🆕 v5.90.306: Standard 7%
             });
             renderInvoicePositions();
         }
@@ -39616,6 +38903,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             invoicePositions[index].description = value;
         }
         
+        // 🆕 v5.90.306: Position-MwSt ändern
+        function updateInvoicePositionVat(index, value) {
+            invoicePositions[index].vatRate = parseFloat(value) || 0;
+            console.log('💰 Position', index, 'MwSt geändert:', value + '%');
+            updateInvoiceCalculation();
+        }
+        
         // 🆕 v5.52.4: Distanz ändern → Auto-MwSt
         function updateInvoiceDistanceAndVat() {
             const distance = parseFloat(document.getElementById('invoice-distance').value) || 0;
@@ -39631,18 +38925,35 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             updateInvoiceCalculation();
         }
         
-        // 🆕 v5.52.4: NEUE Berechnung - Brutto → Netto + MwSt
+        // 🆕 v5.90.306: NEUE Berechnung - Jede Position hat eigene MwSt!
         function updateInvoiceCalculation() {
-            const vatRate = parseFloat(document.getElementById('invoice-vat-rate')?.value) || 0;
+            // Berechne für jede Position: Netto + MwSt
+            let totalNet = 0;
+            let totalVat = 0;
+            let vatBreakdown = { 0: 0, 7: 0, 19: 0 }; // Aufteilung nach MwSt-Satz
             
-            // Summiere alle Positionen (BRUTTO!)
-            const totalGross = invoicePositions.reduce((sum, pos) => sum + (parseFloat(pos.amount) || 0), 0);
+            invoicePositions.forEach(pos => {
+                const gross = parseFloat(pos.amount) || 0;
+                const vatRate = parseFloat(pos.vatRate) || 0;
+                
+                // RÜCKWÄRTS: Brutto → Netto + MwSt
+                const net = gross / (1 + (vatRate / 100));
+                const vat = gross - net;
+                
+                totalNet += net;
+                totalVat += vat;
+                
+                // Aufteilung sammeln
+                if (vatRate === 0 || vatRate === 7 || vatRate === 19) {
+                    vatBreakdown[vatRate] += vat;
+                }
+                
+                console.log(`💰 Position "${pos.description}": ${gross.toFixed(2)}€ brutto (${net.toFixed(2)}€ netto + ${vat.toFixed(2)}€ MwSt ${vatRate}%)`);
+            });
             
-            // Rechne RÜCKWÄRTS: Brutto → Netto + MwSt
-            const netPrice = totalGross / (1 + (vatRate / 100));
-            const vatAmount = totalGross - netPrice;
+            const totalGross = totalNet + totalVat;
             
-            // 🆕 v5.90.156: ROBUSTE UPDATE - prüfe ob Elemente existieren!
+            // 🆕 v5.90.306: UPDATE UI mit Gesamt-Werten
             const grossEl = document.getElementById('invoice-gross-total');
             const netEl = document.getElementById('invoice-net-display');
             const vatEl = document.getElementById('invoice-vat-display');
@@ -39650,12 +38961,42 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const totalEl = document.getElementById('invoice-total');
             
             if (grossEl) grossEl.textContent = totalGross.toFixed(2) + '€';
-            if (netEl) netEl.textContent = netPrice.toFixed(2) + '€';
-            if (vatEl) vatEl.textContent = vatAmount.toFixed(2) + '€';
-            if (vatRateEl) vatRateEl.textContent = vatRate;
+            if (netEl) netEl.textContent = totalNet.toFixed(2) + '€';
+            if (vatEl) {
+                // Zeige MwSt-Aufteilung
+                const vatParts = [];
+                if (vatBreakdown[0] > 0) vatParts.push(`${vatBreakdown[0].toFixed(2)}€ (0%)`);
+                if (vatBreakdown[7] > 0) vatParts.push(`${vatBreakdown[7].toFixed(2)}€ (7%)`);
+                if (vatBreakdown[19] > 0) vatParts.push(`${vatBreakdown[19].toFixed(2)}€ (19%)`);
+                
+                if (vatParts.length > 1) {
+                    // Mehrere MwSt-Sätze
+                    vatEl.innerHTML = `${totalVat.toFixed(2)}€<br><small style="font-size:11px;opacity:0.8;">${vatParts.join(' + ')}</small>`;
+                } else {
+                    // Nur ein MwSt-Satz
+                    vatEl.textContent = totalVat.toFixed(2) + '€';
+                }
+            }
+            if (vatRateEl) {
+                // Zeige "gemischt" wenn mehrere Sätze
+                const uniqueRates = [...new Set(invoicePositions.map(p => p.vatRate))];
+                if (uniqueRates.length > 1) {
+                    vatRateEl.textContent = 'gemischt';
+                } else {
+                    vatRateEl.textContent = uniqueRates[0] || 0;
+                }
+            }
             if (totalEl) totalEl.textContent = totalGross.toFixed(2) + ' €';
             
-            console.log('💰 Rechnung aktualisiert: Brutto=' + totalGross.toFixed(2) + '€');
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('💰 RECHNUNG GESAMT:');
+            console.log('   Netto:', totalNet.toFixed(2) + '€');
+            console.log('   MwSt 0%:', vatBreakdown[0].toFixed(2) + '€');
+            console.log('   MwSt 7%:', vatBreakdown[7].toFixed(2) + '€');
+            console.log('   MwSt 19%:', vatBreakdown[19].toFixed(2) + '€');
+            console.log('   MwSt Gesamt:', totalVat.toFixed(2) + '€');
+            console.log('   Brutto:', totalGross.toFixed(2) + '€');
+            console.log('═══════════════════════════════════════════════════════');
         }
         
         // 🆕 v5.90.10: DISTANZ NEU BERECHNEN
@@ -40026,6 +39367,255 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (error) {
                 console.error('❌ Fehler:', error);
                 alert('❌ Fehler beim Erstellen/Versenden: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.307: PDF ERSTELLEN & PER WHATSAPP VERSENDEN!
+        async function generateInvoicePDFAndSendWhatsApp() {
+            try {
+                console.log('📱 v5.90.307: PDF erstellen & WhatsApp versenden');
+                
+                // 1. ERSTELLE PDF (wie gewohnt)
+                const rideId = document.getElementById('invoice-ride-id').value;
+                const distance = parseFloat(document.getElementById('invoice-distance').value) || 0;
+                
+                // 🆕 v5.90.306: Berechne aus Positionen mit eigener MwSt
+                let totalNet = 0;
+                let totalVat = 0;
+                let vatBreakdown = { 0: 0, 7: 0, 19: 0 };
+                
+                invoicePositions.forEach(pos => {
+                    const gross = parseFloat(pos.amount) || 0;
+                    const vatRate = parseFloat(pos.vatRate) || 0;
+                    const net = gross / (1 + (vatRate / 100));
+                    const vat = gross - net;
+                    totalNet += net;
+                    totalVat += vat;
+                    if (vatRate === 0 || vatRate === 7 || vatRate === 19) {
+                        vatBreakdown[vatRate] += vat;
+                    }
+                });
+                
+                const totalGross = totalNet + totalVat;
+                
+                const ride = invoiceRideData;
+                const customer = invoiceCustomerData;
+                
+                if (!ride && !customer) {
+                    alert('❌ Keine Daten vorhanden!');
+                    return;
+                }
+                
+                // Hole Kundendaten
+                const customerName = document.getElementById('inv-customer-name')?.value || ride?.customerName || customer?.name || 'Kunde';
+                const customerPhone = customer?.phone || ride?.customerPhone || '';
+                
+                if (!customerPhone) {
+                    alert('❌ Keine Telefonnummer vorhanden!\n\nBitte im CRM hinterlegen.');
+                    return;
+                }
+                
+                // Hole nächste Rechnungsnummer
+                const invoiceNumber = await getNextInvoiceNumber();
+                
+                console.log('📄 Erstelle PDF:', invoiceNumber);
+                showToast('📄 Erstelle PDF...', 'info');
+                
+                // Erstelle PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // HEADER
+                doc.setFontSize(10);
+                doc.setTextColor(100);
+                doc.text('Taxiunternehmen Patrick Wydra', 20, 20);
+                doc.text('Amselring 10', 20, 25);
+                doc.text('17424 Ostseebad Heringsdorf', 20, 30);
+                doc.text('Tel.: 038378/22022', 20, 35);
+                
+                // TITEL
+                doc.setFontSize(20);
+                doc.setTextColor(0);
+                doc.setFont(undefined, 'bold');
+                doc.text('Rechnung', 20, 50);
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
+                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 63);
+                
+                // KUNDE
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.text('Kunde:', 20, 80);
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(10);
+                
+                let yPos = 86;
+                doc.text(customerName, 20, yPos);
+                
+                if (invoiceSelectedBillingAddress) {
+                    yPos += 5;
+                    const addressLines = doc.splitTextToSize(invoiceSelectedBillingAddress, 80);
+                    doc.text(addressLines, 20, yPos);
+                    yPos += addressLines.length * 5;
+                }
+                
+                // POSITIONEN
+                yPos = Math.max(yPos, 120);
+                doc.setFont(undefined, 'bold');
+                doc.text('Positionen:', 20, yPos);
+                yPos += 7;
+                
+                doc.setFont(undefined, 'normal');
+                invoicePositions.forEach(pos => {
+                    const vatText = pos.vatRate > 0 ? ` (${pos.vatRate}% MwSt)` : ' (0% MwSt)';
+                    doc.text(`${pos.description}${vatText}`, 20, yPos);
+                    doc.text(`${(pos.amount || 0).toFixed(2)} €`, 180, yPos, { align: 'right' });
+                    yPos += 5;
+                });
+                
+                // SUMMEN
+                yPos += 5;
+                doc.line(20, yPos, 190, yPos);
+                yPos += 7;
+                
+                doc.text('Zwischensumme:', 20, yPos);
+                doc.text(`${totalGross.toFixed(2)} €`, 180, yPos, { align: 'right' });
+                yPos += 7;
+                
+                doc.text('Netto:', 20, yPos);
+                doc.text(`${totalNet.toFixed(2)} €`, 180, yPos, { align: 'right' });
+                yPos += 5;
+                
+                // MwSt-Aufteilung
+                if (vatBreakdown[0] > 0) {
+                    doc.text('MwSt 0%:', 20, yPos);
+                    doc.text(`${vatBreakdown[0].toFixed(2)} €`, 180, yPos, { align: 'right' });
+                    yPos += 5;
+                }
+                if (vatBreakdown[7] > 0) {
+                    doc.text('MwSt 7%:', 20, yPos);
+                    doc.text(`${vatBreakdown[7].toFixed(2)} €`, 180, yPos, { align: 'right' });
+                    yPos += 5;
+                }
+                if (vatBreakdown[19] > 0) {
+                    doc.text('MwSt 19%:', 20, yPos);
+                    doc.text(`${vatBreakdown[19].toFixed(2)} €`, 180, yPos, { align: 'right' });
+                    yPos += 5;
+                }
+                
+                yPos += 2;
+                doc.line(20, yPos, 190, yPos);
+                yPos += 7;
+                
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(12);
+                doc.text('Gesamt:', 20, yPos);
+                doc.text(`${totalGross.toFixed(2)} €`, 180, yPos, { align: 'right' });
+                
+                // FOOTER
+                doc.setFontSize(8);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(100);
+                doc.text('Steuernummer: 86/079/11816 | Zahlbar innerhalb 14 Tagen ohne Abzug', 20, 280);
+                
+                // 2. KONVERTIERE PDF ZU BLOB
+                console.log('💾 Konvertiere PDF zu Blob...');
+                const pdfBlob = doc.output('blob');
+                
+                // 3. UPLOAD ZU FIREBASE STORAGE
+                console.log('☁️ Lade hoch zu Firebase Storage...');
+                showToast('☁️ Lade PDF hoch...', 'info');
+                
+                const fileName = `rechnung-${invoiceNumber}.pdf`;
+                const storageRef = firebase.storage().ref(`invoices/${fileName}`);
+                
+                const uploadTask = await storageRef.put(pdfBlob, {
+                    contentType: 'application/pdf',
+                    customMetadata: {
+                        invoiceNumber: invoiceNumber,
+                        customerName: customerName,
+                        amount: totalGross.toString(),
+                        createdAt: new Date().toISOString()
+                    }
+                });
+                
+                console.log('✅ PDF hochgeladen!');
+                
+                // 4. HOLE DOWNLOAD-URL
+                const downloadURL = await storageRef.getDownloadURL();
+                console.log('🔗 Download-URL:', downloadURL);
+                
+                // 5. SPEICHERE RECHNUNG IN FIREBASE DB
+                const invoiceData = {
+                    invoiceNumber: invoiceNumber,
+                    customerName: customerName,
+                    customerPhone: customerPhone,
+                    amount: totalGross,
+                    netAmount: totalNet,
+                    vatAmount: totalVat,
+                    vatBreakdown: vatBreakdown,
+                    positions: invoicePositions,
+                    rideId: rideId,
+                    distance: distance,
+                    pdfUrl: downloadURL,  // ← WICHTIG!
+                    pdfFileName: fileName,
+                    status: 'offen',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                
+                await db.ref(`invoices/${invoiceNumber}`).set(invoiceData);
+                console.log('✅ Rechnung in DB gespeichert');
+                
+                // Verknüpfe mit Fahrt
+                if (rideId) {
+                    await db.ref(`rides/${rideId}`).update({
+                        invoiceNumber: invoiceNumber,
+                        invoiceAmount: totalGross,
+                        invoicePdfUrl: downloadURL,
+                        invoiceCreatedAt: Date.now()
+                    });
+                }
+                
+                // 6. ÖFFNE WHATSAPP
+                console.log('📱 Öffne WhatsApp...');
+                showToast('✅ PDF erstellt! Öffne WhatsApp...', 'success');
+                
+                const whatsappText = encodeURIComponent(
+                    `Hallo ${customerName},\n\n` +
+                    `hier ist Ihre Rechnung Nr. ${invoiceNumber} über ${totalGross.toFixed(2)} €:\n\n` +
+                    `${downloadURL}\n\n` +
+                    `Einfach auf den Link klicken zum Herunterladen.\n\n` +
+                    `Vielen Dank!\n` +
+                    `Taxi Patrick Wydra`
+                );
+                
+                // Normalisiere Telefonnummer für WhatsApp (ohne +, Leerzeichen, etc.)
+                const whatsappPhone = customerPhone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '');
+                
+                const whatsappUrl = `https://wa.me/${whatsappPhone}?text=${whatsappText}`;
+                
+                console.log('📱 WhatsApp URL:', whatsappUrl);
+                
+                // Öffne WhatsApp in neuem Tab
+                window.open(whatsappUrl, '_blank');
+                
+                // Log
+                logActivity('admin', 'invoice_sent_whatsapp', `Rechnung ${invoiceNumber} per WhatsApp versendet`, {
+                    customer: customerName,
+                    phone: customerPhone,
+                    amount: totalGross,
+                    pdfUrl: downloadURL
+                });
+                
+                // Modal schließen
+                setTimeout(() => closeInvoiceModal(), 1000);
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler beim Erstellen/Versenden:\n\n' + error.message);
             }
         }
         
@@ -40456,21 +40046,187 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
         }
         
+        // 🆕 v5.90.308: FILTER STATUS
+        let currentInvoiceFilter = 'completed_no_invoice'; // Standard: Abgeschlossen ohne Rechnung
+        
+        // 🆕 v5.90.308: FILTER SETZEN
+        function setInvoiceFilter(filter) {
+            currentInvoiceFilter = filter;
+            console.log('🔍 Filter gesetzt:', filter);
+            
+            // Update Button-Styles
+            const buttons = {
+                'all': document.getElementById('filter-all'),
+                'completed': document.getElementById('filter-completed'),
+                'pending': document.getElementById('filter-pending'),
+                'with_invoice': document.getElementById('filter-with-invoice'),
+                'no_invoice': document.getElementById('filter-no-invoice'),
+                'completed_no_invoice': document.getElementById('filter-completed-no-invoice')
+            };
+            
+            // Alle grau
+            Object.values(buttons).forEach(btn => {
+                if (btn) {
+                    btn.style.background = '#6b7280';
+                    btn.style.boxShadow = 'none';
+                }
+            });
+            
+            // Aktiver Button grün
+            const activeBtn = buttons[filter];
+            if (activeBtn) {
+                activeBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                activeBtn.style.boxShadow = '0 2px 6px rgba(16,185,129,0.3)';
+            }
+            
+            // Neu laden
+            loadRidesForInvoicing();
+        }
+        
+        // 🆕 v5.90.308: RECHNUNG ERSTELLEN & DIREKT PER WHATSAPP SENDEN!
+        async function openInvoiceModalAndSendWhatsApp(rideId) {
+            try {
+                console.log('📱 v5.90.308: Rechnung erstellen & WhatsApp senden für:', rideId);
+                
+                // 1. Öffne Modal
+                await openInvoiceModal(rideId);
+                
+                // 2. Warte kurz damit Modal gerendert ist
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // 3. Klicke automatisch auf WhatsApp-Button
+                // (Der Button ruft generateInvoicePDFAndSendWhatsApp auf)
+                showToast('💡 Prüfe Daten und klicke "Per WhatsApp senden"', 'info');
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.308: VORHANDENE RECHNUNG NOCHMAL PER WHATSAPP SENDEN!
+        async function resendInvoiceViaWhatsApp(rideId, invoiceNumber) {
+            try {
+                console.log('📱 v5.90.308: Rechnung nochmal senden:', invoiceNumber);
+                
+                // Lade Rechnung aus DB
+                const invoiceSnapshot = await db.ref(`invoices/${invoiceNumber}`).once('value');
+                const invoice = invoiceSnapshot.val();
+                
+                if (!invoice) {
+                    alert('❌ Rechnung nicht gefunden!');
+                    return;
+                }
+                
+                // Prüfe ob PDF-URL vorhanden
+                if (!invoice.pdfUrl) {
+                    alert('❌ Kein PDF-Link vorhanden!\n\nBitte erstelle die Rechnung neu.');
+                    return;
+                }
+                
+                // Prüfe Telefonnummer
+                if (!invoice.customerPhone) {
+                    // Versuche aus Fahrt zu laden
+                    const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                    const ride = rideSnapshot.val();
+                    
+                    if (!ride || !ride.customerPhone) {
+                        alert('❌ Keine Telefonnummer vorhanden!\n\nBitte im CRM hinterlegen.');
+                        return;
+                    }
+                    
+                    invoice.customerPhone = ride.customerPhone;
+                }
+                
+                // Öffne WhatsApp
+                showToast('📱 Öffne WhatsApp...', 'info');
+                
+                const whatsappText = encodeURIComponent(
+                    `Hallo ${invoice.customerName || 'Kunde'},\n\n` +
+                    `hier ist Ihre Rechnung Nr. ${invoiceNumber} über ${invoice.amount.toFixed(2)} €:\n\n` +
+                    `${invoice.pdfUrl}\n\n` +
+                    `Einfach auf den Link klicken zum Herunterladen.\n\n` +
+                    `Vielen Dank!\n` +
+                    `Taxi Patrick Wydra`
+                );
+                
+                const whatsappPhone = invoice.customerPhone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '');
+                const whatsappUrl = `https://wa.me/${whatsappPhone}?text=${whatsappText}`;
+                
+                window.open(whatsappUrl, '_blank');
+                
+                showToast('✅ WhatsApp geöffnet!', 'success');
+                
+                // Log
+                logActivity('admin', 'invoice_resent_whatsapp', `Rechnung ${invoiceNumber} erneut per WhatsApp versendet`, {
+                    customer: invoice.customerName,
+                    phone: invoice.customerPhone,
+                    amount: invoice.amount
+                });
+                
+            } catch (error) {
+                console.error('❌ Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
+            }
+        }
+        
         // 🆕 v5.90.178: RENDERE FAHRTEN-LISTE FÜR RECHNUNGS-ERSTELLUNG!
         function renderRidesForInvoicing(rides) {
             // 🆕 v5.90.197: Beide Container füllen!
             const container = document.getElementById('single-invoices-list');
             const rechnungContainer = document.getElementById('rechnung-single-invoices-list');
+            const filterInfo = document.getElementById('rechnung-filter-info');
+            
+            // 🆕 v5.90.308: FILTER ANWENDEN!
+            let filteredRides = rides;
+            let filterText = '';
+            
+            switch (currentInvoiceFilter) {
+                case 'completed_no_invoice':
+                    filteredRides = rides.filter(r => r.status === 'completed' && !r.invoiceNumber);
+                    filterText = '✅ Abgeschlossen ohne Rechnung';
+                    break;
+                case 'completed':
+                    filteredRides = rides.filter(r => r.status === 'completed');
+                    filterText = '✅ Nur Abgeschlossen';
+                    break;
+                case 'pending':
+                    filteredRides = rides.filter(r => r.status !== 'completed' && r.status !== 'cancelled');
+                    filterText = '⏳ Nur Offene';
+                    break;
+                case 'with_invoice':
+                    filteredRides = rides.filter(r => r.invoiceNumber);
+                    filterText = '💰 Mit Rechnung';
+                    break;
+                case 'no_invoice':
+                    filteredRides = rides.filter(r => !r.invoiceNumber);
+                    filterText = '❌ Ohne Rechnung';
+                    break;
+                case 'all':
+                default:
+                    filteredRides = rides;
+                    filterText = '📊 Alle Fahrten';
+                    break;
+            }
+            
+            console.log(`🔍 Filter: ${filterText} → ${filteredRides.length} von ${rides.length} Fahrten`);
+            
+            // Filter-Info anzeigen
+            if (filterInfo) {
+                filterInfo.textContent = `${filterText} (${filteredRides.length})`;
+            }
             
             const emptyHTML = `
                 <div style="text-align:center;padding:40px;color:#6b7280;">
                     <div style="font-size:48px;margin-bottom:10px;">🚕</div>
                     <div style="font-weight:600;">Keine Fahrten gefunden</div>
-                    <div style="font-size:14px;margin-top:8px;color:#9ca3af;">Erstelle erst Fahrten im Kalender</div>
+                    <div style="font-size:14px;margin-top:8px;color:#9ca3af;">
+                        ${currentInvoiceFilter === 'completed_no_invoice' ? 'Alle abgeschlossenen Fahrten haben bereits Rechnungen!' : 'Ändere den Filter um andere Fahrten zu sehen'}
+                    </div>
                 </div>
             `;
             
-            if (rides.length === 0) {
+            if (filteredRides.length === 0) {
                 if (container) container.innerHTML = emptyHTML;
                 if (rechnungContainer) rechnungContainer.innerHTML = emptyHTML;
                 return;
@@ -40478,7 +40234,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
             
-            rides.forEach(ride => {
+            filteredRides.forEach(ride => {
                 // Datum & Zeit formatieren
                 const rideDate = ride.pickupDate || new Date(ride.pickupTimestamp).toLocaleDateString('de-DE');
                 const rideTime = ride.pickupTime || new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
@@ -40494,11 +40250,19 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             ✅ Rechnung: ${ride.invoiceNumber}
                         </div>
                     `;
+                    
+                    // 🆕 v5.90.308: WHATSAPP BUTTON BEI VORHANDENER RECHNUNG!
                     actionButton = `
-                        <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')" 
-                                style="padding:8px 14px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
-                            📥 PDF laden
-                        </button>
+                        <div style="display:flex;gap:6px;">
+                            <button onclick="downloadInvoicePDF('${ride.invoiceNumber}', '${ride.id}')" 
+                                    style="padding:8px 14px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(139,92,246,0.3);">
+                                📥 PDF
+                            </button>
+                            <button onclick="resendInvoiceViaWhatsApp('${ride.id}', '${ride.invoiceNumber}')" 
+                                    style="padding:8px 14px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(37,211,102,0.3);">
+                                📱 WhatsApp
+                            </button>
+                        </div>
                     `;
                 } else {
                     // Noch keine Rechnung
@@ -40507,10 +40271,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             ⏳ Keine Rechnung
                         </div>
                     `;
+                    
+                    // 🆕 v5.90.308: DIREKT WHATSAPP SENDEN!
                     actionButton = `
-                        <button onclick="openInvoiceModal('${ride.id}')" 
-                                style="padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
-                            📄 Rechnung erstellen
+                        <button onclick="openInvoiceModalAndSendWhatsApp('${ride.id}')" 
+                                style="padding:8px 14px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(37,211,102,0.3);">
+                            📱 Rechnung per WhatsApp
                         </button>
                     `;
                 }
@@ -41998,6 +41764,53 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     console.warn('   LÖSUNG: Kunde muss sich einmal in App einloggen!');
                 }
                 
+                // 🆕 v5.90.305: INTELLIGENTE STATUS-LOGIK!
+                const now = Date.now();
+                const minutesUntilPickup = (pickupTimestamp - now) / 60000;
+                
+                let rideStatus;
+                let assignmentInfo = {};
+                
+                if (vehicle) {
+                    // MANUELL ZUGEWIESEN → Status: "assigned" (NICHT "accepted"!)
+                    rideStatus = 'assigned';
+                    assignmentInfo = {
+                        vehicle: vehicle,
+                        vehicleAssignedAt: Date.now(),
+                        vehicleAssignedBy: currentUser?.name || 'admin',
+                        assignmentMethod: 'manual'
+                    };
+                    console.log('═══════════════════════════════════════════════════════');
+                    console.log('✅ MANUELL ZUGEWIESEN');
+                    console.log('   Status: assigned (Fahrer hat NICHT bestätigt!)');
+                    console.log('   Fahrzeug:', vehicle);
+                    console.log('   Zeit bis Abholung:', Math.round(minutesUntilPickup), 'Min');
+                    console.log('   Fahrer sieht ab:', minutesUntilPickup <= 30 ? 'JETZT' : '30 Min vorher');
+                    console.log('═══════════════════════════════════════════════════════');
+                } else {
+                    // KEIN FAHRZEUG → Auto-Assign oder Vorbestellung
+                    if (minutesUntilPickup < 30) {
+                        // SOFORT-FAHRT → Auto-Assign läuft gleich!
+                        rideStatus = 'new';
+                        console.log('═══════════════════════════════════════════════════════');
+                        console.log('⚡ SOFORT-FAHRT ERKANNT');
+                        console.log('   Status: new');
+                        console.log('   Zeit bis Abholung:', Math.round(minutesUntilPickup), 'Min');
+                        console.log('   Auto-Assign: Läuft nach Speichern!');
+                        console.log('═══════════════════════════════════════════════════════');
+                    } else {
+                        // VORBESTELLUNG → Scheduler aktiviert später
+                        rideStatus = 'vorbestellt';
+                        console.log('═══════════════════════════════════════════════════════');
+                        console.log('⏰ VORBESTELLUNG ERKANNT');
+                        console.log('   Status: vorbestellt');
+                        console.log('   Zeit bis Abholung:', Math.round(minutesUntilPickup), 'Min');
+                        console.log('   Scheduler aktiviert in:', Math.round(minutesUntilPickup - 30), 'Min');
+                        console.log('   Dann: Auto-Assign läuft automatisch');
+                        console.log('═══════════════════════════════════════════════════════');
+                    }
+                }
+                
                 const ride = {
                     userId: userId || null, // 🆕 v5.90.85: AUTH-UID FÜR "MEINE FAHRTEN"!
                     customerName: finalCustomer.name || 'Unbekannt',
@@ -42012,7 +41825,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     pickupTime: pickupDate.toISOString(), // 🔧 v5.39.8: FIX - Auch als ISO String!
                     passengers: passengers,
                     createdAt: Date.now(),
-                    status: vehicle ? 'accepted' : 'vorbestellt', // 🆕 v5.57.0: Status abhängig von Zuweisung!
+                    status: rideStatus, // 🆕 v5.90.305: Intelligente Status-Logik!
                     bookedBy: 'admin',
                     notes: notes || '',
                     customerId: finalCustomerId,
@@ -42023,30 +41836,32 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     distance: routeData.distance,
                     duration: routeData.duration,
                     // 🆕 v5.86.15: Unterscheide AI-Buchung von Admin-Schnellbuchung
-                    bookingSource: window.aiBookingPhone ? 'ai-assistant' : 'admin-quick'
+                    bookingSource: window.aiBookingPhone ? 'ai-assistant' : 'admin-quick',
+                    // 🆕 v5.90.305: Assignment-Info
+                    ...assignmentInfo
                 };
                 
-                // 🆕 v5.63.6: FAHRZEUG-ZUWEISUNG - NUTZT JETZT ZENTRALE FUNKTION!
-                // Fahrzeug zuweisen wenn ausgewählt
+                // 🆕 v5.90.305: FAHRZEUG-INFO - Status ist bereits korrekt gesetzt!
+                // Fahrzeug-Details hinzufügen wenn ausgewählt
                 if (vehicle) {
                     try {
-                        console.log('🚗 Schnellbuchung: Weise Fahrzeug zu:', vehicle);
+                        console.log('🚗 Schnellbuchung: Lade Fahrzeug-Details:', vehicle);
                         
                         // Lade Fahrzeugdaten für lokale Ride-Objekt Vorab-Füllung
                         const vehicleSnapshot = await db.ref('vehicles/' + vehicle).once('value');
                         const vehicleData = vehicleSnapshot.val();
                         
                         if (vehicleData) {
-                            // Setze Felder im lokalen Ride-Objekt (vor dem Speichern)
+                            // Setze Fahrzeug-Details (Status bleibt "assigned"!)
                             ride.vehicleId = vehicle;
                             ride.vehicle = vehicleData.name || vehicle;
                             ride.vehicleLabel = vehicleData.name || vehicle;
                             ride.vehiclePlate = vehicleData.plate || '';
-                            ride.status = 'accepted';
-                            ride.acceptedAt = Date.now();
-                            ride.assignedBy = 'admin';
+                            // ❌ NICHT: ride.status = 'accepted' - Das macht nur der Fahrer!
+                            // ❌ NICHT: ride.acceptedAt - Das setzt nur der Fahrer!
                             
-                            console.log('✅ Fahrzeug vorab gesetzt:', vehicleData.name);
+                            console.log('✅ Fahrzeug-Details gesetzt:', vehicleData.name);
+                            console.log('   Status bleibt:', ride.status);
                         } else {
                             console.warn('⚠️ Fahrzeugdaten nicht gefunden für:', vehicle);
                         }
@@ -42841,11 +42656,38 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // 🆕 v5.90.129: Kombiniere Ländervorwahl + Telefonnummer
             const phoneCountry = document.getElementById('edit-customer-phone-country').value;
-            const phoneNumber = document.getElementById('edit-customer-phone').value.trim().replace(/\s/g, '');
+            let phoneNumber = document.getElementById('edit-customer-phone').value.trim().replace(/\s/g, '');
+            
+            // 🆕 v5.90.301: ENTFERNE DOPPELTE VORWAHL!
+            if (phoneNumber.startsWith('+49')) {
+                phoneNumber = phoneNumber.substring(3); // Entferne +49
+            } else if (phoneNumber.startsWith('+')) {
+                phoneNumber = phoneNumber.substring(1); // Entferne +
+            } else if (phoneNumber.startsWith('49')) {
+                phoneNumber = phoneNumber.substring(2); // Entferne 49
+            }
+            // Entferne führende 0
+            if (phoneNumber.startsWith('0')) {
+                phoneNumber = phoneNumber.substring(1);
+            }
+            
             const fullPhone = phoneNumber ? phoneCountry + phoneNumber : '';
             
             const mobileCountry = document.getElementById('edit-customer-mobile-country').value;
-            const mobileNumber = document.getElementById('edit-customer-mobile').value.trim().replace(/\s/g, '');
+            let mobileNumber = document.getElementById('edit-customer-mobile').value.trim().replace(/\s/g, '');
+            
+            // 🆕 v5.90.301: ENTFERNE DOPPELTE VORWAHL!
+            if (mobileNumber.startsWith('+49')) {
+                mobileNumber = mobileNumber.substring(3);
+            } else if (mobileNumber.startsWith('+')) {
+                mobileNumber = mobileNumber.substring(1);
+            } else if (mobileNumber.startsWith('49')) {
+                mobileNumber = mobileNumber.substring(2);
+            }
+            if (mobileNumber.startsWith('0')) {
+                mobileNumber = mobileNumber.substring(1);
+            }
+            
             const fullMobile = mobileNumber ? mobileCountry + mobileNumber : '';
             
             const updates = {

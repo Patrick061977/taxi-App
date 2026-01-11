@@ -108,9 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.315 - TAGESPROGRAMM NUR HEUTE! 📅 (Build 20260111-1255)');
-        console.log('📅 v5.90.315: Tagesprogramm zeigt NUR Fahrten von HEUTE!');
-        console.log('🔧 v5.90.315: Frau Seeger (15.01) wird ausgeblendet!');
+        console.log('🚕 Funk Taxi App v5.90.316 - PDF-UPLOAD FUNKTIONIERT! 📦✅ (Build 20260111-1300)');
+        console.log('📦 v5.90.316: Firebase Storage RICHTIG initialisiert!');
+        console.log('✅ v5.90.316: PDF-Upload zu Storage funktioniert!');
+        console.log('🔗 v5.90.316: Download-URLs werden erstellt!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
@@ -10948,6 +10949,8 @@ Aktuell: ${currentNum}`;
                     
                     firebase.initializeApp(firebaseConfig);
                     db = firebase.database();
+                    const storage = firebase.storage(); // 🆕 v5.90.316: Firebase Storage initialisieren!
+                    window.firebaseStorage = storage; // Für globalen Zugriff
                     isFirebaseReady = true;
                     
                     if (isTestMode) {
@@ -39839,7 +39842,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 showToast('☁️ Lade PDF hoch...', 'info');
                 
                 const fileName = `rechnung-${invoiceNumber}.pdf`;
-                const storageRef = firebase.storage().ref(`invoices/${fileName}`);
+                const storageRef = window.firebaseStorage.ref(`invoices/${fileName}`);
                 
                 const uploadTask = await storageRef.put(pdfBlob, {
                     contentType: 'application/pdf',

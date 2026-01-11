@@ -108,11 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.329 - FAHRGAST LIVE-STATUS! 📱🗺️ (Build 20260111-1545)');
-        console.log('📱 v5.90.329: 5-Phasen Live-Tracking für Fahrgäste!');
-        console.log('🗺️ v5.90.329: Live-Karte zeigt Taxi in Echtzeit!');
-        console.log('🔄 v5.90.329: Firebase Listener für automatische Updates!');
-        console.log('✅ v5.90.329: Auto-Reset nach Fahrt-Ende!');
+        console.log('🚕 Funk Taxi App v5.90.331 - CRITICAL FIX! 🚨 (Build 20260111-1610)');
+        console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
+        console.log('✅ v5.90.331: Endlosschleife gestoppt!');
+        console.log('🔍 v5.90.330: Detailliertes Debug-Logging!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
         console.log('📋 v5.90.327: updateCustomerCRM Funktion hinzugefügt!');
         console.log('🔧 v5.90.325: Gleicher Check wie showAvailableTaxis!');
@@ -1005,7 +1004,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.310 - MEGA-FIX! 🔧 (Build 20260111-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.331 - CRITICAL FIX! 🚨 (Build 20260111-1610)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -21877,7 +21876,7 @@ Aktuell: ${currentNum}`;
         // Findet Fahrer auch wenn GPS nicht ganz aktuell (< 10 Min)
         function findNearestAvailableVehicle(pickupCoords, blacklist = []) {
             console.log('═══════════════════════════════════════════════════════════');
-            console.log('🔍 findNearestAvailableVehicle AUFGERUFEN!');
+            console.log('🔍 v5.90.329: findNearestAvailableVehicle AUFGERUFEN!');
             console.log('   pickupCoords:', pickupCoords);
             console.log('   blacklist:', blacklist);
             console.log('   drivers Objekt:', drivers);
@@ -21888,21 +21887,29 @@ Aktuell: ${currentNum}`;
             const now = Date.now();
             const MAX_GPS_AGE = 10 * 60 * 1000; // 10 Minuten
             
+            console.log('🔍 v5.90.329: Durchsuche', Object.keys(drivers).length, 'Fahrer...');
+            
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
                 const driver = drivers[vehicleId];
-                console.log(`   Prüfe Fahrzeug: ${vehicleId}`, driver);
+                console.log(`🔍 v5.90.329: Prüfe ${vehicleId}:`, {
+                    hasLat: !!driver.lat,
+                    hasLon: !!driver.lon,
+                    hasTimestamp: !!driver.timestamp,
+                    timestamp: driver.timestamp,
+                    gpsAge: driver.timestamp ? Math.round((now - driver.timestamp) / 60000) + ' Min' : 'N/A'
+                });
                 
                 // 🆕 v5.21.8: Blacklist-Check ZUERST!
                 if (blacklist.includes(vehicleId)) {
-                    console.log(`⛔ ${vehicleId}: Auf Blacklist (hat nicht angenommen)`);
+                    console.log(`⛔ v5.90.329: ${vehicleId}: Auf Blacklist`);
                     continue;
                 }
                 
                 // 🆕 v5.25.6: Temporäre Sperre prüfen
                 if (driver.temporaryBlock && driver.temporaryBlock.blockedUntil > now) {
                     const remainingMinutes = Math.ceil((driver.temporaryBlock.blockedUntil - now) / 60000);
-                    console.log(`🚫 ${vehicleId}: Temporär gesperrt (noch ${remainingMinutes} Min.)`);
+                    console.log(`🚫 v5.90.329: ${vehicleId}: Temporär gesperrt (${remainingMinutes} Min)`);
                     continue;
                 }
                 
@@ -21914,9 +21921,11 @@ Aktuell: ${currentNum}`;
                     const gpsAge = now - driver.timestamp;
                     const gpsAgeMinutes = Math.round(gpsAge / 60000);
                     
+                    console.log(`📍 v5.90.329: ${vehicleId} GPS-Alter: ${gpsAgeMinutes} Min (Max: 10 Min)`);
+                    
                     // Position zu alt? Überspringen
                     if (gpsAge > MAX_GPS_AGE) {
-                        console.log(`⏰ ${vehicleId}: GPS zu alt (${gpsAgeMinutes} Min)`);
+                        console.log(`⏰ v5.90.329: ${vehicleId}: GPS zu alt! (${gpsAgeMinutes} Min > 10 Min)`);
                         continue;
                     }
                     
@@ -21926,31 +21935,49 @@ Aktuell: ${currentNum}`;
                         (r.status === 'assigned' || r.status === 'accepted' || r.status === 'picked_up')
                     );
                     
-                    if (!hasActiveRide) {
-                        // Berechne Entfernung
-                        const distance = calculateDistance(
-                            pickupCoords.lat, pickupCoords.lon,
-                            driver.lat, driver.lon
-                        );
-                        
-                        availableVehicles.push({
-                            id: vehicleId,
-                            name: driver.vehicle || VEHICLES[vehicleId]?.name || vehicleId,
-                            distance: distance,
-                            lat: driver.lat,
-                            lon: driver.lon,
-                            gpsAge: gpsAgeMinutes, // 🆕 Wie alt ist die Position?
-                            isStandby: driver.mode === 'standby' || !driver.online, // 🆕 Ist im Standby?
-                            telegramChatId: driver.telegramChatId // 🆕 Für Telegram-Benachrichtigung
-                        });
+                    if (hasActiveRide) {
+                        console.log(`🚗 v5.90.329: ${vehicleId}: Hat bereits aktive Fahrt!`);
+                        continue;
                     }
+                    
+                    // Berechne Entfernung
+                    const distance = calculateDistance(
+                        pickupCoords.lat, pickupCoords.lon,
+                        driver.lat, driver.lon
+                    );
+                    
+                    console.log(`✅ v5.90.329: ${vehicleId} ist verfügbar! Entfernung: ${distance.toFixed(2)} km`);
+                    
+                    availableVehicles.push({
+                        id: vehicleId,
+                        name: driver.vehicle || VEHICLES[vehicleId]?.name || vehicleId,
+                        distance: distance,
+                        lat: driver.lat,
+                        lon: driver.lon,
+                        gpsAge: gpsAgeMinutes,
+                        isStandby: driver.mode === 'standby' || !driver.online,
+                        telegramChatId: driver.telegramChatId
+                    });
+                } else {
+                    console.log(`❌ v5.90.329: ${vehicleId}: Fehlende Daten! lat=${!!driver.lat} lon=${!!driver.lon} timestamp=${!!driver.timestamp}`);
                 }
             }
             
             // Sortiere nach Entfernung (nächstes zuerst)
             availableVehicles.sort((a, b) => a.distance - b.distance);
             
-            console.log('📍 Verfügbare Taxis:', availableVehicles.length, availableVehicles);
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('📍 v5.90.329: Verfügbare Taxis:', availableVehicles.length);
+            if (availableVehicles.length > 0) {
+                console.log('🎯 v5.90.329: Nächstes Taxi:', availableVehicles[0]);
+            } else {
+                console.log('❌ v5.90.329: KEINE VERFÜGBAREN TAXIS!');
+                console.log('   Gründe:');
+                console.log('   - Kein Fahrer online mit GPS');
+                console.log('   - GPS älter als 10 Min');
+                console.log('   - Alle haben aktive Fahrten');
+            }
+            console.log('═══════════════════════════════════════════════════════════');
             
             return availableVehicles.length > 0 ? availableVehicles[0] : null;
         }
@@ -50458,7 +50485,9 @@ Stack: ${err.stack}
                                 // Erzwinge neue Position
                                 navigator.geolocation.getCurrentPosition(
                                     (pos) => {
-                                        sendDriverLocation(pos);
+                                        if (typeof handleGPSPosition === 'function') {
+                                            handleGPSPosition(pos, null);
+                                        }
                                         console.log('✅ Neue Position erzwungen!');
                                     },
                                     (err) => {
@@ -50481,7 +50510,11 @@ Stack: ${err.stack}
                     }
                     // GPS-Position auch neu senden wenn Fahrer online
                     if (isOnline && currentView === 'driver' && watchId) {
-                        navigator.geolocation.getCurrentPosition(sendDriverLocation);
+                        navigator.geolocation.getCurrentPosition((pos) => {
+                            if (typeof handleGPSPosition === 'function') {
+                                handleGPSPosition(pos, null);
+                            }
+                        });
                     }
                 }
             });

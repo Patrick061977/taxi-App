@@ -108,10 +108,9 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.319 - GPS-STATUS FÜR FAHRER! 🟢🔴 (Build 20260111-1330)');
-        console.log('🟢 v5.90.319: GPS Status = GPS an/aus (KEIN Standby!)');
-        console.log('🔘 v5.90.319: Toggle mit AN/AUS Label!');
-        console.log('⚠️ v5.90.319: Hinweis wenn GPS aus!');
+        console.log('🚕 Funk Taxi App v5.90.320 - RECHNUNG ERSTELLEN BUTTON! 📄 (Build 20260111-1340)');
+        console.log('📄 v5.90.320: Rechnung erstellen OHNE WhatsApp-Zwang!');
+        console.log('📱 v5.90.320: 2 Buttons: Erstellen + WhatsApp!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
@@ -40832,12 +40831,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         </div>
                     `;
                     
-                    // 🆕 v5.90.308: DIREKT WHATSAPP SENDEN!
+                    // 🆕 v5.90.320: ZWEI BUTTONS!
                     actionButton = `
-                        <button onclick="openInvoiceModalAndSendWhatsApp('${ride.id}')" 
-                                style="padding:10px 16px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(37,211,102,0.3);">
-                            📱 Rechnung per WhatsApp
-                        </button>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button onclick="openInvoiceModal('${ride.id}')" 
+                                    style="padding:10px 16px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(59,130,246,0.3);">
+                                📄 Rechnung erstellen
+                            </button>
+                            <button onclick="openInvoiceModalAndSendWhatsApp('${ride.id}')" 
+                                    style="padding:10px 16px;background:linear-gradient(135deg,#25D366,#128C7E);color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;box-shadow:0 2px 6px rgba(37,211,102,0.3);">
+                                📱 Per WhatsApp
+                            </button>
+                        </div>
                     `;
                 }
                 

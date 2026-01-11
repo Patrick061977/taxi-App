@@ -108,11 +108,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.326 - FAHRZEUGE IMMER ZEIGEN! 🚗 (Build 20260111-1500)');
-        console.log('🚗 v5.90.326: Fahrzeuge werden IMMER angezeigt!');
-        console.log('📍 v5.90.326: Ohne Abholadresse = "Verfügbar"');
-        console.log('📍 v5.90.326: Mit Abholadresse = "X km entfernt"');
-        console.log('🔧 v5.90.325: checkOnlineDrivers nutzt TIMESTAMP statt lastUpdate!');
+        console.log('🚕 Funk Taxi App v5.90.328 - VERMITTLUNG FIX! 🎯 (Build 20260111-1515)');
+        console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
+        console.log('🚗 v5.90.328: Fahrer sehen zugewiesene Fahrten!');
+        console.log('✅ v5.90.328: Vermittlung funktioniert jetzt!');
+        console.log('📋 v5.90.327: updateCustomerCRM Funktion hinzugefügt!');
         console.log('🔧 v5.90.325: Gleicher Check wie showAvailableTaxis!');
         console.log('✅ v5.90.325: Sofort-Buchung sollte jetzt funktionieren!');
         console.log('✏️ v5.90.314: Status-Dropdown + Zeit-Editor!');
@@ -21780,6 +21780,7 @@ Aktuell: ${currentNum}`;
             await db.ref('rides/' + rideId).update({
                 status: 'assigned',  // 🚕 WICHTIG: Fahrer ist jetzt BESETZT!
                 assignedTo: nearestVehicle.id,
+                vehicleId: nearestVehicle.id,  // 🆕 v5.90.324: vehicleId SETZEN damit Fahrer sieht!
                 assignedVehicleName: nearestVehicle.name,
                 assignedAt: Date.now(),
                 assignmentExpiresAt: Date.now() + 60000, // 60 Sekunden (erhöht von 30!)
@@ -22194,6 +22195,78 @@ Aktuell: ${currentNum}`;
             });
         }
 
+        // 🆕 v5.90.327: CRM UPDATE FUNKTION
+        async function updateCustomerCRM(customerName, customerPhone, pickup, price) {
+            try {
+                console.log('📋 CRM: Update Kunde:', customerName, customerPhone);
+                
+                if (!customerPhone || !customerName) {
+                    console.log('⚠️ CRM: Keine Kundendaten zum Speichern');
+                    return;
+                }
+                
+                // Normalisiere Telefonnummer
+                const normalizedPhone = customerPhone.replace(/\s+/g, '');
+                
+                // Suche bestehenden Kunden
+                const customersSnapshot = await db.ref('customers').once('value');
+                const customers = customersSnapshot.val() || {};
+                
+                let customerId = null;
+                let existingCustomer = null;
+                
+                // Finde Kunde anhand Telefonnummer
+                Object.entries(customers).forEach(([id, customer]) => {
+                    const customerNormalizedPhone = (customer.phone || '').replace(/\s+/g, '');
+                    if (customerNormalizedPhone === normalizedPhone) {
+                        customerId = id;
+                        existingCustomer = customer;
+                    }
+                });
+                
+                if (existingCustomer) {
+                    // Update bestehender Kunde
+                    const updates = {
+                        lastRide: Date.now(),
+                        totalRides: (existingCustomer.totalRides || 0) + 1,
+                        totalSpent: (existingCustomer.totalSpent || 0) + parseFloat(price || 0),
+                        lastPickup: pickup
+                    };
+                    
+                    await db.ref(`customers/${customerId}`).update(updates);
+                    console.log('✅ CRM: Kunde aktualisiert:', customerId);
+                    
+                } else {
+                    // Neuer Kunde anlegen
+                    const newCustomerRef = db.ref('customers').push();
+                    customerId = newCustomerRef.key;
+                    
+                    const newCustomer = {
+                        name: customerName,
+                        phone: normalizedPhone,
+                        createdAt: Date.now(),
+                        firstRide: Date.now(),
+                        lastRide: Date.now(),
+                        totalRides: 1,
+                        totalSpent: parseFloat(price || 0),
+                        lastPickup: pickup,
+                        isVIP: false,
+                        notes: ''
+                    };
+                    
+                    await newCustomerRef.set(newCustomer);
+                    console.log('✅ CRM: Neuer Kunde angelegt:', customerId);
+                }
+                
+                return customerId;
+                
+            } catch (error) {
+                console.error('❌ CRM: Fehler beim Update:', error);
+                // Fehler nicht werfen - Buchung soll trotzdem durchgehen!
+                return null;
+            }
+        }
+        
         async function book() {
             // ✅ BUGFIX v5.9.3: Version-Check entfernt!
             // Der alte Check rief nicht-existierende Funktionen auf und blockierte ALLE Buchungen!

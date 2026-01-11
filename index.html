@@ -108,7 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.332 - DEBOUNCE FIX! ⏱️ (Build 20260111-1620)');
+        console.log('🚕 Funk Taxi App v5.90.335 - KALENDER FIX! 📅 (Build 20260111-1810)');
+        console.log('📅 v5.90.335: Tracking-Link wird im Kalender wieder erstellt!');
+        console.log('✅ v5.90.335: saveEditedRide() erstellt Link + sendet SMS!');
+        console.log('🔗 v5.90.334: Tracking-Link wird bei acceptRide() erstellt!');
+        console.log('✅ v5.90.334: Kein extra "Fahrt zum Kunden" Button mehr nötig!');
+        console.log('🚀 v5.90.333: startAutoAssignment wird jetzt aufgerufen!');
+        console.log('✅ v5.90.333: Auto-Zuweisung für Sofort-Fahrten funktioniert!');
         console.log('⏱️ v5.90.332: loadDriverRides DEBOUNCED (300ms)!');
         console.log('🛡️ v5.90.332: Verhindert Endlosschleife im Fahrer-View!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
@@ -8552,13 +8558,29 @@
                     await db.ref('rides/' + rideId).update(updates);
                     console.log('✅ Fahrt in Firebase aktualisiert');
                     
-                    // 🆕 v5.90.62: TRACKING-LINK ERST BEI FAHRER-ACCEPT!
-                    // Link wird NICHT mehr hier erstellt, sondern in acceptRide()
-                    // if (newVehicleId && newVehicleId !== '') {
-                    //     console.log('🔗 Erstelle Tracking-Link (saveEditedRide)...');
-                    //     await createTrackingLinkForRide(rideId, newVehicleId);
-                    // }
-                    console.log('ℹ️ Tracking-Link wird bei Fahrer-Accept erstellt');
+                    // 🆕 v5.90.335: TRACKING-LINK WIEDER AKTIVIERT!
+                    // Link wird hier erstellt wenn Fahrzeug zugewiesen!
+                    if (newVehicleId && newVehicleId !== '') {
+                        console.log('🔗 v5.90.335: Erstelle Tracking-Link (saveEditedRide)...');
+                        try {
+                            const trackingLink = await createTrackingLinkForRide(rideId, newVehicleId);
+                            if (trackingLink) {
+                                console.log('✅ v5.90.335: Tracking-Link erstellt:', trackingLink);
+                                
+                                // 📱 v5.90.335: SMS AN KUNDEN!
+                                const rideSnap = await db.ref('rides/' + rideId).once('value');
+                                const rideData = rideSnap.val();
+                                if (rideData) {
+                                    await sendCustomerNotifications(rideData);
+                                    console.log('✅ v5.90.335: SMS an Kunde versendet!');
+                                }
+                            }
+                        } catch (linkError) {
+                            console.error('❌ v5.90.335: Tracking-Link Fehler:', linkError);
+                        }
+                    } else {
+                        console.log('ℹ️ Kein Fahrzeug - Tracking-Link wird bei Fahrer-Accept erstellt');
+                    }
                     
                     // 📱 v5.64.43: TELEGRAM RICHTIG SENDEN!
                     if (newVehicleId && updates.vehicle) {
@@ -27393,9 +27415,34 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 assignmentExpiresAt: null
             });
             
-            // 🆕 v5.90.289: TRACKING-LINK WIRD ERST BEI "FAHRT ZUM KUNDEN" ERSTELLT!
-            // Nicht mehr hier! Fahrer muss erst auf "🚗 Fahrt zum Kunden" klicken!
-            console.log('✅ Fahrt angenommen - Tracking-Link wird später erstellt');
+            // 🆕 v5.90.334: TRACKING-LINK SOFORT ERSTELLEN!
+            // Nicht mehr warten bis "Fahrt zum Kunden"!
+            console.log('🔗 v5.90.334: Erstelle Tracking-Link JETZT...');
+            try {
+                const trackingLink = await createTrackingLinkForRide(rideId, currentVehicle);
+                if (trackingLink) {
+                    console.log('✅ v5.90.334: Tracking-Link erstellt:', trackingLink);
+                    
+                    // 📱 v5.90.334: SENDE SMS AN KUNDEN!
+                    console.log('📱 v5.90.334: Sende SMS an Kunde...');
+                    try {
+                        // Lade aktualisierte Fahrt mit trackingLink
+                        const updatedRideSnap = await db.ref('rides/' + rideId).once('value');
+                        const updatedRide = updatedRideSnap.val();
+                        if (updatedRide) {
+                            await sendCustomerNotifications(updatedRide);
+                            console.log('✅ v5.90.334: SMS an Kunde versendet!');
+                        }
+                    } catch (smsError) {
+                        console.error('❌ v5.90.334: SMS-Fehler:', smsError);
+                    }
+                } else {
+                    console.warn('⚠️ v5.90.334: Tracking-Link konnte nicht erstellt werden');
+                }
+            } catch (linkError) {
+                console.error('❌ v5.90.334: Fehler beim Erstellen des Tracking-Links:', linkError);
+                // Fahrt läuft trotzdem weiter
+            }
             
             // 📜 PROTOKOLL: Fahrt angenommen
             logActivity('status', 'accepted', `Fahrt angenommen von ${vehicleName}`, {
@@ -27410,7 +27457,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // GPS erstmal NICHT starten! Erst bei "Fahrt zum Kunden"!
             // Fahrer bereitet sich vor, ist aber noch nicht unterwegs
             
-            alert('✅ Auftrag angenommen!\n\nKlicke auf "🚗 FAHRT ZUM KUNDEN" wenn du losfährst!');
+            alert('✅ Auftrag angenommen!\n\n📱 Tracking-Link wurde erstellt\n🗺️ Klicke auf "🚗 FAHRT ZUM KUNDEN" wenn du losfährst!');
         }
 
         
@@ -42793,6 +42840,31 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     }
                     
                     alert(successMessage);
+                    
+                    // 🆕 v5.90.333: AUTO-ZUWEISUNG für SOFORT-FAHRTEN!
+                    if (rideStatus === 'new' && !vehicle) {
+                        console.log('═══════════════════════════════════════════════════════');
+                        console.log('🚀 v5.90.333: Starte Auto-Zuweisung für Sofort-Fahrt...');
+                        console.log('   Fahrt-ID:', rideId);
+                        console.log('   Pickup:', quickBookingPickupCoords);
+                        console.log('═══════════════════════════════════════════════════════');
+                        
+                        try {
+                            // Lade vollständige Fahrt aus Firebase für Auto-Assignment
+                            const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                            const fullRide = rideSnapshot.val();
+                            
+                            if (fullRide) {
+                                await startAutoAssignment(rideId, fullRide);
+                                console.log('✅ v5.90.333: Auto-Zuweisung abgeschlossen!');
+                            } else {
+                                console.error('❌ v5.90.333: Fahrt nicht gefunden in Firebase!');
+                            }
+                        } catch (autoAssignError) {
+                            console.error('❌ v5.90.333: Fehler bei Auto-Zuweisung:', autoAssignError);
+                            // Fahrt existiert trotzdem, nur Auto-Assign fehlgeschlagen
+                        }
+                    }
                     
                     // Aktualisiere Views
                     updateViews();

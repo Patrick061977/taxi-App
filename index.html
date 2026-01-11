@@ -108,12 +108,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.309 - RECHNUNGS-ZENTRALE! 🏢📊 (Build 20260111-0800)');
-        console.log('🏢 v5.90.309: Komplettes Rechnungs-Zentrum!');
-        console.log('🔍 v5.90.309: Detailsuche (Text + Datum + Status)');
-        console.log('📊 v5.90.309: Live-Statistiken!');
-        console.log('✏️ v5.90.309: Bearbeiten-Button bei Rechnungen!');
-        console.log('🎯 v5.90.309: Alles an einem Ort!');
+        console.log('🚕 Funk Taxi App v5.90.310 - MEGA-FIX! 🔧🎯 (Build 20260111-0900)');
+        console.log('🔧 v5.90.310: Alle Fehler gefixt!');
+        console.log('⏰ v5.90.310: Vorbestellungen rausgefiltert!');
+        console.log('📅 v5.90.310: Datum-Picker mit Kalender!');
+        console.log('✏️ v5.90.310: Bearbeiten funktioniert!');
+        console.log('🟢 v5.90.310: GPS-Status mit Genauigkeit!');
+        console.log('🎯 v5.90.310: Null-Checks überall!');
         console.log('🧹 v5.90.300: Header VERSTECKT im Fahrer-View!');
         console.log('✨ v5.90.300: Tabs VERSTECKT im Fahrer-View!');
         console.log('📞 v5.90.300: Anruf-Button VERSTECKT im Fahrer-View!');
@@ -989,7 +990,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.309 - RECHNUNGS-ZENTRALE! 🏢 (Build 20260111-0800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.310 - MEGA-FIX! 🔧 (Build 20260111-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2603,8 +2604,10 @@
             <!-- Mitte: Fahrzeug + GPS -->
             <div style="text-align: center; flex: 1;">
                 <div id="driver-plate-isarfunk" style="font-size: 18px; font-weight: 900; letter-spacing: 1px;">---</div>
-                <div style="font-size: 11px; opacity: 0.9; margin-top: 2px;">
-                    <span id="driver-gps-dots">○○○○</span>
+                <div id="driver-gps-status-isarfunk" style="font-size: 11px; margin-top: 4px; font-weight: 600;">
+                    <!-- 🆕 v5.90.310: Detaillierter GPS-Status -->
+                    <span id="driver-gps-icon">🔴</span>
+                    <span id="driver-gps-text">GPS aus</span>
                 </div>
             </div>
             
@@ -12696,30 +12699,64 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.295: UBER-STYLE UPDATE FUNKTION!
         // 🆕 v5.90.300: ISARFUNK-STYLE UPDATE!
         function updateDriverViewIsarfunk() {
+            // 🆕 v5.90.310: NULL-CHECK für Elemente!
+            const vehicleSelectEl = document.getElementById('driver-vehicle-select-isarfunk');
+            const driverMainEl = document.getElementById('driver-main-isarfunk');
+            
             if (!currentVehicle) {
                 // Zeige Fahrzeug-Auswahl
-                document.getElementById('driver-vehicle-select-isarfunk').style.display = 'block';
-                document.getElementById('driver-main-isarfunk').style.display = 'none';
+                if (vehicleSelectEl) vehicleSelectEl.style.display = 'block';
+                if (driverMainEl) driverMainEl.style.display = 'none';
                 return;
             } else {
-                document.getElementById('driver-vehicle-select-isarfunk').style.display = 'none';
-                document.getElementById('driver-main-isarfunk').style.display = 'block';
+                if (vehicleSelectEl) vehicleSelectEl.style.display = 'none';
+                if (driverMainEl) driverMainEl.style.display = 'block';
             }
             
             // Update Header
             const vehicle = VEHICLES[currentVehicle];
-            if (vehicle) {
-                document.getElementById('driver-plate-isarfunk').textContent = vehicle.plate || vehicle.name;
+            const driverPlateEl = document.getElementById('driver-plate-isarfunk');
+            if (vehicle && driverPlateEl) {
+                driverPlateEl.textContent = vehicle.plate || vehicle.name;
             }
             
-            // GPS Dots
-            const dots = document.getElementById('driver-gps-dots');
-            if (watchId && dots) {
-                dots.textContent = '●●●●';
-                dots.style.color = '#10b981';
-            } else if (dots) {
-                dots.textContent = '○○○○';
-                dots.style.color = '#ef4444';
+            // GPS Status
+            // 🆕 v5.90.310: BESSERER GPS-STATUS MIT GENAUIGKEIT!
+            const gpsIcon = document.getElementById('driver-gps-icon');
+            const gpsText = document.getElementById('driver-gps-text');
+            
+            if (gpsIcon && gpsText) {
+                const now = Date.now();
+                const lastUpdate = localStorage.getItem('lastGpsUpdate');
+                const lastAccuracy = localStorage.getItem('lastGpsAccuracy');
+                const isStandby = !watchId && standbyIntervalId; // Standby-Modus?
+                
+                if (lastUpdate) {
+                    const secondsSinceUpdate = Math.floor((now - parseInt(lastUpdate)) / 1000);
+                    const accuracy = lastAccuracy ? parseInt(lastAccuracy) : null;
+                    
+                    if (secondsSinceUpdate < 30) {
+                        // GPS aktiv (< 30 Sek)
+                        gpsIcon.textContent = '🟢';
+                        gpsText.textContent = accuracy ? `GPS ${accuracy}m` : 'GPS aktiv';
+                        gpsText.style.color = '#10b981';
+                    } else if (secondsSinceUpdate < 120 || isStandby) {
+                        // GPS Standby (30-120 Sek oder Standby-Modus)
+                        gpsIcon.textContent = '🟡';
+                        gpsText.textContent = accuracy ? `Standby ${accuracy}m` : 'GPS Standby';
+                        gpsText.style.color = '#f59e0b';
+                    } else {
+                        // GPS verloren (> 120 Sek)
+                        gpsIcon.textContent = '🔴';
+                        gpsText.textContent = 'GPS verloren';
+                        gpsText.style.color = '#ef4444';
+                    }
+                } else {
+                    // Kein GPS
+                    gpsIcon.textContent = '⚪';
+                    gpsText.textContent = 'GPS aus';
+                    gpsText.style.color = '#9ca3af';
+                }
             }
             
             // Meine Fahrten
@@ -12735,7 +12772,7 @@ Aktuell: ${currentNum}`;
             const currentOrderDiv = document.getElementById('driver-current-order-isarfunk');
             const readyDiv = document.getElementById('driver-ready-isarfunk');
             
-            if (activeRide) {
+            if (activeRide && currentOrderDiv && readyDiv) {
                 // Zeige aktiven Auftrag
                 currentOrderDiv.style.display = 'block';
                 readyDiv.style.display = 'none';
@@ -12743,7 +12780,7 @@ Aktuell: ${currentNum}`;
                 
                 // Update Status-Button
                 updateStatusButton(activeRide.status);
-            } else {
+            } else if (currentOrderDiv && readyDiv) {
                 // Zeige Bereit-Status
                 currentOrderDiv.style.display = 'none';
                 readyDiv.style.display = 'block';
@@ -13488,15 +13525,29 @@ Aktuell: ${currentNum}`;
             
             // Alte Logik für Kompatibilität (Benachrichtigungen etc.)
             // 🆕 v5.90.107: ZEIGE ALLE ZUGETEILTEN FAHRTEN (TAGESPROGRAMM)!
+            // 🆕 v5.90.310: VORBESTELLUNGEN RAUSFILTERN!
+            const now = Date.now();
+            const fifteenMinutes = 15 * 60 * 1000; // 15 Min in Millisekunden
+            
             const newRides = rides.filter(r => {
                 // Ignoriere completed, cancelled, picked_up (die laufen schon)
                 if (r.status === 'completed' || r.status === 'cancelled' || r.status === 'picked_up') {
                     return false;
                 }
                 
+                // 🆕 v5.90.310: ZEIT-CHECK für Vorbestellungen!
+                const pickupTime = r.pickupTimestamp || r.timestamp || 0;
+                const isInFuture = pickupTime > (now + fifteenMinutes);
+                
                 // Zeige:
-                // 1. Alle neuen Fahrten
-                if (r.status === 'new') return true;
+                // 1. Alle neuen Fahrten (aber NICHT Vorbestellungen > 15 Min!)
+                if (r.status === 'new') {
+                    if (isInFuture) {
+                        console.log(`⏰ Vorbestellung ausgeblendet: ${r.customerName || 'Unbekannt'} - noch ${Math.round((pickupTime - now) / 60000)} Min`);
+                        return false; // ← VORBESTELLUNG! Nicht anzeigen!
+                    }
+                    return true; // ← Sofort oder bald, zeigen!
+                }
                 
                 // 2. Alle Fahrten die MEINEM Fahrzeug zugeteilt sind (egal welcher Status!)
                 if (currentVehicle && r.vehicleId === currentVehicle) {
@@ -26431,6 +26482,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     console.log('📡 Standby-Position:', location.lat.toFixed(4), location.lon.toFixed(4), 
                                 'Genauigkeit:', Math.round(location.accuracy), 'm');
                     
+                    // 🆕 v5.90.310: Speichere für GPS-Status Anzeige!
+                    localStorage.setItem('lastGpsUpdate', Date.now().toString());
+                    localStorage.setItem('lastGpsAccuracy', Math.round(location.accuracy).toString());
+                    
                     // Update UI
                     const statusDiv = document.getElementById('gps-status-compact');
                     const iconSpan = document.getElementById('gps-icon-compact');
@@ -26751,6 +26806,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // 🎯 Update lastGPSUpdate für Monitoring
             lastGPSUpdate = Date.now();
+            
+            // 🆕 v5.90.310: Speichere für GPS-Status Anzeige!
+            localStorage.setItem('lastGpsUpdate', Date.now().toString());
+            localStorage.setItem('lastGpsAccuracy', Math.round(pos.coords.accuracy).toString());
             
             console.log('📍 GPS:', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
             
@@ -38084,13 +38143,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 
                                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-top:10px;">
                                     <div>
-                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Datum:</label>
-                                        <input type="text" id="inv-date" value="${rideDate}"
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">📅 Datum:</label>
+                                        <input type="date" id="inv-date" value="${new Date(ride.pickupTimestamp || ride.createdAt).toISOString().split('T')[0]}"
                                                style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
                                     </div>
                                     <div>
-                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Uhrzeit:</label>
-                                        <input type="text" id="inv-time" value="${rideTime}"
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">🕐 Uhrzeit:</label>
+                                        <input type="time" id="inv-time" value="${new Date(ride.pickupTimestamp || ride.createdAt).toTimeString().split(' ')[0].slice(0,5)}"
                                                style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
                                     </div>
                                     <div>
@@ -38598,9 +38657,33 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 
                                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-top:10px;">
                                     <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">📅 Datum:</label>
+                                        <input type="date" id="inv-date" value="${new Date().toISOString().split('T')[0]}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">🕐 Uhrzeit:</label>
+                                        <input type="time" id="inv-time" value="${new Date().toTimeString().split(' ')[0].slice(0,5)}"
+                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">📏 Distanz (km):</label>
+                                        <div style="display:flex;gap:5px;">
+                                            <input type="number" id="invoice-distance" value="0.0" step="0.1" min="0"
+                                                   onchange="updateInvoiceDistanceAndVat()"
+                                                   style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                            <button onclick="recalculateInvoiceDistance()" title="Distanz neu berechnen"
+                                                    style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">
+                                                🔄
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                                 
                                 <!-- 🆕 v5.90.176: LIEFERDATUM & LIEFERZEITRAUM -->
-                                <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:12px;border-radius:8px;margin-top:10px;">
+                                <div style="background:#f0f9ff;border:2px solid #3b82f6;padding:12px;border-radius:8px;margin-bottom:15px;">
                                     <div style="font-weight:600;margin-bottom:10px;color:#1e40af;">📦 Lieferung (optional)</div>
                                     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
                                         <div>
@@ -38623,29 +38706,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                         </div>
                                     </div>
                                 </div>
-                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Datum:</label>
-                                        <input type="text" id="inv-date" value="${rideDate}"
-                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
-                                    </div>
-                                    <div>
-                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Uhrzeit:</label>
-                                        <input type="text" id="inv-time" value="${rideTime}"
-                                               style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
-                                    </div>
-                                    <div>
-                                        <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">Distanz (km):</label>
-                                        <div style="display:flex;gap:5px;">
-                                            <input type="number" id="invoice-distance" value="0.0" step="0.1" min="0"
-                                                   onchange="updateInvoiceDistanceAndVat()"
-                                                   style="flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
-                                            <button onclick="recalculateInvoiceDistance()" title="Distanz neu berechnen"
-                                                    style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">
-                                                🔄
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                             
                             <!-- 🆕 CHECKBOXEN: WAS SOLL AUF DIE RECHNUNG? -->
                             <div style="background:#fefce8;border:2px solid #eab308;padding:15px;border-radius:10px;margin-bottom:20px;">

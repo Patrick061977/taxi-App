@@ -4,6 +4,95 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
+    <!--
+    ═══════════════════════════════════════════════════════════════════════════
+    🚕 FUNK TAXI HERINGSDORF - WEB APP
+    ═══════════════════════════════════════════════════════════════════════════
+    
+    📦 VERSION: v5.90.339
+    📅 BUILD: 12.01.2026 06:55 Uhr
+    👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
+    
+    ═══════════════════════════════════════════════════════════════════════════
+    📋 CHANGELOG v5.90.339
+    ═══════════════════════════════════════════════════════════════════════════
+    
+    🐛 v5.90.339 (12.01.2026):
+       • FIX: "distance is not defined" Fehler behoben
+       • distance wird jetzt vor if/else Block definiert (Scope-Fix)
+       • Rechnung-Modal funktioniert jetzt fehlerfrei
+    
+    💬 v5.90.338 (11.01.2026):
+       • NEU: WhatsApp + SMS Buttons im Kalender-Modal
+       • 4 Nachrichtenvorlagen: "Taxi ist da", "5 Min", "Tracking", "Verzögerung"
+       • Öffnet WhatsApp/SMS direkt auf dem Handy
+       • Tesla-Browser kompatibel
+    
+    🎯 v5.90.337 (11.01.2026):
+       • FIX: Auto-Zuweisung funktioniert jetzt!
+       • Doppelte leere startAutoAssignment() Funktion entfernt
+       • Auto-Zuweisung läuft ab dieser Version korrekt!
+    
+    🚌 v5.90.336 (11.01.2026):
+       • FIX: Fahrplan (Öffentliche Verkehrsmittel) lädt automatisch
+       • switchView prüfte falsch auf 'calendar' statt 'schedule'
+       • loadSchedule() wird jetzt beim Öffnen aufgerufen
+    
+    📅 v5.90.335 (11.01.2026):
+       • FIX: Tracking-Link wird im Kalender wieder erstellt
+       • saveEditedRide() erstellt Link + sendet SMS an Kunde
+    
+    🔗 v5.90.334 (11.01.2026):
+       • FIX: Tracking-Link bei acceptRide() erstellt
+       • Kein extra "Fahrt zum Kunden" Button mehr nötig
+       • Link wird automatisch erstellt wenn Fahrer annimmt
+    
+    🚀 v5.90.333 (11.01.2026):
+       • FIX: startAutoAssignment() wird aufgerufen
+       • Auto-Zuweisung für Sofort-Fahrten implementiert
+       • Schnellbuchung ohne Fahrzeug → System weist automatisch zu
+    
+    ═══════════════════════════════════════════════════════════════════════════
+    🎯 WICHTIGE INFOS FÜR ENTWICKLER
+    ═══════════════════════════════════════════════════════════════════════════
+    
+    📦 TECH-STACK:
+       • Single-Page Application (SPA)
+       • Vanilla JavaScript (keine Frameworks!)
+       • Firebase Realtime Database + Auth
+       • Leaflet (Karten), OSRM (Routing), Nominatim (Geocoding)
+       • 61.000+ Zeilen in einer HTML-Datei
+    
+    🔥 FIREBASE STRUKTUR:
+       /rides          - Alle Fahrten
+       /vehicles       - Fahrzeuge (mit Live-GPS)
+       /users          - Benutzer (role: passenger/driver/admin)
+       /drivers        - Fahrer-Details
+       /customers      - CRM-Kunden
+       /pois           - POI-Favoriten
+       /settings       - Tarife, System-Config
+    
+    👥 USER ROLES:
+       • passenger: Buchen, eigene Buchungen sehen
+       • driver: + Aufträge annehmen, GPS-Tracking
+       • admin: + ALLES (Verwaltung, Statistiken, Settings)
+    
+    🚀 AUTO-ZUWEISUNG:
+       • Funktioniert ab v5.90.337!
+       • findNearestAvailableVehicle() sucht freies Taxi
+       • startAutoAssignment() weist automatisch zu
+       • Telegram-Nachricht an Fahrer
+    
+    💡 WICHTIGE FUNKTIONEN:
+       • editRide(rideId) - Fahrt bearbeiten im Kalender
+       • acceptRide(rideId) - Fahrer nimmt Fahrt an
+       • startAutoAssignment(rideId, ride) - Auto-Zuweisung
+       • sendQuickWhatsApp(rideId, template) - WhatsApp senden
+       • sendQuickSMS(rideId, template) - SMS senden
+    
+    ═══════════════════════════════════════════════════════════════════════════
+    -->
+    
     <!-- 🛡️ v5.87.21: SECURITY HEADERS -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
@@ -108,17 +197,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.336 - FAHRPLAN FIX! 🚌 (Build 20260111-1925)');
+        console.log('🚕 Funk Taxi App v5.90.339 - DISTANCE FIX! 🐛 (Build 20260112-0655)');
+        console.log('🐛 v5.90.339: "distance is not defined" GEFIXT!');
+        console.log('✅ v5.90.339: distance wird jetzt vor if/else definiert!');
+        console.log('💬 v5.90.338: WhatsApp + SMS Buttons im Kalender!');
+        console.log('📱 v5.90.338: 4 Vorlagen: Taxi ist da, 5 Min, Tracking, Verzögerung');
+        console.log('✅ v5.90.338: Öffnet WhatsApp/SMS auf deinem Handy!');
+        console.log('🎯 v5.90.337: Doppelte startAutoAssignment() gelöscht!');
+        console.log('✅ v5.90.337: Auto-Zuweisung funktioniert jetzt WIRKLICH!');
         console.log('🚌 v5.90.336: Fahrplan (Schedule) lädt jetzt automatisch!');
         console.log('🔧 v5.90.336: FIX - war "calendar", jetzt "schedule"!');
-        console.log('📅 v5.90.335: Tracking-Link wird im Kalender wieder erstellt!');
-        console.log('✅ v5.90.335: saveEditedRide() erstellt Link + sendet SMS!');
-        console.log('🔗 v5.90.334: Tracking-Link wird bei acceptRide() erstellt!');
-        console.log('✅ v5.90.334: Kein extra "Fahrt zum Kunden" Button mehr nötig!');
-        console.log('🚀 v5.90.333: startAutoAssignment wird jetzt aufgerufen!');
-        console.log('✅ v5.90.333: Auto-Zuweisung für Sofort-Fahrten funktioniert!');
-        console.log('⏱️ v5.90.332: loadDriverRides DEBOUNCED (300ms)!');
-        console.log('🛡️ v5.90.332: Verhindert Endlosschleife im Fahrer-View!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
         console.log('📋 v5.90.327: updateCustomerCRM Funktion hinzugefügt!');
@@ -8186,6 +8274,181 @@
                         </label>
                     </div>
                     
+                    <!-- 🆕 v5.90.338: WHATSAPP + SMS SCHNELL-NACHRICHTEN -->
+                    <div style="margin-bottom:20px;padding:15px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:2px solid #3b82f6;border-radius:10px;">
+                        <div style="font-weight:700;margin-bottom:12px;color:#1e40af;font-size:15px;">
+                            💬 Schnell-Nachrichten an Kunde
+                        </div>
+                        
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            
+                            <!-- WhatsApp Button mit Dropdown -->
+                            <div style="position:relative;">
+                                <button type="button" onclick="toggleQuickMsgDropdown('wa-${rideId}')" 
+                                        style="width:100%;
+                                               padding:12px;
+                                               background:linear-gradient(135deg,#25D366,#128C7E);
+                                               color:white;
+                                               border:none;
+                                               border-radius:8px;
+                                               font-weight:600;
+                                               cursor:pointer;
+                                               font-size:14px;
+                                               box-shadow:0 2px 8px rgba(37,211,102,0.3);
+                                               display:flex;
+                                               align-items:center;
+                                               justify-content:center;
+                                               gap:6px;">
+                                    💬 WhatsApp <span style="font-size:10px;">▼</span>
+                                </button>
+                                
+                                <!-- Dropdown -->
+                                <div id="wa-dropdown-${rideId}" 
+                                     style="display:none;
+                                            position:absolute;
+                                            top:100%;
+                                            left:0;
+                                            right:0;
+                                            background:white;
+                                            border-radius:8px;
+                                            box-shadow:0 4px 12px rgba(0,0,0,0.2);
+                                            margin-top:5px;
+                                            z-index:10002;
+                                            overflow:hidden;
+                                            border:2px solid #25D366;">
+                                    <a onclick="sendQuickWhatsApp('${rideId}', 'arrived'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              border-bottom:1px solid #e5e7eb;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        🚕 Taxi ist da!
+                                    </a>
+                                    <a onclick="sendQuickWhatsApp('${rideId}', '5min'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              border-bottom:1px solid #e5e7eb;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        ⏱️ Komme in 5 Min
+                                    </a>
+                                    <a onclick="sendQuickWhatsApp('${rideId}', 'tracking'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              border-bottom:1px solid #e5e7eb;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        📍 Tracking-Link
+                                    </a>
+                                    <a onclick="sendQuickWhatsApp('${rideId}', 'delay'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        ⏰ Verzögerung (10 Min)
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <!-- SMS Button mit Dropdown -->
+                            <div style="position:relative;">
+                                <button type="button" onclick="toggleQuickMsgDropdown('sms-${rideId}')" 
+                                        style="width:100%;
+                                               padding:12px;
+                                               background:linear-gradient(135deg,#3b82f6,#2563eb);
+                                               color:white;
+                                               border:none;
+                                               border-radius:8px;
+                                               font-weight:600;
+                                               cursor:pointer;
+                                               font-size:14px;
+                                               box-shadow:0 2px 8px rgba(59,130,246,0.3);
+                                               display:flex;
+                                               align-items:center;
+                                               justify-content:center;
+                                               gap:6px;">
+                                    📱 SMS <span style="font-size:10px;">▼</span>
+                                </button>
+                                
+                                <!-- Dropdown -->
+                                <div id="sms-dropdown-${rideId}" 
+                                     style="display:none;
+                                            position:absolute;
+                                            top:100%;
+                                            left:0;
+                                            right:0;
+                                            background:white;
+                                            border-radius:8px;
+                                            box-shadow:0 4px 12px rgba(0,0,0,0.2);
+                                            margin-top:5px;
+                                            z-index:10002;
+                                            overflow:hidden;
+                                            border:2px solid #3b82f6;">
+                                    <a onclick="sendQuickSMS('${rideId}', 'arrived'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              border-bottom:1px solid #e5e7eb;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        🚕 Taxi ist da!
+                                    </a>
+                                    <a onclick="sendQuickSMS('${rideId}', '5min'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              border-bottom:1px solid #e5e7eb;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        ⏱️ Komme in 5 Min
+                                    </a>
+                                    <a onclick="sendQuickSMS('${rideId}', 'tracking'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              border-bottom:1px solid #e5e7eb;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        📍 Tracking-Link
+                                    </a>
+                                    <a onclick="sendQuickSMS('${rideId}', 'delay'); event.stopPropagation();" 
+                                       style="display:block;
+                                              padding:12px;
+                                              cursor:pointer;
+                                              color:#1f2937;
+                                              text-decoration:none;
+                                              font-size:13px;
+                                              font-weight:500;">
+                                        ⏰ Verzögerung (10 Min)
+                                    </a>
+                                </div>
+                            </div>
+                            
+                        </div>
+                        
+                        <div style="font-size:11px;color:#1e40af;margin-top:10px;text-align:center;">
+                            💡 Öffnet WhatsApp/SMS auf deinem Handy
+                        </div>
+                    </div>
+                    
                     <div style="display:flex;gap:10px;margin-top:20px;">
                         <button onclick="saveEditedRide('${rideId}')" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                             ✅ Speichern
@@ -8294,6 +8557,216 @@
                 window.currentEditModal.remove();
                 window.currentEditModal = null;
             }
+        }
+        
+        // 🆕 v5.90.338: WHATSAPP + SMS SCHNELL-NACHRICHTEN
+        
+        // Toggle Dropdown
+        function toggleQuickMsgDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            if (!dropdown) return;
+            
+            // Schließe alle anderen Dropdowns
+            document.querySelectorAll('[id^="wa-dropdown-"], [id^="sms-dropdown-"]').forEach(d => {
+                if (d.id !== dropdownId) d.style.display = 'none';
+            });
+            
+            // Toggle aktuelles Dropdown
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Schließe Dropdowns beim Klick außerhalb
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('[onclick*="toggleQuickMsgDropdown"]') && 
+                !e.target.closest('[id^="wa-dropdown-"], [id^="sms-dropdown-"]')) {
+                document.querySelectorAll('[id^="wa-dropdown-"], [id^="sms-dropdown-"]').forEach(d => {
+                    d.style.display = 'none';
+                });
+            }
+        });
+        
+        // WhatsApp senden
+        async function sendQuickWhatsApp(rideId, template) {
+            console.log('💬 WhatsApp wird gesendet:', rideId, template);
+            
+            // Hole Fahrt-Daten
+            let ride = null;
+            if (isFirebaseReady) {
+                const snapshot = await db.ref('rides/' + rideId).once('value');
+                ride = snapshot.val();
+            }
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Prüfe Telefonnummer
+            if (!ride.customerPhone) {
+                alert('❌ Keine Telefonnummer vorhanden');
+                return;
+            }
+            
+            // Formatiere Telefonnummer (entferne alles außer Zahlen)
+            let phone = ride.customerPhone.replace(/[^0-9+]/g, '');
+            
+            // Füge +49 hinzu wenn nicht vorhanden
+            if (!phone.startsWith('+')) {
+                if (phone.startsWith('0')) {
+                    phone = '+49' + phone.substring(1);
+                } else if (!phone.startsWith('49')) {
+                    phone = '+49' + phone;
+                } else {
+                    phone = '+' + phone;
+                }
+            }
+            
+            console.log('📞 Telefonnummer:', phone);
+            
+            // Erstelle Nachricht
+            let message = '';
+            const customerName = ride.customerName || 'Kunde';
+            const pickup = ride.pickup || 'Abholort';
+            const destination = ride.destination || 'Zielort';
+            const trackingLink = ride.trackingLink || 'https://funk-taxi.app';
+            
+            switch(template) {
+                case 'arrived':
+                    message = `🚕 Ihr Taxi ist da!
+
+Guten Tag ${customerName},
+Ihr Taxi wartet vor der Tür.
+
+📍 Abholung: ${pickup}
+🎯 Ziel: ${destination}
+
+Funk Taxi Heringsdorf`;
+                    break;
+                    
+                case '5min':
+                    message = `⏱️ Bin in 5 Minuten da!
+
+Hallo ${customerName},
+Ihr Taxi kommt gleich.
+
+📍 Abholung: ${pickup}
+
+Funk Taxi Heringsdorf`;
+                    break;
+                    
+                case 'tracking':
+                    message = `📍 Ihr Taxi ist unterwegs!
+
+Live verfolgen:
+${trackingLink}
+
+🕐 Abholung: ${new Date(ride.pickupTimestamp).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})} Uhr
+
+Funk Taxi Heringsdorf`;
+                    break;
+                    
+                case 'delay':
+                    message = `⏱️ Kleine Verzögerung
+
+Hallo ${customerName},
+es dauert ca. 10 Minuten länger.
+
+Wir bitten um Entschuldigung!
+
+Funk Taxi Heringsdorf`;
+                    break;
+            }
+            
+            // Öffne WhatsApp
+            const whatsappURL = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+            console.log('🔗 WhatsApp URL:', whatsappURL);
+            
+            // Öffne in neuem Tab/Fenster
+            window.open(whatsappURL, '_blank');
+            
+            // Schließe Dropdown
+            document.getElementById('wa-dropdown-' + rideId).style.display = 'none';
+            
+            // Feedback
+            console.log('✅ WhatsApp geöffnet!');
+        }
+        
+        // SMS senden
+        async function sendQuickSMS(rideId, template) {
+            console.log('📱 SMS wird gesendet:', rideId, template);
+            
+            // Hole Fahrt-Daten
+            let ride = null;
+            if (isFirebaseReady) {
+                const snapshot = await db.ref('rides/' + rideId).once('value');
+                ride = snapshot.val();
+            }
+            
+            if (!ride) {
+                alert('❌ Fahrt nicht gefunden');
+                return;
+            }
+            
+            // Prüfe Telefonnummer
+            if (!ride.customerPhone) {
+                alert('❌ Keine Telefonnummer vorhanden');
+                return;
+            }
+            
+            // Formatiere Telefonnummer
+            let phone = ride.customerPhone.replace(/[^0-9+]/g, '');
+            if (!phone.startsWith('+')) {
+                if (phone.startsWith('0')) {
+                    phone = '+49' + phone.substring(1);
+                } else if (!phone.startsWith('49')) {
+                    phone = '+49' + phone;
+                } else {
+                    phone = '+' + phone;
+                }
+            }
+            
+            console.log('📞 Telefonnummer:', phone);
+            
+            // Erstelle Nachricht (KÜRZER für SMS!)
+            let message = '';
+            const pickup = ride.pickup || 'Abholort';
+            const destination = ride.destination || 'Zielort';
+            const trackingLink = ride.trackingLink || 'https://funk-taxi.app';
+            
+            // Kürze Adressen für SMS
+            const shortPickup = pickup.length > 30 ? pickup.substring(0, 30) + '...' : pickup;
+            const shortDest = destination.length > 30 ? destination.substring(0, 30) + '...' : destination;
+            
+            switch(template) {
+                case 'arrived':
+                    message = `Taxi ist da! Von: ${shortPickup} Nach: ${shortDest} - Funk Taxi`;
+                    break;
+                    
+                case '5min':
+                    message = `Komme in 5 Min zu ${shortPickup} - Funk Taxi`;
+                    break;
+                    
+                case 'tracking':
+                    message = `Taxi-Tracking: ${trackingLink}`;
+                    break;
+                    
+                case 'delay':
+                    message = `Ca. 10 Min Verzögerung. Entschuldigung! - Funk Taxi`;
+                    break;
+            }
+            
+            // Öffne SMS-App
+            const smsURL = `sms:${phone}?body=${encodeURIComponent(message)}`;
+            console.log('🔗 SMS URL:', smsURL);
+            
+            // Öffne SMS-App (funktioniert auf Handy!)
+            window.location.href = smsURL;
+            
+            // Schließe Dropdown
+            document.getElementById('sms-dropdown-' + rideId).style.display = 'none';
+            
+            // Feedback
+            console.log('✅ SMS-App geöffnet!');
         }
         
         // 🆕 v5.87.63: AUTOCOMPLETE FÜR EDIT-MODAL
@@ -38637,6 +39110,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 }
                 
                 // 🆕 v5.90.321: Initialisiere Positionen
+                // 🔧 v5.90.339: FIX - distance MUSS vor if/else definiert werden!
+                const distance = parseFloat(ride.distance) || 0;
+                
                 if (existingInvoice && existingInvoice.positions && existingInvoice.positions.length > 0) {
                     // Nutze bestehende Positionen!
                     console.log('✅ v5.90.321: Nutze bestehende Positionen:', existingInvoice.positions);
@@ -38648,7 +39124,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     }));
                 } else {
                     // Neue Rechnung: v5.90.306: Initialisiere Positionen mit Hauptfahrt + MwSt
-                    const distance = parseFloat(ride.distance) || 0;
                     const vatRate = distance < 50 ? 7 : 19;
                     const grossPrice = parseFloat(ride.price) || 0;
                     
@@ -61178,13 +61653,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // 🤖 Auto-Assignment Funktion (für später)
-        function startAutoAssignment() {
-            console.log('🤖 Auto-Assignment gestartet!');
-            // TODO: Implementiere Auto-Assignment Logik
-            // - Höre auf neue Fahrten
-            // - Finde nächstes verfügbares Fahrzeug
-            // - Weise zu
-        }
+        // 🔧 v5.90.337: GELÖSCHT - Doppelte leere Funktion entfernt!
+        // startAutoAssignment ist bereits in Zeile 21759 definiert!
         
         window.addEventListener('load', () => {
             setTimeout(() => {

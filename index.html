@@ -197,15 +197,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.341 - AUTO-ASSIGN FIX! 🎯 (Build 20260112-0750)');
+        console.log('🚕 Funk Taxi App v5.90.343 - DRIVER CRASH FIX! 🐛 (Build 20260112-0825)');
+        console.log('🐛 v5.90.343: "Invalid time value" CRASH GEFIXT!');
+        console.log('✅ v5.90.343: Fahrer-View lädt Fahrten jetzt ohne Crash!');
+        console.log('⏰ v5.90.342: Sperre-Info wird jetzt angezeigt (Uhrzeit + Grund)');
+        console.log('✅ v5.90.342: In Console siehst du wann Fahrer wieder frei ist!');
         console.log('🎯 v5.90.341: calculateDistance → calculateGPSDistance (Naming-Konflikt!)');
         console.log('✅ v5.90.341: Auto-Assign crasht nicht mehr!');
-        console.log('🐛 v5.90.340: "vatRate is not defined" GEFIXT!');
-        console.log('✅ v5.90.340: vatRate wird jetzt auch vor if/else definiert!');
-        console.log('🐛 v5.90.339: "distance is not defined" GEFIXT!');
-        console.log('✅ v5.90.339: distance wird jetzt vor if/else definiert!');
-        console.log('💬 v5.90.338: WhatsApp + SMS Buttons im Kalender!');
-        console.log('📱 v5.90.338: 4 Vorlagen: Taxi ist da, 5 Min, Tracking, Verzögerung');
         console.log('✅ v5.90.338: Öffnet WhatsApp/SMS auf deinem Handy!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
@@ -1100,7 +1098,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.332 - DEBOUNCE! ⏱️ (Build 20260111-1620)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.343 - DRIVER CRASH FIX! 🚑 (Build 20260112-0825)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -22341,7 +22339,8 @@ Aktuell: ${currentNum}`;
                         customerName: rideData.customerName
                     });
                     
-                    console.log(`🚫 Fahrer ${nearestVehicle.name} für 3 Min. gesperrt (bis ${new Date(blockUntil).toLocaleTimeString('de-DE')})`);
+                    const untilTime = new Date(blockUntil).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+                    console.log(`🚫 Fahrer ${nearestVehicle.name} für 3 Min. gesperrt (bis ${untilTime} Uhr)`);
                     
                     // 📜 PROTOKOLL: Timeout + Sperre
                     logActivity('assignment', 'driver_blocked', 
@@ -22349,7 +22348,7 @@ Aktuell: ${currentNum}`;
                         customer: rideData.customerName,
                         driver: nearestVehicle.name,
                         vehicle: nearestVehicle.id,
-                        blockedUntil: new Date(blockUntil).toLocaleTimeString('de-DE')
+                        blockedUntil: untilTime
                     });
                     
                     // 📱 TELEGRAM AN ADMIN
@@ -22359,7 +22358,7 @@ Aktuell: ${currentNum}`;
                         `👤 Kunde: ${rideData.customerName || 'Unbekannt'}\n` +
                         `📍 Fahrt: ${rideData.pickup} → ${rideData.destination}\n\n` +
                         `🚫 <b>3 Minuten Sperre aktiv</b>\n` +
-                        `⏰ Bis: ${new Date(blockUntil).toLocaleTimeString('de-DE')}`
+                        `⏰ Bis: ${untilTime} Uhr`
                     );
                     
                     // Zur Blacklist hinzufügen (für diese Fahrt)
@@ -22419,7 +22418,10 @@ Aktuell: ${currentNum}`;
                 // 🆕 v5.25.6: Temporäre Sperre prüfen
                 if (driver.temporaryBlock && driver.temporaryBlock.blockedUntil > now) {
                     const remainingMinutes = Math.ceil((driver.temporaryBlock.blockedUntil - now) / 60000);
+                    const untilTime = new Date(driver.temporaryBlock.blockedUntil).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
                     console.log(`🚫 v5.90.329: ${vehicleId}: Temporär gesperrt (${remainingMinutes} Min)`);
+                    console.log(`   ⏰ Frei ab: ${untilTime} Uhr`);
+                    console.log(`   ℹ️  Grund: ${driver.temporaryBlock.reason || 'Unbekannt'}`);
                     continue;
                 }
                 
@@ -27011,6 +27013,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     const todayRides = Object.entries(allRides)
                         .map(([id, ride]) => ({ id, ...ride }))
                         .filter(ride => {
+                            // 🔧 v5.90.343: Prüfe ob timestamp gültig ist!
+                            if (!ride.timestamp || isNaN(new Date(ride.timestamp).getTime())) {
+                                console.warn('⚠️ Ungültiger timestamp:', ride.id, ride.timestamp);
+                                return false;
+                            }
+                            
                             // Muss heute sein
                             const rideDate = new Date(ride.timestamp).toISOString().split('T')[0];
                             if (rideDate !== today) return false;

@@ -197,16 +197,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.339 - DISTANCE FIX! 🐛 (Build 20260112-0655)');
+        console.log('🚕 Funk Taxi App v5.90.341 - AUTO-ASSIGN FIX! 🎯 (Build 20260112-0750)');
+        console.log('🎯 v5.90.341: calculateDistance → calculateGPSDistance (Naming-Konflikt!)');
+        console.log('✅ v5.90.341: Auto-Assign crasht nicht mehr!');
+        console.log('🐛 v5.90.340: "vatRate is not defined" GEFIXT!');
+        console.log('✅ v5.90.340: vatRate wird jetzt auch vor if/else definiert!');
         console.log('🐛 v5.90.339: "distance is not defined" GEFIXT!');
         console.log('✅ v5.90.339: distance wird jetzt vor if/else definiert!');
         console.log('💬 v5.90.338: WhatsApp + SMS Buttons im Kalender!');
         console.log('📱 v5.90.338: 4 Vorlagen: Taxi ist da, 5 Min, Tracking, Verzögerung');
         console.log('✅ v5.90.338: Öffnet WhatsApp/SMS auf deinem Handy!');
-        console.log('🎯 v5.90.337: Doppelte startAutoAssignment() gelöscht!');
-        console.log('✅ v5.90.337: Auto-Zuweisung funktioniert jetzt WIRKLICH!');
-        console.log('🚌 v5.90.336: Fahrplan (Schedule) lädt jetzt automatisch!');
-        console.log('🔧 v5.90.336: FIX - war "calendar", jetzt "schedule"!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
         console.log('📋 v5.90.327: updateCustomerCRM Funktion hinzugefügt!');
@@ -22450,8 +22450,9 @@ Aktuell: ${currentNum}`;
                         continue;
                     }
                     
-                    // Berechne Entfernung
-                    const distance = calculateDistance(
+                    // Berechne Entfernung (GPS-basiert)
+                    // 🆕 v5.90.341: Verwende calculateGPSDistance statt calculateDistance
+                    const distance = calculateGPSDistance(
                         pickupCoords.lat, pickupCoords.lon,
                         driver.lat, driver.lon
                     );
@@ -22493,7 +22494,8 @@ Aktuell: ${currentNum}`;
         }
 
         // Haversine-Formel für Entfernungsberechnung
-        function calculateDistance(lat1, lon1, lat2, lon2) {
+        // 🆕 v5.90.341: UMBENENNUNG um Konflikt mit geocode-Version zu vermeiden!
+        function calculateGPSDistance(lat1, lon1, lat2, lon2) {
             const R = 6371; // Erdradius in km
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -39112,6 +39114,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 // 🆕 v5.90.321: Initialisiere Positionen
                 // 🔧 v5.90.339: FIX - distance MUSS vor if/else definiert werden!
                 const distance = parseFloat(ride.distance) || 0;
+                // 🔧 v5.90.340: FIX - vatRate MUSS auch vor if/else definiert werden!
+                const vatRate = distance < 50 ? 7 : 19;
                 
                 if (existingInvoice && existingInvoice.positions && existingInvoice.positions.length > 0) {
                     // Nutze bestehende Positionen!
@@ -39124,7 +39128,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     }));
                 } else {
                     // Neue Rechnung: v5.90.306: Initialisiere Positionen mit Hauptfahrt + MwSt
-                    const vatRate = distance < 50 ? 7 : 19;
                     const grossPrice = parseFloat(ride.price) || 0;
                     
                     invoicePositions = [

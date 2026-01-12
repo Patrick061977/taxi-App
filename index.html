@@ -197,13 +197,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.370 - GOD MODE! 👁️ (Build 20260112-1830)');
+        console.log('🚕 Funk Taxi App v5.90.371 - DRIVER CRASH FIX! 🔧 (Build 20260112-1900)');
+        console.log('🔧 v5.90.371: CRASH FIX - renderDriverRides null check!');
+        console.log('🔧 v5.90.371: VEHICLE STRUCTURE FIX - .id property!');
+        console.log('🔧 v5.90.371: TRACKING in setVehicle() hinzugefügt!');
         console.log('👁️ v5.90.370: LIVE DRIVER MONITOR - Sieh ALLES was deine Fahrer machen!');
         console.log('👁️ v5.90.370: Tracking: Buttons, GPS, Errors, Function Calls → Firebase');
-        console.log('👁️ v5.90.370: Auto-Refresh alle 2 Sekunden! TOTALE KONTROLLE!');
         console.log('🔥 v5.90.369: SYSTEM DIAGNOSTICS VIEW - Der Debug-Logger den die Welt noch nicht gesehen hat!');
-        console.log('🔥 v5.90.369: Live Firebase Status + GPS + Variables + Errors + Function Calls!');
-        console.log('🔥 v5.90.369: Auto-Refresh alle 1 Sekunde! KEIN RATEN MEHR!');
         console.log('🔧 v5.90.365: Fahrer-View Crash gefixt!');
         console.log('🔧 v5.90.365: v.name undefined → Kein Crash mehr!');
         console.log('🔧 v5.90.365: Alle Vehicle-Dropdowns sicher!');
@@ -1106,7 +1106,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👁️ Version 5.90.370 - GOD MODE! 👁️ (Build 20260112-1830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.371 - DRIVER CRASH FIX! 🔧 (Build 20260112-1900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -27238,11 +27238,23 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const previousVehicle = currentVehicle;
             const vehicleId = document.getElementById('vehicle').value;
             
+            console.log('🔥 v5.90.371: setVehicle() aufgerufen!');
+            console.log('   vehicleId:', vehicleId);
+            console.log('   previousVehicle:', previousVehicle);
+            
+            // 🔥 v5.90.371: Track Vehicle Selection!
+            if (typeof trackFunctionCall !== 'undefined') {
+                trackFunctionCall('setVehicle', { vehicleId: vehicleId, previousVehicle: previousVehicle });
+                trackButtonClick('Fahrzeug wählen', { vehicleId: vehicleId });
+            }
+            
             // ✅ Stoppe GPS wenn Fahrzeug wechselt
             if (previousVehicle && previousVehicle !== vehicleId) {
                 console.log('🔄 Fahrzeugwechsel erkannt - stoppe GPS');
                 stopDriverTracking();
-                stopGPSMonitoring();
+                if (typeof stopGPSMonitoring !== 'undefined') {
+                    stopGPSMonitoring();
+                }
                 
                 // 📴 WICHTIG: Altes Fahrzeug in Firebase offline setzen!
                 if (isFirebaseReady) {
@@ -27267,6 +27279,15 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             currentVehicle = vehicleId;
             console.log('🚗 Fahrzeug gewählt:', currentVehicle);
+            
+            // 🔥 v5.90.371: Check ob Fahrzeug in VEHICLES existiert
+            const vehicle = findVehicle(currentVehicle);
+            if (vehicle) {
+                console.log('✅ Fahrzeug gefunden in VEHICLES:', vehicle);
+            } else {
+                console.error('❌ Fahrzeug NICHT in VEHICLES gefunden!');
+                console.log('📋 Verfügbare Fahrzeuge:', Object.keys(VEHICLES));
+            }
             
             // 🆕 v5.20.1: Fahrzeug in localStorage speichern (für Wiederherstellung)
             if (currentVehicle && currentUser) {
@@ -27515,6 +27536,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         function renderDriverRides(rides) {
             const list = document.getElementById('driver-rides-list');
             const noRides = document.getElementById('driver-no-rides');
+            
+            // 🔥 v5.90.371: NULL CHECK! Prevent crash wenn Element nicht existiert!
+            if (!list || !noRides) {
+                console.error('❌ v5.90.371: driver-rides-list oder driver-no-rides Element nicht gefunden!');
+                return;
+            }
             
             if (rides.length === 0) {
                 noRides.style.display = 'block';
@@ -34702,7 +34729,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    VEHICLES = data;
+                    // 🔥 v5.90.371: WICHTIG! Füge .id Property hinzu!
+                    VEHICLES = {};
+                    Object.keys(data).forEach(key => {
+                        VEHICLES[key] = {
+                            ...data[key],
+                            id: key  // 🔥 Setze id explizit!
+                        };
+                    });
                     console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen

@@ -197,11 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.362 - MIGRATIONS-BUTTON! 🔴 (Build 20260112-1450)');
-        console.log('🔴 v5.90.362: ROTER BUTTON im Admin für Migration!');
-        console.log('🔴 v5.90.362: Kein Auto-Start mehr - du klickst den Button!');
-        console.log('✅ v5.90.362: Banner erscheint wenn alte IDs gefunden werden!');
-        console.log('🔧 v5.90.361: Migration mit korrekten Daten!');
+        console.log('🚕 Funk Taxi App v5.90.363 - DEBUG DIAGNOSTICS! 🔍 (Build 20260112-1500)');
+        console.log('🔍 v5.90.363: Vehicle ID Diagnostics im Debug-Tab!');
+        console.log('🔍 v5.90.363: Zeigt GENAU welche IDs wo sind!');
+        console.log('🔴 v5.90.363: Roter Migrations-Button wenn Probleme!');
+        console.log('✅ v5.90.362: Migrations-Button im Admin!');
         console.log('✅ v5.90.355: ALLE Zeit- und Datums-Felder 100% lokal!');
         console.log('✅ v5.90.355: Beide Schnellbuchungs-Modals gefixt!');
         console.log('✅ v5.90.355: Auto-Assign mit timestamp!');
@@ -1100,7 +1100,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.362 - BUTTON! ✅ (Build 20260112-1450)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.363 - DIAGNOSTICS! ✅ (Build 20260112-1500)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5144,6 +5144,66 @@
 
     <!-- 🔍 DEBUG-VIEW - v5.39.4 -->
     <div id="debug-view" class="view admin-only" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
+        
+        <!-- 🆕 v5.90.363: VEHICLE ID DIAGNOSTICS -->
+        <div style="background: white; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); margin-bottom: 20px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 20px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">🚗</div>
+                <h2 style="font-size: 24px; margin: 0 0 5px 0;">VEHICLE ID DIAGNOSTICS</h2>
+                <p style="font-size: 13px; opacity: 0.9; margin: 0;">Prüfe Fahrzeug-IDs und GPS-Daten</p>
+            </div>
+            
+            <div style="padding: 20px;">
+                <button onclick="runVehicleDiagnostics()" style="
+                    width: 100%;
+                    padding: 16px;
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    margin-bottom: 20px;
+                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    🔍 VEHICLE IDS PRÜFEN
+                </button>
+                
+                <div id="vehicle-diagnostics-output" style="
+                    background: #f9fafb;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 8px;
+                    padding: 15px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 13px;
+                    max-height: 400px;
+                    overflow-y: auto;
+                    white-space: pre-wrap;
+                    color: #374151;
+                ">
+                    Klicke auf "VEHICLE IDS PRÜFEN" um zu starten...
+                </div>
+                
+                <button id="migration-action-btn" onclick="runMigrationFromDebug()" style="
+                    display: none;
+                    width: 100%;
+                    padding: 16px;
+                    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    margin-top: 15px;
+                    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+                " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    🔄 MIGRATION JETZT AUSFÜHREN!
+                </button>
+            </div>
+        </div>
+        
         <div style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; text-align: center;">
@@ -28068,6 +28128,135 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (error) {
                 console.error('❌ Migration-Fehler:', error);
                 alert('❌ Fehler bei Migration: ' + error.message);
+            }
+        }
+
+        // 🆕 v5.90.363: VEHICLE DIAGNOSTICS
+        async function runVehicleDiagnostics() {
+            const output = document.getElementById('vehicle-diagnostics-output');
+            const migrationBtn = document.getElementById('migration-action-btn');
+            
+            output.innerHTML = '🔄 Lade Fahrzeug-Daten aus Firebase...\n\n';
+            
+            try {
+                const vehiclesSnap = await db.ref('vehicles').once('value');
+                const vehicles = vehiclesSnap.val() || {};
+                
+                let report = '';
+                report += '═══════════════════════════════════════════════════════\n';
+                report += '🚗 VEHICLE ID DIAGNOSTICS REPORT\n';
+                report += '═══════════════════════════════════════════════════════\n\n';
+                
+                const vehicleIds = Object.keys(vehicles);
+                report += `📊 Anzahl Fahrzeuge: ${vehicleIds.length}\n\n`;
+                
+                // Check für alte IDs
+                const oldIds = vehicleIds.filter(id => id.startsWith('tesla_model') || id.startsWith('tesla_modely'));
+                const newIds = vehicleIds.filter(id => id.includes('-'));
+                
+                if (oldIds.length > 0) {
+                    report += '⚠️ ALTE IDs GEFUNDEN:\n';
+                    oldIds.forEach(id => {
+                        const v = vehicles[id];
+                        report += `  ❌ ${id}\n`;
+                        report += `     Name: ${v.name || 'N/A'}\n`;
+                        report += `     Plate: ${v.plate || 'N/A'}\n`;
+                        report += `     GPS: ${v.lat && v.lon ? '✅ Vorhanden' : '❌ Fehlt'}\n`;
+                        if (v.lat && v.lon) {
+                            report += `     Position: ${v.lat.toFixed(4)}, ${v.lon.toFixed(4)}\n`;
+                            if (v.timestamp) {
+                                const age = Math.round((Date.now() - v.timestamp) / 60000);
+                                report += `     Alter: ${age} Min\n`;
+                            }
+                        }
+                        report += '\n';
+                    });
+                    report += '\n';
+                }
+                
+                if (newIds.length > 0) {
+                    report += '✅ NEUE IDs (Kennzeichen):\n';
+                    newIds.forEach(id => {
+                        const v = vehicles[id];
+                        report += `  ✅ ${id}\n`;
+                        report += `     Name: ${v.name || 'N/A'}\n`;
+                        report += `     Plate: ${v.plate || 'N/A'}\n`;
+                        report += `     GPS: ${v.lat && v.lon ? '✅ Vorhanden' : '❌ Fehlt'}\n`;
+                        if (v.lat && v.lon) {
+                            report += `     Position: ${v.lat.toFixed(4)}, ${v.lon.toFixed(4)}\n`;
+                            if (v.timestamp) {
+                                const age = Math.round((Date.now() - v.timestamp) / 60000);
+                                report += `     Alter: ${age} Min\n`;
+                            }
+                        }
+                        report += '\n';
+                    });
+                    report += '\n';
+                }
+                
+                // Fazit
+                report += '═══════════════════════════════════════════════════════\n';
+                report += '📋 FAZIT:\n';
+                report += '═══════════════════════════════════════════════════════\n\n';
+                
+                if (oldIds.length > 0) {
+                    report += '❌ PROBLEM: Alte IDs gefunden!\n\n';
+                    report += 'GRUND WARUM AUTO-ASSIGN NICHT FUNKTIONIERT:\n';
+                    report += '1. Fahrer schreiben GPS in alte IDs (tesla_model3_1)\n';
+                    report += '2. Auto-Assign sucht in neuen IDs (pw-my-222-e)\n';
+                    report += '3. Findet kein GPS → Keine Zuweisung!\n\n';
+                    report += '✅ LÖSUNG: Migration ausführen!\n';
+                    report += 'Klicke auf den roten Button unten!\n';
+                    
+                    // Zeige Migrations-Button
+                    migrationBtn.style.display = 'block';
+                } else {
+                    report += '✅ ALLES OK!\n\n';
+                    report += 'Alle Fahrzeuge nutzen Kennzeichen-basierte IDs!\n';
+                    report += 'Auto-Assign sollte funktionieren.\n';
+                    
+                    // Verstecke Migrations-Button
+                    migrationBtn.style.display = 'none';
+                }
+                
+                output.textContent = report;
+                
+            } catch (error) {
+                output.textContent = '❌ Fehler beim Laden:\n\n' + error.message;
+                console.error('Diagnostics Fehler:', error);
+            }
+        }
+
+        // 🆕 v5.90.363: Migration vom Debug-View
+        async function runMigrationFromDebug() {
+            const confirmed = confirm('🔄 VEHICLE-ID MIGRATION\n\n' +
+                'Diese Migration wird:\n' +
+                '✅ Alte IDs (tesla_model3_1) → Neue IDs (pw-my-222-e)\n' +
+                '✅ Alle Fahrten aktualisieren\n' +
+                '✅ GPS-Daten beibehalten\n' +
+                '✅ Korrekte Fahrzeugnamen verwenden\n\n' +
+                'Fortfahren?');
+            
+            if (!confirmed) return;
+            
+            const output = document.getElementById('vehicle-diagnostics-output');
+            output.textContent = '🔄 Migration läuft...\n\nBitte warten...';
+            
+            try {
+                await migrateVehicleIds();
+                localStorage.setItem('vehicleIdMigration_v361', 'done');
+                
+                // Zeige Erfolg
+                output.textContent = '✅ MIGRATION ERFOLGREICH!\n\n' +
+                    'Alle Fahrzeuge nutzen jetzt Kennzeichen-basierte IDs!\n\n' +
+                    'Seite lädt neu in 2 Sekunden...';
+                
+                // Verstecke Button
+                document.getElementById('migration-action-btn').style.display = 'none';
+                
+            } catch (error) {
+                output.textContent = '❌ MIGRATION FEHLER:\n\n' + error.message;
+                console.error('Migration Fehler:', error);
             }
         }
 

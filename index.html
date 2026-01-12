@@ -5346,6 +5346,24 @@
                 " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                     🔄 MIGRATION JETZT AUSFÜHREN!
                 </button>
+                
+                <!-- 🆕 v5.90.371: GPS-SYNC Button -->
+                <button id="gps-sync-btn" onclick="manualGPSSync()" style="
+                    display: none;
+                    width: 100%;
+                    padding: 16px;
+                    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    margin-top: 15px;
+                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    🔄 GPS JETZT SYNCHRONISIEREN!
+                </button>
             </div>
         </div>
         
@@ -29210,7 +29228,54 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     } else {
                         report += '✅ ALLES OK!\n\n';
                         report += 'Alle Fahrzeuge nutzen Kennzeichen-basierte IDs!\n';
-                        report += 'Auto-Assign sollte funktionieren.\n';
+                        report += 'Auto-Assign sollte funktionieren.\n\n';
+                        
+                        // 🆕 v5.90.371: Zeige GPS-Sync Status
+                        report += '═══════════════════════════════════════════════════════\n';
+                        report += '🔄 v5.90.371 GPS-SYNC STATUS:\n';
+                        report += '═══════════════════════════════════════════════════════\n\n';
+                        
+                        const withGPS = newIds.filter(id => vehicles[id].lat && vehicles[id].lon);
+                        const withoutGPS = newIds.filter(id => !vehicles[id].lat || !vehicles[id].lon);
+                        
+                        report += `✅ Fahrzeuge MIT GPS: ${withGPS.length}/${newIds.length}\n`;
+                        if (withGPS.length > 0) {
+                            withGPS.forEach(id => {
+                                const v = vehicles[id];
+                                const age = v.timestamp ? Math.round((Date.now() - v.timestamp) / 60000) : '?';
+                                report += `   ${id}: ${age} Min alt\n`;
+                            });
+                        }
+                        report += '\n';
+                        
+                        if (withoutGPS.length > 0) {
+                            report += `⚠️ Fahrzeuge OHNE GPS: ${withoutGPS.length}/${newIds.length}\n`;
+                            withoutGPS.forEach(id => {
+                                report += `   ${id}: GPS fehlt (Fahrer offline?)\n`;
+                            });
+                            report += '\n';
+                            
+                            // 🆕 v5.90.371: Prüfe ob alte IDs GPS haben
+                            const oldIdsWithGPS = oldIds.filter(oldId => 
+                                vehicles[oldId] && vehicles[oldId].lat && vehicles[oldId].lon
+                            );
+                            
+                            if (oldIdsWithGPS.length > 0) {
+                                report += '💡 WICHTIG: Alte IDs haben GPS!\n';
+                                report += `   ${oldIdsWithGPS.length} alte ID(s) mit GPS gefunden\n\n`;
+                                report += '✅ LÖSUNG: GPS synchronisieren!\n';
+                                report += 'Klicke auf den grünen Button unten!\n';
+                                
+                                // Zeige GPS-Sync Button
+                                const gpsSyncBtn = document.getElementById('gps-sync-btn');
+                                if (gpsSyncBtn) {
+                                    gpsSyncBtn.style.display = 'block';
+                                }
+                            } else {
+                                report += 'HINWEIS: Fahrer müssen GPS aktivieren\n';
+                                report += 'damit Auto-Assign sie finden kann!\n';
+                            }
+                        }\n';
                         
                         // Verstecke Migrations-Button
                         migrationBtn.style.display = 'none';
@@ -29343,6 +29408,46 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (error) {
                 console.error('❌ Migration Fehler:', error);
                 alert('❌ Fehler: ' + error.message);
+            }
+        }
+
+        // 🆕 v5.90.371: MANUELLER GPS-SYNC
+        async function manualGPSSync() {
+            const confirmed = confirm('🔄 GPS-SYNCHRONISATION\n\n' +
+                'Diese Funktion wird:\n' +
+                '✅ GPS von alten IDs zu neuen IDs kopieren\n' +
+                '✅ Auto-Assign aktivieren\n' +
+                '✅ Fahrzeuge für Zuweisung verfügbar machen\n\n' +
+                'Fortfahren?');
+            
+            if (!confirmed) return;
+            
+            const output = document.getElementById('vehicle-diagnostics-output');
+            output.textContent = '🔄 GPS-Sync läuft...\n\nBitte warten...';
+            
+            try {
+                const snapshot = await db.ref('vehicles').once('value');
+                const vehicles = snapshot.val() || {};
+                
+                // Rufe sync-Funktion auf
+                await syncGPSFromOldToNewIDs(vehicles);
+                
+                // Zeige Erfolg
+                output.textContent = '✅ GPS-SYNC ERFOLGREICH!\n\n' +
+                    'GPS-Daten wurden synchronisiert!\n' +
+                    'Auto-Assign sollte jetzt funktionieren!\n\n' +
+                    'Führe erneut "VEHICLE IDS PRÜFEN" aus\n' +
+                    'um das Ergebnis zu sehen.';
+                
+                // Verstecke Sync-Button
+                document.getElementById('gps-sync-btn').style.display = 'none';
+                
+                // Fahrzeuge neu laden
+                await loadVehiclesFromFirebase();
+                
+            } catch (error) {
+                output.textContent = '❌ GPS-SYNC FEHLER:\n\n' + error.message;
+                console.error('GPS-Sync Fehler:', error);
             }
         }
 

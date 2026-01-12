@@ -197,13 +197,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.372 - CLEAN VEHICLES! ✨ (Build 20260112-2200)');
-        console.log('✨ v5.90.372: OFFIZIELLE FAHRZEUG-WHITELIST - NUR 5 erlaubte Fahrzeuge!');
-        console.log('✨ v5.90.372: AUTO-CLEANUP löscht tesla_model3_2 und undefined!');
-        console.log('✨ v5.90.372: Name/Plate kommen IMMER aus OFFICIAL_VEHICLES!');
-        console.log('🔧 v5.90.371: Crash-Fix + Vehicle Structure Fix');
-        console.log('👁️ v5.90.370: LIVE DRIVER MONITOR');
-        console.log('🔥 v5.90.369: ULTIMATE DIAGNOSTICS');
+        console.log('🚕 Funk Taxi App v5.90.374 - SMART LOADING! 🚀 (Build 20260112-2300)');
+        console.log('🚀 v5.90.374: Firebase Query statt ALLE Fahrten laden!');
+        console.log('🚀 v5.90.374: Lädt nur 5-10 Fahrten statt 3083!');
+        console.log('🚀 v5.90.374: KEIN Console-Spam mehr!');
+        console.log('🧹 v5.90.373: Monitoring Cleanup + possibleIds Fix');
+        console.log('✨ v5.90.372: Vehicle Whitelist');
         console.log('🔧 v5.90.365: Fahrer-View Crash gefixt!');
         console.log('🔧 v5.90.365: v.name undefined → Kein Crash mehr!');
         console.log('🔧 v5.90.365: Alle Vehicle-Dropdowns sicher!');
@@ -1106,7 +1105,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✨ Version 5.90.372 - CLEAN VEHICLES! ✨ (Build 20260112-2200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚀 Version 5.90.374 - SMART LOADING! 🚀 (Build 20260112-2300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -27386,26 +27385,22 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     return;
                 }
                 
-                console.log('📋 v5.90.332: Lade Fahrten für Fahrzeug:', currentVehicle);
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('🔥 v5.90.374: LADE NUR RELEVANTE FAHRTEN!');
+                console.log('   Fahrzeug:', currentVehicle);
+                console.log('═══════════════════════════════════════════════════════════');
                 
                 try {
-                    // 🔧 v5.90.350: NUR LOKALE ZEIT! Keine UTC!
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0); // Heute 00:00 Uhr
-                    const todayStart = today.getTime();
+                    // 🔥 v5.90.374: Lade NUR Fahrten für MEIN Fahrzeug von Firebase!
+                    const snapshot = await db.ref('rides')
+                        .orderByChild('vehicleId')
+                        .equalTo(currentVehicle)
+                        .once('value');
                     
-                    const tomorrow = new Date(today);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const tomorrowStart = tomorrow.getTime();
+                    const myRides = snapshot.val();
                     
-                    console.log('🕐 Heute:', new Date(todayStart).toLocaleString('de-DE'));
-                    console.log('🕐 Morgen:', new Date(tomorrowStart).toLocaleString('de-DE'));
-                    
-                    // 🆕 v5.90.262: Lade ALLE Fahrten und filtere dann (wegen Legacy-IDs)
-                    const snapshot = await db.ref('rides').once('value');
-                    const allRides = snapshot.val();
-                    
-                    if (!allRides) {
+                    if (!myRides) {
+                        console.log('✅ Keine Fahrten für dieses Fahrzeug');
                         const noRidesEl = document.getElementById('driver-no-rides');
                         const ridesListEl = document.getElementById('driver-rides-list');
                         if (noRidesEl) noRidesEl.style.display = 'block';
@@ -27413,114 +27408,55 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         return;
                     }
                     
-                    // Finde aktuelles Fahrzeug
-                    const vehicle = findVehicle(currentVehicle);
-                    if (!vehicle) {
-                        console.error('❌ Fahrzeug nicht gefunden:', currentVehicle);
-                        const noRidesEl = document.getElementById('driver-no-rides');
-                        const ridesListEl = document.getElementById('driver-rides-list');
-                        if (noRidesEl) noRidesEl.style.display = 'block';
-                        if (ridesListEl) ridesListEl.innerHTML = '';
-                        return;
-                    }
+                    console.log(`📋 Firebase lieferte: ${Object.keys(myRides).length} Fahrten`);
                     
-                    // Mögliche IDs für dieses Fahrzeug
-                    const possibleIds = [vehicle.id];
-                    if (vehicle.legacyId) possibleIds.push(vehicle.legacyId);
-                    if (vehicle.plate) possibleIds.push(normalizeVehicleId(vehicle.plate));
-                    
-                    console.log('🔍 Suche Fahrten für IDs:', possibleIds);
-                    
-                    // Filtere Fahrten
+                    // 🔥 v5.90.374: Filter NUR noch für Status + Zeit (kein vehicleId check mehr!)
                     const now = Date.now();
+                    const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
                     
-                    console.log('═══════════════════════════════════════════════════════════');
-                    console.log('🔍 v5.90.350: FILTER-ANALYSE (NUR LOKALE ZEIT!)');
-                    console.log('   Fahrzeug-IDs:', possibleIds);
-                    console.log('   Jetzt:', new Date(now).toLocaleString('de-DE'));
-                    console.log('   Heute ab:', new Date(todayStart).toLocaleString('de-DE'));
-                    console.log('═══════════════════════════════════════════════════════════');
-                    
-                    const todayRides = Object.entries(allRides)
+                    const relevantRides = Object.entries(myRides)
                         .map(([id, ride]) => ({ id, ...ride }))
                         .filter(ride => {
-                            const reasons = []; // Warum gefiltert?
-                            
-                            // 🔧 v5.90.350: FALLBACK zu pickupTimestamp wenn timestamp fehlt!
-                            const effectiveTimestamp = ride.timestamp || ride.pickupTimestamp || ride.createdAt;
-                            
-                            console.log(`\n📋 Fahrt: ${ride.id}`);
-                            console.log(`   Von: ${ride.pickup}`);
-                            console.log(`   Status: ${ride.status}`);
-                            console.log(`   vehicleId: ${ride.vehicleId}`);
-                            console.log(`   timestamp: ${ride.timestamp}`);
-                            console.log(`   pickupTimestamp: ${ride.pickupTimestamp}`);
-                            console.log(`   effectiveTimestamp: ${effectiveTimestamp}`);
-                            
-                            if (effectiveTimestamp) {
-                                const localTime = new Date(effectiveTimestamp).toLocaleString('de-DE');
-                                console.log(`   Zeit: ${localTime}`);
-                            }
-                            
-                            if (!effectiveTimestamp || isNaN(new Date(effectiveTimestamp).getTime())) {
-                                reasons.push('Keine gültige Zeit');
-                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
-                                return false;
-                            }
-                            
-                            // vehicleId Check
-                            if (!ride.vehicleId) {
-                                reasons.push('Kein vehicleId');
-                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
-                                return false;
-                            }
-                            
-                            // Muss MEIN Fahrzeug sein
-                            if (!possibleIds.includes(ride.vehicleId)) {
-                                reasons.push(`vehicleId ${ride.vehicleId} nicht in ${possibleIds.join(',')}`);
-                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
-                                return false;
-                            }
-                            
                             // Status Check
-                            const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
                             if (!validStatuses.includes(ride.status)) {
-                                reasons.push(`Status ${ride.status} nicht erlaubt`);
-                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
                                 return false;
                             }
                             
-                            // 🆕 v5.90.305: BEI "assigned" → NUR < 30 MIN ZEIGEN!
+                            // BEI "assigned" → NUR < 30 MIN ZEIGEN!
                             if (ride.status === 'assigned') {
                                 const pickupTime = ride.pickupTimestamp || ride.timestamp;
-                                const minutesUntil = (pickupTime - now) / 60000;
+                                if (!pickupTime) return false;
                                 
+                                const minutesUntil = (pickupTime - now) / 60000;
                                 if (minutesUntil > 30) {
-                                    reasons.push(`Noch ${Math.round(minutesUntil)} Min entfernt (>30)`);
-                                    console.log(`   ⏰ FILTER: ${reasons.join(', ')}`);
                                     return false;
                                 }
-                                
-                                console.log(`   ✅ ANZEIGEN! In ${Math.round(minutesUntil)} Min`);
-                            } else {
-                                console.log(`   ✅ ANZEIGEN! Status: ${ride.status}`);
                             }
                             
                             return true;
                         })
-                        .sort((a, b) => a.timestamp - b.timestamp);
+                        .sort((a, b) => {
+                            const timeA = a.pickupTimestamp || a.timestamp || 0;
+                            const timeB = b.pickupTimestamp || b.timestamp || 0;
+                            return timeA - timeB;
+                        });
+                    
+                    console.log(`✅ Nach Filter: ${relevantRides.length} relevante Fahrten`);
+                    
+                    if (relevantRides.length > 0) {
+                        relevantRides.forEach(ride => {
+                            const time = new Date(ride.pickupTimestamp || ride.timestamp).toLocaleString('de-DE');
+                            console.log(`   📍 ${ride.pickup} → ${ride.dropoff} (${time})`);
+                        });
+                    }
                     
                     console.log('═══════════════════════════════════════════════════════════');
-                    console.log('📊 v5.90.349: FILTER-ERGEBNIS');
-                    console.log(`   Gesamt Fahrten: ${Object.keys(allRides).length}`);
-                    console.log(`   Nach Filter: ${todayRides.length}`);
-                    console.log('═══════════════════════════════════════════════════════════');
                     
-                    renderDriverRides(todayRides);
+                    renderDriverRides(relevantRides);
                     
                 } catch (error) {
-                    console.error('❌ v5.90.332: Fehler beim Laden der Fahrten:', error);
-                    console.error('❌ v5.90.332: Error Details:', {
+                    console.error('❌ v5.90.374: Fehler beim Laden der Fahrten:', error);
+                    console.error('❌ Error Details:', {
                         message: error.message,
                         stack: error.stack,
                         name: error.name
@@ -34793,11 +34729,50 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 console.log(`🚗 ${Object.keys(VEHICLES).length} Fahrzeuge geladen!`);
                 console.log('═══════════════════════════════════════════════════════════');
                 
+                // 🔥 v5.90.373: Cleanup /monitoring/drivers/ von unerlaubten Fahrzeugen!
+                await cleanupMonitoringDrivers();
+                
                 // Aktualisiere Fahrer-Dropdown falls vorhanden
                 updateVehicleDropdowns();
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
+            }
+        }
+        
+        // 🔥 v5.90.373: Cleanup /monitoring/drivers/
+        async function cleanupMonitoringDrivers() {
+            try {
+                console.log('🧹 v5.90.373: Cleanup /monitoring/drivers/...');
+                
+                const snapshot = await db.ref('monitoring/drivers').once('value');
+                const data = snapshot.val();
+                
+                if (!data) {
+                    console.log('✅ Keine Monitoring-Daten vorhanden');
+                    return;
+                }
+                
+                const monitoredVehicles = Object.keys(data);
+                const officialKeys = Object.keys(OFFICIAL_VEHICLES);
+                
+                let deletedCount = 0;
+                for (const vehicleId of monitoredVehicles) {
+                    if (!officialKeys.includes(vehicleId)) {
+                        console.log(`🗑️ Lösche Monitoring für unerlaubtes Fahrzeug: ${vehicleId}`);
+                        await db.ref(`monitoring/drivers/${vehicleId}`).remove();
+                        deletedCount++;
+                    }
+                }
+                
+                if (deletedCount > 0) {
+                    console.log(`✅ ${deletedCount} Monitoring-Einträge gelöscht!`);
+                } else {
+                    console.log('✅ Alle Monitoring-Einträge sind sauber!');
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Cleanup von Monitoring:', error);
             }
         }
         

@@ -197,11 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.364 - REPAIR BUTTON! 🔧 (Build 20260112-1510)');
+        console.log('🚕 Funk Taxi App v5.90.365 - CRASH FIX! 🔧 (Build 20260112-1520)');
+        console.log('🔧 v5.90.365: Fahrer-View Crash gefixt!');
+        console.log('🔧 v5.90.365: v.name undefined → Kein Crash mehr!');
+        console.log('🔧 v5.90.365: Alle Vehicle-Dropdowns sicher!');
         console.log('🔧 v5.90.364: Repair-Button wenn Fahrzeugdaten fehlen!');
-        console.log('🔧 v5.90.364: Ergänzt Name + Plate aus DEFAULT_VEHICLES!');
-        console.log('✅ v5.90.364: GPS-Daten bleiben erhalten!');
-        console.log('🔍 v5.90.363: Vehicle Diagnostics!');
         console.log('✅ v5.90.355: ALLE Zeit- und Datums-Felder 100% lokal!');
         console.log('✅ v5.90.355: Beide Schnellbuchungs-Modals gefixt!');
         console.log('✅ v5.90.355: Auto-Assign mit timestamp!');
@@ -1100,7 +1100,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.364 - REPAIR! ✅ (Build 20260112-1510)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.365 - CRASH FIX! ✅ (Build 20260112-1520)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -33881,8 +33881,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 });
                 
                 buttonGridIsarfunk.innerHTML = sortedVehicles.map(v => {
-                    const icon = v.name.toLowerCase().includes('bus') ? '🚐' : 
-                                v.name.toLowerCase().includes('tesla') ? '⚡' : '🚗';
+                    const name = v.name || 'Unbekannt';
+                    const icon = name.toLowerCase().includes('bus') ? '🚐' : 
+                                name.toLowerCase().includes('tesla') ? '⚡' : '🚗';
                     return `
                         <button onclick="selectVehicleIsarfunk('${v.id}')" style="
                             padding: 20px;
@@ -33918,9 +33919,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 });
                 
                 buttonGridNew.innerHTML = sortedVehicles.map(v => {
-                    const icon = v.name.toLowerCase().includes('bus') || v.name.toLowerCase().includes('pax') ? '🚐' : 
-                                v.name.toLowerCase().includes('model y') ? '🚙' : 
-                                v.name.toLowerCase().includes('tesla') ? '⚡' : '🚗';
+                    const name = v.name || 'Unbekannt';
+                    const icon = name.toLowerCase().includes('bus') || name.toLowerCase().includes('pax') ? '🚐' : 
+                                name.toLowerCase().includes('model y') ? '🚙' : 
+                                name.toLowerCase().includes('tesla') ? '⚡' : '🚗';
                     return `
                         <button onclick="selectVehicleButtonNew('${v.id}')" style="
                             padding: 24px;
@@ -33961,9 +33963,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 });
                 
                 sortedVehicles.forEach(v => {
-                    const icon = v.name.toLowerCase().includes('bus') || v.name.toLowerCase().includes('pax') ? '🚐' : 
-                                v.name.toLowerCase().includes('model y') ? '🚙' : '🚗';
-                    driverSelect.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.plate || v.name}</option>`;
+                    const name = v.name || 'Unbekannt';
+                    const icon = name.toLowerCase().includes('bus') || name.toLowerCase().includes('pax') ? '🚐' : 
+                                name.toLowerCase().includes('model y') ? '🚙' : '🚗';
+                    driverSelect.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.plate || name}</option>`;
                 });
             }
             

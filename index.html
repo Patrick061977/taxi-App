@@ -27936,8 +27936,17 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     // In Firebase speichern
                     if (isFirebaseReady) {
+                        // 🛡️ v5.90.378: VALIDIERUNG!
+                        if (!currentVehicle || currentVehicle === 'undefined' || currentVehicle === '') {
+                            console.error('❌ v5.90.378: GPS UPDATE VERWEIGERT - Kein gültiges Fahrzeug!');
+                            console.error('   currentVehicle:', currentVehicle);
+                            alert('❌ GPS FEHLER!\n\nKein Fahrzeug ausgewählt!\nBitte Fahrzeug wählen und GPS neu starten.');
+                            stopDriverTracking();
+                            return;
+                        }
+                        
                         db.ref('vehicles/' + currentVehicle).set(location).then(() => {
-                            console.log('✅ Standby-Position → Firebase');
+                            console.log('✅ v5.90.378: Standby-Position → Firebase (', currentVehicle, ')');
                         }).catch(err => {
                             console.error('❌ Standby-Upload Fehler:', err);
                         });
@@ -28286,6 +28295,16 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             if (!isFirebaseReady) {
                 console.error('❌ Firebase nicht bereit!');
+                return;
+            }
+            
+            // 🛡️ v5.90.378: KRITISCHE VALIDIERUNG!
+            if (!currentVehicle || currentVehicle === 'undefined' || currentVehicle === '') {
+                console.error('❌ v5.90.378: GPS UPDATE BLOCKIERT - Kein gültiges Fahrzeug!');
+                console.error('   currentVehicle:', currentVehicle);
+                console.error('   Stack:', new Error().stack);
+                alert('❌ KRITISCHER FEHLER!\n\nGPS läuft ohne Fahrzeug-Auswahl!\n\nBitte:\n1. GPS stoppen\n2. Fahrzeug wählen\n3. GPS neu starten');
+                stopDriverTracking();
                 return;
             }
             
@@ -34904,12 +34923,19 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     // 🔥 v5.90.371: WICHTIG! Füge .id Property hinzu!
                     VEHICLES = {};
                     Object.keys(data).forEach(key => {
+                        // 🛡️ v5.90.378: ÜBERSPRINGE undefined!
+                        if (key === 'undefined' || key === undefined || !key || key === '') {
+                            console.warn('⚠️ v5.90.378: ÜBERSPRINGE ungültige Fahrzeug-ID beim Laden:', key);
+                            return; // Skip this vehicle
+                        }
+                        
                         VEHICLES[key] = {
                             ...data[key],
                             id: key  // 🔥 Setze id explizit!
                         };
                     });
-                    console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
+                    console.log('🚗 v5.90.378: Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
+                    console.log('✅ v5.90.378: Gefilterte IDs:', Object.keys(VEHICLES));
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
                     await db.ref('vehicles').set(DEFAULT_VEHICLES);

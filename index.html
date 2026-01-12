@@ -1100,7 +1100,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.366 - DRIVER TAB FIX! 🚗 (Build 20260112-1630)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.367 - MAP CRASH FIX! 🗺️ (Build 20260112-1710)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -12742,11 +12742,11 @@ Aktuell: ${currentNum}`;
                 const callButton = document.getElementById('call-favorites-fab');
                 if (callButton) callButton.style.display = 'none';
                 
-                // 🆕 v5.90.295: Init Uber-Style Map!
-                setTimeout(() => {
-                    initDriverMapV295();
-                    updateDriverViewV295();
-                }, 100);
+                // 🆕 v5.90.367: ALTE KARTE DEAKTIVIERT - ISARFUNK hat keine Karte!
+                // setTimeout(() => {
+                //     initDriverMapV295();
+                //     updateDriverViewV295();
+                // }, 100);
                 
                 // 🔋 Initialisiere Batterie-Spar-System
                 if (typeof PowerSaveManager !== 'undefined') {
@@ -12768,12 +12768,12 @@ Aktuell: ${currentNum}`;
                     // Starte GPS-Monitoring
                     startGPSMonitoring();
                     
-                    // Update Map alle 3 Sekunden
-                    setInterval(() => {
-                        if (document.getElementById('driver-view').style.display !== 'none') {
-                            updateDriverMapV295();
-                        }
-                    }, 3000);
+                    // 🆕 v5.90.367: MAP UPDATE DEAKTIVIERT - ISARFUNK braucht keine Karte!
+                    // setInterval(() => {
+                    //     if (document.getElementById('driver-view').style.display !== 'none') {
+                    //         updateDriverMapV295();
+                    //     }
+                    // }, 3000);
                 }, 500);
             } else {
                 if (gpsIndicator) gpsIndicator.style.display = 'none';
@@ -51145,7 +51145,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.90.366 - DRIVER TAB CRASH FIX!`);
+            debugLog('info', `📦 Version: 5.90.367 - MAP CRASH GEFIXT!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

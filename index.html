@@ -197,13 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.345 - AUTO-ASSIGN = MANUAL! 🎯 (Build 20260112-0850)');
+        console.log('🚕 Funk Taxi App v5.90.346 - TIME DISPLAY FIX! 🕐 (Build 20260112-0900)');
+        console.log('🔧 v5.90.346: Zeit-Fallback: timestamp || pickupTimestamp || createdAt');
         console.log('✅ v5.90.345: Auto-Assign setzt jetzt vehicle + vehicleLabel wie manuell!');
         console.log('🎯 v5.90.344: timestamp Feld hinzugefügt - Fahrer-View findet Fahrten jetzt!');
-        console.log('✅ v5.90.344: Auto-Assign Fahrten haben jetzt timestamp = pickupTimestamp!');
         console.log('🐛 v5.90.343: "Invalid time value" CRASH GEFIXT!');
-        console.log('✅ v5.90.343: Fahrer-View lädt Fahrten jetzt ohne Crash!');
-        console.log('⏰ v5.90.342: Sperre-Info wird jetzt angezeigt (Uhrzeit + Grund)');
         console.log('✅ v5.90.338: Öffnet WhatsApp/SMS auf deinem Handy!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
@@ -1098,7 +1096,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.345 - AUTO = MANUAL! 🎯 (Build 20260112-0850)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🕐 Version 5.90.346 - TIME FIX! ⏰ (Build 20260112-0900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -27088,7 +27086,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             noRides.style.display = 'none';
             
             const html = rides.map(ride => {
-                const time = new Date(ride.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                // 🔧 v5.90.346: FALLBACK für Zeit wenn timestamp fehlt!
+                const timeValue = ride.timestamp || ride.pickupTimestamp || ride.createdAt;
+                const time = timeValue ? new Date(timeValue).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '??:??';
                 const statusColor = getStatusColor(ride.status);
                 const statusText = getStatusText(ride.status);
                 

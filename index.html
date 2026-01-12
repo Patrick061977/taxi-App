@@ -197,11 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.360 - AUTO VEHICLE ID MIGRATION! 🤖 (Build 20260112-1405)');
-        console.log('🤖 v5.90.360: Migration läuft AUTOMATISCH beim Start!');
-        console.log('🤖 v5.90.360: Alte IDs (tesla_model3_1) → Neue IDs (pw-my-222-e)!');
-        console.log('🤖 v5.90.360: Nur beim ersten Start - dann nie wieder!');
-        console.log('✅ v5.90.359: Complete /vehicles migration!');
+        console.log('🚕 Funk Taxi App v5.90.362 - MIGRATIONS-BUTTON! 🔴 (Build 20260112-1450)');
+        console.log('🔴 v5.90.362: ROTER BUTTON im Admin für Migration!');
+        console.log('🔴 v5.90.362: Kein Auto-Start mehr - du klickst den Button!');
+        console.log('✅ v5.90.362: Banner erscheint wenn alte IDs gefunden werden!');
+        console.log('🔧 v5.90.361: Migration mit korrekten Daten!');
         console.log('✅ v5.90.355: ALLE Zeit- und Datums-Felder 100% lokal!');
         console.log('✅ v5.90.355: Beide Schnellbuchungs-Modals gefixt!');
         console.log('✅ v5.90.355: Auto-Assign mit timestamp!');
@@ -1100,7 +1100,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🤖 Version 5.90.360 - AUTO MIGRATION! ✅ (Build 20260112-1405)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.362 - BUTTON! ✅ (Build 20260112-1450)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2895,6 +2895,48 @@
         <!-- Header mit Suchleiste -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0;">
             <h3 style="margin:0;">⚙️ Admin Dashboard</h3>
+        </div>
+        
+        <!-- 🆕 v5.90.362: VEHICLE ID MIGRATION BUTTON! -->
+        <div id="migration-banner" style="
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.4);
+            border: 3px solid #dc2626;
+            display: none;
+        ">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                        <div style="font-size: 36px;">⚠️</div>
+                        <div>
+                            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 4px;">
+                                ALTE FAHRZEUG-IDs GEFUNDEN!
+                            </div>
+                            <div style="font-size: 14px; color: rgba(255,255,255,0.9);">
+                                Deine Fahrzeuge nutzen noch alte IDs (tesla_model3_1). Klicke auf Migration um auf Kennzeichen-basierte IDs umzustellen!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="runMigrationFromButton()" style="
+                    padding: 16px 32px;
+                    background: white;
+                    color: #dc2626;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    transition: all 0.2s;
+                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    🔄 JETZT MIGRIEREN
+                </button>
+            </div>
         </div>
         
         <!-- 🆕 v5.90.108: FAHRZEUG-ZUTEILUNGS-MODUS UMSCHALTER! -->
@@ -11486,8 +11528,8 @@ Aktuell: ${currentNum}`;
                         console.log('✅ Firebase LIVE-DB verbunden');
                     }
                     
-                    // 🆕 v5.90.360: AUTO-MIGRATION Vehicle IDs (nur einmal!)
-                    const migrationDone = localStorage.getItem('vehicleIdMigration_v360');
+                    // 🆕 v5.90.362: AUTO-MIGRATION Vehicle IDs (nur einmal!)
+                    const migrationDone = localStorage.getItem('vehicleIdMigration_v361');
                     if (!migrationDone) {
                         console.log('🔄 Prüfe ob Vehicle-ID Migration nötig ist...');
                         setTimeout(async () => {
@@ -11501,19 +11543,22 @@ Aktuell: ${currentNum}`;
                                 );
                                 
                                 if (hasOldIds) {
-                                    console.log('⚠️ Alte Vehicle-IDs gefunden! Starte Migration...');
-                                    await migrateVehicleIds();
-                                    localStorage.setItem('vehicleIdMigration_v360', 'done');
+                                    console.log('⚠️ Alte Vehicle-IDs gefunden! Zeige Admin-Banner...');
+                                    // Zeige Banner im Admin statt Auto-Migration
+                                    const banner = document.getElementById('migration-banner');
+                                    if (banner && currentUser && currentUser.role === 'admin') {
+                                        banner.style.display = 'flex';
+                                    }
                                 } else {
                                     console.log('✅ Alle Vehicle-IDs bereits korrekt (Kennzeichen-basiert)');
-                                    localStorage.setItem('vehicleIdMigration_v360', 'done');
+                                    localStorage.setItem('vehicleIdMigration_v361', 'done');
                                 }
                             } catch (error) {
-                                console.error('❌ Auto-Migration Fehler:', error);
+                                console.error('❌ Auto-Migration Check Fehler:', error);
                             }
                         }, 3000); // Nach 3 Sekunden, damit Firebase stabil ist
                     } else {
-                        console.log('✅ Vehicle-ID Migration bereits durchgeführt');
+                        console.log('✅ Vehicle-ID Migration bereits durchgeführt (v361)');
                     }
                     
                     // 📜 PROTOKOLL: App gestartet & Firebase verbunden
@@ -27927,11 +27972,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
         }
 
-        // 🆕 v5.90.360: MIGRATION - Alte Vehicle IDs → Neue Vehicle IDs (Kennzeichen-basiert)
+        // 🆕 v5.90.361: MIGRATION - Alte Vehicle IDs → Neue Vehicle IDs (Kennzeichen-basiert)
         async function migrateVehicleIds() {
             console.log('🔄 Starte Vehicle-ID Migration...');
             
-            // Mapping: Alte ID → Neue ID (Kennzeichen)
+            // Mapping: Alte ID → Neue ID (Kennzeichen) + Daten aus DEFAULT_VEHICLES
             const ID_MAPPING = {
                 'tesla_model3_1': 'pw-my-222-e',
                 'tesla_model3_2': 'pw-ik-222',
@@ -27949,8 +27994,26 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 for (const [oldId, newId] of Object.entries(ID_MAPPING)) {
                     if (vehicles[oldId]) {
                         console.log(`  ✅ ${oldId} → ${newId}`);
-                        // Kopiere Daten zur neuen ID
-                        await db.ref('vehicles/' + newId).set(vehicles[oldId]);
+                        
+                        // 🆕 v5.90.361: NEHME DATEN AUS DEFAULT_VEHICLES (korrekte Namen!)
+                        const correctData = DEFAULT_VEHICLES[newId] || vehicles[oldId];
+                        
+                        // Behalte GPS-Daten wenn vorhanden
+                        const gpsData = {};
+                        if (vehicles[oldId].lat) gpsData.lat = vehicles[oldId].lat;
+                        if (vehicles[oldId].lon) gpsData.lon = vehicles[oldId].lon;
+                        if (vehicles[oldId].timestamp) gpsData.timestamp = vehicles[oldId].timestamp;
+                        if (vehicles[oldId].online) gpsData.online = vehicles[oldId].online;
+                        if (vehicles[oldId].accuracy) gpsData.accuracy = vehicles[oldId].accuracy;
+                        if (vehicles[oldId].userId) gpsData.userId = vehicles[oldId].userId;
+                        
+                        // Merge: Korrekte Stammdaten + GPS-Daten
+                        const mergedData = { ...correctData, ...gpsData };
+                        
+                        // Kopiere zur neuen ID
+                        await db.ref('vehicles/' + newId).set(mergedData);
+                        console.log(`     📝 Daten: ${mergedData.name} (${mergedData.plate})`);
+                        
                         // Lösche alte ID
                         await db.ref('vehicles/' + oldId).remove();
                     }
@@ -28005,6 +28068,31 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (error) {
                 console.error('❌ Migration-Fehler:', error);
                 alert('❌ Fehler bei Migration: ' + error.message);
+            }
+        }
+
+        // 🆕 v5.90.362: BUTTON HANDLER für Admin-Banner
+        async function runMigrationFromButton() {
+            const confirmed = confirm('🔄 VEHICLE-ID MIGRATION\n\n' +
+                'Diese Migration wird:\n' +
+                '✅ Alte IDs (tesla_model3_1) → Neue IDs (pw-my-222-e)\n' +
+                '✅ Alle Fahrten aktualisieren\n' +
+                '✅ GPS-Daten beibehalten\n' +
+                '✅ Korrekte Fahrzeugnamen verwenden\n\n' +
+                'Fortfahren?');
+            
+            if (!confirmed) return;
+            
+            try {
+                await migrateVehicleIds();
+                // Banner verstecken
+                const banner = document.getElementById('migration-banner');
+                if (banner) banner.style.display = 'none';
+                // Flag setzen
+                localStorage.setItem('vehicleIdMigration_v361', 'done');
+            } catch (error) {
+                console.error('❌ Migration Fehler:', error);
+                alert('❌ Fehler: ' + error.message);
             }
         }
 

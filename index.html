@@ -1100,7 +1100,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.365 - CRASH FIX! ✅ (Build 20260112-1520)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.366 - DRIVER TAB FIX! 🚗 (Build 20260112-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -13411,226 +13411,304 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.300: ISARFUNK-STYLE UPDATE!
         // 🆕 v5.90.311: USER-INFO UPDATE!
         function updateDriverViewIsarfunk() {
-            // 🆕 v5.90.311: UPDATE USER INFO!
-            const userNameEl = document.getElementById('driver-user-name');
-            const userEmailEl = document.getElementById('driver-user-email');
-            const userRoleEl = document.getElementById('driver-user-role');
-            const currentVehicleEl = document.getElementById('driver-current-vehicle');
-            
-            if (currentUser) {
-                if (userNameEl) userNameEl.textContent = currentUser.displayName || currentUser.email || 'Unbekannt';
-                if (userEmailEl) userEmailEl.textContent = currentUser.email || '---';
-                if (userRoleEl) {
-                    const role = currentUser.role || 'undefined';
-                    userRoleEl.textContent = role;
-                    // Farbe je nach Rolle
-                    if (role === 'admin') {
-                        userRoleEl.style.background = 'rgba(34, 197, 94, 0.3)';
-                        userRoleEl.style.color = '#fff';
-                    } else if (role === 'driver') {
-                        userRoleEl.style.background = 'rgba(59, 130, 246, 0.3)';
-                        userRoleEl.style.color = '#fff';
-                    } else {
-                        userRoleEl.style.background = 'rgba(239, 68, 68, 0.3)';
-                        userRoleEl.style.color = '#fff';
-                    }
-                }
-            }
-            
-            if (currentVehicleEl) {
-                if (currentVehicle && VEHICLES[currentVehicle]) {
-                    const vehicle = VEHICLES[currentVehicle];
-                    currentVehicleEl.textContent = `${vehicle.name} (${vehicle.plate})`;
-                } else {
-                    currentVehicleEl.textContent = 'Nicht gewählt';
-                }
-            }
-            
-            // 🆕 v5.90.310: NULL-CHECK für Elemente!
-            const vehicleSelectEl = document.getElementById('driver-vehicle-select-isarfunk');
-            const driverMainEl = document.getElementById('driver-main-isarfunk');
-            
-            if (!currentVehicle) {
-                // Zeige Fahrzeug-Auswahl
-                if (vehicleSelectEl) vehicleSelectEl.style.display = 'block';
-                if (driverMainEl) driverMainEl.style.display = 'none';
-                return;
-            } else {
-                if (vehicleSelectEl) vehicleSelectEl.style.display = 'none';
-                if (driverMainEl) driverMainEl.style.display = 'block';
-            }
-            
-            // Update Header
-            const vehicle = VEHICLES[currentVehicle];
-            const driverPlateEl = document.getElementById('driver-plate-isarfunk');
-            if (vehicle && driverPlateEl) {
-                driverPlateEl.textContent = vehicle.plate || vehicle.name;
-            }
-            
-            // GPS Status
-            // 🆕 v5.90.310: BESSERER GPS-STATUS MIT GENAUIGKEIT!
-            const gpsIcon = document.getElementById('driver-gps-icon');
-            const gpsText = document.getElementById('driver-gps-text');
-            
-            if (gpsIcon && gpsText) {
-                const now = Date.now();
-                const lastUpdate = localStorage.getItem('lastGpsUpdate');
-                const lastAccuracy = localStorage.getItem('lastGpsAccuracy');
-                const isStandby = !watchId && standbyIntervalId; // Standby-Modus?
+            try {
+                console.log('🔧 v5.90.366: Update Driver View - START');
                 
-                if (lastUpdate) {
-                    const secondsSinceUpdate = Math.floor((now - parseInt(lastUpdate)) / 1000);
-                    const accuracy = lastAccuracy ? parseInt(lastAccuracy) : null;
+                // 🆕 v5.90.366: SAFETY FIRST - Check if view is even visible
+                const driverView = document.getElementById('driver-view');
+                if (!driverView || driverView.style.display === 'none') {
+                    console.log('⏭️ Driver view not visible, skipping update');
+                    return;
+                }
+                
+                // 🆕 v5.90.366: UPDATE USER INFO WITH NULL CHECKS!
+                try {
+                    const userNameEl = document.getElementById('driver-user-name');
+                    const userEmailEl = document.getElementById('driver-user-email');
+                    const userRoleEl = document.getElementById('driver-user-role');
+                    const currentVehicleEl = document.getElementById('driver-current-vehicle');
                     
-                    if (secondsSinceUpdate < 30) {
-                        // GPS aktiv (< 30 Sek)
-                        gpsIcon.textContent = '🟢';
-                        gpsText.textContent = accuracy ? `GPS ${accuracy}m` : 'GPS aktiv';
-                        gpsText.style.color = '#10b981';
-                    } else if (secondsSinceUpdate < 120 || isStandby) {
-                        // GPS Standby (30-120 Sek oder Standby-Modus)
-                        gpsIcon.textContent = '🟡';
-                        gpsText.textContent = accuracy ? `Standby ${accuracy}m` : 'GPS Standby';
-                        gpsText.style.color = '#f59e0b';
-                    } else {
-                        // GPS verloren (> 120 Sek)
-                        gpsIcon.textContent = '🔴';
-                        gpsText.textContent = 'GPS verloren';
-                        gpsText.style.color = '#ef4444';
+                    if (currentUser) {
+                        if (userNameEl) userNameEl.textContent = currentUser.displayName || currentUser.email || 'Unbekannt';
+                        if (userEmailEl) userEmailEl.textContent = currentUser.email || '---';
+                        if (userRoleEl) {
+                            const role = currentUser.role || 'undefined';
+                            userRoleEl.textContent = role;
+                            if (role === 'admin') {
+                                userRoleEl.style.background = 'rgba(34, 197, 94, 0.3)';
+                                userRoleEl.style.color = '#fff';
+                            } else if (role === 'driver') {
+                                userRoleEl.style.background = 'rgba(59, 130, 246, 0.3)';
+                                userRoleEl.style.color = '#fff';
+                            } else {
+                                userRoleEl.style.background = 'rgba(239, 68, 68, 0.3)';
+                                userRoleEl.style.color = '#fff';
+                            }
+                        }
                     }
-                } else {
-                    // Kein GPS
-                    gpsIcon.textContent = '⚪';
-                    gpsText.textContent = 'GPS aus';
-                    gpsText.style.color = '#9ca3af';
-                }
-            }
-            
-            // 🆕 v5.90.311: ZEIT-CHECK FÜR VORBESTELLUNGEN!
-            const now = Date.now();
-            const fifteenMinutes = 15 * 60 * 1000; // 15 Min
-            
-            // Meine Fahrten (MIT ZEIT-CHECK!)
-            const myRides = rides.filter(r => {
-                if (r.vehicleId !== currentVehicle) return false;
-                
-                // 🆕 ZEIT-CHECK: Filtere Vorbestellungen > 15 Min raus!
-                const pickupTime = r.pickupTimestamp || r.timestamp || 0;
-                const isInFuture = pickupTime > (now + fifteenMinutes);
-                
-                // Wenn status = 'new' UND in Zukunft → NICHT anzeigen!
-                if (r.status === 'new' && isInFuture) {
-                    console.log(`⏰ v5.90.311: Vorbestellung ausgeblendet: ${r.customerName || r.guestName || 'Unbekannt'} - noch ${Math.round((pickupTime - now) / 60000)} Min`);
-                    return false;
+                    
+                    if (currentVehicleEl) {
+                        if (currentVehicle && VEHICLES && VEHICLES[currentVehicle]) {
+                            const vehicle = VEHICLES[currentVehicle];
+                            const vName = vehicle.name || 'Unbekannt';
+                            const vPlate = vehicle.plate || 'N/A';
+                            currentVehicleEl.textContent = `${vName} (${vPlate})`;
+                        } else {
+                            currentVehicleEl.textContent = 'Nicht gewählt';
+                        }
+                    }
+                } catch (e) {
+                    console.error('❌ Fehler bei User-Info Update:', e);
                 }
                 
-                return true;
-            });
-            
-            // Aktive Fahrt (accepted, on_way, picked_up)
-            const activeRide = myRides.find(r => 
-                r.status === 'accepted' || 
-                r.status === 'on_way' || 
-                r.status === 'picked_up'
-            );
-            
-            const currentOrderDiv = document.getElementById('driver-current-order-isarfunk');
-            const readyDiv = document.getElementById('driver-ready-isarfunk');
-            
-            if (activeRide && currentOrderDiv && readyDiv) {
-                // Zeige aktiven Auftrag
-                currentOrderDiv.style.display = 'block';
-                readyDiv.style.display = 'none';
-                currentOrderDiv.innerHTML = renderIsarfunkOrder(activeRide);
+                // 🆕 v5.90.366: Vehicle Selection with safe checks
+                try {
+                    const vehicleSelectEl = document.getElementById('driver-vehicle-select-isarfunk');
+                    const driverMainEl = document.getElementById('driver-main-isarfunk');
+                    
+                    if (!currentVehicle) {
+                        if (vehicleSelectEl) vehicleSelectEl.style.display = 'block';
+                        if (driverMainEl) driverMainEl.style.display = 'none';
+                        console.log('✅ Showing vehicle selection');
+                        return;
+                    } else {
+                        if (vehicleSelectEl) vehicleSelectEl.style.display = 'none';
+                        if (driverMainEl) driverMainEl.style.display = 'block';
+                        console.log('✅ Showing driver main view');
+                    }
+                } catch (e) {
+                    console.error('❌ Fehler bei Vehicle Selection:', e);
+                }
                 
-                // Update Status-Button
-                updateStatusButton(activeRide.status);
-            } else if (currentOrderDiv && readyDiv) {
-                // Zeige Bereit-Status
-                currentOrderDiv.style.display = 'none';
-                readyDiv.style.display = 'block';
+                // 🆕 v5.90.366: GPS Status with complete safety
+                try {
+                    const gpsIcon = document.getElementById('driver-gps-icon');
+                    const gpsText = document.getElementById('driver-gps-text');
+                    
+                    if (gpsIcon && gpsText) {
+                        const now = Date.now();
+                        const lastUpdate = localStorage.getItem('lastGpsUpdate');
+                        const lastAccuracy = localStorage.getItem('lastGpsAccuracy');
+                        const isStandby = !watchId && standbyIntervalId;
+                        
+                        if (lastUpdate) {
+                            const secondsSinceUpdate = Math.floor((now - parseInt(lastUpdate)) / 1000);
+                            const accuracy = lastAccuracy ? parseInt(lastAccuracy) : null;
+                            
+                            if (secondsSinceUpdate < 30) {
+                                gpsIcon.textContent = '🟢';
+                                gpsText.textContent = accuracy ? `GPS ${accuracy}m` : 'GPS aktiv';
+                                gpsText.style.color = '#10b981';
+                            } else if (secondsSinceUpdate < 120 || isStandby) {
+                                gpsIcon.textContent = '🟡';
+                                gpsText.textContent = accuracy ? `Standby ${accuracy}m` : 'GPS Standby';
+                                gpsText.style.color = '#f59e0b';
+                            } else {
+                                gpsIcon.textContent = '🔴';
+                                gpsText.textContent = 'GPS verloren';
+                                gpsText.style.color = '#ef4444';
+                            }
+                        } else {
+                            gpsIcon.textContent = '⚪';
+                            gpsText.textContent = 'GPS aus';
+                            gpsText.style.color = '#9ca3af';
+                        }
+                    }
+                } catch (e) {
+                    console.error('❌ Fehler bei GPS Status:', e);
+                }
                 
-                // Status: FREI
-                updateStatusButton('free');
+                // 🆕 v5.90.366: Rides filtering with complete safety
+                try {
+                    if (!rides || !Array.isArray(rides)) {
+                        console.warn('⚠️ Rides array not available');
+                        return;
+                    }
+                    
+                    const now = Date.now();
+                    const fifteenMinutes = 15 * 60 * 1000;
+                    
+                    const myRides = rides.filter(r => {
+                        if (!r || !r.vehicleId) return false;
+                        if (r.vehicleId !== currentVehicle) return false;
+                        
+                        const pickupTime = r.pickupTimestamp || r.timestamp || 0;
+                        const isInFuture = pickupTime > (now + fifteenMinutes);
+                        
+                        if (r.status === 'new' && isInFuture) {
+                            return false;
+                        }
+                        
+                        return true;
+                    });
+                    
+                    const activeRide = myRides.find(r => 
+                        r.status === 'accepted' || 
+                        r.status === 'on_way' || 
+                        r.status === 'picked_up'
+                    );
+                    
+                    const currentOrderDiv = document.getElementById('driver-current-order-isarfunk');
+                    const readyDiv = document.getElementById('driver-ready-isarfunk');
+                    
+                    if (activeRide && currentOrderDiv && readyDiv) {
+                        currentOrderDiv.style.display = 'block';
+                        readyDiv.style.display = 'none';
+                        try {
+                            currentOrderDiv.innerHTML = renderIsarfunkOrder(activeRide);
+                        } catch (e) {
+                            console.error('❌ Fehler beim Rendern der Order:', e);
+                            currentOrderDiv.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">Fehler beim Laden</div>';
+                        }
+                        
+                        try {
+                            updateStatusButton(activeRide.status);
+                        } catch (e) {
+                            console.error('❌ Fehler bei Status Button:', e);
+                        }
+                    } else if (currentOrderDiv && readyDiv) {
+                        currentOrderDiv.style.display = 'none';
+                        readyDiv.style.display = 'block';
+                        
+                        try {
+                            updateStatusButton('free');
+                        } catch (e) {
+                            console.error('❌ Fehler bei Status Button (free):', e);
+                        }
+                    }
+                    
+                    // 🆕 v5.90.366: Statistics with complete safety
+                    try {
+                        const today = new Date().toDateString();
+                        const todayRides = myRides.filter(r => {
+                            try {
+                                const rideDate = new Date(r.pickupTimestamp || r.timestamp).toDateString();
+                                return rideDate === today && r.status === 'completed';
+                            } catch (e) {
+                                return false;
+                            }
+                        });
+                        
+                        const totalMoney = todayRides.reduce((sum, r) => {
+                            try {
+                                return sum + (parseFloat(r.finalPrice || r.price) || 0);
+                            } catch (e) {
+                                return sum;
+                            }
+                        }, 0);
+                        
+                        const statsRidesEl = document.getElementById('stats-rides-isarfunk');
+                        const statsMoneyEl = document.getElementById('stats-money-isarfunk');
+                        
+                        if (statsRidesEl) statsRidesEl.textContent = todayRides.length;
+                        if (statsMoneyEl) statsMoneyEl.textContent = totalMoney.toFixed(0);
+                    } catch (e) {
+                        console.error('❌ Fehler bei Statistik:', e);
+                    }
+                    
+                } catch (e) {
+                    console.error('❌ Fehler bei Rides Filtering:', e);
+                }
+                
+                console.log('✅ v5.90.366: Update Driver View - COMPLETE');
+                
+            } catch (error) {
+                console.error('💥 CRITICAL ERROR in updateDriverViewIsarfunk:', error);
+                // Show error to user
+                const errorDiv = document.createElement('div');
+                errorDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fee2e2;border:3px solid #dc2626;border-radius:12px;padding:20px;z-index:9999;max-width:80%;text-align:center;';
+                errorDiv.innerHTML = `
+                    <div style="font-size:48px;margin-bottom:12px;">⚠️</div>
+                    <div style="font-size:18px;font-weight:700;color:#991b1b;margin-bottom:8px;">Fehler beim Laden</div>
+                    <div style="font-size:14px;color:#7f1d1d;margin-bottom:16px;">Der Fahrer-View konnte nicht geladen werden</div>
+                    <button onclick="this.parentElement.remove();switchView('admin')" style="background:#dc2626;color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:700;cursor:pointer;">Zurück zu Admin</button>
+                `;
+                document.body.appendChild(errorDiv);
             }
-            
-            // Statistik
-            const today = new Date().toDateString();
-            const todayRides = myRides.filter(r => {
-                const rideDate = new Date(r.pickupTimestamp || r.timestamp).toDateString();
-                return rideDate === today && r.status === 'completed';
-            });
-            
-            const totalMoney = todayRides.reduce((sum, r) => sum + (parseFloat(r.finalPrice || r.price) || 0), 0);
-            
-            document.getElementById('stats-rides-isarfunk').textContent = todayRides.length;
-            document.getElementById('stats-money-isarfunk').textContent = totalMoney.toFixed(0);
         }
         
-        // Render Auftrag
+        // 🆕 v5.90.366: Render Auftrag WITH ERROR HANDLING
         function renderIsarfunkOrder(ride) {
-            const pickup = ride.pickup || 'Unbekannt';
-            const destination = ride.destination || 'Unbekannt';
-            const time = new Date(ride.pickupTimestamp || ride.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            const price = ride.finalPrice || ride.price || '?';
-            const customerName = ride.customerName || ride.guestName || 'Kunde';
-            const customerPhone = ride.customerPhone || ride.guestPhone || '';
-            
-            return `
-                <div style="
-                    background: white;
-                    border: 3px solid #10b981;
-                    border-radius: 12px;
-                    padding: 16px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <div style="font-size: 16px; font-weight: 900; color: #10b981;">🚖 AKTIVER AUFTRAG</div>
-                        <div style="font-size: 14px; font-weight: 700; color: #1f2937;">${time} Uhr</div>
-                    </div>
-                    
-                    <div style="margin-bottom: 12px;">
-                        <div style="font-size: 18px; font-weight: 900; color: #1f2937; margin-bottom: 8px;">${customerName}</div>
-                        ${customerPhone ? `
-                            <a href="tel:${customerPhone}" style="
-                                display: inline-block;
-                                color: white;
-                                background: #10b981;
-                                text-decoration: none;
-                                font-size: 14px;
-                                font-weight: 700;
-                                padding: 8px 16px;
-                                border-radius: 8px;
-                            ">📞 ${customerPhone}</a>
-                        ` : ''}
-                    </div>
-                    
-                    <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-                        <div style="margin-bottom: 8px;">
-                            <div style="font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ABHOLUNG</div>
-                            <div style="font-size: 14px; font-weight: 700; color: #1f2937;">📍 ${pickup}</div>
+            try {
+                if (!ride) {
+                    console.error('❌ renderIsarfunkOrder: Keine Fahrt übergeben!');
+                    return '<div style="padding:20px;text-align:center;color:#ef4444;">Keine Fahrtdaten</div>';
+                }
+                
+                const pickup = ride.pickup || 'Unbekannt';
+                const destination = ride.destination || 'Unbekannt';
+                
+                let time = '??:??';
+                try {
+                    time = new Date(ride.pickupTimestamp || ride.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                } catch (e) {
+                    console.error('❌ Fehler bei Zeit-Formatierung:', e);
+                }
+                
+                const price = ride.finalPrice || ride.price || '?';
+                const customerName = ride.customerName || ride.guestName || 'Kunde';
+                const customerPhone = ride.customerPhone || ride.guestPhone || '';
+                const distance = ride.distance || '?';
+                
+                return `
+                    <div style="
+                        background: white;
+                        border: 3px solid #10b981;
+                        border-radius: 12px;
+                        padding: 16px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div style="font-size: 16px; font-weight: 900; color: #10b981;">🚖 AKTIVER AUFTRAG</div>
+                            <div style="font-size: 14px; font-weight: 700; color: #1f2937;">${time} Uhr</div>
                         </div>
-                        <div style="text-align: center; margin: 8px 0;">
-                            <div style="font-size: 16px; color: #10b981;">↓</div>
+                        
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 18px; font-weight: 900; color: #1f2937; margin-bottom: 8px;">${customerName}</div>
+                            ${customerPhone ? `
+                                <a href="tel:${customerPhone}" style="
+                                    display: inline-block;
+                                    color: white;
+                                    background: #10b981;
+                                    text-decoration: none;
+                                    font-size: 14px;
+                                    font-weight: 700;
+                                    padding: 8px 16px;
+                                    border-radius: 8px;
+                                ">📞 ${customerPhone}</a>
+                            ` : ''}
                         </div>
-                        <div>
-                            <div style="font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ZIEL</div>
-                            <div style="font-size: 14px; font-weight: 700; color: #1f2937;">🎯 ${destination}</div>
+                        
+                        <div style="background: #f9fafb; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                            <div style="margin-bottom: 8px;">
+                                <div style="font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ABHOLUNG</div>
+                                <div style="font-size: 14px; font-weight: 700; color: #1f2937;">📍 ${pickup}</div>
+                            </div>
+                            <div style="text-align: center; margin: 8px 0;">
+                                <div style="font-size: 16px; color: #10b981;">↓</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 10px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">ZIEL</div>
+                                <div style="font-size: 14px; font-weight: 700; color: #1f2937;">🎯 ${destination}</div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 8px;">
-                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
-                            <div style="font-size: 18px; font-weight: 900; color: #10b981;">${price}€</div>
-                            <div style="font-size: 9px; color: #6b7280; margin-top: 2px;">PREIS</div>
-                        </div>
-                        <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
-                            <div style="font-size: 18px; font-weight: 900; color: #3b82f6;">${ride.distance || '?'} km</div>
-                            <div style="font-size: 9px; color: #6b7280; margin-top: 2px;">DISTANZ</div>
-                        </div>
+                        
+                        <div style="display: flex; gap: 8px;">
+                            <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                                <div style="font-size: 18px; font-weight: 900; color: #10b981;">${price}€</div>
+                                <div style="font-size: 9px; color: #6b7280; margin-top: 2px;">PREIS</div>
+                            </div>
+                            <div style="flex: 1; text-align: center; background: #f9fafb; padding: 10px; border-radius: 8px;">
+                                <div style="font-size: 18px; font-weight: 900; color: #3b82f6;">${distance} km</div>
+                                <div style="font-size: 9px; color: #6b7280; margin-top: 2px;">DISTANZ</div>
+                            </div>
                     </div>
                 </div>
             `;
+            } catch (error) {
+                console.error('💥 CRITICAL ERROR in renderIsarfunkOrder:', error);
+                return '<div style="padding:20px;text-align:center;color:#ef4444;"><div style="font-size:48px;">⚠️</div><div style="font-weight:700;margin-top:8px;">Fehler beim Laden der Fahrt</div></div>';
+            }
         }
         
         // Update Status-Button
@@ -13660,31 +13738,47 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // Cycle Status (Button-Klick)
+        // 🆕 v5.90.366: Cycle Status WITH ERROR HANDLING
         function cycleStatusIsarfunk() {
-            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
-            const activeRide = myRides.find(r => 
-                r.status === 'accepted' || 
-                r.status === 'on_way' || 
-                r.status === 'picked_up'
-            );
-            
-            if (!activeRide) {
-                alert('ℹ️ Keine aktive Fahrt!');
-                return;
-            }
-            
-            const rideId = activeRide.firebaseId || activeRide.id;
-            
-            if (activeRide.status === 'accepted') {
-                // Losfahren zum Kunden
-                startDriving(rideId);
-            } else if (activeRide.status === 'on_way') {
-                // Kunde eingestiegen
-                pickupCustomer(rideId);
-            } else if (activeRide.status === 'picked_up') {
-                // Fahrt abschließen
-                completeRide(rideId);
+            try {
+                if (!rides || !Array.isArray(rides)) {
+                    alert('⚠️ Fehler: Fahrten nicht verfügbar');
+                    return;
+                }
+                
+                if (!currentVehicle) {
+                    alert('⚠️ Kein Fahrzeug ausgewählt!');
+                    return;
+                }
+                
+                const myRides = rides.filter(r => r && r.vehicleId === currentVehicle);
+                const activeRide = myRides.find(r => 
+                    r.status === 'accepted' || 
+                    r.status === 'on_way' || 
+                    r.status === 'picked_up'
+                );
+                
+                if (!activeRide) {
+                    alert('ℹ️ Keine aktive Fahrt!');
+                    return;
+                }
+                
+                const rideId = activeRide.firebaseId || activeRide.id;
+                if (!rideId) {
+                    alert('❌ Fehler: Fahrt-ID nicht gefunden!');
+                    return;
+                }
+                
+                if (activeRide.status === 'accepted') {
+                    startDriving(rideId);
+                } else if (activeRide.status === 'on_way') {
+                    pickupCustomer(rideId);
+                } else if (activeRide.status === 'picked_up') {
+                    completeRide(rideId);
+                }
+            } catch (error) {
+                console.error('💥 ERROR in cycleStatusIsarfunk:', error);
+                alert('❌ Fehler beim Status-Wechsel!');
             }
         }
         
@@ -33839,16 +33933,46 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         // 🆕 v5.90.300: ISARFUNK Vehicle Select!
+        // 🆕 v5.90.366: SELECT VEHICLE WITH ERROR HANDLING
         function selectVehicleIsarfunk(vehicleId) {
-            console.log('🚗 Isarfunk: Fahrzeug gewählt:', vehicleId);
-            
-            const select = document.getElementById('vehicle');
-            if (select) {
-                select.value = vehicleId;
+            try {
+                console.log('🚗 v5.90.366: Fahrzeug gewählt:', vehicleId);
+                
+                if (!vehicleId) {
+                    console.error('❌ Keine Fahrzeug-ID übergeben!');
+                    alert('❌ Fehler: Keine Fahrzeug-ID!');
+                    return;
+                }
+                
+                const select = document.getElementById('vehicle');
+                if (select) {
+                    select.value = vehicleId;
+                } else {
+                    console.warn('⚠️ Vehicle select element not found');
+                }
+                
+                // 🆕 v5.90.366: setVehicle mit Try-Catch
+                try {
+                    setVehicle();
+                } catch (e) {
+                    console.error('❌ Fehler in setVehicle():', e);
+                    alert('❌ Fehler beim Setzen des Fahrzeugs!');
+                    return;
+                }
+                
+                // 🆕 v5.90.366: updateDriverViewIsarfunk mit Try-Catch
+                try {
+                    updateDriverViewIsarfunk();
+                } catch (e) {
+                    console.error('❌ Fehler in updateDriverViewIsarfunk():', e);
+                    // View sollte trotzdem laden, nur ohne Update
+                }
+                
+                console.log('✅ v5.90.366: Fahrzeug erfolgreich gesetzt!');
+            } catch (error) {
+                console.error('💥 CRITICAL ERROR in selectVehicleIsarfunk:', error);
+                alert('❌ Fehler beim Auswählen des Fahrzeugs!\n\nBitte Seite neu laden.');
             }
-            
-            setVehicle();
-            updateDriverViewIsarfunk();
         }
         
         // 🆕 v5.90.294: TESLA-BUTTON SELECT!
@@ -51021,7 +51145,7 @@ Stack: ${err.stack}
         window.addEventListener('DOMContentLoaded', () => {
             // 🐛 v5.47.1: Initiales Log im Floating Debug Panel!
             debugLog('info', '🚀 Funk Taxi App gestartet!');
-            debugLog('info', `📦 Version: 5.50.5 - TELEGRAM-DEBUG!`);
+            debugLog('info', `📦 Version: 5.90.366 - DRIVER TAB CRASH FIX!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
             
             // 🆕 v5.38.5: Debug-Icon initialisieren

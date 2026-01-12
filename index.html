@@ -197,12 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.360 - VEHICLE ID MIGRATION! 🔄 (Build 20260112-1400)');
-        console.log('🆕 v5.90.360: Vehicle-ID Migration verfügbar!');
-        console.log('🆕 v5.90.360: Alte IDs (tesla_model3_1) → Neue IDs (pw-my-222-e)!');
-        console.log('💡 v5.90.360: Migration starten mit: migrateVehicleIds()');
+        console.log('🚕 Funk Taxi App v5.90.360 - AUTO VEHICLE ID MIGRATION! 🤖 (Build 20260112-1405)');
+        console.log('🤖 v5.90.360: Migration läuft AUTOMATISCH beim Start!');
+        console.log('🤖 v5.90.360: Alte IDs (tesla_model3_1) → Neue IDs (pw-my-222-e)!');
+        console.log('🤖 v5.90.360: Nur beim ersten Start - dann nie wieder!');
         console.log('✅ v5.90.359: Complete /vehicles migration!');
-        console.log('✅ v5.90.358: Kalender-Zuweisung fix!');
         console.log('✅ v5.90.355: ALLE Zeit- und Datums-Felder 100% lokal!');
         console.log('✅ v5.90.355: Beide Schnellbuchungs-Modals gefixt!');
         console.log('✅ v5.90.355: Auto-Assign mit timestamp!');
@@ -1101,7 +1100,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.360 - ID MIGRATION! ✅ (Build 20260112-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🤖 Version 5.90.360 - AUTO MIGRATION! ✅ (Build 20260112-1405)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11485,6 +11484,36 @@ Aktuell: ${currentNum}`;
                         console.log('✅ Firebase TEST-DB verbunden (Prefix: test_)');
                     } else {
                         console.log('✅ Firebase LIVE-DB verbunden');
+                    }
+                    
+                    // 🆕 v5.90.360: AUTO-MIGRATION Vehicle IDs (nur einmal!)
+                    const migrationDone = localStorage.getItem('vehicleIdMigration_v360');
+                    if (!migrationDone) {
+                        console.log('🔄 Prüfe ob Vehicle-ID Migration nötig ist...');
+                        setTimeout(async () => {
+                            try {
+                                const vehiclesSnap = await db.ref('vehicles').once('value');
+                                const vehicles = vehiclesSnap.val() || {};
+                                
+                                // Prüfe ob alte IDs existieren
+                                const hasOldIds = Object.keys(vehicles).some(id => 
+                                    id.startsWith('tesla_model') || id.startsWith('tesla_modely')
+                                );
+                                
+                                if (hasOldIds) {
+                                    console.log('⚠️ Alte Vehicle-IDs gefunden! Starte Migration...');
+                                    await migrateVehicleIds();
+                                    localStorage.setItem('vehicleIdMigration_v360', 'done');
+                                } else {
+                                    console.log('✅ Alle Vehicle-IDs bereits korrekt (Kennzeichen-basiert)');
+                                    localStorage.setItem('vehicleIdMigration_v360', 'done');
+                                }
+                            } catch (error) {
+                                console.error('❌ Auto-Migration Fehler:', error);
+                            }
+                        }, 3000); // Nach 3 Sekunden, damit Firebase stabil ist
+                    } else {
+                        console.log('✅ Vehicle-ID Migration bereits durchgeführt');
                     }
                     
                     // 📜 PROTOKOLL: App gestartet & Firebase verbunden

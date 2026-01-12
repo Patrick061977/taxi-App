@@ -197,7 +197,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.355 - COMPLETE TIME FIX! ✅ (Build 20260112-1320)');
+        console.log('🚕 Funk Taxi App v5.90.360 - VEHICLE ID MIGRATION! 🔄 (Build 20260112-1400)');
+        console.log('🆕 v5.90.360: Vehicle-ID Migration verfügbar!');
+        console.log('🆕 v5.90.360: Alte IDs (tesla_model3_1) → Neue IDs (pw-my-222-e)!');
+        console.log('💡 v5.90.360: Migration starten mit: migrateVehicleIds()');
+        console.log('✅ v5.90.359: Complete /vehicles migration!');
+        console.log('✅ v5.90.358: Kalender-Zuweisung fix!');
         console.log('✅ v5.90.355: ALLE Zeit- und Datums-Felder 100% lokal!');
         console.log('✅ v5.90.355: Beide Schnellbuchungs-Modals gefixt!');
         console.log('✅ v5.90.355: Auto-Assign mit timestamp!');
@@ -1096,7 +1101,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.355 - COMPLETE TIME FIX! 🎯 (Build 20260112-1320)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.360 - ID MIGRATION! ✅ (Build 20260112-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -9058,7 +9063,7 @@ Funk Taxi Heringsdorf`;
                         console.log('📱 Suche Fahrer für Fahrzeug:', newVehicleId);
                         
                         // 1️⃣ FINDE FAHRER DER DIESES FAHRZEUG NUTZT
-                        const driversSnapshot = await db.ref('drivers').once('value');
+                        const driversSnapshot = await db.ref('vehicles').once('value');
                         let driverId = null;
                         
                         driversSnapshot.forEach(child => {
@@ -9277,7 +9282,7 @@ Funk Taxi Heringsdorf`;
                 if (isFirebaseReady) {
                     const [vehiclesSnapshot, driversSnapshot] = await Promise.all([
                         db.ref('vehicles').once('value'),
-                        db.ref('drivers').once('value')
+                        db.ref('vehicles').once('value')
                     ]);
                     
                     const onlineVehicleIds = new Set();
@@ -9673,7 +9678,7 @@ Funk Taxi Heringsdorf`;
                     console.log('📱 Sende Telegram an Fahrer für Fahrzeug:', vehicleId);
                     
                     // 🆕 v5.64.43: FINDE FAHRER FÜR DIESES FAHRZEUG!
-                    const driversSnapshot = await db.ref('drivers').once('value');
+                    const driversSnapshot = await db.ref('vehicles').once('value');
                     let driverId = null;
                     
                     driversSnapshot.forEach(child => {
@@ -11724,9 +11729,11 @@ Aktuell: ${currentNum}`;
                         
                         updateViewsDebounced(); // 🆕 v5.21.7: Debounced um Flackern zu vermeiden
                     });
-                    db.ref('drivers').on('value', (s) => { 
+                    // 🆕 v5.90.356: Lade von /vehicles statt /drivers!
+                    db.ref('vehicles').on('value', (s) => { 
                         drivers = {}; 
                         s.forEach(c => { drivers[c.key] = c.val(); }); 
+                        console.log('📊 Fahrzeuge geladen:', Object.keys(drivers).length);
                         showAvailableTaxis();
                         checkDriverAvailability(); // 🆕 v5.32.5g: SOFORT-Button nur wenn Fahrer verfügbar
                         if (currentView === 'admin') updateAdminView(); // ← Update Admin für Online-Fahrer
@@ -18932,7 +18939,7 @@ Aktuell: ${currentNum}`;
             
             try {
                 // Hole Fahrer-Daten aus Firebase
-                const driverSnapshot = await db.ref('drivers/' + vehicleId).once('value');
+                const driverSnapshot = await db.ref('vehicles/' + vehicleId).once('value');
                 const driverData = driverSnapshot.val();
                 
                 if (!driverData) {
@@ -19026,7 +19033,7 @@ Aktuell: ${currentNum}`;
             
             try {
                 // Hole Fahrer-Daten aus Firebase
-                const driverSnapshot = await db.ref('drivers/' + vehicleId).once('value');
+                const driverSnapshot = await db.ref('vehicles/' + vehicleId).once('value');
                 const driverData = driverSnapshot.val();
                 
                 console.log('📊 Fahrer-Daten:', driverData ? 'gefunden' : 'NICHT gefunden', driverData);
@@ -21338,8 +21345,27 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            const onlineDrivers = Object.values(drivers).filter(d => d.online && d.timestamp && (Date.now() - d.timestamp) < 120000);
-            console.log('🚕 Online Fahrer gefunden:', onlineDrivers.length);
+            const onlineDrivers = Object.values(drivers).filter(d => {
+                // Basis-Checks
+                if (!d.online || !d.timestamp || (Date.now() - d.timestamp) >= 120000) {
+                    return false;
+                }
+                
+                // 🆕 v5.90.357: Prüfe ob Fahrzeug bereits eine Fahrt hat!
+                const vehicleId = d.vehicleId || d.id;
+                const hasActiveRide = rides.some(r => 
+                    (r.vehicleId === vehicleId || r.assignedTo === vehicleId) && 
+                    (r.status === 'assigned' || r.status === 'accepted' || r.status === 'picked_up')
+                );
+                
+                if (hasActiveRide) {
+                    console.log(`🚗 ${vehicleId}: Hat aktive Fahrt - wird nicht als verfügbar angezeigt`);
+                    return false;
+                }
+                
+                return true;
+            });
+            console.log('🚕 Online UND freie Fahrer gefunden:', onlineDrivers.length);
             
             // 🆕 v5.26.14i: BESSERE "KEINE TAXIS"-MELDUNG
             if (onlineDrivers.length === 0) {
@@ -21459,14 +21485,21 @@ Aktuell: ${currentNum}`;
             for (const driverId in drivers) {
                 const driver = drivers[driverId];
                 
-                // ONLINE = Verfügbar
-                if (driver.online && driver.timestamp && (Date.now() - driver.timestamp) < 120000) {
+                // 🆕 v5.90.357: Prüfe ob Fahrzeug bereits eine Fahrt hat!
+                const vehicleId = driver.vehicleId || driver.id || driverId;
+                const hasActiveRide = rides.some(r => 
+                    (r.vehicleId === vehicleId || r.assignedTo === vehicleId) && 
+                    (r.status === 'assigned' || r.status === 'accepted' || r.status === 'picked_up')
+                );
+                
+                // ONLINE = Verfügbar UND KEINE AKTIVE FAHRT
+                if (driver.online && driver.timestamp && (Date.now() - driver.timestamp) < 120000 && !hasActiveRide) {
                     hasAvailableDriver = true;
-                    console.log('✅ Fahrer verfügbar (online):', driver.vehicle || driverId);
+                    console.log('✅ Fahrer verfügbar (online + frei):', driver.vehicle || driverId);
                     break;
                 }
                 
-                // BESETZT = Hat Fahrt, aber angemeldet
+                // BESETZT = Hat Fahrt, aber angemeldet (für Vorbestellung)
                 // Status kann sein: 'busy', 'assigned', 'picked_up', 'ongoing'
                 if (driver.status && ['busy', 'assigned', 'picked_up', 'ongoing'].includes(driver.status)) {
                     // Prüfe ob Timestamp aktuell (innerhalb 2 Min)
@@ -22333,7 +22366,7 @@ Aktuell: ${currentNum}`;
                     
                     // 🆕 v5.25.6: TEMPORÄRE SPERRE FÜR FAHRER (3 Minuten)
                     const blockUntil = Date.now() + (3 * 60 * 1000); // 3 Minuten
-                    await db.ref('drivers/' + nearestVehicle.id + '/temporaryBlock').set({
+                    await db.ref('vehicles/' + nearestVehicle.id + '/temporaryBlock').set({
                         blockedAt: Date.now(),
                         blockedUntil: blockUntil,
                         reason: 'Keine Reaktion auf Fahrt-Zuweisung',
@@ -22664,7 +22697,7 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.322: PRÜFE OB FAHRER ONLINE SIND
         async function checkOnlineDrivers() {
             try {
-                const driversSnapshot = await db.ref('drivers').once('value');
+                const driversSnapshot = await db.ref('vehicles').once('value');
                 const drivers = driversSnapshot.val() || {};
                 
                 const onlineDrivers = [];
@@ -26826,7 +26859,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 gpsMode = 'off';
                 // 📊 WICHTIG: Sende offline-Status an Firebase!
                 if (currentVehicle && isFirebaseReady) {
-                    db.ref('drivers/' + currentVehicle).update({
+                    db.ref('vehicles/' + currentVehicle).update({
                         online: false,
                         lastOffline: Date.now()
                     }).then(() => {
@@ -26853,7 +26886,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
                 // 📴 WICHTIG: Altes Fahrzeug in Firebase offline setzen!
                 if (isFirebaseReady) {
-                    db.ref('drivers/' + previousVehicle).update({
+                    db.ref('vehicles/' + previousVehicle).update({
                         online: false,
                         lastOffline: Date.now()
                     }).then(() => {
@@ -27232,7 +27265,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // Prüfe ob Fahrzeug von jemand anderem benutzt wird
             if (isFirebaseReady) {
                 try {
-                    const driverSnapshot = await db.ref('drivers/' + savedVehicle).once('value');
+                    const driverSnapshot = await db.ref('vehicles/' + savedVehicle).once('value');
                     const driverData = driverSnapshot.val();
                     
                     if (driverData && driverData.online && driverData.userId && driverData.userId !== currentUser.uid) {
@@ -27267,7 +27300,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 
                                 // In Firebase als online markieren
                                 const userContact = currentUser.email || currentUser.phoneNumber || 'Unbekannt';
-                                db.ref('drivers/' + savedVehicle).update({
+                                db.ref('vehicles/' + savedVehicle).update({
                                     online: true,
                                     userId: currentUser.uid,
                                     userEmail: userContact,
@@ -27441,7 +27474,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     // In Firebase speichern
                     if (isFirebaseReady) {
-                        db.ref('drivers/' + currentVehicle).set(location).then(() => {
+                        db.ref('vehicles/' + currentVehicle).set(location).then(() => {
                             console.log('✅ Standby-Position → Firebase');
                         }).catch(err => {
                             console.error('❌ Standby-Upload Fehler:', err);
@@ -27789,10 +27822,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // 🆕 v5.90.264: GPS in vehicles/ speichern (nicht mehr drivers/)!
             db.ref('vehicles/' + currentVehicle).update({
-                lat: location.latitude,
-                lon: location.longitude,
-                lastUpdate: Date.now(),
-                accuracy: location.accuracy
+                lat: location.lat,           // ✅ FIX: location.lat nicht .latitude
+                lon: location.lon,           // ✅ FIX: location.lon nicht .longitude
+                timestamp: location.timestamp,  // ✅ FIX: timestamp hinzufügen!
+                accuracy: location.accuracy,
+                online: location.online,
+                vehicle: location.vehicle,
+                userId: location.userId
             }).then(() => {
                 console.log('✅ GPS → vehicles/' + currentVehicle);
             }).catch(err => {
@@ -27861,6 +27897,88 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 console.log('🗑️ GPS aus vehicles/ entfernt');
             }
         }
+
+        // 🆕 v5.90.360: MIGRATION - Alte Vehicle IDs → Neue Vehicle IDs (Kennzeichen-basiert)
+        async function migrateVehicleIds() {
+            console.log('🔄 Starte Vehicle-ID Migration...');
+            
+            // Mapping: Alte ID → Neue ID (Kennzeichen)
+            const ID_MAPPING = {
+                'tesla_model3_1': 'pw-my-222-e',
+                'tesla_model3_2': 'pw-ik-222',
+                'tesla_model3_3': 'vg-lk-111',
+                'tesla_modely_1': 'pw-sk-222',
+                'tesla_modely_2': 'pw-ki-222'
+            };
+            
+            try {
+                // 1. Migriere /vehicles
+                console.log('📦 Migriere /vehicles...');
+                const vehiclesSnap = await db.ref('vehicles').once('value');
+                const vehicles = vehiclesSnap.val() || {};
+                
+                for (const [oldId, newId] of Object.entries(ID_MAPPING)) {
+                    if (vehicles[oldId]) {
+                        console.log(`  ✅ ${oldId} → ${newId}`);
+                        // Kopiere Daten zur neuen ID
+                        await db.ref('vehicles/' + newId).set(vehicles[oldId]);
+                        // Lösche alte ID
+                        await db.ref('vehicles/' + oldId).remove();
+                    }
+                }
+                
+                // 2. Migriere rides (vehicleId + assignedTo)
+                console.log('🚗 Migriere /rides...');
+                const ridesSnap = await db.ref('rides').once('value');
+                const rides = ridesSnap.val() || {};
+                let ridesMigrated = 0;
+                
+                for (const [rideId, ride] of Object.entries(rides)) {
+                    let updated = false;
+                    const updates = {};
+                    
+                    if (ride.vehicleId && ID_MAPPING[ride.vehicleId]) {
+                        updates.vehicleId = ID_MAPPING[ride.vehicleId];
+                        updated = true;
+                    }
+                    
+                    if (ride.assignedTo && ID_MAPPING[ride.assignedTo]) {
+                        updates.assignedTo = ID_MAPPING[ride.assignedTo];
+                        updated = true;
+                    }
+                    
+                    if (updated) {
+                        await db.ref('rides/' + rideId).update(updates);
+                        ridesMigrated++;
+                    }
+                }
+                
+                console.log(`  ✅ ${ridesMigrated} Fahrten aktualisiert`);
+                
+                // 3. Migriere localStorage (lastVehicle)
+                console.log('💾 Migriere localStorage...');
+                for (const key of Object.keys(localStorage)) {
+                    if (key.startsWith('lastVehicle_')) {
+                        const oldVehicleId = localStorage.getItem(key);
+                        if (oldVehicleId && ID_MAPPING[oldVehicleId]) {
+                            localStorage.setItem(key, ID_MAPPING[oldVehicleId]);
+                            console.log(`  ✅ ${oldVehicleId} → ${ID_MAPPING[oldVehicleId]}`);
+                        }
+                    }
+                }
+                
+                console.log('✅ Migration abgeschlossen!');
+                alert('✅ Vehicle-ID Migration erfolgreich!\n\nAlle Fahrzeuge nutzen jetzt Kennzeichen-basierte IDs.\n\nBitte Seite neu laden!');
+                
+                // Reload nach 2 Sekunden
+                setTimeout(() => location.reload(), 2000);
+                
+            } catch (error) {
+                console.error('❌ Migration-Fehler:', error);
+                alert('❌ Fehler bei Migration: ' + error.message);
+            }
+        }
+
 
         // 🎯 ALIAS-FUNKTIONEN für bessere Lesbarkeit
         function startGPSTracking() {
@@ -29662,7 +29780,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             try {
                 // Lade alle Fahrer-Positionen
-                const driversSnapshot = await db.ref('drivers').once('value');
+                const driversSnapshot = await db.ref('vehicles').once('value');
                 const driversData = driversSnapshot.val() || {};
                 
                 // Lade alle aktiven Fahrten
@@ -31462,7 +31580,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             try {
                 // Lade Fahrer-Positionen
-                const driversSnapshot = await db.ref('drivers').once('value');
+                const driversSnapshot = await db.ref('vehicles').once('value');
                 const driversData = driversSnapshot.val() || {};
                 
                 // Lade aktive Fahrten
@@ -38130,7 +38248,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             try {
                 const [vehiclesSnapshot, driversSnapshot] = await Promise.all([
                     db.ref('vehicles').once('value'),
-                    db.ref('drivers').once('value')
+                    db.ref('vehicles').once('value')
                 ]);
                 
                 const vehicles = [];
@@ -43362,7 +43480,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             
                             // 🆕 v5.64.43: FINDE FAHRER FÜR FAHRZEUG!
                             console.log('📱 Suche Fahrer für Fahrzeug:', vehicle);
-                            const driversSnapshot = await db.ref('drivers').once('value');
+                            const driversSnapshot = await db.ref('vehicles').once('value');
                             let driverId = null;
                             
                             driversSnapshot.forEach(child => {
@@ -47263,7 +47381,7 @@ Stack: ${err.stack}
                     const vehicleName = VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle;
                     
                     // Fahrzeug offline setzen
-                    await db.ref('drivers/' + currentVehicle).update({
+                    await db.ref('vehicles/' + currentVehicle).update({
                         online: false,
                         lastOffline: Date.now()
                     });
@@ -48402,7 +48520,7 @@ Stack: ${err.stack}
             // 🧹 CLEANUP: Alte Fahrzeuge dieses Users offline setzen
             if (isFirebaseReady) {
                 try {
-                    const driversSnapshot = await db.ref('drivers').once('value');
+                    const driversSnapshot = await db.ref('vehicles').once('value');
                     const driversData = driversSnapshot.val() || {};
                     
                     for (const vehicleId in driversData) {
@@ -48412,7 +48530,7 @@ Stack: ${err.stack}
                             (driver.userId === user.uid || driver.userEmail === (user.email || user.phoneNumber))) {
                             
                             console.log('🧹 Altes Fahrzeug gefunden:', vehicleId, '- setze offline');
-                            await db.ref('drivers/' + vehicleId).update({
+                            await db.ref('vehicles/' + vehicleId).update({
                                 online: false,
                                 lastOffline: Date.now()
                             });
@@ -50275,7 +50393,7 @@ Stack: ${err.stack}
                 // 🆕 v5.52.1: Lade ALLE Fahrzeuge aus Verwaltung + Fahrer-Status
                 const [vehiclesSnapshot, driversSnapshot, rideSnapshot] = await Promise.all([
                     db.ref('vehicles').once('value'),
-                    db.ref('drivers').once('value'),
+                    db.ref('vehicles').once('value'),
                     db.ref('rides/' + rideId).once('value')
                 ]);
                 
@@ -50329,14 +50447,17 @@ Stack: ${err.stack}
                 const onlineVehicles = [];
                 const offlineVehicles = [];
                 
-                // Prüfe welche Fahrzeuge online sind
+                // 🆕 v5.90.357: Prüfe direkt in drivers (=vehicles) nach online status!
                 const onlineVehicleIds = new Set();
-                const driverByVehicle = {};
                 
-                for (const [driverId, driver] of Object.entries(drivers)) {
-                    if (driver.online && driver.vehicle) {
-                        onlineVehicleIds.add(driver.vehicle);
-                        driverByVehicle[driver.vehicle] = driver;
+                for (const [vehicleId, vehicle] of Object.entries(drivers)) {
+                    // Prüfe GPS-Alter (max 2 Min)
+                    const isOnline = vehicle.online && 
+                                   vehicle.timestamp && 
+                                   (Date.now() - vehicle.timestamp) < 120000;
+                    
+                    if (isOnline) {
+                        onlineVehicleIds.add(vehicleId);
                     }
                 }
                 
@@ -50347,7 +50468,8 @@ Stack: ${err.stack}
                         id: vehicleId,
                         name: vehicle.name || vehicleId,
                         plate: vehicle.plate || 'Kein Kennzeichen',
-                        driver: driverByVehicle[vehicleId] || null
+                        online: isOnline,
+                        gpsData: drivers[vehicleId] || null  // GPS-Daten aus drivers (=vehicles)
                     };
                     
                     if (isOnline) {
@@ -50364,9 +50486,9 @@ Stack: ${err.stack}
                 // 🟢 ONLINE FAHRZEUGE
                 if (onlineVehicles.length > 0) {
                     onlineVehicles.forEach(vehicle => {
-                        const driver = vehicle.driver;
-                        const lastUpdate = driver && driver.lastUpdate ? new Date(driver.lastUpdate).toLocaleTimeString('de-DE') : 'k.A.';
-                        const hasGPS = driver && driver.location && driver.location.latitude && driver.location.longitude;
+                        const gps = vehicle.gpsData;  // GPS aus drivers (=vehicles)
+                        const lastUpdate = gps && gps.timestamp ? new Date(gps.timestamp).toLocaleTimeString('de-DE') : 'k.A.';
+                        const hasGPS = gps && gps.lat && gps.lon;
                         
                         html += `
                             <div style="border: 3px solid #10b981; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: linear-gradient(to right, #d1fae5, #f0fdf4); transition: all 0.3s; cursor: pointer;"
@@ -50918,7 +51040,7 @@ Stack: ${err.stack}
                         const savedOnline = localStorage.getItem('lastOnlineStatus_' + currentUser.uid);
                         
                         // Prüfe Firebase-Status
-                        db.ref('drivers/' + currentVehicle).once('value').then(snapshot => {
+                        db.ref('vehicles/' + currentVehicle).once('value').then(snapshot => {
                             const driverData = snapshot.val();
                             const firebaseOnline = driverData && driverData.online === true;
                             
@@ -50937,7 +51059,7 @@ Stack: ${err.stack}
                                 const userContact = currentUser.email || currentUser.phoneNumber || 'Unbekannt';
                                 const vehicleName = VEHICLES[currentVehicle]?.name || currentVehicle;
                                 
-                                db.ref('drivers/' + currentVehicle).update({
+                                db.ref('vehicles/' + currentVehicle).update({
                                     online: true,
                                     userId: currentUser.uid,
                                     userEmail: userContact,
@@ -51159,7 +51281,7 @@ Stack: ${err.stack}
                 
                 // Prüfe auch ob letzte Position zu alt ist
                 if (currentVehicle && isFirebaseReady) {
-                    db.ref('drivers/' + currentVehicle + '/timestamp').once('value').then(snapshot => {
+                    db.ref('vehicles/' + currentVehicle + '/timestamp').once('value').then(snapshot => {
                         const lastTimestamp = snapshot.val();
                         if (lastTimestamp) {
                             const ageMinutes = (Date.now() - lastTimestamp) / (1000 * 60);

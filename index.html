@@ -197,11 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.353 - ALLE ZEITEN LOKAL! 🎯 (Build 20260112-1040)');
-        console.log('✅ v5.90.353: ALLE 17 UTC-Datum-Konvertierungen auf lokal geändert!');
-        console.log('🔧 v5.90.353: Helper-Funktion getLocalDateString() für alle Datepicker!');
-        console.log('📅 v5.90.352: Kalender-Datum lokal!');
-        console.log('🔧 v5.90.351: Auto-Assign setzt timestamp!');
+        console.log('🚕 Funk Taxi App v5.90.355 - COMPLETE TIME FIX! ✅ (Build 20260112-1320)');
+        console.log('✅ v5.90.355: ALLE Zeit- und Datums-Felder 100% lokal!');
+        console.log('✅ v5.90.355: Beide Schnellbuchungs-Modals gefixt!');
+        console.log('✅ v5.90.355: Auto-Assign mit timestamp!');
+        console.log('✅ v5.90.355: Fahrer-View Filter lokal!');
         console.log('✅ v5.90.338: Öffnet WhatsApp/SMS auf deinem Handy!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
@@ -1096,7 +1096,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.353 - ALLE ZEITEN LOKAL! 🎯 (Build 20260112-1040)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.355 - COMPLETE TIME FIX! 🎯 (Build 20260112-1320)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -29405,7 +29405,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     const dd = String(today.getDate()).padStart(2, '0');
                     const todayStr = `${yyyy}-${mm}-${dd}`;
                     document.getElementById('fqb-date').value = todayStr;
-                    setFQBTimeNow();
+                    
+                    // Zeit setzen (mit Verzögerung)
+                    setTimeout(() => {
+                        setFQBTimeNow();
+                        console.log('⏰ Zeit-Felder initialisiert (Karten-Klick)');
+                    }, 100);
                     
                     // Draggable aktivieren
                     makeModalDraggable();
@@ -30479,8 +30484,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const todayStr = `${yyyy}-${mm}-${dd}`;
             document.getElementById('fqb-date').value = todayStr;
             
-            // Zeit auf jetzt
-            setFQBTimeNow();
+            // Zeit auf jetzt (mit kleiner Verzögerung für DOM)
+            setTimeout(() => {
+                setFQBTimeNow();
+                console.log('⏰ Zeit-Felder initialisiert beim Öffnen');
+            }, 100);
             
             // Draggable initialisieren
             makeModalDraggable();
@@ -30956,8 +30964,20 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const now = new Date();
             const hours = now.getHours();
             const minutes = now.getMinutes();
-            document.getElementById('fqb-time-hours').value = String(hours).padStart(2, '0');
-            document.getElementById('fqb-time-minutes').value = String(minutes).padStart(2, '0');
+            const hoursField = document.getElementById('fqb-time-hours');
+            const minutesField = document.getElementById('fqb-time-minutes');
+            
+            // FORCE: Erst leeren, dann neu setzen!
+            if (hoursField) {
+                hoursField.value = '';  // Leeren
+                hoursField.value = String(hours).padStart(2, '0');  // Neu setzen
+            }
+            if (minutesField) {
+                minutesField.value = '';  // Leeren
+                minutesField.value = String(minutes).padStart(2, '0');  // Neu setzen
+            }
+            
+            console.log('🕐 Zeit FORCE gesetzt:', String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0'));
         }
         
         function setFQBTimePlus30() {
@@ -34541,10 +34561,15 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             modal.id = 'quick-booking-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10001;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
             
-            // Aktuelle Zeit + 15 Minuten als Default
+            // Aktuelle Zeit + 15 Minuten als Default (LOKAL!)
             const now = new Date();
             now.setMinutes(now.getMinutes() + 15);
-            const defaultDate = now.toISOString().slice(0, 16);
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const defaultDate = `${yyyy}-${mm}-${dd}T${hh}:${min}`;  // 🔧 v5.90.354: LOKAL!
             
             modal.innerHTML = `
                 <div style="

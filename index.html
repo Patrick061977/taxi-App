@@ -197,11 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.346 - TIME DISPLAY FIX! 🕐 (Build 20260112-0900)');
-        console.log('🔧 v5.90.346: Zeit-Fallback: timestamp || pickupTimestamp || createdAt');
-        console.log('✅ v5.90.345: Auto-Assign setzt jetzt vehicle + vehicleLabel wie manuell!');
-        console.log('🎯 v5.90.344: timestamp Feld hinzugefügt - Fahrer-View findet Fahrten jetzt!');
-        console.log('🐛 v5.90.343: "Invalid time value" CRASH GEFIXT!');
+        console.log('🚕 Funk Taxi App v5.90.353 - ALLE ZEITEN LOKAL! 🎯 (Build 20260112-1040)');
+        console.log('✅ v5.90.353: ALLE 17 UTC-Datum-Konvertierungen auf lokal geändert!');
+        console.log('🔧 v5.90.353: Helper-Funktion getLocalDateString() für alle Datepicker!');
+        console.log('📅 v5.90.352: Kalender-Datum lokal!');
+        console.log('🔧 v5.90.351: Auto-Assign setzt timestamp!');
         console.log('✅ v5.90.338: Öffnet WhatsApp/SMS auf deinem Handy!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
@@ -1096,7 +1096,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🕐 Version 5.90.346 - TIME FIX! ⏰ (Build 20260112-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.353 - ALLE ZEITEN LOKAL! 🎯 (Build 20260112-1040)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -10282,7 +10282,7 @@ Funk Taxi Heringsdorf`;
                     
                     // Download
                     const now = new Date();
-                    const dateStr = now.toISOString().slice(0,10);
+                    const dateStr = getLocalDateString(now);  // 🔧 v5.90.353: LOKAL!
                     const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '-');
                     const filename = `taxi-console-logs-${dateStr}_${timeStr}.txt`;
                     
@@ -10329,7 +10329,7 @@ Funk Taxi Heringsdorf`;
                     
                     // Download
                     const now = new Date();
-                    const dateStr = now.toISOString().slice(0,10);
+                    const dateStr = getLocalDateString(now);  // 🔧 v5.90.353: LOKAL!
                     const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '-');
                     const filename = `taxi-logs-${dateStr}_${timeStr}.txt`;
                     
@@ -12524,7 +12524,7 @@ Aktuell: ${currentNum}`;
                     // 🆕 v5.90.278: SCROLL ZUM HEUTIGEN TAG!
                     setTimeout(() => {
                         const today = new Date();
-                        const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+                        const todayStr = getLocalDateString(today); // 🔧 v5.90.353: LOKAL!
                         const todayElement = document.querySelector(`[data-date="${todayStr}"]`);
                         
                         if (todayElement) {
@@ -18550,7 +18550,7 @@ Aktuell: ${currentNum}`;
         // Setze heutiges Datum
         function setShiftPlanToday() {
             const today = new Date();
-            const dateStr = today.toISOString().split('T')[0];
+            const dateStr = getLocalDateString(today);  // 🔧 v5.90.353: LOKAL!
             document.getElementById('shift-plan-date').value = dateStr;
             analyzeShiftPlan();
         }
@@ -20216,7 +20216,7 @@ Aktuell: ${currentNum}`;
             icsContent += 'END:VCALENDAR';
             
             // Dateiname mit Datum und Kundenname
-            const dateStr = startDate.toISOString().split('T')[0];
+            const dateStr = getLocalDateString(startDate);  // 🔧 v5.90.353: LOKAL!
             const timeStr = startDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }).replace(':', '');
             const safeName = ride.customerName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_');
             const fileName = `Taxi_${safeName}_${dateStr}_${timeStr}.ics`;
@@ -22293,6 +22293,7 @@ Aktuell: ${currentNum}`;
                 assignedVehicleName: nearestVehicle.name,
                 assignedAt: Date.now(),
                 assignedBy: 'auto-assign',  // 🔧 v5.90.345: Wie bei manuell!
+                timestamp: ride.pickupTimestamp || ride.timestamp || Date.now(),  // 🔧 v5.90.351: TIMESTAMP FÜR FILTER!
                 assignmentExpiresAt: Date.now() + 60000, // 60 Sekunden (erhöht von 30!)
                 assignmentDistance: nearestVehicle.distance
             });
@@ -23442,7 +23443,7 @@ Aktuell: ${currentNum}`;
             if (lastPreorderRide.pickupTimestamp) {
                 const date = new Date(lastPreorderRide.pickupTimestamp);
                 
-                const dateStr = date.toISOString().split('T')[0];
+                const dateStr = getLocalDateString(date);  // 🔧 v5.90.353: LOKAL!
                 const hourStr = String(date.getHours()).padStart(2, '0');
                 const minuteStr = String(date.getMinutes()).padStart(2, '0');
                 
@@ -26977,7 +26978,17 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 console.log('📋 v5.90.332: Lade Fahrten für Fahrzeug:', currentVehicle);
                 
                 try {
-                    const today = new Date().toISOString().split('T')[0];
+                    // 🔧 v5.90.350: NUR LOKALE ZEIT! Keine UTC!
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0); // Heute 00:00 Uhr
+                    const todayStart = today.getTime();
+                    
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowStart = tomorrow.getTime();
+                    
+                    console.log('🕐 Heute:', new Date(todayStart).toLocaleString('de-DE'));
+                    console.log('🕐 Morgen:', new Date(tomorrowStart).toLocaleString('de-DE'));
                     
                     // 🆕 v5.90.262: Lade ALLE Fahrten und filtere dann (wegen Legacy-IDs)
                     const snapshot = await db.ref('rides').once('value');
@@ -27011,34 +27022,62 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     // Filtere Fahrten
                     const now = Date.now();
+                    
+                    console.log('═══════════════════════════════════════════════════════════');
+                    console.log('🔍 v5.90.350: FILTER-ANALYSE (NUR LOKALE ZEIT!)');
+                    console.log('   Fahrzeug-IDs:', possibleIds);
+                    console.log('   Jetzt:', new Date(now).toLocaleString('de-DE'));
+                    console.log('   Heute ab:', new Date(todayStart).toLocaleString('de-DE'));
+                    console.log('═══════════════════════════════════════════════════════════');
+                    
                     const todayRides = Object.entries(allRides)
                         .map(([id, ride]) => ({ id, ...ride }))
                         .filter(ride => {
-                            // 🔧 v5.90.343: Prüfe ob timestamp gültig ist!
-                            if (!ride.timestamp || isNaN(new Date(ride.timestamp).getTime())) {
-                                console.warn('⚠️ Ungültiger timestamp:', ride.id, ride.timestamp);
+                            const reasons = []; // Warum gefiltert?
+                            
+                            // 🔧 v5.90.350: FALLBACK zu pickupTimestamp wenn timestamp fehlt!
+                            const effectiveTimestamp = ride.timestamp || ride.pickupTimestamp || ride.createdAt;
+                            
+                            console.log(`\n📋 Fahrt: ${ride.id}`);
+                            console.log(`   Von: ${ride.pickup}`);
+                            console.log(`   Status: ${ride.status}`);
+                            console.log(`   vehicleId: ${ride.vehicleId}`);
+                            console.log(`   timestamp: ${ride.timestamp}`);
+                            console.log(`   pickupTimestamp: ${ride.pickupTimestamp}`);
+                            console.log(`   effectiveTimestamp: ${effectiveTimestamp}`);
+                            
+                            if (effectiveTimestamp) {
+                                const localTime = new Date(effectiveTimestamp).toLocaleString('de-DE');
+                                console.log(`   Zeit: ${localTime}`);
+                            }
+                            
+                            if (!effectiveTimestamp || isNaN(new Date(effectiveTimestamp).getTime())) {
+                                reasons.push('Keine gültige Zeit');
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
                                 return false;
                             }
                             
-                            // Muss heute sein
-                            const rideDate = new Date(ride.timestamp).toISOString().split('T')[0];
-                            if (rideDate !== today) return false;
-                            
-                            // 🆕 v5.90.279: NUR ZUGEWIESENE FAHRTEN!
-                            // Fahrer sieht NUR Fahrten die ihm explizit zugewiesen wurden!
-                            // NICHT "new" ohne vehicleId!
-                            if (!ride.vehicleId) return false; // ← WICHTIG!
+                            // vehicleId Check
+                            if (!ride.vehicleId) {
+                                reasons.push('Kein vehicleId');
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
+                                return false;
+                            }
                             
                             // Muss MEIN Fahrzeug sein
-                            if (!possibleIds.includes(ride.vehicleId)) return false;
+                            if (!possibleIds.includes(ride.vehicleId)) {
+                                reasons.push(`vehicleId ${ride.vehicleId} nicht in ${possibleIds.join(',')}`);
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
+                                return false;
+                            }
                             
                             // Status Check
-                            // assigned = Dir zugewiesen, warte auf Annahme → ZEIGEN (gelb)
-                            // accepted = Du hast angenommen, fahr los! → ZEIGEN (grün)
-                            // picked_up = Kunde drin → ZEIGEN (blau)
-                            // on_way = Unterwegs → ZEIGEN
                             const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
-                            if (!validStatuses.includes(ride.status)) return false;
+                            if (!validStatuses.includes(ride.status)) {
+                                reasons.push(`Status ${ride.status} nicht erlaubt`);
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
+                                return false;
+                            }
                             
                             // 🆕 v5.90.305: BEI "assigned" → NUR < 30 MIN ZEIGEN!
                             if (ride.status === 'assigned') {
@@ -27046,19 +27085,26 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 const minutesUntil = (pickupTime - now) / 60000;
                                 
                                 if (minutesUntil > 30) {
-                                    // Zu weit weg → NICHT anzeigen!
-                                    console.log(`⏰ Fahrt ${ride.id} noch ${Math.round(minutesUntil)} Min entfernt - blende aus`);
+                                    reasons.push(`Noch ${Math.round(minutesUntil)} Min entfernt (>30)`);
+                                    console.log(`   ⏰ FILTER: ${reasons.join(', ')}`);
                                     return false;
                                 }
                                 
-                                console.log(`✅ Fahrt ${ride.id} in ${Math.round(minutesUntil)} Min - zeige an`);
+                                console.log(`   ✅ ANZEIGEN! In ${Math.round(minutesUntil)} Min`);
+                            } else {
+                                console.log(`   ✅ ANZEIGEN! Status: ${ride.status}`);
                             }
                             
                             return true;
                         })
                         .sort((a, b) => a.timestamp - b.timestamp);
                     
-                    console.log('✅ Gefilterte Fahrten:', todayRides.length);
+                    console.log('═══════════════════════════════════════════════════════════');
+                    console.log('📊 v5.90.349: FILTER-ERGEBNIS');
+                    console.log(`   Gesamt Fahrten: ${Object.keys(allRides).length}`);
+                    console.log(`   Nach Filter: ${todayRides.length}`);
+                    console.log('═══════════════════════════════════════════════════════════');
+                    
                     renderDriverRides(todayRides);
                     
                 } catch (error) {
@@ -28843,6 +28889,16 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             return `${day}.${month}. ${hours}:${minutes}`;
         }
         
+        // 🆕 v5.90.353: LOKALES DATUM für <input type="date">
+        function getLocalDateString(date) {
+            if (!date) date = new Date();
+            if (typeof date === 'number') date = new Date(date);
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;  // YYYY-MM-DD (lokal!)
+        }
+        
         // 🆕 v5.38.6: Format mit Wochentag
         function formatDateWithWeekday(timestamp) {
             if (!timestamp) return 'Unbekannt';
@@ -29343,8 +29399,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     modal.style.display = 'block';
                     
                     // Datum + Zeit setzen
-                    const today = new Date().toISOString().split('T')[0];
-                    document.getElementById('fqb-date').value = today;
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    const todayStr = `${yyyy}-${mm}-${dd}`;
+                    document.getElementById('fqb-date').value = todayStr;
                     setFQBTimeNow();
                     
                     // Draggable aktivieren
@@ -30412,8 +30472,12 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
             
             // Datum auf heute
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('fqb-date').value = today;
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('fqb-date').value = todayStr;
             
             // Zeit auf jetzt
             setFQBTimeNow();
@@ -39222,7 +39286,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-top:10px;">
                                     <div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">📅 Datum:</label>
-                                        <input type="date" id="inv-date" value="${new Date(ride.pickupTimestamp || ride.createdAt).toISOString().split('T')[0]}"
+                                        <input type="date" id="inv-date" value="${getLocalDateString(ride.pickupTimestamp || ride.createdAt)}"
                                                style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
                                     </div>
                                     <div>
@@ -39736,7 +39800,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-top:10px;">
                                     <div>
                                         <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:5px;">📅 Datum:</label>
-                                        <input type="date" id="inv-date" value="${new Date().toISOString().split('T')[0]}"
+                                        <input type="date" id="inv-date" value="${getLocalDateString()}"
                                                style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
                                     </div>
                                     <div>
@@ -42328,7 +42392,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
                                     <div>
                                         <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:5px;">Bestelldatum:</label>
-                                        <input type="date" id="noshow-order-date" value="${new Date(ride.createdAt || Date.now()).toISOString().split('T')[0]}"
+                                        <input type="date" id="noshow-order-date" value="${getLocalDateString(ride.createdAt || Date.now())}"
                                                style="width:100%;padding:8px;border:2px solid #f59e0b;border-radius:8px;font-size:14px;">
                                     </div>
                                     <div>
@@ -42403,7 +42467,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             <!-- ZAHLUNGSZIEL -->
                             <div style="background:#f0fdf4;border:2px solid #10b981;padding:15px;border-radius:10px;margin-bottom:20px;">
                                 <div style="font-weight:700;margin-bottom:10px;color:#047857;">📆 Zahlungsziel</div>
-                                <input type="date" id="noshow-payment-deadline" value="${zahlungsziel.toISOString().split('T')[0]}"
+                                <input type="date" id="noshow-payment-deadline" value="${getLocalDateString(zahlungsziel)}"
                                        style="width:100%;padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;">
                                 <div style="font-size:12px;color:#6b7280;margin-top:5px;">Standard: 14 Tage ab heute</div>
                             </div>
@@ -49003,7 +49067,7 @@ Stack: ${err.stack}
             currentCalendarDate = new Date();
             const dateInput = document.getElementById('calendar-jump-date');
             if (dateInput) {
-                dateInput.value = new Date().toISOString().split('T')[0];
+                dateInput.value = getLocalDateString();  // 🔧 v5.90.353: LOKAL!
             }
             console.log('📅 Springe zu Heute');
             
@@ -49449,7 +49513,7 @@ Stack: ${err.stack}
             
             // 🆕 v5.69.0: Quick-Booking Box ZUERST (oben)!
             const today = new Date(currentCalendarDate);
-            const dateStr = today.toISOString().split('T')[0];
+            const dateStr = getLocalDateString(today);  // 🔧 v5.90.353: LOKAL!
             
             html += `
                 <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
@@ -54177,8 +54241,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             const fromInput = document.getElementById('fifty-fifty-export-from');
             const toInput = document.getElementById('fifty-fifty-export-to');
-            if (fromInput) fromInput.value = firstDay.toISOString().split('T')[0];
-            if (toInput) toInput.value = lastDay.toISOString().split('T')[0];
+            if (fromInput) fromInput.value = getLocalDateString(firstDay);  // 🔧 v5.90.353: LOKAL!
+            if (toInput) toInput.value = getLocalDateString(lastDay);  // 🔧 v5.90.353: LOKAL!
             
             // Lade Stats nach kurzer Verzögerung
             setTimeout(loadFiftyFiftyStats, 3000);
@@ -56368,7 +56432,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // Prüfe ob Datum ein Feiertag ist
         function isHoliday(date) {
             const year = date.getFullYear();
-            const dateStr = date.toISOString().slice(0, 10); // YYYY-MM-DD
+            const dateStr = getLocalDateString(date);  // 🔧 v5.90.353: LOKAL!
             const holidays = getHolidaysMV(year);
             return holidays.includes(dateStr);
         }
@@ -58352,7 +58416,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 `;
                 
                 const date = new Date(ride.pickupTime || ride.createdAt);
-                const dateStr = date.toISOString().slice(0, 10);
+                const dateStr = getLocalDateString(date);  // 🔧 v5.90.353: LOKAL!
                 const timeStr = date.toTimeString().slice(0, 5);
                 
                 dialog.innerHTML = `

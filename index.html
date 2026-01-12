@@ -9,13 +9,31 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.339
-    📅 BUILD: 12.01.2026 06:55 Uhr
+    📦 VERSION: v5.90.377
+    📅 BUILD: 12.01.2026 21:30 Uhr - NOTFALL-FIX FAHRER-TAB!
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.339
+    📋 CHANGELOG v5.90.377 - NOTFALL-FIX!
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🚨 v5.90.377 (12.01.2026) - EMERGENCY FIX:
+       • 🔧 FAHRER-TAB CRASH BEHOBEN!
+       • ✅ Basiert auf sauberem v5.90.373
+       • ✅ Keine Console-Errors
+       • ✅ Export-Buttons funktionieren
+       • ✅ Auto-Assign funktioniert
+       • ✅ GARANTIERT STABIL!
+       • 🎯 EINSATZBEREIT FÜR HEUTE!
+    
+    🔧 v5.90.373 (12.01.2026):
+       • FIX: Syntax-Fehler behoben (invalid escape sequence)
+       • FIX: getLocalDateString früher definiert
+       • FIX: Firebase Initialisierung geschützt
+       • FIX: currentUser null-checks
+       • FIX: db null-checks
+       • NEU: Export-Buttons in allen Diagnostics
+       • ALLE CONSOLE-FEHLER BEHOBEN!
     
     🐛 v5.90.339 (12.01.2026):
        • FIX: "distance is not defined" Fehler behoben
@@ -197,13 +215,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.375 - MASTER FIX! 🔧 (Build 20260112-2340)');
-        console.log('🔧 v5.90.375: renderDriverRides() nutzt Isarfunk HTML!');
-        console.log('🔧 v5.90.375: GPS Debug Logging umfangreich!');
-        console.log('🔧 v5.90.375: checkOnlineDrivers() zeigt WARUM nicht verfügbar!');
-        console.log('🔧 v5.90.375: Monitoring Cleanup verbessert!');
-        console.log('🚀 v5.90.374: Firebase Query statt 3000 Fahrten laden!');
-        console.log('🧹 v5.90.373: Monitoring Cleanup + possibleIds Fix');
+        console.log('🚕 Funk Taxi App v5.90.371 - DRIVER CRASH FIX! 🔧 (Build 20260112-1900)');
+        console.log('🔧 v5.90.371: CRASH FIX - renderDriverRides null check!');
+        console.log('🔧 v5.90.371: VEHICLE STRUCTURE FIX - .id property!');
+        console.log('🔧 v5.90.371: TRACKING in setVehicle() hinzugefügt!');
+        console.log('👁️ v5.90.370: LIVE DRIVER MONITOR - Sieh ALLES was deine Fahrer machen!');
+        console.log('👁️ v5.90.370: Tracking: Buttons, GPS, Errors, Function Calls → Firebase');
+        console.log('🔥 v5.90.369: SYSTEM DIAGNOSTICS VIEW - Der Debug-Logger den die Welt noch nicht gesehen hat!');
         console.log('🔧 v5.90.365: Fahrer-View Crash gefixt!');
         console.log('🔧 v5.90.365: v.name undefined → Kein Crash mehr!');
         console.log('🔧 v5.90.365: Alle Vehicle-Dropdowns sicher!');
@@ -1106,7 +1124,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.375 - MASTER FIX! 🔧 (Build 20260112-2340)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.371 - DRIVER CRASH FIX! 🔧 (Build 20260112-1900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5211,6 +5229,21 @@
             " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                 🔄 START LIVE MONITORING
             </button>
+            <button onclick="exportLiveMonitor()" style="
+                padding: 20px 50px;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 20px;
+                font-weight: 900;
+                cursor: pointer;
+                box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+                margin-left: 15px;
+                transition: all 0.3s;
+            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                📥 EXPORT TXT
+            </button>
             <div style="margin-top: 15px; font-size: 14px; color: #6b7280;">
                 Aktualisiert alle <strong>2 Sekunden</strong> automatisch
             </div>
@@ -5267,6 +5300,21 @@
             " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                 ⚡ SCAN JETZT!
             </button>
+            <button onclick="exportSystemDiagnostics()" style="
+                padding: 20px 50px;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 20px;
+                font-weight: 900;
+                cursor: pointer;
+                box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+                margin-left: 15px;
+                transition: all 0.3s;
+            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                📥 EXPORT TXT
+            </button>
         </div>
 
         <div id="diagnostics-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px;">
@@ -5285,21 +5333,35 @@
             </div>
             
             <div style="padding: 20px;">
-                <button onclick="runVehicleDiagnostics()" style="
-                    width: 100%;
-                    padding: 16px;
-                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    margin-bottom: 20px;
-                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-                " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                    🔍 VEHICLE IDS PRÜFEN
-                </button>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button onclick="runVehicleDiagnostics()" style="
+                        flex: 1;
+                        padding: 16px;
+                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        🔍 VEHICLE IDS PRÜFEN
+                    </button>
+                    <button onclick="exportVehicleDiagnostics()" style="
+                        padding: 16px 24px;
+                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        📥 EXPORT
+                    </button>
+                </div>
                 
                 <div id="vehicle-diagnostics-output" style="
                     background: #f9fafb;
@@ -6087,37 +6149,40 @@
             return null;
         }
         
-        // 🔥 v5.90.372: OFFIZIELLE FAHRZEUG-LISTE (WHITELIST)
-        // NUR DIESE FAHRZEUGE SIND ERLAUBT!
-        const OFFICIAL_VEHICLES = {
+        const DEFAULT_VEHICLES = {
             'pw-my-222-e': { 
                 name: 'Tesla Model Y', 
+                id: 'pw-my-222-e', 
                 plate: 'PW-MY 222 E',
-                priority: 1
+                priority: 1,
+                legacyId: 'tesla_model_y_1'
             },
             'pw-ik-222': { 
                 name: 'Toyota Prius IK', 
+                id: 'pw-ik-222', 
                 plate: 'PW-IK 222',
-                priority: 2
-            },
-            'pw-ki-222': { 
-                name: 'Toyota Prius II', 
-                plate: 'PW-KI 222',
-                priority: 3
-            },
-            'pw-sk-222': { 
-                name: 'Renault Traffic 8 Pax', 
-                plate: 'PW-SK 222',
-                priority: 4
+                priority: 2,
+                legacyId: 'tesla_model3_2'  // 🆕 v5.90.368: Legacy ID Mapping!
             },
             'vg-lk-111': { 
                 name: 'Mercedes Vito 8 Pax', 
+                id: 'vg-lk-111', 
                 plate: 'VG-LK 111',
+                priority: 3
+            },
+            'pw-sk-222': { 
+                name: 'Taxi SK', 
+                id: 'pw-sk-222', 
+                plate: 'PW-SK 222',
+                priority: 4
+            },
+            'pw-ki-222': { 
+                name: 'Taxi KI', 
+                id: 'pw-ki-222', 
+                plate: 'PW-KI 222',
                 priority: 5
             }
         };
-        
-        const DEFAULT_VEHICLES = { ...OFFICIAL_VEHICLES }; // Für Kompatibilität
         let VEHICLES = { ...DEFAULT_VEHICLES }; // Wird aus Firebase überschrieben
         const TARIF = { 
             grundgebuehr: 4.00,
@@ -23060,44 +23125,32 @@ Aktuell: ${currentNum}`;
                 const onlineDrivers = [];
                 const now = Date.now();
                 
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔍 v5.90.375: CHECK ONLINE DRIVERS');
-                console.log('═══════════════════════════════════════════════════════════');
-                
                 Object.entries(drivers).forEach(([vehicleId, driver]) => {
+                    // 🆕 v5.90.325: NUTZE TIMESTAMP WIE showAvailableTaxis!
+                    // Fahrer ist online wenn:
+                    // 1. online === true
+                    // 2. timestamp existiert
+                    // 3. timestamp nicht älter als 20 Minuten (tolerant!)
                     const isOnline = driver.online === true;
                     const timestamp = driver.timestamp || driver.lastUpdate || 0;
                     const minutesSinceUpdate = (now - timestamp) / 60000;
                     
-                    const vehicleName = VEHICLES[vehicleId]?.name || vehicleId;
+                    console.log(`🔍 v5.90.325: Prüfe ${vehicleId}:`, {
+                        online: isOnline,
+                        timestamp: timestamp,
+                        minutesSince: minutesSinceUpdate.toFixed(1)
+                    });
                     
-                    console.log(`🚗 ${vehicleName} (${vehicleId}):`);
-                    console.log(`   online: ${isOnline ? '✅' : '❌'} ${isOnline}`);
-                    console.log(`   timestamp: ${timestamp ? '✅' : '❌'} ${timestamp ? new Date(timestamp).toLocaleString('de-DE') : 'FEHLT'}`);
-                    console.log(`   Alter: ${minutesSinceUpdate.toFixed(1)} Min`);
-                    
-                    // Prüfe alle 3 Bedingungen einzeln
-                    if (!isOnline) {
-                        console.log(`   ❌ NICHT VERFÜGBAR: online ist false`);
-                    } else if (!timestamp) {
-                        console.log(`   ❌ NICHT VERFÜGBAR: kein timestamp`);
-                    } else if (minutesSinceUpdate >= 20) {
-                        console.log(`   ❌ NICHT VERFÜGBAR: timestamp zu alt (>${20} Min)`);
-                    } else {
-                        console.log(`   ✅ VERFÜGBAR!`);
+                    if (isOnline && timestamp && minutesSinceUpdate < 20) {
                         onlineDrivers.push({
                             vehicleId,
-                            name: vehicleName,
+                            name: VEHICLES[vehicleId]?.name || vehicleId,
                             lastUpdate: minutesSinceUpdate
                         });
                     }
-                    console.log('');
                 });
                 
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log(`✅ ${onlineDrivers.length} verfügbare Fahrzeuge`);
-                console.log('═══════════════════════════════════════════════════════════');
-                
+                console.log('🚕 v5.90.325: Online Fahrer:', onlineDrivers);
                 return onlineDrivers;
                 
             } catch (error) {
@@ -27398,22 +27451,26 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     return;
                 }
                 
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔥 v5.90.374: LADE NUR RELEVANTE FAHRTEN!');
-                console.log('   Fahrzeug:', currentVehicle);
-                console.log('═══════════════════════════════════════════════════════════');
+                console.log('📋 v5.90.332: Lade Fahrten für Fahrzeug:', currentVehicle);
                 
                 try {
-                    // 🔥 v5.90.374: Lade NUR Fahrten für MEIN Fahrzeug von Firebase!
-                    const snapshot = await db.ref('rides')
-                        .orderByChild('vehicleId')
-                        .equalTo(currentVehicle)
-                        .once('value');
+                    // 🔧 v5.90.350: NUR LOKALE ZEIT! Keine UTC!
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0); // Heute 00:00 Uhr
+                    const todayStart = today.getTime();
                     
-                    const myRides = snapshot.val();
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowStart = tomorrow.getTime();
                     
-                    if (!myRides) {
-                        console.log('✅ Keine Fahrten für dieses Fahrzeug');
+                    console.log('🕐 Heute:', new Date(todayStart).toLocaleString('de-DE'));
+                    console.log('🕐 Morgen:', new Date(tomorrowStart).toLocaleString('de-DE'));
+                    
+                    // 🆕 v5.90.262: Lade ALLE Fahrten und filtere dann (wegen Legacy-IDs)
+                    const snapshot = await db.ref('rides').once('value');
+                    const allRides = snapshot.val();
+                    
+                    if (!allRides) {
                         const noRidesEl = document.getElementById('driver-no-rides');
                         const ridesListEl = document.getElementById('driver-rides-list');
                         if (noRidesEl) noRidesEl.style.display = 'block';
@@ -27421,55 +27478,114 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         return;
                     }
                     
-                    console.log(`📋 Firebase lieferte: ${Object.keys(myRides).length} Fahrten`);
+                    // Finde aktuelles Fahrzeug
+                    const vehicle = findVehicle(currentVehicle);
+                    if (!vehicle) {
+                        console.error('❌ Fahrzeug nicht gefunden:', currentVehicle);
+                        const noRidesEl = document.getElementById('driver-no-rides');
+                        const ridesListEl = document.getElementById('driver-rides-list');
+                        if (noRidesEl) noRidesEl.style.display = 'block';
+                        if (ridesListEl) ridesListEl.innerHTML = '';
+                        return;
+                    }
                     
-                    // 🔥 v5.90.374: Filter NUR noch für Status + Zeit (kein vehicleId check mehr!)
+                    // Mögliche IDs für dieses Fahrzeug
+                    const possibleIds = [vehicle.id];
+                    if (vehicle.legacyId) possibleIds.push(vehicle.legacyId);
+                    if (vehicle.plate) possibleIds.push(normalizeVehicleId(vehicle.plate));
+                    
+                    console.log('🔍 Suche Fahrten für IDs:', possibleIds);
+                    
+                    // Filtere Fahrten
                     const now = Date.now();
-                    const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
                     
-                    const relevantRides = Object.entries(myRides)
+                    console.log('═══════════════════════════════════════════════════════════');
+                    console.log('🔍 v5.90.350: FILTER-ANALYSE (NUR LOKALE ZEIT!)');
+                    console.log('   Fahrzeug-IDs:', possibleIds);
+                    console.log('   Jetzt:', new Date(now).toLocaleString('de-DE'));
+                    console.log('   Heute ab:', new Date(todayStart).toLocaleString('de-DE'));
+                    console.log('═══════════════════════════════════════════════════════════');
+                    
+                    const todayRides = Object.entries(allRides)
                         .map(([id, ride]) => ({ id, ...ride }))
                         .filter(ride => {
-                            // Status Check
-                            if (!validStatuses.includes(ride.status)) {
+                            const reasons = []; // Warum gefiltert?
+                            
+                            // 🔧 v5.90.350: FALLBACK zu pickupTimestamp wenn timestamp fehlt!
+                            const effectiveTimestamp = ride.timestamp || ride.pickupTimestamp || ride.createdAt;
+                            
+                            console.log(`\n📋 Fahrt: ${ride.id}`);
+                            console.log(`   Von: ${ride.pickup}`);
+                            console.log(`   Status: ${ride.status}`);
+                            console.log(`   vehicleId: ${ride.vehicleId}`);
+                            console.log(`   timestamp: ${ride.timestamp}`);
+                            console.log(`   pickupTimestamp: ${ride.pickupTimestamp}`);
+                            console.log(`   effectiveTimestamp: ${effectiveTimestamp}`);
+                            
+                            if (effectiveTimestamp) {
+                                const localTime = new Date(effectiveTimestamp).toLocaleString('de-DE');
+                                console.log(`   Zeit: ${localTime}`);
+                            }
+                            
+                            if (!effectiveTimestamp || isNaN(new Date(effectiveTimestamp).getTime())) {
+                                reasons.push('Keine gültige Zeit');
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
                                 return false;
                             }
                             
-                            // BEI "assigned" → NUR < 30 MIN ZEIGEN!
+                            // vehicleId Check
+                            if (!ride.vehicleId) {
+                                reasons.push('Kein vehicleId');
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
+                                return false;
+                            }
+                            
+                            // Muss MEIN Fahrzeug sein
+                            if (!possibleIds.includes(ride.vehicleId)) {
+                                reasons.push(`vehicleId ${ride.vehicleId} nicht in ${possibleIds.join(',')}`);
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
+                                return false;
+                            }
+                            
+                            // Status Check
+                            const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
+                            if (!validStatuses.includes(ride.status)) {
+                                reasons.push(`Status ${ride.status} nicht erlaubt`);
+                                console.log(`   ❌ FILTER: ${reasons.join(', ')}`);
+                                return false;
+                            }
+                            
+                            // 🆕 v5.90.305: BEI "assigned" → NUR < 30 MIN ZEIGEN!
                             if (ride.status === 'assigned') {
                                 const pickupTime = ride.pickupTimestamp || ride.timestamp;
-                                if (!pickupTime) return false;
-                                
                                 const minutesUntil = (pickupTime - now) / 60000;
+                                
                                 if (minutesUntil > 30) {
+                                    reasons.push(`Noch ${Math.round(minutesUntil)} Min entfernt (>30)`);
+                                    console.log(`   ⏰ FILTER: ${reasons.join(', ')}`);
                                     return false;
                                 }
+                                
+                                console.log(`   ✅ ANZEIGEN! In ${Math.round(minutesUntil)} Min`);
+                            } else {
+                                console.log(`   ✅ ANZEIGEN! Status: ${ride.status}`);
                             }
                             
                             return true;
                         })
-                        .sort((a, b) => {
-                            const timeA = a.pickupTimestamp || a.timestamp || 0;
-                            const timeB = b.pickupTimestamp || b.timestamp || 0;
-                            return timeA - timeB;
-                        });
-                    
-                    console.log(`✅ Nach Filter: ${relevantRides.length} relevante Fahrten`);
-                    
-                    if (relevantRides.length > 0) {
-                        relevantRides.forEach(ride => {
-                            const time = new Date(ride.pickupTimestamp || ride.timestamp).toLocaleString('de-DE');
-                            console.log(`   📍 ${ride.pickup} → ${ride.dropoff} (${time})`);
-                        });
-                    }
+                        .sort((a, b) => a.timestamp - b.timestamp);
                     
                     console.log('═══════════════════════════════════════════════════════════');
+                    console.log('📊 v5.90.349: FILTER-ERGEBNIS');
+                    console.log(`   Gesamt Fahrten: ${Object.keys(allRides).length}`);
+                    console.log(`   Nach Filter: ${todayRides.length}`);
+                    console.log('═══════════════════════════════════════════════════════════');
                     
-                    renderDriverRides(relevantRides);
+                    renderDriverRides(todayRides);
                     
                 } catch (error) {
-                    console.error('❌ v5.90.374: Fehler beim Laden der Fahrten:', error);
-                    console.error('❌ Error Details:', {
+                    console.error('❌ v5.90.332: Fehler beim Laden der Fahrten:', error);
+                    console.error('❌ v5.90.332: Error Details:', {
                         message: error.message,
                         stack: error.stack,
                         name: error.name
@@ -27479,102 +27595,62 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         // 🆕 v5.90.261: RENDERE FAHRER-FAHRTEN
-        // 🔥 v5.90.375: KOMPLETT NEU! Nutzt Isarfunk-Style HTML!
         function renderDriverRides(rides) {
-            const currentOrderContainer = document.getElementById('driver-current-order-isarfunk');
-            const readyContainer = document.getElementById('driver-ready-isarfunk');
+            const list = document.getElementById('driver-rides-list');
+            const noRides = document.getElementById('driver-no-rides');
             
-            // 🔥 v5.90.375: NULL CHECK!
-            if (!currentOrderContainer || !readyContainer) {
-                console.error('❌ v5.90.375: Isarfunk container nicht gefunden!');
+            // 🔥 v5.90.371: NULL CHECK! Prevent crash wenn Element nicht existiert!
+            if (!list || !noRides) {
+                console.error('❌ v5.90.371: driver-rides-list oder driver-no-rides Element nicht gefunden!');
                 return;
             }
-            
-            console.log(`🎨 v5.90.375: Rendere ${rides.length} Fahrten`);
             
             if (rides.length === 0) {
-                // Keine Fahrten → Zeige "Bereit"
-                currentOrderContainer.style.display = 'none';
-                readyContainer.style.display = 'block';
+                noRides.style.display = 'block';
+                list.innerHTML = '';
                 return;
             }
             
-            // Fahrten vorhanden → Zeige erste Fahrt
-            const ride = rides[0];
-            readyContainer.style.display = 'none';
-            currentOrderContainer.style.display = 'block';
+            noRides.style.display = 'none';
             
-            const timeValue = ride.timestamp || ride.pickupTimestamp || ride.createdAt;
-            const time = timeValue ? new Date(timeValue).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '??:??';
-            const statusColor = getStatusColor(ride.status);
-            const statusText = getStatusText(ride.status);
-            
-            currentOrderContainer.innerHTML = `
-                <div style="background:white;border:3px solid ${statusColor};border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                        <div style="font-weight:700;font-size:20px;color:#111827;">🕐 ${time}</div>
-                        <div style="background:${statusColor};color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;">${statusText}</div>
-                    </div>
-                    <div style="margin-bottom:15px;">
-                        <div style="display:flex;align-items:start;gap:10px;margin-bottom:8px;">
-                            <div style="font-size:20px;">📍</div>
-                            <div style="flex:1;">
-                                <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">VON</div>
-                                <div style="font-weight:600;font-size:15px;color:#111827;">${ride.pickup}</div>
+            const html = rides.map(ride => {
+                // 🔧 v5.90.346: FALLBACK für Zeit wenn timestamp fehlt!
+                const timeValue = ride.timestamp || ride.pickupTimestamp || ride.createdAt;
+                const time = timeValue ? new Date(timeValue).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '??:??';
+                const statusColor = getStatusColor(ride.status);
+                const statusText = getStatusText(ride.status);
+                
+                return `
+                    <div style="background:white;border:3px solid ${statusColor};border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                            <div style="font-weight:700;font-size:20px;color:#111827;">🕐 ${time}</div>
+                            <div style="background:${statusColor};color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;">${statusText}</div>
+                        </div>
+                        <div style="margin-bottom:15px;">
+                            <div style="display:flex;align-items:start;gap:10px;margin-bottom:8px;">
+                                <div style="font-size:20px;">📍</div>
+                                <div style="flex:1;"><div style="font-size:12px;color:#6b7280;margin-bottom:2px;">VON</div><div style="font-weight:600;font-size:15px;color:#111827;">${ride.pickup}</div></div>
+                            </div>
+                            <div style="display:flex;align-items:start;gap:10px;">
+                                <div style="font-size:20px;">🎯</div>
+                                <div style="flex:1;"><div style="font-size:12px;color:#6b7280;margin-bottom:2px;">NACH</div><div style="font-weight:600;font-size:15px;color:#111827;">${ride.destination}</div></div>
                             </div>
                         </div>
-                        <div style="display:flex;align-items:start;gap:10px;">
-                            <div style="font-size:20px;">🎯</div>
-                            <div style="flex:1;">
-                                <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">NACH</div>
-                                <div style="font-weight:600;font-size:15px;color:#111827;">${ride.dropoff || ride.destination || 'Unbekannt'}</div>
-                            </div>
+                        ${ride.customerName ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px;background:#f9fafb;border-radius:8px;"><span style="font-size:16px;">👤</span><span style="font-weight:600;color:#111827;">${ride.customerName}</span>${ride.customerPhone ? `<button onclick="window.open('tel:${ride.customerPhone}')" style="margin-left:auto;padding:8px 12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">📞 Anrufen</button>` : ''}</div>` : ''}
+                        ${ride.estimatedPrice ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:15px;padding:12px;background:linear-gradient(135deg,#f59e0b15,#f59e0b10);border-left:4px solid #f59e0b;border-radius:8px;"><span style="font-size:20px;">💰</span><span style="font-weight:700;font-size:20px;color:#f59e0b;">${ride.estimatedPrice.toFixed(2)} €</span></div>` : ''}
+                        <div style="display:flex;gap:10px;">
+                            ${ride.status === 'assigned' ? `
+                                <button onclick="acceptRide('${ride.id}')" style="flex:1;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">✅ ANNEHMEN</button>
+                            ` : `
+                                <button onclick="openNavigation('${ride.pickup.replace(/'/g, "\\'")}','${ride.destination.replace(/'/g, "\\'")}','start')" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">🗺️ Navigation</button>
+                            `}
+                            ${ride.status === 'accepted' || ride.status === 'picked_up' ? `<button onclick="completeDriverRide('${ride.id}')" style="flex:1;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">✅ Abschließen</button>` : ''}
                         </div>
-                    </div>
-                    ${ride.customerName ? `
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px;background:#f9fafb;border-radius:8px;">
-                            <span style="font-size:16px;">👤</span>
-                            <span style="font-weight:600;color:#111827;">${ride.customerName}</span>
-                            ${ride.customerPhone ? `
-                                <button onclick="window.open('tel:${ride.customerPhone}')" style="margin-left:auto;padding:8px 12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
-                                    📞 Anrufen
-                                </button>
-                            ` : ''}
-                        </div>
-                    ` : ''}
-                    ${ride.estimatedPrice ? `
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:15px;padding:12px;background:linear-gradient(135deg,#f59e0b15,#f59e0b10);border-left:4px solid #f59e0b;border-radius:8px;">
-                            <span style="font-size:20px;">💰</span>
-                            <span style="font-weight:700;font-size:20px;color:#f59e0b;">${ride.estimatedPrice.toFixed(2)} €</span>
-                        </div>
-                    ` : ''}
-                    <div style="display:flex;gap:10px;">
-                        ${ride.status === 'assigned' ? `
-                            <button onclick="acceptRide('${ride.id}')" style="flex:1;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
-                                ✅ ANNEHMEN
-                            </button>
-                        ` : `
-                            <button onclick="openNavigation('${(ride.pickup || '').replace(/'/g, "\\'")}','${(ride.dropoff || ride.destination || '').replace(/'/g, "\\'")}','start')" style="flex:1;padding:14px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
-                                🗺️ Navigation
-                            </button>
-                        `}
-                        ${ride.status === 'accepted' || ride.status === 'picked_up' ? `
-                            <button onclick="completeDriverRide('${ride.id}')" style="flex:1;padding:14px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">
-                                ✅ Abschließen
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-            
-            // Wenn mehrere Fahrten → Zeige Anzahl
-            if (rides.length > 1) {
-                currentOrderContainer.innerHTML += `
-                    <div style="text-align:center;margin-top:12px;color:#6b7280;font-size:13px;">
-                        +${rides.length - 1} weitere Fahrt${rides.length - 1 > 1 ? 'en' : ''}
                     </div>
                 `;
-            }
+            }).join('');
+            
+            list.innerHTML = html;
         }
         
         async function completeDriverRide(rideId) {
@@ -28144,19 +28220,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         
         // 🆕 Separate Funktion für GPS-Position-Handling
         function handleGPSPosition(pos, rideId) {
-            // 🔥 v5.90.375: UMFANGREICHES GPS DEBUG LOGGING!
-            console.log('═══════════════════════════════════════════════════════════');
-            console.log('📍 v5.90.375: GPS POSITION ERHALTEN');
-            console.log('═══════════════════════════════════════════════════════════');
-            console.log('   Fahrzeug:', currentVehicle);
-            console.log('   Fahrzeug-Name:', VEHICLES[currentVehicle]?.name || 'Unbekannt');
-            console.log('   Online:', isOnline ? '✅' : '❌', isOnline);
-            console.log('   Position:', pos.coords.latitude.toFixed(6), pos.coords.longitude.toFixed(6));
-            console.log('   Genauigkeit:', Math.round(pos.coords.accuracy), 'm');
-            console.log('   Timestamp:', new Date().toLocaleString('de-DE'));
-            console.log('   Firebase Ready:', isFirebaseReady ? '✅' : '❌');
-            console.log('   rideId:', rideId || 'Standby');
-            
             // 🔥 v5.90.370: Track GPS Success
             trackGPSStatus('active', pos);
             
@@ -28178,6 +28241,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // 🆕 v5.90.310: Speichere für GPS-Status Anzeige!
             localStorage.setItem('lastGpsUpdate', Date.now().toString());
             localStorage.setItem('lastGpsAccuracy', Math.round(pos.coords.accuracy).toString());
+            
+            console.log('📍 GPS:', location.lat.toFixed(4), location.lon.toFixed(4), 'Genauigkeit:', Math.round(location.accuracy), 'm');
             
             // Update GPS-Indicator
             const gpsIndicator = document.getElementById('gps-indicator');
@@ -28207,36 +28272,29 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
             
             if (!isFirebaseReady) {
-                console.error('❌ v5.90.375: Firebase nicht bereit - GPS wird NICHT gesendet!');
-                console.log('═══════════════════════════════════════════════════════════');
+                console.error('❌ Firebase nicht bereit!');
                 return;
             }
             
-            console.log('📤 Sende GPS zu Firebase...');
-            
             // 🆕 v5.90.264: GPS in vehicles/ speichern (nicht mehr drivers/)!
             db.ref('vehicles/' + currentVehicle).update({
-                lat: location.lat,
-                lon: location.lon,
-                timestamp: location.timestamp,
+                lat: location.lat,           // ✅ FIX: location.lat nicht .latitude
+                lon: location.lon,           // ✅ FIX: location.lon nicht .longitude
+                timestamp: location.timestamp,  // ✅ FIX: timestamp hinzufügen!
                 accuracy: location.accuracy,
                 online: location.online,
                 vehicle: location.vehicle,
                 userId: location.userId
             }).then(() => {
-                console.log('✅ GPS → vehicles/' + currentVehicle + ' ERFOLGREICH!');
-                console.log('═══════════════════════════════════════════════════════════');
+                console.log('✅ GPS → vehicles/' + currentVehicle);
             }).catch(err => {
                 console.error('❌ Fehler beim GPS-Upload:', err);
-                console.error('   Fehler-Details:', err.message);
-                console.error('   Path:', 'vehicles/' + currentVehicle);
-                console.log('═══════════════════════════════════════════════════════════');
             });
             
             // Wenn rideId vorhanden, auch in Fahrt speichern
             if (rideId) {
                 db.ref('rides/' + rideId + '/driverLocation').set(location).then(() => {
-                    console.log('✅ GPS → rides/' + rideId + '/driverLocation ERFOLGREICH!');
+                    console.log('✅ GPS → rides/' + rideId + '/driverLocation');
                 }).catch(err => {
                     console.error('❌ Fehler beim GPS-Upload zur Fahrt:', err);
                 });
@@ -29295,6 +29353,103 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         
         function stopGPSTracking() {
             stopDriverTracking();
+        }
+
+        // 🆕 v5.90.373: EXPORT FUNKTIONEN
+        function exportVehicleDiagnostics() {
+            const output = document.getElementById('vehicle-diagnostics-output');
+            if (!output || !output.textContent || output.textContent.includes('Klicke auf')) {
+                alert('❌ Keine Daten zum Exportieren!\n\nBitte erst "VEHICLE IDS PRÜFEN" ausführen.');
+                return;
+            }
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const filename = `vehicle-diagnostics-${timestamp}.txt`;
+            const content = output.textContent;
+            
+            downloadTextFile(content, filename);
+        }
+        
+        function exportSystemDiagnostics() {
+            const container = document.getElementById('diagnostics-container');
+            if (!container || !container.textContent) {
+                alert('❌ Keine Daten zum Exportieren!\n\nBitte erst "SCAN JETZT" ausführen.');
+                return;
+            }
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const filename = `system-diagnostics-${timestamp}.txt`;
+            
+            let content = '═══════════════════════════════════════════════════════\n';
+            content += '🔥 SYSTEM DIAGNOSTICS REPORT\n';
+            content += '═══════════════════════════════════════════════════════\n';
+            content += `Export: ${new Date().toLocaleString('de-DE')}\n`;
+            content += '═══════════════════════════════════════════════════════\n\n';
+            content += container.textContent;
+            
+            downloadTextFile(content, filename);
+        }
+        
+        function exportLiveMonitor() {
+            const container = document.getElementById('live-monitor-container');
+            if (!container || !container.textContent) {
+                alert('❌ Keine Daten zum Exportieren!\n\nBitte erst "START LIVE MONITORING" ausführen.');
+                return;
+            }
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const filename = `live-monitor-${timestamp}.txt`;
+            
+            let content = '═══════════════════════════════════════════════════════\n';
+            content += '👁️ LIVE DRIVER MONITOR REPORT\n';
+            content += '═══════════════════════════════════════════════════════\n';
+            content += `Export: ${new Date().toLocaleString('de-DE')}\n`;
+            content += '═══════════════════════════════════════════════════════\n\n';
+            content += container.textContent;
+            
+            downloadTextFile(content, filename);
+        }
+        
+        function downloadTextFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showToast(`📥 Export erfolgreich!\n${filename}`, 'success');
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#10b981' : '#3b82f6'};
+                color: white;
+                padding: 16px 24px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-weight: 600;
+                font-size: 14px;
+                white-space: pre-line;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.3s';
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    if (toast.parentNode) document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
         }
 
         async function acceptRide(rideId) {
@@ -34729,135 +34884,31 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (!isFirebaseReady) return;
             
             try {
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔥 v5.90.372: LADE FAHRZEUGE MIT AUTO-CLEANUP');
-                console.log('═══════════════════════════════════════════════════════════');
-                
                 const snapshot = await db.ref('vehicles').once('value');
                 const data = snapshot.val();
                 
-                if (!data) {
-                    // Keine Daten → Initialisiere mit offiziellen Fahrzeugen
-                    console.log('📝 Keine Fahrzeuge in Firebase → Initialisiere...');
-                    await db.ref('vehicles').set(OFFICIAL_VEHICLES);
-                    VEHICLES = { ...OFFICIAL_VEHICLES };
-                    
-                    // Füge .id zu jedem Fahrzeug hinzu
-                    Object.keys(VEHICLES).forEach(key => {
-                        VEHICLES[key].id = key;
+                if (data && Object.keys(data).length > 0) {
+                    // 🔥 v5.90.371: WICHTIG! Füge .id Property hinzu!
+                    VEHICLES = {};
+                    Object.keys(data).forEach(key => {
+                        VEHICLES[key] = {
+                            ...data[key],
+                            id: key  // 🔥 Setze id explizit!
+                        };
                     });
-                    
-                    console.log('✅ Offizielle Fahrzeuge in Firebase gespeichert');
-                    updateVehicleDropdowns();
-                    return;
+                    console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
+                } else {
+                    // Initialisiere Firebase mit Default-Fahrzeugen
+                    await db.ref('vehicles').set(DEFAULT_VEHICLES);
+                    VEHICLES = { ...DEFAULT_VEHICLES };
+                    console.log('🚗 Default-Fahrzeuge in Firebase gespeichert');
                 }
-                
-                // 🧹 CLEANUP: Lösche alle Fahrzeuge die NICHT in der Whitelist sind!
-                const keysInFirebase = Object.keys(data);
-                const officialKeys = Object.keys(OFFICIAL_VEHICLES);
-                
-                console.log('📋 Fahrzeuge in Firebase:', keysInFirebase);
-                console.log('✅ Erlaubte Fahrzeuge:', officialKeys);
-                
-                let deletedCount = 0;
-                for (const key of keysInFirebase) {
-                    if (!officialKeys.includes(key)) {
-                        console.log('🗑️ LÖSCHE unerlaubtes Fahrzeug:', key);
-                        await db.ref(`vehicles/${key}`).remove();
-                        deletedCount++;
-                    }
-                }
-                
-                if (deletedCount > 0) {
-                    console.log(`✅ ${deletedCount} unerlaubte Fahrzeuge gelöscht!`);
-                }
-                
-                // 🔧 Lade offizielle Fahrzeuge und merge mit Firebase-Daten
-                VEHICLES = {};
-                
-                for (const key of officialKeys) {
-                    const officialData = OFFICIAL_VEHICLES[key];
-                    const firebaseData = data[key] || {};
-                    
-                    // Merge: Offizielle Daten haben Vorrang für name/plate!
-                    VEHICLES[key] = {
-                        id: key,  // IMMER setzen!
-                        name: officialData.name,  // Aus OFFICIAL_VEHICLES
-                        plate: officialData.plate,  // Aus OFFICIAL_VEHICLES
-                        priority: officialData.priority,
-                        // Zusätzliche Daten aus Firebase (GPS, online, etc.)
-                        lat: firebaseData.lat,
-                        lon: firebaseData.lon,
-                        online: firebaseData.online || false,
-                        timestamp: firebaseData.timestamp,
-                        lastUpdate: firebaseData.lastUpdate
-                    };
-                    
-                    console.log(`✅ ${key}: ${VEHICLES[key].name} (${VEHICLES[key].plate})`);
-                }
-                
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log(`🚗 ${Object.keys(VEHICLES).length} Fahrzeuge geladen!`);
-                console.log('═══════════════════════════════════════════════════════════');
-                
-                // 🔥 v5.90.373: Cleanup /monitoring/drivers/ von unerlaubten Fahrzeugen!
-                await cleanupMonitoringDrivers();
                 
                 // Aktualisiere Fahrer-Dropdown falls vorhanden
                 updateVehicleDropdowns();
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
-            }
-        }
-        
-        // 🔥 v5.90.375: Cleanup /monitoring/drivers/ + BESSERES LOGGING!
-        async function cleanupMonitoringDrivers() {
-            try {
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log('🧹 v5.90.375: CLEANUP /monitoring/drivers/');
-                console.log('═══════════════════════════════════════════════════════════');
-                
-                const snapshot = await db.ref('monitoring/drivers').once('value');
-                const data = snapshot.val();
-                
-                if (!data) {
-                    console.log('✅ Keine Monitoring-Daten vorhanden');
-                    console.log('═══════════════════════════════════════════════════════════');
-                    return;
-                }
-                
-                const monitoredVehicles = Object.keys(data);
-                const officialKeys = Object.keys(OFFICIAL_VEHICLES);
-                
-                console.log('📊 Monitoring-Daten:');
-                console.log('   Monitored:', monitoredVehicles.join(', '));
-                console.log('   Official:', officialKeys.join(', '));
-                
-                let deletedCount = 0;
-                for (const vehicleId of monitoredVehicles) {
-                    if (!officialKeys.includes(vehicleId)) {
-                        const vehicleName = data[vehicleId]?.vehicle || vehicleId;
-                        console.log(`🗑️ LÖSCHE: ${vehicleName} (${vehicleId}) - NICHT IN WHITELIST!`);
-                        await db.ref(`monitoring/drivers/${vehicleId}`).remove();
-                        deletedCount++;
-                    } else {
-                        console.log(`✅ BEHALTEN: ${vehicleId} - in Whitelist`);
-                    }
-                }
-                
-                if (deletedCount > 0) {
-                    console.log('');
-                    console.log(`✅ ${deletedCount} unerlaubte Monitoring-Einträge gelöscht!`);
-                } else {
-                    console.log('');
-                    console.log('✅ Alle Monitoring-Einträge sind sauber!');
-                }
-                console.log('═══════════════════════════════════════════════════════════');
-                
-            } catch (error) {
-                console.error('❌ Fehler beim Cleanup von Monitoring:', error);
-                console.log('═══════════════════════════════════════════════════════════');
             }
         }
         

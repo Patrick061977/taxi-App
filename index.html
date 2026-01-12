@@ -9,13 +9,27 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.339
-    📅 BUILD: 12.01.2026 06:55 Uhr
+    📦 VERSION: v5.90.371
+    📅 BUILD: 12.01.2026 18:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.339
+    📋 CHANGELOG v5.90.371
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🔧 v5.90.371 (12.01.2026):
+       • FIX: Fahrzeug-IDs komplett synchronisiert
+       • FIX: GPS-Sync zwischen alten/neuen Vehicle-IDs
+       • FIX: Fahrer schreiben jetzt in Kennzeichen-IDs
+       • FIX: Auto-Assign findet Fahrzeuge mit neuen IDs
+       • Alle IDs basieren auf Kennzeichen (pw-my-222-e)
+    
+    🔧 v5.90.370 (12.01.2026):
+       • FIX: Fahrer-View crasht nicht mehr beim Öffnen
+       • FIX: GPS wird sofort in Firebase geschrieben (für Auto-Assign)
+       • FIX: GPS-Age auf 2 Minuten reduziert (war 10 Min)
+       • FIX: Fahrzeug-Check vor GPS-Start
+       • Auto-Assign findet jetzt verfügbare Taxis!
     
     🐛 v5.90.339 (12.01.2026):
        • FIX: "distance is not defined" Fehler behoben
@@ -12880,24 +12894,31 @@ Aktuell: ${currentNum}`;
                 //     updateDriverViewV295();
                 // }, 100);
                 
-                // 🔋 Initialisiere Batterie-Spar-System
-                if (typeof PowerSaveManager !== 'undefined') {
-                    setTimeout(() => PowerSaveManager.init(), 500);
-                }
-                
-                // ⚙️ Initialisiere Driver-Settings-Manager (nach PowerSaveManager!)
-                if (typeof DriverSettingsManager !== 'undefined' && currentVehicle) {
-                    setTimeout(() => DriverSettingsManager.init(currentVehicle), 1000);
-                }
-                
-                // 🎯 AUTO-START GPS beim Öffnen der Fahrer-Ansicht!
-                console.log('🚕 Fahrer-Ansicht geöffnet - starte GPS automatisch...');
+                // ✅ v5.90.370: FIX - Warte bis View fertig geladen ist!
                 setTimeout(() => {
-                    if (!watchId && currentVehicle) {
-                        console.log('🔄 GPS Auto-Start...');
-                        startGPSTracking();
+                    // 🔋 Initialisiere Batterie-Spar-System
+                    if (typeof PowerSaveManager !== 'undefined') {
+                        PowerSaveManager.init();
                     }
-                    // Starte GPS-Monitoring
+                    
+                    // ⚙️ Initialisiere Driver-Settings-Manager (nach PowerSaveManager!)
+                    if (typeof DriverSettingsManager !== 'undefined' && currentVehicle) {
+                        DriverSettingsManager.init(currentVehicle);
+                    }
+                    
+                    // 🎯 v5.90.370: GPS NUR starten wenn Fahrzeug gewählt ist!
+                    if (currentVehicle) {
+                        console.log('🚕 Fahrer-Ansicht geöffnet - starte GPS automatisch...');
+                        if (!watchId) {
+                            console.log('🔄 GPS Auto-Start...');
+                            startGPSTracking();
+                        }
+                    } else {
+                        console.log('⚠️ v5.90.370: Kein Fahrzeug gewählt - GPS-Start übersprungen');
+                        console.log('   Bitte Fahrzeug wählen um GPS zu aktivieren!');
+                    }
+                    
+                    // ✅ v5.90.370: GPS-Monitoring IMMER starten (unabhängig von Fahrzeug)
                     startGPSMonitoring();
                     
                     // 🆕 v5.90.367: MAP UPDATE DEAKTIVIERT - ISARFUNK braucht keine Karte!
@@ -12906,7 +12927,7 @@ Aktuell: ${currentNum}`;
                     //         updateDriverMapV295();
                     //     }
                     // }, 3000);
-                }, 500);
+                }, 1000); // ← v5.90.370: Warte 1 Sekunde statt 500ms
             } else {
                 if (gpsIndicator) gpsIndicator.style.display = 'none';
                 
@@ -22780,7 +22801,7 @@ Aktuell: ${currentNum}`;
         // Findet Fahrer auch wenn GPS nicht ganz aktuell (< 10 Min)
         function findNearestAvailableVehicle(pickupCoords, blacklist = []) {
             console.log('═══════════════════════════════════════════════════════════');
-            console.log('🔍 v5.90.329: findNearestAvailableVehicle AUFGERUFEN!');
+            console.log('🔍 v5.90.370: findNearestAvailableVehicle AUFGERUFEN!');
             console.log('   pickupCoords:', pickupCoords);
             console.log('   blacklist:', blacklist);
             console.log('   drivers Objekt:', drivers);
@@ -22789,14 +22810,15 @@ Aktuell: ${currentNum}`;
             
             const availableVehicles = [];
             const now = Date.now();
-            const MAX_GPS_AGE = 10 * 60 * 1000; // 10 Minuten
+            const MAX_GPS_AGE = 2 * 60 * 1000; // ✅ v5.90.370: 2 Minuten (war 10 Min)
             
-            console.log('🔍 v5.90.329: Durchsuche', Object.keys(drivers).length, 'Fahrer...');
+            console.log('🔍 v5.90.370: Durchsuche', Object.keys(drivers).length, 'Fahrer...');
+            console.log('   GPS-Age Maximum:', MAX_GPS_AGE / 60000, 'Minuten');
             
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
                 const driver = drivers[vehicleId];
-                console.log(`🔍 v5.90.329: Prüfe ${vehicleId}:`, {
+                console.log(`🔍 v5.90.370: Prüfe ${vehicleId}:`, {
                     hasLat: !!driver.lat,
                     hasLon: !!driver.lon,
                     hasTimestamp: !!driver.timestamp,
@@ -22806,7 +22828,7 @@ Aktuell: ${currentNum}`;
                 
                 // 🆕 v5.21.8: Blacklist-Check ZUERST!
                 if (blacklist.includes(vehicleId)) {
-                    console.log(`⛔ v5.90.329: ${vehicleId}: Auf Blacklist`);
+                    console.log(`⛔ v5.90.370: ${vehicleId}: Auf Blacklist`);
                     continue;
                 }
                 
@@ -22814,7 +22836,7 @@ Aktuell: ${currentNum}`;
                 if (driver.temporaryBlock && driver.temporaryBlock.blockedUntil > now) {
                     const remainingMinutes = Math.ceil((driver.temporaryBlock.blockedUntil - now) / 60000);
                     const untilTime = new Date(driver.temporaryBlock.blockedUntil).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
-                    console.log(`🚫 v5.90.329: ${vehicleId}: Temporär gesperrt (${remainingMinutes} Min)`);
+                    console.log(`🚫 v5.90.370: ${vehicleId}: Temporär gesperrt (${remainingMinutes} Min)`);
                     console.log(`   ⏰ Frei ab: ${untilTime} Uhr`);
                     console.log(`   ℹ️  Grund: ${driver.temporaryBlock.reason || 'Unbekannt'}`);
                     continue;
@@ -22822,17 +22844,17 @@ Aktuell: ${currentNum}`;
                 
                 // Prüfungen:
                 // 1. Hat GPS-Position
-                // 2. Position ist nicht älter als 10 Minuten
+                // 2. Position ist nicht älter als 2 Minuten (v5.90.370: war 10 Min)
                 // 3. Hat keine aktive Fahrt
                 if (driver && driver.lat && driver.lon && driver.timestamp) {
                     const gpsAge = now - driver.timestamp;
                     const gpsAgeMinutes = Math.round(gpsAge / 60000);
                     
-                    console.log(`📍 v5.90.329: ${vehicleId} GPS-Alter: ${gpsAgeMinutes} Min (Max: 10 Min)`);
+                    console.log(`📍 v5.90.370: ${vehicleId} GPS-Alter: ${gpsAgeMinutes} Min (Max: 2 Min)`);
                     
                     // Position zu alt? Überspringen
                     if (gpsAge > MAX_GPS_AGE) {
-                        console.log(`⏰ v5.90.329: ${vehicleId}: GPS zu alt! (${gpsAgeMinutes} Min > 10 Min)`);
+                        console.log(`⏰ v5.90.370: ${vehicleId}: GPS zu alt! (${gpsAgeMinutes} Min > 2 Min)`);
                         continue;
                     }
                     
@@ -22843,7 +22865,7 @@ Aktuell: ${currentNum}`;
                     );
                     
                     if (hasActiveRide) {
-                        console.log(`🚗 v5.90.329: ${vehicleId}: Hat bereits aktive Fahrt!`);
+                        console.log(`🚗 v5.90.370: ${vehicleId}: Hat bereits aktive Fahrt!`);
                         continue;
                     }
                     
@@ -22854,7 +22876,7 @@ Aktuell: ${currentNum}`;
                         driver.lat, driver.lon
                     );
                     
-                    console.log(`✅ v5.90.329: ${vehicleId} ist verfügbar! Entfernung: ${distance.toFixed(2)} km`);
+                    console.log(`✅ v5.90.370: ${vehicleId} ist verfügbar! Entfernung: ${distance.toFixed(2)} km`);
                     
                     availableVehicles.push({
                         id: vehicleId,
@@ -22867,7 +22889,7 @@ Aktuell: ${currentNum}`;
                         telegramChatId: driver.telegramChatId
                     });
                 } else {
-                    console.log(`❌ v5.90.329: ${vehicleId}: Fehlende Daten! lat=${!!driver.lat} lon=${!!driver.lon} timestamp=${!!driver.timestamp}`);
+                    console.log(`❌ v5.90.370: ${vehicleId}: Fehlende Daten! lat=${!!driver.lat} lon=${!!driver.lon} timestamp=${!!driver.timestamp}`);
                 }
             }
             
@@ -22875,14 +22897,14 @@ Aktuell: ${currentNum}`;
             availableVehicles.sort((a, b) => a.distance - b.distance);
             
             console.log('═══════════════════════════════════════════════════════════');
-            console.log('📍 v5.90.329: Verfügbare Taxis:', availableVehicles.length);
+            console.log('📍 v5.90.370: Verfügbare Taxis:', availableVehicles.length);
             if (availableVehicles.length > 0) {
-                console.log('🎯 v5.90.329: Nächstes Taxi:', availableVehicles[0]);
+                console.log('🎯 v5.90.370: Nächstes Taxi:', availableVehicles[0]);
             } else {
-                console.log('❌ v5.90.329: KEINE VERFÜGBAREN TAXIS!');
+                console.log('❌ v5.90.370: KEINE VERFÜGBAREN TAXIS!');
                 console.log('   Gründe:');
                 console.log('   - Kein Fahrer online mit GPS');
-                console.log('   - GPS älter als 10 Min');
+                console.log('   - GPS älter als 2 Min (v5.90.370: war 10 Min)');
                 console.log('   - Alle haben aktive Fahrten');
             }
             console.log('═══════════════════════════════════════════════════════════');
@@ -27956,8 +27978,49 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             if (!currentVehicle) {
                 console.error('❌ Kein Fahrzeug ausgewählt!');
+                alert('⚠️ Bitte erst ein Fahrzeug wählen!');
                 return;
             }
+            
+            // ✅ v5.90.370: Schreibe SOFORT aktuelle Position in Firebase!
+            // Damit Auto-Assign sofort ein gültiges GPS hat
+            console.log('📍 v5.90.370: Hole erste Position für sofortiges Firebase-Update...');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    console.log('📍 v5.90.370: ERSTE Position erhalten - schreibe in Firebase...');
+                    const coords = {
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        timestamp: Date.now(),
+                        online: true,
+                        mode: 'active',
+                        vehicle: VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle
+                    };
+                    
+                    // Schreibe in drivers-Objekt (für Auto-Assign)
+                    drivers[currentVehicle] = coords;
+                    
+                    // Schreibe in Firebase
+                    db.ref(`vehicles/${currentVehicle}`).update(coords)
+                        .then(() => {
+                            console.log('✅ v5.90.370: GPS in Firebase geschrieben!');
+                            console.log('   Koordinaten:', coords.lat, coords.lon);
+                            console.log('   Auto-Assign kann jetzt dieses Fahrzeug finden!');
+                        })
+                        .catch(err => {
+                            console.error('❌ v5.90.370: GPS-Update Fehler:', err);
+                        });
+                },
+                (err) => {
+                    console.warn('⚠️ v5.90.370: Erste Position fehlgeschlagen:', err.message);
+                    console.warn('   GPS-Tracking wird trotzdem fortgesetzt...');
+                },
+                { 
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 10000
+                }
+            );
             
             // 🆕 Speichere aktuelle Fahrt-ID für GPS-Tracking
             currentTrackingRideId = rideId || null;
@@ -34738,6 +34801,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         };
                     });
                     console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
+                    
+                    // 🆕 v5.90.371: GPS-SYNC von alten zu neuen IDs!
+                    console.log('🔄 v5.90.371: Prüfe GPS-Sync...');
+                    await syncGPSFromOldToNewIDs(data);
+                    
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
                     await db.ref('vehicles').set(DEFAULT_VEHICLES);
@@ -34750,6 +34818,60 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Fahrzeuge:', error);
+            }
+        }
+        
+        // 🆕 v5.90.371: SYNC GPS von alten IDs zu neuen IDs
+        async function syncGPSFromOldToNewIDs(vehicles) {
+            const legacyMapping = {
+                'tesla_model_y_1': 'pw-my-222-e',
+                'tesla_model3_1': 'pw-my-222-e',
+                'tesla_model3_2': 'pw-ik-222',
+                'tesla_model3_3': 'vg-lk-111',
+                'tesla_modely_1': 'pw-sk-222',
+                'tesla_modely_2': 'pw-ki-222'
+            };
+            
+            let syncCount = 0;
+            
+            for (const oldId in legacyMapping) {
+                const newId = legacyMapping[oldId];
+                
+                // Prüfe ob alte ID GPS hat
+                if (vehicles[oldId] && vehicles[oldId].lat && vehicles[oldId].lon) {
+                    console.log(`🔄 v5.90.371: GPS gefunden in ${oldId} → kopiere zu ${newId}`);
+                    
+                    try {
+                        // Kopiere GPS-Daten zu neuer ID
+                        await db.ref(`vehicles/${newId}`).update({
+                            lat: vehicles[oldId].lat,
+                            lon: vehicles[oldId].lon,
+                            timestamp: vehicles[oldId].timestamp || Date.now(),
+                            online: vehicles[oldId].online || false,
+                            mode: vehicles[oldId].mode || 'active'
+                        });
+                        
+                        // Update local drivers object
+                        drivers[newId] = {
+                            lat: vehicles[oldId].lat,
+                            lon: vehicles[oldId].lon,
+                            timestamp: vehicles[oldId].timestamp || Date.now(),
+                            online: vehicles[oldId].online || false,
+                            mode: vehicles[oldId].mode || 'active'
+                        };
+                        
+                        syncCount++;
+                        console.log(`✅ v5.90.371: GPS synced ${oldId} → ${newId}`);
+                    } catch (error) {
+                        console.error(`❌ v5.90.371: Sync Fehler ${oldId} → ${newId}:`, error);
+                    }
+                }
+            }
+            
+            if (syncCount > 0) {
+                console.log(`✅ v5.90.371: ${syncCount} GPS-Einträge synchronisiert!`);
+            } else {
+                console.log(`ℹ️ v5.90.371: Kein GPS-Sync nötig (alle aktuell)`);
             }
         }
         

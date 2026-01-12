@@ -22857,6 +22857,12 @@ Aktuell: ${currentNum}`;
             
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
+                // 🛡️ v5.90.378: ÜBERSPRINGE undefined!
+                if (vehicleId === 'undefined' || vehicleId === undefined || !vehicleId || vehicleId === '') {
+                    console.warn('⚠️ v5.90.378: ÜBERSPRINGE ungültige Fahrzeug-ID:', vehicleId);
+                    continue;
+                }
+                
                 const driver = drivers[vehicleId];
                 console.log(`🔍 v5.90.329: Prüfe ${vehicleId}:`, {
                     hasLat: !!driver.lat,
@@ -27300,9 +27306,16 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             const previousVehicle = currentVehicle;
             const vehicleId = document.getElementById('vehicle').value;
             
-            console.log('🔥 v5.90.371: setVehicle() aufgerufen!');
+            console.log('🔥 v5.90.378: setVehicle() aufgerufen!');
             console.log('   vehicleId:', vehicleId);
             console.log('   previousVehicle:', previousVehicle);
+            
+            // 🛡️ v5.90.378: VALIDIERUNG!
+            if (!vehicleId || vehicleId === 'undefined' || vehicleId === '') {
+                console.error('❌ v5.90.378: UNGÜLTIGE FAHRZEUG-ID!', vehicleId);
+                alert('❌ FEHLER: Kein gültiges Fahrzeug gewählt!\n\nBitte wähle ein Fahrzeug aus der Liste.');
+                return;
+            }
             
             // 🔥 v5.90.371: Track Vehicle Selection!
             if (typeof trackFunctionCall !== 'undefined') {
@@ -34916,19 +34929,34 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         // 🆕 v5.90.366: SELECT VEHICLE WITH ERROR HANDLING
         function selectVehicleIsarfunk(vehicleId) {
             try {
-                console.log('🚗 v5.90.366: Fahrzeug gewählt:', vehicleId);
+                console.log('═══════════════════════════════════════');
+                console.log('🚗 v5.90.378: FAHRZEUG GEWÄHLT!');
+                console.log('   Fahrzeug-ID:', vehicleId);
+                console.log('═══════════════════════════════════════');
                 
-                if (!vehicleId) {
-                    console.error('❌ Keine Fahrzeug-ID übergeben!');
-                    alert('❌ Fehler: Keine Fahrzeug-ID!');
+                // 🛡️ v5.90.378: VALIDIERUNG!
+                if (!vehicleId || vehicleId === 'undefined' || vehicleId === '') {
+                    console.error('❌ v5.90.378: UNGÜLTIGE FAHRZEUG-ID!', vehicleId);
+                    alert('❌ FEHLER: Keine gültige Fahrzeug-ID!\n\nBitte erneut versuchen.');
                     return;
                 }
                 
                 const select = document.getElementById('vehicle');
                 if (select) {
                     select.value = vehicleId;
+                    console.log('✅ v5.90.378: Hidden select gesetzt:', vehicleId);
                 } else {
-                    console.warn('⚠️ Vehicle select element not found');
+                    console.error('❌ Vehicle select element not found');
+                    alert('❌ FEHLER: Fahrzeug-Select nicht gefunden!\n\nBitte Seite neu laden.');
+                    return;
+                }
+                
+                // 💾 v5.90.378: In localStorage speichern (WICHTIG!)
+                try {
+                    localStorage.setItem('selectedVehicle_v378', vehicleId);
+                    console.log('✅ v5.90.378: In localStorage gespeichert');
+                } catch (e) {
+                    console.warn('⚠️ localStorage nicht verfügbar:', e);
                 }
                 
                 // 🆕 v5.90.366: setVehicle mit Try-Catch
@@ -34948,7 +34976,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     // View sollte trotzdem laden, nur ohne Update
                 }
                 
-                console.log('✅ v5.90.366: Fahrzeug erfolgreich gesetzt!');
+                console.log('✅ v5.90.378: Fahrzeug erfolgreich gesetzt:', vehicleId);
+                console.log('   currentVehicle:', currentVehicle);
+                console.log('═══════════════════════════════════════');
             } catch (error) {
                 console.error('💥 CRITICAL ERROR in selectVehicleIsarfunk:', error);
                 alert('❌ Fehler beim Auswählen des Fahrzeugs!\n\nBitte Seite neu laden.');

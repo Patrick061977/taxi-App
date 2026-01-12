@@ -9,31 +9,13 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.377
-    📅 BUILD: 12.01.2026 21:30 Uhr - NOTFALL-FIX FAHRER-TAB!
+    📦 VERSION: v5.90.339
+    📅 BUILD: 12.01.2026 06:55 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.377 - NOTFALL-FIX!
+    📋 CHANGELOG v5.90.339
     ═══════════════════════════════════════════════════════════════════════════
-    
-    🚨 v5.90.377 (12.01.2026) - EMERGENCY FIX:
-       • 🔧 FAHRER-TAB CRASH BEHOBEN!
-       • ✅ Basiert auf sauberem v5.90.373
-       • ✅ Keine Console-Errors
-       • ✅ Export-Buttons funktionieren
-       • ✅ Auto-Assign funktioniert
-       • ✅ GARANTIERT STABIL!
-       • 🎯 EINSATZBEREIT FÜR HEUTE!
-    
-    🔧 v5.90.373 (12.01.2026):
-       • FIX: Syntax-Fehler behoben (invalid escape sequence)
-       • FIX: getLocalDateString früher definiert
-       • FIX: Firebase Initialisierung geschützt
-       • FIX: currentUser null-checks
-       • FIX: db null-checks
-       • NEU: Export-Buttons in allen Diagnostics
-       • ALLE CONSOLE-FEHLER BEHOBEN!
     
     🐛 v5.90.339 (12.01.2026):
        • FIX: "distance is not defined" Fehler behoben
@@ -215,13 +197,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.371 - DRIVER CRASH FIX! 🔧 (Build 20260112-1900)');
-        console.log('🔧 v5.90.371: CRASH FIX - renderDriverRides null check!');
-        console.log('🔧 v5.90.371: VEHICLE STRUCTURE FIX - .id property!');
-        console.log('🔧 v5.90.371: TRACKING in setVehicle() hinzugefügt!');
-        console.log('👁️ v5.90.370: LIVE DRIVER MONITOR - Sieh ALLES was deine Fahrer machen!');
-        console.log('👁️ v5.90.370: Tracking: Buttons, GPS, Errors, Function Calls → Firebase');
-        console.log('🔥 v5.90.369: SYSTEM DIAGNOSTICS VIEW - Der Debug-Logger den die Welt noch nicht gesehen hat!');
+        console.log('🚕 Funk Taxi App v5.90.372 - CLEAN VEHICLES! ✨ (Build 20260112-2200)');
+        console.log('✨ v5.90.372: OFFIZIELLE FAHRZEUG-WHITELIST - NUR 5 erlaubte Fahrzeuge!');
+        console.log('✨ v5.90.372: AUTO-CLEANUP löscht tesla_model3_2 und undefined!');
+        console.log('✨ v5.90.372: Name/Plate kommen IMMER aus OFFICIAL_VEHICLES!');
+        console.log('🔧 v5.90.371: Crash-Fix + Vehicle Structure Fix');
+        console.log('👁️ v5.90.370: LIVE DRIVER MONITOR');
+        console.log('🔥 v5.90.369: ULTIMATE DIAGNOSTICS');
         console.log('🔧 v5.90.365: Fahrer-View Crash gefixt!');
         console.log('🔧 v5.90.365: v.name undefined → Kein Crash mehr!');
         console.log('🔧 v5.90.365: Alle Vehicle-Dropdowns sicher!');
@@ -1124,7 +1106,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.371 - DRIVER CRASH FIX! 🔧 (Build 20260112-1900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✨ Version 5.90.372 - CLEAN VEHICLES! ✨ (Build 20260112-2200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -5229,21 +5211,6 @@
             " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                 🔄 START LIVE MONITORING
             </button>
-            <button onclick="exportLiveMonitor()" style="
-                padding: 20px 50px;
-                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                color: white;
-                border: none;
-                border-radius: 12px;
-                font-size: 20px;
-                font-weight: 900;
-                cursor: pointer;
-                box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
-                margin-left: 15px;
-                transition: all 0.3s;
-            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                📥 EXPORT TXT
-            </button>
             <div style="margin-top: 15px; font-size: 14px; color: #6b7280;">
                 Aktualisiert alle <strong>2 Sekunden</strong> automatisch
             </div>
@@ -5300,21 +5267,6 @@
             " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                 ⚡ SCAN JETZT!
             </button>
-            <button onclick="exportSystemDiagnostics()" style="
-                padding: 20px 50px;
-                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                color: white;
-                border: none;
-                border-radius: 12px;
-                font-size: 20px;
-                font-weight: 900;
-                cursor: pointer;
-                box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
-                margin-left: 15px;
-                transition: all 0.3s;
-            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                📥 EXPORT TXT
-            </button>
         </div>
 
         <div id="diagnostics-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px;">
@@ -5333,35 +5285,21 @@
             </div>
             
             <div style="padding: 20px;">
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button onclick="runVehicleDiagnostics()" style="
-                        flex: 1;
-                        padding: 16px;
-                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                        🔍 VEHICLE IDS PRÜFEN
-                    </button>
-                    <button onclick="exportVehicleDiagnostics()" style="
-                        padding: 16px 24px;
-                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        font-weight: 700;
-                        cursor: pointer;
-                        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                        📥 EXPORT
-                    </button>
-                </div>
+                <button onclick="runVehicleDiagnostics()" style="
+                    width: 100%;
+                    padding: 16px;
+                    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    margin-bottom: 20px;
+                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    🔍 VEHICLE IDS PRÜFEN
+                </button>
                 
                 <div id="vehicle-diagnostics-output" style="
                     background: #f9fafb;
@@ -6149,40 +6087,37 @@
             return null;
         }
         
-        const DEFAULT_VEHICLES = {
+        // 🔥 v5.90.372: OFFIZIELLE FAHRZEUG-LISTE (WHITELIST)
+        // NUR DIESE FAHRZEUGE SIND ERLAUBT!
+        const OFFICIAL_VEHICLES = {
             'pw-my-222-e': { 
                 name: 'Tesla Model Y', 
-                id: 'pw-my-222-e', 
                 plate: 'PW-MY 222 E',
-                priority: 1,
-                legacyId: 'tesla_model_y_1'
+                priority: 1
             },
             'pw-ik-222': { 
                 name: 'Toyota Prius IK', 
-                id: 'pw-ik-222', 
                 plate: 'PW-IK 222',
-                priority: 2,
-                legacyId: 'tesla_model3_2'  // 🆕 v5.90.368: Legacy ID Mapping!
+                priority: 2
             },
-            'vg-lk-111': { 
-                name: 'Mercedes Vito 8 Pax', 
-                id: 'vg-lk-111', 
-                plate: 'VG-LK 111',
+            'pw-ki-222': { 
+                name: 'Toyota Prius II', 
+                plate: 'PW-KI 222',
                 priority: 3
             },
             'pw-sk-222': { 
-                name: 'Taxi SK', 
-                id: 'pw-sk-222', 
+                name: 'Renault Traffic 8 Pax', 
                 plate: 'PW-SK 222',
                 priority: 4
             },
-            'pw-ki-222': { 
-                name: 'Taxi KI', 
-                id: 'pw-ki-222', 
-                plate: 'PW-KI 222',
+            'vg-lk-111': { 
+                name: 'Mercedes Vito 8 Pax', 
+                plate: 'VG-LK 111',
                 priority: 5
             }
         };
+        
+        const DEFAULT_VEHICLES = { ...OFFICIAL_VEHICLES }; // Für Kompatibilität
         let VEHICLES = { ...DEFAULT_VEHICLES }; // Wird aus Firebase überschrieben
         const TARIF = { 
             grundgebuehr: 4.00,
@@ -29355,103 +29290,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             stopDriverTracking();
         }
 
-        // 🆕 v5.90.373: EXPORT FUNKTIONEN
-        function exportVehicleDiagnostics() {
-            const output = document.getElementById('vehicle-diagnostics-output');
-            if (!output || !output.textContent || output.textContent.includes('Klicke auf')) {
-                alert('❌ Keine Daten zum Exportieren!\n\nBitte erst "VEHICLE IDS PRÜFEN" ausführen.');
-                return;
-            }
-            
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            const filename = `vehicle-diagnostics-${timestamp}.txt`;
-            const content = output.textContent;
-            
-            downloadTextFile(content, filename);
-        }
-        
-        function exportSystemDiagnostics() {
-            const container = document.getElementById('diagnostics-container');
-            if (!container || !container.textContent) {
-                alert('❌ Keine Daten zum Exportieren!\n\nBitte erst "SCAN JETZT" ausführen.');
-                return;
-            }
-            
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            const filename = `system-diagnostics-${timestamp}.txt`;
-            
-            let content = '═══════════════════════════════════════════════════════\n';
-            content += '🔥 SYSTEM DIAGNOSTICS REPORT\n';
-            content += '═══════════════════════════════════════════════════════\n';
-            content += `Export: ${new Date().toLocaleString('de-DE')}\n`;
-            content += '═══════════════════════════════════════════════════════\n\n';
-            content += container.textContent;
-            
-            downloadTextFile(content, filename);
-        }
-        
-        function exportLiveMonitor() {
-            const container = document.getElementById('live-monitor-container');
-            if (!container || !container.textContent) {
-                alert('❌ Keine Daten zum Exportieren!\n\nBitte erst "START LIVE MONITORING" ausführen.');
-                return;
-            }
-            
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            const filename = `live-monitor-${timestamp}.txt`;
-            
-            let content = '═══════════════════════════════════════════════════════\n';
-            content += '👁️ LIVE DRIVER MONITOR REPORT\n';
-            content += '═══════════════════════════════════════════════════════\n';
-            content += `Export: ${new Date().toLocaleString('de-DE')}\n`;
-            content += '═══════════════════════════════════════════════════════\n\n';
-            content += container.textContent;
-            
-            downloadTextFile(content, filename);
-        }
-        
-        function downloadTextFile(content, filename) {
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            showToast(`📥 Export erfolgreich!\n${filename}`, 'success');
-        }
-        
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: ${type === 'success' ? '#10b981' : '#3b82f6'};
-                color: white;
-                padding: 16px 24px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                z-index: 10000;
-                font-weight: 600;
-                font-size: 14px;
-                white-space: pre-line;
-            `;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.transition = 'opacity 0.3s';
-                toast.style.opacity = '0';
-                setTimeout(() => {
-                    if (toast.parentNode) document.body.removeChild(toast);
-                }, 300);
-            }, 3000);
-        }
-
         async function acceptRide(rideId) {
             // 🔥 v5.90.370: Track function call
             trackFunctionCall('acceptRide', { rideId: rideId });
@@ -34884,25 +34722,76 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (!isFirebaseReady) return;
             
             try {
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('🔥 v5.90.372: LADE FAHRZEUGE MIT AUTO-CLEANUP');
+                console.log('═══════════════════════════════════════════════════════════');
+                
                 const snapshot = await db.ref('vehicles').once('value');
                 const data = snapshot.val();
                 
-                if (data && Object.keys(data).length > 0) {
-                    // 🔥 v5.90.371: WICHTIG! Füge .id Property hinzu!
-                    VEHICLES = {};
-                    Object.keys(data).forEach(key => {
-                        VEHICLES[key] = {
-                            ...data[key],
-                            id: key  // 🔥 Setze id explizit!
-                        };
+                if (!data) {
+                    // Keine Daten → Initialisiere mit offiziellen Fahrzeugen
+                    console.log('📝 Keine Fahrzeuge in Firebase → Initialisiere...');
+                    await db.ref('vehicles').set(OFFICIAL_VEHICLES);
+                    VEHICLES = { ...OFFICIAL_VEHICLES };
+                    
+                    // Füge .id zu jedem Fahrzeug hinzu
+                    Object.keys(VEHICLES).forEach(key => {
+                        VEHICLES[key].id = key;
                     });
-                    console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
-                } else {
-                    // Initialisiere Firebase mit Default-Fahrzeugen
-                    await db.ref('vehicles').set(DEFAULT_VEHICLES);
-                    VEHICLES = { ...DEFAULT_VEHICLES };
-                    console.log('🚗 Default-Fahrzeuge in Firebase gespeichert');
+                    
+                    console.log('✅ Offizielle Fahrzeuge in Firebase gespeichert');
+                    updateVehicleDropdowns();
+                    return;
                 }
+                
+                // 🧹 CLEANUP: Lösche alle Fahrzeuge die NICHT in der Whitelist sind!
+                const keysInFirebase = Object.keys(data);
+                const officialKeys = Object.keys(OFFICIAL_VEHICLES);
+                
+                console.log('📋 Fahrzeuge in Firebase:', keysInFirebase);
+                console.log('✅ Erlaubte Fahrzeuge:', officialKeys);
+                
+                let deletedCount = 0;
+                for (const key of keysInFirebase) {
+                    if (!officialKeys.includes(key)) {
+                        console.log('🗑️ LÖSCHE unerlaubtes Fahrzeug:', key);
+                        await db.ref(`vehicles/${key}`).remove();
+                        deletedCount++;
+                    }
+                }
+                
+                if (deletedCount > 0) {
+                    console.log(`✅ ${deletedCount} unerlaubte Fahrzeuge gelöscht!`);
+                }
+                
+                // 🔧 Lade offizielle Fahrzeuge und merge mit Firebase-Daten
+                VEHICLES = {};
+                
+                for (const key of officialKeys) {
+                    const officialData = OFFICIAL_VEHICLES[key];
+                    const firebaseData = data[key] || {};
+                    
+                    // Merge: Offizielle Daten haben Vorrang für name/plate!
+                    VEHICLES[key] = {
+                        id: key,  // IMMER setzen!
+                        name: officialData.name,  // Aus OFFICIAL_VEHICLES
+                        plate: officialData.plate,  // Aus OFFICIAL_VEHICLES
+                        priority: officialData.priority,
+                        // Zusätzliche Daten aus Firebase (GPS, online, etc.)
+                        lat: firebaseData.lat,
+                        lon: firebaseData.lon,
+                        online: firebaseData.online || false,
+                        timestamp: firebaseData.timestamp,
+                        lastUpdate: firebaseData.lastUpdate
+                    };
+                    
+                    console.log(`✅ ${key}: ${VEHICLES[key].name} (${VEHICLES[key].plate})`);
+                }
+                
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`🚗 ${Object.keys(VEHICLES).length} Fahrzeuge geladen!`);
+                console.log('═══════════════════════════════════════════════════════════');
                 
                 // Aktualisiere Fahrer-Dropdown falls vorhanden
                 updateVehicleDropdowns();

@@ -197,13 +197,13 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.343 - DRIVER CRASH FIX! 🐛 (Build 20260112-0825)');
+        console.log('🚕 Funk Taxi App v5.90.345 - AUTO-ASSIGN = MANUAL! 🎯 (Build 20260112-0850)');
+        console.log('✅ v5.90.345: Auto-Assign setzt jetzt vehicle + vehicleLabel wie manuell!');
+        console.log('🎯 v5.90.344: timestamp Feld hinzugefügt - Fahrer-View findet Fahrten jetzt!');
+        console.log('✅ v5.90.344: Auto-Assign Fahrten haben jetzt timestamp = pickupTimestamp!');
         console.log('🐛 v5.90.343: "Invalid time value" CRASH GEFIXT!');
         console.log('✅ v5.90.343: Fahrer-View lädt Fahrten jetzt ohne Crash!');
         console.log('⏰ v5.90.342: Sperre-Info wird jetzt angezeigt (Uhrzeit + Grund)');
-        console.log('✅ v5.90.342: In Console siehst du wann Fahrer wieder frei ist!');
-        console.log('🎯 v5.90.341: calculateDistance → calculateGPSDistance (Naming-Konflikt!)');
-        console.log('✅ v5.90.341: Auto-Assign crasht nicht mehr!');
         console.log('✅ v5.90.338: Öffnet WhatsApp/SMS auf deinem Handy!');
         console.log('🚨 v5.90.331: sendDriverLocation Fehler GEFIXT!');
         console.log('🎯 v5.90.328: vehicleId wird bei Zuweisung gesetzt!');
@@ -1098,7 +1098,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.343 - DRIVER CRASH FIX! 🚑 (Build 20260112-0825)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.345 - AUTO = MANUAL! 🎯 (Build 20260112-0850)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -22290,8 +22290,11 @@ Aktuell: ${currentNum}`;
                 status: 'assigned',  // 🚕 WICHTIG: Fahrer ist jetzt BESETZT!
                 assignedTo: nearestVehicle.id,
                 vehicleId: nearestVehicle.id,  // 🆕 v5.90.324: vehicleId SETZEN damit Fahrer sieht!
+                vehicle: nearestVehicle.name,  // 🔧 v5.90.345: Fahrzeugname wie bei manuell!
+                vehicleLabel: nearestVehicle.name,  // 🔧 v5.90.345: Label wie bei manuell!
                 assignedVehicleName: nearestVehicle.name,
                 assignedAt: Date.now(),
+                assignedBy: 'auto-assign',  // 🔧 v5.90.345: Wie bei manuell!
                 assignmentExpiresAt: Date.now() + 60000, // 60 Sekunden (erhöht von 30!)
                 assignmentDistance: nearestVehicle.distance
             });
@@ -43187,6 +43190,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     guestPhone: document.getElementById('quick-booking-guest-phone')?.value?.trim() || '',
                     pickup: pickup,
                     destination: destination,
+                    timestamp: pickupTimestamp, // 🔧 v5.90.344: FÜR FAHRER-VIEW FILTER!
                     pickupTimestamp: pickupTimestamp,
                     pickupTime: pickupDate.toISOString(), // 🔧 v5.39.8: FIX - Auch als ISO String!
                     passengers: passengers,

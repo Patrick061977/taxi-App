@@ -197,11 +197,11 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.363 - DEBUG DIAGNOSTICS! 🔍 (Build 20260112-1500)');
-        console.log('🔍 v5.90.363: Vehicle ID Diagnostics im Debug-Tab!');
-        console.log('🔍 v5.90.363: Zeigt GENAU welche IDs wo sind!');
-        console.log('🔴 v5.90.363: Roter Migrations-Button wenn Probleme!');
-        console.log('✅ v5.90.362: Migrations-Button im Admin!');
+        console.log('🚕 Funk Taxi App v5.90.364 - REPAIR BUTTON! 🔧 (Build 20260112-1510)');
+        console.log('🔧 v5.90.364: Repair-Button wenn Fahrzeugdaten fehlen!');
+        console.log('🔧 v5.90.364: Ergänzt Name + Plate aus DEFAULT_VEHICLES!');
+        console.log('✅ v5.90.364: GPS-Daten bleiben erhalten!');
+        console.log('🔍 v5.90.363: Vehicle Diagnostics!');
         console.log('✅ v5.90.355: ALLE Zeit- und Datums-Felder 100% lokal!');
         console.log('✅ v5.90.355: Beide Schnellbuchungs-Modals gefixt!');
         console.log('✅ v5.90.355: Auto-Assign mit timestamp!');
@@ -1100,7 +1100,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.363 - DIAGNOSTICS! ✅ (Build 20260112-1500)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.364 - REPAIR! ✅ (Build 20260112-1510)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -28210,13 +28210,44 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     // Zeige Migrations-Button
                     migrationBtn.style.display = 'block';
+                    migrationBtn.textContent = '🔄 MIGRATION JETZT AUSFÜHREN!';
+                    migrationBtn.onclick = runMigrationFromDebug;
                 } else {
-                    report += '✅ ALLES OK!\n\n';
-                    report += 'Alle Fahrzeuge nutzen Kennzeichen-basierte IDs!\n';
-                    report += 'Auto-Assign sollte funktionieren.\n';
+                    // Prüfe ob Fahrzeuge fehlende Namen haben
+                    const missingData = newIds.filter(id => {
+                        const v = vehicles[id];
+                        return !v.name || v.name === 'N/A' || !v.plate || v.plate === 'N/A';
+                    });
                     
-                    // Verstecke Migrations-Button
-                    migrationBtn.style.display = 'none';
+                    if (missingData.length > 0) {
+                        report += '⚠️ PROBLEM: Fahrzeugdaten unvollständig!\n\n';
+                        report += 'FOLGENDE FAHRZEUGE HABEN FEHLENDE DATEN:\n';
+                        missingData.forEach(id => {
+                            const v = vehicles[id];
+                            report += `  ⚠️ ${id}\n`;
+                            report += `     Name: ${v.name || 'N/A'}\n`;
+                            report += `     Plate: ${v.plate || 'N/A'}\n`;
+                        });
+                        report += '\n';
+                        report += 'GRUND: Migration hat alte Daten kopiert\n';
+                        report += 'die keine Namen hatten!\n\n';
+                        report += '✅ LÖSUNG: Fahrzeugdaten reparieren!\n';
+                        report += 'Klicke auf den blauen Button unten!\n';
+                        
+                        // Zeige Repair-Button
+                        migrationBtn.style.display = 'block';
+                        migrationBtn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                        migrationBtn.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                        migrationBtn.textContent = '🔧 FAHRZEUGDATEN REPARIEREN!';
+                        migrationBtn.onclick = repairVehicleData;
+                    } else {
+                        report += '✅ ALLES OK!\n\n';
+                        report += 'Alle Fahrzeuge nutzen Kennzeichen-basierte IDs!\n';
+                        report += 'Auto-Assign sollte funktionieren.\n';
+                        
+                        // Verstecke Migrations-Button
+                        migrationBtn.style.display = 'none';
+                    }
                 }
                 
                 output.textContent = report;
@@ -28224,6 +28255,69 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (error) {
                 output.textContent = '❌ Fehler beim Laden:\n\n' + error.message;
                 console.error('Diagnostics Fehler:', error);
+            }
+        }
+
+        // 🆕 v5.90.364: REPAIR VEHICLE DATA
+        async function repairVehicleData() {
+            const confirmed = confirm('🔧 FAHRZEUGDATEN REPARIEREN\n\n' +
+                'Diese Reparatur wird:\n' +
+                '✅ Fehlende Namen aus DEFAULT_VEHICLES holen\n' +
+                '✅ Fehlende Kennzeichen ergänzen\n' +
+                '✅ GPS-Daten BEIBEHALTEN\n' +
+                '✅ Priority setzen\n\n' +
+                'Fortfahren?');
+            
+            if (!confirmed) return;
+            
+            const output = document.getElementById('vehicle-diagnostics-output');
+            output.textContent = '🔧 Repariere Fahrzeugdaten...\n\nBitte warten...';
+            
+            try {
+                const vehiclesSnap = await db.ref('vehicles').once('value');
+                const vehicles = vehiclesSnap.val() || {};
+                
+                let fixed = 0;
+                
+                for (const [id, vehicle] of Object.entries(vehicles)) {
+                    // Prüfe ob DEFAULT_VEHICLES Daten hat
+                    const defaultData = DEFAULT_VEHICLES[id];
+                    
+                    if (defaultData) {
+                        const needsUpdate = !vehicle.name || vehicle.name === 'N/A' || 
+                                          !vehicle.plate || vehicle.plate === 'N/A';
+                        
+                        if (needsUpdate) {
+                            console.log(`🔧 Repariere ${id}...`);
+                            
+                            // Merge: DEFAULT_VEHICLES + alte GPS-Daten
+                            const updates = {
+                                ...defaultData,
+                                // Behalte GPS wenn vorhanden
+                                ...(vehicle.lat && { lat: vehicle.lat }),
+                                ...(vehicle.lon && { lon: vehicle.lon }),
+                                ...(vehicle.timestamp && { timestamp: vehicle.timestamp }),
+                                ...(vehicle.online && { online: vehicle.online }),
+                                ...(vehicle.accuracy && { accuracy: vehicle.accuracy }),
+                                ...(vehicle.userId && { userId: vehicle.userId })
+                            };
+                            
+                            await db.ref('vehicles/' + id).set(updates);
+                            console.log(`  ✅ ${id}: ${updates.name} (${updates.plate})`);
+                            fixed++;
+                        }
+                    }
+                }
+                
+                output.textContent = `✅ REPARATUR ERFOLGREICH!\n\n` +
+                    `${fixed} Fahrzeug(e) repariert!\n\n` +
+                    `Seite lädt neu in 2 Sekunden...`;
+                
+                setTimeout(() => location.reload(), 2000);
+                
+            } catch (error) {
+                output.textContent = '❌ REPARATUR FEHLER:\n\n' + error.message;
+                console.error('Repair Fehler:', error);
             }
         }
 

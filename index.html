@@ -14,8 +14,36 @@
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.377 - NOTFALL-FIX!
+    📋 CHANGELOG v5.90.387 - FAHRER RECHNUNG + PERFORMANCE!
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🚀 v5.90.387 (13.01.2026) - HOTEL AUTO-SYNC DEAKTIVIERT:
+       • 🚫 Hotel-Kalender Auto-Sync komplett deaktiviert
+       • ✅ KEINE Token-Refresh-Errors mehr
+       • ✅ Kein Sync beim Start
+       • ✅ Kein 15-Minuten-Interval
+       • ℹ️ Hotel-Kalender nur noch manuell laden
+    
+    ⚡ v5.90.386 (13.01.2026) - ADMIN PERFORMANCE:
+       • 🚀 Admin lädt nur 100 statt 3086 Fahrten!
+       • ✅ 30x schneller beim Login
+       • ✅ Weniger Speicher
+       • ✅ Optimierter Listener: limitToLast(100)
+    
+    🔧 v5.90.385 (13.01.2026) - VEHICLES BUGFIX:
+       • ✅ VEHICLES wird GEMERGED statt überschrieben
+       • ✅ Fahrzeug-Namen bleiben erhalten
+       • ✅ DEFAULT_VEHICLES als Basis, Firebase ergänzt
+       • ✅ Keine fehlenden Namen mehr in Diagnose
+    
+    📄 v5.90.384 (13.01.2026) - FAHRER KANN RECHNUNGEN ERSTELLEN:
+       • ✅ Fahrer kann beim Abschließen Rechnung erstellen
+       • ✅ Taxameter-Preis eingeben
+       • ✅ Optional: "Kunde möchte Rechnung" aktivieren
+       • ✅ Rechnungsnummer automatisch vergeben
+       • ✅ Rechnungsnummer bleibt FEST (nicht änderbar)
+       • ✅ Rechnungsdatum bleibt FEST (nicht änderbar)
+       • ✅ generateNextInvoiceNumber() generiert RE-2026-XXX
     
     🚨 v5.90.377 (12.01.2026) - EMERGENCY FIX:
        • 🔧 FAHRER-TAB CRASH BEHOBEN!

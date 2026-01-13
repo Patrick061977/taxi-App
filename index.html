@@ -108,22 +108,22 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.397 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1545)');
-        console.log('✅ v5.90.397: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.397: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.397: Admin lädt nur 100 Fahrten');
-        console.log('🚫 v5.90.397: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.397: Filter ignoriert alte IDs');
-        console.log('🔧 v5.90.397: AUTO-FIX repariert leere /vehicles!');
-        console.log('✅ v5.90.397: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.397: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.397: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.397: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.397: Kalender ignoriert alte Fahrzeug-IDs!');
-        console.log('✅ v5.90.397: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.397: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.397: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.397: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🚕 Funk Taxi App v5.90.398 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1600)');
+        console.log('✅ v5.90.398: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.398: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.398: Admin lädt nur 100 Fahrten');
+        console.log('🚫 v5.90.398: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.398: Filter ignoriert alte IDs');
+        console.log('🔧 v5.90.398: AUTO-FIX repariert leere /vehicles!');
+        console.log('✅ v5.90.398: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.398: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.398: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.398: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.398: Kalender ignoriert alte Fahrzeug-IDs!');
+        console.log('✅ v5.90.398: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.398: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.398: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.398: Hotel Auto-Sync DEAKTIVIERT');
         console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
         console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
         console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
@@ -998,7 +998,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.397 - PANEL ALERT! 🔔 (Build 20260113-1545)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.398 - ECHTE 5! 🚗 (Build 20260113-1600)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2356,7 +2356,7 @@
                 max-width: 140px;
             ">
                 <option value="">Fahrzeug wählen</option>
-                <!-- 🆕 v5.90.397: Wird dynamisch geladen! -->
+                <!-- 🆕 v5.90.398: Wird dynamisch geladen! -->
             </select>
             
             <!-- Stats Mini -->
@@ -3204,7 +3204,7 @@
             
             
             function toggleNewRidesPanel() {
-                console.log('🔧 v5.90.397: toggleNewRidesPanel() aufgerufen');
+                console.log('🔧 v5.90.398: toggleNewRidesPanel() aufgerufen');
                 const panel = document.getElementById('new-rides-panel');
                 console.log('  - Panel gefunden:', !!panel);
                 console.log('  - Display vorher:', panel ? panel.style.display : 'N/A');
@@ -3213,7 +3213,7 @@
                     panel.style.display = wasHidden ? 'block' : 'none';
                     console.log('  - Display nachher:', panel.style.display);
                     
-                    // 🆕 v5.90.397: FORCE VISIBLE!
+                    // 🆕 v5.90.398: FORCE VISIBLE!
                     if (wasHidden) {
                         panel.style.visibility = 'visible';
                         panel.style.opacity = '1';
@@ -10769,13 +10769,13 @@
                         }
                     });
                     
-                    // 🆕 v5.90.397: ADMIN PERFORMANCE - Nur 100 Fahrten!
+                    // 🆕 v5.90.398: ADMIN PERFORMANCE - Nur 100 Fahrten!
                     const ridesRef = currentUser && currentUser.role === 'admin' 
                         ? db.ref('rides').limitToLast(100)  // Admin: Nur 100!
                         : db.ref('rides');  // Andere: Alle
                     
                     if (currentUser && currentUser.role === 'admin') {
-                        console.log('⚡ v5.90.397: Admin erkannt → limitToLast(100)');
+                        console.log('⚡ v5.90.398: Admin erkannt → limitToLast(100)');
                     }
                     
                     ridesRef.on('value', (s) => {
@@ -12290,8 +12290,8 @@
         }
 
         function updateDriverView() {
-            // 🐛 v5.90.397: DEBUG LOGGING
-            console.log('🔧 v5.90.397: updateDriverView() aufgerufen');
+            // 🐛 v5.90.398: DEBUG LOGGING
+            console.log('🔧 v5.90.398: updateDriverView() aufgerufen');
             console.log('  - currentVehicle:', currentVehicle);
             console.log('  - rides.length:', rides.length);
             console.log('  - isOnline:', isOnline);
@@ -27041,11 +27041,47 @@
             if (!isFirebaseReady) return;
             
             try {
-                // 🆕 v5.90.397: NUR DEFAULT_VEHICLES VERWENDEN!
-                // Firebase /vehicles wird IGNORIERT (hatte falsche Einträge)
-                console.log('🚗 v5.90.397: Verwende NUR DEFAULT_VEHICLES (5 Fahrzeuge)');
-                VEHICLES = { ...DEFAULT_VEHICLES };
-                console.log('✅ Fahrzeuge geladen:', Object.keys(VEHICLES));
+                const snapshot = await db.ref('vehicles').once('value');
+                const data = snapshot.val();
+                
+                if (data && Object.keys(data).length > 0) {
+                    console.log('🚗 v5.90.398: Lade Fahrzeuge aus Firebase...');
+                    VEHICLES = {};
+                    
+                    // 🆕 v5.90.398: Definiere korrekte Namen für leere Einträge
+                    const NAME_MAP = {
+                        'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222' },
+                        'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222' },
+                        'pw-my-222-e': { name: 'Tesla Model Y', plate: 'PW-MY 222 E' },
+                        'pw-sk-222': { name: 'Renault Traffic 8 Pax', plate: 'PW-SK 222' },
+                        'vg-lk-111': { name: 'Mercedes Vito 8 Pax', plate: 'VG-LK 111' }
+                    };
+                    
+                    Object.keys(data).forEach(id => {
+                        const vehicle = data[id] || {};
+                        
+                        // Füge Namen hinzu falls leer
+                        if ((!vehicle.name || !vehicle.plate) && NAME_MAP[id]) {
+                            VEHICLES[id] = {
+                                ...NAME_MAP[id],
+                                ...vehicle,
+                                id: id
+                            };
+                            console.log('✅ Namen ergänzt:', id, NAME_MAP[id].name);
+                        } else {
+                            VEHICLES[id] = { ...vehicle, id: id };
+                        }
+                    });
+                    
+                    console.log('✅ Fahrzeuge geladen:', Object.keys(VEHICLES).length);
+                    Object.keys(VEHICLES).forEach(id => {
+                        console.log('  -', id, ':', VEHICLES[id].name);
+                    });
+                    
+                } else {
+                    console.log('⚠️ Keine Fahrzeuge in Firebase, verwende Default');
+                    VEHICLES = { ...DEFAULT_VEHICLES };
+                }
                 
                 // Aktualisiere Fahrer-Dropdown falls vorhanden
                 updateVehicleDropdowns();
@@ -27062,14 +27098,14 @@
                 const currentValue = select.value;
                 select.innerHTML = '<option value="">-- Fahrzeug wählen --</option>';
                 Object.values(VEHICLES).forEach(v => {
-                    // 🆕 v5.90.397: NUR neue IDs (pw-xxx)
+                    // 🆕 v5.90.398: NUR neue IDs (pw-xxx)
                     if (v.id && v.id.startsWith('pw-')) {
                         const icon = v.type && v.type.includes('Model Y') ? '🚙' : '🚗';
                         select.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.name} (${v.plate})</option>`;
                     }
                 });
                 
-                console.log('✅ v5.90.397: Dropdown aktualisiert:', select.id, Object.values(VEHICLES).filter(v => v.id.startsWith('pw-')).length, 'Fahrzeuge');
+                console.log('✅ v5.90.398: Dropdown aktualisiert:', select.id, Object.values(VEHICLES).filter(v => v.id.startsWith('pw-')).length, 'Fahrzeuge');
             });
         }
         
@@ -30092,11 +30128,11 @@
                         const v = child.val();
                         v.id = child.key;
                         
-                        // 🆕 v5.90.397: NUR neue IDs (pw-xxx)
+                        // 🆕 v5.90.398: NUR neue IDs (pw-xxx)
                         if (v.id && v.id.startsWith('pw-')) {
                             vehicles.push(v);
                         } else {
-                            console.log('⏭️ v5.90.397 Quick: Ignoriere alte ID:', v.id);
+                            console.log('⏭️ v5.90.398 Quick: Ignoriere alte ID:', v.id);
                         }
                     });
                     
@@ -40123,12 +40159,12 @@ Stack: ${err.stack}
                             const v = child.val();
                             v.id = child.key;
                             
-                            // 🆕 v5.90.397: FILTER alte IDs raus!
+                            // 🆕 v5.90.398: FILTER alte IDs raus!
                             // Nur Kennzeichen-basierte IDs (pw-xx-xxx)
                             if (v.id && v.id.startsWith('pw-')) {
                                 allVehicles.push(v);
                             } else {
-                                console.log('⏭️ v5.90.397: Ignoriere alte ID:', v.id);
+                                console.log('⏭️ v5.90.398: Ignoriere alte ID:', v.id);
                             }
                         });
                         console.log('🚗 Fahrzeuge für Kalender geladen:', allVehicles.length);
@@ -46667,9 +46703,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let autoSyncStarted = false; // Flag um Doppel-Start zu verhindern
         
         function startHotelCalendarAutoSync() {
-            // 🚫 v5.90.397: AUTO-SYNC DEAKTIVIERT!
-            console.log('🚫 v5.90.397: Hotel Auto-Sync DEAKTIVIERT');
-            console.log('ℹ️ v5.90.397: Hotel-Kalender nur noch manuell laden');
+            // 🚫 v5.90.398: AUTO-SYNC DEAKTIVIERT!
+            console.log('🚫 v5.90.398: Hotel Auto-Sync DEAKTIVIERT');
+            console.log('ℹ️ v5.90.398: Hotel-Kalender nur noch manuell laden');
             return;  // ← STOP HIER!
             
             // Alter Code (deaktiviert):

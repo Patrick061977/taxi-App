@@ -9,8 +9,8 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.383
-    📅 BUILD: 13.01.2026 11:00 Uhr - COMPLETE LOGIN LOGGING!
+    📦 VERSION: v5.90.385
+    📅 BUILD: 13.01.2026 11:45 Uhr - BUGFIXES: VEHICLES MERGE + FAHRER RECHNUNG!
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
@@ -30199,7 +30199,388 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }
         }
         
+        // 🆕 v5.90.384: GENERIERE NÄCHSTE RECHNUNGSNUMMER
+        async function generateNextInvoiceNumber() {
+            console.log('🔢 Generiere neue Rechnungsnummer...');
+            
+            const year = new Date().getFullYear();
+            const prefix = `RE-${year}-`;
+            
+            try {
+                // Lade letzte Rechnungsnummer für dieses Jahr
+                const snapshot = await db.ref('invoices')
+                    .orderByKey()
+                    .startAt(prefix)
+                    .endAt(prefix + '\uf8ff')
+                    .limitToLast(1)
+                    .once('value');
+                
+                let nextNumber = 1;
+                
+                if (snapshot.exists()) {
+                    snapshot.forEach(child => {
+                        const invoiceNumber = child.key;
+                        const match = invoiceNumber.match(/RE-\d{4}-(\d+)/);
+                        if (match) {
+                            const currentNumber = parseInt(match[1]);
+                            nextNumber = currentNumber + 1;
+                        }
+                    });
+                }
+                
+                // Format: RE-2026-001
+                const invoiceNumber = prefix + String(nextNumber).padStart(3, '0');
+                
+                console.log('✅ Neue Rechnungsnummer generiert:', invoiceNumber);
+                
+                return invoiceNumber;
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Generieren der Rechnungsnummer:', error);
+                // Fallback
+                const timestamp = Date.now();
+                return `RE-${year}-${timestamp}`;
+            }
+        }
+        
+        // 🚀 v5.90.384: NEUE FAHRT-ABSCHLUSS MIT TAXAMETER + RECHNUNG!
         async function completeRide(rideId) {
+            console.log('═══════════════════════════════════════');
+            console.log('🏁 v5.90.384: Fahrt abschließen');
+            console.log('   Ride ID:', rideId);
+            console.log('═══════════════════════════════════════');
+            
+            // Hole Fahrt-Daten
+            const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+            const rideData = rideSnapshot.val();
+            
+            if (!rideData) {
+                alert('❌ Fahrt nicht gefunden!');
+                return;
+            }
+            
+            // Berechne Preis (Fallback)
+            const calculatedPrice = parseFloat(rideData.price) || 0;
+            
+            // 🆕 v5.90.384: MODAL FÜR TAXAMETER-BETRAG + RECHNUNG!
+            const modal = document.createElement('div');
+            modal.id = 'complete-ride-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+            
+            modal.innerHTML = `
+                <div style="background:white;border-radius:16px;max-width:500px;width:100%;padding:0;overflow:hidden;">
+                    <!-- Header -->
+                    <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;">
+                        <h3 style="margin:0;font-size:20px;">🏁 Fahrt abschließen</h3>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="padding:20px;">
+                        <!-- Fahrt-Info -->
+                        <div style="background:#f3f4f6;border-radius:8px;padding:15px;margin-bottom:20px;">
+                            <div style="font-size:14px;color:#666;margin-bottom:8px;">
+                                <strong>Von:</strong> ${rideData.pickup || 'Unbekannt'}
+                            </div>
+                            <div style="font-size:14px;color:#666;margin-bottom:8px;">
+                                <strong>Nach:</strong> ${rideData.destination || 'Unbekannt'}
+                            </div>
+                            <div style="font-size:14px;color:#666;">
+                                <strong>Kunde:</strong> ${rideData.customerName || 'Unbekannt'}
+                            </div>
+                        </div>
+                        
+                        <!-- Preis-Vergleich -->
+                        <div style="background:#dbeafe;border:2px solid #3b82f6;border-radius:8px;padding:15px;margin-bottom:20px;">
+                            <div style="font-weight:700;margin-bottom:10px;color:#1e40af;">📊 Preis-Übersicht:</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+                                <div style="background:white;padding:10px;border-radius:6px;">
+                                    <div style="color:#666;font-size:11px;">Berechneter Preis:</div>
+                                    <div style="font-size:18px;font-weight:700;color:#3b82f6;">${calculatedPrice.toFixed(2)}€</div>
+                                </div>
+                                <div style="background:white;padding:10px;border-radius:6px;">
+                                    <div style="color:#666;font-size:11px;">Distanz:</div>
+                                    <div style="font-size:18px;font-weight:700;color:#8b5cf6;">${rideData.distance || '?'} km</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Taxameter-Eingabe -->
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block;font-weight:700;margin-bottom:8px;color:#374151;">
+                                💰 Taxameter-Betrag:
+                            </label>
+                            <input type="number" id="taxameter-price" 
+                                   value="${calculatedPrice.toFixed(2)}" 
+                                   step="0.50" min="0"
+                                   style="width:100%;padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:18px;font-weight:700;text-align:center;"
+                                   placeholder="0.00">
+                            <div style="font-size:12px;color:#6b7280;margin-top:4px;">
+                                💡 Trage den Betrag vom Taxameter ein
+                            </div>
+                        </div>
+                        
+                        <!-- Rechnungs-Option -->
+                        <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;padding:15px;margin-bottom:20px;">
+                            <label style="display:flex;align-items:center;cursor:pointer;">
+                                <input type="checkbox" id="needs-invoice" 
+                                       style="width:20px;height:20px;margin-right:10px;cursor:pointer;">
+                                <span style="font-weight:700;font-size:15px;color:#92400e;">
+                                    📄 Kunde möchte Rechnung
+                                </span>
+                            </label>
+                            <div style="font-size:12px;color:#92400e;margin-top:8px;margin-left:30px;">
+                                Wenn aktiviert, wird automatisch eine Rechnung erstellt
+                            </div>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div style="display:flex;gap:10px;">
+                            <button onclick="confirmCompleteRide('${rideId}')" 
+                                    style="flex:1;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;">
+                                ✅ Fahrt abschließen
+                            </button>
+                            <button onclick="closeCompleteRideModal()" 
+                                    style="padding:14px 20px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">
+                                ❌
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Focus auf Preis-Input
+            setTimeout(() => {
+                const input = document.getElementById('taxameter-price');
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }, 100);
+        }
+        
+        // 🆕 v5.90.384: BESTÄTIGE ABSCHLUSS
+        async function confirmCompleteRide(rideId) {
+            console.log('✅ Bestätige Fahrt-Abschluss:', rideId);
+            
+            // Hole Werte
+            const taxameterPrice = parseFloat(document.getElementById('taxameter-price').value) || 0;
+            const needsInvoice = document.getElementById('needs-invoice').checked;
+            
+            if (taxameterPrice <= 0) {
+                alert('⚠️ Bitte gültigen Preis eingeben!');
+                return;
+            }
+            
+            console.log('💰 Taxameter-Preis:', taxameterPrice);
+            console.log('📄 Rechnung gewünscht:', needsInvoice);
+            
+            // Modal schließen
+            closeCompleteRideModal();
+            
+            try {
+                // Hole Fahrt-Daten
+                const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                const rideData = rideSnapshot.val();
+                
+                // Update Fahrt
+                await db.ref('rides/' + rideId).update({ 
+                    status: 'completed',
+                    taxameterPrice: taxameterPrice,  // ← TAXAMETER-PREIS!
+                    price: taxameterPrice,  // ← FINALE PREIS!
+                    driverLocation: null,
+                    completedAt: Date.now()
+                });
+                
+                console.log('✅ Fahrt aktualisiert mit Taxameter-Preis:', taxameterPrice);
+                
+                // 📄 RECHNUNG ERSTELLEN?
+                if (needsInvoice) {
+                    console.log('📄 Erstelle Rechnung...');
+                    await createInvoiceForCompletedRide(rideId, taxameterPrice, rideData);
+                }
+                
+                // 💾 Speichere in localStorage
+                if (rideData) {
+                    console.log('💾 Speichere Fahrt in Verlauf...');
+                    const rideHistory = JSON.parse(localStorage.getItem('rideHistory') || '[]');
+                    
+                    const existingIndex = rideHistory.findIndex(r => r.id === rideData.id || r.firebaseId === rideId);
+                    const completedRide = {
+                        ...rideData,
+                        firebaseId: rideId,
+                        status: 'completed',
+                        taxameterPrice: taxameterPrice,
+                        price: taxameterPrice,
+                        completedAt: Date.now(),
+                        hasInvoice: needsInvoice
+                    };
+                    
+                    if (existingIndex >= 0) {
+                        rideHistory[existingIndex] = completedRide;
+                    } else {
+                        rideHistory.push(completedRide);
+                    }
+                    
+                    localStorage.setItem('rideHistory', JSON.stringify(rideHistory));
+                    
+                    if (currentView === 'history') {
+                        updateHistoryView();
+                    }
+                }
+                
+                // 📜 PROTOKOLL
+                logActivity('status', 'completed', 
+                    `✅ Fahrt abgeschlossen${needsInvoice ? ' (mit Rechnung)' : ''}`, {
+                    customer: rideData?.customerName,
+                    driver: rideData?.vehicle || currentVehicle,
+                    from: rideData?.pickup,
+                    to: rideData?.destination,
+                    taxameterPrice: taxameterPrice,
+                    hasInvoice: needsInvoice
+                });
+                
+                // Schließe Karte
+                closeDriverMap();
+                
+                if (etaUpdateInterval) { 
+                    clearInterval(etaUpdateInterval); 
+                    etaUpdateInterval = null; 
+                }
+                
+                // GPS stoppen
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                    console.log('🛑 GPS gestoppt');
+                }
+                
+                // Zurück zu Standby
+                if (isOnline && currentVehicle) {
+                    console.log('🔄 Wechsle zurück zu Standby-Modus');
+                    setTimeout(() => {
+                        switchToStandby();
+                    }, 100);
+                }
+                
+                // Success-Message
+                let message = '✅ Fahrt abgeschlossen!\n\n';
+                message += `💰 Preis: ${taxameterPrice.toFixed(2)}€\n`;
+                if (needsInvoice) {
+                    message += '📄 Rechnung wurde erstellt!\n';
+                }
+                message += '\nSie sind wieder verfügbar.';
+                
+                alert(message);
+                
+                console.log('═══════════════════════════════════════');
+                console.log('✅ v5.90.384: Fahrt erfolgreich abgeschlossen!');
+                console.log('   Preis:', taxameterPrice);
+                console.log('   Rechnung:', needsInvoice);
+                console.log('═══════════════════════════════════════');
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Abschließen:', error);
+                alert('❌ FEHLER beim Abschließen!\n\n' + error.message);
+            }
+        }
+        
+        // 🆕 v5.90.384: ERSTELLE RECHNUNG BEIM ABSCHLUSS
+        async function createInvoiceForCompletedRide(rideId, taxameterPrice, rideData) {
+            console.log('📄 v5.90.384: Erstelle Rechnung für Fahrt:', rideId);
+            
+            try {
+                // Prüfe ob schon Rechnung existiert
+                if (rideData.invoiceNumber) {
+                    console.log('⚠️ Rechnung existiert bereits:', rideData.invoiceNumber);
+                    return;
+                }
+                
+                // Generiere Rechnungsnummer
+                const invoiceNumber = await generateNextInvoiceNumber();
+                const invoiceDate = new Date();
+                
+                console.log('✅ Neue Rechnungsnummer:', invoiceNumber);
+                
+                // Berechne MwSt basierend auf Distanz
+                const distance = parseFloat(rideData.distance) || 0;
+                const vatRate = distance < 50 ? 7 : 19;
+                
+                // Erstelle Rechnung
+                const invoiceData = {
+                    invoiceNumber: invoiceNumber,
+                    invoiceDate: invoiceDate.getTime(),
+                    rideId: rideId,
+                    
+                    // Preis-Info
+                    taxameterPrice: taxameterPrice,
+                    routePrice: parseFloat(rideData.calculatedPrice) || taxameterPrice,
+                    finalPrice: taxameterPrice,
+                    
+                    // Fahrt-Details
+                    customerName: rideData.customerName || 'Unbekannt',
+                    pickup: rideData.pickup || '',
+                    destination: rideData.destination || '',
+                    pickupDate: rideData.pickupTimestamp || rideData.createdAt,
+                    distance: distance,
+                    
+                    // Positionen
+                    positions: [
+                        {
+                            description: 'Taxifahrt',
+                            amount: taxameterPrice,
+                            vatRate: vatRate
+                        }
+                    ],
+                    
+                    // Metadata
+                    createdAt: Date.now(),
+                    createdBy: currentUser?.email || 'Fahrer',
+                    createdByDriver: true,
+                    isLocked: false,
+                    editHistory: []
+                };
+                
+                // Speichern in Firebase
+                await db.ref(`invoices/${invoiceNumber}`).set(invoiceData);
+                
+                // Fahrt markieren
+                await db.ref(`rides/${rideId}`).update({
+                    invoiceNumber: invoiceNumber,
+                    invoiceDate: invoiceDate.getTime(),
+                    hasInvoice: true,
+                    invoiceCreatedAt: Date.now(),
+                    invoiceCreatedBy: currentUser?.email || 'Fahrer'
+                });
+                
+                console.log('✅ Rechnung gespeichert:', invoiceNumber);
+                
+                // Log
+                logActivity('invoice', 'created', 
+                    `📄 Rechnung ${invoiceNumber} vom Fahrer erstellt`, {
+                    invoiceNumber: invoiceNumber,
+                    rideId: rideId,
+                    amount: taxameterPrice,
+                    driver: currentUser?.email || 'Fahrer'
+                });
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Erstellen der Rechnung:', error);
+                // Fahrt trotzdem abschließen!
+            }
+        }
+        
+        // 🆕 v5.90.384: MODAL SCHLIEßEN
+        function closeCompleteRideModal() {
+            const modal = document.getElementById('complete-ride-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // 🗑️ v5.90.384: ALTE FUNKTION (Kompatibilität)
+        async function completeRideOLD(rideId) {
             // Hole Fahrt-Daten vor dem Abschluss
             const rideSnapshot = await db.ref('rides/' + rideId).once('value');
             const rideData = rideSnapshot.val();
@@ -35259,12 +35640,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    console.log('🔄 v5.90.380: Lade Fahrzeuge aus Firebase...');
+                    console.log('🔄 v5.90.385: Lade Fahrzeuge aus Firebase...');
                     console.log('   Rohdaten:', Object.keys(data));
                     
-                    VEHICLES = {};
+                    // 🆕 v5.90.385: MERGE mit Defaults statt komplett ersetzen!
+                    VEHICLES = { ...DEFAULT_VEHICLES };  // ← START MIT DEFAULTS!
                     let validCount = 0;
                     let invalidCount = 0;
+                    let mergedCount = 0;
                     
                     Object.keys(data).forEach(key => {
                         // 🛡️ v5.90.380: STRENGE VALIDIERUNG!
@@ -35283,26 +35666,40 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             return;
                         }
                         
-                        // Check 3: Fahrzeug muss mindestens Name ODER Plate haben
                         const vehicle = data[key];
-                        if (!vehicle.name && !vehicle.plate) {
-                            console.warn('⚠️ v5.90.380: KEIN NAME/PLATE für:', key);
-                            invalidCount++;
-                            return;
-                        }
                         
-                        // ✅ ALLE CHECKS BESTANDEN!
-                        VEHICLES[key] = {
-                            ...vehicle,
-                            id: key  // Setze id explizit!
-                        };
+                        // 🆕 v5.90.385: MERGE mit Default-Daten!
+                        if (VEHICLES[key]) {
+                            // Fahrzeug existiert in Defaults → MERGE!
+                            VEHICLES[key] = {
+                                ...VEHICLES[key],  // Default-Daten behalten
+                                ...vehicle,  // Firebase-Daten überschreiben
+                                id: key  // ID sicherstellen
+                            };
+                            mergedCount++;
+                            console.log('✅ v5.90.385: Gemerged:', key, VEHICLES[key].name);
+                        } else {
+                            // Check 3: Neues Fahrzeug muss mindestens Name ODER Plate haben
+                            if (!vehicle.name && !vehicle.plate) {
+                                console.warn('⚠️ v5.90.380: KEIN NAME/PLATE für:', key);
+                                invalidCount++;
+                                return;
+                            }
+                            
+                            // ✅ NEUES FAHRZEUG!
+                            VEHICLES[key] = {
+                                ...vehicle,
+                                id: key
+                            };
+                        }
                         validCount++;
                         console.log(`✅ v5.90.380: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
                     });
                     
                     console.log('═══════════════════════════════════════');
-                    console.log('📊 v5.90.380: LADE-ERGEBNIS:');
+                    console.log('📊 v5.90.385: LADE-ERGEBNIS:');
                     console.log(`   ✅ Gültige Fahrzeuge: ${validCount}`);
+                    console.log(`   🔄 Gemerged mit Defaults: ${mergedCount}`);
                     console.log(`   ❌ Ungültige Fahrzeuge: ${invalidCount}`);
                     console.log(`   📋 Geladene IDs:`, Object.keys(VEHICLES));
                     console.log('═══════════════════════════════════════');

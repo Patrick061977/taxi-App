@@ -108,10 +108,10 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.388 - STABLE + NEUE FAHRZEUG-IDS! 🚗✨ (Build 20260113-1200)');
-        console.log('✅ v5.90.388: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.388: Neue Fahrzeug-IDs (Kennzeichen-basiert)');
-        console.log('✅ v5.90.388: Fahrer-Tab sollte funktionieren!');
+        console.log('🚕 Funk Taxi App v5.90.389 - STABLE + NEUE FAHRZEUG-IDS! 🚗✨ (Build 20260113-1250)');
+        console.log('✅ v5.90.389: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.389: Neue Fahrzeug-IDs (Kennzeichen-basiert)');
+        console.log('✅ v5.90.389: Fahrer-Tab sollte funktionieren!');
         console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
         console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
         console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
@@ -26979,8 +26979,26 @@
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    VEHICLES = data;
+                    // 🆕 v5.90.389: MERGE statt REPLACE!
+                    // DEFAULT_VEHICLES als Basis, Firebase ergänzt GPS
+                    VEHICLES = { ...DEFAULT_VEHICLES };  // ← BASIS!
+                    
+                    Object.keys(data).forEach(id => {
+                        if (VEHICLES[id]) {
+                            // Fahrzeug existiert → GPS-Daten ergänzen
+                            VEHICLES[id] = {
+                                ...VEHICLES[id],      // ← NAME + PLATE bleiben!
+                                ...data[id],          // ← GPS wird ergänzt
+                                id: id                // ← ID sicherstellen
+                            };
+                        } else {
+                            // Neues Fahrzeug → komplett übernehmen
+                            VEHICLES[id] = data[id];
+                        }
+                    });
+                    
                     console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
+                    console.log('✅ v5.90.389: DEFAULT_VEHICLES gemerged mit Firebase!');
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
                     await db.ref('vehicles').set(DEFAULT_VEHICLES);

@@ -9,8 +9,8 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.385
-    📅 BUILD: 13.01.2026 11:45 Uhr - BUGFIXES: VEHICLES MERGE + FAHRER RECHNUNG!
+    📦 VERSION: v5.90.387
+    📅 BUILD: 13.01.2026 12:15 Uhr - HOTEL-KALENDER AUTO-SYNC DEAKTIVIERT!
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
@@ -11920,64 +11920,71 @@ Aktuell: ${currentNum}`;
                     });
                     
                     // 🚀 v5.90.380: HAUPT-LISTENER - NUR FÜR ADMIN!
-                    db.ref('rides').on('value', (s) => {
-                        // Dieser Listener ist nur für Admin-View wichtig!
-                        // Fahrer haben ihren eigenen optimierten Listener!
+                    // 🚀 v5.90.386: OPTIMIERTER ADMIN-LISTENER!
+                    // Lade nur AKTUELLE Fahrten (letzte 100)
+                    let adminRidesListener = null;
+                    
+                    function setupAdminRidesListener() {
+                        console.log('═══════════════════════════════════════');
+                        console.log('🎯 v5.90.386: Setup Admin-Listener');
+                        console.log('   currentUser.role:', currentUser?.role);
+                        console.log('═══════════════════════════════════════');
                         
-                        if (currentUser && currentUser.role !== 'driver') {
-                            console.log('🔄 Firebase: rides value event triggered');
-                            const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
-                        rides = [];
-                        let loadedCount = 0;
-                        s.forEach(c => {
-                            const r = c.val();
-                            r.firebaseId = c.key;
-                            rides.push(r);
-                            loadedCount++;
-                            
-                            // 🆕 v5.20.7: Ignoriere kürzlich stornierte Fahrten KOMPLETT!
-                            if (recentlyCancelledRideIds && recentlyCancelledRideIds.has(r.firebaseId)) {
-                                console.log('🛡️ Ignoriere stornierte Fahrt:', r.firebaseId);
-                                return; // Überspringen!
-                            }
-                            
-                            // 🆕 v5.20.8: Prüfe ob mir ZUGEWIESENE Fahrt storniert wurde
-                            if (currentVehicle && r.assignedTo === currentVehicle && currentView === 'driver') {
-                                const cancelledStatuses = ['storniert', 'cancelled', 'cancelled_pending_driver'];
-                                if (cancelledStatuses.includes(r.status)) {
-                                    // Prüfe ob wir das schon gemeldet haben (PERSISTENT!)
-                                    if (!hasShownCancelAlarm(r.firebaseId)) {
-                                        saveShownCancelAlarm(r.firebaseId);
-                                        console.log('🚨 Mir zugewiesene Fahrt wurde storniert:', r.firebaseId);
-                                        showCancellationAlarm(r);
-                                    } else {
-                                        console.log('🛡️ Stornierung bereits gezeigt (Skip):', r.firebaseId);
-                                    }
-                                }
-                            }
-                            
-                            if (myCurrentRide && r.id === myCurrentRide.id) {
-                                // 🆕 v5.20.4: Prüfe ALLE Stornierung-Status!
-                                const cancelledStatuses = ['storniert', 'cancelled', 'cancelled_pending_driver'];
-                                const wasNotCancelled = !cancelledStatuses.includes(myCurrentRide.status);
-                                const isNowCancelled = cancelledStatuses.includes(r.status);
+                        // Nur für Admin/Passenger!
+                        if (!currentUser || currentUser.role === 'driver') {
+                            console.log('⏭️ Nicht für Fahrer');
+                            return;
+                        }
+                        
+                        // Alten Listener entfernen
+                        if (adminRidesListener) {
+                            db.ref('rides').off('value', adminRidesListener);
+                            console.log('🔄 Alter Admin-Listener entfernt');
+                        }
+                        
+                        console.log('🚀 v5.90.386: Lade NUR AKTUELLE Fahrten (limitToLast 100)');
+                        
+                        // NEUER OPTIMIERTER LISTENER!
+                        adminRidesListener = db.ref('rides')
+                            .orderByChild('createdAt')
+                            .limitToLast(100)  // ← NUR DIE LETZTEN 100!
+                            .on('value', (s) => {
+                                console.log('🔄 v5.90.386: Admin-Rides Update');
                                 
-                                if (isNowCancelled && wasNotCancelled) {
-                                    // Fahrt wurde gerade storniert!
-                                    console.log('🚫 Fahrt wurde storniert:', r.id, r.status);
+                                const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
+                                rides = [];
+                                let loadedCount = 0;
+                                
+                                s.forEach(c => {
+                                    const r = c.val();
+                                    r.firebaseId = c.key;
+                                    rides.push(r);
+                                    loadedCount++;
                                     
-                                    // Stoppe Navigations-Updates
-                                    if (window.driverMapUpdateInterval) {
-                                        clearInterval(window.driverMapUpdateInterval);
-                                        window.driverMapUpdateInterval = null;
-                                        console.log('🛑 Navigations-Updates gestoppt');
+                                    // 🆕 v5.20.7: Ignoriere kürzlich stornierte Fahrten
+                                    if (recentlyCancelledRideIds && recentlyCancelledRideIds.has(r.firebaseId)) {
+                                        console.log('🛡️ Ignoriere stornierte Fahrt:', r.firebaseId);
+                                        return;
                                     }
                                     
-                                    // Lösche Karte
-                                    if (map) {
-                                        map.remove();
-                                        map = null;
-                                        taxiMarker = null;
+                                    if (myCurrentRide && r.id === myCurrentRide.id) {
+                                        const cancelledStatuses = ['storniert', 'cancelled', 'cancelled_pending_driver'];
+                                        const wasNotCancelled = !cancelledStatuses.includes(myCurrentRide.status);
+                                        const isNowCancelled = cancelledStatuses.includes(r.status);
+                                        
+                                        if (isNowCancelled && wasNotCancelled) {
+                                            console.log('🚫 Fahrt wurde storniert:', r.id, r.status);
+                                            
+                                            if (window.driverMapUpdateInterval) {
+                                                clearInterval(window.driverMapUpdateInterval);
+                                                window.driverMapUpdateInterval = null;
+                                                console.log('🛑 Navigations-Updates gestoppt');
+                                            }
+                                            
+                                            if (map) {
+                                                map.remove();
+                                                map = null;
+                                                taxiMarker = null;
                                         pickupMarker = null;
                                         console.log('🗺️ Karte entfernt');
                                     }
@@ -12040,29 +12047,35 @@ Aktuell: ${currentNum}`;
                         
                         const currentCount = rides.filter(r => 
                             (r.status === 'new' || r.status === 'vorbestellt') &&
-                            !r.vehicleId && // Ignoriere zurückgesetzte
-                            !r.driverAssignedAt // Ignoriere schon mal zugewiesene
+                            !r.vehicleId && 
+                            !r.driverAssignedAt
                         ).length;
-                        console.log(`📊 Fahrten geladen: ${loadedCount} total, ${currentCount} neue (nicht zurückgesetzte)`);
+                        
+                        console.log('═══════════════════════════════════════');
+                        console.log('📊 v5.90.386: ADMIN-RIDES UPDATE');
+                        console.log(`   📥 Geladen: ${loadedCount}`);
+                        console.log(`   🆕 Neue: ${currentCount}`);
+                        console.log(`   📊 Gesamt im Speicher: ${rides.length}`);
+                        console.log('═══════════════════════════════════════');
                         
                         // 🚨 ALARM für Admin bei neuen Fahrten!
                         if (currentCount > previousCount) {
                             if (userRole === 'admin') {
                                 triggerAdminAlarm(currentCount);
                             }
-                            
-                            // Für Fahrer: alter Alarm
-                            if (currentView === 'driver') {
-                                playDriverNotificationSound();
-                                showNewRideFullscreen();
-                            }
                         }
                         
                         // Badge am Admin-Tab aktualisieren
                         updateAdminBadge(currentCount);
                         
-                        updateViewsDebounced(); // 🆕 v5.21.7: Debounced um Flackern zu vermeiden
-                        }  // ← Schließt if (currentUser.role !== 'driver')
+                        updateViewsDebounced();
+                            });
+                    }
+                    
+                    // 🆕 v5.90.386: Setup-Event für Admin-Listener
+                    window.addEventListener('adminLoggedIn', () => {
+                        console.log('🎯 v5.90.386: Admin logged in → Setup Listener');
+                        setupAdminRidesListener();
                     });
                     
                     // 🚀 v5.90.380: OPTIMIERTER FAHRER-LISTENER!
@@ -50996,6 +51009,12 @@ Stack: ${err.stack}
             // 🚀 v5.90.382: Lade Fahrzeug aus Firebase (nicht localStorage!)
             loadVehicleFromFirebase();
             
+            // 🆕 v5.90.386: Setup Admin-Listener wenn Admin!
+            if (role === 'admin') {
+                console.log('🎯 v5.90.386: Admin erkannt → Trigger adminLoggedIn Event');
+                window.dispatchEvent(new Event('adminLoggedIn'));
+            }
+            
             // 🆕 v5.87.70: Update Login-Button nach Login!
             updateLoginButton();
             
@@ -58253,26 +58272,32 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Render Liste
                 renderHotelCalendarList();
                 
-                // 🆕 v5.87.24: AUTO-SYNC STARTEN!
-                startHotelCalendarAutoSync();
+                // 🚫 v5.90.387: AUTO-SYNC DEAKTIVIERT!
+                // Hotel-Kalender werden NUR bei Bedarf geladen (Rechnung erstellen)
+                // startHotelCalendarAutoSync();  // ← DEAKTIVIERT!
+                console.log('ℹ️ v5.90.387: Auto-Sync deaktiviert - Hotel-Kalender werden nur bei Bedarf geladen');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Hotel-Kalender:', error);
             }
         }
         
-        // 🆕 v5.87.24: AUTO-SYNC TIMER
+        // 🚫 v5.90.387: AUTO-SYNC DEAKTIVIERT!
+        // Hotel-Kalender werden NUR bei Bedarf geladen
         let hotelCalendarSyncInterval = null;
-        let autoSyncStarted = false; // Flag um Doppel-Start zu verhindern
+        let autoSyncStarted = false;
         
         function startHotelCalendarAutoSync() {
-            // Verhindere Doppel-Start
+            // 🚫 v5.90.387: KOMPLETT DEAKTIVIERT!
+            console.log('🚫 v5.90.387: Auto-Sync deaktiviert - Hotel-Kalender werden nur manuell geladen');
+            return;
+            
+            /* ALTE IMPLEMENTIERUNG - DEAKTIVIERT!
             if (autoSyncStarted) {
                 console.log('⏸️ Auto-Sync bereits gestartet - überspringe');
                 return;
             }
             
-            // Clear alter Timer (falls vorhanden)
             if (hotelCalendarSyncInterval) {
                 clearInterval(hotelCalendarSyncInterval);
             }
@@ -58288,6 +58313,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 console.log('⏰ Auto-Sync Timer ausgelöst...');
                 syncAllHotelCalendars();
             }, 15 * 60 * 1000); // 15 Minuten
+            */
         }
         
         async function syncAllHotelCalendars() {

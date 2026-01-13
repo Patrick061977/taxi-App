@@ -9,8 +9,8 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.378
-    📅 BUILD: 12.01.2026 23:10 Uhr - FAHRZEUG-FIX FINAL!
+    📦 VERSION: v5.90.383
+    📅 BUILD: 13.01.2026 11:00 Uhr - COMPLETE LOGIN LOGGING!
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
@@ -215,7 +215,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.378 - FAHRZEUG-FIX FINAL! 🔧 (Build 20260112-2315)');
+        console.log('🚕 Funk Taxi App v5.90.380 - GPS-TOGGLE FIX! 🔧 (Build 20260113-0930)');
         console.log('🔧 v5.90.371: CRASH FIX - renderDriverRides null check!');
         console.log('🔧 v5.90.371: VEHICLE STRUCTURE FIX - .id property!');
         console.log('🔧 v5.90.371: TRACKING in setVehicle() hinzugefügt!');
@@ -1124,7 +1124,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚗 Version 5.90.378 - FAHRZEUG-FIX FINAL! ✅ (Build 20260112-2315)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚗 Version 5.90.380 - GPS-TOGGLE FIX! ✅ (Build 20260113-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -11918,9 +11918,15 @@ Aktuell: ${currentNum}`;
                             logActivity('system', 'connection_restored', '✅ Firebase-Verbindung wiederhergestellt', {});
                         }
                     });
+                    
+                    // 🚀 v5.90.380: HAUPT-LISTENER - NUR FÜR ADMIN!
                     db.ref('rides').on('value', (s) => {
-                        console.log('🔄 Firebase: rides value event triggered');
-                        const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
+                        // Dieser Listener ist nur für Admin-View wichtig!
+                        // Fahrer haben ihren eigenen optimierten Listener!
+                        
+                        if (currentUser && currentUser.role !== 'driver') {
+                            console.log('🔄 Firebase: rides value event triggered');
+                            const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
                         rides = [];
                         let loadedCount = 0;
                         s.forEach(c => {
@@ -12056,7 +12062,115 @@ Aktuell: ${currentNum}`;
                         updateAdminBadge(currentCount);
                         
                         updateViewsDebounced(); // 🆕 v5.21.7: Debounced um Flackern zu vermeiden
+                        }  // ← Schließt if (currentUser.role !== 'driver')
                     });
+                    
+                    // 🚀 v5.90.380: OPTIMIERTER FAHRER-LISTENER!
+                    // NUR für Fahrer, lädt NUR zugewiesene Fahrten!
+                    let driverRidesListener = null;
+                    
+                    function setupDriverRidesListener() {
+                        console.log('═══════════════════════════════════════');
+                        console.log('🚗 v5.90.383: Setup Fahrer-Listener');
+                        console.log('   currentUser.role:', currentUser?.role);
+                        console.log('   currentUser.email:', currentUser?.email);
+                        console.log('   currentVehicle:', currentVehicle);
+                        const vehicle = findVehicle(currentVehicle);
+                        if (vehicle) {
+                            console.log('   Fahrzeug-Name:', vehicle.name);
+                            console.log('   Kennzeichen:', vehicle.plate);
+                        }
+                        console.log('   Zeit:', new Date().toLocaleString('de-DE'));
+                        console.log('═══════════════════════════════════════');
+                        
+                        // 📜 PROTOKOLL: Listener wird eingerichtet
+                        logActivity('driver', 'listener_setup', 
+                            `🎧 Fahrer ${currentUser.email} richtet Listener ein für ${vehicle?.name || currentVehicle}`, {
+                            email: currentUser.email,
+                            uid: currentUser.uid,
+                            vehicle: currentVehicle,
+                            vehicleName: vehicle?.name || 'Unbekannt',
+                            timestamp: Date.now()
+                        });
+                        
+                        // Nur für Fahrer!
+                        if (!currentUser || currentUser.role !== 'driver') {
+                            console.log('⏭️ Nicht für diese Rolle');
+                            return;
+                        }
+                        
+                        // Muss Fahrzeug haben!
+                        if (!currentVehicle || currentVehicle === 'undefined') {
+                            console.log('⚠️ Kein Fahrzeug - warte...');
+                            return;
+                        }
+                        
+                        // Alten Listener entfernen!
+                        if (driverRidesListener) {
+                            db.ref('rides').off('value', driverRidesListener);
+                            console.log('🔄 Alter Listener entfernt');
+                        }
+                        
+                        // NEUER OPTIMIERTER LISTENER!
+                        console.log('🚀 Starte Listener für Fahrzeug:', currentVehicle);
+                        
+                        driverRidesListener = db.ref('rides')
+                            .orderByChild('assignedTo')
+                            .equalTo(currentVehicle)
+                            .on('value', (snapshot) => {
+                                console.log('═══════════════════════════════════════');
+                                console.log('📥 v5.90.380: FAHRER-RIDES UPDATE!');
+                                console.log('   Fahrzeug:', currentVehicle);
+                                
+                                const driverRides = [];
+                                let count = 0;
+                                
+                                snapshot.forEach(child => {
+                                    const ride = child.val();
+                                    ride.firebaseId = child.key;
+                                    
+                                    // Nur aktive Status!
+                                    const validStatuses = ['assigned', 'accepted', 'picked_up', 'on_way'];
+                                    if (validStatuses.includes(ride.status)) {
+                                        driverRides.push(ride);
+                                        count++;
+                                        console.log(`   ✅ Fahrt ${count}: ${ride.pickup} → ${ride.destination} (${ride.status})`);
+                                    } else {
+                                        console.log(`   ⏭️ Skip: Status ${ride.status}`);
+                                    }
+                                });
+                                
+                                console.log(`📊 Gesamt für Fahrer: ${count} aktive Fahrten`);
+                                console.log('═══════════════════════════════════════');
+                                
+                                // Update globales rides Array (nur für Fahrer-View!)
+                                if (currentView === 'driver') {
+                                    rides = driverRides;
+                                    
+                                    // Update View!
+                                    if (typeof updateDriverViewIsarfunk === 'function') {
+                                        updateDriverViewIsarfunk();
+                                    }
+                                }
+                            });
+                        
+                        console.log('✅ Fahrer-Listener aktiv!');
+                    }
+                    
+                    // Setup Listener wenn Fahrzeug gewählt wird!
+                    window.addEventListener('vehicleSelected', () => {
+                        console.log('🎯 vehicleSelected Event → Setup Listener');
+                        setupDriverRidesListener();
+                    });
+                    
+                    // Setup Listener beim Login (falls Fahrzeug schon gesetzt)!
+                    if (currentUser && currentUser.role === 'driver' && currentVehicle) {
+                        setTimeout(() => {
+                            console.log('🎯 Initial Setup für Fahrer');
+                            setupDriverRidesListener();
+                        }, 1000);
+                    }
+                    
                     // 🆕 v5.90.356: Lade von /vehicles statt /drivers!
                     db.ref('vehicles').on('value', (s) => { 
                         drivers = {}; 
@@ -27205,6 +27319,34 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
 
         function toggleOnline() {
+            // 🛡️ v5.90.380: KRITISCHE VALIDIERUNG AM ANFANG!
+            if (!currentVehicle || currentVehicle === 'undefined' || currentVehicle === '') {
+                console.error('❌ v5.90.380: GPS-Toggle BLOCKIERT - Kein Fahrzeug gewählt!');
+                console.error('   currentVehicle:', currentVehicle);
+                
+                // Toggle zurücksetzen
+                const toggle = document.getElementById('online-toggle');
+                if (toggle) {
+                    toggle.checked = false;
+                    toggle.disabled = true;
+                    toggle.style.opacity = '0.5';
+                }
+                
+                // Nutzer informieren
+                alert('⚠️ BITTE ERST FAHRZEUG WÄHLEN!\n\n' +
+                      'Du musst erst ein Fahrzeug auswählen,\n' +
+                      'bevor du GPS aktivieren kannst.\n\n' +
+                      'Bitte wähle dein Fahrzeug aus der Liste!');
+                
+                // Zeige Fahrzeug-Auswahl
+                const vehicleSelect = document.getElementById('driver-vehicle-select-isarfunk');
+                const driverMain = document.getElementById('driver-main-isarfunk');
+                if (vehicleSelect) vehicleSelect.style.display = 'block';
+                if (driverMain) driverMain.style.display = 'none';
+                
+                return; // STOP! Nicht weitermachen!
+            }
+            
             isOnline = document.getElementById('online-toggle').checked;
             
             // 🆕 v5.20.2: Online-Status speichern für Auto-Restore
@@ -27412,6 +27554,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // 🆕 v5.90.261: Lade Fahrten für diesen Fahrer
             loadDriverRides();
+            
+            // 🚀 v5.90.380: Trigger Event für Listener-Setup!
+            if (currentVehicle && currentUser && currentUser.role === 'driver') {
+                console.log('🎯 v5.90.380: Triggere vehicleSelected Event');
+                window.dispatchEvent(new CustomEvent('vehicleSelected', { 
+                    detail: { vehicleId: currentVehicle } 
+                }));
+            }
         }
         
         // 🆕 v5.90.267: UPDATE DRIVER HEADER (Fahrzeug-Anzeige)
@@ -27708,6 +27858,187 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
 
         // 🆕 v5.20.2: GESPEICHERTES FAHRZEUG + STATUS LADEN (aus localStorage)
+        // 🚀 v5.90.382: LADE FAHRZEUG AUS FIREBASE (nicht localStorage!)
+        async function loadVehicleFromFirebase() {
+            if (!currentUser || !currentUser.uid) {
+                console.log('⏳ Warte auf Login für Fahrzeug-Laden...');
+                return;
+            }
+            
+            if (!isFirebaseReady) {
+                console.log('⏳ Warte auf Firebase...');
+                return;
+            }
+            
+            console.log('═══════════════════════════════════════');
+            console.log('🚗 v5.90.383: LADE FAHRZEUG AUS FIREBASE');
+            console.log('   User:', currentUser.email);
+            console.log('   UID:', currentUser.uid);
+            console.log('   Role:', currentUser.role);
+            console.log('   Zeit:', new Date().toLocaleString('de-DE'));
+            console.log('═══════════════════════════════════════');
+            
+            // 📜 PROTOKOLL: Login-Vorgang startet
+            logActivity('driver', 'vehicle_load_start', 
+                `🚗 Fahrer ${currentUser.email} lädt Fahrzeug...`, {
+                email: currentUser.email,
+                uid: currentUser.uid,
+                role: currentUser.role,
+                timestamp: Date.now()
+            });
+            
+            // Nur für Fahrer!
+            if (currentUser.role !== 'driver') {
+                console.log('⏭️ Nicht für diese Rolle');
+                return;
+            }
+            
+            try {
+                // Lade User-Daten aus Firebase
+                const userSnapshot = await db.ref('users/' + currentUser.uid).once('value');
+                const userData = userSnapshot.val();
+                
+                if (!userData) {
+                    console.error('❌ Keine User-Daten gefunden');
+                    logActivity('driver', 'vehicle_load_error', 
+                        `❌ FEHLER: Keine User-Daten für ${currentUser.email}`, {
+                        email: currentUser.email,
+                        uid: currentUser.uid,
+                        error: 'no_user_data'
+                    });
+                    alert('❌ FEHLER!\n\nKeine Benutzerdaten in Firebase gefunden!\n\nBitte kontaktiere den Administrator.');
+                    return;
+                }
+                
+                console.log('📊 User-Daten:', userData);
+                
+                // Hat User ein zugewiesenes Fahrzeug?
+                const assignedVehicle = userData.vehicle;
+                
+                if (!assignedVehicle) {
+                    console.error('⚠️ Kein Fahrzeug zugewiesen!');
+                    console.log('💡 Admin muss Fahrzeug in /users/' + currentUser.uid + '/vehicle setzen!');
+                    logActivity('driver', 'vehicle_load_error', 
+                        `⚠️ WARNUNG: Kein Fahrzeug zugewiesen für ${currentUser.email}`, {
+                        email: currentUser.email,
+                        uid: currentUser.uid,
+                        error: 'no_vehicle_assigned',
+                        hint: 'Admin muss /users/' + currentUser.uid + '/vehicle setzen'
+                    });
+                    alert('⚠️ KEIN FAHRZEUG ZUGEWIESEN!\n\nDu hast noch kein Fahrzeug zugewiesen bekommen.\n\nBitte kontaktiere den Administrator.');
+                    return;
+                }
+                
+                console.log('✅ Zugewiesenes Fahrzeug:', assignedVehicle);
+                
+                // Prüfe ob Fahrzeug existiert
+                const vehicle = findVehicle(assignedVehicle);
+                if (!vehicle) {
+                    console.error('❌ Fahrzeug nicht in VEHICLES gefunden:', assignedVehicle);
+                    console.log('📋 Verfügbare Fahrzeuge:', Object.keys(VEHICLES));
+                    logActivity('driver', 'vehicle_load_error', 
+                        `❌ FEHLER: Fahrzeug ${assignedVehicle} existiert nicht für ${currentUser.email}`, {
+                        email: currentUser.email,
+                        uid: currentUser.uid,
+                        assignedVehicle: assignedVehicle,
+                        availableVehicles: Object.keys(VEHICLES),
+                        error: 'vehicle_not_found'
+                    });
+                    alert('❌ FEHLER!\n\nDein zugewiesenes Fahrzeug "' + assignedVehicle + '" existiert nicht mehr in der Datenbank!\n\nVerfügbare Fahrzeuge:\n' + Object.keys(VEHICLES).join(', ') + '\n\nBitte kontaktiere den Administrator.');
+                    return;
+                }
+                
+                console.log('✅ Fahrzeug gefunden:', vehicle.name);
+                
+                // Prüfe ob Fahrzeug von jemand anderem benutzt wird
+                const vehicleSnapshot = await db.ref('vehicles/' + assignedVehicle).once('value');
+                const vehicleData = vehicleSnapshot.val();
+                
+                if (vehicleData && vehicleData.online && vehicleData.userId && vehicleData.userId !== currentUser.uid) {
+                    console.error('⚠️ Fahrzeug wird von anderem User benutzt:', vehicleData.userId);
+                    logActivity('driver', 'vehicle_load_error', 
+                        `⚠️ KONFLIKT: Fahrzeug ${vehicle.name} wird bereits von anderem Fahrer benutzt`, {
+                        requestingUser: currentUser.email,
+                        requestingUid: currentUser.uid,
+                        occupyingUid: vehicleData.userId,
+                        occupyingEmail: vehicleData.userEmail || 'Unbekannt',
+                        vehicle: assignedVehicle,
+                        vehicleName: vehicle.name,
+                        error: 'vehicle_occupied'
+                    });
+                    alert('⚠️ FAHRZEUG BESETZT!\n\nDein Fahrzeug (' + vehicle.name + ') wird gerade von einem anderen Fahrer benutzt:\n' + (vehicleData.userEmail || 'Unbekannt') + '\n\nBitte warte oder kontaktiere den Administrator.');
+                    return;
+                }
+                
+                // Fahrzeug ist frei - setzen!
+                currentVehicle = assignedVehicle;
+                console.log('✅ currentVehicle gesetzt:', currentVehicle);
+                
+                // Hidden select setzen (falls vorhanden)
+                const dropdown = document.getElementById('vehicle');
+                if (dropdown) {
+                    dropdown.value = assignedVehicle;
+                }
+                
+                // Toggle aktivieren
+                const toggle = document.getElementById('online-toggle');
+                if (toggle) {
+                    toggle.disabled = false;
+                    toggle.style.opacity = '1';
+                    toggle.style.cursor = 'pointer';
+                    console.log('✅ GPS-Toggle aktiviert');
+                }
+                
+                // 🚀 Event: vehicleSelected → Listener-Setup!
+                console.log('🎯 v5.90.382: Triggere vehicleSelected Event');
+                window.dispatchEvent(new CustomEvent('vehicleSelected', { 
+                    detail: { vehicleId: assignedVehicle } 
+                }));
+                
+                // Telegram-ID laden
+                loadDriverTelegramId();
+                
+                // Update View
+                if (typeof updateDriverViewIsarfunk === 'function') {
+                    updateDriverViewIsarfunk();
+                }
+                
+                console.log('═══════════════════════════════════════');
+                console.log('✅ v5.90.383: FAHRZEUG ERFOLGREICH GELADEN!');
+                console.log('   Fahrzeug:', vehicle.name);
+                console.log('   Kennzeichen:', vehicle.plate);
+                console.log('   ID:', assignedVehicle);
+                console.log('   Fahrer:', currentUser.email);
+                console.log('   Zeit:', new Date().toLocaleString('de-DE'));
+                console.log('═══════════════════════════════════════');
+                
+                // 📜 PROTOKOLL: ERFOLGREICHER LOGIN!
+                logActivity('driver', 'vehicle_loaded', 
+                    `✅ ERFOLG: Fahrer ${currentUser.email} hat Fahrzeug ${vehicle.name} geladen`, {
+                    email: currentUser.email,
+                    uid: currentUser.uid,
+                    vehicle: assignedVehicle,
+                    vehicleName: vehicle.name,
+                    vehiclePlate: vehicle.plate,
+                    timestamp: Date.now(),
+                    success: true
+                });
+                
+            } catch (error) {
+                console.error('❌ v5.90.383: KRITISCHER FEHLER beim Laden des Fahrzeugs:', error);
+                logActivity('driver', 'vehicle_load_error', 
+                    `❌ KRITISCHER FEHLER: ${currentUser.email} konnte Fahrzeug nicht laden`, {
+                    email: currentUser.email,
+                    uid: currentUser.uid,
+                    error: error.message,
+                    stack: error.stack,
+                    timestamp: Date.now()
+                });
+                alert('❌ KRITISCHER FEHLER beim Laden des Fahrzeugs!\n\n' + error.message + '\n\nBitte kontaktiere den Administrator und zeige ihm die Browser-Console (F12).');
+            }
+        }
+        
+        // 🗑️ v5.90.382: Alte Funktion für Kompatibilität
         async function loadSavedVehicle() {
             if (!currentUser || !currentUser.uid) {
                 console.log('⏳ Warte auf Login für Fahrzeug-Wiederherstellung...');
@@ -27784,6 +28115,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         
                         // Telegram-ID laden
                         loadDriverTelegramId();
+                        
+                        // 🚀 v5.90.381: WICHTIG! Trigger Listener-Setup!
+                        if (currentUser && currentUser.role === 'driver') {
+                            console.log('🎯 v5.90.381: loadSavedVehicle → Trigger Listener');
+                            window.dispatchEvent(new CustomEvent('vehicleSelected', { 
+                                detail: { vehicleId: savedVehicle } 
+                            }));
+                        }
                         
                         updateViews();
                     }
@@ -34920,22 +35259,60 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    // 🔥 v5.90.371: WICHTIG! Füge .id Property hinzu!
+                    console.log('🔄 v5.90.380: Lade Fahrzeuge aus Firebase...');
+                    console.log('   Rohdaten:', Object.keys(data));
+                    
                     VEHICLES = {};
+                    let validCount = 0;
+                    let invalidCount = 0;
+                    
                     Object.keys(data).forEach(key => {
-                        // 🛡️ v5.90.378: ÜBERSPRINGE undefined!
-                        if (key === 'undefined' || key === undefined || !key || key === '') {
-                            console.warn('⚠️ v5.90.378: ÜBERSPRINGE ungültige Fahrzeug-ID beim Laden:', key);
-                            return; // Skip this vehicle
+                        // 🛡️ v5.90.380: STRENGE VALIDIERUNG!
+                        
+                        // Check 1: ID darf nicht undefined/leer sein
+                        if (!key || key === 'undefined' || key === 'null' || key.trim() === '') {
+                            console.warn('⚠️ v5.90.380: UNGÜLTIGE ID:', key);
+                            invalidCount++;
+                            return;
                         }
                         
+                        // Check 2: Fahrzeug muss Daten haben
+                        if (!data[key] || typeof data[key] !== 'object') {
+                            console.warn('⚠️ v5.90.380: KEINE DATEN für:', key);
+                            invalidCount++;
+                            return;
+                        }
+                        
+                        // Check 3: Fahrzeug muss mindestens Name ODER Plate haben
+                        const vehicle = data[key];
+                        if (!vehicle.name && !vehicle.plate) {
+                            console.warn('⚠️ v5.90.380: KEIN NAME/PLATE für:', key);
+                            invalidCount++;
+                            return;
+                        }
+                        
+                        // ✅ ALLE CHECKS BESTANDEN!
                         VEHICLES[key] = {
-                            ...data[key],
-                            id: key  // 🔥 Setze id explizit!
+                            ...vehicle,
+                            id: key  // Setze id explizit!
                         };
+                        validCount++;
+                        console.log(`✅ v5.90.380: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
                     });
-                    console.log('🚗 v5.90.378: Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
-                    console.log('✅ v5.90.378: Gefilterte IDs:', Object.keys(VEHICLES));
+                    
+                    console.log('═══════════════════════════════════════');
+                    console.log('📊 v5.90.380: LADE-ERGEBNIS:');
+                    console.log(`   ✅ Gültige Fahrzeuge: ${validCount}`);
+                    console.log(`   ❌ Ungültige Fahrzeuge: ${invalidCount}`);
+                    console.log(`   📋 Geladene IDs:`, Object.keys(VEHICLES));
+                    console.log('═══════════════════════════════════════');
+                    
+                    if (validCount === 0) {
+                        console.error('❌ v5.90.380: KEINE GÜLTIGEN FAHRZEUGE GEFUNDEN!');
+                        // Fallback zu Default
+                        VEHICLES = { ...DEFAULT_VEHICLES };
+                        console.log('⚠️ v5.90.380: Verwende Default-Fahrzeuge');
+                    }
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
                     await db.ref('vehicles').set(DEFAULT_VEHICLES);
@@ -50219,8 +50596,8 @@ Stack: ${err.stack}
             // 🆕 v5.19.0: Lade Telegram-ID für diesen User
             loadDriverTelegramId();
             
-            // 🆕 v5.20.1: Lade gespeichertes Fahrzeug
-            loadSavedVehicle();
+            // 🚀 v5.90.382: Lade Fahrzeug aus Firebase (nicht localStorage!)
+            loadVehicleFromFirebase();
             
             // 🆕 v5.87.70: Update Login-Button nach Login!
             updateLoginButton();

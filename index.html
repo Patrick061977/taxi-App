@@ -998,7 +998,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.402 - PANEL OHNE TOGGLE! ✨ (Build 20260113-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚀 Version 5.90.402 - PANEL AUßEN! 🔴 (Build 20260113-1930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2548,76 +2548,6 @@
         <!-- 🆕 v5.42.8: AUTOCOMPLETE OVERLAY (wie Google Maps!) -->
         <!-- 🆕 v5.46.3: Overlay entfernt - nutzen nur noch Dropdowns! -->
         
-        <!-- Neue Aufträge Slide-In Panel mit TABS! -->
-        <div id="new-rides-panel" style="
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 95%;
-            max-width: 700px;
-            padding: 0;
-            background: #ff0000;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 0 50px rgba(255,0,0,0.8);
-            z-index: 99999;
-            border-radius: 20px;
-            border: 5px solid #ffff00;
-            opacity: 1 !important;
-            visibility: visible !important;
-        ">
-            <!-- Tabs -->
-            <div style="
-                display: flex;
-                background: #f3f4f6;
-                border-bottom: 2px solid #e0e0e0;
-                position: sticky;
-                top: 0;
-                z-index: 10;
-            ">
-                <button onclick="switchRidesTab('new')" id="rides-tab-new" class="rides-tab active" style="
-                    flex: 1;
-                    padding: 12px;
-                    background: white;
-                    border: none;
-                    border-bottom: 3px solid #667eea;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">
-                    📋 Neu
-                </button>
-                <button onclick="switchRidesTab('completed')" id="rides-tab-completed" class="rides-tab" style="
-                    flex: 1;
-                    padding: 12px;
-                    background: transparent;
-                    border: none;
-                    border-bottom: 3px solid transparent;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                    color: #666;
-                ">
-                    ✅ Fertig
-                </button>
-                <button onclick="switchRidesTab('cancelled')" id="rides-tab-cancelled" class="rides-tab" style="
-                    flex: 1;
-                    padding: 12px;
-                    background: transparent;
-                    border: none;
-                    border-bottom: 3px solid transparent;
-                    font-weight: 600;
-                    cursor: pointer;
-                    font-size: 13px;
-                    color: #666;
-                ">
-                    🚨 Storniert
-                </button>
-                <!-- 🆕 v5.90.402: CLOSE BUTTON -->
-                <button onclick="closeNewRidesPanel()" style="
-                    padding: 12px 20px;
                     background: #ef4444;
                     border: none;
                     font-weight: 700;

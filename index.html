@@ -108,22 +108,22 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.399 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1615)');
-        console.log('✅ v5.90.399: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.399: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.399: Admin lädt nur 100 Fahrten');
-        console.log('🚫 v5.90.399: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.399: Filter ignoriert alte IDs');
-        console.log('🔧 v5.90.399: AUTO-FIX repariert leere /vehicles!');
-        console.log('✅ v5.90.399: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.399: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.399: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.399: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.399: Kalender ignoriert alte Fahrzeug-IDs!');
-        console.log('✅ v5.90.399: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.399: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.399: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.399: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🚕 Funk Taxi App v5.90.400 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1630)');
+        console.log('✅ v5.90.400: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.400: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.400: Admin lädt nur 100 Fahrten');
+        console.log('🚫 v5.90.400: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.400: Filter ignoriert alte IDs');
+        console.log('🔧 v5.90.400: AUTO-FIX repariert leere /vehicles!');
+        console.log('✅ v5.90.400: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.400: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.400: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.400: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.400: Kalender ignoriert alte Fahrzeug-IDs!');
+        console.log('✅ v5.90.400: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.400: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.400: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.400: Hotel Auto-Sync DEAKTIVIERT');
         console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
         console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
         console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
@@ -998,7 +998,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.90.399 - ALLE 5! 🚗🚗🚗🚗🚗 (Build 20260113-1615)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.400 - PANEL OBEN! 📋 (Build 20260113-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2356,7 +2356,7 @@
                 max-width: 140px;
             ">
                 <option value="">Fahrzeug wählen</option>
-                <!-- 🆕 v5.90.399: Wird dynamisch geladen! -->
+                <!-- 🆕 v5.90.400: Wird dynamisch geladen! -->
             </select>
             
             <!-- Stats Mini -->
@@ -2552,17 +2552,19 @@
         <div id="new-rides-panel" style="
             display: none;
             position: fixed;
-            bottom: 80px;
-            left: 10px;
-            right: 10px;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 600px;
             padding: 0;
             background: white;
-            max-height: 60vh;
+            max-height: 70vh;
             overflow-y: auto;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 1000;
-            border-radius: 12px;
-            border: 2px solid #667eea;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            z-index: 10000;
+            border-radius: 16px;
+            border: 3px solid #667eea;
         ">
             <!-- Tabs -->
             <div style="
@@ -3204,7 +3206,7 @@
             
             
             function toggleNewRidesPanel() {
-                console.log('🔧 v5.90.399: toggleNewRidesPanel() aufgerufen');
+                console.log('🔧 v5.90.400: toggleNewRidesPanel() aufgerufen');
                 const panel = document.getElementById('new-rides-panel');
                 console.log('  - Panel gefunden:', !!panel);
                 console.log('  - Display vorher:', panel ? panel.style.display : 'N/A');
@@ -3213,7 +3215,7 @@
                     panel.style.display = wasHidden ? 'block' : 'none';
                     console.log('  - Display nachher:', panel.style.display);
                     
-                    // 🆕 v5.90.399: FORCE VISIBLE!
+                    // 🆕 v5.90.400: FORCE VISIBLE!
                     if (wasHidden) {
                         panel.style.visibility = 'visible';
                         panel.style.opacity = '1';
@@ -10769,13 +10771,13 @@
                         }
                     });
                     
-                    // 🆕 v5.90.399: ADMIN PERFORMANCE - Nur 100 Fahrten!
+                    // 🆕 v5.90.400: ADMIN PERFORMANCE - Nur 100 Fahrten!
                     const ridesRef = currentUser && currentUser.role === 'admin' 
                         ? db.ref('rides').limitToLast(100)  // Admin: Nur 100!
                         : db.ref('rides');  // Andere: Alle
                     
                     if (currentUser && currentUser.role === 'admin') {
-                        console.log('⚡ v5.90.399: Admin erkannt → limitToLast(100)');
+                        console.log('⚡ v5.90.400: Admin erkannt → limitToLast(100)');
                     }
                     
                     ridesRef.on('value', (s) => {
@@ -12290,8 +12292,8 @@
         }
 
         function updateDriverView() {
-            // 🐛 v5.90.399: DEBUG LOGGING
-            console.log('🔧 v5.90.399: updateDriverView() aufgerufen');
+            // 🐛 v5.90.400: DEBUG LOGGING
+            console.log('🔧 v5.90.400: updateDriverView() aufgerufen');
             console.log('  - currentVehicle:', currentVehicle);
             console.log('  - rides.length:', rides.length);
             console.log('  - isOnline:', isOnline);
@@ -27045,10 +27047,10 @@
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    console.log('🚗 v5.90.399: Lade Fahrzeuge aus Firebase...');
+                    console.log('🚗 v5.90.400: Lade Fahrzeuge aus Firebase...');
                     VEHICLES = {};
                     
-                    // 🆕 v5.90.399: Definiere korrekte Namen für leere Einträge
+                    // 🆕 v5.90.400: Definiere korrekte Namen für leere Einträge
                     const NAME_MAP = {
                         'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222' },
                         'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222' },
@@ -27098,14 +27100,14 @@
                 const currentValue = select.value;
                 select.innerHTML = '<option value="">-- Fahrzeug wählen --</option>';
                 Object.values(VEHICLES).forEach(v => {
-                    // 🆕 v5.90.399: KEIN FILTER! Alle Fahrzeuge anzeigen
+                    // 🆕 v5.90.400: KEIN FILTER! Alle Fahrzeuge anzeigen
                     if (v.id && v.name) {
                         const icon = v.type && v.type.includes('Model Y') ? '🚙' : '🚗';
                         select.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.name} (${v.plate})</option>`;
                     }
                 });
                 
-                console.log('✅ v5.90.399: Dropdown aktualisiert:', select.id, Object.keys(VEHICLES).length, 'Fahrzeuge');
+                console.log('✅ v5.90.400: Dropdown aktualisiert:', select.id, Object.keys(VEHICLES).length, 'Fahrzeuge');
             });
         }
         
@@ -30128,11 +30130,11 @@
                         const v = child.val();
                         v.id = child.key;
                         
-                        // 🆕 v5.90.399: NUR neue IDs (pw-xxx)
+                        // 🆕 v5.90.400: NUR neue IDs (pw-xxx)
                         if (v.id && v.name) {
                             vehicles.push(v);
                         } else {
-                            console.log('⏭️ v5.90.399 Quick: Ignoriere alte ID:', v.id);
+                            console.log('⏭️ v5.90.400 Quick: Ignoriere alte ID:', v.id);
                         }
                     });
                     
@@ -40159,12 +40161,12 @@ Stack: ${err.stack}
                             const v = child.val();
                             v.id = child.key;
                             
-                            // 🆕 v5.90.399: FILTER alte IDs raus!
+                            // 🆕 v5.90.400: FILTER alte IDs raus!
                             // Nur Kennzeichen-basierte IDs (pw-xx-xxx)
                             if (v.id && v.name) {
                                 allVehicles.push(v);
                             } else {
-                                console.log('⏭️ v5.90.399: Ignoriere alte ID:', v.id);
+                                console.log('⏭️ v5.90.400: Ignoriere alte ID:', v.id);
                             }
                         });
                         console.log('🚗 Fahrzeuge für Kalender geladen:', allVehicles.length);
@@ -46703,9 +46705,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let autoSyncStarted = false; // Flag um Doppel-Start zu verhindern
         
         function startHotelCalendarAutoSync() {
-            // 🚫 v5.90.399: AUTO-SYNC DEAKTIVIERT!
-            console.log('🚫 v5.90.399: Hotel Auto-Sync DEAKTIVIERT');
-            console.log('ℹ️ v5.90.399: Hotel-Kalender nur noch manuell laden');
+            // 🚫 v5.90.400: AUTO-SYNC DEAKTIVIERT!
+            console.log('🚫 v5.90.400: Hotel Auto-Sync DEAKTIVIERT');
+            console.log('ℹ️ v5.90.400: Hotel-Kalender nur noch manuell laden');
             return;  // ← STOP HIER!
             
             // Alter Code (deaktiviert):

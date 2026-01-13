@@ -108,10 +108,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.389 - STABLE + NEUE FAHRZEUG-IDS! 🚗✨ (Build 20260113-1250)');
-        console.log('✅ v5.90.389: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.389: Neue Fahrzeug-IDs (Kennzeichen-basiert)');
-        console.log('✅ v5.90.389: Fahrer-Tab sollte funktionieren!');
+        console.log('🚕 Funk Taxi App v5.90.391 - KOMPLETT + FILTER! 🚗✨🎉 (Build 20260113-1400)');
+        console.log('✅ v5.90.391: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.391: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.391: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.391: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.391: Kalender ignoriert alte Fahrzeug-IDs!');
+        console.log('✅ v5.90.391: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.391: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.391: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.391: Hotel Auto-Sync DEAKTIVIERT');
         console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
         console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
         console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
@@ -10729,7 +10735,17 @@
                             logActivity('system', 'connection_restored', '✅ Firebase-Verbindung wiederhergestellt', {});
                         }
                     });
-                    db.ref('rides').on('value', (s) => {
+                    
+                    // 🆕 v5.90.391: ADMIN PERFORMANCE - Nur 100 Fahrten!
+                    const ridesRef = currentUser && currentUser.role === 'admin' 
+                        ? db.ref('rides').limitToLast(100)  // Admin: Nur 100!
+                        : db.ref('rides');  // Andere: Alle
+                    
+                    if (currentUser && currentUser.role === 'admin') {
+                        console.log('⚡ v5.90.391: Admin erkannt → limitToLast(100)');
+                    }
+                    
+                    ridesRef.on('value', (s) => {
                         console.log('🔄 Firebase: rides value event triggered');
                         const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
                         rides = [];
@@ -26979,7 +26995,7 @@
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    // 🆕 v5.90.389: MERGE statt REPLACE!
+                    // 🆕 v5.90.391: MERGE statt REPLACE!
                     // DEFAULT_VEHICLES als Basis, Firebase ergänzt GPS
                     VEHICLES = { ...DEFAULT_VEHICLES };  // ← BASIS!
                     
@@ -26998,7 +27014,7 @@
                     });
                     
                     console.log('🚗 Fahrzeuge aus Firebase geladen:', Object.keys(VEHICLES).length);
-                    console.log('✅ v5.90.389: DEFAULT_VEHICLES gemerged mit Firebase!');
+                    console.log('✅ v5.90.391: DEFAULT_VEHICLES gemerged mit Firebase!');
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
                     await db.ref('vehicles').set(DEFAULT_VEHICLES);
@@ -40071,7 +40087,14 @@ Stack: ${err.stack}
                         vehiclesSnapshot.forEach(child => {
                             const v = child.val();
                             v.id = child.key;
-                            allVehicles.push(v);
+                            
+                            // 🆕 v5.90.391: FILTER alte IDs raus!
+                            // Nur Kennzeichen-basierte IDs (pw-xx-xxx)
+                            if (v.id && v.id.startsWith('pw-')) {
+                                allVehicles.push(v);
+                            } else {
+                                console.log('⏭️ v5.90.391: Ignoriere alte ID:', v.id);
+                            }
                         });
                         console.log('🚗 Fahrzeuge für Kalender geladen:', allVehicles.length);
                     }
@@ -46609,6 +46632,13 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let autoSyncStarted = false; // Flag um Doppel-Start zu verhindern
         
         function startHotelCalendarAutoSync() {
+            // 🚫 v5.90.391: AUTO-SYNC DEAKTIVIERT!
+            console.log('🚫 v5.90.391: Hotel Auto-Sync DEAKTIVIERT');
+            console.log('ℹ️ v5.90.391: Hotel-Kalender nur noch manuell laden');
+            return;  // ← STOP HIER!
+            
+            // Alter Code (deaktiviert):
+            /*
             // Verhindere Doppel-Start
             if (autoSyncStarted) {
                 console.log('⏸️ Auto-Sync bereits gestartet - überspringe');
@@ -46631,6 +46661,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 console.log('⏰ Auto-Sync Timer ausgelöst...');
                 syncAllHotelCalendars();
             }, 15 * 60 * 1000); // 15 Minuten
+            */
         }
         
         async function syncAllHotelCalendars() {

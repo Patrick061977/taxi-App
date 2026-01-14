@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.421
+    📦 VERSION: v5.90.422
     📅 BUILD: 13.01.2026 12:15 Uhr - HOTEL-KALENDER AUTO-SYNC DEAKTIVIERT!
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.421 - FAHRER RECHNUNG + PERFORMANCE!
+    📋 CHANGELOG v5.90.422 - FAHRER RECHNUNG + PERFORMANCE!
     ═══════════════════════════════════════════════════════════════════════════
     
-    🚀 v5.90.421 (13.01.2026) - HOTEL AUTO-SYNC DEAKTIVIERT:
+    🚀 v5.90.422 (13.01.2026) - HOTEL AUTO-SYNC DEAKTIVIERT:
        • 🚫 Hotel-Kalender Auto-Sync komplett deaktiviert
        • ✅ KEINE Token-Refresh-Errors mehr
        • ✅ Kein Sync beim Start
@@ -243,7 +243,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.421 - GPS-TOGGLE FIX! 🔧 (Build 20260113-0930)');
+        console.log('🚕 Funk Taxi App v5.90.422 - GPS-TOGGLE FIX! 🔧 (Build 20260113-0930)');
         console.log('🔧 v5.90.371: CRASH FIX - renderDriverRides null check!');
         console.log('🔧 v5.90.371: VEHICLE STRUCTURE FIX - .id property!');
         console.log('🔧 v5.90.371: TRACKING in setVehicle() hinzugefügt!');
@@ -1167,7 +1167,7 @@
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.421 - WORKING STATUS! (Build 20260114-1120)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.422 - DEBUG LOGS! (Build 20260114-1130)</p>
             ">
                 🔄 Cache & Daten leeren
             </button>
@@ -2833,7 +2833,7 @@
                         <span id="toggle-label" style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.8);">AUS</span>
                     </div>
                     
-                    <!-- 🆕 v5.90.421: FAHRTEN-BUTTON! -->
+                    <!-- 🆕 v5.90.422: FAHRTEN-BUTTON! -->
                     <button onclick="openRidesWindow()" id="rides-button" style="
                         background: rgba(255,255,255,0.2);
                         border: 2px solid rgba(255,255,255,0.4);
@@ -2991,7 +2991,7 @@
     </div>
 
     <div id="admin-view" class="view admin-only">
-        <!-- 🎯 v5.90.421: SIMPLE STATUS BOX -->
+        <!-- 🎯 v5.90.422: SIMPLE STATUS BOX -->
         <div id="simple-status-container" style="margin-bottom:20px;"></div>
         
         <!-- Header mit Suchleiste -->
@@ -11965,7 +11965,7 @@ Aktuell: ${currentNum}`;
                         }
                     });
                     
-                    // 🚀 v5.90.421: HAUPT-LISTENER - NUR FÜR ADMIN!
+                    // 🚀 v5.90.422: HAUPT-LISTENER - NUR FÜR ADMIN!
                     // 🚀 v5.90.386: OPTIMIERTER ADMIN-LISTENER!
                     // Lade nur AKTUELLE Fahrten (letzte 100)
                     let adminRidesListener = null;
@@ -12124,7 +12124,7 @@ Aktuell: ${currentNum}`;
                         setupAdminRidesListener();
                     });
                     
-                    // 🚀 v5.90.421: OPTIMIERTER FAHRER-LISTENER!
+                    // 🚀 v5.90.422: OPTIMIERTER FAHRER-LISTENER!
                     // NUR für Fahrer, lädt NUR zugewiesene Fahrten!
                     let driverRidesListener = null;
                     
@@ -12178,7 +12178,7 @@ Aktuell: ${currentNum}`;
                             .equalTo(currentVehicle)
                             .on('value', (snapshot) => {
                                 console.log('═══════════════════════════════════════');
-                                console.log('📥 v5.90.421: FAHRER-RIDES UPDATE!');
+                                console.log('📥 v5.90.422: FAHRER-RIDES UPDATE!');
                                 console.log('   Fahrzeug:', currentVehicle);
                                 
                                 const driverRides = [];
@@ -14742,9 +14742,9 @@ Aktuell: ${currentNum}`;
             `;
         }
 
-        // 🪟 v5.90.421: POPUP-FENSTER FÜR FAHRER-FAHRTEN!
+        // 🪟 v5.90.422: POPUP-FENSTER FÜR FAHRER-FAHRTEN!
         function openRidesWindow() {
-            console.log("🪟 v5.90.421: Öffne Fahrten-Fenster!");
+            console.log("🪟 v5.90.422: Öffne Fahrten-Fenster!");
             
             // Filtere Fahrten (gleiche Logik wie updateDriverView)
             const newRides = rides.filter(r => {
@@ -27417,9 +27417,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
 
         function toggleOnline() {
-            // 🛡️ v5.90.421: KRITISCHE VALIDIERUNG AM ANFANG!
+            // 🛡️ v5.90.422: KRITISCHE VALIDIERUNG AM ANFANG!
             if (!currentVehicle || currentVehicle === 'undefined' || currentVehicle === '') {
-                console.error('❌ v5.90.421: GPS-Toggle BLOCKIERT - Kein Fahrzeug gewählt!');
+                console.error('❌ v5.90.422: GPS-Toggle BLOCKIERT - Kein Fahrzeug gewählt!');
                 console.error('   currentVehicle:', currentVehicle);
                 
                 // Toggle zurücksetzen
@@ -27653,9 +27653,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // 🆕 v5.90.261: Lade Fahrten für diesen Fahrer
             loadDriverRides();
             
-            // 🚀 v5.90.421: Trigger Event für Listener-Setup!
+            // 🚀 v5.90.422: Trigger Event für Listener-Setup!
             if (currentVehicle && currentUser && currentUser.role === 'driver') {
-                console.log('🎯 v5.90.421: Triggere vehicleSelected Event');
+                console.log('🎯 v5.90.422: Triggere vehicleSelected Event');
                 window.dispatchEvent(new CustomEvent('vehicleSelected', { 
                     detail: { vehicleId: currentVehicle } 
                 }));
@@ -35748,18 +35748,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     let mergedCount = 0;
                     
                     Object.keys(data).forEach(key => {
-                        // 🛡️ v5.90.421: STRENGE VALIDIERUNG!
+                        // 🛡️ v5.90.422: STRENGE VALIDIERUNG!
                         
                         // Check 1: ID darf nicht undefined/leer sein
                         if (!key || key === 'undefined' || key === 'null' || key.trim() === '') {
-                            console.warn('⚠️ v5.90.421: UNGÜLTIGE ID:', key);
+                            console.warn('⚠️ v5.90.422: UNGÜLTIGE ID:', key);
                             invalidCount++;
                             return;
                         }
                         
                         // Check 2: Fahrzeug muss Daten haben
                         if (!data[key] || typeof data[key] !== 'object') {
-                            console.warn('⚠️ v5.90.421: KEINE DATEN für:', key);
+                            console.warn('⚠️ v5.90.422: KEINE DATEN für:', key);
                             invalidCount++;
                             return;
                         }
@@ -35779,7 +35779,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         } else {
                             // Check 3: Neues Fahrzeug muss mindestens Name ODER Plate haben
                             if (!vehicle.name && !vehicle.plate) {
-                                console.warn('⚠️ v5.90.421: KEIN NAME/PLATE für:', key);
+                                console.warn('⚠️ v5.90.422: KEIN NAME/PLATE für:', key);
                                 invalidCount++;
                                 return;
                             }
@@ -35791,7 +35791,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             };
                         }
                         validCount++;
-                        console.log(`✅ v5.90.421: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
+                        console.log(`✅ v5.90.422: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
                     });
                     
                     console.log('═══════════════════════════════════════');
@@ -35803,10 +35803,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     console.log('═══════════════════════════════════════');
                     
                     if (validCount === 0) {
-                        console.error('❌ v5.90.421: KEINE GÜLTIGEN FAHRZEUGE GEFUNDEN!');
+                        console.error('❌ v5.90.422: KEINE GÜLTIGEN FAHRZEUGE GEFUNDEN!');
                         // Fallback zu Default
                         VEHICLES = { ...DEFAULT_VEHICLES };
-                        console.log('⚠️ v5.90.421: Verwende Default-Fahrzeuge');
+                        console.log('⚠️ v5.90.422: Verwende Default-Fahrzeuge');
                     }
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
@@ -58357,24 +58357,24 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Render Liste
                 renderHotelCalendarList();
                 
-                // 🚫 v5.90.421: AUTO-SYNC DEAKTIVIERT!
+                // 🚫 v5.90.422: AUTO-SYNC DEAKTIVIERT!
                 // Hotel-Kalender werden NUR bei Bedarf geladen (Rechnung erstellen)
                 // startHotelCalendarAutoSync();  // ← DEAKTIVIERT!
-                console.log('ℹ️ v5.90.421: Auto-Sync deaktiviert - Hotel-Kalender werden nur bei Bedarf geladen');
+                console.log('ℹ️ v5.90.422: Auto-Sync deaktiviert - Hotel-Kalender werden nur bei Bedarf geladen');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Hotel-Kalender:', error);
             }
         }
         
-        // 🚫 v5.90.421: AUTO-SYNC DEAKTIVIERT!
+        // 🚫 v5.90.422: AUTO-SYNC DEAKTIVIERT!
         // Hotel-Kalender werden NUR bei Bedarf geladen
         let hotelCalendarSyncInterval = null;
         let autoSyncStarted = false;
         
         function startHotelCalendarAutoSync() {
-            // 🚫 v5.90.421: KOMPLETT DEAKTIVIERT!
-            console.log('🚫 v5.90.421: Auto-Sync deaktiviert - Hotel-Kalender werden nur manuell geladen');
+            // 🚫 v5.90.422: KOMPLETT DEAKTIVIERT!
+            console.log('🚫 v5.90.422: Auto-Sync deaktiviert - Hotel-Kalender werden nur manuell geladen');
             return;
             
             /* ALTE IMPLEMENTIERUNG - DEAKTIVIERT!
@@ -64342,8 +64342,8 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // 🆕 v5.90.108: Assignment Mode laden
             setTimeout(() => loadAssignmentMode(), 2000);
         });
-// 🎯 v5.90.421: SIMPLE STATUS BOX
-function updateSystemStatus(){const c=document.getElementById("simple-status-container");if(!c)return;const fbOk=(typeof isFirebaseReady!=="undefined"&&isFirebaseReady);const fbStatus=fbOk?"✅ Verbunden":"❌ Offline";const bookOk=(typeof saveRide==="function");const bookStatus=bookOk?"✅ Funktioniert":"❌ Fehlt";const assignOk=(typeof startAutoAssignment==="function");const assignStatus=assignOk?"✅ Funktioniert":"❌ Fehlt";const gpsOk=("geolocation" in navigator);const gpsStatus=gpsOk?"✅ Verfügbar":"❌ Nicht verfügbar";let driverCount=0;if(typeof db!=="undefined"&&fbOk){db.ref("vehicles").once("value",s=>{s.forEach(ch=>{const v=ch.val();if(v.online&&v.lastUpdate>Date.now()-300000)driverCount++});const el=document.getElementById("status-driver-count");if(el)el.textContent=driverCount}).catch(e=>console.log("Driver count error:",e))}const now=new Date().toLocaleTimeString("de-DE");c.innerHTML=`<div style="background:white;border-radius:8px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3 style="margin:0;font-size:16px;">📊 System Status</h3><span style="font-size:11px;opacity:0.6;">⏰ ${now}</span></div><div style="display:grid;gap:8px;font-size:13px;margin-bottom:12px;"><div>🔥 Firebase: <strong>${fbStatus}</strong></div><div>📝 Buchungen: <strong>${bookStatus}</strong></div><div>🎯 Auto-Assign: <strong>${assignStatus}</strong></div><div>📍 GPS: <strong>${gpsStatus}</strong></div><div>🚗 Fahrer online: <strong id="status-driver-count">0</strong></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button onclick="testBookingSimple()" style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🧪 Test Buchung</button><button onclick="testGPSSimple()" style="padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🧪 Test GPS</button></div></div>`}
+// 🎯 v5.90.422: SIMPLE STATUS BOX
+function updateSystemStatus(){console.log("📊 updateSystemStatus called!");const c=document.getElementById("simple-status-container");if(!c){console.log("❌ Container not found!");return}console.log("✅ Container found!");const fbOk=(typeof isFirebaseReady!=="undefined"&&isFirebaseReady);const fbStatus=fbOk?"✅ Verbunden":"❌ Offline";const bookOk=(typeof saveRide==="function");const bookStatus=bookOk?"✅ Funktioniert":"❌ Fehlt";const assignOk=(typeof startAutoAssignment==="function");const assignStatus=assignOk?"✅ Funktioniert":"❌ Fehlt";const gpsOk=("geolocation" in navigator);const gpsStatus=gpsOk?"✅ Verfügbar":"❌ Nicht verfügbar";let driverCount=0;if(typeof db!=="undefined"&&fbOk){db.ref("vehicles").once("value",s=>{s.forEach(ch=>{const v=ch.val();if(v.online&&v.lastUpdate>Date.now()-300000)driverCount++});const el=document.getElementById("status-driver-count");if(el)el.textContent=driverCount}).catch(e=>console.log("Driver count error:",e))}const now=new Date().toLocaleTimeString("de-DE");c.innerHTML=`<div style="background:white;border-radius:8px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3 style="margin:0;font-size:16px;">📊 System Status</h3><span style="font-size:11px;opacity:0.6;">⏰ ${now}</span></div><div style="display:grid;gap:8px;font-size:13px;margin-bottom:12px;"><div>🔥 Firebase: <strong>${fbStatus}</strong></div><div>📝 Buchungen: <strong>${bookStatus}</strong></div><div>🎯 Auto-Assign: <strong>${assignStatus}</strong></div><div>📍 GPS: <strong>${gpsStatus}</strong></div><div>🚗 Fahrer online: <strong id="status-driver-count">0</strong></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button onclick="testBookingSimple()" style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🧪 Test Buchung</button><button onclick="testGPSSimple()" style="padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🧪 Test GPS</button></div></div>`;console.log("✅ Status-Box rendered!")}
 function testBookingSimple(){if(typeof saveRide==="function"){alert("✅ Buchungs-System funktioniert!")}else{alert("❌ saveRide Funktion nicht gefunden!")}}
 function testGPSSimple(){if("geolocation" in navigator){navigator.geolocation.getCurrentPosition(p=>alert(`✅ GPS funktioniert!\nPosition: ${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)}`),e=>alert("❌ GPS-Fehler: "+e.message))}else{alert("❌ GPS nicht verfügbar!")}}
 setInterval(updateSystemStatus,10000);

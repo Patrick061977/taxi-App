@@ -197,11 +197,12 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.375 - MASTER FIX! 🔧 (Build 20260112-2340)');
-        console.log('🔧 v5.90.375: renderDriverRides() nutzt Isarfunk HTML!');
-        console.log('🔧 v5.90.375: GPS Debug Logging umfangreich!');
-        console.log('🔧 v5.90.375: checkOnlineDrivers() zeigt WARUM nicht verfügbar!');
-        console.log('🔧 v5.90.375: Monitoring Cleanup verbessert!');
+        console.log('🚕 Funk Taxi App v5.90.453 - MASTER FIX! 🔧 (Build 20260114-1700)');
+        console.log('🔧 v5.90.453: renderDriverRides() nutzt Isarfunk HTML!');
+        console.log('🚗 v5.90.453: FAHRER-TAB aus v450 + Status ändern + Export!');
+        console.log('🔧 v5.90.453: GPS Debug Logging umfangreich!');
+        console.log('🔧 v5.90.453: checkOnlineDrivers() zeigt WARUM nicht verfügbar!');
+        console.log('🔧 v5.90.453: Monitoring Cleanup verbessert!');
         console.log('🚀 v5.90.374: Firebase Query statt 3000 Fahrten laden!');
         console.log('🧹 v5.90.373: Monitoring Cleanup + possibleIds Fix');
         console.log('🔧 v5.90.365: Fahrer-View Crash gefixt!');
@@ -1106,7 +1107,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.375 - MASTER FIX! 🔧 (Build 20260112-2340)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.453 - MASTER FIX! 🔧 (Build 20260114-1700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2725,208 +2726,1072 @@
     </div>
 
     <div id="driver-view" class="view">
-        <!-- 🆕 v5.90.311: USER INFO HEADER! -->
+        <!-- 🎯 DESIGN C: FULLSCREEN MAP - Google Maps Style -->
         
-        <!-- TOP HEADER MIT USER-INFO -->
-        <div style="
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-            color: white;
-            padding: 12px 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        <!-- Ultra-Mini Top Bar (transparent, sticky) -->
+        <div id="driver-top-bar" style="
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         ">
-            <!-- 🆕 v5.90.311: User Info oben -->
-            <div id="driver-user-info" style="
-                background: rgba(255,255,255,0.15);
-                border-radius: 8px;
-                padding: 12px;
-                margin-bottom: 12px;
-                border: 1px solid rgba(255,255,255,0.3);
+            <!-- GPS Status Indicator -->
+            <div id="gps-status-compact" style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 4px 8px;
+                background: rgba(239,68,68,0.1);
+                border-radius: 12px;
+                font-size: 11px;
+                color: #ef4444;
             ">
-                <div style="font-size: 14px; font-weight: 700; margin-bottom: 6px;">
-                    👤 <span id="driver-user-name">Lädt...</span>
-                </div>
-                <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">
-                    📧 <span id="driver-user-email">---</span>
-                </div>
-                <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px;">
-                    🎭 Rolle: <span id="driver-user-role" style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px;">---</span>
-                </div>
-                <div style="font-size: 11px;">
-                    🚗 Fahrzeug: <span id="driver-current-vehicle">Nicht gewählt</span>
-                </div>
+                <span id="gps-icon-compact">❌</span>
+                <span id="gps-text-compact">GPS</span>
             </div>
             
-            <!-- Original Header (Buttons + GPS + ONLINE-TOGGLE) -->
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                <!-- Quick-Button Links -->
-                <button onclick="alert('Quick-Button Menü kommt später!')" style="
-                    background: rgba(255,255,255,0.2);
-                    border: 2px solid rgba(255,255,255,0.4);
-                    color: white;
-                    padding: 8px 16px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 700;
-                    cursor: pointer;
-                ">☰ Quick</button>
-                
-                <!-- Mitte: GPS Status + Toggle -->
-                <div style="display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center;">
-                    <!-- GPS Status -->
-                    <div id="driver-gps-status-isarfunk" style="font-size: 12px; font-weight: 600;">
-                        <span id="driver-gps-icon">🔴</span>
-                        <span id="driver-gps-text">GPS aus</span>
-                    </div>
-                    
-                    <!-- 🆕 v5.90.319: TOGGLE MIT LABEL! -->
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                        <label class="toggle-switch" style="transform: scale(0.7);">
-                            <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
-                            <span class="slider"></span>
-                        </label>
-                        <span id="toggle-label" style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.8);">AUS</span>
-                    </div>
-                </div>
-                
-                <!-- User-Menü Rechts -->
-                <button onclick="toggleDebugPanel()" style="
-                    background: rgba(255,255,255,0.2);
-                    border: 2px solid rgba(255,255,255,0.4);
-                    color: white;
-                    padding: 8px 16px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 700;
-                    cursor: pointer;
-                ">⚙️</button>
+            <!-- Stornierung Badge (NEU!) -->
+            <button id="cancellation-badge" onclick="showCancellationPanel()" style="
+                display: none;
+                background: #ef4444;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 13px;
+                animation: pulse 1s infinite;
+            ">
+                🚨 <span id="cancellation-count">0</span>
+            </button>
+            
+            <!-- Neue Aufträge Button -->
+            <button onclick="toggleNewRidesPanel()" style="
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 13px;
+            ">
+                📋 <span id="new-rides-count">0</span>
+            </button>
+            
+            <!-- Fahrzeug Select -->
+            <select id="vehicle" onchange="setVehicle()" style="
+                padding: 6px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                font-size: 12px;
+                flex: 1;
+                max-width: 140px;
+            ">
+                <option value="">Fahrzeug wählen</option>
+                <!-- 🆕 v5.90.403: Wird dynamisch geladen! -->
+            </select>
+            
+            <!-- Stats Mini -->
+            <div style="font-size: 10px; color: #666; white-space: nowrap;">
+                <span id="d-rides">0</span>↑ <span id="d-money">0€</span>
             </div>
+            
+            <!-- Online Toggle Mini -->
+            <label class="toggle-switch" style="transform: scale(0.6);">
+                <input type="checkbox" id="online-toggle" onchange="toggleOnline()" disabled style="opacity: 0.5; cursor: not-allowed;">
+                <span class="slider"></span>
+            </label>
+            
+            <!-- Menu Button -->
+            <button onclick="toggleDebugPanel()" style="
+                background: rgba(102,126,234,0.2);
+                color: #667eea;
+                border: none;
+                padding: 6px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+            ">
+                ≡
+            </button>
         </div>
         
-        <!-- FAHRZEUG-AUSWAHL (wenn nicht gewählt) -->
-        <div id="driver-vehicle-select-isarfunk" style="
+        <!-- 🆕 v5.61.0: GPS-WARNUNG FÜR FAHRER! -->
+        <div id="gps-warning-banner" style="display:none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 15px; margin: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); animation: shake 0.5s;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <div style="font-size: 16px; font-weight: 700; margin-bottom: 6px;">
+                        🚨 GPS-PROBLEM ERKANNT!
+                    </div>
+                    <div id="gps-warning-text" style="font-size: 13px; opacity: 0.95; margin-bottom: 8px;">
+                        GPS sendet keine Updates mehr!
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.85;">
+                        ⚠️ Patrick sieht möglicherweise alte Position!
+                    </div>
+                </div>
+
+        <!-- 🆕 FAHRTEN PANEL - DIREKT IM DRIVER VIEW! -->
+        <div id="new-rides-panel" style="
             display: none;
             background: white;
-            padding: 20px;
-            text-align: center;
+            margin: 10px;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: 3px solid #667eea;
         ">
-            <div style="font-size: 20px; font-weight: 900; margin-bottom: 16px;">🚗 Fahrzeug wählen</div>
-            <div id="vehicle-grid-isarfunk" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
-                <!-- Wird gefüllt -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <h3 style="margin:0;color:#667eea;">📋 Neue Aufträge</h3>
+                <button onclick="toggleNewRidesPanel()" style="background:#ef4444;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">✕ Schließen</button>
+            </div>
+            <div id="new-rides"></div>
+        </div>
+
+                <button onclick="location.reload()" style="background: white; color: #ef4444; border: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; margin-left: 10px;">
+                    🔄 Neu laden
+                </button>
             </div>
         </div>
         
-        <!-- HAUPT-CONTENT -->
-        <div id="driver-main-isarfunk" style="padding: 16px; background: #f5f5f5; min-height: calc(100vh - 200px);">
+        <!-- Debug Panel (versteckt by default) -->
+        <div id="debug-panel" style="
+            display: none;
+            padding: 10px;
+            background: #f3f4f6;
+            font-size: 11px;
+            color: #666;
+        ">
+            <!-- 🆕 v5.42.7: CONSOLE CONTROLS GANZ OBEN! -->
+            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="font-size: 16px; font-weight: 700; color: #667eea; margin-bottom: 12px;">
+                    🎛️ Console Controls
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <button onclick="pauseConsole()" id="console-pause-btn" style="
+                        padding: 18px;
+                        background: #f59e0b;
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+                        transition: transform 0.2s;
+                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                        ⏸️ PAUSE
+                    </button>
+                    
+                    <button onclick="playConsole()" id="console-play-btn" style="
+                        padding: 18px;
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+                        display: none;
+                        transition: transform 0.2s;
+                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                        ▶️ PLAY
+                    </button>
+                    
+                    <button onclick="copyConsole()" style="
+                        padding: 18px;
+                        background: #667eea;
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+                        transition: transform 0.2s;
+                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                        📋 COPY
+                    </button>
+                    
+                    <button onclick="exportConsole()" style="
+                        padding: 18px;
+                        background: #3b82f6;
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+                        transition: transform 0.2s;
+                    " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                        💾 EXPORT
+                    </button>
+                </div>
+                <button onclick="clearConsoleLog()" style="
+                    width: 100%;
+                    padding: 18px;
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+                    margin-bottom: 10px;
+                    transition: transform 0.2s;
+                " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                    🗑️ CLEAR
+                </button>
+                <div id="console-status" style="text-align: center; font-size: 13px; color: #10b981; font-weight: 700; padding: 8px; background: #d1fae5; border-radius: 8px;">
+                    ▶️ Console läuft
+                </div>
+            </div>
             
-            <!-- AKTUELLER AUFTRAG (wenn vorhanden) -->
-            <div id="driver-current-order-isarfunk" style="display: none; margin-bottom: 16px;"></div>
+            <div style="border-top: 2px solid #ddd; padding-top: 15px;">
+            FB: <span id="debug-firebase">❓</span> | 
+            Fahrten: <span id="debug-rides">❓</span> | 
+            Neu: <span id="debug-new">❓</span> | 
+            Sync: <span id="debug-sync">❓</span>
             
-            <!-- BEREIT-STATUS -->
-            <div id="driver-ready-isarfunk" style="
-                background: white;
-                border-radius: 12px;
-                padding: 40px 20px;
-                text-align: center;
-            ">
-                <div style="font-size: 48px; margin-bottom: 12px;">🚕</div>
-                <div style="font-size: 16px; font-weight: 700; color: #6b7280;">Bereit für Aufträge</div>
-                <div style="font-size: 13px; margin-top: 8px; color: #9ca3af;">Warten auf Vermittlung...</div>
+            <!-- 🆕 v5.18.0: TELEGRAM FÜR FAHRER -->
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+                <b>📱 Telegram-Alarm aktivieren:</b>
+                <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="driver-telegram-id" placeholder="Deine Chat-ID" style="
+                        flex: 1;
+                        padding: 8px;
+                        border: 1px solid #ccc;
+                        border-radius: 6px;
+                        font-size: 12px;
+                    ">
+                    <button onclick="saveDriverTelegramId()" style="
+                        padding: 8px 12px;
+                        background: #0088cc;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        cursor: pointer;
+                    ">💾</button>
+                    <button onclick="testDriverTelegram()" style="
+                        padding: 8px 12px;
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        cursor: pointer;
+                    ">📤 Test</button>
+                </div>
+                <div id="driver-telegram-status" style="margin-top: 6px; font-size: 10px; color: #888;">
+                    ❓ Noch nicht eingerichtet
+                </div>
+                <div style="margin-top: 6px; font-size: 10px; color: #666;">
+                    Hol dir deine Chat-ID: Schreibe /getid an <a href="https://t.me/myidbot" target="_blank" style="color: #0088cc;">@myidbot</a>
+                </div>
+            </div>
+        </div>
+        
+            <div style="padding: 10px;">
+                <div id="new-rides"></div>
+                <div id="completed-rides" style="display: none;"></div>
+                <div id="cancelled-rides" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <style>
+            .rides-tab.active {
+                background: white !important;
+                border-bottom-color: #667eea !important;
+                color: #667eea !important;
+            }
+        </style>
+        
+        <script>
+            function switchRidesTab(tab) {
+                // Hide all content
+                document.getElementById('new-rides-list').style.display = 'none';
+                document.getElementById('completed-rides').style.display = 'none';
+                document.getElementById('cancelled-rides').style.display = 'none';
                 
-                <!-- 🆕 v5.90.319: HINWEIS WENN GPS AUS! -->
-                <div id="gps-hint" style="
-                    display: none;
-                    margin-top: 16px;
-                    padding: 12px;
-                    background: #fef3c7;
-                    border: 2px solid #f59e0b;
-                    border-radius: 8px;
-                ">
-                    <div style="font-size: 14px; font-weight: 700; color: #92400e; margin-bottom: 4px;">
-                        ⚠️ GPS ist ausgeschaltet!
-                    </div>
-                    <div style="font-size: 12px; color: #78350f;">
-                        Schalte GPS an um Aufträge zu empfangen
-                    </div>
-                </div>
-            </div>
+                // Remove active from all tabs
+                document.querySelectorAll('.rides-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.style.background = 'transparent';
+                    t.style.borderBottomColor = 'transparent';
+                    t.style.color = '#666';
+                });
+                
+                // Show selected content & activate tab
+                if (tab === 'new') {
+                    document.getElementById('new-rides-list').style.display = 'block';
+                    document.getElementById('rides-tab-new').classList.add('active');
+                } else if (tab === 'completed') {
+                    document.getElementById('completed-rides').style.display = 'block';
+                    document.getElementById('rides-tab-completed').classList.add('active');
+                    loadCompletedRides();
+                } else if (tab === 'cancelled') {
+                    document.getElementById('cancelled-rides').style.display = 'block';
+                    document.getElementById('rides-tab-cancelled').classList.add('active');
+                    loadCancelledRides();
+                }
+            }
             
-            <!-- STATISTIK -->
-            <div style="
-                display: flex;
-                gap: 12px;
-                margin-top: 20px;
-                padding: 16px;
-                background: white;
-                border-radius: 12px;
-            ">
-                <div style="flex: 1; text-align: center;">
-                    <div style="font-size: 28px; font-weight: 900; color: #1f2937;"><span id="stats-rides-isarfunk">0</span></div>
-                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">FAHRTEN</div>
-                </div>
-                <div style="flex: 1; text-align: center; border-left: 2px solid #e5e7eb;">
-                    <div style="font-size: 28px; font-weight: 900; color: #10b981;"><span id="stats-money-isarfunk">0</span>€</div>
-                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600;">UMSATZ</div>
-                </div>
-            </div>
-        </div>
+            function loadCompletedRides() {
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                const completed = myRides.filter(r => r.status === 'completed');
+                
+                if (completed.length === 0) {
+                    document.getElementById('completed-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine abgeschlossenen Fahrten</div>';
+                    return;
+                }
+                
+                // 🆕 v5.25.6: Mit Zeitstempel anzeigen
+                let html = completed.map(r => {
+                    // Buchungszeit formatieren
+                    let buchungZeit = '?';
+                    if (r.timestamp || r.createdAt) {
+                        const bookingDate = new Date(r.timestamp || r.createdAt);
+                        buchungZeit = bookingDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    // Abschlusszeit formatieren
+                    let abschlussZeit = '?';
+                    if (r.completedAt) {
+                        const completeDate = new Date(r.completedAt);
+                        abschlussZeit = completeDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    return `
+                    <div class="ride-card" style="background:#f0fdf4;border-left:4px solid #10b981;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
+                            <span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">✅ Fertig</span>
+                        </div>
+                        ${r.customerName ? `<div style="font-weight:600;color:#065f46;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        <div style="font-size:13px;color:#666;">
+                            Von: ${r.pickup}<br>
+                            Nach: ${r.destination}<br>
+                            Preis: <strong>${r.price}€</strong> • ${r.distance} km<br>
+                            <span style="font-size:11px;color:#10b981;">✅ Abgeschlossen: ${abschlussZeit}</span>
+                        </div>
+                    </div>
+                `}).join('');
+                
+                document.getElementById('completed-rides').innerHTML = html;
+            }
+            
+            function loadCancelledRides() {
+                // 🆕 v5.20.8: Auch assignedTo prüfen (nicht nur vehicleId)!
+                const myRides = currentVehicle ? rides.filter(r => 
+                    r.vehicleId === currentVehicle || 
+                    r.assignedTo === currentVehicle ||
+                    r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)
+                ) : [];
+                const cancelled = myRides.filter(r => r.status === 'cancelled' || r.status === 'cancelled_pending_driver' || r.status === 'storniert');
+                
+                if (cancelled.length === 0) {
+                    document.getElementById('cancelled-rides').innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Keine stornierten Fahrten</div>';
+                    return;
+                }
+                
+                // 🆕 v5.20.7: Mit Uhrzeiten anzeigen
+                let html = cancelled.map(r => {
+                    // Buchungszeit formatieren
+                    let buchungZeit = '?';
+                    if (r.timestamp || r.createdAt) {
+                        const bookingDate = new Date(r.timestamp || r.createdAt);
+                        buchungZeit = bookingDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    // Stornierungszeit formatieren
+                    let stornoZeit = '?';
+                    if (r.cancelledAt) {
+                        const cancelDate = new Date(r.cancelledAt);
+                        stornoZeit = cancelDate.toLocaleString('de-DE', {
+                            day: '2-digit', month: '2-digit', 
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    }
+                    
+                    // Abholzeit formatieren (falls Vorbestellung)
+                    let abholZeit = '';
+                    if (r.pickupTime && r.pickupTime !== 'Sofort') {
+                        abholZeit = `⏰ Geplant: ${r.pickupTime}<br>`;
+                    }
+                    
+                    return `
+                    <div class="ride-card" style="background:#fef2f2;border-left:4px solid #ef4444;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
+                            <span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">🚨 Storniert</span>
+                        </div>
+                        ${r.customerName ? `<div style="font-weight:600;color:#991b1b;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        <div style="font-size:13px;color:#666;">
+                            📍 Von: ${r.pickup}<br>
+                            🎯 Nach: ${r.destination}<br>
+                            ${abholZeit}
+                            💰 Preis: ${r.price || '?'}€<br>
+                            ${r.cancellationFee ? `<strong style="color:#dc2626;">💶 Stornogebühr: ${r.cancellationFee.toFixed(2)}€</strong><br>` : ''}
+                            ❌ Storniert: ${stornoZeit}<br>
+                            ${r.cancellationReason ? `📝 Grund: ${r.cancellationReason}` : ''}
+                        </div>
+                    </div>
+                `;
+                }).join('');
+                
+                document.getElementById('cancelled-rides').innerHTML = html;
+            }
+        </script>
         
-        <!-- BOTTOM BAR -->
-        <div style="
+        <!-- 🚨 STORNIERUNG PANEL (NEU!) -->
+        <div id="cancellation-panel" style="
+            display: none;
             position: fixed;
-            bottom: 0;
+            top: 0;
             left: 0;
             right: 0;
-            background: white;
-            border-top: 2px solid #e5e7eb;
-            display: flex;
-            box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
-            z-index: 1000;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            padding: 20px;
+            overflow-y: auto;
         ">
-            <!-- Fahrten -->
-            <button onclick="alert('Fahrten-Historie kommt später!')" style="
-                flex: 1;
-                padding: 16px;
+            <div id="cancellation-list" style="
                 background: white;
-                border: none;
-                border-right: 1px solid #e5e7eb;
-                cursor: pointer;
-            ">
-                <div style="font-size: 20px; margin-bottom: 4px;">📋</div>
-                <div style="font-size: 11px; color: #6b7280; font-weight: 600;">FAHRTEN</div>
-            </button>
-            
-            <!-- STATUS -->
-            <button id="status-button-isarfunk" onclick="cycleStatusIsarfunk()" style="
-                flex: 1;
-                padding: 16px;
-                background: #10b981;
-                border: none;
-                cursor: pointer;
-            ">
-                <div style="font-size: 20px; margin-bottom: 4px; color: white;">✓</div>
-                <div id="status-text-isarfunk" style="font-size: 12px; color: white; font-weight: 900;">FREI</div>
-            </button>
-            
-            <!-- Nachrichten -->
-            <button onclick="alert('Nachrichten kommen später!')" style="
-                flex: 1;
-                padding: 16px;
-                background: white;
-                border: none;
-                border-left: 1px solid #e5e7eb;
-                cursor: pointer;
-                position: relative;
-            ">
-                <div style="font-size: 20px; margin-bottom: 4px;">💬</div>
-                <div style="font-size: 11px; color: #6b7280; font-weight: 600;">NACHRICHTEN</div>
-            </button>
+                border-radius: 12px;
+                padding: 20px;
+                max-width: 500px;
+                margin: 0 auto;
+            "></div>
         </div>
         
-        <!-- Hidden Select -->
-        <select id="vehicle" style="display: none;"></select>
+        <!-- 🚕 NEUER AUFTRAG FULLSCREEN POPUP (NEU!) -->
+        <div id="new-ride-fullscreen" style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 10002;
+            padding: 15px;
+            overflow-y: auto;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        ">
+            <div style="
+                background: white;
+                border-radius: 16px;
+                padding: 0;
+                max-width: 380px;
+                width: 100%;
+                margin: 20px auto;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+                overflow: hidden;
+            ">
+                <!-- Header - kompakter -->
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 15px;
+                    text-align: center;
+                    position: relative;
+                ">
+                    <button onclick="closeNewRideFullscreen()" style="
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        background: rgba(0,0,0,0.4);
+                        color: white;
+                        border: 2px solid white;
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 50%;
+                        font-size: 20px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">✕</button>
+                    
+                    <div style="font-size: 40px; margin-bottom: 5px;">🚕</div>
+                    <div style="font-size: 22px; font-weight: bold; color: white;">
+                        NEUE FAHRT!
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div id="new-ride-fullscreen-content" style="padding: 15px;">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+                </div>
+            </div>
+        </div>
         
-        <!-- Debug Panel -->
-        <div id="debug-panel" style="display: none;"></div>
+        <!-- FULLSCREEN KARTE Container -->
+        <div id="driver-route-info" style="
+            display: none;
+            position: relative;
+            height: calc(100vh - 150px);
+        ">
+            <!-- 🎴 CARDS INFO TOP (A3/B3 Design) -->
+            <div id="driver-cards-container" style="
+                padding: 10px;
+                background: white;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                display: grid;
+                gap: 8px;
+            ">
+                <!-- Kunde Card (mit Telefon) -->
+                <div id="driver-customer-card" style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 8px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-left: 4px solid #667eea;
+                ">
+                    <div style="flex: 1;">
+                        <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
+                            Kunde
+                        </div>
+                        <div id="driver-customer-name" style="font-size: 14px; font-weight: 600; color: #333;">
+                            👤 Kunde
+                        </div>
+                    </div>
+                    <button id="driver-call-button" onclick="callCustomer()" style="
+                        background: #10b981;
+                        color: white;
+                        border: none;
+                        padding: 8px 12px;
+                        border-radius: 16px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: none;
+                    ">📞</button>
+                </div>
+                
+                <!-- Preis Card (nur bei picked_up) -->
+                <div id="driver-price-card" style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border-left: 4px solid #10b981;
+                    display: none;
+                ">
+                    <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
+                        Preis
+                    </div>
+                    <div id="driver-price-value" style="font-size: 14px; font-weight: 600; color: #333;">
+                        💰 -
+                    </div>
+                </div>
+                
+                <!-- Pickup Card (nur bei accepted) -->
+                <div id="driver-pickup-card" style="
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border-left: 4px solid #667eea;
+                    display: none;
+                ">
+                    <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 3px;">
+                        📍 Abholen
+                    </div>
+                    <div id="driver-pickup-value" style="font-size: 14px; font-weight: 600; color: #333;">
+                        -
+                    </div>
+                </div>
+                
+                <!-- Destination Card -->
+                <div id="driver-dest-card" style="
+                    background: #ecfdf5;
+                    padding: 10px;
+                    border-radius: 8px;
+                    border-left: 4px solid #10b981;
+                ">
+                    <div style="font-size: 10px; color: #059669; text-transform: uppercase; margin-bottom: 3px;">
+                        🎯 Ziel
+                    </div>
+                    <div id="driver-dest-value" style="font-size: 14px; font-weight: 600; color: #065f46;">
+                        -
+                    </div>
+                </div>
+                
+                <!-- Action Button -->
+                <button id="driver-action-button" style="
+                    width: 100%;
+                    padding: 12px;
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    cursor: pointer;
+                ">🚗 Beim Kunden angekommen</button>
+            </div>
+            
+            <!-- ❌ KARTE ENTFERNT - NUR INFO! -->
+            
+            <!-- Turn-by-Turn Central Overlay (GROß in der Mitte) -->
+            <div id="turn-by-turn" style="
+                display: none;
+                position: absolute;
+                top: 60px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255,255,255,0.98);
+                border-radius: 16px;
+                padding: 20px 30px;
+                text-align: center;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                backdrop-filter: blur(10px);
+                border: 3px solid #667eea;
+                z-index: 900;
+            ">
+                <div style="font-size: 56px; color: #667eea; margin-bottom: 8px;" id="turn-icon">↑</div>
+                <div style="font-size: 36px; font-weight: bold; color: #333; margin-bottom: 5px;" id="turn-distance">150m</div>
+                <div style="font-size: 18px; color: #666;" id="turn-instruction">Geradeaus</div>
+            </div>
+            
+            <!-- Bottom Panel - Nur ETA -->
+            <div id="bottom-panel" style="
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                padding: 10px;
+                box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+                text-align: center;
+                font-size: 12px;
+                color: #666;
+                z-index: 900;
+            ">
+                <span><b id="route-distance">-</b>km</span>
+                <span> • </span>
+                <span><b id="route-duration">-</b>min</span>
+                <span> • </span>
+                <span>ETA <b id="route-eta">-</b></span>
+            </div>
+        </div>
+        
+        <!-- Ready State (wenn keine Fahrt) - NUR FÜR FAHRER -->
+        <div id="driver-ready" style="
+            display: none;
+            padding: 80px 20px;
+            text-align: center;
+        ">
+            <div style="font-size: 80px; margin-bottom: 20px;">🚕</div>
+            <div style="font-size: 28px; font-weight: 600; color: #667eea; margin-bottom: 10px;">Bereit!</div>
+            <div style="font-size: 14px; color: #999;">Wähle Fahrzeug & gehe Online</div>
+        </div>
+        
+        <script>
+            // 📱 HEADER TOGGLE
+            let headerCollapsed = false;
+            function toggleHeader() {
+                const header = document.getElementById('main-header');
+                const content = document.getElementById('header-content');
+                const toggle = document.getElementById('header-toggle');
+                
+                headerCollapsed = !headerCollapsed;
+                
+                if (headerCollapsed) {
+                    content.style.display = 'none';
+                    toggle.textContent = '▶';
+                    header.style.padding = '8px 15px';
+                } else {
+                    content.style.display = 'block';
+                    toggle.textContent = '▼';
+                    header.style.padding = '15px';
+                }
+            }
+            
+            // 🔄 CACHE & DATEN LEEREN
+            function clearAppCache(event) {
+                // Verhindere dass Header collapsed wird
+                if (event) event.stopPropagation();
+                
+                console.log('🔄 CACHE LEEREN GESTARTET...');
+                
+                const confirmed = confirm(
+                    '🔄 Cache & Daten leeren?\n\n' +
+                    'Das löscht:\n' +
+                    '✓ LocalStorage (gespeicherte Daten)\n' +
+                    '✓ SessionStorage\n' +
+                    '✓ Service Worker\n\n' +
+                    'Die Seite wird neu geladen.\n\n' +
+                    'Fortfahren?'
+                );
+                
+                if (!confirmed) {
+                    console.log('❌ Abgebrochen');
+                    return;
+                }
+                
+                let cleared = [];
+                
+                try {
+                    // 🆕 v5.86.12: SELECTIVE CLEAR - Behalte wichtige App-Config!
+                    console.log('🔄 LocalStorage wird selektiv geleert...');
+                    
+                    // ✅ DIESE KEYS BLEIBEN ERHALTEN (App-Config):
+                    const keysToKeep = [
+                        'anthropic_api_key',           // AI-Assistent API Key
+                        'telegram_bot_token',          // Telegram Bot Token
+                        'telegram_admin_chat_id',      // Admin Telegram Chat ID
+                        'google_calendar_id',          // Google Calendar ID
+                        'fritzbox_config',             // FritzBox Config
+                        'app_settings'                 // App-Einstellungen
+                    ];
+                    
+                    // Speichere wichtige Keys temporär
+                    const savedData = {};
+                    keysToKeep.forEach(key => {
+                        const value = localStorage.getItem(key);
+                        if (value) {
+                            savedData[key] = value;
+                            console.log('💾 Behalte:', key);
+                        }
+                    });
+                    
+                    // Lösche ALLES
+                    localStorage.clear();
+                    
+                    // Stelle wichtige Keys wieder her
+                    Object.keys(savedData).forEach(key => {
+                        localStorage.setItem(key, savedData[key]);
+                        console.log('✅ Wiederhergestellt:', key);
+                    });
+                    
+                    console.log('✅ LocalStorage selektiv gelöscht (Config behalten)');
+                    cleared.push('LocalStorage (User-Daten)');
+                } catch (e) {
+                    console.error('❌ LocalStorage Fehler:', e);
+                }
+                
+                try {
+                    // 2. SessionStorage leeren
+                    sessionStorage.clear();
+                    console.log('✅ SessionStorage gelöscht');
+                    cleared.push('SessionStorage');
+                } catch (e) {
+                    console.error('❌ SessionStorage Fehler:', e);
+                }
+                
+                try {
+                    // 3. Service Worker deregistrieren
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(registrations => {
+                            registrations.forEach(registration => {
+                                registration.unregister();
+                                console.log('✅ Service Worker deregistriert');
+                            });
+                            cleared.push('Service Worker');
+                        });
+                    }
+                } catch (e) {
+                    console.error('❌ Service Worker Fehler:', e);
+                }
+                
+                // 4. IndexedDB leeren (falls vorhanden)
+                try {
+                    if (window.indexedDB) {
+                        indexedDB.databases().then(databases => {
+                            databases.forEach(db => {
+                                indexedDB.deleteDatabase(db.name);
+                                console.log('✅ IndexedDB gelöscht:', db.name);
+                            });
+                        });
+                        cleared.push('IndexedDB');
+                    }
+                } catch (e) {
+                    console.error('❌ IndexedDB Fehler:', e);
+                }
+                
+                console.log('✅ Gelöscht:', cleared.join(', '));
+                
+                // Zeige Erfolg + Anleitung für Browser-Cache
+                alert(
+                    '✅ App-Daten gelöscht!\n\n' +
+                    'Gelöscht: ' + cleared.join(', ') + '\n\n' +
+                    '⚠️ BROWSER-CACHE:\n' +
+                    'Muss manuell gelöscht werden:\n\n' +
+                    'Desktop: Strg+Shift+R\n' +
+                    'Android: Chrome Menü → Verlauf →\n' +
+                    'Browserdaten löschen → Cache\n\n' +
+                    'Seite wird jetzt neu geladen...'
+                );
+                
+                // Hard Reload
+                setTimeout(() => {
+                    console.log('🔄 Hard Reload...');
+                    window.location.reload(true);
+                }, 500);
+            }
+            
+            // 🆕 v5.38.5: DEBUG-MODUS TOGGLE
+            function toggleDebugMode() {
+                debugMode = !debugMode;
+                localStorage.setItem('debugMode', debugMode);
+                
+                const icon = document.getElementById('debug-icon');
+                
+                if (debugMode) {
+                    // Aktiviere Console
+                    if (console._originalLog) {
+                        console.log = console._originalLog;
+                        console.error = console._originalError;
+                        console.warn = console._originalWarn;
+                    }
+                    
+                    icon.textContent = '🟢';
+                    console.log('═══════════════════════════════════════════════════════════════════');
+                    console.log('✅ DEBUG-MODUS AKTIVIERT!');
+                    console.log('📊 Console-Logs sind jetzt sichtbar!');
+                    console.log('═══════════════════════════════════════════════════════════════════');
+                } else {
+                    console.log('═══════════════════════════════════════════════════════════════════');
+                    console.log('🔴 DEBUG-MODUS DEAKTIVIERT!');
+                    console.log('═══════════════════════════════════════════════════════════════════');
+                    
+                    // Deaktiviere Console
+                    console.log = function() {};
+                    console.error = function() {};
+                    console.warn = function() {};
+                    
+                    icon.textContent = '🐛';
+                }
+            }
+            
+            
+            function toggleNewRidesPanel() {
+                console.log('🔧 v5.90.403: toggleNewRidesPanel() aufgerufen');
+                const panel = document.getElementById('new-rides-panel');
+                console.log('  - Panel gefunden:', !!panel);
+                if (panel) {
+                    // 🆕 v5.90.403: NUR ÖFFNEN, kein Toggle!
+                    panel.style.display = 'block';
+                    panel.style.visibility = 'visible';
+                    panel.style.opacity = '1';
+                    panel.style.zIndex = '99999';
+                    console.log('  - Panel GEÖFFNET (ohne Alert)!');
+                    
+                    const ridesDiv = document.getElementById('new-rides-list');
+                    console.log('  - Rides DIV innerHTML length:', ridesDiv ? ridesDiv.innerHTML.length : 0);
+                }
+            }
+            
+            // 🆕 v5.90.403: Close-Funktion
+            function closeNewRidesPanel() {
+                const panel = document.getElementById('new-rides-panel');
+                if (panel) {
+                    panel.style.display = 'none';
+                    console.log('🔧 v5.90.403: Panel geschlossen');
+                }
+            }
+            
+            
+            // 🚨 STORNIERUNG PANEL FUNKTIONEN
+            function showCancellationPanel() {
+                const myRides = currentVehicle ? rides.filter(r => r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle)) : [];
+                // 🆕 VEREINFACHT: Nur cancelled Fahrten die noch nicht gesehen wurden
+                const pendingCancellations = myRides.filter(r => 
+                    r.status === 'cancelled' && r.driverNotified === false
+                );
+                
+                if (pendingCancellations.length === 0) {
+                    alert('Keine Stornierungen!');
+                    return;
+                }
+                
+                let html = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h2 style="margin:0;color:#ef4444;">🚨 Stornierungen</h2>
+                        <button onclick="closeCancellationPanel()" style="
+                            background:#ef4444;
+                            color:white;
+                            border:none;
+                            padding:8px 16px;
+                            border-radius:8px;
+                            cursor:pointer;
+                            font-weight:600;
+                        ">✕ Schließen</button>
+                    </div>
+                `;
+                
+                pendingCancellations.forEach(ride => {
+                    const cancellationFee = calculateCancellationFee(ride);
+                    html += `
+                        <div style="
+                            background:#fef2f2;
+                            border:3px solid #ef4444;
+                            border-radius:12px;
+                            padding:20px;
+                            margin-bottom:15px;
+                        ">
+                            <div style="font-size:24px;font-weight:bold;color:#ef4444;margin-bottom:15px;">
+                                Fahrt #${ride.id}
+                            </div>
+                            
+                            ${ride.customerName ? `
+                            <div style="padding:12px;background:#dbeafe;border-radius:8px;margin-bottom:12px;">
+                                <div style="font-size:18px;font-weight:600;color:#1e40af;">
+                                    👤 ${ride.customerName}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div style="margin-bottom:12px;font-size:14px;">
+                                <strong>Von:</strong> ${ride.pickup}<br>
+                                <strong>Nach:</strong> ${ride.destination}<br>
+                                <strong>Abholung:</strong> ${ride.pickupTime || 'Sofort'}<br>
+                                <strong>Preis:</strong> ${ride.price}€
+                            </div>
+                            
+                            ${ride.cancellationReason ? `
+                            <div style="
+                                padding:12px;
+                                background:#fff7ed;
+                                border-left:4px solid #f59e0b;
+                                border-radius:6px;
+                                margin-bottom:12px;
+                            ">
+                                <strong>Grund:</strong> ${ride.cancellationReason}
+                            </div>
+                            ` : ''}
+                            
+                            <div style="
+                                padding:15px;
+                                background:white;
+                                border-radius:8px;
+                                margin-bottom:15px;
+                                text-align:center;
+                            ">
+                                <div style="font-size:12px;color:#666;margin-bottom:5px;">
+                                    Stornierungsgebühr
+                                </div>
+                                <div style="font-size:32px;font-weight:bold;color:#ef4444;">
+                                    ${cancellationFee.toFixed(2)}€
+                                </div>
+                            </div>
+                            
+                            <button onclick="confirmCancellation('${ride.firebaseId || ride.id}')" style="
+                                width:100%;
+                                padding:16px;
+                                background:#ef4444;
+                                color:white;
+                                border:none;
+                                border-radius:12px;
+                                font-size:16px;
+                                font-weight:bold;
+                                cursor:pointer;
+                            ">
+                                ✓ OK, verstanden
+                            </button>
+                            
+                            <button onclick="showRideDetails('${ride.firebaseId || ride.id}')" style="
+                                width:100%;
+                                padding:12px;
+                                background:white;
+                                color:#ef4444;
+                                border:2px solid #ef4444;
+                                border-radius:12px;
+                                font-size:14px;
+                                font-weight:600;
+                                cursor:pointer;
+                                margin-top:10px;
+                            ">
+                                Details ansehen
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('cancellation-list').innerHTML = html;
+                document.getElementById('cancellation-panel').style.display = 'block';
+            }
+            
+            function closeCancellationPanel() {
+                document.getElementById('cancellation-panel').style.display = 'none';
+            }
+            
+            async function confirmCancellation(rideId) {
+                try {
+                    const ride = rides.find(r => (r.firebaseId || r.id) === rideId);
+                    if (!ride) {
+                        alert('❌ Fahrt nicht gefunden!');
+                        return;
+                    }
+                    
+                    // 🆕 VEREINFACHT: Nur als "gesehen" markieren, kein Status-Wechsel nötig
+                    const updates = {
+                        driverNotified: true,
+                        driverConfirmedAt: new Date().toISOString()
+                    };
+                    
+                    if (isFirebaseReady) {
+                        await db.ref('rides/' + rideId).update(updates);
+                        console.log('✅ Stornierung zur Kenntnis genommen:', rideId);
+                    }
+                    
+                    // Update lokal
+                    Object.assign(ride, updates);
+                    saveRides();
+                    
+                    // ✅ Panel schließen
+                    closeCancellationPanel();
+                    
+                    // UI Update
+                    updateViews();
+                    
+                    // 🆕 Einfache Bestätigung
+                    const feeText = ride.cancellationFee ? ` (Gebühr: ${ride.cancellationFee.toFixed(2)}€)` : '';
+                    alert('✅ OK!' + feeText);
+                    
+                } catch (error) {
+                    console.error('❌ Fehler:', error);
+                    alert('❌ Fehler: ' + error.message);
+                }
+            }
+            
+            function calculateCancellationFee(ride) {
+                // Stornierungsgebühr = Grundpreis (4€) + 10% vom Fahrpreis
+                const baseFee = 4.00;
+                const percentageFee = ride.price ? ride.price * 0.1 : 0;
+                const total = baseFee + percentageFee;
+                
+                // Runde auf 10 Cent
+                return Math.round(total * 10) / 10;
+            }
+        </script>
     </div>
 
     <div id="admin-view" class="view admin-only">
@@ -17251,6 +18116,7 @@ Aktuell: ${currentNum}`;
                         ${(() => {
                             let buttonCount = 3; // Schließen + ID kopieren + WhatsApp
                             if (ride.status === 'cancelled') buttonCount++; // Wiederherstellen
+                            if (ride.status === 'completed') buttonCount++; // Status ändern
                             // 🆕 v5.90.270: Admin-Accept Button wenn assigned!
                             if (ride.status === 'assigned') buttonCount++;
                             // 🆕 v5.87.58: Stornieren NUR wenn KEINE Hotel-Fahrt!
@@ -17265,6 +18131,11 @@ Aktuell: ${currentNum}`;
                             <button onclick="shareRideViaWhatsApp(${JSON.stringify(ride).replace(/"/g, '&quot;')})" style="padding:12px;background:#25D366;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
                                 💬
                             </button>
+                            ${ride.status === 'completed' && ride.firebaseId ? `
+                            <button onclick="changeRideStatus('${ride.firebaseId}', '${ride.status}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                                ⚙️ Status
+                            </button>
+                            ` : ''}
                             ${ride.status === 'assigned' && ride.firebaseId ? `
                             <button onclick="adminAcceptRide('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                                 👤 ALS ADMIN AKZEPTIEREN
@@ -63350,6 +64221,217 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // 🆕 v5.90.108: Assignment Mode laden
             setTimeout(() => loadAssignmentMode(), 2000);
         });
+
+// ═══════════════════════════════════════════════════════════════
+// v5.90.453: STATUS ÄNDERN FÜR ABGESCHLOSSENE FAHRTEN
+// ═══════════════════════════════════════════════════════════════
+
+async function changeRideStatus(rideId, currentStatus) {
+    try {
+        console.log('⚙️ Ändere Status für Fahrt:', rideId, '| Aktuell:', currentStatus);
+        
+        const snapshot = await db.ref(`rides/${rideId}`).once('value');
+        const ride = snapshot.val();
+        
+        if (!ride) {
+            alert('❌ Fahrt nicht gefunden!');
+            return;
+        }
+        
+        const statusOptions = [
+            { value: 'new', label: '🆕 Neu', color: '#3b82f6' },
+            { value: 'vorbestellt', label: '📅 Vorbestellt', color: '#f59e0b' },
+            { value: 'accepted', label: '✅ Angenommen', color: '#10b981' },
+            { value: 'picked_up', label: '🚗 Unterwegs', color: '#8b5cf6' },
+            { value: 'completed', label: '✅ Abgeschlossen', color: '#10b981' },
+            { value: 'cancelled', label: '🗑️ Storniert', color: '#ef4444' }
+        ];
+        
+        const modal = document.createElement('div');
+        modal.id = 'status-change-modal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+        
+        modal.innerHTML = `
+            <div style="background:white;border-radius:16px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <div style="font-size:28px;margin-bottom:5px;">⚙️</div>
+                            <h3 style="margin:0;font-size:18px;">Status ändern</h3>
+                        </div>
+                        <button onclick="this.closest('#status-change-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:32px;height:32px;border-radius:50%;cursor:pointer;">×</button>
+                    </div>
+                </div>
+                
+                <div style="padding:20px;">
+                    <div style="background:#fef3c7;border:2px solid #f59e0b;padding:15px;border-radius:10px;margin-bottom:20px;">
+                        <div style="font-size:13px;color:#92400e;line-height:1.6;">
+                            <strong>Fahrt:</strong> ${ride.customerName || 'Unbekannt'}<br>
+                            <strong>Von:</strong> ${ride.pickup || 'N/A'}<br>
+                            <strong>Nach:</strong> ${ride.destination || 'N/A'}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600;margin-bottom:10px;color:#374151;">Neuer Status:</div>
+                        <div style="display:grid;gap:10px;">
+                            ${statusOptions.map(status => `
+                                <button onclick="updateRideStatus('${rideId}', '${status.value}')" style="
+                                    padding:15px;
+                                    background:${status.value === currentStatus ? '#f3f4f6' : 'white'};
+                                    border:2px solid ${status.color};
+                                    border-radius:8px;
+                                    cursor:pointer;
+                                    text-align:left;
+                                    font-weight:600;
+                                " onmouseover="if('${status.value}' !== '${currentStatus}') this.style.background='${status.color}';this.style.color='white';" onmouseout="if('${status.value}' !== '${currentStatus}') {this.style.background='white';this.style.color='inherit';}">
+                                    ${status.label}${status.value === currentStatus ? ' (aktuell)' : ''}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <button onclick="this.closest('#status-change-modal').remove()" style="width:100%;padding:12px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
+                        Abbrechen
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+    } catch (error) {
+        console.error('❌ Fehler:', error);
+        alert('❌ Fehler: ' + error.message);
+    }
+}
+
+async function updateRideStatus(rideId, newStatus) {
+    try {
+        console.log('💾 Aktualisiere Status:', rideId, '→', newStatus);
+        
+        await db.ref(`rides/${rideId}`).update({
+            status: newStatus,
+            statusUpdatedAt: Date.now(),
+            statusUpdatedBy: currentUser?.uid || 'admin'
+        });
+        
+        console.log('✅ Status aktualisiert!');
+        
+        const modal = document.getElementById('status-change-modal');
+        if (modal) modal.remove();
+        
+        if (currentView === 'schedule-view') {
+            renderCalendar();
+        }
+        
+        alert(`✅ Status geändert zu: ${newStatus}`);
+        
+    } catch (error) {
+        console.error('❌ Fehler:', error);
+        alert('❌ Fehler: ' + error.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v5.90.453: EXPORT-FUNKTIONEN
+// ═══════════════════════════════════════════════════════════════
+
+async function exportAllCustomersToVCF() {
+    try {
+        console.log('📥 Exportiere alle Kunden...');
+        
+        if (!isFirebaseReady) {
+            alert('❌ Firebase nicht bereit!');
+            return;
+        }
+        
+        const snapshot = await db.ref('customers').once('value');
+        
+        if (!snapshot.exists()) {
+            alert('❌ Keine Kunden vorhanden!');
+            return;
+        }
+        
+        const customers = [];
+        snapshot.forEach(child => {
+            const c = child.val();
+            c.id = child.key;
+            customers.push(c);
+        });
+        
+        let vcfContent = '';
+        
+        customers.forEach(customer => {
+            vcfContent += 'BEGIN:VCARD\nVERSION:3.0\n';
+            vcfContent += `FN:${customer.name || 'Unbekannt'}\n`;
+            vcfContent += `N:${customer.name || 'Unbekannt'};;;;\n`;
+            
+            if (customer.phone || customer.mobilePhone) {
+                vcfContent += `TEL;TYPE=CELL:${customer.phone || customer.mobilePhone}\n`;
+            }
+            
+            if (customer.email) vcfContent += `EMAIL:${customer.email}\n`;
+            if (customer.address) vcfContent += `ADR;TYPE=HOME:;;${customer.address};;;;\n`;
+            if (customer.notes) vcfContent += `NOTE:${customer.notes}\n`;
+            
+            vcfContent += 'END:VCARD\n';
+        });
+        
+        const blob = new Blob([vcfContent], { type: 'text/vcard;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `funk-taxi-kunden-${new Date().toISOString().split('T')[0]}.vcf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        alert(`✅ ${customers.length} Kunden exportiert!`);
+        
+    } catch (error) {
+        console.error('❌ Fehler:', error);
+        alert('❌ Fehler: ' + error.message);
+    }
+}
+
+async function exportCustomerToVCF(customerId) {
+    try {
+        const snapshot = await db.ref(`customers/${customerId}`).once('value');
+        const customer = snapshot.val();
+        
+        if (!customer) {
+            alert('❌ Kunde nicht gefunden!');
+            return;
+        }
+        
+        let vcfContent = 'BEGIN:VCARD\nVERSION:3.0\n';
+        vcfContent += `FN:${customer.name || 'Unbekannt'}\n`;
+        vcfContent += `N:${customer.name || 'Unbekannt'};;;;\n`;
+        
+        if (customer.phone || customer.mobilePhone) {
+            vcfContent += `TEL;TYPE=CELL:${customer.phone || customer.mobilePhone}\n`;
+        }
+        
+        if (customer.email) vcfContent += `EMAIL:${customer.email}\n`;
+        if (customer.address) vcfContent += `ADR;TYPE=HOME:;;${customer.address};;;;\n`;
+        
+        vcfContent += 'END:VCARD\n';
+        
+        const blob = new Blob([vcfContent], { type: 'text/vcard;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${customer.name || 'kunde'}.vcf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+    } catch (error) {
+        console.error('❌ Fehler:', error);
+        alert('❌ Fehler: ' + error.message);
+    }
+}
+
+console.log('✅ v5.90.453: Status ändern + Export-Funktionen geladen!');
     </script>
 
 

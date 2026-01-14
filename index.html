@@ -108,22 +108,22 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.425 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1700)');
-        console.log('✅ v5.90.425: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.425: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.425: Admin lädt nur 100 Fahrten');
-        console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.425: Filter ignoriert alte IDs');
-        console.log('🔧 v5.90.425: AUTO-FIX repariert leere /vehicles!');
-        console.log('✅ v5.90.425: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.425: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.425: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.425: Kalender ignoriert alte Fahrzeug-IDs!');
-        console.log('✅ v5.90.425: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.425: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.425: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🚕 Funk Taxi App v5.90.428 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1700)');
+        console.log('✅ v5.90.428: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.428: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.428: Admin lädt nur 100 Fahrten');
+        console.log('🚫 v5.90.428: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.428: Filter ignoriert alte IDs');
+        console.log('🔧 v5.90.428: AUTO-FIX repariert leere /vehicles!');
+        console.log('✅ v5.90.428: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.428: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.428: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.428: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.428: Kalender ignoriert alte Fahrzeug-IDs!');
+        console.log('✅ v5.90.428: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.428: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.428: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.428: Hotel Auto-Sync DEAKTIVIERT');
         console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
         console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
         console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
@@ -2342,7 +2342,7 @@
                 font-weight: bold;
                 cursor: pointer;
                 font-size: 13px;
-            ">
+            " onclick="showRidesList()">
                 📋 <span id="new-rides-count">0</span>
             </button>
             
@@ -2356,7 +2356,7 @@
                 max-width: 140px;
             ">
                 <option value="">Fahrzeug wählen</option>
-                <!-- 🆕 v5.90.425: Wird dynamisch geladen! -->
+                <!-- 🆕 v5.90.428: Wird dynamisch geladen! -->
             </select>
             
             <!-- Stats Mini -->
@@ -2567,8 +2567,9 @@
             </div>
         </div>
         
-            <div style="padding: 10px;">
-                <div id="new-rides"></div>
+            <div style="padding: 16px; background: white; margin-top: 16px;">
+                <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: #333;">📋 Offene Fahrten</h3>
+                <div id="new-rides" style="min-height: 100px;"></div>
                 <div id="completed-rides" style="display: none;"></div>
                 <div id="cancelled-rides" style="display: none;"></div>
             </div>
@@ -3157,11 +3158,11 @@
             
             
             function toggleNewRidesPanel() {
-                console.log('🔧 v5.90.425: toggleNewRidesPanel() aufgerufen');
+                console.log('🔧 v5.90.428: toggleNewRidesPanel() aufgerufen');
                 const panel = document.getElementById('new-rides-panel');
                 console.log('  - Panel gefunden:', !!panel);
                 if (panel) {
-                    // 🆕 v5.90.425: NUR ÖFFNEN, kein Toggle!
+                    // 🆕 v5.90.428: NUR ÖFFNEN, kein Toggle!
                     panel.style.display = 'block';
                     panel.style.visibility = 'visible';
                     panel.style.opacity = '1';
@@ -3173,12 +3174,12 @@
                 }
             }
             
-            // 🆕 v5.90.425: Close-Funktion
+            // 🆕 v5.90.428: Close-Funktion
             function closeNewRidesPanel() {
                 const panel = document.getElementById('new-rides-panel');
                 if (panel) {
                     panel.style.display = 'none';
-                    console.log('🔧 v5.90.425: Panel geschlossen');
+                    console.log('🔧 v5.90.428: Panel geschlossen');
                 }
             }
             
@@ -10719,13 +10720,13 @@
                         }
                     });
                     
-                    // 🆕 v5.90.425: ADMIN PERFORMANCE - Nur 100 Fahrten!
+                    // 🆕 v5.90.428: ADMIN PERFORMANCE - Nur 100 Fahrten!
                     const ridesRef = currentUser && currentUser.role === 'admin' 
                         ? db.ref('rides').limitToLast(100)  // Admin: Nur 100!
                         : db.ref('rides');  // Andere: Alle
                     
                     if (currentUser && currentUser.role === 'admin') {
-                        console.log('⚡ v5.90.425: Admin erkannt → limitToLast(100)');
+                        console.log('⚡ v5.90.428: Admin erkannt → limitToLast(100)');
                     }
                     
                     ridesRef.on('value', (s) => {
@@ -12240,8 +12241,8 @@
         }
 
         function updateDriverView() {
-            // 🐛 v5.90.425: DEBUG LOGGING
-            console.log('🔧 v5.90.425: updateDriverView() aufgerufen');
+            // 🐛 v5.90.428: DEBUG LOGGING
+            console.log('🔧 v5.90.428: updateDriverView() aufgerufen');
             console.log('  - currentVehicle:', currentVehicle);
             console.log('  - rides.length:', rides.length);
             console.log('  - isOnline:', isOnline);
@@ -20435,16 +20436,6 @@
             let rideStatus = 'new';
             const now = new Date();
             
-            // 🚫 v5.90.112: SOFORT-BUCHUNG DEAKTIVIERT!
-            if (currentRideType === 'sofort' || !currentRideType) {
-                alert(
-                    '⏰ Nur Vorbestellung mit 1 Stunde Vorlauf möglich!\n\n' +
-                    '📞 Für kurzfristige Fahrten bitte anrufen:\n' +
-                    '03837822022'
-                );
-                return;
-            }
-            
             if (currentRideType === 'vorbestellen') {
                 // 📅 VORBESTELL-Buchung - Datum & Zeit direkt aus Feldern
                 const dateVal = document.getElementById('custom-date').value;
@@ -23874,6 +23865,64 @@
             }
         }
 
+        // 🆕 v5.90.428: FAHRTEN-LISTE ANZEIGEN!
+        function showRidesList() {
+            if (!currentVehicle) {
+                alert('⚠️ Bitte erst Fahrzeug wählen!');
+                return;
+            }
+            
+            // Finde alle neuen Fahrten
+            const newRides = rides.filter(r => 
+                r.status === 'new' && 
+                (!r.vehicleId || r.vehicleId === currentVehicle)
+            );
+            
+            if (newRides.length === 0) {
+                alert('✅ Keine offenen Fahrten vorhanden!');
+                return;
+            }
+            
+            // Erstelle Modal
+            const modal = document.createElement('div');
+            modal.id = 'rides-list-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999999999;';
+            
+            let ridesHtml = newRides.map(r => `
+                <div style="background:white;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <div style="font-weight:700;margin-bottom:8px;color:#1f2937;">👤 ${r.customerName || 'Unbekannt'}</div>
+                    <div style="font-size:13px;color:#666;margin-bottom:4px;">📍 Von: ${r.pickup}</div>
+                    <div style="font-size:13px;color:#666;margin-bottom:8px;">🎯 Nach: ${r.destination}</div>
+                    <div style="font-size:13px;color:#10b981;font-weight:600;">💰 ${r.price || '0.00'}€</div>
+                    <button onclick="acceptRideFromList('${r.firebaseId || r.id}')" style="width:100%;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;margin-top:8px;font-weight:700;cursor:pointer;">
+                        ✅ Annehmen
+                    </button>
+                </div>
+            `).join('');
+            
+            modal.innerHTML = `
+                <div style="background:#f9fafb;border-radius:16px;padding:20px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                        <h3 style="margin:0;font-size:18px;">📋 Offene Fahrten (${newRides.length})</h3>
+                        <button onclick="closeRidesList()" style="background:#ef4444;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;">✕</button>
+                    </div>
+                    ${ridesHtml}
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        function closeRidesList() {
+            const modal = document.getElementById('rides-list-modal');
+            if (modal) modal.remove();
+        }
+        
+        async function acceptRideFromList(rideId) {
+            closeRidesList();
+            await acceptRide(rideId);
+        }
+
         function setVehicle() {
             const previousVehicle = currentVehicle;
             const vehicleId = document.getElementById('vehicle').value;
@@ -26995,10 +27044,10 @@
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    console.log('🚗 v5.90.425: Lade Fahrzeuge aus Firebase...');
+                    console.log('🚗 v5.90.428: Lade Fahrzeuge aus Firebase...');
                     VEHICLES = {};
                     
-                    // 🆕 v5.90.425: Definiere korrekte Namen für leere Einträge
+                    // 🆕 v5.90.428: Definiere korrekte Namen für leere Einträge
                     const NAME_MAP = {
                         'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222' },
                         'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222' },
@@ -27048,14 +27097,14 @@
                 const currentValue = select.value;
                 select.innerHTML = '<option value="">-- Fahrzeug wählen --</option>';
                 Object.values(VEHICLES).forEach(v => {
-                    // 🆕 v5.90.425: KEIN FILTER! Alle Fahrzeuge anzeigen
+                    // 🆕 v5.90.428: KEIN FILTER! Alle Fahrzeuge anzeigen
                     if (v.id && v.name) {
                         const icon = v.type && v.type.includes('Model Y') ? '🚙' : '🚗';
                         select.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.name} (${v.plate})</option>`;
                     }
                 });
                 
-                console.log('✅ v5.90.425: Dropdown aktualisiert:', select.id, Object.keys(VEHICLES).length, 'Fahrzeuge');
+                console.log('✅ v5.90.428: Dropdown aktualisiert:', select.id, Object.keys(VEHICLES).length, 'Fahrzeuge');
             });
         }
         
@@ -30078,11 +30127,11 @@
                         const v = child.val();
                         v.id = child.key;
                         
-                        // 🆕 v5.90.425: NUR neue IDs (pw-xxx)
+                        // 🆕 v5.90.428: NUR neue IDs (pw-xxx)
                         if (v.id && v.name) {
                             vehicles.push(v);
                         } else {
-                            console.log('⏭️ v5.90.425 Quick: Ignoriere alte ID:', v.id);
+                            console.log('⏭️ v5.90.428 Quick: Ignoriere alte ID:', v.id);
                         }
                     });
                     
@@ -38547,7 +38596,7 @@ Stack: ${err.stack}
                 return;
             }
             
-            // 🆕 v5.90.425: Prüfe ob Nummer SCHON mit + beginnt!
+            // 🆕 v5.90.428: Prüfe ob Nummer SCHON mit + beginnt!
             let fullPhoneNumber;
             if (phoneNumber.startsWith('+')) {
                 // Nummer hat bereits Ländervorwahl
@@ -38684,7 +38733,7 @@ Stack: ${err.stack}
                 return;
             }
             
-            // 🆕 v5.90.425: Prüfe ob Nummer SCHON mit + beginnt!
+            // 🆕 v5.90.428: Prüfe ob Nummer SCHON mit + beginnt!
             let fullPhoneNumber;
             if (phoneNumber.startsWith('+')) {
                 // Nummer hat bereits Ländervorwahl
@@ -40127,12 +40176,12 @@ Stack: ${err.stack}
                             const v = child.val();
                             v.id = child.key;
                             
-                            // 🆕 v5.90.425: FILTER alte IDs raus!
+                            // 🆕 v5.90.428: FILTER alte IDs raus!
                             // Nur Kennzeichen-basierte IDs (pw-xx-xxx)
                             if (v.id && v.name) {
                                 allVehicles.push(v);
                             } else {
-                                console.log('⏭️ v5.90.425: Ignoriere alte ID:', v.id);
+                                console.log('⏭️ v5.90.428: Ignoriere alte ID:', v.id);
                             }
                         });
                         console.log('🚗 Fahrzeuge für Kalender geladen:', allVehicles.length);
@@ -46671,9 +46720,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let autoSyncStarted = false; // Flag um Doppel-Start zu verhindern
         
         function startHotelCalendarAutoSync() {
-            // 🚫 v5.90.425: AUTO-SYNC DEAKTIVIERT!
-            console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
-            console.log('ℹ️ v5.90.425: Hotel-Kalender nur noch manuell laden');
+            // 🚫 v5.90.428: AUTO-SYNC DEAKTIVIERT!
+            console.log('🚫 v5.90.428: Hotel Auto-Sync DEAKTIVIERT');
+            console.log('ℹ️ v5.90.428: Hotel-Kalender nur noch manuell laden');
             return;  // ← STOP HIER!
             
             // Alter Code (deaktiviert):

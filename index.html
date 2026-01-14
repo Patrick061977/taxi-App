@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.419
+    📦 VERSION: v5.90.420
     📅 BUILD: 13.01.2026 12:15 Uhr - HOTEL-KALENDER AUTO-SYNC DEAKTIVIERT!
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.419 - FAHRER RECHNUNG + PERFORMANCE!
+    📋 CHANGELOG v5.90.420 - FAHRER RECHNUNG + PERFORMANCE!
     ═══════════════════════════════════════════════════════════════════════════
     
-    🚀 v5.90.419 (13.01.2026) - HOTEL AUTO-SYNC DEAKTIVIERT:
+    🚀 v5.90.420 (13.01.2026) - HOTEL AUTO-SYNC DEAKTIVIERT:
        • 🚫 Hotel-Kalender Auto-Sync komplett deaktiviert
        • ✅ KEINE Token-Refresh-Errors mehr
        • ✅ Kein Sync beim Start
@@ -192,7 +192,7 @@
             window.consoleLogHistory = [];
             window.consolePaused = false;
             
-            // 🔧 v5.90.419: Helper Functions
+            // 🔧 v5.90.420: Helper Functions
             function getLocalDateString(timestamp) {
                 if (!timestamp) return '';
                 const d = new Date(timestamp);
@@ -250,7 +250,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.419 - GPS-TOGGLE FIX! 🔧 (Build 20260113-0930)');
+        console.log('🚕 Funk Taxi App v5.90.420 - GPS-TOGGLE FIX! 🔧 (Build 20260113-0930)');
         console.log('🔧 v5.90.371: CRASH FIX - renderDriverRides null check!');
         console.log('🔧 v5.90.371: VEHICLE STRUCTURE FIX - .id property!');
         console.log('🔧 v5.90.371: TRACKING in setVehicle() hinzugefügt!');
@@ -909,7 +909,7 @@
     <!-- 🔒 STRIPE DEAKTIVIERT - Löst "betrügerische Website" Warnung aus! -->
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
     <script>
-        // 🔍 v5.90.419: DEBUG-LOG-SYSTEM!
+        // 🔍 v5.90.420: DEBUG-LOG-SYSTEM!
         class DebugLogger {
             constructor() {
                 this.logs = [];
@@ -943,10 +943,6 @@
             }
         }
         const debugLog = new DebugLogger();
-updateAdminBadge(){let b=document.getElementById("admin-error-badge");if(!b){b=document.createElement("div");b.id="admin-error-badge";b.onclick=()=>this.toggleErrorPanel();b.style.cssText="position:fixed;top:20px;right:20px;background:#dc2626;color:white;padding:8px 12px;border-radius:20px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(220,38,38,0.4);z-index:99999;transition:all 0.3s;";document.body.appendChild(b)}b.innerHTML=`🔴 ${this.errors.length}`;b.style.animation="pulse 1s 3";setTimeout(()=>{b.style.animation=""},3000)}toggleErrorPanel(){let p=document.getElementById("admin-error-panel");if(p){p.remove();return}this.createErrorPanel()}createErrorPanel(){const p=document.createElement("div");p.id="admin-error-panel";p.style.cssText="position:fixed;top:70px;right:20px;width:500px;max-width:90vw;max-height:80vh;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:99998;overflow:hidden;";p.innerHTML=`<div style="background:#dc2626;color:white;padding:16px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-weight:700;font-size:16px;">🔴 System-Fehler (Admin)</div><div style="font-size:12px;opacity:0.9;">${this.errors.length} Fehler</div></div><div style="display:flex;gap:8px;"><button onclick="errorHandler.loadFirebaseErrors()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🔄</button><button onclick="errorHandler.clearLocalErrors()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🗑️</button></div></div><div style="overflow-y:auto;max-height:calc(80vh - 160px);padding:12px;">${this.errors.length===0?'<div style="text-align:center;padding:40px;opacity:0.5;">Keine Fehler</div>':this.errors.map(e=>this.renderError(e)).join("")}</div><div style="padding:12px;border-top:1px solid #e5e7eb;display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button onclick="errorHandler.exportErrors()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">📥 Export</button><button onclick="errorHandler.toggleErrorPanel()" style="padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">✕ Schließen</button></div>`;document.body.appendChild(p)}renderError(e){return`<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px;margin-bottom:8px;border-radius:4px;font-size:12px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="color:#dc2626;">+e.type+</strong><span style="font-size:11px;opacity:0.7;">${e.context?.view||"?"}</span></div><div style="margin-bottom:8px;font-family:'Courier New',monospace;word-break:break-word;font-size:11px;">+e.message+</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;opacity:0.8;margin-bottom:8px;"><div>👤 ${e.user?.email||"?"}</div><div>🎭 ${e.user?.role||"?"}</div>${e.user?.vehicle?`<div>🚗 ${e.user.vehicle}</div>`:""}<div>⏰ ${new Date(e.timestamp).toLocaleTimeString("de-DE")}</div></div>${e.filename?`<div style="background:#fff7ed;padding:6px;border-radius:4px;font-size:11px;">📁 ${e.filename.split("/").pop()}:${e.line}</div>`:""}<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:11px;">Stack</summary><pre style="background:#1f2937;color:#f3f4f6;padding:8px;border-radius:4px;overflow-x:auto;font-size:9px;margin-top:4px;">${e.stack}</pre></details></div>`}async loadFirebaseErrors(){if(!isFirebaseReady)return;try{const s=await db.ref("system_errors").orderByChild("timestamp").limitToLast(50).once("value");const fbErrors=[];s.forEach(c=>{fbErrors.unshift({...c.val(),firebaseKey:c.key})});this.errors=fbErrors;this.createErrorPanel();console.log("✅ Firebase Fehler geladen:",fbErrors.length)}catch(error){console.error("❌ Firebase laden fehlgeschlagen:",error)}}clearLocalErrors(){this.errors=[];const b=document.getElementById("admin-error-badge");if(b)b.remove();const p=document.getElementById("admin-error-panel");if(p)p.remove()}exportErrors(){const blob=new Blob([JSON.stringify(this.errors,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`system-errors-${Date.now()}.json`;a.click()}}
-if (typeof errorHandler === "undefined") {
-    console.warn("⚠️ errorHandler nicht verfügbar");
-}
         <script>
     </script>
     <script>
@@ -1064,9 +1060,9 @@ if (typeof errorHandler === "undefined") {
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Nach</label>
                 <input type="text" id="edit-ics-to" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;box-sizing:border-box;">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.409 - LIVE DEBUG LOG! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.409 - LIVE DEBUG LOG! (Build 20260114-1100)</p>
             
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔔 Version 5.90.408 - AUTO-POPUP + SOUND! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔔 Version 5.90.408 - AUTO-POPUP + SOUND! (Build 20260114-1100)</p>
                 <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Preis (€)</label>
                 <input type="number" id="edit-ics-price" step="0.01" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
@@ -1074,7 +1070,7 @@ if (typeof errorHandler === "undefined") {
             <div style="display:flex;gap:10px;">
                 <button onclick="saveIcsRideEdit()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
                     💾 Speichern
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛑 Version 5.90.410 - CRITICAL ERROR HANDLER! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛑 Version 5.90.410 - CRITICAL ERROR HANDLER! (Build 20260114-1100)</p>
                 <button onclick="closeEditIcsRideModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
                     Abbrechen
                 </button>
@@ -1107,7 +1103,7 @@ if (typeof errorHandler === "undefined") {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.411 - DEZENTER ERROR HANDLER! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.411 - DEZENTER ERROR HANDLER! (Build 20260114-1100)</p>
         ">
             <span style="font-weight: 700; font-size: 14px;">🐛 DEBUG LOGS</span>
             <div style="display: flex; gap: 8px;">
@@ -1141,7 +1137,7 @@ if (typeof errorHandler === "undefined") {
             ">
                 <div style="color: #10b981; font-weight: 600;">🐛 Debug Panel aktiviert!</div>
                 <div style="color: #6b7280; font-size: 10px;">Logs erscheinen hier in Echtzeit...</div>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.412 - ADMIN-ONLY ERRORS! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.412 - ADMIN-ONLY ERRORS! (Build 20260114-1100)</p>
             
             <!-- Actions -->
             <div style="padding: 10px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; gap: 8px;">
@@ -1166,19 +1162,19 @@ if (typeof errorHandler === "undefined") {
         font-size: 24px;
         cursor: pointer;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.418 - FINAL FIX! (Build 20260114-1045)</p>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🧹 Version 5.90.419 - CLEAN! Simple Status (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.418 - FINAL FIX! (Build 20260114-1100)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🧹 Version 5.90.419 - CLEAN! Simple Status (Build 20260114-1100)</p>
     " onclick="toggleDebugPanel()" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
         🐛
     </button>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.413 - SYSTEM MONITOR! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.420 - STATUS SICHTBAR! (Build 20260114-1100)</p>
     <div class="header" id="main-header" style="cursor: pointer; position: relative;" onclick="toggleHeader()">
         <!-- 🆕 v5.42.1: Avatar-Icon für eingeloggte User -->
         <button id="user-avatar-btn" onclick="openMenuAndScrollToProfile(event)" style="
             display: none;
             position: absolute;
             right: 65px;
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.414 - VEHICLE FIX! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.414 - VEHICLE FIX! (Build 20260114-1100)</p>
             transform: translateY(-50%);
             background: rgba(255,255,255,0.9);
             border: 2px solid rgba(255,255,255,0.5);
@@ -1186,7 +1182,7 @@ if (typeof errorHandler === "undefined") {
             width: 40px;
             height: 40px;
             align-items: center;
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.415 - TELEGRAM DATUM+ZEIT! (Build 20260114-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.415 - TELEGRAM DATUM+ZEIT! (Build 20260114-1100)</p>
             cursor: pointer;
             font-size: 18px;
             font-weight: 700;
@@ -2901,7 +2897,7 @@ if (typeof errorHandler === "undefined") {
                         <span id="toggle-label" style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.8);">AUS</span>
                     </div>
                     
-                    <!-- 🆕 v5.90.419: FAHRTEN-BUTTON! -->
+                    <!-- 🆕 v5.90.420: FAHRTEN-BUTTON! -->
                     <button onclick="openRidesWindow()" id="rides-button" style="
                         background: rgba(255,255,255,0.2);
                         border: 2px solid rgba(255,255,255,0.4);
@@ -3059,7 +3055,7 @@ if (typeof errorHandler === "undefined") {
     </div>
 
     <div id="admin-view" class="view admin-only">
-        <!-- 🎯 v5.90.419: SIMPLE STATUS BOX -->
+        <!-- 🎯 v5.90.420: SIMPLE STATUS BOX -->
         <div id="simple-status-container"></div>
         
         <!-- Header mit Suchleiste -->
@@ -5438,7 +5434,7 @@ if (typeof errorHandler === "undefined") {
 
     <div id="debug-view" class="view admin-only" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
         
-        <!-- 🔍 v5.90.419: LIVE DEBUG LOG -->
+        <!-- 🔍 v5.90.420: LIVE DEBUG LOG -->
         <div style="background: white; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); margin-bottom: 20px; overflow: hidden;">
             <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; padding: 20px; text-align: center;">
                 <div style="font-size: 48px; margin-bottom: 8px;">🔍</div>
@@ -12076,7 +12072,7 @@ Aktuell: ${currentNum}`;
                         }
                     });
                     
-                    // 🚀 v5.90.419: HAUPT-LISTENER - NUR FÜR ADMIN!
+                    // 🚀 v5.90.420: HAUPT-LISTENER - NUR FÜR ADMIN!
                     // 🚀 v5.90.386: OPTIMIERTER ADMIN-LISTENER!
                     // Lade nur AKTUELLE Fahrten (letzte 100)
                     let adminRidesListener = null;
@@ -12235,7 +12231,7 @@ Aktuell: ${currentNum}`;
                         setupAdminRidesListener();
                     });
                     
-                    // 🚀 v5.90.419: OPTIMIERTER FAHRER-LISTENER!
+                    // 🚀 v5.90.420: OPTIMIERTER FAHRER-LISTENER!
                     // NUR für Fahrer, lädt NUR zugewiesene Fahrten!
                     let driverRidesListener = null;
                     
@@ -12289,7 +12285,7 @@ Aktuell: ${currentNum}`;
                             .equalTo(currentVehicle)
                             .on('value', (snapshot) => {
                                 console.log('═══════════════════════════════════════');
-                                console.log('📥 v5.90.419: FAHRER-RIDES UPDATE!');
+                                console.log('📥 v5.90.420: FAHRER-RIDES UPDATE!');
                                 console.log('   Fahrzeug:', currentVehicle);
                                 
                                 const driverRides = [];
@@ -14853,8 +14849,8 @@ Aktuell: ${currentNum}`;
             `;
         }
 
-        // 🪟 v5.90.419: POPUP-FENSTER FÜR FAHRER-FAHRTEN!
-        // 🔔 v5.90.419: AUTO-POPUP BEI NEUER ZUWEISUNG!
+        // 🪟 v5.90.420: POPUP-FENSTER FÜR FAHRER-FAHRTEN!
+        // 🔔 v5.90.420: AUTO-POPUP BEI NEUER ZUWEISUNG!
         let lastAssignmentCheck = null;
         
         function checkForNewAssignments() {
@@ -14893,7 +14889,7 @@ Aktuell: ${currentNum}`;
         
 
         function openRidesWindow() {
-            console.log("🪟 v5.90.419: Öffne Fahrten-Fenster!");
+            console.log("🪟 v5.90.420: Öffne Fahrten-Fenster!");
             
             // Filtere Fahrten (gleiche Logik wie updateDriverView)
             const newRides = rides.filter(r => {
@@ -14933,7 +14929,7 @@ Aktuell: ${currentNum}`;
         function updateDriverView() {
             // 🆕 v5.90.300: ISARFUNK-STYLE!
             updateDriverViewIsarfunk();
-            // 🔔 v5.90.419: Check für neue Zuweisungen!
+            // 🔔 v5.90.420: Check für neue Zuweisungen!
             checkForNewAssignments();
             
             // Alte Logik für Kompatibilität
@@ -23132,7 +23128,7 @@ Aktuell: ${currentNum}`;
                 assignmentExpiresAt: Date.now() + 60000, // 60 Sekunden (erhöht von 30!)
             debugLog.log("ASSIGN", "assigned", "Fahrt zugewiesen an Fahrer", {rideId, vehicleId: nearestVehicle.id, distance: nearestVehicle.distance});
             
-            // 🔔 v5.90.419: BENACHRICHTIGE FAHRER!
+            // 🔔 v5.90.420: BENACHRICHTIGE FAHRER!
             console.log("🔔 Benachrichtige Fahrer über neue Zuweisung...");
             
             // Sound abspielen
@@ -27598,10 +27594,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
 
         function toggleOnline() {
-            // 🛡️ v5.90.419: KRITISCHE VALIDIERUNG AM ANFANG!
+            // 🛡️ v5.90.420: KRITISCHE VALIDIERUNG AM ANFANG!
             if (!currentVehicle || currentVehicle === 'undefined' || currentVehicle === '') {
             debugLog.log("DRIVER", "toggle_online", isOnline ? "Fahrer geht online" : "Fahrer geht offline", {vehicleId: currentVehicle});
-                console.error('❌ v5.90.419: GPS-Toggle BLOCKIERT - Kein Fahrzeug gewählt!');
+                console.error('❌ v5.90.420: GPS-Toggle BLOCKIERT - Kein Fahrzeug gewählt!');
                 console.error('   currentVehicle:', currentVehicle);
                 
                 // Toggle zurücksetzen
@@ -27835,9 +27831,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // 🆕 v5.90.261: Lade Fahrten für diesen Fahrer
             loadDriverRides();
             
-            // 🚀 v5.90.419: Trigger Event für Listener-Setup!
+            // 🚀 v5.90.420: Trigger Event für Listener-Setup!
             if (currentVehicle && currentUser && currentUser.role === 'driver') {
-                console.log('🎯 v5.90.419: Triggere vehicleSelected Event');
+                console.log('🎯 v5.90.420: Triggere vehicleSelected Event');
                 window.dispatchEvent(new CustomEvent('vehicleSelected', { 
                     detail: { vehicleId: currentVehicle } 
                 }));
@@ -35933,18 +35929,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     let mergedCount = 0;
                     
                     Object.keys(data).forEach(key => {
-                        // 🛡️ v5.90.419: STRENGE VALIDIERUNG!
+                        // 🛡️ v5.90.420: STRENGE VALIDIERUNG!
                         
                         // Check 1: ID darf nicht undefined/leer sein
                         if (!key || key === 'undefined' || key === 'null' || key.trim() === '') {
-                            console.warn('⚠️ v5.90.419: UNGÜLTIGE ID:', key);
+                            console.warn('⚠️ v5.90.420: UNGÜLTIGE ID:', key);
                             invalidCount++;
                             return;
                         }
                         
                         // Check 2: Fahrzeug muss Daten haben
                         if (!data[key] || typeof data[key] !== 'object') {
-                            console.warn('⚠️ v5.90.419: KEINE DATEN für:', key);
+                            console.warn('⚠️ v5.90.420: KEINE DATEN für:', key);
                             invalidCount++;
                             return;
                         }
@@ -35964,7 +35960,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         } else {
                             // Check 3: Neues Fahrzeug muss mindestens Name ODER Plate haben
                             if (!vehicle.name && !vehicle.plate) {
-                                console.warn('⚠️ v5.90.419: KEIN NAME/PLATE für:', key);
+                                console.warn('⚠️ v5.90.420: KEIN NAME/PLATE für:', key);
                                 invalidCount++;
                                 return;
                             }
@@ -35976,7 +35972,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             };
                         }
                         validCount++;
-                        console.log(`✅ v5.90.419: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
+                        console.log(`✅ v5.90.420: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
                     });
                     
                     console.log('═══════════════════════════════════════');
@@ -35988,10 +35984,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     console.log('═══════════════════════════════════════');
                     
                     if (validCount === 0) {
-                        console.error('❌ v5.90.419: KEINE GÜLTIGEN FAHRZEUGE GEFUNDEN!');
+                        console.error('❌ v5.90.420: KEINE GÜLTIGEN FAHRZEUGE GEFUNDEN!');
                         // Fallback zu Default
                         VEHICLES = { ...DEFAULT_VEHICLES };
-                        console.log('⚠️ v5.90.419: Verwende Default-Fahrzeuge');
+                        console.log('⚠️ v5.90.420: Verwende Default-Fahrzeuge');
                     }
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
@@ -58558,24 +58554,24 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Render Liste
                 renderHotelCalendarList();
                 
-                // 🚫 v5.90.419: AUTO-SYNC DEAKTIVIERT!
+                // 🚫 v5.90.420: AUTO-SYNC DEAKTIVIERT!
                 // Hotel-Kalender werden NUR bei Bedarf geladen (Rechnung erstellen)
                 // startHotelCalendarAutoSync();  // ← DEAKTIVIERT!
-                console.log('ℹ️ v5.90.419: Auto-Sync deaktiviert - Hotel-Kalender werden nur bei Bedarf geladen');
+                console.log('ℹ️ v5.90.420: Auto-Sync deaktiviert - Hotel-Kalender werden nur bei Bedarf geladen');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Hotel-Kalender:', error);
             }
         }
         
-        // 🚫 v5.90.419: AUTO-SYNC DEAKTIVIERT!
+        // 🚫 v5.90.420: AUTO-SYNC DEAKTIVIERT!
         // Hotel-Kalender werden NUR bei Bedarf geladen
         let hotelCalendarSyncInterval = null;
         let autoSyncStarted = false;
         
         function startHotelCalendarAutoSync() {
-            // 🚫 v5.90.419: KOMPLETT DEAKTIVIERT!
-            console.log('🚫 v5.90.419: Auto-Sync deaktiviert - Hotel-Kalender werden nur manuell geladen');
+            // 🚫 v5.90.420: KOMPLETT DEAKTIVIERT!
+            console.log('🚫 v5.90.420: Auto-Sync deaktiviert - Hotel-Kalender werden nur manuell geladen');
             return;
             
             /* ALTE IMPLEMENTIERUNG - DEAKTIVIERT!
@@ -64543,7 +64539,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // 🆕 v5.90.108: Assignment Mode laden
             setTimeout(() => loadAssignmentMode(), 2000);
         });
-// 🎯 v5.90.419: SIMPLE STATUS (NUR 50 ZEILEN!)
+// 🎯 v5.90.420: SIMPLE STATUS (NUR 50 ZEILEN!)
 function updateSystemStatus(){const c=document.getElementById("simple-status-container");if(!c)return;const fbStatus=(typeof isFirebaseReady!=="undefined"&&isFirebaseReady)?"✅ Verbunden":"❌ Offline";const bookingStatus=(typeof saveRide==="function")?"✅ Funktioniert":"❌ Fehlt";const assignStatus=(typeof startAutoAssignment==="function")?"✅ Funktioniert":"❌ Fehlt";const gpsStatus=("geolocation" in navigator)?"✅ Verfügbar":"❌ Nicht verfügbar";let onlineDrivers=0;if(typeof db!=="undefined"&&typeof isFirebaseReady!=="undefined"&&isFirebaseReady){db.ref("vehicles").once("value",s=>{s.forEach(ch=>{const v=ch.val();if(v.online&&v.lastUpdate>Date.now()-300000)onlineDrivers++});const el=document.getElementById("driver-count");if(el)el.textContent=onlineDrivers})}const now=new Date().toLocaleTimeString("de-DE");c.innerHTML=`<div style="background:white;border-radius:8px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.1);margin-bottom:20px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3 style="margin:0;font-size:16px;">📊 System Status</h3><span style="font-size:11px;opacity:0.6;">⏰ ${now}</span></div><div style="display:grid;gap:8px;font-size:13px;margin-bottom:12px;"><div>🔥 Firebase: <strong>${fbStatus}</strong></div><div>📝 Buchungen: <strong>${bookingStatus}</strong></div><div>🎯 Auto-Assign: <strong>${assignStatus}</strong></div><div>📍 GPS: <strong>${gpsStatus}</strong></div><div>🚗 Fahrer online: <strong id="driver-count">0</strong></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button onclick="testBookingSimple()" style="padding:10px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🧪 Test Buchung</button><button onclick="testGPSSimple()" style="padding:10px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🧪 Test GPS</button></div></div>`}
 function testBookingSimple(){if(typeof saveRide==="function"){alert("✅ Buchungs-System funktioniert!")}else{alert("❌ saveRide Funktion nicht gefunden!")}}
 function testGPSSimple(){if("geolocation" in navigator){navigator.geolocation.getCurrentPosition(pos=>alert(`✅ GPS funktioniert!\nPosition: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`),err=>alert("❌ GPS-Fehler: "+err.message))}else{alert("❌ GPS nicht verfügbar!")}}

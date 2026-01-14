@@ -108,22 +108,22 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.424 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1700)');
-        console.log('✅ v5.90.424: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.424: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.424: Admin lädt nur 100 Fahrten');
-        console.log('🚫 v5.90.424: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.424: Filter ignoriert alte IDs');
-        console.log('🔧 v5.90.424: AUTO-FIX repariert leere /vehicles!');
-        console.log('✅ v5.90.424: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.424: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.424: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.424: Hotel Auto-Sync DEAKTIVIERT');
-        console.log('🔍 v5.90.424: Kalender ignoriert alte Fahrzeug-IDs!');
-        console.log('✅ v5.90.424: Basiert auf STABILER v5.90.176');
-        console.log('✅ v5.90.424: Fahrer-Tab funktioniert PERFEKT!');
-        console.log('⚡ v5.90.424: Admin lädt nur 100 Fahrten (statt 3086)');
-        console.log('🚫 v5.90.424: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🚕 Funk Taxi App v5.90.425 - AUTO-FIX! 🔧✨🎉 (Build 20260113-1700)');
+        console.log('✅ v5.90.425: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.425: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.425: Admin lädt nur 100 Fahrten');
+        console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.425: Filter ignoriert alte IDs');
+        console.log('🔧 v5.90.425: AUTO-FIX repariert leere /vehicles!');
+        console.log('✅ v5.90.425: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.425: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.425: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
+        console.log('🔍 v5.90.425: Kalender ignoriert alte Fahrzeug-IDs!');
+        console.log('✅ v5.90.425: Basiert auf STABILER v5.90.176');
+        console.log('✅ v5.90.425: Fahrer-Tab funktioniert PERFEKT!');
+        console.log('⚡ v5.90.425: Admin lädt nur 100 Fahrten (statt 3086)');
+        console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
         console.log('📄 v5.90.176: RECHNUNG-MODAL KOMPLETT VERBESSERT!');
         console.log('✅ v5.90.176: CRM-Modal liegt ÜBER Rechnung (z-index: 100000)');
         console.log('✅ v5.90.176: Button "Daten übernehmen" im CRM');
@@ -2356,7 +2356,7 @@
                 max-width: 140px;
             ">
                 <option value="">Fahrzeug wählen</option>
-                <!-- 🆕 v5.90.424: Wird dynamisch geladen! -->
+                <!-- 🆕 v5.90.425: Wird dynamisch geladen! -->
             </select>
             
             <!-- Stats Mini -->
@@ -3157,11 +3157,11 @@
             
             
             function toggleNewRidesPanel() {
-                console.log('🔧 v5.90.424: toggleNewRidesPanel() aufgerufen');
+                console.log('🔧 v5.90.425: toggleNewRidesPanel() aufgerufen');
                 const panel = document.getElementById('new-rides-panel');
                 console.log('  - Panel gefunden:', !!panel);
                 if (panel) {
-                    // 🆕 v5.90.424: NUR ÖFFNEN, kein Toggle!
+                    // 🆕 v5.90.425: NUR ÖFFNEN, kein Toggle!
                     panel.style.display = 'block';
                     panel.style.visibility = 'visible';
                     panel.style.opacity = '1';
@@ -3173,12 +3173,12 @@
                 }
             }
             
-            // 🆕 v5.90.424: Close-Funktion
+            // 🆕 v5.90.425: Close-Funktion
             function closeNewRidesPanel() {
                 const panel = document.getElementById('new-rides-panel');
                 if (panel) {
                     panel.style.display = 'none';
-                    console.log('🔧 v5.90.424: Panel geschlossen');
+                    console.log('🔧 v5.90.425: Panel geschlossen');
                 }
             }
             
@@ -10719,13 +10719,13 @@
                         }
                     });
                     
-                    // 🆕 v5.90.424: ADMIN PERFORMANCE - Nur 100 Fahrten!
+                    // 🆕 v5.90.425: ADMIN PERFORMANCE - Nur 100 Fahrten!
                     const ridesRef = currentUser && currentUser.role === 'admin' 
                         ? db.ref('rides').limitToLast(100)  // Admin: Nur 100!
                         : db.ref('rides');  // Andere: Alle
                     
                     if (currentUser && currentUser.role === 'admin') {
-                        console.log('⚡ v5.90.424: Admin erkannt → limitToLast(100)');
+                        console.log('⚡ v5.90.425: Admin erkannt → limitToLast(100)');
                     }
                     
                     ridesRef.on('value', (s) => {
@@ -12240,8 +12240,8 @@
         }
 
         function updateDriverView() {
-            // 🐛 v5.90.424: DEBUG LOGGING
-            console.log('🔧 v5.90.424: updateDriverView() aufgerufen');
+            // 🐛 v5.90.425: DEBUG LOGGING
+            console.log('🔧 v5.90.425: updateDriverView() aufgerufen');
             console.log('  - currentVehicle:', currentVehicle);
             console.log('  - rides.length:', rides.length);
             console.log('  - isOnline:', isOnline);
@@ -26995,10 +26995,10 @@
                 const data = snapshot.val();
                 
                 if (data && Object.keys(data).length > 0) {
-                    console.log('🚗 v5.90.424: Lade Fahrzeuge aus Firebase...');
+                    console.log('🚗 v5.90.425: Lade Fahrzeuge aus Firebase...');
                     VEHICLES = {};
                     
-                    // 🆕 v5.90.424: Definiere korrekte Namen für leere Einträge
+                    // 🆕 v5.90.425: Definiere korrekte Namen für leere Einträge
                     const NAME_MAP = {
                         'pw-ik-222': { name: 'Toyota Prius IK', plate: 'PW-IK 222' },
                         'pw-ki-222': { name: 'Toyota Prius II', plate: 'PW-KI 222' },
@@ -27048,14 +27048,14 @@
                 const currentValue = select.value;
                 select.innerHTML = '<option value="">-- Fahrzeug wählen --</option>';
                 Object.values(VEHICLES).forEach(v => {
-                    // 🆕 v5.90.424: KEIN FILTER! Alle Fahrzeuge anzeigen
+                    // 🆕 v5.90.425: KEIN FILTER! Alle Fahrzeuge anzeigen
                     if (v.id && v.name) {
                         const icon = v.type && v.type.includes('Model Y') ? '🚙' : '🚗';
                         select.innerHTML += `<option value="${v.id}" ${v.id === currentValue ? 'selected' : ''}>${icon} ${v.name} (${v.plate})</option>`;
                     }
                 });
                 
-                console.log('✅ v5.90.424: Dropdown aktualisiert:', select.id, Object.keys(VEHICLES).length, 'Fahrzeuge');
+                console.log('✅ v5.90.425: Dropdown aktualisiert:', select.id, Object.keys(VEHICLES).length, 'Fahrzeuge');
             });
         }
         
@@ -30078,11 +30078,11 @@
                         const v = child.val();
                         v.id = child.key;
                         
-                        // 🆕 v5.90.424: NUR neue IDs (pw-xxx)
+                        // 🆕 v5.90.425: NUR neue IDs (pw-xxx)
                         if (v.id && v.name) {
                             vehicles.push(v);
                         } else {
-                            console.log('⏭️ v5.90.424 Quick: Ignoriere alte ID:', v.id);
+                            console.log('⏭️ v5.90.425 Quick: Ignoriere alte ID:', v.id);
                         }
                     });
                     
@@ -38547,7 +38547,7 @@ Stack: ${err.stack}
                 return;
             }
             
-            // 🆕 v5.90.424: Prüfe ob Nummer SCHON mit + beginnt!
+            // 🆕 v5.90.425: Prüfe ob Nummer SCHON mit + beginnt!
             let fullPhoneNumber;
             if (phoneNumber.startsWith('+')) {
                 // Nummer hat bereits Ländervorwahl
@@ -38673,7 +38673,7 @@ Stack: ${err.stack}
         // SMS-Code anfordern
         async function sendVerificationCode() {
             const countryCode = document.getElementById('phone-country-code').value;
-            const phoneNumber = document.getElementById('phone-number-input').value.trim();
+            let phoneNumber = document.getElementById('phone-number-input').value.trim();
             const errorDiv = document.getElementById('phone-auth-error');
             const sendBtn = document.getElementById('send-code-btn');
             
@@ -38684,9 +38684,18 @@ Stack: ${err.stack}
                 return;
             }
             
-            // Führende 0 entfernen
-            const cleanNumber = phoneNumber.replace(/^0+/, '');
-            const fullPhoneNumber = countryCode + cleanNumber;
+            // 🆕 v5.90.425: Prüfe ob Nummer SCHON mit + beginnt!
+            let fullPhoneNumber;
+            if (phoneNumber.startsWith('+')) {
+                // Nummer hat bereits Ländervorwahl
+                fullPhoneNumber = phoneNumber.replace(/\s/g, '');
+                console.log('✅ Nummer hat bereits Vorwahl:', fullPhoneNumber);
+            } else {
+                // Führende 0 entfernen und Vorwahl hinzufügen
+                const cleanNumber = phoneNumber.replace(/^0+/, '');
+                fullPhoneNumber = countryCode + cleanNumber;
+                console.log('✅ Vorwahl hinzugefügt:', fullPhoneNumber);
+            }
             
             console.log('📱 Sende Code an:', fullPhoneNumber);
             
@@ -40118,12 +40127,12 @@ Stack: ${err.stack}
                             const v = child.val();
                             v.id = child.key;
                             
-                            // 🆕 v5.90.424: FILTER alte IDs raus!
+                            // 🆕 v5.90.425: FILTER alte IDs raus!
                             // Nur Kennzeichen-basierte IDs (pw-xx-xxx)
                             if (v.id && v.name) {
                                 allVehicles.push(v);
                             } else {
-                                console.log('⏭️ v5.90.424: Ignoriere alte ID:', v.id);
+                                console.log('⏭️ v5.90.425: Ignoriere alte ID:', v.id);
                             }
                         });
                         console.log('🚗 Fahrzeuge für Kalender geladen:', allVehicles.length);
@@ -46662,9 +46671,9 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         let autoSyncStarted = false; // Flag um Doppel-Start zu verhindern
         
         function startHotelCalendarAutoSync() {
-            // 🚫 v5.90.424: AUTO-SYNC DEAKTIVIERT!
-            console.log('🚫 v5.90.424: Hotel Auto-Sync DEAKTIVIERT');
-            console.log('ℹ️ v5.90.424: Hotel-Kalender nur noch manuell laden');
+            // 🚫 v5.90.425: AUTO-SYNC DEAKTIVIERT!
+            console.log('🚫 v5.90.425: Hotel Auto-Sync DEAKTIVIERT');
+            console.log('ℹ️ v5.90.425: Hotel-Kalender nur noch manuell laden');
             return;  // ← STOP HIER!
             
             // Alter Code (deaktiviert):

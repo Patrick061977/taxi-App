@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.415
+    📦 VERSION: v5.90.416
     📅 BUILD: 13.01.2026 12:15 Uhr - HOTEL-KALENDER AUTO-SYNC DEAKTIVIERT!
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.415 - FAHRER RECHNUNG + PERFORMANCE!
+    📋 CHANGELOG v5.90.416 - FAHRER RECHNUNG + PERFORMANCE!
     ═══════════════════════════════════════════════════════════════════════════
     
-    🚀 v5.90.415 (13.01.2026) - HOTEL AUTO-SYNC DEAKTIVIERT:
+    🚀 v5.90.416 (13.01.2026) - HOTEL AUTO-SYNC DEAKTIVIERT:
        • 🚫 Hotel-Kalender Auto-Sync komplett deaktiviert
        • ✅ KEINE Token-Refresh-Errors mehr
        • ✅ Kein Sync beim Start
@@ -192,7 +192,7 @@
             window.consoleLogHistory = [];
             window.consolePaused = false;
             
-            // 🔧 v5.90.415: Helper Functions
+            // 🔧 v5.90.416: Helper Functions
             function getLocalDateString(timestamp) {
                 if (!timestamp) return '';
                 const d = new Date(timestamp);
@@ -250,7 +250,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.415 - GPS-TOGGLE FIX! 🔧 (Build 20260113-0930)');
+        console.log('🚕 Funk Taxi App v5.90.416 - GPS-TOGGLE FIX! 🔧 (Build 20260113-0930)');
         console.log('🔧 v5.90.371: CRASH FIX - renderDriverRides null check!');
         console.log('🔧 v5.90.371: VEHICLE STRUCTURE FIX - .id property!');
         console.log('🔧 v5.90.371: TRACKING in setVehicle() hinzugefügt!');
@@ -909,7 +909,7 @@
     <!-- 🔒 STRIPE DEAKTIVIERT - Löst "betrügerische Website" Warnung aus! -->
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
     <script>
-        // 🔍 v5.90.415: DEBUG-LOG-SYSTEM!
+        // 🔍 v5.90.416: DEBUG-LOG-SYSTEM!
         class DebugLogger {
             constructor() {
                 this.logs = [];
@@ -943,16 +943,16 @@
             }
         }
         const debugLog = new DebugLogger();
-        class AdminErrorHandler{constructor(){this.errors=[];this.maxErrors=100;window.addEventListener("error",(e)=>this.handleGlobalError(e));window.addEventListener("unhandledrejection",(e)=>this.handlePromiseError(e));console.log("🔴 AdminErrorHandler (Admin-Only)")}handleGlobalError(e){const err={type:"JavaScript Error",message:e.message,filename:e.filename,line:e.lineno,column:e.colno,stack:e.error?.stack||"Kein Stack",timestamp:new Date().toISOString(),user:this.getUserInfo(),context:this.getContext()};this.logError(err);e.preventDefault()}handlePromiseError(e){const err={type:"Promise Rejection",message:e.reason?.message||e.reason,stack:e.reason?.stack||"Kein Stack",timestamp:new Date().toISOString(),user:this.getUserInfo(),context:this.getContext()};this.logError(err);e.preventDefault()}getUserInfo(){return{email:currentUser?.email||"Unbekannt",role:currentUser?.role||"Unbekannt",vehicle:currentVehicle||null,uid:currentUser?.uid||null}}getContext(){return{view:this.getCurrentView(),url:window.location.href,userAgent:navigator.userAgent,online:navigator.onLine}}getCurrentView(){const views=["passenger-view","driver-view","admin-view"];for(let v of views){const el=document.getElementById(v);if(el&&el.style.display!=="none")return v}return"unknown"}
+        class AdminErrorHandler{constructor(){this.errors=[];this.maxErrors=100;window.addEventListener("error",(e)=>this.handleGlobalError(e));window.addEventListener("unhandledrejection",(e)=>this.handlePromiseError(e));console.log("🔴 AdminErrorHandler (Admin-Only)")}handleGlobalError(e){const err={type:"JavaScript Error",message:e.message,filename:e.filename,line:e.lineno,column:e.colno,stack:e.error?.stack||"Kein Stack",timestamp:new Date().toISOString(),user:this.getUserInfo(),context:this.getContext()};this.logError(err);e.preventDefault()}handlePromiseError(e){const err={type:"Promise Rejection",message:e.reason?.message||e.reason,stack:e.reason?.stack||"Kein Stack",timestamp:new Date().toISOString(),user:this.getUserInfo(),context:this.getContext()};this.logError(err);e.preventDefault()}getUserInfo(){return{email:(typeof currentUser!=="undefined"&&currentUser?.email)||"Unbekannt",role:(typeof currentUser!=="undefined"&&currentUser?.role)||"Unbekannt",vehicle:(typeof currentVehicle!=="undefined"&&currentVehicle)||null,uid:(typeof currentUser!=="undefined"&&currentUser?.uid)||null}}getContext(){return{view:this.getCurrentView(),url:window.location.href,userAgent:navigator.userAgent,online:navigator.onLine}}getCurrentView(){const views=["passenger-view","driver-view","admin-view"];for(let v of views){const el=document.getElementById(v);if(el&&el.style.display!=="none")return v}return"unknown"}
 logError(err){this.errors.unshift(err);if(this.errors.length>this.maxErrors)this.errors.pop();console.error("🔴 Fehler:",err.message,err);if(typeof db!=="undefined"&&isFirebaseReady)db.ref("system_errors").push({...err,timestamp:Date.now()}).catch(e=>console.error("Firebase Log failed:",e));if(typeof debugLog!=="undefined")debugLog.log("ERROR","system",err.message,{type:err.type,user:err.user,context:err.context});if(currentUser?.role==="admin")this.updateAdminBadge()}
 updateAdminBadge(){let b=document.getElementById("admin-error-badge");if(!b){b=document.createElement("div");b.id="admin-error-badge";b.onclick=()=>this.toggleErrorPanel();b.style.cssText="position:fixed;top:20px;right:20px;background:#dc2626;color:white;padding:8px 12px;border-radius:20px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(220,38,38,0.4);z-index:99999;transition:all 0.3s;";document.body.appendChild(b)}b.innerHTML=`🔴 ${this.errors.length}`;b.style.animation="pulse 1s 3";setTimeout(()=>{b.style.animation=""},3000)}toggleErrorPanel(){let p=document.getElementById("admin-error-panel");if(p){p.remove();return}this.createErrorPanel()}createErrorPanel(){const p=document.createElement("div");p.id="admin-error-panel";p.style.cssText="position:fixed;top:70px;right:20px;width:500px;max-width:90vw;max-height:80vh;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:99998;overflow:hidden;";p.innerHTML=`<div style="background:#dc2626;color:white;padding:16px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-weight:700;font-size:16px;">🔴 System-Fehler (Admin)</div><div style="font-size:12px;opacity:0.9;">${this.errors.length} Fehler</div></div><div style="display:flex;gap:8px;"><button onclick="errorHandler.loadFirebaseErrors()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🔄</button><button onclick="errorHandler.clearLocalErrors()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🗑️</button></div></div><div style="overflow-y:auto;max-height:calc(80vh - 160px);padding:12px;">${this.errors.length===0?'<div style="text-align:center;padding:40px;opacity:0.5;">Keine Fehler</div>':this.errors.map(e=>this.renderError(e)).join("")}</div><div style="padding:12px;border-top:1px solid #e5e7eb;display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button onclick="errorHandler.exportErrors()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">📥 Export</button><button onclick="errorHandler.toggleErrorPanel()" style="padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">✕ Schließen</button></div>`;document.body.appendChild(p)}renderError(e){return`<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px;margin-bottom:8px;border-radius:4px;font-size:12px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><strong style="color:#dc2626;">+e.type+</strong><span style="font-size:11px;opacity:0.7;">${e.context?.view||"?"}</span></div><div style="margin-bottom:8px;font-family:'Courier New',monospace;word-break:break-word;font-size:11px;">+e.message+</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;opacity:0.8;margin-bottom:8px;"><div>👤 ${e.user?.email||"?"}</div><div>🎭 ${e.user?.role||"?"}</div>${e.user?.vehicle?`<div>🚗 ${e.user.vehicle}</div>`:""}<div>⏰ ${new Date(e.timestamp).toLocaleTimeString("de-DE")}</div></div>${e.filename?`<div style="background:#fff7ed;padding:6px;border-radius:4px;font-size:11px;">📁 ${e.filename.split("/").pop()}:${e.line}</div>`:""}<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:11px;">Stack</summary><pre style="background:#1f2937;color:#f3f4f6;padding:8px;border-radius:4px;overflow-x:auto;font-size:9px;margin-top:4px;">${e.stack}</pre></details></div>`}async loadFirebaseErrors(){if(!isFirebaseReady)return;try{const s=await db.ref("system_errors").orderByChild("timestamp").limitToLast(50).once("value");const fbErrors=[];s.forEach(c=>{fbErrors.unshift({...c.val(),firebaseKey:c.key})});this.errors=fbErrors;this.createErrorPanel();console.log("✅ Firebase Fehler geladen:",fbErrors.length)}catch(error){console.error("❌ Firebase laden fehlgeschlagen:",error)}}clearLocalErrors(){this.errors=[];const b=document.getElementById("admin-error-badge");if(b)b.remove();const p=document.getElementById("admin-error-panel");if(p)p.remove()}exportErrors(){const blob=new Blob([JSON.stringify(this.errors,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`system-errors-${Date.now()}.json`;a.click()}}const errorHandler=new AdminErrorHandler();
-class SystemMonitor{constructor(){this.status={firebase:{ok:false,latency:0},booking:{ok:false,lastTest:null},autoAssign:{ok:false,successRate:0},gps:{ok:false,activeDrivers:0},nominatim:{ok:true,rateLimited:false}};this.stats={bookingsToday:0,assignmentsToday:0,errorsToday:0,activeDrivers:0};this.startMonitoring();console.log("🎯 SystemMonitor gestartet")}startMonitoring(){this.checkAllSystems();setInterval(()=>this.checkAllSystems(),30000);setInterval(()=>this.updateStats(),10000)}async checkAllSystems(){await this.checkFirebase();this.checkBooking();this.checkAutoAssign();this.checkGPS();this.updateMonitorUI()}async checkFirebase(){const start=Date.now();try{if(typeof db!=="undefined"&&isFirebaseReady){await db.ref(".info/connected").once("value");this.status.firebase.ok=true;this.status.firebase.latency=Date.now()-start}else{this.status.firebase.ok=false}}catch(e){this.status.firebase.ok=false}}checkBooking(){this.status.booking.ok=typeof saveRide==="function";this.status.booking.lastTest=Date.now()}checkAutoAssign(){this.status.autoAssign.ok=typeof startAutoAssignment==="function";if(isFirebaseReady){db.ref("rides").orderByChild("timestamp").limitToLast(10).once("value",s=>{let total=0,success=0;s.forEach(c=>{const r=c.val();if(r.status==="assigned"||r.status==="accepted"||r.status==="completed"){total++;if(r.assignedTo)success++}});this.status.autoAssign.successRate=total>0?Math.round((success/total)*100):0})}}checkGPS(){if(isFirebaseReady){db.ref("vehicles").once("value",s=>{let online=0;s.forEach(c=>{const v=c.val();if(v.online&&v.lastUpdate>Date.now()-300000)online++});this.status.gps.activeDrivers=online;this.status.gps.ok=online>0})}}
+class SystemMonitor{constructor(){this.status={firebase:{ok:false,latency:0},booking:{ok:false,lastTest:null},autoAssign:{ok:false,successRate:0},gps:{ok:false,activeDrivers:0},nominatim:{ok:true,rateLimited:false}};this.stats={bookingsToday:0,assignmentsToday:0,errorsToday:0,activeDrivers:0};this.startMonitoring();console.log("🎯 SystemMonitor gestartet")}startMonitoring(){this.checkAllSystems();setInterval(()=>this.checkAllSystems(),30000);setInterval(()=>this.updateStats(),10000)}async checkAllSystems(){await this.checkFirebase();this.checkBooking();this.checkAutoAssign();this.checkGPS();this.updateMonitorUI()}async checkFirebase(){const start=Date.now();try{if(typeof db!=="undefined"&&isFirebaseReady){await db.ref(".info/connected").once("value");this.status.firebase.ok=true;this.status.firebase.latency=Date.now()-start}else{this.status.firebase.ok=false}}catch(e){this.status.firebase.ok=false}}checkBooking(){this.status.booking.ok=typeof saveRide==="function";this.status.booking.lastTest=Date.now()}checkAutoAssign(){this.status.autoAssign.ok=typeof startAutoAssignment==="function";if(typeof isFirebaseReady!=="undefined"&&isFirebaseReady){db.ref("rides").orderByChild("timestamp").limitToLast(10).once("value",s=>{let total=0,success=0;s.forEach(c=>{const r=c.val();if(r.status==="assigned"||r.status==="accepted"||r.status==="completed"){total++;if(r.assignedTo)success++}});this.status.autoAssign.successRate=total>0?Math.round((success/total)*100):0})}}checkGPS(){if(typeof isFirebaseReady!=="undefined"&&isFirebaseReady){db.ref("vehicles").once("value",s=>{let online=0;s.forEach(c=>{const v=c.val();if(v.online&&v.lastUpdate>Date.now()-300000)online++});this.status.gps.activeDrivers=online;this.status.gps.ok=online>0})}}
 updateStats(){if(!isFirebaseReady)return;const today=new Date().setHours(0,0,0,0);db.ref("rides").orderByChild("timestamp").startAt(today).once("value",s=>{this.stats.bookingsToday=s.numChildren()});db.ref("rides").orderByChild("assignedAt").startAt(today).once("value",s=>{this.stats.assignmentsToday=s.numChildren()});db.ref("system_errors").orderByChild("timestamp").startAt(today).once("value",s=>{this.stats.errorsToday=s.numChildren()});this.stats.activeDrivers=this.status.gps.activeDrivers}updateMonitorUI(){const c=document.getElementById("system-monitor-container");if(!c)return;c.innerHTML=this.renderMonitor()}renderMonitor(){return`<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,0.1);"><div style="margin-bottom:20px;"><h2 style="margin:0 0 5px 0;font-size:20px;">🎯 System Status - Live</h2><div style="font-size:13px;opacity:0.7;">Aktualisiert: ${new Date().toLocaleTimeString("de-DE")}</div></div><div style="margin-bottom:20px;"><div style="font-weight:700;margin-bottom:10px;font-size:13px;">🟢 CORE FEATURES</div>${this.renderFeature("Firebase",this.status.firebase.ok,`${this.status.firebase.latency}ms`)}${this.renderFeature("Buchungs-System",this.status.booking.ok,"Ready")}${this.renderFeature("Auto-Assign",this.status.autoAssign.ok,`${this.status.autoAssign.successRate}% Erfolg`)}${this.renderFeature("GPS-Tracking",this.status.gps.ok,`${this.status.gps.activeDrivers} Fahrer online`)}${this.renderFeature("Nominatim",!this.status.nominatim.rateLimited,this.status.nominatim.rateLimited?"Rate-Limit!":"OK")}</div><div style="margin-bottom:20px;padding:15px;background:#f9fafb;border-radius:8px;"><div style="font-weight:700;margin-bottom:10px;font-size:13px;">📊 HEUTE (Live)</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;"><div>Buchungen: <strong>${this.stats.bookingsToday}</strong></div><div>Zuweisungen: <strong>${this.stats.assignmentsToday}</strong></div><div>Fehler: <strong>${this.stats.errorsToday}</strong></div><div>Fahrer online: <strong>${this.stats.activeDrivers}</strong></div></div></div><div style="margin-bottom:20px;"><div style="font-weight:700;margin-bottom:10px;font-size:13px;">🧪 QUICK TESTS</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button onclick="systemMonitor.testBooking()" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">📝 Test Buchung</button><button onclick="systemMonitor.testAutoAssign()" style="padding:12px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">🎯 Test Auto-Assign</button><button onclick="systemMonitor.testGPS()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">📍 Test GPS</button><button onclick="systemMonitor.testAll()" style="padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">🧪 Alle Tests</button></div></div><div id="test-results"></div></div>`}renderFeature(name,ok,info){const icon=ok?"✅":"❌";const color=ok?"#10b981":"#ef4444";return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">${icon}</span><span style="font-weight:600;font-size:13px;">${name}</span></div><span style="color:${color};font-size:12px;font-weight:600;">${info}</span></div>`}async testBooking(){this.showTestResult("📝 Test Buchung läuft...","info");try{if(typeof saveRide==="function"){this.showTestResult("✅ Buchungs-System funktioniert!","success");debugLog.log("SYSTEM","test_booking","Buchungs-Test erfolgreich",{})}else{throw new Error("saveRide nicht gefunden")}}catch(e){this.showTestResult("❌ Buchungs-Test fehlgeschlagen: "+e.message,"error");debugLog.log("ERROR","test_booking",e.message,{})}}async testAutoAssign(){this.showTestResult("🎯 Test Auto-Assign läuft...","info");try{if(typeof startAutoAssignment==="function"&&typeof findNearestAvailableVehicle==="function"){this.showTestResult("✅ Auto-Assign System funktioniert!","success");debugLog.log("SYSTEM","test_assign","Auto-Assign Test erfolgreich",{})}else{throw new Error("Auto-Assign Funktionen nicht gefunden")}}catch(e){this.showTestResult("❌ Auto-Assign Test fehlgeschlagen: "+e.message,"error");debugLog.log("ERROR","test_assign",e.message,{})}}testGPS(){this.showTestResult("📍 Test GPS läuft...","info");if("geolocation" in navigator){navigator.geolocation.getCurrentPosition(p=>{this.showTestResult(`✅ GPS funktioniert! (${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)})`,"success");debugLog.log("SYSTEM","test_gps","GPS Test erfolgreich",{lat:p.coords.latitude,lon:p.coords.longitude})},e=>{this.showTestResult("❌ GPS-Fehler: "+e.message,"error");debugLog.log("ERROR","test_gps",e.message,{})})}else{this.showTestResult("❌ GPS nicht verfügbar!","error")}}async testAll(){this.showTestResult("🧪 Führe alle Tests aus...","info");await this.testBooking();await new Promise(r=>setTimeout(r,1000));await this.testAutoAssign();await new Promise(r=>setTimeout(r,1000));this.testGPS()}showTestResult(msg,type){const c=document.getElementById("test-results");if(!c)return;const colors={info:"#3b82f6",success:"#10b981",error:"#ef4444"};c.innerHTML=`<div style="background:${colors[type]}20;border-left:4px solid ${colors[type]};padding:12px;border-radius:4px;font-size:13px;margin-top:10px;">${msg}</div>`}}const systemMonitor=new SystemMonitor();
 if (typeof errorHandler === "undefined") {
     console.warn("⚠️ errorHandler nicht verfügbar");
 }
         </script>
-class SystemMonitor{constructor(){this.status={firebase:{ok:false,latency:0},booking:{ok:false,lastTest:null},autoAssign:{ok:false,successRate:0},gps:{ok:false,activeDrivers:0},nominatim:{ok:true,rateLimited:false}};this.stats={bookingsToday:0,assignmentsToday:0,errorsToday:0,activeDrivers:0};this.startMonitoring();console.log("🎯 SystemMonitor gestartet")}startMonitoring(){this.checkAllSystems();setInterval(()=>this.checkAllSystems(),30000);setInterval(()=>this.updateStats(),10000)}async checkAllSystems(){await this.checkFirebase();this.checkBooking();this.checkAutoAssign();this.checkGPS();this.updateMonitorUI()}async checkFirebase(){const start=Date.now();try{if(typeof db!=="undefined"&&isFirebaseReady){await db.ref(".info/connected").once("value");this.status.firebase.ok=true;this.status.firebase.latency=Date.now()-start}else{this.status.firebase.ok=false}}catch(e){this.status.firebase.ok=false}}checkBooking(){this.status.booking.ok=typeof saveRide==="function";this.status.booking.lastTest=Date.now()}checkAutoAssign(){this.status.autoAssign.ok=typeof startAutoAssignment==="function";if(isFirebaseReady){db.ref("rides").orderByChild("timestamp").limitToLast(10).once("value",s=>{let total=0,success=0;s.forEach(c=>{const r=c.val();if(r.status==="assigned"||r.status==="accepted"||r.status==="completed"){total++;if(r.assignedTo)success++}});this.status.autoAssign.successRate=total>0?Math.round((success/total)*100):0})}}checkGPS(){if(isFirebaseReady){db.ref("vehicles").once("value",s=>{let online=0;s.forEach(c=>{const v=c.val();if(v.online&&v.lastUpdate>Date.now()-300000)online++});this.status.gps.activeDrivers=online;this.status.gps.ok=online>0})}}
+class SystemMonitor{constructor(){this.status={firebase:{ok:false,latency:0},booking:{ok:false,lastTest:null},autoAssign:{ok:false,successRate:0},gps:{ok:false,activeDrivers:0},nominatim:{ok:true,rateLimited:false}};this.stats={bookingsToday:0,assignmentsToday:0,errorsToday:0,activeDrivers:0};this.startMonitoring();console.log("🎯 SystemMonitor gestartet")}startMonitoring(){this.checkAllSystems();setInterval(()=>this.checkAllSystems(),30000);setInterval(()=>this.updateStats(),10000)}async checkAllSystems(){await this.checkFirebase();this.checkBooking();this.checkAutoAssign();this.checkGPS();this.updateMonitorUI()}async checkFirebase(){const start=Date.now();try{if(typeof db!=="undefined"&&isFirebaseReady){await db.ref(".info/connected").once("value");this.status.firebase.ok=true;this.status.firebase.latency=Date.now()-start}else{this.status.firebase.ok=false}}catch(e){this.status.firebase.ok=false}}checkBooking(){this.status.booking.ok=typeof saveRide==="function";this.status.booking.lastTest=Date.now()}checkAutoAssign(){this.status.autoAssign.ok=typeof startAutoAssignment==="function";if(typeof isFirebaseReady!=="undefined"&&isFirebaseReady){db.ref("rides").orderByChild("timestamp").limitToLast(10).once("value",s=>{let total=0,success=0;s.forEach(c=>{const r=c.val();if(r.status==="assigned"||r.status==="accepted"||r.status==="completed"){total++;if(r.assignedTo)success++}});this.status.autoAssign.successRate=total>0?Math.round((success/total)*100):0})}}checkGPS(){if(typeof isFirebaseReady!=="undefined"&&isFirebaseReady){db.ref("vehicles").once("value",s=>{let online=0;s.forEach(c=>{const v=c.val();if(v.online&&v.lastUpdate>Date.now()-300000)online++});this.status.gps.activeDrivers=online;this.status.gps.ok=online>0})}}
 updateStats(){if(!isFirebaseReady)return;const today=new Date().setHours(0,0,0,0);db.ref("rides").orderByChild("timestamp").startAt(today).once("value",s=>{this.stats.bookingsToday=s.numChildren()});db.ref("rides").orderByChild("assignedAt").startAt(today).once("value",s=>{this.stats.assignmentsToday=s.numChildren()});db.ref("system_errors").orderByChild("timestamp").startAt(today).once("value",s=>{this.stats.errorsToday=s.numChildren()});this.stats.activeDrivers=this.status.gps.activeDrivers}updateMonitorUI(){const c=document.getElementById("system-monitor-container");if(!c)return;c.innerHTML=this.renderMonitor()}renderMonitor(){return`<div style="background:white;border-radius:12px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,0.1);"><div style="margin-bottom:20px;"><h2 style="margin:0 0 5px 0;font-size:20px;">🎯 System Status - Live</h2><div style="font-size:13px;opacity:0.7;">Aktualisiert: ${new Date().toLocaleTimeString("de-DE")}</div></div><div style="margin-bottom:20px;"><div style="font-weight:700;margin-bottom:10px;font-size:13px;">🟢 CORE FEATURES</div>${this.renderFeature("Firebase",this.status.firebase.ok,`${this.status.firebase.latency}ms`)}${this.renderFeature("Buchungs-System",this.status.booking.ok,"Ready")}${this.renderFeature("Auto-Assign",this.status.autoAssign.ok,`${this.status.autoAssign.successRate}% Erfolg`)}${this.renderFeature("GPS-Tracking",this.status.gps.ok,`${this.status.gps.activeDrivers} Fahrer online`)}${this.renderFeature("Nominatim",!this.status.nominatim.rateLimited,this.status.nominatim.rateLimited?"Rate-Limit!":"OK")}</div><div style="margin-bottom:20px;padding:15px;background:#f9fafb;border-radius:8px;"><div style="font-weight:700;margin-bottom:10px;font-size:13px;">📊 HEUTE (Live)</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;"><div>Buchungen: <strong>${this.stats.bookingsToday}</strong></div><div>Zuweisungen: <strong>${this.stats.assignmentsToday}</strong></div><div>Fehler: <strong>${this.stats.errorsToday}</strong></div><div>Fahrer online: <strong>${this.stats.activeDrivers}</strong></div></div></div><div style="margin-bottom:20px;"><div style="font-weight:700;margin-bottom:10px;font-size:13px;">🧪 QUICK TESTS</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button onclick="systemMonitor.testBooking()" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">📝 Test Buchung</button><button onclick="systemMonitor.testAutoAssign()" style="padding:12px;background:#8b5cf6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">🎯 Test Auto-Assign</button><button onclick="systemMonitor.testGPS()" style="padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">📍 Test GPS</button><button onclick="systemMonitor.testAll()" style="padding:12px;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">🧪 Alle Tests</button></div></div><div id="test-results"></div></div>`}renderFeature(name,ok,info){const icon=ok?"✅":"❌";const color=ok?"#10b981":"#ef4444";return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">${icon}</span><span style="font-weight:600;font-size:13px;">${name}</span></div><span style="color:${color};font-size:12px;font-weight:600;">${info}</span></div>`}async testBooking(){this.showTestResult("📝 Test Buchung läuft...","info");try{if(typeof saveRide==="function"){this.showTestResult("✅ Buchungs-System funktioniert!","success");debugLog.log("SYSTEM","test_booking","Buchungs-Test erfolgreich",{})}else{throw new Error("saveRide nicht gefunden")}}catch(e){this.showTestResult("❌ Buchungs-Test fehlgeschlagen: "+e.message,"error");debugLog.log("ERROR","test_booking",e.message,{})}}async testAutoAssign(){this.showTestResult("🎯 Test Auto-Assign läuft...","info");try{if(typeof startAutoAssignment==="function"&&typeof findNearestAvailableVehicle==="function"){this.showTestResult("✅ Auto-Assign System funktioniert!","success");debugLog.log("SYSTEM","test_assign","Auto-Assign Test erfolgreich",{})}else{throw new Error("Auto-Assign Funktionen nicht gefunden")}}catch(e){this.showTestResult("❌ Auto-Assign Test fehlgeschlagen: "+e.message,"error");debugLog.log("ERROR","test_assign",e.message,{})}}testGPS(){this.showTestResult("📍 Test GPS läuft...","info");if("geolocation" in navigator){navigator.geolocation.getCurrentPosition(p=>{this.showTestResult(`✅ GPS funktioniert! (${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)})`,"success");debugLog.log("SYSTEM","test_gps","GPS Test erfolgreich",{lat:p.coords.latitude,lon:p.coords.longitude})},e=>{this.showTestResult("❌ GPS-Fehler: "+e.message,"error");debugLog.log("ERROR","test_gps",e.message,{})})}else{this.showTestResult("❌ GPS nicht verfügbar!","error")}}async testAll(){this.showTestResult("🧪 Führe alle Tests aus...","info");await this.testBooking();await new Promise(r=>setTimeout(r,1000));await this.testAutoAssign();await new Promise(r=>setTimeout(r,1000));this.testGPS()}showTestResult(msg,type){const c=document.getElementById("test-results");if(!c)return;const colors={info:"#3b82f6",success:"#10b981",error:"#ef4444"};c.innerHTML=`<div style="background:${colors[type]}20;border-left:4px solid ${colors[type]};padding:12px;border-radius:4px;font-size:13px;margin-top:10px;">${msg}</div>`}}const systemMonitor=new SystemMonitor();
 if (typeof errorHandler === "undefined") {
     console.warn("⚠️ errorHandler nicht verfügbar");
@@ -1076,9 +1076,9 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
             <div style="margin-bottom:12px;">
                 <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Nach</label>
                 <input type="text" id="edit-ics-to" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;box-sizing:border-box;">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.409 - LIVE DEBUG LOG! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.409 - LIVE DEBUG LOG! (Build 20260114-1000)</p>
             
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔔 Version 5.90.408 - AUTO-POPUP + SOUND! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔔 Version 5.90.408 - AUTO-POPUP + SOUND! (Build 20260114-1000)</p>
                 <label style="display:block;font-weight:600;font-size:13px;color:#374151;margin-bottom:6px;">Preis (€)</label>
                 <input type="number" id="edit-ics-price" step="0.01" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
@@ -1086,7 +1086,7 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
             <div style="display:flex;gap:10px;">
                 <button onclick="saveIcsRideEdit()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
                     💾 Speichern
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛑 Version 5.90.410 - CRITICAL ERROR HANDLER! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🛑 Version 5.90.410 - CRITICAL ERROR HANDLER! (Build 20260114-1000)</p>
                 <button onclick="closeEditIcsRideModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
                     Abbrechen
                 </button>
@@ -1119,7 +1119,7 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
             display: flex;
             justify-content: space-between;
             align-items: center;
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.411 - DEZENTER ERROR HANDLER! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.411 - DEZENTER ERROR HANDLER! (Build 20260114-1000)</p>
         ">
             <span style="font-weight: 700; font-size: 14px;">🐛 DEBUG LOGS</span>
             <div style="display: flex; gap: 8px;">
@@ -1153,7 +1153,7 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
             ">
                 <div style="color: #10b981; font-weight: 600;">🐛 Debug Panel aktiviert!</div>
                 <div style="color: #6b7280; font-size: 10px;">Logs erscheinen hier in Echtzeit...</div>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.412 - ADMIN-ONLY ERRORS! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔴 Version 5.90.412 - ADMIN-ONLY ERRORS! (Build 20260114-1000)</p>
             
             <!-- Actions -->
             <div style="padding: 10px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; gap: 8px;">
@@ -1178,19 +1178,19 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
         font-size: 24px;
         cursor: pointer;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.90.415 - KLEINES ERROR-POPUP! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏳ Version 5.90.416 - TIMING FIX! (Build 20260114-1000)</p>
         transition: transform 0.2s;
     " onclick="toggleDebugPanel()" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
         🐛
     </button>
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.413 - SYSTEM MONITOR! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.413 - SYSTEM MONITOR! (Build 20260114-1000)</p>
     <div class="header" id="main-header" style="cursor: pointer; position: relative;" onclick="toggleHeader()">
         <!-- 🆕 v5.42.1: Avatar-Icon für eingeloggte User -->
         <button id="user-avatar-btn" onclick="openMenuAndScrollToProfile(event)" style="
             display: none;
             position: absolute;
             right: 65px;
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.414 - VEHICLE FIX! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.414 - VEHICLE FIX! (Build 20260114-1000)</p>
             transform: translateY(-50%);
             background: rgba(255,255,255,0.9);
             border: 2px solid rgba(255,255,255,0.5);
@@ -1198,7 +1198,7 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
             width: 40px;
             height: 40px;
             align-items: center;
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.415 - TELEGRAM DATUM+ZEIT! (Build 20260114-0945)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.415 - TELEGRAM DATUM+ZEIT! (Build 20260114-1000)</p>
             cursor: pointer;
             font-size: 18px;
             font-weight: 700;
@@ -2913,7 +2913,7 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
                         <span id="toggle-label" style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.8);">AUS</span>
                     </div>
                     
-                    <!-- 🆕 v5.90.415: FAHRTEN-BUTTON! -->
+                    <!-- 🆕 v5.90.416: FAHRTEN-BUTTON! -->
                     <button onclick="openRidesWindow()" id="rides-button" style="
                         background: rgba(255,255,255,0.2);
                         border: 2px solid rgba(255,255,255,0.4);
@@ -3071,7 +3071,7 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
     </div>
 
     <div id="admin-view" class="view admin-only">
-        <!-- 🎯 v5.90.415: SYSTEM MONITOR -->
+        <!-- 🎯 v5.90.416: SYSTEM MONITOR -->
         <div id="system-monitor-container" style="margin-bottom:20px;"></div>
         
         <!-- Header mit Suchleiste -->
@@ -5450,7 +5450,7 @@ showCriticalError(error){const popup=document.createElement("div");popup.id="cri
 
     <div id="debug-view" class="view admin-only" style="display:none; max-width: 1400px; margin: 20px auto; padding: 0 15px;">
         
-        <!-- 🔍 v5.90.415: LIVE DEBUG LOG -->
+        <!-- 🔍 v5.90.416: LIVE DEBUG LOG -->
         <div style="background: white; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); margin-bottom: 20px; overflow: hidden;">
             <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; padding: 20px; text-align: center;">
                 <div style="font-size: 48px; margin-bottom: 8px;">🔍</div>
@@ -12088,7 +12088,7 @@ Aktuell: ${currentNum}`;
                         }
                     });
                     
-                    // 🚀 v5.90.415: HAUPT-LISTENER - NUR FÜR ADMIN!
+                    // 🚀 v5.90.416: HAUPT-LISTENER - NUR FÜR ADMIN!
                     // 🚀 v5.90.386: OPTIMIERTER ADMIN-LISTENER!
                     // Lade nur AKTUELLE Fahrten (letzte 100)
                     let adminRidesListener = null;
@@ -12247,7 +12247,7 @@ Aktuell: ${currentNum}`;
                         setupAdminRidesListener();
                     });
                     
-                    // 🚀 v5.90.415: OPTIMIERTER FAHRER-LISTENER!
+                    // 🚀 v5.90.416: OPTIMIERTER FAHRER-LISTENER!
                     // NUR für Fahrer, lädt NUR zugewiesene Fahrten!
                     let driverRidesListener = null;
                     
@@ -12301,7 +12301,7 @@ Aktuell: ${currentNum}`;
                             .equalTo(currentVehicle)
                             .on('value', (snapshot) => {
                                 console.log('═══════════════════════════════════════');
-                                console.log('📥 v5.90.415: FAHRER-RIDES UPDATE!');
+                                console.log('📥 v5.90.416: FAHRER-RIDES UPDATE!');
                                 console.log('   Fahrzeug:', currentVehicle);
                                 
                                 const driverRides = [];
@@ -14865,8 +14865,8 @@ Aktuell: ${currentNum}`;
             `;
         }
 
-        // 🪟 v5.90.415: POPUP-FENSTER FÜR FAHRER-FAHRTEN!
-        // 🔔 v5.90.415: AUTO-POPUP BEI NEUER ZUWEISUNG!
+        // 🪟 v5.90.416: POPUP-FENSTER FÜR FAHRER-FAHRTEN!
+        // 🔔 v5.90.416: AUTO-POPUP BEI NEUER ZUWEISUNG!
         let lastAssignmentCheck = null;
         
         function checkForNewAssignments() {
@@ -14905,7 +14905,7 @@ Aktuell: ${currentNum}`;
         
 
         function openRidesWindow() {
-            console.log("🪟 v5.90.415: Öffne Fahrten-Fenster!");
+            console.log("🪟 v5.90.416: Öffne Fahrten-Fenster!");
             
             // Filtere Fahrten (gleiche Logik wie updateDriverView)
             const newRides = rides.filter(r => {
@@ -14945,7 +14945,7 @@ Aktuell: ${currentNum}`;
         function updateDriverView() {
             // 🆕 v5.90.300: ISARFUNK-STYLE!
             updateDriverViewIsarfunk();
-            // 🔔 v5.90.415: Check für neue Zuweisungen!
+            // 🔔 v5.90.416: Check für neue Zuweisungen!
             checkForNewAssignments();
             
             // Alte Logik für Kompatibilität
@@ -23144,7 +23144,7 @@ Aktuell: ${currentNum}`;
                 assignmentExpiresAt: Date.now() + 60000, // 60 Sekunden (erhöht von 30!)
             debugLog.log("ASSIGN", "assigned", "Fahrt zugewiesen an Fahrer", {rideId, vehicleId: nearestVehicle.id, distance: nearestVehicle.distance});
             
-            // 🔔 v5.90.415: BENACHRICHTIGE FAHRER!
+            // 🔔 v5.90.416: BENACHRICHTIGE FAHRER!
             console.log("🔔 Benachrichtige Fahrer über neue Zuweisung...");
             
             // Sound abspielen
@@ -27610,10 +27610,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
 
         function toggleOnline() {
-            // 🛡️ v5.90.415: KRITISCHE VALIDIERUNG AM ANFANG!
+            // 🛡️ v5.90.416: KRITISCHE VALIDIERUNG AM ANFANG!
             if (!currentVehicle || currentVehicle === 'undefined' || currentVehicle === '') {
             debugLog.log("DRIVER", "toggle_online", isOnline ? "Fahrer geht online" : "Fahrer geht offline", {vehicleId: currentVehicle});
-                console.error('❌ v5.90.415: GPS-Toggle BLOCKIERT - Kein Fahrzeug gewählt!');
+                console.error('❌ v5.90.416: GPS-Toggle BLOCKIERT - Kein Fahrzeug gewählt!');
                 console.error('   currentVehicle:', currentVehicle);
                 
                 // Toggle zurücksetzen
@@ -27847,9 +27847,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // 🆕 v5.90.261: Lade Fahrten für diesen Fahrer
             loadDriverRides();
             
-            // 🚀 v5.90.415: Trigger Event für Listener-Setup!
+            // 🚀 v5.90.416: Trigger Event für Listener-Setup!
             if (currentVehicle && currentUser && currentUser.role === 'driver') {
-                console.log('🎯 v5.90.415: Triggere vehicleSelected Event');
+                console.log('🎯 v5.90.416: Triggere vehicleSelected Event');
                 window.dispatchEvent(new CustomEvent('vehicleSelected', { 
                     detail: { vehicleId: currentVehicle } 
                 }));
@@ -35945,18 +35945,18 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     let mergedCount = 0;
                     
                     Object.keys(data).forEach(key => {
-                        // 🛡️ v5.90.415: STRENGE VALIDIERUNG!
+                        // 🛡️ v5.90.416: STRENGE VALIDIERUNG!
                         
                         // Check 1: ID darf nicht undefined/leer sein
                         if (!key || key === 'undefined' || key === 'null' || key.trim() === '') {
-                            console.warn('⚠️ v5.90.415: UNGÜLTIGE ID:', key);
+                            console.warn('⚠️ v5.90.416: UNGÜLTIGE ID:', key);
                             invalidCount++;
                             return;
                         }
                         
                         // Check 2: Fahrzeug muss Daten haben
                         if (!data[key] || typeof data[key] !== 'object') {
-                            console.warn('⚠️ v5.90.415: KEINE DATEN für:', key);
+                            console.warn('⚠️ v5.90.416: KEINE DATEN für:', key);
                             invalidCount++;
                             return;
                         }
@@ -35976,7 +35976,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         } else {
                             // Check 3: Neues Fahrzeug muss mindestens Name ODER Plate haben
                             if (!vehicle.name && !vehicle.plate) {
-                                console.warn('⚠️ v5.90.415: KEIN NAME/PLATE für:', key);
+                                console.warn('⚠️ v5.90.416: KEIN NAME/PLATE für:', key);
                                 invalidCount++;
                                 return;
                             }
@@ -35988,7 +35988,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             };
                         }
                         validCount++;
-                        console.log(`✅ v5.90.415: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
+                        console.log(`✅ v5.90.416: Fahrzeug OK: ${key} (${vehicle.name || vehicle.plate})`);
                     });
                     
                     console.log('═══════════════════════════════════════');
@@ -36000,10 +36000,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     console.log('═══════════════════════════════════════');
                     
                     if (validCount === 0) {
-                        console.error('❌ v5.90.415: KEINE GÜLTIGEN FAHRZEUGE GEFUNDEN!');
+                        console.error('❌ v5.90.416: KEINE GÜLTIGEN FAHRZEUGE GEFUNDEN!');
                         // Fallback zu Default
                         VEHICLES = { ...DEFAULT_VEHICLES };
-                        console.log('⚠️ v5.90.415: Verwende Default-Fahrzeuge');
+                        console.log('⚠️ v5.90.416: Verwende Default-Fahrzeuge');
                     }
                 } else {
                     // Initialisiere Firebase mit Default-Fahrzeugen
@@ -58570,24 +58570,24 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // Render Liste
                 renderHotelCalendarList();
                 
-                // 🚫 v5.90.415: AUTO-SYNC DEAKTIVIERT!
+                // 🚫 v5.90.416: AUTO-SYNC DEAKTIVIERT!
                 // Hotel-Kalender werden NUR bei Bedarf geladen (Rechnung erstellen)
                 // startHotelCalendarAutoSync();  // ← DEAKTIVIERT!
-                console.log('ℹ️ v5.90.415: Auto-Sync deaktiviert - Hotel-Kalender werden nur bei Bedarf geladen');
+                console.log('ℹ️ v5.90.416: Auto-Sync deaktiviert - Hotel-Kalender werden nur bei Bedarf geladen');
                 
             } catch (error) {
                 console.error('❌ Fehler beim Laden der Hotel-Kalender:', error);
             }
         }
         
-        // 🚫 v5.90.415: AUTO-SYNC DEAKTIVIERT!
+        // 🚫 v5.90.416: AUTO-SYNC DEAKTIVIERT!
         // Hotel-Kalender werden NUR bei Bedarf geladen
         let hotelCalendarSyncInterval = null;
         let autoSyncStarted = false;
         
         function startHotelCalendarAutoSync() {
-            // 🚫 v5.90.415: KOMPLETT DEAKTIVIERT!
-            console.log('🚫 v5.90.415: Auto-Sync deaktiviert - Hotel-Kalender werden nur manuell geladen');
+            // 🚫 v5.90.416: KOMPLETT DEAKTIVIERT!
+            console.log('🚫 v5.90.416: Auto-Sync deaktiviert - Hotel-Kalender werden nur manuell geladen');
             return;
             
             /* ALTE IMPLEMENTIERUNG - DEAKTIVIERT!

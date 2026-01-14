@@ -262,15 +262,16 @@
         console.log('🔄 v5.90.10: Distanz neu berechnen im Rechnungs-Modal!');
         console.log('🔗 v5.90.10: Rechnung wird in Fahrt verknüpft!');
         console.log('🔧 v5.90.9: Zahlungsart ohne Emojis in PDF!');
-        console.log('📱 v5.90.450: Telefonnummer-Fix - Alle Felder werden geprüft!');
-        console.log('📅 v5.90.450: Heute Button scrollt zu heutigem Tag!');
-        console.log('⚙️ v5.90.450: Fahrt-Status ändern - Abgeschlossene Fahrten wieder öffnen!');
-        console.log('✏️ v5.90.450: Kunde Bearbeiten Modal mit Autocomplete!');
-        console.log('➕ v5.90.450: Neuer Kunde Modal mit Autocomplete!');
-        console.log('📱 v5.90.450: WhatsApp mit Firebase Storage - ALLE Rechnungsdaten gespeichert!');
-        console.log('💪 v5.90.450: KOMPLETTES CRM - ALLE 38 Funktionen aus v387!');
-        console.log('📋 v5.90.450: Rechnungs-Positionen Vorlagen!');
-        console.log('💳 v5.90.450: Barzahlung als Standard + änderbar im Edit-Modal!');
+        console.log('🔧 v5.90.451: Modal-Fix - Abbrechen + Kategorie!');
+        console.log('📱 v5.90.451: Telefonnummer-Fix - Alle Felder werden geprüft!');
+        console.log('📅 v5.90.451: Heute Button scrollt zu heutigem Tag!');
+        console.log('⚙️ v5.90.451: Fahrt-Status ändern - Abgeschlossene Fahrten wieder öffnen!');
+        console.log('✏️ v5.90.451: Kunde Bearbeiten Modal mit Autocomplete!');
+        console.log('➕ v5.90.451: Neuer Kunde Modal mit Autocomplete!');
+        console.log('📱 v5.90.451: WhatsApp mit Firebase Storage - ALLE Rechnungsdaten gespeichert!');
+        console.log('💪 v5.90.451: KOMPLETTES CRM - ALLE 38 Funktionen aus v387!');
+        console.log('📋 v5.90.451: Rechnungs-Positionen Vorlagen!');
+        console.log('💳 v5.90.451: Barzahlung als Standard + änderbar im Edit-Modal!');
         console.log('💳 v5.90.8: Zahlungsart-Auswahl im Rechnungs-Modal!');
         console.log('📄 v5.90.8: Zahlungsart wird auf PDF angezeigt!');
         console.log('🧹 v5.90.7: Alte "aktive" Fahrten abschließen!');
@@ -3515,7 +3516,7 @@
         </div>
         
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- RECHNUNGS-POSITIONEN VERWALTUNG - v5.90.450 -->
+<!-- RECHNUNGS-POSITIONEN VERWALTUNG - v5.90.451 -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 
 <!-- EINSTELLUNGS-KARTE IM ADMIN VIEW -->
@@ -3611,7 +3612,7 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// RECHNUNGS-POSITIONEN VERWALTUNG - v5.90.450
+// RECHNUNGS-POSITIONEN VERWALTUNG - v5.90.451
 // ═══════════════════════════════════════════════════════════════
 
 let invoicePositionsTemplates = [];
@@ -3808,7 +3809,7 @@ if (typeof window.initFunctions === 'undefined') {
 }
 window.initFunctions.push(loadInvoicePositionsTemplates);
 
-console.log('✅ Rechnungs-Positionen Verwaltung geladen (v5.90.450)');
+console.log('✅ Rechnungs-Positionen Verwaltung geladen (v5.90.451)');
 </script>
         <!-- 🆕 v5.90.5: DATENBANK BEREINIGEN -->
         <div style="background:white;padding:20px;border-radius:12px;margin-bottom:20px;border:2px solid #f59e0b;box-shadow:0 4px 12px rgba(245,158,11,0.15);">
@@ -23581,7 +23582,7 @@ console.log('✅ Rechnungs-Positionen Verwaltung geladen (v5.90.450)');
         }
 
 // ═══════════════════════════════════════════════════════════════
-// FAHRT STATUS ÄNDERN - v5.90.450
+// FAHRT STATUS ÄNDERN - v5.90.451
 // ═══════════════════════════════════════════════════════════════
 
 async function changeRideStatus(rideId, currentStatus) {
@@ -23731,7 +23732,7 @@ function getStatusName(status) {
     return names[status] || status;
 }
 
-console.log('✅ Status-Ändern Funktion geladen (v5.90.450)');
+console.log('✅ Status-Ändern Funktion geladen (v5.90.451)');
 
 
         // 🆕 FORMULAR ZURÜCKSETZEN (nach Stornierung oder abgeschlossener Fahrt)
@@ -33246,11 +33247,11 @@ console.log('✅ Status-Ändern Funktion geladen (v5.90.450)');
         
         // 🆕 v5.90.14: RECHNUNG PER WHATSAPP TEILEN
         // ═══════════════════════════════════════════════════════════════
-        // 📱 WHATSAPP RECHNUNG MIT FIREBASE STORAGE - v5.90.450
+        // 📱 WHATSAPP RECHNUNG MIT FIREBASE STORAGE - v5.90.451
         // ═══════════════════════════════════════════════════════════════
         async function shareInvoiceViaWhatsApp() {
             try {
-                console.log('📱 v5.90.450: PDF erstellen & WhatsApp versenden');
+                console.log('📱 v5.90.451: PDF erstellen & WhatsApp versenden');
                 
                 // Hole Rechnung-Daten
                 const rideId = document.getElementById('invoice-ride-id')?.value;
@@ -33632,7 +33633,7 @@ console.log('✅ Status-Ändern Funktion geladen (v5.90.450)');
             container.innerHTML = invoicePositions.map((pos, index) => `
                 <div style="display:grid;grid-template-columns:1fr 120px 40px;gap:10px;margin-bottom:10px;align-items:center;">
                     ${index === invoicePositions.length - 1 && invoicePositionsTemplates.length > 0 ? `
-                        <!-- 🆕 v5.90.450: DROPDOWN FÜR VORLAGEN -->
+                        <!-- 🆕 v5.90.451: DROPDOWN FÜR VORLAGEN -->
                         <select onchange="if(this.value) { updateInvoicePositionDescription(${index}, this.value); this.style.display='none'; this.nextElementSibling.style.display='block'; this.nextElementSibling.value=this.value; }"
                                 style="padding:8px;border:2px solid #10b981;border-radius:8px;font-size:14px;background:white;font-weight:600;">
                             <option value="">📋 Vorlage wählen oder eigene eingeben...</option>
@@ -34745,7 +34746,7 @@ console.log('✅ Status-Ändern Funktion geladen (v5.90.450)');
                 html += `
                     <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center;">
                         ${isLast && hasTemplates ? `
-                            <!-- 🆕 v5.90.450: DROPDOWN FÜR VORLAGEN -->
+                            <!-- 🆕 v5.90.451: DROPDOWN FÜR VORLAGEN -->
                             <select onchange="if(this.value) { editInvoicePositions[${index}].description=this.value; this.style.display='none'; this.nextElementSibling.style.display='block'; this.nextElementSibling.value=this.value; }"
                                     style="flex:1;padding:10px;border:2px solid #10b981;border-radius:8px;background:white;font-weight:600;">
                                 <option value="">📋 Vorlage wählen...</option>
@@ -36533,11 +36534,6 @@ console.log('✅ Status-Ändern Funktion geladen (v5.90.450)');
             showToast('✅ Kundendaten übernommen!', 'success');
         }
         
-        function closeEditCustomerModal() {
-            const modal = document.getElementById('edit-customer-modal');
-            if (modal) modal.remove();
-            currentCustomerBillingAddresses = [];
-        }
         
         async function updateCustomer(customerId) {
             const name = document.getElementById('edit-customer-name').value.trim();
@@ -40777,13 +40773,13 @@ Stack: ${err.stack}
             console.log('📅 Springe zu Heute');
             renderCalendar();
             
-            // 🆕 v5.90.450: Auto-Scroll zum heutigen Tag nach render!
+            // 🆕 v5.90.451: Auto-Scroll zum heutigen Tag nach render!
             setTimeout(() => {
                 scrollToToday();
             }, 300); // Warte bis Kalender gerendert ist
         }
         
-        // 🆕 v5.90.450: SCROLL ZUM HEUTIGEN TAG
+        // 🆕 v5.90.451: SCROLL ZUM HEUTIGEN TAG
         function scrollToToday() {
             try {
                 const today = new Date();
@@ -53393,7 +53389,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- FLOATING QUICK BOOKING - MODAL HTML -->
-<!-- v5.90.450 - Wiederhergestellt aus v387 -->
+<!-- v5.90.451 - Wiederhergestellt aus v387 -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 
 <div id="floating-quick-booking" style="display:none;position:fixed;top:80px;right:20px;width:380px;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:99999;max-height:calc(100vh - 100px);overflow-y:auto;">
@@ -53567,7 +53563,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
 <script>
 // ═══════════════════════════════════════════════════════════════
 // FLOATING QUICK BOOKING - JAVASCRIPT FUNCTIONS
-// v5.90.450 - Wiederhergestellt aus v387
+// v5.90.451 - Wiederhergestellt aus v387
 // 15 Funktionen für Schnellbuchung
 // ═══════════════════════════════════════════════════════════════
 
@@ -53765,7 +53761,7 @@ function setFQBTimePlus30() {
 
 // 8. BUCHUNG ABSENDEN
 async function submitFloatingQuickBooking() {
-    console.log('🚕 v5.90.450: Floating Quick Booking absenden...');
+    console.log('🚕 v5.90.451: Floating Quick Booking absenden...');
     
     // Validierung
     if (!floatingBookingData.customerName) {
@@ -53851,12 +53847,12 @@ async function submitFloatingQuickBooking() {
 // - openQuickBookingMapPickerForPickup()
 // - confirmQuickBookingMapPickerForPickup()
 
-console.log('✅ Floating Quick Booking geladen (v5.90.450)');
+console.log('✅ Floating Quick Booking geladen (v5.90.451)');
 </script>
 
 </body>
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- CRM VIEW + ANRUF-FAVORITEN - v5.90.450 -->
+<!-- CRM VIEW + ANRUF-FAVORITEN - v5.90.451 -->
 <!-- Vereinfachte aber funktionale Version -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 
@@ -54002,7 +53998,7 @@ console.log('✅ Floating Quick Booking geladen (v5.90.450)');
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// CRM + ANRUF-FAVORITEN FUNKTIONEN - v5.90.450
+// CRM + ANRUF-FAVORITEN FUNKTIONEN - v5.90.451
 // ═══════════════════════════════════════════════════════════════
 
 // Globale Variablen
@@ -54012,7 +54008,7 @@ let callFavorites = [];
 
 // ─────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════
-// KOMPLETTES CRM + CALL SYSTEM - v5.90.450
+// KOMPLETTES CRM + CALL SYSTEM - v5.90.451
 // ALLE 38 FUNKTIONEN AUS v387!
 
         function loadCRMView() {
@@ -55864,14 +55860,14 @@ function clearDestinationAddress() {
     document.getElementById('fqb-destination-display').style.color = '#6b7280';
 }
 
-console.log('✅ CRM + Anruf-Favoriten geladen (v5.90.450)');
+console.log('✅ CRM + Anruf-Favoriten geladen (v5.90.451)');
 </script>
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- NEUER KUNDE MODAL - v5.90.450 -->
+<!-- NEUER KUNDE MODAL - v5.90.451 -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- KUNDE BEARBEITEN MODAL - v5.90.450 -->
+<!-- KUNDE BEARBEITEN MODAL - v5.90.451 -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
 
 <div id="edit-customer-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100001;padding:20px;overflow-y:auto;">
@@ -56037,7 +56033,7 @@ console.log('✅ CRM + Anruf-Favoriten geladen (v5.90.450)');
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// KUNDE BEARBEITEN MODAL FUNKTIONEN - v5.90.450
+// KUNDE BEARBEITEN MODAL FUNKTIONEN - v5.90.451
 // ═══════════════════════════════════════════════════════════════
 
 let editCustomerAddressCoords = null;
@@ -56058,7 +56054,7 @@ async function viewCustomerDetails(customerId) {
         
         console.log('📋 Kundendaten:', customer);
         
-        // 🔧 v5.90.450: Prüfe ALLE möglichen Telefon-Felder!
+        // 🔧 v5.90.451: Prüfe ALLE möglichen Telefon-Felder!
         const phoneNumber = customer.phone || 
                            customer.mobilePhone || 
                            customer.customerPhone || 
@@ -56116,11 +56112,18 @@ async function viewCustomerDetails(customerId) {
     }
 }
 
-// MODAL SCHLIESSEN
+// MODAL SCHLIESSEN  
 function closeEditCustomerModal() {
-    document.getElementById('edit-customer-modal').style.display = 'none';
-    document.getElementById('edit-customer-address-dropdown').style.display = 'none';
-    document.getElementById('edit-customer-category-dropdown').style.display = 'none';
+    const modal = document.getElementById('edit-customer-modal');
+    if (modal) {
+        modal.remove();
+    }
+    
+    // Cleanup
+    editCustomerAddressCoords = null;
+    currentCustomerBillingAddresses = [];
+    
+    console.log('✅ Modal geschlossen');
 }
 
 // KATEGORIE DROPDOWN TOGGLE
@@ -56220,7 +56223,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
-console.log('✅ Kunde Bearbeiten Modal geladen (v5.90.450)');
+console.log('✅ Kunde Bearbeiten Modal geladen (v5.90.451)');
 </script>
 <!-- ═══════════════════════════════════════════════════════════════ -->
 
@@ -56372,7 +56375,7 @@ console.log('✅ Kunde Bearbeiten Modal geladen (v5.90.450)');
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// NEUER KUNDE MODAL FUNKTIONEN - v5.90.450
+// NEUER KUNDE MODAL FUNKTIONEN - v5.90.451
 // ═══════════════════════════════════════════════════════════════
 
 let addCustomerAddressCoords = null;
@@ -56539,7 +56542,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
-console.log('✅ Neuer Kunde Modal geladen (v5.90.450)');
+console.log('✅ Neuer Kunde Modal geladen (v5.90.451)');
 </script>
 </body>
 </html>

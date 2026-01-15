@@ -197,12 +197,16 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.453 - MASTER FIX! 🔧 (Build 20260114-1700)');
-        console.log('🔧 v5.90.453: renderDriverRides() nutzt Isarfunk HTML!');
-        console.log('🚗 v5.90.453: FAHRER-TAB aus v450 + Status ändern + Export!');
-        console.log('🔧 v5.90.453: GPS Debug Logging umfangreich!');
-        console.log('🔧 v5.90.453: checkOnlineDrivers() zeigt WARUM nicht verfügbar!');
-        console.log('🔧 v5.90.453: Monitoring Cleanup verbessert!');
+        console.log('🚕 Funk Taxi App v5.90.457 - MASTER FIX! 🔧 (Build 20260114-1800)');
+        console.log('🔧 v5.90.457: renderDriverRides() nutzt Isarfunk HTML!');
+        console.log('🚗 v5.90.457: FAHRER-TAB aus v450 + Status ändern + Export!');
+        console.log('📊 v5.90.457: Fahrzeug-Status zeigt Datum, Uhrzeit, Von, Nach!');
+        console.log('⚙️ v5.90.457: Fahrt-Status Badge + Status-ändern Button!');
+        console.log('🧭 v5.90.457: Karten-Popup zeigt Fahrtrichtung (Ziel)!');
+        console.log('📊 v5.90.457: Karten-Popup mit ALLEN Details (Datum, Zeit, Von, Nach)!');
+        console.log('🔧 v5.90.457: GPS Debug Logging umfangreich!');
+        console.log('🔧 v5.90.457: checkOnlineDrivers() zeigt WARUM nicht verfügbar!');
+        console.log('🔧 v5.90.457: Monitoring Cleanup verbessert!');
         console.log('🚀 v5.90.374: Firebase Query statt 3000 Fahrten laden!');
         console.log('🧹 v5.90.373: Monitoring Cleanup + possibleIds Fix');
         console.log('🔧 v5.90.365: Fahrer-View Crash gefixt!');
@@ -1107,7 +1111,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.453 - MASTER FIX! 🔧 (Build 20260114-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.457 - MASTER FIX! 🔧 (Build 20260114-1800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1523,7 +1527,7 @@
                             <option value="+41">🇨🇭 +41</option>
                             <option value="+48">🇵🇱 +48</option>
                         </select>
-                        <input type="tel" id="phone-number-input" placeholder="173 1234567" 
+                        <input type="tel" id="phone-number-input" placeholder="173 1234577" 
                             onblur="addCountryCode(this)"
                             style="flex: 1; padding: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; box-sizing: border-box; min-width: 0;"
                             oninput="this.value = this.value.replace(/[^0-9]/g, '')">
@@ -2669,7 +2673,7 @@
         <div style="background:#dbeafe;border:2px solid #3b82f6;border-radius:8px;padding:15px;margin-bottom:15px;">
             <div style="font-weight:700;margin-bottom:8px;color:#1e40af;">📬 Automatische Email-Weiterleitung</div>
             <div style="font-size:13px;color:#1e3a8a;line-height:1.6;">
-                Alle Emails an <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c584d54455b55485e4d6c4b43434b4049414d4540024f4341">[email&#160;protected]</a></strong> werden automatisch hier angezeigt<br>
+                Alle Emails an <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c584d54457b55485e4d6c4b43434b4049414d4570024f4341">[email&#160;protected]</a></strong> werden automatisch hier angezeigt<br>
                 ✅ Buchungsanfragen erkennen<br>
                 ✅ Direkt in Buchung umwandeln<br>
                 ✅ Auto-Antwort senden
@@ -6338,7 +6342,7 @@
                     <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">
                         📧 E-Mail, Telegram oder WhatsApp-Nachricht:
                     </label>
-                    <textarea id="ai-input-text" placeholder="Beispiel:&#10;&#10;Guten Tag,&#10;ich möchte ein Taxi für morgen 14:30 Uhr buchen.&#10;Abholung: Bahnhof Heringsdorf&#10;Ziel: Strandhotel Ahlbeck&#10;2 Personen&#10;&#10;Mit freundlichen Grüßen&#10;Maria Schmidt&#10;+49 170 1234567" 
+                    <textarea id="ai-input-text" placeholder="Beispiel:&#10;&#10;Guten Tag,&#10;ich möchte ein Taxi für morgen 14:30 Uhr buchen.&#10;Abholung: Bahnhof Heringsdorf&#10;Ziel: Strandhotel Ahlbeck&#10;2 Personen&#10;&#10;Mit freundlichen Grüßen&#10;Maria Schmidt&#10;+49 170 1234577" 
                         style="width: 100%; height: 200px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: monospace; resize: vertical;">
                     </textarea>
                     
@@ -6449,7 +6453,7 @@
                             </div>
                             <div>
                                 <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px;">Telefon:</label>
-                                <input type="tel" id="ai-booking-phone" placeholder="z.B. +49 170 1234567" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                                <input type="tel" id="ai-booking-phone" placeholder="z.B. +49 170 1234577" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
                             </div>
                         </div>
 
@@ -6653,7 +6657,7 @@
                     <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">
                         Telegram-Nachricht simulieren:
                     </label>
-                    <textarea id="test-telegram-message" placeholder="Beispiel:&#10;&#10;Hallo, ich brauche ein Taxi morgen um 14 Uhr vom Bahnhof zum Hotel Ahlbeck. Wir sind 2 Personen.&#10;&#10;MfG Max Mustermann&#10;+49 170 1234567" 
+                    <textarea id="test-telegram-message" placeholder="Beispiel:&#10;&#10;Hallo, ich brauche ein Taxi morgen um 14 Uhr vom Bahnhof zum Hotel Ahlbeck. Wir sind 2 Personen.&#10;&#10;MfG Max Mustermann&#10;+49 170 1234577" 
                         style="width: 100%; height: 150px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: sans-serif; resize: vertical;">
                     </textarea>
                     
@@ -7050,7 +7054,7 @@
             'bansin': { lat: 53.9633, lon: 14.1433, name: 'Bansin', fullAddress: 'Bansin, Usedom' },
             'seebrücke bansin': { lat: 53.9633, lon: 14.1433, name: 'Seebrücke Bansin', fullAddress: 'Seebrücke Bansin, 17429 Bansin' },
             'zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Zinnowitz', fullAddress: 'Zinnowitz, Usedom' },
-            'bahnhof zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Bahnhof Zinnowitz', fullAddress: 'Bahnhof Zinnowitz, 17454 Zinnowitz' },
+            'bahnhof zinnowitz': { lat: 54.0908, lon: 13.9167, name: 'Bahnhof Zinnowitz', fullAddress: 'Bahnhof Zinnowitz, 17457 Zinnowitz' },
             'ückeritz': { lat: 53.9878, lon: 14.0519, name: 'Ückeritz', fullAddress: 'Ückeritz, Usedom' },
             'loddin': { lat: 54.0083, lon: 13.9917, name: 'Loddin', fullAddress: 'Loddin, Usedom' },
             'zempin': { lat: 54.0194, lon: 13.9611, name: 'Zempin', fullAddress: 'Zempin, Usedom' },
@@ -11813,7 +11817,7 @@ Funk Taxi Heringsdorf`;
             } else {
                 // Standard-Favoriten wenn noch keine gespeichert
                 callFavorites = [
-                    { name: 'Taxi-Zentrale', number: '+49170123456', icon: '🚕' },
+                    { name: 'Taxi-Zentrale', number: '+49170123457', icon: '🚕' },
                     { name: 'Notruf', number: '112', icon: '🚑' },
                     { name: 'Polizei', number: '110', icon: '👮' }
                 ];
@@ -16473,7 +16477,7 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.31.0: EINDEUTIGE RIDE-ID GENERATOR
         function generateRideId() {
             // Format: ride_TIMESTAMP_RANDOM
-            // Beispiel: ride_1733047234567_k3n9x2m4p
+            // Beispiel: ride_1733047234577_k3n9x2m4p
             const timestamp = Date.now();
             const random = Math.random().toString(36).substr(2, 9);
             const rideId = `ride_${timestamp}_${random}`;
@@ -19985,7 +19989,7 @@ Aktuell: ${currentNum}`;
         }
 
         // 📱 TELEGRAM BOT INTEGRATION
-        const TELEGRAM_BOT_TOKEN = '8456598996:AAGEIdlDDbQwZ4-1OQFoW3fkT9tZlfTc_FM';
+        const TELEGRAM_BOT_TOKEN = '8457598996:AAGEIdlDDbQwZ4-1OQFoW3fkT9tZlfTc_FM';
         const TELEGRAM_BOT_USERNAME = 'FunkTaxiHeringsdorfBot';
         
         // Telegram-Nachricht senden
@@ -20838,7 +20842,7 @@ Aktuell: ${currentNum}`;
                             1️⃣ Klicke auf "Bot öffnen"<br>
                             2️⃣ Schreibe <code>/start</code> im Bot<br>
                             3️⃣ Klicke auf "Chat ID anzeigen"<br>
-                            4️⃣ Kopiere die Zahl (<code>"id":123456789</code>)<br>
+                            4️⃣ Kopiere die Zahl (<code>"id":123457789</code>)<br>
                             5️⃣ Trage sie hier ein und klicke "Registrieren"
                         </div>
                     </div>
@@ -25887,7 +25891,7 @@ Aktuell: ${currentNum}`;
                                 text-align: center;
                             ">
                                 <div style="font-size: 11px; color: #92400e; font-weight: 600; margin-bottom: 4px;">💰 PREIS</div>
-                                <div style="font-size: 20px; font-weight: 700; color: #b45309;">
+                                <div style="font-size: 20px; font-weight: 700; color: #b45709;">
                                     ${bookingData.price}€
                                 </div>
                             </div>
@@ -27928,7 +27932,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             // Validiere dass es eine Zahl ist
             if (!/^-?\d+$/.test(chatId)) {
-                alert('❌ Ungültige Chat-ID!\n\nDie Chat-ID besteht nur aus Zahlen (z.B. 123456789)');
+                alert('❌ Ungültige Chat-ID!\n\nDie Chat-ID besteht nur aus Zahlen (z.B. 123457789)');
                 return;
             }
             
@@ -32050,7 +32054,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     // Popup-Inhalt
                     let popupContent = `
-                        <div style="min-width:200px;">
+                        <div style="min-width:220px;">
                             <div style="font-weight:bold;font-size:14px;margin-bottom:5px;">
                                 🚗 ${vehicleName}
                             </div>
@@ -32061,11 +32065,17 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     if (activeRide) {
                         popupContent += `
-                            <div style="background:#f3f4f6;padding:8px;border-radius:6px;font-size:12px;">
-                                <div><strong>👤 ${activeRide.customerName || 'Kunde'}</strong></div>
-                                <div>📍 ${activeRide.pickup || '?'}</div>
-                                <div>➡️ ${activeRide.destination || '?'}</div>
-                                <div>💰 ${activeRide.price || '?'}€</div>
+                            <div style="background:#f3f4f6;padding:10px;border-radius:6px;font-size:11px;line-height:1.6;margin-bottom:8px;">
+                                <div style="margin-bottom:6px;"><strong>👤 ${activeRide.customerName || 'Kunde'}</strong></div>
+                                <div style="margin-bottom:4px;">
+                                    📅 ${new Date(activeRide.timestamp).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})} 
+                                    🕐 ${new Date(activeRide.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr
+                                </div>
+                                <div style="margin-bottom:4px;">📍 Von: ${activeRide.pickup || '?'}</div>
+                                <div style="background:#3b82f6;color:white;padding:6px;border-radius:4px;font-weight:600;margin-bottom:4px;">
+                                    🧭 Fährt nach: ${activeRide.destination || '?'}
+                                </div>
+                                <div style="margin-top:4px;">💰 ${activeRide.price || '?'}€</div>
                             </div>
                         `;
                         
@@ -32140,9 +32150,50 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             <div>
                                 <div style="font-weight:600;">🚗 ${vehicleName}</div>
                                 ${activeRide ? `
-                                    <div style="font-size:12px;color:#666;">
-                                        👤 ${activeRide.customerName || 'Kunde'} · 
-                                        ${activeRide.destination || '?'}
+                                    <div style="font-size:11px;color:#666;line-height:1.4;">
+                                        <div style="margin-bottom:2px;">
+                                            👤 <strong>${activeRide.customerName || 'Kunde'}</strong>
+                                        </div>
+                                        <div style="margin-bottom:2px;">
+                                            📅 ${new Date(activeRide.timestamp).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})} 
+                                            🕐 ${new Date(activeRide.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr
+                                        </div>
+                                        <div style="margin-bottom:2px;">
+                                            📍 ${activeRide.pickup || 'Start unbekannt'}
+                                        </div>
+                                        <div style="margin-bottom:4px;">
+                                            🎯 ${activeRide.destination || 'Ziel unbekannt'}
+                                        </div>
+                                        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                                            <span style="
+                                                background:${activeRide.status === 'completed' ? '#10b981' : activeRide.status === 'picked_up' ? '#8b5cf6' : activeRide.status === 'accepted' ? '#3b82f6' : '#f59e0b'};
+                                                color:white;
+                                                padding:3px 8px;
+                                                border-radius:12px;
+                                                font-size:10px;
+                                                font-weight:600;
+                                            ">
+                                                ${activeRide.status === 'completed' ? '✅ Abgeschlossen' : 
+                                                  activeRide.status === 'picked_up' ? '🚗 Unterwegs' : 
+                                                  activeRide.status === 'accepted' ? '✅ Angenommen' : 
+                                                  activeRide.status === 'assigned' ? '📋 Zugewiesen' :
+                                                  '📅 Vorbestellt'}
+                                            </span>
+                                            ${activeRide.firebaseId ? `
+                                                <button onclick="event.stopPropagation();changeRideStatus('${activeRide.firebaseId}', '${activeRide.status}')" style="
+                                                    background:#f59e0b;
+                                                    color:white;
+                                                    border:none;
+                                                    padding:3px 8px;
+                                                    border-radius:12px;
+                                                    font-size:10px;
+                                                    font-weight:600;
+                                                    cursor:pointer;
+                                                " title="Status ändern">
+                                                    ⚙️
+                                                </button>
+                                            ` : ''}
+                                        </div>
                                     </div>
                                 ` : `
                                     <div style="font-size:11px;color:${gpsAgeColor};">
@@ -36120,7 +36171,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         </div>
                         <div>
                             <label style="font-size:12px;color:#666;">Telefon</label>
-                            <input type="text" id="new-user-phone" placeholder="0173 1234567" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <input type="text" id="new-user-phone" placeholder="0173 1234577" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
                         </div>
                         <div>
                             <label style="font-size:12px;color:#666;">Rolle *</label>
@@ -36248,7 +36299,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         </div>
                         <div>
                             <label style="font-size:12px;color:#666;">Telefon</label>
-                            <input type="text" id="edit-user-phone" value="${user.phone || ''}" placeholder="0173 1234567" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                            <input type="text" id="edit-user-phone" value="${user.phone || ''}" placeholder="0173 1234577" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
                         </div>
                         <div>
                             <label style="font-size:12px;color:#666;">Fahrzeug (für Fahrer)</label>
@@ -37089,7 +37140,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             <input 
                                 type="tel" 
                                 id="quick-booking-guest-phone" 
-                                placeholder="z.B. 0170 1234567" 
+                                placeholder="z.B. 0170 1234577" 
                                 onblur="addCountryCode(this)"
                                 style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;background:#f9fafb;">
                             <div style="font-size:12px;color:#6b7280;margin-top:4px;">
@@ -37608,7 +37659,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     <div style="margin-bottom:12px;">
                         <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Telefon: <span style="color:#ef4444;">*</span></label>
-                        <input type="tel" id="new-qb-customer-phone" value="${prefillPhone}" placeholder="z.B. 0170 1234567" 
+                        <input type="tel" id="new-qb-customer-phone" value="${prefillPhone}" placeholder="z.B. 0170 1234577" 
                                onblur="addCountryCode(this)"
                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         <div style="font-size:11px;color:#6b7280;margin-top:4px;">
@@ -37720,7 +37771,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     
                     <div style="margin-bottom:12px;">
                         <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Telefon: <span style="color:#ef4444;">*</span></label>
-                        <input type="tel" id="new-qb-customer-phone" value="${phone}" placeholder="z.B. 0170 1234567" 
+                        <input type="tel" id="new-qb-customer-phone" value="${phone}" placeholder="z.B. 0170 1234577" 
                                onblur="addCountryCode(this)"
                                style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         <div style="font-size:11px;color:#6b7280;margin-top:4px;">
@@ -46016,7 +46067,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                     <option value="+41">🇨🇭 +41</option>
                                     <option value="+48">🇵🇱 +48</option>
                                 </select>
-                                <input type="tel" id="edit-customer-phone" placeholder="170 1234567" 
+                                <input type="tel" id="edit-customer-phone" placeholder="170 1234577" 
                                     onblur="addCountryCode(this)"
                                     oninput="autoCleanPhoneInput(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
@@ -46034,7 +46085,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                                     <option value="+41">🇨🇭 +41</option>
                                     <option value="+48">🇵🇱 +48</option>
                                 </select>
-                                <input type="tel" id="edit-customer-mobile" placeholder="170 1234567" 
+                                <input type="tel" id="edit-customer-mobile" placeholder="170 1234577" 
                                     onblur="addCountryCode(this)"
                                     oninput="autoCleanPhoneInput(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
@@ -47962,7 +48013,7 @@ Stack: ${err.stack}
                         <strong>💰 Preis:</strong> ${ride.price}€
                     </div>
                     
-                    <div style="margin-top: 16px; padding: 12px; background: #dcfce7; border-radius: 6px; font-size: 13px; color: #14532d;">
+                    <div style="margin-top: 16px; padding: 12px; background: #dcfce7; border-radius: 6px; font-size: 13px; color: #14572d;">
                         ✅ 15 Minuten vor der Abholung wird ein Fahrer zugewiesen.
                     </div>
                     
@@ -48448,7 +48499,7 @@ Stack: ${err.stack}
                             <strong>💰 Preis:</strong> ${ride.price}€
                         </div>
                         
-                        <div style="margin-top: 12px; padding: 10px; background: #dcfce7; border-radius: 6px; font-size: 12px; color: #14532d;">
+                        <div style="margin-top: 12px; padding: 10px; background: #dcfce7; border-radius: 6px; font-size: 12px; color: #14572d;">
                             ✅ 15 Minuten vor der Abholung wird ein Fahrer zugewiesen.
                         </div>
                         <div style="display:flex;gap:6px;margin-top:12px;">
@@ -48507,7 +48558,7 @@ Stack: ${err.stack}
                             <strong>🎯 Nach:</strong> ${ride.destination}<br>
                             <strong>💰 Preis:</strong> ${ride.price}€
                         </div>
-                        <div style="margin-top: 12px; padding: 10px; background: #dcfce7; border-radius: 6px; font-size: 12px; color: #14532d;">
+                        <div style="margin-top: 12px; padding: 10px; background: #dcfce7; border-radius: 6px; font-size: 12px; color: #14572d;">
                             ✅ Du erhältst 30 Minuten vor der Abholung eine Benachrichtigung, wenn der Fahrer zugewiesen wurde.
                         </div>
                         <div style="display:flex;gap:6px;margin-top:12px;">
@@ -49498,7 +49549,7 @@ Stack: ${err.stack}
                 btn.textContent = '📲 SMS-Code senden';
                 
                 if (error.code === 'auth/invalid-phone-number') {
-                    alert('❌ Ungültige Telefonnummer!\n\nBitte im Format "170 1234567" eingeben.');
+                    alert('❌ Ungültige Telefonnummer!\n\nBitte im Format "170 1234577" eingeben.');
                 } else if (error.code === 'auth/too-many-requests') {
                     alert('❌ Zu viele Versuche!\n\nBitte warte einige Minuten.');
                 } else if (error.code === 'auth/captcha-check-failed') {
@@ -53774,7 +53825,7 @@ Stack: ${err.stack}
                             <option value="+43">🇦🇹 +43</option>
                             <option value="+41">🇨🇭 +41</option>
                         </select>
-                        <input type="tel" id="phone-number" class="modal-input" placeholder="170 1234567" 
+                        <input type="tel" id="phone-number" class="modal-input" placeholder="170 1234577" 
                                onblur="addCountryCode(this)"
                                style="flex:1;margin:0;">
                     </div>
@@ -55533,7 +55584,7 @@ Ziel: Strandhotel Ahlbeck
 
 Mit freundlichen Grüßen
 Maria Schmidt
-+49 170 1234567`,
++49 170 1234577`,
                 2: `Hi, brauche Taxi am 15.12. um 10:00 Uhr
 
 Flughafen abholen
@@ -64223,7 +64274,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         });
 
 // ═══════════════════════════════════════════════════════════════
-// v5.90.453: STATUS ÄNDERN FÜR ABGESCHLOSSENE FAHRTEN
+// v5.90.457: STATUS ÄNDERN FÜR ABGESCHLOSSENE FAHRTEN
 // ═══════════════════════════════════════════════════════════════
 
 async function changeRideStatus(rideId, currentStatus) {
@@ -64334,7 +64385,7 @@ async function updateRideStatus(rideId, newStatus) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// v5.90.453: EXPORT-FUNKTIONEN
+// v5.90.457: EXPORT-FUNKTIONEN
 // ═══════════════════════════════════════════════════════════════
 
 async function exportAllCustomersToVCF() {
@@ -64431,7 +64482,7 @@ async function exportCustomerToVCF(customerId) {
     }
 }
 
-console.log('✅ v5.90.453: Status ändern + Export-Funktionen geladen!');
+console.log('✅ v5.90.457: Status ändern + Export-Funktionen geladen!');
     </script>
 
 

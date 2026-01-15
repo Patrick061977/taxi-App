@@ -2816,20 +2816,6 @@
                 🚨 <span id="cancellation-count">0</span>
             </button>
             
-            <!-- Neue Aufträge Button - 🆕 v5.90.482: Ruft jetzt showSyncCheck() auf! -->
-            <button onclick="showSyncCheck()" style="
-                background: #667eea;
-                color: white;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 20px;
-                font-weight: bold;
-                cursor: pointer;
-                font-size: 13px;
-            ">
-                📋 <span id="new-rides-count">0</span>
-            </button>
-            
             <!-- Fahrzeug Select -->
             <select id="vehicle" onchange="setVehicle()" style="
                 padding: 6px;
@@ -2866,6 +2852,14 @@
             ">
                 ≡
             </button>
+        </div>
+        
+        <!-- 🆕 v5.90.491: AKTUELLE FAHRTEN DIREKT ANZEIGEN! -->
+        <div id="current-rides-display" style="
+            margin: 10px;
+            display: none;
+        ">
+            <!-- Wird dynamisch mit Fahrten gefüllt -->
         </div>
         
         <!-- 🆕 v5.61.0: GPS-WARNUNG FÜR FAHRER! -->
@@ -15273,6 +15267,140 @@ Aktuell: ${currentNum}`;
             updateDriverViewV295();
         }
         
+        
+        // 🆕 v5.90.491: ZEIGE AKTUELLE FAHRTEN DIREKT AUF BILDSCHIRM!
+        function updateCurrentRidesDisplay(rides) {
+            const container = document.getElementById('current-rides-display');
+            if (!container) return;
+            
+            // Filter: Nur ASSIGNED Fahrten (die noch nicht angenommen wurden)
+            const assignedRides = rides.filter(r => r.status === 'assigned');
+            
+            if (assignedRides.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            // Zeige Container
+            container.style.display = 'block';
+            
+            // Erstelle HTML für jede Fahrt
+            let html = '';
+            assignedRides.forEach(ride => {
+                const now = Date.now();
+                const pickupTime = ride.pickupTimestamp || ride.createdAt;
+                const minutesUntil = pickupTime ? Math.round((pickupTime - now) / 60000) : 0;
+                const timeStr = pickupTime ? new Date(pickupTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'Sofort';
+                
+                let timeDisplay = '';
+                if (minutesUntil > 0) {
+                    if (minutesUntil < 60) {
+                        timeDisplay = `in ${minutesUntil} Min`;
+                    } else {
+                        const hours = Math.floor(minutesUntil / 60);
+                        const mins = minutesUntil % 60;
+                        timeDisplay = `in ${hours}h ${mins}m`;
+                    }
+                } else if (minutesUntil < 0) {
+                    timeDisplay = `⚠️ vor ${Math.abs(minutesUntil)} Min!`;
+                } else {
+                    timeDisplay = 'JETZT!';
+                }
+                
+                html += `
+                    <div style="
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        padding: 20px;
+                        border-radius: 12px;
+                        margin-bottom: 10px;
+                        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+                        animation: slideDown 0.3s ease-out;
+                    ">
+                        <div style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">
+                            🆕 NEUE FAHRT!
+                        </div>
+                        
+                        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">
+                                👤 ${ride.customerName || 'Unbekannt'}
+                            </div>
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; opacity: 0.95;">
+                                ⏰ ${timeStr} ${timeDisplay}
+                            </div>
+                            <div style="font-size: 14px; line-height: 1.6; opacity: 0.9;">
+                                <div style="margin-bottom: 4px;">📍 <strong>Von:</strong> ${ride.pickup || 'Unbekannt'}</div>
+                                <div>🎯 <strong>Nach:</strong> ${ride.destination || 'Unbekannt'}</div>
+                            </div>
+                            ${ride.price ? `<div style="font-size: 16px; font-weight: 700; margin-top: 10px;">💰 ${ride.price}€</div>` : ''}
+                            ${ride.customerPhone ? `<div style="font-size: 14px; margin-top: 8px; opacity: 0.9;">📞 ${ride.customerPhone}</div>` : ''}
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <button onclick="acceptRide('${ride.firebaseId || ride.id}')" style="
+                                padding: 16px;
+                                background: white;
+                                color: #10b981;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 16px;
+                                font-weight: 700;
+                                cursor: pointer;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                            ">
+                                ✅ ANNEHMEN
+                            </button>
+                            <button onclick="declineRide('${ride.firebaseId || ride.id}')" style="
+                                padding: 16px;
+                                background: rgba(255,255,255,0.2);
+                                color: white;
+                                border: 2px solid white;
+                                border-radius: 8px;
+                                font-size: 16px;
+                                font-weight: 700;
+                                cursor: pointer;
+                            ">
+                                🚫 ABLEHNEN
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // 🆕 v5.90.491: Fahrt ablehnen
+        function declineRide(rideId) {
+            if (!confirm('Fahrt wirklich ablehnen?')) return;
+            
+            // Setze Status zurück auf 'new' und entferne vehicleId
+            updateRide(rideId, {
+                status: 'new',
+                vehicleId: null,
+                vehicle: null,
+                vehiclePlate: null
+            });
+            
+            alert('✅ Fahrt abgelehnt und zurück in den Pool!');
+        }
+        
+        // Animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideDown {
+                from {
+                    transform: translateY(-20px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
         function updateDriverViewV268() {
             if (!currentVehicle) {
                 // Kein Fahrzeug gewählt
@@ -15674,30 +15802,23 @@ Aktuell: ${currentNum}`;
             
             // Alte Logik für Kompatibilität (Benachrichtigungen etc.)
             // 🆕 v5.90.107: ZEIGE ALLE ZUGETEILTEN FAHRTEN (TAGESPROGRAMM)!
-            // 🆕 v5.90.310: VORBESTELLUNGEN RAUSFILTERN!
-            const now = Date.now();
-            const fifteenMinutes = 15 * 60 * 1000; // 15 Min in Millisekunden
-            
+            // 🆕 v5.90.493: ZEIGE EINFACH ALLES WAS ASSIGNED IST!
+            // Auto-Assign regelt das Timing im Backend!
             const newRides = rides.filter(r => {
-                // 🆕 v5.90.487: TIMELINE ZEIGT NUR AKTUELLE FAHRT! ✅
-                
                 // NUR mein Fahrzeug
                 if (!currentVehicle || r.vehicleId !== currentVehicle) {
                     return false;
                 }
                 
-                // NUR aktuelle Fahrten (die JETZT laufen)
+                // NUR aktuelle Fahrten zeigen (die gerade laufen)
                 if (r.status === 'assigned' || 
                     r.status === 'accepted' || 
                     r.status === 'picked_up' || 
                     r.status === 'on_way') {
-                    return true; // ← AKTUELLE FAHRT!
+                    return true; // ← ZEIGE ALLES! Backend entscheidet wann!
                 }
                 
-                // Alles andere NICHT zeigen:
-                // - new (noch nicht zugewiesen)
-                // - completed (fertig → Verlauf)
-                // - cancelled (storniert → Verlauf)
+                // Alles andere NICHT zeigen
                 return false;
             });
             
@@ -15750,6 +15871,9 @@ Aktuell: ${currentNum}`;
                     }
                 });
             }
+            
+            // 🆕 v5.90.491: UPDATE CURRENT RIDES DISPLAY!
+            updateCurrentRidesDisplay(newRides);
             
             // Show/Hide Map vs Ready State
             if (current) {
@@ -23888,19 +24012,71 @@ Aktuell: ${currentNum}`;
                 
                 console.log(`⏰ Scheduler: ${preorders.length} Vorbestellung(en) gefunden`);
                 
+                // 🆕 v5.90.493: LADE PUFFER AUS SETTINGS!
+                const settingsSnapshot = await db.ref('settings/autoAssign').once('value');
+                const autoAssignSettings = settingsSnapshot.val() || {};
+                const bufferMinutes = autoAssignSettings.buffer || 5; // Standard: 5 Min
+                
+                console.log('⚙️ Auto-Assign Puffer:', bufferMinutes, 'Minuten');
+                
                 for (const ride of preorders) {
                     const pickupTime = ride.pickupTimestamp;
                     const timeUntilPickup = pickupTime - now;
                     const minutesUntilPickup = Math.round(timeUntilPickup / 60000);
                     
-                    // 30 Minuten vorher?
-                    if (minutesUntilPickup <= 30 && minutesUntilPickup > 0) {
+                    // 🆕 v5.90.493: DYNAMISCHE AKTIVIERUNG!
+                    // Finde nächstes Fahrzeug und berechne Anfahrtszeit
+                    
+                    if (!ride.pickupCoords || !ride.pickupCoords.lat) {
+                        console.log(`⚠️ Vorbestellung ${ride.firebaseId}: Keine Koordinaten!`);
+                        continue;
+                    }
+                    
+                    // Finde nächstes verfügbares Fahrzeug
+                    const nearestVehicle = findNearestAvailableVehicle(ride.pickupCoords, []);
+                    
+                    if (!nearestVehicle) {
+                        console.log(`⚠️ Vorbestellung ${ride.firebaseId}: Kein Fahrzeug verfügbar (${minutesUntilPickup} Min)`);
+                        
+                        // 🚨 WARNUNG wenn Pickup bald ist!
+                        if (minutesUntilPickup <= 15 && minutesUntilPickup > 0) {
+                            console.log('🚨 KRITISCH: Vorbestellung in', minutesUntilPickup, 'Min ohne Taxi!');
+                            // TODO: Telegram an Admin
+                        }
+                        continue;
+                    }
+                    
+                    // 🆕 v5.90.493: BERECHNE ANFAHRTSZEIT!
+                    const drivingTimeMinutes = await calculateDrivingTimeToPickup(
+                        { lat: nearestVehicle.lat, lon: nearestVehicle.lon },
+                        { lat: ride.pickupCoords.lat, lon: ride.pickupCoords.lon }
+                    );
+                    
+                    // 🎯 AKTIVIERUNGSZEITPUNKT = Anfahrtszeit + Puffer
+                    const requiredLeadTime = drivingTimeMinutes + bufferMinutes;
+                    
+                    console.log(`📊 Vorbestellung ${ride.firebaseId}:`, {
+                        pickup: new Date(pickupTime).toLocaleTimeString('de-DE'),
+                        minutesUntil: minutesUntilPickup,
+                        nearestVehicle: nearestVehicle.name,
+                        drivingTime: drivingTimeMinutes,
+                        buffer: bufferMinutes,
+                        requiredLeadTime: requiredLeadTime,
+                        shouldActivate: minutesUntilPickup <= requiredLeadTime
+                    });
+                    
+                    // ✅ AKTIVIEREN wenn Zeit erreicht!
+                    if (minutesUntilPickup <= requiredLeadTime && minutesUntilPickup > 0) {
                         console.log('═══════════════════════════════════════════════════════════');
                         console.log('🔔 VORBESTELLUNG AKTIVIEREN!');
                         console.log('   Fahrt ID:', ride.firebaseId);
                         console.log('   Kunde:', ride.customerName);
                         console.log('   Abholzeit:', new Date(pickupTime).toLocaleTimeString('de-DE'));
                         console.log('   Minuten bis Abholung:', minutesUntilPickup);
+                        console.log('   Anfahrtszeit:', drivingTimeMinutes, 'Min');
+                        console.log('   Puffer:', bufferMinutes, 'Min');
+                        console.log('   Erforderliche Vorlaufzeit:', requiredLeadTime, 'Min');
+                        console.log('   Nächstes Taxi:', nearestVehicle.name);
                         console.log('   Von:', ride.pickup);
                         console.log('   Nach:', ride.destination);
                         console.log('═══════════════════════════════════════════════════════════');
@@ -23909,7 +24085,13 @@ Aktuell: ${currentNum}`;
                         await db.ref('rides/' + ride.firebaseId).update({
                             status: 'new',
                             activatedAt: Date.now(),
-                            activatedBy: 'scheduler'
+                            activatedBy: 'scheduler',
+                            schedulerInfo: {
+                                drivingTime: drivingTimeMinutes,
+                                buffer: bufferMinutes,
+                                requiredLeadTime: requiredLeadTime,
+                                targetVehicle: nearestVehicle.id
+                            }
                         });
                         
                         console.log('✅ Status geändert: vorbestellt → new');
@@ -23924,15 +24106,18 @@ Aktuell: ${currentNum}`;
                         await startAutoAssignment(ride.firebaseId, updatedRide);
                         
                         // Protokoll
-                        logActivity('scheduler', 'preorder_activated', `Vorbestellung aktiviert (${minutesUntilPickup} Min vorher)`, {
+                        logActivity('scheduler', 'preorder_activated', `Vorbestellung aktiviert (${minutesUntilPickup} Min vorher, Anfahrt: ${drivingTimeMinutes} Min)`, {
                             customer: ride.customerName,
                             from: ride.pickup,
                             to: ride.destination,
-                            pickupTime: new Date(pickupTime).toLocaleString('de-DE')
+                            pickupTime: new Date(pickupTime).toLocaleString('de-DE'),
+                            vehicle: nearestVehicle.name,
+                            drivingTime: drivingTimeMinutes,
+                            buffer: bufferMinutes
                         });
                         
-                    } else if (minutesUntilPickup > 30) {
-                        console.log(`⏰ Vorbestellung ${ride.firebaseId}: Noch ${minutesUntilPickup} Min (wartet...)`);
+                    } else if (minutesUntilPickup > requiredLeadTime) {
+                        console.log(`⏰ Vorbestellung ${ride.firebaseId}: Noch ${minutesUntilPickup} Min (aktiviert in ${minutesUntilPickup - requiredLeadTime} Min)`);
                     } else if (minutesUntilPickup <= 0) {
                         console.log(`⚠️ Vorbestellung ${ride.firebaseId}: Abholzeit überschritten! (${Math.abs(minutesUntilPickup)} Min zu spät)`);
                     }

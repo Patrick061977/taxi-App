@@ -32383,6 +32383,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 console.log('🗑️ Entferne alte Fleet-Map...');
                 fleetMap.remove();
                 fleetMap = null;
+                fleetMapInitialized = false; // 🔧 v5.90.494: RESET!
             }
             
             const mapContainer = document.getElementById('fleet-map');
@@ -32485,6 +32486,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             console.log('✅ Fleet-Map vollständig initialisiert');
             console.log('📍 Klick auf Karte aktiviert!');
+            
+            // 🔧 v5.90.494: WICHTIG! Markiere als initialisiert!
+            fleetMapInitialized = true;
             
             // 🆕 Adresssuche initialisieren
             initFleetAddressSearch();

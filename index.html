@@ -13913,9 +13913,6 @@ Aktuell: ${currentNum}`;
                 setTimeout(() => {
                     console.log('🗺️ Initialisiere Fahrzeugübersicht (Admin-Version)...');
                     
-                    // 🔧 v5.90.489: FORCE INIT + INVALIDATE!
-                    fleetMapInitialized = false; // Reset Flag
-                    
                     if (typeof initFleetMap === 'function') {
                         initFleetMap();
                         
@@ -16052,16 +16049,6 @@ Aktuell: ${currentNum}`;
             const countElement = document.getElementById('new-rides-count');
             if (countElement) {
                 countElement.textContent = newRides.length;
-                
-                // 🆕 v5.90.490: AUTO-TRIGGER FÜR FULLSCREEN!
-                if (newRides.length > 0 && currentView === 'driver') {
-                    console.log('🚀 v5.90.490: Auto-Trigger Fullscreen für', newRides.length, 'Fahrt(en)');
-                    setTimeout(() => {
-                        if (typeof showNewRideFullscreen === 'function') {
-                            showNewRideFullscreen();
-                        }
-                    }, 500); // Kurze Verzögerung für UI-Update
-                }
                 
                 // 🆕 v5.90.482: SYNC-CHECK DEBUG!
                 if (currentVehicle) {
@@ -32206,17 +32193,34 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         function initFleetMap() {
-            if (fleetMapInitialized) return;
+            // 🔧 v5.90.489: ZERSTÖRE alte Karte falls sie existiert!
+            if (fleetMap) {
+                console.log('🗑️ Entferne alte Fleet-Map...');
+                fleetMap.remove();
+                fleetMap = null;
+            }
             
             const mapContainer = document.getElementById('fleet-map');
-            if (!mapContainer) return;
+            if (!mapContainer) {
+                console.error('❌ fleet-map Container nicht gefunden!');
+                return;
+            }
+            
+            console.log('🗺️ Initialisiere Fleet-Map...');
             
             // Karte initialisieren (Usedom-Zentrum)
-            fleetMap = L.map('fleet-map').setView([53.95, 14.05], 11);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(fleetMap);
+            try {
+                fleetMap = L.map('fleet-map').setView([53.95, 14.05], 11);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap'
+                }).addTo(fleetMap);
+                
+                console.log('✅ Fleet-Map erfolgreich initialisiert!');
+            } catch (error) {
+                console.error('❌ Fehler beim Initialisieren der Fleet-Map:', error);
+                return;
+            }
             
             // 🆕 v5.90.201: KLICK AUF KARTE → POI ERSTELLEN!
             
@@ -32294,8 +32298,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 await loadAddressForPin(lat, lon, tempPinMarker);
             });
             
-            fleetMapInitialized = true;
-            console.log('🗺️ Fahrzeug-Karte initialisiert');
+            console.log('✅ Fleet-Map vollständig initialisiert');
             console.log('📍 Klick auf Karte aktiviert!');
             
             // 🆕 Adresssuche initialisieren
@@ -48455,18 +48458,19 @@ Stack: ${err.stack}
         function showNewRideFullscreen() {
             if (!currentVehicle) return;
             
-            // 🔧 v5.90.490: Zeige Fullscreen bei ASSIGNED + NEW!
+            // Zeige neue Aufträge die:
+            // 1. Status 'new' haben UND (keine vehicleId ODER mir zugewiesen)
+            // 2. ODER mir zugewiesen sind (assignedTo)
             const myRides = rides.filter(r => {
-                // Status-Check: ASSIGNED oder NEW
-                const isNewOrAssigned = (r.status === 'new' || r.status === 'assigned');
-                
-                // Ist mir zugewiesen?
-                const isMyRide = r.vehicleId === currentVehicle;
+                const isNew = r.status === 'new';
+                const isUnassigned = !r.vehicleId;
+                const isAssignedToMe = r.assignedTo === currentVehicle;
+                const isMyRide = r.vehicleId === currentVehicle || r.vehicle === (VEHICLES[currentVehicle] ? VEHICLES[currentVehicle].name : currentVehicle);
                 
                 // 🆕 v5.26.14h: Nur zeigen wenn noch NICHT gezeigt!
                 const notShownYet = !shownRidePopups.has(r.firebaseId || r.id);
                 
-                return (isNewOrAssigned && isMyRide && notShownYet);
+                return (isNew && (isUnassigned || isMyRide || isAssignedToMe) && notShownYet);
             });
             
             if (myRides.length === 0) return;
@@ -48476,44 +48480,9 @@ Stack: ${err.stack}
             
             // 🆕 v5.26.14h: Merke dass wir diese Fahrt gezeigt haben!
             shownRidePopups.add(ride.firebaseId || ride.id);
-            console.log('✅ v5.90.490: Zeige Fullscreen-Popup für Fahrt:', ride.firebaseId || ride.id, 'Status:', ride.status);
-            
-            // 🆕 v5.90.491: COUNTDOWN STARTEN!
-            let countdownSeconds = 30;
-            const rideId = ride.firebaseId || ride.id;
-            
-            // Stoppe alten Countdown falls vorhanden
-            if (window.fullscreenCountdownInterval) {
-                clearInterval(window.fullscreenCountdownInterval);
-            }
+            console.log('✅ Zeige Popup für Fahrt:', ride.firebaseId || ride.id);
             
             const content = `
-                <!-- 🆕 v5.90.491: COUNTDOWN BANNER OBEN! -->
-                <div id="countdown-banner" style="
-                    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-                    padding: 15px;
-                    text-align: center;
-                    border-radius: 10px;
-                    margin-bottom: 15px;
-                    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-                ">
-                    <div style="font-size: 13px; color: white; opacity: 0.9; margin-bottom: 5px; font-weight: 600;">
-                        ⏱️ ZEIT ZUM ANNEHMEN:
-                    </div>
-                    <div id="countdown-timer" style="
-                        font-size: 48px;
-                        font-weight: 900;
-                        color: white;
-                        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                        line-height: 1;
-                    ">
-                        30
-                    </div>
-                    <div style="font-size: 12px; color: white; opacity: 0.8; margin-top: 5px;">
-                        Sekunden
-                    </div>
-                </div>
-                
                 <div style="background: #f3f4f6; padding: 12px; border-radius: 10px; margin-bottom: 12px;">
                     ${ride.customerName ? `
                     <div style="background: #dbeafe; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
@@ -48545,7 +48514,7 @@ Stack: ${err.stack}
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <button onclick="rejectRide('${rideId}')" style="
+                    <button onclick="rejectRide('${ride.firebaseId || ride.id}')" style="
                         padding: 14px;
                         background: white;
                         color: #ef4444;
@@ -48557,7 +48526,7 @@ Stack: ${err.stack}
                     ">
                         ❌ Nein
                     </button>
-                    <button onclick="acceptRideFromFullscreen('${rideId}')" style="
+                    <button onclick="acceptRideFromFullscreen('${ride.firebaseId || ride.id}')" style="
                         padding: 14px;
                         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
                         color: white;
@@ -48575,100 +48544,8 @@ Stack: ${err.stack}
             document.getElementById('new-ride-fullscreen-content').innerHTML = content;
             document.getElementById('new-ride-fullscreen').style.display = 'block';
             
-            // 🆕 v5.90.491: COUNTDOWN STARTEN!
-            window.fullscreenCountdownInterval = setInterval(() => {
-                countdownSeconds--;
-                
-                const timerElement = document.getElementById('countdown-timer');
-                const bannerElement = document.getElementById('countdown-banner');
-                
-                if (timerElement) {
-                    timerElement.textContent = countdownSeconds;
-                    
-                    // Farbe ändern bei wenig Zeit
-                    if (countdownSeconds <= 10 && bannerElement) {
-                        bannerElement.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
-                        bannerElement.style.animation = 'pulse 1s infinite';
-                    }
-                    if (countdownSeconds <= 5 && bannerElement) {
-                        bannerElement.style.background = 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)';
-                    }
-                }
-                
-                // Bei 0 → TIMEOUT!
-                if (countdownSeconds <= 0) {
-                    clearInterval(window.fullscreenCountdownInterval);
-                    handleFullscreenTimeout(rideId);
-                }
-            }, 1000);
-            
             // 📳 WIEDERKEHRENDE VIBRATION BIS REAKTION!
             startRepeatingVibration();
-        }
-        
-        // 🆕 v5.90.491: TIMEOUT HANDLER
-        async function handleFullscreenTimeout(rideId) {
-            console.log('⏰ v5.90.491: FULLSCREEN TIMEOUT! Fahrt nicht angenommen:', rideId);
-            
-            stopRepeatingVibration();
-            closeNewRideFullscreen();
-            
-            try {
-                // Lade aktuelle Fahrt-Daten
-                const rideSnapshot = await db.ref('rides/' + rideId).once('value');
-                const rideData = rideSnapshot.val();
-                
-                if (!rideData) {
-                    console.log('⚠️ Fahrt existiert nicht mehr');
-                    return;
-                }
-                
-                // Nur wenn Status noch 'assigned' ist!
-                if (rideData.status !== 'assigned') {
-                    console.log('ℹ️ Fahrt wurde bereits angenommen/geändert - kein Timeout nötig');
-                    return;
-                }
-                
-                console.log('🔄 Setze Status zurück auf "new" und entferne vehicleId');
-                
-                // Status zurücksetzen (wie Auto-Assign Timeout!)
-                await db.ref('rides/' + rideId).update({
-                    status: 'new',  // Oder vorbestellt falls es eine war
-                    vehicleId: null,
-                    assignedTo: null,
-                    lastTimeout: Date.now(),
-                    timeoutReason: 'Fahrer hat nicht innerhalb 30 Sekunden reagiert'
-                });
-                
-                // 📱 TELEGRAM AN ADMIN
-                if (typeof sendTelegramToAdmin === 'function') {
-                    const vehicleName = VEHICLES[currentVehicle]?.name || currentVehicle;
-                    sendTelegramToAdmin(
-                        `⚠️ <b>FAHRT NICHT ANGENOMMEN!</b>\n\n` +
-                        `🚗 Fahrer: ${vehicleName}\n` +
-                        `👤 Kunde: ${rideData.customerName || 'Unbekannt'}\n` +
-                        `📍 Von: ${rideData.pickup || '?'}\n` +
-                        `🎯 Nach: ${rideData.destination || '?'}\n\n` +
-                        `⏰ <b>30 Sekunden abgelaufen</b>\n` +
-                        `📋 Bitte Fahrt neu zuweisen!`
-                    );
-                }
-                
-                // 📜 PROTOKOLL
-                if (typeof logActivity === 'function') {
-                    logActivity('timeout', 'fullscreen_timeout', 
-                        `⏰ ${VEHICLES[currentVehicle]?.name || currentVehicle} hat nicht reagiert (30s)`, {
-                        customer: rideData.customerName,
-                        vehicle: currentVehicle,
-                        rideId: rideId
-                    });
-                }
-                
-                console.log('✅ Fahrt zurückgesetzt - Admin benachrichtigt');
-                
-            } catch (error) {
-                console.error('❌ Fehler bei Timeout-Handling:', error);
-            }
         }
         
         // 🆕 v5.26.14h: POPUP-DEDUPLIZIERUNG
@@ -48717,13 +48594,6 @@ Stack: ${err.stack}
         
         function closeNewRideFullscreen() {
             stopRepeatingVibration(); // Stoppe Vibration!
-            
-            // 🆕 v5.90.491: Stoppe Countdown!
-            if (window.fullscreenCountdownInterval) {
-                clearInterval(window.fullscreenCountdownInterval);
-                window.fullscreenCountdownInterval = null;
-            }
-            
             document.getElementById('new-ride-fullscreen').style.display = 'none';
         }
         

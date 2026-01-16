@@ -197,7 +197,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.537 - TELEFON-BUTTON GEFIXT! 📞 (Build 2026-01-16_0915)');
+        console.log('🚕 Funk Taxi App v5.90.538 - RECHNUNG-FIXES! 📄 (Build 2026-01-16_0930)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💾 Version 5.90.534 - WER HAT ABGESCHLOSSEN? 💾 (Build 20260116-0915)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💾 Version 5.90.534 - WER HAT ABGESCHLOSSEN? 💾 (Build 20260116-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,10 +1544,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.537: VERSION BADGE -->
+                <!-- 🆕 v5.90.538: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        📞 v5.90.537 - TELEFON-FIX
+                        📄 v5.90.538 - RECHNUNG-FIX
                     </span>
                 </div>
             </div>
@@ -5638,7 +5638,7 @@
                     <span style="font-size:14px;font-weight:600;">📝 Notizen anzeigen</span>
                 </label>
                 
-                <!-- 🆕 v5.90.44: TELEFON-FIX-LINKS IN CALENDAR -->
+                <!-- 🆕 v5.90.44: RECHNUNG-FIX-LINKS IN CALENDAR -->
                 <label style="display:flex;align-items:center;padding:12px;background:#dcfce7;border-radius:8px;cursor:pointer;border:2px solid #10b981;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
                     <input type="checkbox" id="cal-setting-tracking-links" onchange="toggleCalendarTrackingLinks(this.checked)" style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
                     <div style="flex:1;">
@@ -8884,7 +8884,7 @@
                 // 🔘 Aktions-Buttons
                 let actionButtons = '';
                 
-                // 🆕 v5.32.3: TELEFON-FIX-LINK BUTTON (für alle Fahrten!)
+                // 🆕 v5.32.3: RECHNUNG-FIX-LINK BUTTON (für alle Fahrten!)
                 const trackingLink = r.firebaseId ? `${window.location.origin}${window.location.pathname}?ride=${r.firebaseId}` : null;
                 let trackingButton = '';
                 if (trackingLink) {
@@ -10449,7 +10449,7 @@ Funk Taxi Heringsdorf`;
                     await db.ref('rides/' + rideId).update(updates);
                     console.log('✅ Fahrt in Firebase aktualisiert');
                     
-                    // 🆕 v5.90.335: TELEFON-FIX-LINK WIEDER AKTIVIERT!
+                    // 🆕 v5.90.335: RECHNUNG-FIX-LINK WIEDER AKTIVIERT!
                     // Link wird hier erstellt wenn Fahrzeug zugewiesen!
                     if (newVehicleId && newVehicleId !== '') {
                         console.log('🔗 v5.90.335: Erstelle Tracking-Link (saveEditedRide)...');
@@ -10803,7 +10803,7 @@ Funk Taxi Heringsdorf`;
         // - Überall gleiche Logik!
         
         // ═══════════════════════════════════════════════════════════════
-        // 🆕 v5.90.44: TELEFON-FIX-LINK SYSTEM
+        // 🆕 v5.90.44: RECHNUNG-FIX-LINK SYSTEM
         // ═══════════════════════════════════════════════════════════════
         
         // Generiere eindeutigen Tracking-Code
@@ -10817,7 +10817,7 @@ Funk Taxi Heringsdorf`;
         async function createTrackingLinkForRide(rideId, vehicleId) {
             try {
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔗 TELEFON-FIX-LINK ERSTELLEN');
+                console.log('🔗 RECHNUNG-FIX-LINK ERSTELLEN');
                 console.log('   Fahrt:', rideId);
                 console.log('   Fahrzeug:', vehicleId);
                 console.log('═══════════════════════════════════════════════════════════');
@@ -10946,12 +10946,12 @@ Funk Taxi Heringsdorf`;
                 const currentDescription = event.result.description || '';
                 
                 // Prüfe ob schon ein Tracking-Link drin ist
-                if (currentDescription.includes('🚕 LIVE-TELEFON-FIX:')) {
+                if (currentDescription.includes('🚕 LIVE-RECHNUNG-FIX:')) {
                     console.log('ℹ️ Tracking-Link bereits in Event vorhanden');
                     return;
                 }
                 
-                const newDescription = currentDescription + `\n\n🚕 LIVE-TELEFON-FIX:\n${trackingLink}\n\nKlicken Sie hier um Ihr Taxi live zu verfolgen!`;
+                const newDescription = currentDescription + `\n\n🚕 LIVE-RECHNUNG-FIX:\n${trackingLink}\n\nKlicken Sie hier um Ihr Taxi live zu verfolgen!`;
                 
                 // Update Event
                 await gapi.client.calendar.events.patch({
@@ -11060,7 +11060,7 @@ Funk Taxi Heringsdorf`;
                 await db.ref('rides/' + rideId).update(updateData);
                 
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('ℹ️ TELEFON-FIX-LINK WIRD ERST BEI FAHRER-ACCEPT ERSTELLT!');
+                console.log('ℹ️ RECHNUNG-FIX-LINK WIRD ERST BEI FAHRER-ACCEPT ERSTELLT!');
                 console.log('   Fahrer muss Fahrt annehmen (status: assigned → accepted)');
                 console.log('   Dann wird in acceptRide() der Link erstellt');
                 console.log('═══════════════════════════════════════════════════════════');
@@ -12225,7 +12225,7 @@ Funk Taxi Heringsdorf`;
             const dropdown = document.getElementById('tesla-call-dropdown');
             const arrow = document.getElementById('tesla-dropdown-arrow');
             
-            // 🆕 v5.90.537: NULL-CHECK!
+            // 🆕 v5.90.538: NULL-CHECK!
             if (!dropdown) {
                 console.warn('⚠️ Tesla dropdown nicht gefunden');
                 return;
@@ -12237,7 +12237,7 @@ Funk Taxi Heringsdorf`;
                 loadCallFavorites();
                 
                 dropdown.style.display = 'block';
-                if (arrow) {  // 🆕 v5.90.537: NULL-CHECK!
+                if (arrow) {  // 🆕 v5.90.538: NULL-CHECK!
                     arrow.textContent = '▲';
                     arrow.style.transform = 'rotate(180deg)';
                 }
@@ -12246,7 +12246,7 @@ Funk Taxi Heringsdorf`;
             } else {
                 // Schließen
                 dropdown.style.display = 'none';
-                if (arrow) {  // 🆕 v5.90.537: NULL-CHECK!
+                if (arrow) {  // 🆕 v5.90.538: NULL-CHECK!
                     arrow.textContent = '▼';
                     arrow.style.transform = 'rotate(0deg)';
                 }
@@ -16073,7 +16073,7 @@ Aktuell: ${currentNum}`;
                     rideInfo += `
                         <div style="margin-top:10px;padding:10px;background:#e0f2fe;border-radius:8px;border:1px solid #0ea5e9;">
                             <div style="font-size:11px;color:#0369a1;font-weight:600;margin-bottom:6px;">
-                                🔗 TELEFON-FIX-LINK FÜR KUNDE:
+                                🔗 RECHNUNG-FIX-LINK FÜR KUNDE:
                             </div>
                             <input type="text" value="${current.trackingLink}" 
                                 readonly 
@@ -18767,7 +18767,7 @@ Aktuell: ${currentNum}`;
                             </div>
                         </div>
                         
-                        <!-- 🆕 v5.90.537: ABGESCHLOSSEN VON -->
+                        <!-- 🆕 v5.90.538: ABGESCHLOSSEN VON -->
                         ${(ride.status === 'completed' && ride.completedByName) ? `
                         <div style="margin-bottom:15px;padding:12px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:8px;">
                             <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:5px;">✅ ABGESCHLOSSEN VON</div>
@@ -21176,14 +21176,14 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🆕 v5.87.94: TELEFON-FIX-SMS (wenn Fahrer annimmt)
+        // 🆕 v5.87.94: RECHNUNG-FIX-SMS (wenn Fahrer annimmt)
         async function sendTrackingSMS(phone, trackingLink) {
             if (!phone) {
                 console.log('⚠️ Keine Telefonnummer für Tracking-SMS');
                 return false;
             }
             
-            // 🆕 v5.88.9: Prüfe ob TELEFON-FIX-SMS aktiviert ist (aus FIREBASE!)
+            // 🆕 v5.88.9: Prüfe ob RECHNUNG-FIX-SMS aktiviert ist (aus FIREBASE!)
             let trackingEnabled = false;
             try {
                 const snapshot = await db.ref('settings/sms/trackingEnabled').once('value');
@@ -21214,7 +21214,7 @@ Aktuell: ${currentNum}`;
             // SMS 2: Fahrer unterwegs + Tracking-Link
             const smsText = `🚕 Ihr Taxi ist unterwegs!\nAnkunft in wenigen Min.\nLive verfolgen:\n${trackingLink}`;
             
-            console.log('📱 Sende TELEFON-FIX-SMS an:', formattedPhone);
+            console.log('📱 Sende RECHNUNG-FIX-SMS an:', formattedPhone);
             
             try {
                 const response = await fetch(SMS_PROXY_URL, {
@@ -21574,7 +21574,7 @@ Aktuell: ${currentNum}`;
                 
                 console.log(`✅ Telegram-Status-Update gesendet: ${oldStatus} → ${newStatus}`);
                 
-                // 🆕 v5.90.62: TELEFON-FIX-SMS NUR BEI ACCEPTED!
+                // 🆕 v5.90.62: RECHNUNG-FIX-SMS NUR BEI ACCEPTED!
                 // (Nicht bei assigned - Fahrer muss erst akzeptieren!)
                 if (newStatus === 'accepted' && ride.trackingLink) {
                     const customerPhone = ride.customerPhone || ride.phone;
@@ -30778,7 +30778,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             console.log('🎯 GPS watchId:', watchId);
             
-            // 🆕 v5.90.525: AGGRESSIVE GPS TELEFON-FIX - Alle 5 Sekunden!
+            // 🆕 v5.90.525: AGGRESSIVE GPS RECHNUNG-FIX - Alle 5 Sekunden!
             window.gpsRegularInterval = setInterval(() => {
                 if (!isOnline || !currentVehicle) {
                     return;
@@ -31247,9 +31247,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             `);
             
             // ═══════════════════════════════════════════════════════════
-            // 4️⃣ GPS TELEFON-FIX STATUS
+            // 4️⃣ GPS RECHNUNG-FIX STATUS
             // ═══════════════════════════════════════════════════════════
-            html += createDiagnosticCard('📍 GPS TELEFON-FIX', `
+            html += createDiagnosticCard('📍 GPS RECHNUNG-FIX', `
                 <div class="diag-row">
                     <span class="diag-label">watchId:</span>
                     <span class="diag-value ${watchId ? 'success' : 'error'}">
@@ -31259,7 +31259,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 <div class="diag-row">
                     <span class="diag-label">GPS Status:</span>
                     <span class="diag-value ${watchId ? 'success' : 'error'}">
-                        ${watchId ? '✅ TELEFON-FIX AKTIV' : '💾 NICHT AKTIV'}
+                        ${watchId ? '✅ RECHNUNG-FIX AKTIV' : '💾 NICHT AKTIV'}
                     </span>
                 </div>
                 <div class="diag-row">
@@ -32027,7 +32027,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             stopDriverTracking();
         }
 
-        // 🆕 v5.90.537: DRIVER STATE MANAGEMENT - Status Persistenz!
+        // 🆕 v5.90.538: DRIVER STATE MANAGEMENT - Status Persistenz!
         function saveDriverState(rideId, status) {
             if (!currentUser || !currentVehicle) return;
             
@@ -32040,7 +32040,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             };
             
             localStorage.setItem('driverState_' + currentUser.uid, JSON.stringify(state));
-            console.log('📞 v5.90.537: Fahrer-Status gespeichert:', status, 'für Fahrt:', rideId);
+            console.log('📄 v5.90.538: Fahrer-Status gespeichert:', status, 'für Fahrt:', rideId);
         }
         
         function loadDriverState() {
@@ -32051,10 +32051,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             try {
                 const state = JSON.parse(saved);
-                console.log('📂 v5.90.537: Fahrer-Status geladen:', state);
+                console.log('📂 v5.90.538: Fahrer-Status geladen:', state);
                 return state;
             } catch (e) {
-                console.error('📞 v5.90.537: Fehler beim Laden:', e);
+                console.error('📄 v5.90.538: Fehler beim Laden:', e);
                 return null;
             }
         }
@@ -32063,20 +32063,20 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             if (!currentUser) return;
             
             localStorage.removeItem('driverState_' + currentUser.uid);
-            console.log('🗑️ v5.90.537: Fahrer-Status gelöscht');
+            console.log('🗑️ v5.90.538: Fahrer-Status gelöscht');
         }
         
         async function restoreDriverState() {
             const state = loadDriverState();
             if (!state) {
-                console.log('ℹ️ v5.90.537: Kein gespeicherter Status');
+                console.log('ℹ️ v5.90.538: Kein gespeicherter Status');
                 return;
             }
             
             // Prüfe ob Status noch aktuell (max 24h alt)
             const ageHours = (Date.now() - state.timestamp) / (1000 * 60 * 60);
             if (ageHours > 24) {
-                console.log('⚠️ v5.90.537: Status zu alt (' + ageHours.toFixed(1) + 'h) → Lösche');
+                console.log('⚠️ v5.90.538: Status zu alt (' + ageHours.toFixed(1) + 'h) → Lösche');
                 clearDriverState();
                 return;
             }
@@ -32087,32 +32087,32 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 const ride = snapshot.val();
                 
                 if (!ride) {
-                    console.log('⚠️ v5.90.537: Fahrt nicht mehr in Firebase → Lösche State');
+                    console.log('⚠️ v5.90.538: Fahrt nicht mehr in Firebase → Lösche State');
                     clearDriverState();
                     return;
                 }
                 
                 // Prüfe ob Fahrt schon abgeschlossen
                 if (ride.status === 'completed' || ride.status === 'cancelled') {
-                    console.log('✅ v5.90.537: Fahrt bereits abgeschlossen → Lösche State');
+                    console.log('✅ v5.90.538: Fahrt bereits abgeschlossen → Lösche State');
                     clearDriverState();
                     return;
                 }
                 
                 // Prüfe ob anderer Fahrer
                 if (ride.vehicleId && ride.vehicleId !== currentVehicle) {
-                    console.log('⚠️ v5.90.537: Fahrt von anderem Fahrer → Lösche State');
+                    console.log('⚠️ v5.90.538: Fahrt von anderem Fahrer → Lösche State');
                     clearDriverState();
                     return;
                 }
                 
-                console.log('✅ v5.90.537: Status wiederhergestellt! Status:', ride.status);
+                console.log('✅ v5.90.538: Status wiederhergestellt! Status:', ride.status);
                 
                 // Rendere Fahrt
                 renderDriverRides([{ ...ride, firebaseId: state.rideId }]);
                 
             } catch (e) {
-                console.error('📞 v5.90.537: Fehler beim Wiederherstellen:', e);
+                console.error('📄 v5.90.538: Fehler beim Wiederherstellen:', e);
                 clearDriverState();
             }
         }
@@ -32212,10 +32212,10 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 assignmentExpiresAt: null
             });
             
-            // 🆕 v5.90.537: SPEICHERE STATUS!
+            // 🆕 v5.90.538: SPEICHERE STATUS!
             saveDriverState(rideId, 'accepted');
             
-            // 🆕 v5.90.334: TELEFON-FIX-LINK SOFORT ERSTELLEN!
+            // 🆕 v5.90.334: RECHNUNG-FIX-LINK SOFORT ERSTELLEN!
             // Nicht mehr warten bis "Fahrt zum Kunden"!
             console.log('🔗 v5.90.334: Erstelle Tracking-Link JETZT...');
             try {
@@ -32611,13 +32611,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 completedAt: Date.now(),
                 actualPrice: actualPrice,  // 🆕 Taxameter-Preis!
                 needsInvoice: needsInvoice,  // 🆕 Rechnung benötigt?
-                // 🆕 v5.90.537: TRACKING - WER HAT ABGESCHLOSSEN?
+                // 🆕 v5.90.538: TRACKING - WER HAT ABGESCHLOSSEN?
                 completedBy: currentUser?.uid || 'unknown',
                 completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
                 completedByRole: currentUser?.role || 'unknown'
             });
             
-            // 🆕 v5.90.537: LÖSCHE FAHRER-STATUS!
+            // 🆕 v5.90.538: LÖSCHE FAHRER-STATUS!
             clearDriverState();
             
             console.log('✅ Fahrt abgeschlossen - Preis:', actualPrice, '€');
@@ -33069,7 +33069,7 @@ Funk Taxi Team`;
                         firebaseId: rideId,
                         status: 'completed',
                         completedAt: Date.now(),
-                        // 🆕 v5.90.537: TELEFON-FIX
+                        // 🆕 v5.90.538: RECHNUNG-FIX
                         completedBy: currentUser?.uid || 'unknown',
                         completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
                         completedByRole: currentUser?.role || 'unknown'
@@ -33082,7 +33082,7 @@ Funk Taxi Team`;
                         firebaseId: rideId,
                         status: 'completed',
                         completedAt: Date.now(),
-                        // 🆕 v5.90.537: TELEFON-FIX
+                        // 🆕 v5.90.538: RECHNUNG-FIX
                         completedBy: currentUser?.uid || 'unknown',
                         completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
                         completedByRole: currentUser?.role || 'unknown'
@@ -33364,7 +33364,7 @@ Funk Taxi Team`;
             const content = document.getElementById(section + '-content');
             const toggle = document.getElementById(section + '-toggle');
             
-            // 🆕 v5.90.537: NULL-CHECK!
+            // 🆕 v5.90.538: NULL-CHECK!
             if (!content) {
                 console.warn('⚠️ Admin-Section nicht gefunden:', section);
                 return;
@@ -33372,7 +33372,7 @@ Funk Taxi Team`;
             
             if (content.style.display === 'none') {
                 content.style.display = 'block';
-                if (toggle) toggle.textContent = '▲'; // 🆕 v5.90.537: NULL-CHECK!
+                if (toggle) toggle.textContent = '▲'; // 🆕 v5.90.538: NULL-CHECK!
                 
                 // Spezielle Aktionen beim Öffnen
                 if (section === 'telegram') {
@@ -33412,7 +33412,7 @@ Funk Taxi Team`;
                 }
             } else {
                 content.style.display = 'none';
-                if (toggle) toggle.textContent = '▼'; // 🆕 v5.90.537: NULL-CHECK!
+                if (toggle) toggle.textContent = '▼'; // 🆕 v5.90.538: NULL-CHECK!
                 
                 // Stoppe Live-Log wenn geschlossen
                 if (section === 'livelog' && liveLogActive) {
@@ -38038,10 +38038,10 @@ Funk Taxi Team`;
                     updatedAt: Date.now()
                 });
                 
-                // 🆕 v5.90.537: SPEICHERE STATUS!
+                // 🆕 v5.90.538: SPEICHERE STATUS!
                 saveDriverState(rideId, newStatus);
                 
-                // 🆕 v5.90.537: CLEAR STATE wenn completed
+                // 🆕 v5.90.538: CLEAR STATE wenn completed
                 if (newStatus === 'completed' || newStatus === 'cancelled') {
                     clearDriverState();
                 }
@@ -45316,11 +45316,11 @@ Funk Taxi Team`;
                                     <label style="font-size:13px;color:#6b7280;">💳 Zahlungsart:</label>
                                     <select id="invoice-payment-method"
                                             style="padding:8px 15px;border:2px solid #10b981;border-radius:8px;font-size:14px;font-weight:600;flex:1;">
-                                        <option value="bar">💵 Bar</option>
+                                        <option value="bar" selected>💵 Bar</option>
                                         <option value="ec">💳 EC-Karte</option>
                                         <option value="credit">💳 Kreditkarte</option>
                                         <option value="paypal">🅿️ PayPal</option>
-                                        <option value="rechnung" selected>📄 Rechnung</option>
+                                        <option value="rechnung">📄 Rechnung</option>
                                         <option value="uberweisung">🏦 Überweisung</option>
                                     </select>
                                 </div>
@@ -46264,7 +46264,7 @@ Funk Taxi Team`;
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'normal');
                 doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
-                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 63);
+                doc.text(`Datum: ${invoiceDate.toLocaleDateString('de-DE')}`, 20, 63);
                 
                 // KUNDE
                 doc.setFontSize(11);
@@ -46617,7 +46617,7 @@ Funk Taxi Team`;
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'normal');
                 doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
-                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 63);
+                doc.text(`Datum: ${invoiceDate.toLocaleDateString('de-DE')}`, 20, 63);
                 
                 // KUNDE
                 doc.setFontSize(11);
@@ -46799,6 +46799,33 @@ Funk Taxi Team`;
                 const rideId = document.getElementById('invoice-ride-id').value;
                 const vatRate = parseFloat(document.getElementById('invoice-vat-rate').value) || 7;
                 
+                // 🆕 v5.90.538: PRÜFE OB RECHNUNG SCHON EXISTIERT!
+                if (rideId) {
+                    const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                    const rideData = rideSnapshot.val();
+                    
+                    if (rideData && rideData.invoiceNumber) {
+                        const existingInvoiceNumber = rideData.invoiceNumber;
+                        
+                        const confirmed = confirm(
+                            `⚠️ RECHNUNG EXISTIERT BEREITS!\n\n` +
+                            `Rechnungsnummer: ${existingInvoiceNumber}\n` +
+                            `Erstellt am: ${new Date(rideData.invoiceCreatedAt).toLocaleString('de-DE')}\n\n` +
+                            `Möchtest du die Rechnung NEU ERSTELLEN?\n` +
+                            `→ JA: Neue Rechnung mit GLEICHER Nummer\n` +
+                            `→ NEIN: Abbrechen`
+                        );
+                        
+                        if (!confirmed) {
+                            console.log('🛑 Rechnung-Erstellung abgebrochen (existiert bereits)');
+                            return;
+                        }
+                        
+                        // 🆕 v5.90.538: VERWENDE BESTEHENDE NUMMER!
+                        console.log('🔄 Erstelle Rechnung NEU mit bestehender Nummer:', existingInvoiceNumber);
+                    }
+                }
+                
                 // Hole Werte aus bearbeitbaren Feldern
                 const customerName = document.getElementById('inv-customer-name').value.trim();
                 const guestName = document.getElementById('inv-guest-name').value.trim();
@@ -46818,7 +46845,7 @@ Funk Taxi Team`;
                 const showDistance = document.getElementById('inv-show-distance').checked;
                 const showVat = document.getElementById('inv-show-vat').checked;
                 
-                // 🆕 v5.90.7: ZAHLUNGSART
+                // 🆕 v5.90.8: ZAHLUNGSART
                 const paymentMethod = document.getElementById('invoice-payment-method').value;
                 
                 // Berechne aus Positionen
@@ -46826,8 +46853,30 @@ Funk Taxi Team`;
                 const netPrice = totalGross / (1 + (vatRate / 100));
                 const vatAmount = totalGross - netPrice;
                 
-                // Hole nächste Rechnungsnummer
-                const invoiceNumber = await getNextInvoiceNumber();
+                // 🆕 v5.90.538: PRÜFE OB RECHNUNG EXISTIERT → NUTZE BESTEHENDE NUMMER!
+                let invoiceNumber;
+                let invoiceDate;
+                
+                if (rideId) {
+                    const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                    const rideData = rideSnapshot.val();
+                    
+                    if (rideData && rideData.invoiceNumber) {
+                        // ✅ NUTZE BESTEHENDE NUMMER!
+                        invoiceNumber = rideData.invoiceNumber;
+                        invoiceDate = rideData.invoiceCreatedAt ? new Date(rideData.invoiceCreatedAt) : new Date();
+                        console.log('🔄 v5.90.538: Verwende bestehende Nummer:', invoiceNumber);
+                    } else {
+                        // ✅ NEUE NUMMER!
+                        invoiceNumber = await getNextInvoiceNumber();
+                        invoiceDate = new Date();
+                        console.log('🆕 v5.90.538: Neue Rechnung-Nummer:', invoiceNumber);
+                    }
+                } else {
+                    // Ohne rideId → Neue Nummer
+                    invoiceNumber = await getNextInvoiceNumber();
+                    invoiceDate = new Date();
+                }
                 
                 console.log('📄 Erstelle flexible PDF:', invoiceNumber);
                 
@@ -46852,7 +46901,7 @@ Funk Taxi Team`;
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'normal');
                 doc.text(`Rechnungsnr.: ${invoiceNumber}`, 20, 58);
-                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 20, 63);
+                doc.text(`Datum: ${invoiceDate.toLocaleDateString('de-DE')}`, 20, 63);
                 
                 let yPos = 75;
                 
@@ -48494,7 +48543,7 @@ Funk Taxi Team`;
                 yPos += 10;
                 doc.setFont(undefined, 'bold');
                 doc.text(`Rechnungsnummer: ${invoiceNumber}`, 20, yPos);
-                doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 120, yPos);
+                doc.text(`Datum: ${invoiceDate.toLocaleDateString('de-DE')}`, 120, yPos);
                 
                 // TITEL
                 yPos += 10;
@@ -50536,7 +50585,7 @@ Stack: ${err.stack}
         }
 
         // SOUNDS
-        // 🔊 ALERT STATUS TELEFON-FIX
+        // 🔊 ALERT STATUS RECHNUNG-FIX
         let soundAvailable = false;
         let vibrationAvailable = false;
         
@@ -51061,7 +51110,7 @@ Stack: ${err.stack}
             }
         }
 
-        // 🔗 TELEFON-FIX-LINK KOPIEREN
+        // 🔗 RECHNUNG-FIX-LINK KOPIEREN
         // 🆕 v5.30.4: Tracking-Link teilen (optional)
         function shareTrackingLink(link) {
             // Kopiere Link
@@ -51259,8 +51308,8 @@ Stack: ${err.stack}
             }
         }
 
-        // RIDE STATUS & TELEFON-FIX
-        // 🆕 v5.90.329: KOMPLETTES 5-PHASEN TELEFON-FIX FÜR FAHRGÄSTE!
+        // RIDE STATUS & RECHNUNG-FIX
+        // 🆕 v5.90.329: KOMPLETTES 5-PHASEN RECHNUNG-FIX FÜR FAHRGÄSTE!
         let rideStatusListener = null; // Firebase Listener für Live-Updates
         let rideTrackingMap = null; // Karte für Live-Tracking
         let taxiMarkerTracking = null; // Taxi-Marker
@@ -51613,7 +51662,7 @@ Stack: ${err.stack}
             initTrackingMap(driverLoc, customerLoc, ride.vehicleId);
         }
         
-        // 🗺️ INITIALISIERE TELEFON-FIX-KARTE
+        // 🗺️ INITIALISIERE RECHNUNG-FIX-KARTE
         function initTrackingMap(driverLoc, customerLoc, vehicleId) {
             // Warte kurz bis DOM bereit ist
             setTimeout(() => {
@@ -54344,7 +54393,7 @@ Stack: ${err.stack}
             if (role === 'driver') {
                 console.log('🚗 v5.90.525: Fahrer-Login erkannt - optimiere Firebase Listener!');
                 
-                // 🆕 v5.90.537: STELLE FAHRER-STATUS WIEDER HER!
+                // 🆕 v5.90.538: STELLE FAHRER-STATUS WIEDER HER!
                 setTimeout(() => {
                     restoreDriverState();
                 }, 2000); // Warte 2 Sek bis Firebase ready
@@ -55726,7 +55775,7 @@ Stack: ${err.stack}
                             })()}
                             
                             ${(() => {
-                                // 🆕 v5.90.48: TELEFON-FIX-LINK ANZEIGEN!
+                                // 🆕 v5.90.48: RECHNUNG-FIX-LINK ANZEIGEN!
                                 // Link wird jetzt IMMER sofort erstellt bei Fahrzeug-Zuweisung
                                 if (ride.trackingLink) {
                                     return `
@@ -56618,7 +56667,7 @@ Stack: ${err.stack}
                 console.log('✅ GPS-Button Click-Handler registriert!');
             }
             
-            // 🆕 TELEFON-FIX-LINK: Prüfe ob ?ride=XXX in URL
+            // 🆕 RECHNUNG-FIX-LINK: Prüfe ob ?ride=XXX in URL
             const urlParams = new URLSearchParams(window.location.search);
             const trackingRideId = urlParams.get('ride');
             if (trackingRideId) {
@@ -60514,7 +60563,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         // Test: Tracking-SMS
         async function testSMSTracking() {
-            const testPhone = prompt('📱 Test TELEFON-FIX-SMS senden an:\n\n(Format: 0171xxxxxxx)');
+            const testPhone = prompt('📱 Test RECHNUNG-FIX-SMS senden an:\n\n(Format: 0171xxxxxxx)');
             if (!testPhone) return;
             
             let formattedPhone = testPhone.replace(/[\s\-\/\(\)]/g, '');
@@ -68227,7 +68276,7 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
         justify-content:center;
         transition:all 0.2s;
     " onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 25px rgba(16,185,129,0.7)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 20px rgba(16,185,129,0.5)'">
-        📞
+        📄
     </button>
 </div>
 
@@ -68296,6 +68345,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📞 v5.90.537
+        📄 v5.90.538
     </div>
 </div>

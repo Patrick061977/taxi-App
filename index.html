@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.552 - MEGA-FIX! 🔧 (Build 2026-01-16_1420)');
+        console.log('🚕 Funk Taxi App v5.90.553 - TAXI-SIMULATOR! 🎮 (Build 2026-01-16_1430)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.552 - MEGA-FIX! 🔧 (Build 20260116-1420)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎮 Version 5.90.553 - TAXI-SIMULATOR! 🎮 (Build 20260116-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1284,6 +1284,22 @@
                 box-shadow: 0 2px 4px rgba(245,158,11,0.3);
             ">
                 ⚡ Express-Buchung
+            </button>
+            <!-- 🆕 v5.90.553: SIMULATOR TAB! -->
+            <button onclick="switchView('simulator')" class="admin-tab-btn admin-only tab-toggleable" data-view="simulator" data-tab-id="simulator" style="
+                padding: 10px 16px;
+                border: 2px solid #8b5cf6;
+                background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+                color: white;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 4px rgba(139,92,246,0.3);
+            ">
+                🎮 Simulator
             </button>
             <button onclick="switchView('passenger')" class="admin-tab-btn admin-only tab-toggleable" data-view="passenger" data-tab-id="passenger" style="
                 padding: 10px 16px;
@@ -1618,10 +1634,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.552: VERSION BADGE -->
+                <!-- 🆕 v5.90.553: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.552 - MEGAFIX
+                        🎮 v5.90.553 - SIMULATOR
                     </span>
                 </div>
             </div>
@@ -2351,6 +2367,117 @@
                     <p style="margin:0 0 10px 0;"><strong>📍 Schritt 1:</strong> Klicke auf die Karte um den Abholort zu setzen (grüner Pin)</p>
                     <p style="margin:0;"><strong>🎯 Schritt 2:</strong> Klicke nochmal um das Ziel zu setzen (blauer Pin)</p>
                 </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 🆕 v5.90.553: SIMULATOR VIEW! -->
+    <div id="simulator-view" class="view admin-only" style="display:none;">
+        <div style="max-width:1600px;margin:0 auto;padding:20px;">
+            
+            <!-- HEADER -->
+            <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:20px;border-radius:12px;margin-bottom:20px;color:white;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
+                <h2 style="margin:0 0 8px 0;font-size:24px;font-weight:700;">🎮 Taxi-Simulator</h2>
+                <p style="margin:0;opacity:0.95;font-size:14px;">Simuliere Fahrten, Fahrzeuge und Auto-Assign in Echtzeit</p>
+            </div>
+
+            <!-- ZEIT-STEUERUNG -->
+            <div style="background:white;padding:15px;border-radius:10px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;">
+                    <div style="font-weight:700;color:#8b5cf6;">⏰ Zeit-Steuerung:</div>
+                    
+                    <button onclick="simRewind()" style="padding:8px 15px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                        ◀◀ -1h
+                    </button>
+                    
+                    <button id="sim-play-btn" onclick="toggleSimulation()" style="padding:8px 20px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer;">
+                        ▶ Play
+                    </button>
+                    
+                    <button onclick="simForward()" style="padding:8px 15px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                        +1h ▶▶
+                    </button>
+                    
+                    <select id="sim-speed" onchange="updateSimSpeed()" style="padding:8px;border:2px solid #8b5cf6;border-radius:6px;font-weight:600;">
+                        <option value="1">1x</option>
+                        <option value="5">5x</option>
+                        <option value="10" selected>10x</option>
+                        <option value="30">30x</option>
+                        <option value="60">60x</option>
+                    </select>
+                    
+                    <div id="sim-time" style="padding:8px 15px;background:#f3f4f6;border-radius:6px;font-weight:600;color:#1f2937;">
+                        🕐 16.01.2026 14:30:00
+                    </div>
+                    
+                    <button onclick="resetSimulation()" style="padding:8px 15px;background:#ef4444;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                        🔄 Reset
+                    </button>
+                </div>
+                
+                <!-- Fahrten pro Stunde -->
+                <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+                    <label style="font-weight:600;color:#6b7280;">📊 Fahrten pro Stunde:</label>
+                    <input id="rides-per-hour" type="number" value="5" min="0" max="50" style="width:80px;padding:6px;border:2px solid #8b5cf6;border-radius:6px;font-weight:600;">
+                    <button onclick="startRideGeneration()" style="padding:6px 12px;background:#8b5cf6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                        ▶ Auto-Generierung starten
+                    </button>
+                    <span id="next-ride-info" style="color:#6b7280;font-size:13px;"></span>
+                </div>
+            </div>
+
+            <!-- MAIN CONTENT -->
+            <div style="display:grid;grid-template-columns:1fr 400px;gap:15px;">
+                
+                <!-- LINKE SEITE: KARTE -->
+                <div>
+                    <div id="simulator-map" style="height:500px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"></div>
+                    
+                    <!-- EVENT LOG -->
+                    <div style="background:white;padding:15px;border-radius:10px;margin-top:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="font-weight:700;margin-bottom:10px;color:#8b5cf6;">📊 Event-Log:</div>
+                        <div id="sim-event-log" style="max-height:200px;overflow-y:auto;font-size:12px;font-family:monospace;line-height:1.6;"></div>
+                    </div>
+                </div>
+
+                <!-- RECHTE SEITE: PANELS -->
+                <div style="display:flex;flex-direction:column;gap:15px;">
+                    
+                    <!-- FAHRZEUGE -->
+                    <div style="background:white;padding:15px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="font-weight:700;margin-bottom:10px;color:#8b5cf6;">🚗 Fahrzeuge:</div>
+                        <div id="sim-vehicles-list"></div>
+                        <button onclick="addSimVehicle()" style="width:100%;margin-top:10px;padding:8px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                            ➕ Fahrzeug hinzufügen
+                        </button>
+                    </div>
+
+                    <!-- FAHRTEN -->
+                    <div style="background:white;padding:15px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="font-weight:700;margin-bottom:10px;color:#8b5cf6;">📋 Fahrten:</div>
+                        <div id="sim-rides-list" style="max-height:300px;overflow-y:auto;"></div>
+                        <button onclick="addSimRide()" style="width:100%;margin-top:10px;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                            ➕ Fahrt hinzufügen
+                        </button>
+                    </div>
+
+                    <!-- SCHNELL-AKTIONEN -->
+                    <div style="background:white;padding:15px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="font-weight:700;margin-bottom:10px;color:#8b5cf6;">⚡ Aktionen:</div>
+                        <button onclick="runAutoAssignNow()" style="width:100%;margin-bottom:8px;padding:8px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                            🎯 Auto-Assign JETZT
+                        </button>
+                        <button onclick="exportSimulation()" style="width:100%;margin-bottom:8px;padding:8px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                            💾 Szenario speichern
+                        </button>
+                        <button onclick="importSimulation()" style="width:100%;padding:8px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+                            📥 Szenario laden
+                        </button>
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -14067,7 +14194,7 @@ Aktuell: ${currentNum}`;
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
             // 🆕 v5.90.525: fleet-overview-view hinzugefügt!
             // 🆕 v5.90.548: express-booking-view hinzugefügt!
-            const allViews = ['express-booking-view', 'passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view'];
+            const allViews = ['simulator-view', 'express-booking-view', 'passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -14171,6 +14298,28 @@ Aktuell: ${currentNum}`;
                         }
                     } else {
                         console.error('💾 initExpressBooking() nicht gefunden!');
+                    }
+                }, 100);
+            }
+            
+            // 🆕 v5.90.553: Simulator initialisieren!
+            if (view === 'simulator') {
+                console.log('🎮 Simulator View geöffnet!');
+                setTimeout(() => {
+                    if (typeof initSimulator === 'function') {
+                        if (typeof L === 'undefined') {
+                            console.log('⏳ Warte auf Leaflet...');
+                            const checkLeaflet = setInterval(() => {
+                                if (typeof L !== 'undefined') {
+                                    clearInterval(checkLeaflet);
+                                    initSimulator();
+                                }
+                            }, 100);
+                        } else {
+                            initSimulator();
+                        }
+                    } else {
+                        console.error('💾 initSimulator() nicht gefunden!');
                     }
                 }, 100);
             }
@@ -69073,6 +69222,445 @@ function resetExpressBooking() {
 }
 
 console.log('✅ v5.90.548: Express-Booking System geladen!');
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v5.90.553: TAXI-SIMULATOR SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+let simulatorMap = null;
+let simVehicles = [];
+let simRides = [];
+let simTime = Date.now();
+let simSpeed = 10;
+let simRunning = false;
+let simInterval = null;
+let rideGenerationInterval = null;
+let simEventLog = [];
+
+function initSimulator() {
+    console.log('🎮 Initialisiere Simulator...');
+    
+    if (!simulatorMap) {
+        simulatorMap = L.map('simulator-map').setView([53.9547, 14.1783], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(simulatorMap);
+        
+        console.log('✅ Simulator-Karte initialisiert!');
+    } else {
+        simulatorMap.invalidateSize();
+    }
+    
+    // Lade initiale Fahrzeuge
+    loadInitialVehicles();
+    renderSimulator();
+}
+
+function loadInitialVehicles() {
+    // Starte mit 3 Fahrzeugen
+    simVehicles = [
+        {
+            id: 'sim-tesla',
+            name: 'Tesla Model Y',
+            lat: 53.9547,
+            lon: 14.1783,
+            status: 'free',
+            online: true,
+            marker: null
+        },
+        {
+            id: 'sim-renault',
+            name: 'Renault Traffic',
+            lat: 53.9396,
+            lon: 14.1556,
+            status: 'free',
+            online: false,
+            marker: null
+        },
+        {
+            id: 'sim-toyota',
+            name: 'Toyota Prius',
+            lat: 53.9596,
+            lon: 14.1956,
+            status: 'free',
+            online: true,
+            marker: null
+        }
+    ];
+    
+    logSimEvent('🎮 Simulator gestartet mit 3 Fahrzeugen');
+}
+
+function renderSimulator() {
+    updateSimTime();
+    renderSimVehicles();
+    renderSimRides();
+    renderEventLog();
+}
+
+function updateSimTime() {
+    const date = new Date(simTime);
+    document.getElementById('sim-time').textContent = 
+        `🕐 ${date.toLocaleDateString('de-DE')} ${date.toLocaleTimeString('de-DE')}`;
+}
+
+function renderSimVehicles() {
+    const list = document.getElementById('sim-vehicles-list');
+    if (!list) return;
+    
+    list.innerHTML = simVehicles.map(v => `
+        <div style="padding:10px;background:#f9fafb;border-radius:6px;margin-bottom:8px;border-left:4px solid ${v.online ? '#10b981' : '#ef4444'};">
+            <div style="font-weight:700;margin-bottom:4px;">${v.online ? '🟢' : '🔴'} ${v.name}</div>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">
+                Status: <strong>${v.status === 'free' ? 'FREI' : v.status === 'busy' ? 'UNTERWEGS' : 'OFFLINE'}</strong>
+            </div>
+            <div style="display:flex;gap:4px;">
+                <button onclick="toggleVehicleOnline('${v.id}')" style="flex:1;padding:4px;background:${v.online ? '#ef4444' : '#10b981'};color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
+                    ${v.online ? 'Offline' : 'Online'}
+                </button>
+                <button onclick="moveVehicle('${v.id}')" style="flex:1;padding:4px;background:#3b82f6;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer;">
+                    📍 Bewegen
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Update Marker auf Karte
+    simVehicles.forEach(v => {
+        if (v.marker) {
+            simulatorMap.removeLayer(v.marker);
+        }
+        
+        if (v.online) {
+            v.marker = L.marker([v.lat, v.lon], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background:${v.status === 'free' ? '#10b981' : '#f59e0b'};color:white;padding:4px 8px;border-radius:6px;font-weight:700;font-size:11px;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.3);">🚗 ${v.name}</div>`,
+                    iconSize: [120, 30]
+                })
+            }).addTo(simulatorMap);
+        }
+    });
+}
+
+function renderSimRides() {
+    const list = document.getElementById('sim-rides-list');
+    if (!list) return;
+    
+    if (simRides.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;font-size:13px;">Keine Fahrten</div>';
+        return;
+    }
+    
+    list.innerHTML = simRides.map((r, i) => `
+        <div style="padding:10px;background:#f9fafb;border-radius:6px;margin-bottom:8px;border-left:4px solid ${
+            r.status === 'completed' ? '#10b981' :
+            r.status === 'busy' ? '#f59e0b' :
+            r.status === 'assigned' ? '#3b82f6' : '#6b7280'
+        };">
+            <div style="font-weight:700;font-size:12px;margin-bottom:4px;">
+                ${new Date(r.pickupTime).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})} - ${r.customerName}
+            </div>
+            <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">
+                ${r.pickup} → ${r.destination}
+            </div>
+            <div style="font-size:11px;margin-bottom:6px;">
+                Status: <strong style="color:${
+                    r.status === 'completed' ? '#10b981' :
+                    r.status === 'busy' ? '#f59e0b' :
+                    r.status === 'assigned' ? '#3b82f6' : '#6b7280'
+                };">${
+                    r.status === 'new' ? 'NEU' :
+                    r.status === 'assigned' ? 'ZUGEWIESEN' :
+                    r.status === 'busy' ? 'UNTERWEGS' : 'ABGESCHLOSSEN'
+                }</strong>
+                ${r.vehicleId ? ` (${simVehicles.find(v => v.id === r.vehicleId)?.name || '?'})` : ''}
+            </div>
+            ${r.status !== 'completed' ? `
+                <div style="display:flex;gap:4px;">
+                    <button onclick="completeSimRide(${i})" style="flex:1;padding:4px;background:#10b981;color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;">
+                        ✅ Fertig
+                    </button>
+                    <button onclick="cancelSimRide(${i})" style="flex:1;padding:4px;background:#ef4444;color:white;border:none;border-radius:4px;font-size:10px;cursor:pointer;">
+                        ❌ Löschen
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+function renderEventLog() {
+    const log = document.getElementById('sim-event-log');
+    if (!log) return;
+    
+    log.innerHTML = simEventLog.slice(-50).reverse().map(e => 
+        `<div style="margin-bottom:4px;">${e}</div>`
+    ).join('');
+    log.scrollTop = 0;
+}
+
+function toggleSimulation() {
+    simRunning = !simRunning;
+    const btn = document.getElementById('sim-play-btn');
+    
+    if (simRunning) {
+        btn.textContent = '⏸ Pause';
+        btn.style.background = '#ef4444';
+        startSimulationEngine();
+        logSimEvent('▶ Simulation gestartet');
+    } else {
+        btn.textContent = '▶ Play';
+        btn.style.background = '#10b981';
+        stopSimulationEngine();
+        logSimEvent('⏸ Simulation pausiert');
+    }
+}
+
+function startSimulationEngine() {
+    simInterval = setInterval(() => {
+        // Zeit vorspulen (1 Sekunde = simSpeed Sekunden)
+        simTime += simSpeed * 1000;
+        updateSimTime();
+        
+        // Prüfe Fahrten
+        processSimRides();
+    }, 1000);
+}
+
+function stopSimulationEngine() {
+    if (simInterval) {
+        clearInterval(simInterval);
+        simInterval = null;
+    }
+}
+
+function processSimRides() {
+    simRides.forEach((ride, i) => {
+        if (ride.status === 'new' && ride.pickupTime <= simTime) {
+            // Auto-Assign!
+            runAutoAssignForRide(i);
+        }
+        
+        if (ride.status === 'assigned' && ride.pickupTime <= simTime) {
+            // Fahrt startet
+            ride.status = 'busy';
+            const vehicle = simVehicles.find(v => v.id === ride.vehicleId);
+            if (vehicle) vehicle.status = 'busy';
+            logSimEvent(`🚗 ${vehicle?.name || '?'} fährt los zu ${ride.customerName}`);
+            renderSimulator();
+        }
+        
+        if (ride.status === 'busy' && ride.pickupTime + 10 * 60 * 1000 <= simTime) {
+            // Nach 10 Min automatisch abschließen
+            completeSimRide(i);
+        }
+    });
+}
+
+function runAutoAssignForRide(rideIndex) {
+    const ride = simRides[rideIndex];
+    logSimEvent(`🎯 Auto-Assign für ${ride.customerName}...`);
+    
+    // Finde bestes Fahrzeug
+    const availableVehicles = simVehicles.filter(v => v.online && v.status === 'free');
+    
+    if (availableVehicles.length === 0) {
+        logSimEvent(`⚠️ Keine freien Fahrzeuge!`);
+        return;
+    }
+    
+    // Berechne Scores
+    availableVehicles.forEach(v => {
+        const dist = calculateDistance(v.lat, v.lon, ride.pickupLat, ride.pickupLon);
+        v.score = 100 - (dist * 10);
+        logSimEvent(`  📊 ${v.name}: ${dist.toFixed(1)}km, Score: ${v.score.toFixed(0)}`);
+    });
+    
+    // Best Vehicle
+    const best = availableVehicles.sort((a, b) => b.score - a.score)[0];
+    
+    ride.status = 'assigned';
+    ride.vehicleId = best.id;
+    best.status = 'assigned';
+    
+    logSimEvent(`✅ ${best.name} zugewiesen!`);
+    renderSimulator();
+}
+
+function addSimRide() {
+    const now = simTime;
+    const pickupTime = now + (Math.random() * 30 + 5) * 60 * 1000; // 5-35 Min
+    
+    const customers = ['Marion', 'Klaus', 'Anna', 'Peter', 'Maria', 'Hans'];
+    const pickups = ['Heringsdorf Bahnhof', 'Hotel Ahlbeck', 'Seebrücke', 'Aldi Bansin'];
+    const destinations = ['Flughafen', 'Usedom Park Hotel', 'Zinnowitz', 'Karlshagen'];
+    
+    simRides.push({
+        customerName: customers[Math.floor(Math.random() * customers.length)],
+        pickup: pickups[Math.floor(Math.random() * pickups.length)],
+        destination: destinations[Math.floor(Math.random() * destinations.length)],
+        pickupTime: pickupTime,
+        pickupLat: 53.95 + Math.random() * 0.02,
+        pickupLon: 14.15 + Math.random() * 0.08,
+        status: 'new',
+        vehicleId: null
+    });
+    
+    logSimEvent(`➕ Neue Fahrt erstellt (${new Date(pickupTime).toLocaleTimeString('de-DE')})`);
+    renderSimulator();
+}
+
+function startRideGeneration() {
+    const ridesPerHour = parseInt(document.getElementById('rides-per-hour').value) || 5;
+    const interval = 3600000 / ridesPerHour; // ms zwischen Fahrten
+    
+    if (rideGenerationInterval) {
+        clearInterval(rideGenerationInterval);
+    }
+    
+    rideGenerationInterval = setInterval(() => {
+        if (simRunning) {
+            addSimRide();
+        }
+    }, interval / simSpeed); // Angepasst an Sim-Speed
+    
+    logSimEvent(`🚀 Auto-Generierung: ${ridesPerHour} Fahrten/h`);
+    document.getElementById('next-ride-info').textContent = `⏱️ Nächste Fahrt in ${Math.round(interval/simSpeed/1000)}s`;
+}
+
+function completeSimRide(index) {
+    const ride = simRides[index];
+    ride.status = 'completed';
+    
+    const vehicle = simVehicles.find(v => v.id === ride.vehicleId);
+    if (vehicle) {
+        vehicle.status = 'free';
+        logSimEvent(`✅ ${vehicle.name} hat Fahrt abgeschlossen`);
+    }
+    
+    renderSimulator();
+}
+
+function cancelSimRide(index) {
+    simRides.splice(index, 1);
+    renderSimulator();
+}
+
+function runAutoAssignNow() {
+    simRides.forEach((ride, i) => {
+        if (ride.status === 'new') {
+            runAutoAssignForRide(i);
+        }
+    });
+}
+
+function toggleVehicleOnline(vehicleId) {
+    const vehicle = simVehicles.find(v => v.id === vehicleId);
+    if (vehicle) {
+        vehicle.online = !vehicle.online;
+        if (!vehicle.online) vehicle.status = 'offline';
+        else vehicle.status = 'free';
+        logSimEvent(`${vehicle.online ? '🟢' : '🔴'} ${vehicle.name} ${vehicle.online ? 'online' : 'offline'}`);
+        renderSimulator();
+    }
+}
+
+function moveVehicle(vehicleId) {
+    alert('Klicke auf die Karte um das Fahrzeug zu verschieben (Feature kommt noch!)');
+}
+
+function addSimVehicle() {
+    const name = prompt('Fahrzeugname:', 'Neues Taxi');
+    if (!name) return;
+    
+    simVehicles.push({
+        id: 'sim-' + Date.now(),
+        name: name,
+        lat: 53.95 + Math.random() * 0.02,
+        lon: 14.15 + Math.random() * 0.08,
+        status: 'free',
+        online: true,
+        marker: null
+    });
+    
+    logSimEvent(`➕ Fahrzeug hinzugefügt: ${name}`);
+    renderSimulator();
+}
+
+function simRewind() {
+    simTime -= 3600000; // -1 Stunde
+    logSimEvent('◀◀ Zeit: -1 Stunde');
+    renderSimulator();
+}
+
+function simForward() {
+    simTime += 3600000; // +1 Stunde
+    logSimEvent('▶▶ Zeit: +1 Stunde');
+    renderSimulator();
+}
+
+function updateSimSpeed() {
+    simSpeed = parseInt(document.getElementById('sim-speed').value);
+    logSimEvent(`⚡ Speed: ${simSpeed}x`);
+}
+
+function resetSimulation() {
+    if (!confirm('Simulation zurücksetzen?')) return;
+    
+    simTime = Date.now();
+    simRides = [];
+    simEventLog = [];
+    loadInitialVehicles();
+    
+    if (simRunning) toggleSimulation();
+    if (rideGenerationInterval) clearInterval(rideGenerationInterval);
+    
+    logSimEvent('🔄 Simulation zurückgesetzt');
+    renderSimulator();
+}
+
+function exportSimulation() {
+    const data = {
+        time: simTime,
+        vehicles: simVehicles,
+        rides: simRides
+    };
+    
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `simulation-${new Date().toISOString()}.json`;
+    a.click();
+    
+    logSimEvent('💾 Szenario exportiert');
+}
+
+function importSimulation() {
+    alert('Szenario-Import kommt noch! 🚀');
+}
+
+function logSimEvent(message) {
+    const time = new Date(simTime).toLocaleTimeString('de-DE');
+    simEventLog.push(`[${time}] ${message}`);
+    renderEventLog();
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+console.log('✅ v5.90.553: Taxi-Simulator System geladen!');
     </script>
 
 
@@ -69336,6 +69924,6 @@ console.log('✅ v5.90.548: Express-Booking System geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.552
+        🎮 v5.90.553
     </div>
 </div>

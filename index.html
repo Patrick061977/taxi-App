@@ -197,7 +197,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.531 - ZEITPUFFER-SYSTEM! ⏱️ (Build 2026-01-16_0730)');
+        console.log('🚕 Funk Taxi App v5.90.533 - TRACKING: WER HAT ABGESCHLOSSEN? 👤 (Build 2026-01-16_0800)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏱️ Version 5.90.531 - ZEITPUFFER-SYSTEM! ⏱️ (Build 20260116-0730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👤 Version 5.90.533 - WER HAT ABGESCHLOSSEN? 👤 (Build 20260116-0800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,10 +1544,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.531: VERSION BADGE -->
+                <!-- 🆕 v5.90.533: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ⏱️ v5.90.531 - ZEITPUFFER
+                        👤 v5.90.533 - TRACKING
                     </span>
                 </div>
             </div>
@@ -18753,8 +18753,20 @@ Aktuell: ${currentNum}`;
                             <div style="font-size:13px;color:#6b7280;line-height:1.8;">
                                 <div>📅 <strong>Erstellt:</strong> ${createdTime}</div>
                                 <div>🕐 <strong>Abholung:</strong> ${pickupTime}</div>
+                                ${ride.completedAt ? `<div>✅ <strong>Abgeschlossen:</strong> ${new Date(ride.completedAt).toLocaleString('de-DE')}</div>` : ''}
                             </div>
                         </div>
+                        
+                        <!-- 🆕 v5.90.533: ABGESCHLOSSEN VON -->
+                        ${(ride.status === 'completed' && ride.completedByName) ? `
+                        <div style="margin-bottom:15px;padding:12px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:8px;">
+                            <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:5px;">✅ ABGESCHLOSSEN VON</div>
+                            <div style="font-size:14px;color:#047857;font-weight:600;">
+                                ${ride.completedByRole === 'driver' ? '🚗' : ride.completedByRole === 'admin' ? '👨‍💼' : '👤'} ${ride.completedByName}
+                            </div>
+                            ${ride.completedByRole ? `<div style="font-size:12px;color:#059669;margin-top:3px;">Rolle: ${ride.completedByRole === 'driver' ? 'Fahrer' : ride.completedByRole === 'admin' ? 'Admin' : ride.completedByRole}</div>` : ''}
+                        </div>
+                        ` : ''}
                         
                         <!-- Zahlungsmethode -->
                         ${ride.paymentMethod ? `
@@ -32492,7 +32504,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 driverLocation: null,
                 completedAt: Date.now(),
                 actualPrice: actualPrice,  // 🆕 Taxameter-Preis!
-                needsInvoice: needsInvoice  // 🆕 Rechnung benötigt?
+                needsInvoice: needsInvoice,  // 🆕 Rechnung benötigt?
+                // 🆕 v5.90.533: TRACKING - WER HAT ABGESCHLOSSEN?
+                completedBy: currentUser?.uid || 'unknown',
+                completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
+                completedByRole: currentUser?.role || 'unknown'
             });
             
             console.log('✅ Fahrt abgeschlossen - Preis:', actualPrice, '€');
@@ -32943,7 +32959,11 @@ Funk Taxi Team`;
                         ...rideData,
                         firebaseId: rideId,
                         status: 'completed',
-                        completedAt: Date.now()
+                        completedAt: Date.now(),
+                        // 🆕 v5.90.533: TRACKING
+                        completedBy: currentUser?.uid || 'unknown',
+                        completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
+                        completedByRole: currentUser?.role || 'unknown'
                     };
                     console.log('✅ Fahrt aktualisiert in Verlauf');
                 } else {
@@ -32952,7 +32972,11 @@ Funk Taxi Team`;
                         ...rideData,
                         firebaseId: rideId,
                         status: 'completed',
-                        completedAt: Date.now()
+                        completedAt: Date.now(),
+                        // 🆕 v5.90.533: TRACKING
+                        completedBy: currentUser?.uid || 'unknown',
+                        completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
+                        completedByRole: currentUser?.role || 'unknown'
                     });
                     console.log('✅ Fahrt hinzugefügt zu Verlauf');
                 }
@@ -68144,6 +68168,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⏱️ v5.90.531
+        👤 v5.90.533
     </div>
 </div>

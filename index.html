@@ -197,7 +197,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.537 - MAP-PICKER Z-INDEX FIX! 🗺️ (Build 2026-01-16_1115)');
+        console.log('🚕 Funk Taxi App v5.90.538 - PICKER MIT POI-VORSCHLÄGEN! 🔍 (Build 2026-01-16_1130)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.537 - MAP-PICKER Z-INDEX FIX! 🗺️ (Build 20260116-1115)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔍 Version 5.90.538 - PICKER MIT POI-VORSCHLÄGEN! 🔍 (Build 20260116-1130)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,10 +1544,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.537: VERSION BADGE -->
+                <!-- 🆕 v5.90.538: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🗺️ v5.90.537 - Z-INDEX FIX
+                        🔍 v5.90.538 - POI-VORSCHLÄGE
                     </span>
                 </div>
             </div>
@@ -43265,8 +43265,14 @@ Funk Taxi Team`;
                     <!-- Info -->
                     <div style="padding:15px;background:#ecfdf5;border-bottom:2px solid #10b981;">
                         <div style="font-size:13px;color:#065f46;font-weight:600;">
-                            💡 Klicke auf die Karte um einen Ort auszuwählen
+                            💡 Wähle aus Vorschlägen oder klicke auf die Karte
                         </div>
+                    </div>
+                    
+                    <!-- 🆕 v5.90.538: POI VORSCHLÄGE -->
+                    <div id="universal-map-picker-suggestions" style="display:none;padding:15px;background:#f0fdf4;border-bottom:2px solid #10b981;max-height:200px;overflow-y:auto;">
+                        <div style="font-size:12px;color:#048257;font-weight:600;margin-bottom:8px;">🔍 Gefundene Orte:</div>
+                        <div id="universal-map-picker-suggestions-list"></div>
                     </div>
                     
                     <!-- Karte -->
@@ -43291,6 +43297,12 @@ Funk Taxi Team`;
             `;
             
             document.body.appendChild(modal);
+            
+            // 🆕 v5.90.538: Lade POI-Vorschläge basierend auf aktuellem Input
+            const targetField = document.getElementById(inputId);
+            if (targetField && targetField.value.trim()) {
+                searchUniversalMapPickerPOIs(targetField.value.trim());
+            }
             
             // Initialisiere Karte nach kurzer Verzögerung
             setTimeout(() => {
@@ -43473,6 +43485,139 @@ Funk Taxi Team`;
                 modal.remove();
                 
                 console.log('🗑️ v5.90.535: Universal Map Picker geschlossen');
+            }
+        }
+        
+        // 🆕 v5.90.538: POI-VORSCHLÄGE SUCHEN
+        async function searchUniversalMapPickerPOIs(query) {
+            console.log('🔍 v5.90.538: Suche POIs für:', query);
+            
+            const suggestionsDiv = document.getElementById('universal-map-picker-suggestions');
+            const listDiv = document.getElementById('universal-map-picker-suggestions-list');
+            
+            if (!suggestionsDiv || !listDiv) {
+                console.error('💾 v5.90.538: Suggestions Container nicht gefunden!');
+                return;
+            }
+            
+            // Zeige Loading
+            suggestionsDiv.style.display = 'block';
+            listDiv.innerHTML = '<div style="padding:10px;text-align:center;color:#6b7280;">🔄 Suche Orte...</div>';
+            
+            try {
+                // Nominatim Search (mit Heringsdorf bias)
+                await new Promise(resolve => setTimeout(resolve, 300)); // Rate-Limit
+                
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?` +
+                    `format=json&` +
+                    `q=${encodeURIComponent(query + ' Heringsdorf')}&` +
+                    `limit=5&` +
+                    `addressdetails=1`
+                );
+                
+                const results = await response.json();
+                
+                console.log('✅ v5.90.538: POI-Suche:', results.length, 'Ergebnisse');
+                
+                if (results.length === 0) {
+                    listDiv.innerHTML = '<div style="padding:10px;text-align:center;color:#6b7280;">Keine Orte gefunden</div>';
+                    return;
+                }
+                
+                // Rendere Vorschläge
+                listDiv.innerHTML = results.map((result, index) => {
+                    const address = result.address || {};
+                    let displayName = result.display_name;
+                    
+                    // Baue saubere Adresse
+                    let cleanAddress = '';
+                    if (address.road) {
+                        cleanAddress = address.road;
+                        if (address.house_number) cleanAddress += ' ' + address.house_number;
+                    }
+                    
+                    if (address.postcode && address.village) {
+                        if (cleanAddress) cleanAddress += ', ';
+                        cleanAddress += address.postcode + ' ' + address.village;
+                    } else if (address.postcode && address.town) {
+                        if (cleanAddress) cleanAddress += ', ';
+                        cleanAddress += address.postcode + ' ' + address.town;
+                    } else if (address.postcode && address.city) {
+                        if (cleanAddress) cleanAddress += ', ';
+                        cleanAddress += address.postcode + ' ' + address.city;
+                    }
+                    
+                    if (!cleanAddress) {
+                        cleanAddress = displayName;
+                    }
+                    
+                    return `
+                        <div onclick="selectUniversalMapPickerSuggestion('${result.lat}', '${result.lon}', '${cleanAddress.replace(/'/g, "\\'")}', ${index})" 
+                             style="padding:12px;margin-bottom:8px;background:white;border:2px solid #10b981;border-radius:8px;cursor:pointer;transition:all 0.2s;"
+                             onmouseover="this.style.background='#ecfdf5'"
+                             onmouseout="this.style.background='white'">
+                            <div style="font-weight:600;color:#1f2937;margin-bottom:4px;">
+                                📍 ${result.name || 'Unbekannt'}
+                            </div>
+                            <div style="font-size:12px;color:#6b7280;">
+                                ${cleanAddress}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('💾 v5.90.538: POI-Suche Fehler:', error);
+                listDiv.innerHTML = '<div style="padding:10px;text-align:center;color:#ef4444;">💾 Fehler beim Laden</div>';
+            }
+        }
+        
+        // 🆕 v5.90.538: VORSCHLAG AUSWÄHLEN
+        function selectUniversalMapPickerSuggestion(lat, lon, address, index) {
+            console.log('✅ v5.90.538: Vorschlag ausgewählt:', address);
+            
+            // Setze Marker auf Karte (falls Karte schon geladen)
+            if (universalMapPicker.map) {
+                // Entferne alten Marker
+                if (universalMapPicker.marker) {
+                    universalMapPicker.map.removeLayer(universalMapPicker.marker);
+                }
+                
+                // Neuer Marker
+                universalMapPicker.marker = L.marker([parseFloat(lat), parseFloat(lon)], {
+                    icon: L.divIcon({
+                        html: '<div style="background:#10b981;color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">📍</div>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(universalMapPicker.map);
+                
+                // Zentriere Karte
+                universalMapPicker.map.setView([parseFloat(lat), parseFloat(lon)], 15);
+                
+                // Speichere Daten
+                universalMapPicker.marker.pickedAddress = address;
+                universalMapPicker.marker.pickedLat = parseFloat(lat);
+                universalMapPicker.marker.pickedLon = parseFloat(lon);
+            }
+            
+            // Zeige ausgewählte Adresse
+            const selectedDiv = document.getElementById('universal-map-picker-selected');
+            const addressDiv = document.getElementById('universal-map-picker-address');
+            const confirmBtn = document.getElementById('universal-map-picker-confirm');
+            
+            if (selectedDiv && addressDiv && confirmBtn) {
+                selectedDiv.style.display = 'block';
+                addressDiv.textContent = address;
+                confirmBtn.disabled = false;
+                confirmBtn.style.opacity = '1';
+            }
+            
+            // Verstecke Vorschläge
+            const suggestionsDiv = document.getElementById('universal-map-picker-suggestions');
+            if (suggestionsDiv) {
+                suggestionsDiv.style.display = 'none';
             }
         }
         
@@ -68644,6 +68789,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.537
+        🔍 v5.90.538
     </div>
 </div>

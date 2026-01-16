@@ -197,6 +197,42 @@
             };
         })();
         
+        // 🆕 v5.90.552: GLOBAL saveTabSettings (MUST BE EARLY!)
+        async function saveTabSettings() {
+            const checkboxes = document.querySelectorAll('#tab-checkboxes input[type="checkbox"]');
+            const defaultTab = document.getElementById('default-tab-select').value;
+            
+            const visible = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+            
+            if (visible.length === 0) {
+                alert('⚠️ Du musst mindestens einen Tab auswählen!');
+                return;
+            }
+            
+            const settings = {
+                visible: visible,
+                default: defaultTab
+            };
+            
+            // Speichere lokal
+            localStorage.setItem('tabSettings', JSON.stringify(settings));
+            
+            // Speichere in Firebase (für alle Geräte)
+            if (typeof currentUser !== 'undefined' && currentUser && typeof db !== 'undefined' && db) {
+                try {
+                    await db.ref(`users/${currentUser.uid}/tabSettings`).set(settings);
+                    console.log('✅ Tab-Einstellungen in Firebase gespeichert');
+                } catch (error) {
+                    console.error('💾 Firebase-Speicherung fehlgeschlagen:', error);
+                }
+            }
+            
+            alert('✅ Einstellungen gespeichert!\n\nSeite wird neu geladen...');
+            location.reload();
+        }
+        
         // 🆕 v5.90.544: CRITICAL HELPER FUNCTIONS (MUST BE FIRST!)
         // Diese Funktionen werden in DOMContentLoaded verwendet - müssen GANZ AM ANFANG sein!
         function getLocalDateString(date) {
@@ -219,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.548 - EXPRESS-BOOKING! ⚡ (Build 2026-01-16_1345)');
+        console.log('🚕 Funk Taxi App v5.90.552 - MEGA-FIX! 🔧 (Build 2026-01-16_1420)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1164,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.548 - EXPRESS-BOOKING! ⚡ (Build 20260116-1345)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.552 - MEGA-FIX! 🔧 (Build 20260116-1420)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1582,10 +1618,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.548: VERSION BADGE -->
+                <!-- 🆕 v5.90.552: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ⚡ v5.90.548 - EXPRESS
+                        🔧 v5.90.552 - MEGAFIX
                     </span>
                 </div>
             </div>
@@ -14121,7 +14157,18 @@ Aktuell: ${currentNum}`;
                 console.log('⚡ Express-Booking View geöffnet!');
                 setTimeout(() => {
                     if (typeof initExpressBooking === 'function') {
-                        initExpressBooking();
+                        // 🆕 v5.90.552: Warte bis Leaflet geladen ist!
+                        if (typeof L === 'undefined') {
+                            console.log('⏳ Warte auf Leaflet...');
+                            const checkLeaflet = setInterval(() => {
+                                if (typeof L !== 'undefined') {
+                                    clearInterval(checkLeaflet);
+                                    initExpressBooking();
+                                }
+                            }, 100);
+                        } else {
+                            initExpressBooking();
+                        }
                     } else {
                         console.error('💾 initExpressBooking() nicht gefunden!');
                     }
@@ -30591,10 +30638,32 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     const driverSnapshot = await db.ref('vehicles/' + savedVehicle).once('value');
                     const driverData = driverSnapshot.val();
                     
+                    // 🆕 v5.90.551: ADMIN SOLLTE KEIN FAHRZEUG VORAUSWÄHLEN!
+                    const isAdmin = currentUser.role === 'admin';
+                    
+                    if (isAdmin) {
+                        console.log('ℹ️ Admin: Keine automatische Fahrzeug-Vorauswahl');
+                        // Admin nutzt Schnellbuchung - kein Fahrzeug nötig!
+                        return;
+                    }
+                    
                     if (driverData && driverData.online && driverData.userId && driverData.userId !== currentUser.uid) {
                         // Fahrzeug wird von jemand anderem benutzt!
                         console.log('⚠️ Fahrzeug wird von anderem User benutzt:', driverData.userId);
-                        alert('⚠️ Dein letztes Fahrzeug (' + (VEHICLES[savedVehicle]?.name || savedVehicle) + ') wird gerade von einem anderen Fahrer benutzt.\n\nBitte wähle ein anderes Fahrzeug.');
+                        
+                        // 🆕 v5.90.550: Zeige wer das Fahrzeug nutzt!
+                        let userName = 'einem anderen Fahrer';
+                        if (driverData.userName) {
+                            userName = driverData.userName;
+                        } else if (driverData.email) {
+                            userName = driverData.email;
+                        }
+                        
+                        alert(
+                            '⚠️ Dein letztes Fahrzeug (' + (VEHICLES[savedVehicle]?.name || savedVehicle) + ') wird gerade benutzt!\n\n' +
+                            '👤 Fahrer: ' + userName + '\n\n' +
+                            'Bitte wähle ein anderes Fahrzeug oder warte bis das Fahrzeug wieder frei ist.'
+                        );
                         return;
                     }
                     
@@ -46875,6 +46944,9 @@ Funk Taxi Team`;
                 // Hole nächste Rechnungsnummer
                 const invoiceNumber = await getNextInvoiceNumber();
                 
+                // 🆕 v5.90.549: invoiceDate MUSS definiert werden!
+                const invoiceDate = new Date();
+                
                 console.log('📱 Erstelle PDF:', invoiceNumber);
                 
                 // Erstelle PDF
@@ -47112,6 +47184,9 @@ Funk Taxi Team`;
                 // Hole nächste Rechnungsnummer
                 const invoiceNumber = await getNextInvoiceNumber();
                 
+                // 🆕 v5.90.549: invoiceDate MUSS definiert werden!
+                const invoiceDate = new Date();
+                
                 console.log('📱 Erstelle Rechnung:', invoiceNumber);
                 
                 // Speichere in Firebase
@@ -47226,6 +47301,9 @@ Funk Taxi Team`;
                 
                 // Hole nächste Rechnungsnummer
                 const invoiceNumber = await getNextInvoiceNumber();
+                
+                // 🆕 v5.90.549: invoiceDate MUSS definiert werden!
+                const invoiceDate = new Date();
                 
                 console.log('📱 Erstelle PDF:', invoiceNumber);
                 showToast('📱 Erstelle PDF...', 'info');
@@ -47441,6 +47519,35 @@ Funk Taxi Team`;
                     if (rideData && rideData.invoiceNumber) {
                         const existingInvoiceNumber = rideData.invoiceNumber;
                         
+                        // 🆕 v5.90.549: LADE RECHNUNG AUS FIREBASE!
+                        const invoiceSnapshot = await db.ref(`invoices/${existingInvoiceNumber}`).once('value');
+                        const existingInvoice = invoiceSnapshot.val();
+                        
+                        if (existingInvoice) {
+                            console.log('✅ Lade existierende Rechnung:', existingInvoiceNumber);
+                            
+                            // FÜLLE FELDER MIT BESTEHENDEN DATEN!
+                            document.getElementById('inv-customer-name').value = existingInvoice.customerName || '';
+                            document.getElementById('inv-guest-name').value = existingInvoice.guestName || '';
+                            document.getElementById('inv-address').value = existingInvoice.address || '';
+                            document.getElementById('inv-pickup').value = existingInvoice.pickup || '';
+                            document.getElementById('inv-destination').value = existingInvoice.destination || '';
+                            document.getElementById('inv-date').value = existingInvoice.rideDate || '';
+                            document.getElementById('inv-time').value = existingInvoice.rideTime || '';
+                            document.getElementById('invoice-distance').value = existingInvoice.distance || 0;
+                            document.getElementById('invoice-vat-rate').value = existingInvoice.vatRate || 7;
+                            
+                            // Lade Positionen
+                            if (existingInvoice.positions && Array.isArray(existingInvoice.positions)) {
+                                invoicePositions = existingInvoice.positions;
+                                renderInvoicePositions();
+                            }
+                            
+                            showToast('✅ Rechnung geladen: ' + existingInvoiceNumber, 'success');
+                            return; // STOPP - Modal ist jetzt gefüllt!
+                        }
+                        
+                        // FALLBACK: Wenn Rechnung nicht in /invoices gefunden
                         const confirmed = confirm(
                             `⚠️ RECHNUNG EXISTIERT BEREITS!\n\n` +
                             `Rechnungsnummer: ${existingInvoiceNumber}\n` +
@@ -48114,6 +48221,16 @@ Funk Taxi Team`;
                 // Öffne WhatsApp
                 showToast('📱 Öffne WhatsApp...', 'info');
                 
+                // 🆕 v5.90.552: DEBUG - Prüfe PDF-URL!
+                console.log('📱 v5.90.552: PDF-URL:', invoice.pdfUrl);
+                console.log('📱 v5.90.552: Kundename:', invoice.customerName);
+                console.log('📱 v5.90.552: Betrag:', invoice.amount);
+                
+                if (!invoice.pdfUrl) {
+                    alert('⚠️ KEIN PDF-LINK!\n\nDie Rechnung wurde erstellt, aber der PDF-Link fehlt in Firebase.\n\nBitte Rechnung neu erstellen!');
+                    return;
+                }
+                
                 const whatsappText = encodeURIComponent(
                     `Hallo ${invoice.customerName || 'Kunde'},\n\n` +
                     `hier ist Ihre Rechnung Nr. ${invoiceNumber} über ${invoice.amount.toFixed(2)} €:\n\n` +
@@ -48123,8 +48240,13 @@ Funk Taxi Team`;
                     `Taxi Patrick Wydra`
                 );
                 
+                // 🆕 v5.90.552: DEBUG - Zeige WhatsApp-Text!
+                console.log('📱 v5.90.552: WhatsApp-Text:', decodeURIComponent(whatsappText));
+                
                 const whatsappPhone = invoice.customerPhone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '');
                 const whatsappUrl = `https://wa.me/${whatsappPhone}?text=${whatsappText}`;
+                
+                console.log('📱 v5.90.552: WhatsApp-URL:', whatsappUrl);
                 
                 window.open(whatsappUrl, '_blank');
                 
@@ -69214,6 +69336,6 @@ console.log('✅ v5.90.548: Express-Booking System geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⚡ v5.90.548
+        🔧 v5.90.552
     </div>
 </div>

@@ -197,7 +197,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.533 - TRACKING: WER HAT ABGESCHLOSSEN? 👤 (Build 2026-01-16_0800)');
+        console.log('🚕 Funk Taxi App v5.90.534 - TELEFON-BUTTON FIX! 📞 (Build 2026-01-16_0815)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -258,7 +258,7 @@
         console.log('⏰ v5.90.312: Vorbestellungen-Filter in ISARFUNK-View!');
         console.log('🔧 v5.90.312: Frau Seeger wird endlich ausgeblendet!');
         console.log('📦 v5.90.311: Firebase Storage SDK hinzugefügt!');
-        console.log('👤 v5.90.311: Fahrer-Header mit Name + Rolle + Fahrzeug!');
+        console.log('📞 v5.90.311: Fahrer-Header mit Name + Rolle + Fahrzeug!');
         console.log('🎭 v5.90.311: System-Rolle überall sichtbar!');
         console.log('⏰ v5.90.311: Vorbestellungen-Filter verbessert!');
         console.log('🔧 v5.90.310: Alle Fehler gefixt!');
@@ -1117,7 +1117,7 @@
             transition: all 0.2s;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         ">
-            <span id="user-avatar-text">👤</span>
+            <span id="user-avatar-text">📞</span>
         </button>
         
         <!-- Hamburger Menu Button -->
@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">👤 Version 5.90.533 - WER HAT ABGESCHLOSSEN? 👤 (Build 20260116-0800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.534 - WER HAT ABGESCHLOSSEN? 📞 (Build 20260116-0815)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,10 +1544,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.533: VERSION BADGE -->
+                <!-- 🆕 v5.90.534: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        👤 v5.90.533 - TRACKING
+                        📞 v5.90.534 - TELEFON-FIX
                     </span>
                 </div>
             </div>
@@ -1831,7 +1831,7 @@
                     <div style="color: #667eea; font-size: 20px;">→</div>
                 </div>
 
-                <!-- 👤 Mein Konto - Nur für eingeloggte User -->
+                <!-- 📞 Mein Konto - Nur für eingeloggte User -->
                 <div id="menu-profile-item" style="
                     display: none;
                     background: white;
@@ -1845,7 +1845,7 @@
                    onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'"
                    onclick="showMyProfileModalFromMenu()">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="font-size: 28px;">👤</div>
+                        <div style="font-size: 28px;">📞</div>
                         <div style="flex: 1;">
                             <div style="font-weight: 700; color: #1f2937; font-size: 15px; margin-bottom: 2px;">
                                 Mein Konto
@@ -1931,7 +1931,7 @@
         <!-- "Buchst für CRM-Kunde" ist Admin-Funktion! -->
         <!-- Nur im Admin-Panel! -->
         
-        <!-- 👤 MEINE DATEN - Nur für eingeloggte User -->
+        <!-- 📞 MEINE DATEN - Nur für eingeloggte User -->
         <!-- 🆕 v5.26.0: EINGELOGGT ALS (Quick-Login) -->
         <!-- 🆕 v5.42.1: Quick-Login Box DEAKTIVIERT - zu groß! -->
         <!-- Stattdessen: Avatar-Icon im Header -->
@@ -1939,7 +1939,7 @@
             <!-- Nicht mehr verwendet -->
         </div>
         
-        <!-- 👤 ALTE MEIN KONTO BOX - DEAKTIVIERT in v5.42.0! -->
+        <!-- 📞 ALTE MEIN KONTO BOX - DEAKTIVIERT in v5.42.0! -->
         <!-- Jetzt im Hamburger-Menü integriert! -->
         <div id="my-profile-box" style="display:none !important;">
             <!-- Nicht mehr verwendet - siehe Menü -->
@@ -3168,7 +3168,7 @@
                             <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
                             <span style="background:#10b981;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">✅ Fertig</span>
                         </div>
-                        ${r.customerName ? `<div style="font-weight:600;color:#065f46;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        ${r.customerName ? `<div style="font-weight:600;color:#065f46;margin-bottom:5px;">📞 ${r.customerName}</div>` : ''}
                         <div style="font-size:13px;color:#666;">
                             Von: ${r.pickup}<br>
                             Nach: ${r.destination}<br>
@@ -3229,7 +3229,7 @@
                             <span style="font-size:11px;color:#888;">📅 ${buchungZeit}</span>
                             <span style="background:#ef4444;color:white;padding:4px 8px;border-radius:12px;font-size:11px;">🚨 Storniert</span>
                         </div>
-                        ${r.customerName ? `<div style="font-weight:600;color:#991b1b;margin-bottom:5px;">👤 ${r.customerName}</div>` : ''}
+                        ${r.customerName ? `<div style="font-weight:600;color:#991b1b;margin-bottom:5px;">📞 ${r.customerName}</div>` : ''}
                         <div style="font-size:13px;color:#666;">
                             📍 Von: ${r.pickup}<br>
                             🎯 Nach: ${r.destination}<br>
@@ -3363,7 +3363,7 @@
                             Kunde
                         </div>
                         <div id="driver-customer-name" style="font-size: 14px; font-weight: 600; color: #333;">
-                            👤 Kunde
+                            📞 Kunde
                         </div>
                     </div>
                     <button id="driver-call-button" onclick="callCustomer()" style="
@@ -3892,7 +3892,7 @@
                             ${ride.customerName ? `
                             <div style="padding:12px;background:#dbeafe;border-radius:8px;margin-bottom:12px;">
                                 <div style="font-size:18px;font-weight:600;color:#1e40af;">
-                                    👤 ${ride.customerName}
+                                    📞 ${ride.customerName}
                                 </div>
                             </div>
                             ` : ''}
@@ -5585,7 +5585,7 @@
             <div style="display:grid;gap:12px;">
                 <label style="display:flex;align-items:center;padding:12px;background:#f9fafb;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#f9fafb'">
                     <input type="checkbox" id="cal-setting-customer-name" checked style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
-                    <span style="font-size:14px;font-weight:600;">👤 Kundenname anzeigen</span>
+                    <span style="font-size:14px;font-weight:600;">📞 Kundenname anzeigen</span>
                 </label>
                 
                 <label style="display:flex;align-items:center;padding:12px;background:#e0f2fe;border-radius:8px;cursor:pointer;border:2px solid #0ea5e9;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">
@@ -5638,7 +5638,7 @@
                     <span style="font-size:14px;font-weight:600;">📝 Notizen anzeigen</span>
                 </label>
                 
-                <!-- 🆕 v5.90.44: TRACKING-LINKS IN CALENDAR -->
+                <!-- 🆕 v5.90.44: TELEFON-FIX-LINKS IN CALENDAR -->
                 <label style="display:flex;align-items:center;padding:12px;background:#dcfce7;border-radius:8px;cursor:pointer;border:2px solid #10b981;" onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
                     <input type="checkbox" id="cal-setting-tracking-links" onchange="toggleCalendarTrackingLinks(this.checked)" style="width:20px;height:20px;cursor:pointer;margin-right:12px;">
                     <div style="flex:1;">
@@ -8422,7 +8422,7 @@
             }
             
             info.innerHTML = `
-                👤 <strong>${regularCustomer.name}</strong><br>
+                📞 <strong>${regularCustomer.name}</strong><br>
                 ${regularCustomer.phone ? `📞 ${regularCustomer.phone}<br>` : ''}
                 📍 Häufig: ${regularCustomer.favoritePickup || 'Noch keine Fahrten'}<br>
                 🚕 ${regularCustomer.rideCount || 0} Fahrten bisher
@@ -8495,7 +8495,7 @@
             console.log('📖 v5.90.88 - updateHistoryView DEBUG START');
             console.log('═══════════════════════════════════════════════════════');
             console.log('📋 Tab:', currentHistoryTab);
-            console.log('👤 currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
+            console.log('📞 currentUser:', currentUser ? 'eingeloggt' : 'nicht eingeloggt');
             if (currentUser) {
                 console.log('   📞 UID:', currentUser.uid);
                 console.log('   📞 phoneNumber:', currentUser.phoneNumber || 'NICHT GESETZT ❌');
@@ -8884,7 +8884,7 @@
                 // 🔘 Aktions-Buttons
                 let actionButtons = '';
                 
-                // 🆕 v5.32.3: TRACKING-LINK BUTTON (für alle Fahrten!)
+                // 🆕 v5.32.3: TELEFON-FIX-LINK BUTTON (für alle Fahrten!)
                 const trackingLink = r.firebaseId ? `${window.location.origin}${window.location.pathname}?ride=${r.firebaseId}` : null;
                 let trackingButton = '';
                 if (trackingLink) {
@@ -9266,7 +9266,7 @@
                 alert(
                     `🔒 HOTEL-FAHRT GESCHÜTZT!\n\n` +
                     `🏨 Hotel: ${hotelName}\n` +
-                    `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n\n` +
+                    `📞 Gast: ${ride.guestName || ride.customerName || '?'}\n\n` +
                     `⚠️ Diese Fahrt wurde vom Hotel-Kalender importiert\n` +
                     `und kann NICHT storniert werden!\n\n` +
                     `💡 Bitte kontaktiere das Hotel direkt.`
@@ -9603,7 +9603,7 @@
                     </div>
                     
                     <div style="margin-bottom:15px;">
-                        <label style="display:block;margin-bottom:5px;font-weight:600;">👤 Kundenname (Rechnung)</label>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;">📞 Kundenname (Rechnung)</label>
                         <input type="text" id="edit-customer" value="${ride.customerName || ''}" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:6px;">
                     </div>
                     
@@ -10449,7 +10449,7 @@ Funk Taxi Heringsdorf`;
                     await db.ref('rides/' + rideId).update(updates);
                     console.log('✅ Fahrt in Firebase aktualisiert');
                     
-                    // 🆕 v5.90.335: TRACKING-LINK WIEDER AKTIVIERT!
+                    // 🆕 v5.90.335: TELEFON-FIX-LINK WIEDER AKTIVIERT!
                     // Link wird hier erstellt wenn Fahrzeug zugewiesen!
                     if (newVehicleId && newVehicleId !== '') {
                         console.log('🔗 v5.90.335: Erstelle Tracking-Link (saveEditedRide)...');
@@ -10773,7 +10773,7 @@ Funk Taxi Heringsdorf`;
                             <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
                                 <div style="font-weight:700;margin-bottom:8px;">📍 ${ride.pickup}</div>
                                 <div style="font-weight:700;color:#667eea;">🎯 ${ride.destination}</div>
-                                <div style="margin-top:8px;color:#6b7280;">👤 ${ride.customerName} | 💰 ${ride.price}€</div>
+                                <div style="margin-top:8px;color:#6b7280;">📞 ${ride.customerName} | 💰 ${ride.price}€</div>
                             </div>
                             <div style="font-weight:600;margin-bottom:15px;color:#1f2937;">Wähle ein Fahrzeug:</div>
                             ${vehicleOptions}
@@ -10803,7 +10803,7 @@ Funk Taxi Heringsdorf`;
         // - Überall gleiche Logik!
         
         // ═══════════════════════════════════════════════════════════════
-        // 🆕 v5.90.44: TRACKING-LINK SYSTEM
+        // 🆕 v5.90.44: TELEFON-FIX-LINK SYSTEM
         // ═══════════════════════════════════════════════════════════════
         
         // Generiere eindeutigen Tracking-Code
@@ -10817,7 +10817,7 @@ Funk Taxi Heringsdorf`;
         async function createTrackingLinkForRide(rideId, vehicleId) {
             try {
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔗 TRACKING-LINK ERSTELLEN');
+                console.log('🔗 TELEFON-FIX-LINK ERSTELLEN');
                 console.log('   Fahrt:', rideId);
                 console.log('   Fahrzeug:', vehicleId);
                 console.log('═══════════════════════════════════════════════════════════');
@@ -10946,12 +10946,12 @@ Funk Taxi Heringsdorf`;
                 const currentDescription = event.result.description || '';
                 
                 // Prüfe ob schon ein Tracking-Link drin ist
-                if (currentDescription.includes('🚕 LIVE-TRACKING:')) {
+                if (currentDescription.includes('🚕 LIVE-TELEFON-FIX:')) {
                     console.log('ℹ️ Tracking-Link bereits in Event vorhanden');
                     return;
                 }
                 
-                const newDescription = currentDescription + `\n\n🚕 LIVE-TRACKING:\n${trackingLink}\n\nKlicken Sie hier um Ihr Taxi live zu verfolgen!`;
+                const newDescription = currentDescription + `\n\n🚕 LIVE-TELEFON-FIX:\n${trackingLink}\n\nKlicken Sie hier um Ihr Taxi live zu verfolgen!`;
                 
                 // Update Event
                 await gapi.client.calendar.events.patch({
@@ -11060,7 +11060,7 @@ Funk Taxi Heringsdorf`;
                 await db.ref('rides/' + rideId).update(updateData);
                 
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('ℹ️ TRACKING-LINK WIRD ERST BEI FAHRER-ACCEPT ERSTELLT!');
+                console.log('ℹ️ TELEFON-FIX-LINK WIRD ERST BEI FAHRER-ACCEPT ERSTELLT!');
                 console.log('   Fahrer muss Fahrt annehmen (status: assigned → accepted)');
                 console.log('   Dann wird in acceptRide() der Link erstellt');
                 console.log('═══════════════════════════════════════════════════════════');
@@ -15310,7 +15310,7 @@ Aktuell: ${currentNum}`;
                         font-weight: 900;
                         cursor: pointer;
                         margin-top: 16px;
-                    ">👤 KUNDE ABGEHOLT</button>
+                    ">📞 KUNDE ABGEHOLT</button>
                 `;
             } else if (ride.status === 'picked_up') {
                 actionButton = `
@@ -15483,7 +15483,7 @@ Aktuell: ${currentNum}`;
                         
                         <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                             <div style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">
-                                👤 ${ride.customerName || 'Unbekannt'}
+                                📞 ${ride.customerName || 'Unbekannt'}
                             </div>
                             <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; opacity: 0.95;">
                                 ⏰ ${timeStr} ${timeDisplay}
@@ -15696,7 +15696,7 @@ Aktuell: ${currentNum}`;
             return `
                 <div style="text-align: center; margin-bottom: 16px;">
                     <div style="font-size: 24px; font-weight: 700; color: #1f2937; margin-bottom: 4px;">
-                        👤 ${customerName}
+                        📞 ${customerName}
                     </div>
                     ${customerPhone ? `
                         <a href="tel:${customerPhone}" style="
@@ -16054,7 +16054,7 @@ Aktuell: ${currentNum}`;
                     rideInfo += `<span style="font-size:11px;color:#888;">📅 ${timeStr}</span> • `;
                 }
                 
-                if (current.customerName) rideInfo += `👤 ${current.customerName} • `;
+                if (current.customerName) rideInfo += `📞 ${current.customerName} • `;
                 rideInfo += `→ ${current.destination}`;
                 if (current.price) rideInfo += ` • 💰 ${current.price}€`;
                 
@@ -16063,7 +16063,7 @@ Aktuell: ${currentNum}`;
                     rideInfo += `
                         <div style="margin-top:10px;padding:10px;background:#e0f2fe;border-radius:8px;border:1px solid #0ea5e9;">
                             <div style="font-size:11px;color:#0369a1;font-weight:600;margin-bottom:6px;">
-                                🔗 TRACKING-LINK FÜR KUNDE:
+                                🔗 TELEFON-FIX-LINK FÜR KUNDE:
                             </div>
                             <input type="text" value="${current.trackingLink}" 
                                 readonly 
@@ -16136,7 +16136,7 @@ Aktuell: ${currentNum}`;
                             font-weight: bold;
                             cursor: pointer;
                         ">
-                            👤 KUNDE ABGEHOLT
+                            📞 KUNDE ABGEHOLT
                         </button>
                     `;
                 } else if (current.status === 'picked_up') {
@@ -16240,12 +16240,12 @@ Aktuell: ${currentNum}`;
                     }
                     // Fall 3: Anderem Fahrzeug zugeteilt
                     else if (r.assignedTo && r.assignedTo !== currentVehicle) {
-                        assignmentBadge = `<span style="background:#94a3b8;padding:4px 8px;border-radius:12px;font-size:12px;">👤 Zugewiesen: ${r.assignedVehicleName || r.assignedTo}</span>`;
+                        assignmentBadge = `<span style="background:#94a3b8;padding:4px 8px;border-radius:12px;font-size:12px;">📞 Zugewiesen: ${r.assignedVehicleName || r.assignedTo}</span>`;
                     }
                     // Fall 4: Anderem Fahrzeug zugeteilt (via vehicleId)
                     else if (r.vehicleId && r.vehicleId !== currentVehicle) {
                         const vehicleName = VEHICLES[r.vehicleId] ? VEHICLES[r.vehicleId].name : r.vehicleId;
-                        assignmentBadge = `<span style="background:#94a3b8;padding:4px 8px;border-radius:12px;font-size:12px;">👤 Zugewiesen: ${vehicleName}</span>`;
+                        assignmentBadge = `<span style="background:#94a3b8;padding:4px 8px;border-radius:12px;font-size:12px;">📞 Zugewiesen: ${vehicleName}</span>`;
                     }
                     // Fall 5: Neu (für alle)
                     else {
@@ -16264,7 +16264,7 @@ Aktuell: ${currentNum}`;
                         ${r.customerName ? `
                         <div style="margin-top:12px;padding:12px;background:#f0f9ff;border-radius:8px;border-left:4px solid #3b82f6;">
                             <div style="font-size:16px;font-weight:600;color:#1e40af;margin-bottom:8px;">
-                                👤 ${r.customerName}
+                                📞 ${r.customerName}
                             </div>
                             ${r.customerPhone ? `
                             <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
@@ -16707,7 +16707,7 @@ Aktuell: ${currentNum}`;
                                 </div>
                                 <div style="font-size:24px;font-weight:bold;color:#ef4444;">${r.price}€</div>
                             </div>
-                            ${r.customerName ? `<div style="font-weight:600;margin-bottom:8px;">👤 ${r.customerName}</div>` : ''}
+                            ${r.customerName ? `<div style="font-weight:600;margin-bottom:8px;">📞 ${r.customerName}</div>` : ''}
                             <div style="font-size:14px;margin-bottom:5px;">
                                 <strong>📍 Von:</strong> ${r.pickup}
                             </div>
@@ -16872,7 +16872,7 @@ Aktuell: ${currentNum}`;
                     
                     return `<div class="ride-card">
                         <strong>#${r.id}</strong> <span style="background:${statusColor};padding:4px 8px;border-radius:12px;font-size:12px;">${statusText}</span>
-                        ${r.customerName ? '<div style="margin-top:8px;font-weight:600;">👤 '+r.customerName+'</div>' : ''}
+                        ${r.customerName ? '<div style="margin-top:8px;font-weight:600;">📞 '+r.customerName+'</div>' : ''}
                         <div style="margin-top:10px;font-size:14px;">
                             🕐 ${pickupTimeDisplay}<br>
                             📍 Von: ${r.pickup}<br>
@@ -17370,7 +17370,7 @@ Aktuell: ${currentNum}`;
                         <div style="display:flex;align-items:center;gap:10px;">
                             <div style="flex:1;">
                                 <div style="font-weight:600;font-size:14px;color:#1f2937;margin-bottom:4px;">
-                                    👤 ${customer.name || 'Unbekannt'}
+                                    📞 ${customer.name || 'Unbekannt'}
                                 </div>
                                 ${customer.phone ? `<div style="font-size:12px;color:#6b7280;">📞 ${customer.phone}</div>` : ''}
                                 <div style="font-size:11px;color:#9ca3af;margin-top:4px;">
@@ -17691,7 +17691,7 @@ Aktuell: ${currentNum}`;
                             <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
                                 <div>
                                     <div style="font-weight:700;color:#1f2937;">#${index + 1} - ${date} ${time}</div>
-                                    <div style="font-size:13px;color:#6b7280;margin-top:2px;">👤 ${ride.customerName || 'Unbekannt'}</div>
+                                    <div style="font-size:13px;color:#6b7280;margin-top:2px;">📞 ${ride.customerName || 'Unbekannt'}</div>
                                 </div>
                                 <span style="background:#fef3c7;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:700;color:#92400e;">
                                     ${ride.hasDirtyPickup && ride.hasDirtyDest ? '2x' : '1x'}
@@ -18191,7 +18191,7 @@ Aktuell: ${currentNum}`;
             
             const searchTypeLabel = {
                 'phone': '📞 Telefon',
-                'name': '👤 Kunde'
+                'name': '📞 Kunde'
             };
             
             // Speichere Ergebnisse global für Details-Zugriff
@@ -18474,7 +18474,7 @@ Aktuell: ${currentNum}`;
                     <!-- Header -->
                     <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:16px 16px 0 0;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                            <h3 style="margin:0;font-size:20px;">👤 Kunde gefunden im CRM</h3>
+                            <h3 style="margin:0;font-size:20px;">📞 Kunde gefunden im CRM</h3>
                             <button onclick="document.getElementById('customer-match-modal').remove()" 
                                     style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;">
                                 ✕
@@ -18701,7 +18701,7 @@ Aktuell: ${currentNum}`;
                         <!-- Kunde -->
                         <div style="margin-bottom:15px;">
                             <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:5px;">KUNDE</div>
-                            <div style="font-size:16px;font-weight:600;color:#1f2937;">👤 ${ride.customerName || 'Unbekannt'}</div>
+                            <div style="font-size:16px;font-weight:600;color:#1f2937;">📞 ${ride.customerName || 'Unbekannt'}</div>
                             ${ride.customerPhone ? `
                             <div style="margin-top:8px;">
                                 <a href="tel:${ride.customerPhone}" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#10b981;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
@@ -18757,12 +18757,12 @@ Aktuell: ${currentNum}`;
                             </div>
                         </div>
                         
-                        <!-- 🆕 v5.90.533: ABGESCHLOSSEN VON -->
+                        <!-- 🆕 v5.90.534: ABGESCHLOSSEN VON -->
                         ${(ride.status === 'completed' && ride.completedByName) ? `
                         <div style="margin-bottom:15px;padding:12px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:8px;">
                             <div style="font-size:12px;font-weight:600;color:#059669;margin-bottom:5px;">✅ ABGESCHLOSSEN VON</div>
                             <div style="font-size:14px;color:#047857;font-weight:600;">
-                                ${ride.completedByRole === 'driver' ? '🚗' : ride.completedByRole === 'admin' ? '👨‍💼' : '👤'} ${ride.completedByName}
+                                ${ride.completedByRole === 'driver' ? '🚗' : ride.completedByRole === 'admin' ? '👨‍💼' : '📞'} ${ride.completedByName}
                             </div>
                             ${ride.completedByRole ? `<div style="font-size:12px;color:#059669;margin-top:3px;">Rolle: ${ride.completedByRole === 'driver' ? 'Fahrer' : ride.completedByRole === 'admin' ? 'Admin' : ride.completedByRole}</div>` : ''}
                         </div>
@@ -18812,7 +18812,7 @@ Aktuell: ${currentNum}`;
                             ` : ''}
                             ${ride.status === 'assigned' && ride.firebaseId && currentUser?.role === 'admin' ? `
                             <button onclick="adminAcceptRide('${ride.firebaseId}');this.closest('#ride-details-modal').remove();" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
-                                👤 ALS ADMIN
+                                📞 ALS ADMIN
                             </button>
                             ` : ''}
                             ${ride.status === 'accepted' && ride.acceptedBy ? `
@@ -18872,7 +18872,7 @@ Aktuell: ${currentNum}`;
                 // Wenn Admin für Kunden bucht → nutze Kunden-Telefon als userId
                 if (ride.customerPhone && currentUser.role === 'admin' && ride.customerPhone !== currentUser.phoneNumber) {
                     ride.userId = normalizePhoneNumber(ride.customerPhone);
-                    console.log('👤 Admin bucht für Kunden - userId = normalized phone:', ride.userId);
+                    console.log('📞 Admin bucht für Kunden - userId = normalized phone:', ride.userId);
                 } else {
                     ride.userId = currentUser.uid;
                 }
@@ -20465,7 +20465,7 @@ Aktuell: ${currentNum}`;
                     <div style="background:#fef2f2;padding:20px;border-radius:12px;margin:20px 0;text-align:left;">
                         <div style="margin-bottom:10px;"><strong>📍 Von:</strong> ${ride.pickup}</div>
                         <div style="margin-bottom:10px;"><strong>📍 Nach:</strong> ${ride.destination}</div>
-                        <div style="margin-bottom:10px;"><strong>👤 Name:</strong> ${ride.customerName}</div>
+                        <div style="margin-bottom:10px;"><strong>📞 Name:</strong> ${ride.customerName}</div>
                         <div style="margin-bottom:10px;"><strong>📞 Tel:</strong> ${ride.customerPhone}</div>
                         <div style="margin-bottom:10px;"><strong>🕐 Abholung:</strong> ${pickupTime}</div>
                     </div>
@@ -20975,7 +20975,7 @@ Aktuell: ${currentNum}`;
                 
                 // 🆕 v5.75.0: Kunde + Gast-Name!
                 // 🆕 v5.88.21: + Gast-Telefon!
-                let customerInfo = `👤 <b>Kunde:</b> ${ride.customerName}`;
+                let customerInfo = `📞 <b>Kunde:</b> ${ride.customerName}`;
                 if (ride.guestName) {
                     customerInfo += `\n🧳 <b>Fahrgast:</b> ${ride.guestName}`;
                 }
@@ -21037,7 +21037,7 @@ Aktuell: ${currentNum}`;
                 }
                 
                 const userId = driverData.userId;
-                console.log('👤 userId:', userId);
+                console.log('📞 userId:', userId);
                 
                 let chatId = null;
                 
@@ -21166,14 +21166,14 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🆕 v5.87.94: TRACKING-SMS (wenn Fahrer annimmt)
+        // 🆕 v5.87.94: TELEFON-FIX-SMS (wenn Fahrer annimmt)
         async function sendTrackingSMS(phone, trackingLink) {
             if (!phone) {
                 console.log('⚠️ Keine Telefonnummer für Tracking-SMS');
                 return false;
             }
             
-            // 🆕 v5.88.9: Prüfe ob TRACKING-SMS aktiviert ist (aus FIREBASE!)
+            // 🆕 v5.88.9: Prüfe ob TELEFON-FIX-SMS aktiviert ist (aus FIREBASE!)
             let trackingEnabled = false;
             try {
                 const snapshot = await db.ref('settings/sms/trackingEnabled').once('value');
@@ -21204,7 +21204,7 @@ Aktuell: ${currentNum}`;
             // SMS 2: Fahrer unterwegs + Tracking-Link
             const smsText = `🚕 Ihr Taxi ist unterwegs!\nAnkunft in wenigen Min.\nLive verfolgen:\n${trackingLink}`;
             
-            console.log('📱 Sende TRACKING-SMS an:', formattedPhone);
+            console.log('📱 Sende TELEFON-FIX-SMS an:', formattedPhone);
             
             try {
                 const response = await fetch(SMS_PROXY_URL, {
@@ -21450,7 +21450,7 @@ Aktuell: ${currentNum}`;
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `📍 <b>Von:</b> ${ride.pickup}\n` +
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
-                    `👤 <b>Name:</b> ${ride.customerName}\n` +
+                    `📞 <b>Name:</b> ${ride.customerName}\n` +
                     `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                     `🕐 <b>Abholung:</b> ${pickupTimeFormatted}\n` +
                     `💰 <b>Preis:</b> ${ride.price || 0}€\n` +
@@ -21509,7 +21509,7 @@ Aktuell: ${currentNum}`;
                     message = `${statusEmoji} <b>FAHRER ZUGEWIESEN!</b>\n` +
                         `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                         `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` +
-                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📞 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                         `📍 <b>Von:</b> ${ride.pickup}\n` +
                         `📍 <b>Nach:</b> ${ride.destination}\n` +
@@ -21521,7 +21521,7 @@ Aktuell: ${currentNum}`;
                     statusEmoji = '🗑️';
                     message = `${statusEmoji} <b>FAHRT STORNIERT</b>\n` +
                         `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
-                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📞 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                         `📍 <b>Von:</b> ${ride.pickup}\n` +
                         `📍 <b>Nach:</b> ${ride.destination}\n` +
@@ -21534,7 +21534,7 @@ Aktuell: ${currentNum}`;
                     message = `${statusEmoji} <b>KUNDE ABGEHOLT!</b>\n` +
                         `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                         `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}\n` +
-                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📞 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📍 <b>Von:</b> ${ride.pickup}\n` +
                         `📍 <b>Nach:</b> ${ride.destination}\n` +
                         `💰 <b>Preis:</b> ${ride.price}€\n` +
@@ -21546,7 +21546,7 @@ Aktuell: ${currentNum}`;
                     message = `${statusEmoji} <b>FAHRT ABGESCHLOSSEN!</b>\n` +
                         `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                         `🚗 <b>Fahrzeug:</b> ${ride.vehicle || 'Unbekannt'}\n` +
-                        `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                        `📞 <b>Kunde:</b> ${ride.customerName}\n` +
                         `📍 <b>Von:</b> ${ride.pickup}\n` +
                         `📍 <b>Nach:</b> ${ride.destination}\n` +
                         `💰 <b>Preis:</b> ${ride.price}€\n` +
@@ -21564,7 +21564,7 @@ Aktuell: ${currentNum}`;
                 
                 console.log(`✅ Telegram-Status-Update gesendet: ${oldStatus} → ${newStatus}`);
                 
-                // 🆕 v5.90.62: TRACKING-SMS NUR BEI ACCEPTED!
+                // 🆕 v5.90.62: TELEFON-FIX-SMS NUR BEI ACCEPTED!
                 // (Nicht bei assigned - Fahrer muss erst akzeptieren!)
                 if (newStatus === 'accepted' && ride.trackingLink) {
                     const customerPhone = ride.customerPhone || ride.phone;
@@ -21688,7 +21688,7 @@ Aktuell: ${currentNum}`;
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `⚠️ <b>Status war:</b> ${statusText}\n` +
                     (ride.vehicle ? `🚗 <b>Fahrzeug:</b> ${ride.vehicle}${ride.vehiclePlate ? ` (${ride.vehiclePlate})` : ''}\n` : '') +
-                    `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                    `📞 <b>Kunde:</b> ${ride.customerName}\n` +
                     `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                     `📍 <b>Von:</b> ${ride.pickup}\n` +
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
@@ -21743,7 +21743,7 @@ Aktuell: ${currentNum}`;
                     `🆔 <b>ID:</b> <code>${rideId}</code>\n\n` +
                     `⏰ <b>Abholzeit:</b> ${pickupTime}\n` +
                     `⚠️ <b>Noch KEIN Fahrer zugewiesen!</b>\n\n` +
-                    `👤 <b>Kunde:</b> ${ride.customerName}\n` +
+                    `📞 <b>Kunde:</b> ${ride.customerName}\n` +
                     `📞 <b>Tel:</b> ${ride.customerPhone}\n` +
                     `📍 <b>Von:</b> ${ride.pickup}\n` +
                     `📍 <b>Nach:</b> ${ride.destination}\n` +
@@ -21836,7 +21836,7 @@ Aktuell: ${currentNum}`;
                             // Telegram an Admin
                             sendTelegramToAdmin(
                                 `⚠️ <b>VORBESTELLUNG OHNE TAXI!</b>\n\n` +
-                                `👤 Kunde: ${ride.customerName || 'Unbekannt'}\n` +
+                                `📞 Kunde: ${ride.customerName || 'Unbekannt'}\n` +
                                 `📍 Abholung: ${ride.pickup}\n` +
                                 `🎯 Ziel: ${ride.destination}\n` +
                                 `⏰ Abholzeit: ${ride.pickupTime}\n` +
@@ -21911,7 +21911,7 @@ Aktuell: ${currentNum}`;
                             // Telegram Info
                             sendTelegramToAdmin(
                                 `✅ <b>Vorbestellung aktiviert</b>\n\n` +
-                                `👤 ${ride.customerName || 'Unbekannt'}\n` +
+                                `📞 ${ride.customerName || 'Unbekannt'}\n` +
                                 `📍 ${ride.pickup}\n` +
                                 `⏰ Abholzeit: ${ride.pickupTime}\n` +
                                 `🚗 Nächstes Taxi: ${nearestVehicle.name}\n` +
@@ -22513,7 +22513,7 @@ Aktuell: ${currentNum}`;
         async function findUserIdForCustomer(customerName, customerPhone) {
             console.log('═══════════════════════════════════════════════');
             console.log('🔍 3-STUFEN userId-SUCHE START');
-            console.log('   👤 Name:', customerName || '(nicht vorhanden)');
+            console.log('   📞 Name:', customerName || '(nicht vorhanden)');
             console.log('   📞 Phone:', customerPhone || '(nicht vorhanden)');
             console.log('═══════════════════════════════════════════════');
             
@@ -24675,7 +24675,7 @@ Aktuell: ${currentNum}`;
                     sendTelegramToAdmin(
                         `⚠️ <b>FAHRER REAGIERT NICHT!</b>\n\n` +
                         `🚗 Fahrer: ${nearestVehicle.name}\n` +
-                        `👤 Kunde: ${rideData.customerName || 'Unbekannt'}\n` +
+                        `📞 Kunde: ${rideData.customerName || 'Unbekannt'}\n` +
                         `📍 Fahrt: ${rideData.pickup} → ${rideData.destination}\n\n` +
                         `🚫 <b>3 Minuten Sperre aktiv</b>\n` +
                         `⏰ Bis: ${untilTime} Uhr`
@@ -25826,7 +25826,7 @@ Aktuell: ${currentNum}`;
             const bookingType = savedRide.status === 'vorbestellt' ? 'Vorbestellung' : 'Sofort-Fahrt';
             const pickupDisplay = pickupTime ? pickupTime : 'Sofort';
             logActivity('booking', 'created', 
-                `Neue Buchung: ${bookingType} 👤${customerName} 📍${ride.pickup} → ${ride.destination} 📞${customerPhone} 💰${ride.price}€${pickupTime ? ' 🕐' + pickupTime : ''}`, {
+                `Neue Buchung: ${bookingType} 📞${customerName} 📍${ride.pickup} → ${ride.destination} 📞${customerPhone} 💰${ride.price}€${pickupTime ? ' 🕐' + pickupTime : ''}`, {
                 customer: customerName,
                 phone: customerPhone,
                 from: ride.pickup,
@@ -26126,7 +26126,7 @@ Aktuell: ${currentNum}`;
                     </div>
                     
                     <div style="margin-bottom: 15px;">
-                        <strong>👤 Name:</strong><br>
+                        <strong>📞 Name:</strong><br>
                         ${ride.customerName}
                     </div>
                     
@@ -28696,7 +28696,7 @@ Aktuell: ${currentNum}`;
                     console.log('📱 Versuche Stornierung-Telegram zu senden an:', ride.assignedTo);
                     
                     const cancelMessage = `🚫 <b>FAHRT STORNIERT!</b>\n\n` +
-                        `👤 Kunde: ${ride.customerName}\n` +
+                        `📞 Kunde: ${ride.customerName}\n` +
                         `📍 Von: ${ride.pickup}\n` +
                         `🎯 Nach: ${ride.destination}\n` +
                         `💰 Preis: ${ride.price}€\n\n` +
@@ -28799,7 +28799,7 @@ Aktuell: ${currentNum}`;
 
 📅 *Datum:* ${pickupTime}
 
-👤 *Kunde:*
+📞 *Kunde:*
 ${ride.customerName || 'Unbekannt'}
 📞 ${ride.customerPhone || 'Keine Nummer'}
 
@@ -29064,7 +29064,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     'business': '💼',
                     'hotel': '🏨'
                 };
-                const categoryIcon = categoryIcons[customer.category] || '👤';
+                const categoryIcon = categoryIcons[customer.category] || '📞';
                 
                 const lastContact = customer.lastContactAt 
                     ? new Date(customer.lastContactAt).toLocaleDateString('de-DE')
@@ -29601,7 +29601,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // Customer Name
             const customerName = document.getElementById('driver-customer-name');
             if (customerName) {
-                let nameText = '👤 ' + (ride.customerName || 'Kunde');
+                let nameText = '📞 ' + (ride.customerName || 'Kunde');
                 // 🆕 v5.75.0: Gast-Name anzeigen wenn vorhanden!
                 if (ride.guestName) {
                     nameText += '\n📝 Gast: ' + ride.guestName;
@@ -30250,7 +30250,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     </div>
                     ${ride.customerName ? `
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px;background:#f9fafb;border-radius:8px;">
-                            <span style="font-size:16px;">👤</span>
+                            <span style="font-size:16px;">📞</span>
                             <span style="font-weight:600;color:#111827;">${ride.customerName}</span>
                             ${ride.customerPhone ? `
                                 <button onclick="window.open('tel:${ride.customerPhone}')" style="margin-left:auto;padding:8px 12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
@@ -30765,7 +30765,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             console.log('🎯 GPS watchId:', watchId);
             
-            // 🆕 v5.90.525: AGGRESSIVE GPS TRACKING - Alle 5 Sekunden!
+            // 🆕 v5.90.525: AGGRESSIVE GPS TELEFON-FIX - Alle 5 Sekunden!
             window.gpsRegularInterval = setInterval(() => {
                 if (!isOnline || !currentVehicle) {
                     return;
@@ -31170,7 +31170,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // ═══════════════════════════════════════════════════════════
             // 2️⃣ CURRENT USER DATA
             // ═══════════════════════════════════════════════════════════
-            html += createDiagnosticCard('👤 CURRENT USER', `
+            html += createDiagnosticCard('📞 CURRENT USER', `
                 <div class="diag-row">
                     <span class="diag-label">User Object:</span>
                     <span class="diag-value ${currentUser ? 'success' : 'error'}">
@@ -31234,9 +31234,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             `);
             
             // ═══════════════════════════════════════════════════════════
-            // 4️⃣ GPS TRACKING STATUS
+            // 4️⃣ GPS TELEFON-FIX STATUS
             // ═══════════════════════════════════════════════════════════
-            html += createDiagnosticCard('📍 GPS TRACKING', `
+            html += createDiagnosticCard('📍 GPS TELEFON-FIX', `
                 <div class="diag-row">
                     <span class="diag-label">watchId:</span>
                     <span class="diag-value ${watchId ? 'success' : 'error'}">
@@ -31246,7 +31246,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 <div class="diag-row">
                     <span class="diag-label">GPS Status:</span>
                     <span class="diag-value ${watchId ? 'success' : 'error'}">
-                        ${watchId ? '✅ TRACKING AKTIV' : '❌ NICHT AKTIV'}
+                        ${watchId ? '✅ TELEFON-FIX AKTIV' : '❌ NICHT AKTIV'}
                     </span>
                 </div>
                 <div class="diag-row">
@@ -32109,7 +32109,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 assignmentExpiresAt: null
             });
             
-            // 🆕 v5.90.334: TRACKING-LINK SOFORT ERSTELLEN!
+            // 🆕 v5.90.334: TELEFON-FIX-LINK SOFORT ERSTELLEN!
             // Nicht mehr warten bis "Fahrt zum Kunden"!
             console.log('🔗 v5.90.334: Erstelle Tracking-Link JETZT...');
             try {
@@ -32505,7 +32505,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 completedAt: Date.now(),
                 actualPrice: actualPrice,  // 🆕 Taxameter-Preis!
                 needsInvoice: needsInvoice,  // 🆕 Rechnung benötigt?
-                // 🆕 v5.90.533: TRACKING - WER HAT ABGESCHLOSSEN?
+                // 🆕 v5.90.534: TELEFON-FIX - WER HAT ABGESCHLOSSEN?
                 completedBy: currentUser?.uid || 'unknown',
                 completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
                 completedByRole: currentUser?.role || 'unknown'
@@ -32960,7 +32960,7 @@ Funk Taxi Team`;
                         firebaseId: rideId,
                         status: 'completed',
                         completedAt: Date.now(),
-                        // 🆕 v5.90.533: TRACKING
+                        // 🆕 v5.90.534: TELEFON-FIX
                         completedBy: currentUser?.uid || 'unknown',
                         completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
                         completedByRole: currentUser?.role || 'unknown'
@@ -32973,7 +32973,7 @@ Funk Taxi Team`;
                         firebaseId: rideId,
                         status: 'completed',
                         completedAt: Date.now(),
-                        // 🆕 v5.90.533: TRACKING
+                        // 🆕 v5.90.534: TELEFON-FIX
                         completedBy: currentUser?.uid || 'unknown',
                         completedByName: currentUser?.displayName || currentUser?.phoneNumber || 'Unbekannt',
                         completedByRole: currentUser?.role || 'unknown'
@@ -33255,9 +33255,15 @@ Funk Taxi Team`;
             const content = document.getElementById(section + '-content');
             const toggle = document.getElementById(section + '-toggle');
             
+            // 🆕 v5.90.534: NULL-CHECK!
+            if (!content) {
+                console.warn('⚠️ Admin-Section nicht gefunden:', section);
+                return;
+            }
+            
             if (content.style.display === 'none') {
                 content.style.display = 'block';
-                toggle.textContent = '▲';
+                if (toggle) toggle.textContent = '▲'; // 🆕 v5.90.534: NULL-CHECK!
                 
                 // Spezielle Aktionen beim Öffnen
                 if (section === 'telegram') {
@@ -33297,7 +33303,7 @@ Funk Taxi Team`;
                 }
             } else {
                 content.style.display = 'none';
-                toggle.textContent = '▼';
+                if (toggle) toggle.textContent = '▼'; // 🆕 v5.90.534: NULL-CHECK!
                 
                 // Stoppe Live-Log wenn geschlossen
                 if (section === 'livelog' && liveLogActive) {
@@ -33558,7 +33564,7 @@ Funk Taxi Team`;
                         ` : ''}
                     </div>
                     <div style="font-size:13px;">
-                        <div><strong>👤 ${ride.customerName || 'Unbekannt'}</strong> ${ride.customerPhone ? '📞 ' + ride.customerPhone : ''}</div>
+                        <div><strong>📞 ${ride.customerName || 'Unbekannt'}</strong> ${ride.customerPhone ? '📞 ' + ride.customerPhone : ''}</div>
                         <div style="color:#6b7280;margin-top:4px;">
                             📍 ${ride.pickup || '?'} → ${ride.destination || '?'}
                         </div>
@@ -34485,7 +34491,7 @@ Funk Taxi Team`;
                     if (activeRide) {
                         popupContent += `
                             <div style="background:#f3f4f6;padding:10px;border-radius:6px;font-size:11px;line-height:1.6;margin-bottom:8px;">
-                                <div style="margin-bottom:6px;"><strong>👤 ${activeRide.customerName || 'Kunde'}</strong></div>
+                                <div style="margin-bottom:6px;"><strong>📞 ${activeRide.customerName || 'Kunde'}</strong></div>
                                 <div style="margin-bottom:4px;">
                                     📅 ${new Date(activeRide.timestamp).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})} 
                                     🕐 ${new Date(activeRide.timestamp).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} Uhr
@@ -34572,7 +34578,7 @@ Funk Taxi Team`;
                                 ${activeRide ? `
                                     <div style="font-size:11px;color:#666;line-height:1.4;">
                                         <div style="margin-bottom:2px;">
-                                            👤 <strong>${activeRide.customerName || 'Kunde'}</strong>
+                                            📞 <strong>${activeRide.customerName || 'Kunde'}</strong>
                                         </div>
                                         <div style="margin-bottom:2px;">
                                             📅 ${new Date(activeRide.timestamp).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'})} 
@@ -34788,7 +34794,7 @@ Funk Taxi Team`;
                                 </div>
                             </div>
                             <div style="font-size:12px;color:${textColor};line-height:1.5;">
-                                <div style="margin-bottom:3px;">👤 ${nextRide.customerName || 'Unbekannt'}</div>
+                                <div style="margin-bottom:3px;">📞 ${nextRide.customerName || 'Unbekannt'}</div>
                                 <div style="margin-bottom:3px;">📍 ${nextRide.pickup || 'Unbekannt'}</div>
                                 <div style="margin-bottom:3px;">🎯 ${nextRide.destination || 'Unbekannt'}</div>
                                 <div style="font-weight:600;">🚗 ${vehicleName}</div>
@@ -35143,7 +35149,7 @@ Funk Taxi Team`;
                             <div style="font-size:24px;">${statusIcon}</div>
                         </div>
                         <div style="font-size:28px;font-weight:700;margin-bottom:6px;">${timeStr} (${timeInfo})</div>
-                        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">👤 ${next.customerName || 'Unbekannt'}</div>
+                        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">📞 ${next.customerName || 'Unbekannt'}</div>
                         <div style="font-size:14px;opacity:0.9;margin-bottom:2px;">📍 ${next.pickup || 'Unbekannt'}</div>
                         <div style="font-size:14px;opacity:0.9;margin-bottom:8px;">🎯 ${next.destination || 'Unbekannt'}</div>
                         <div style="font-size:13px;opacity:0.9;margin-bottom:4px;">${vehicleText}</div>
@@ -35194,7 +35200,7 @@ Funk Taxi Team`;
                                     <span style="font-weight:700;color:#0ea5e9;">${timeStr}</span>
                                     <span style="font-size:11px;background:#f0f9ff;color:#0ea5e9;padding:2px 6px;border-radius:4px;">in ${minutesUntil} Min</span>
                                 </div>
-                                <div style="font-weight:600;color:#1f2937;margin-bottom:2px;">👤 ${ride.customerName || 'Unbekannt'}</div>
+                                <div style="font-weight:600;color:#1f2937;margin-bottom:2px;">📞 ${ride.customerName || 'Unbekannt'}</div>
                                 <div style="font-size:11px;color:#6b7280;">📍 ${ride.pickup || '?'} → ${ride.destination || '?'}</div>
                                 <div style="font-size:11px;color:#6b7280;margin-top:2px;">🚗 ${vehicleIcon}</div>
                             </div>
@@ -36955,7 +36961,7 @@ Funk Taxi Team`;
                                     </div>
                                 </div>
                                 <div style="font-size:11px;color:${textColor};line-height:1.4;">
-                                    <div>👤 ${nextRide.customerName || 'Unbekannt'}</div>
+                                    <div>📞 ${nextRide.customerName || 'Unbekannt'}</div>
                                     <div>📍 ${nextRide.pickup || 'Unbekannt'}</div>
                                     <div>🚗 ${vehicleName}</div>
                                 </div>
@@ -37111,7 +37117,7 @@ Funk Taxi Team`;
                                         </div>
                                     </div>
                                     <div style="font-size:10px;color:#374151;margin-bottom:2px;font-weight:500;">
-                                        👤 ${(ride.customerName || 'Unbekannt').substring(0, 20)}
+                                        📞 ${(ride.customerName || 'Unbekannt').substring(0, 20)}
                                     </div>
                                     <div style="font-size:9px;color:#6b7280;margin-bottom:1px;">
                                         📍 ${(ride.pickup || '?').substring(0, 22)}${(ride.pickup || '').length > 22 ? '...' : ''}
@@ -37359,7 +37365,7 @@ Funk Taxi Team`;
                     // Abholort-Marker
                     const pickupIcon = L.divIcon({
                         className: 'pickup-marker',
-                        html: `<div style="font-size:24px;">👤</div>`,
+                        html: `<div style="font-size:24px;">📞</div>`,
                         iconSize: [24, 24],
                         iconAnchor: [12, 24]
                     });
@@ -37471,7 +37477,7 @@ Funk Taxi Team`;
                     statusColor = '#3b82f6';
                     backgroundColor = '#dbeafe';
                 } else if (currentRide.status === 'picked_up') {
-                    statusLabel = '👤 GAST AN BORD';
+                    statusLabel = '📞 GAST AN BORD';
                     statusColor = '#10b981';
                     backgroundColor = '#d1fae5';
                 } else if (currentRide.status === 'new') {
@@ -37496,7 +37502,7 @@ Funk Taxi Team`;
                         </div>
                         
                         <div style="font-weight:700;font-size:16px;color:#111827;margin-bottom:8px;">
-                            👤 ${currentRide.customerName || 'Unbekannt'}
+                            📞 ${currentRide.customerName || 'Unbekannt'}
                         </div>
                         
                         ${currentRide.customerPhone ? `
@@ -37586,7 +37592,7 @@ Funk Taxi Team`;
                                         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
                                             <div style="flex:1;">
                                                 <div style="font-weight:600;font-size:14px;color:#111827;">
-                                                    👤 ${ride.customerName || 'Unbekannt'}
+                                                    📞 ${ride.customerName || 'Unbekannt'}
                                                 </div>
                                                 ${ride.customerPhone ? `
                                                 <div style="margin-top:4px;">
@@ -37871,7 +37877,7 @@ Funk Taxi Team`;
             if (typeof showRideDetails === 'function') {
                 showRideDetails(ride);
             } else {
-                alert(`📋 Fahrt-Details:\n\n👤 ${ride.customerName}\n📍 ${ride.pickup}\n🎯 ${ride.destination}\n💰 ${ride.price}€\n🕐 ${ride.pickupTime || '?'}`);
+                alert(`📋 Fahrt-Details:\n\n📞 ${ride.customerName}\n📍 ${ride.pickup}\n🎯 ${ride.destination}\n💰 ${ride.price}€\n🕐 ${ride.pickupTime || '?'}`);
             }
         }
         
@@ -37892,7 +37898,7 @@ Funk Taxi Team`;
             document.getElementById('active-ride-duration').textContent = `⏱️ Seit ${duration} Min`;
             
             // Kunde
-            document.getElementById('active-ride-customer').textContent = `👤 ${currentRide.customerName || 'Unbekannt'}`;
+            document.getElementById('active-ride-customer').textContent = `📞 ${currentRide.customerName || 'Unbekannt'}`;
             
             // Zeit & Datum
             const pickupTime = currentRide.pickupTime || '?';
@@ -38050,7 +38056,7 @@ Funk Taxi Team`;
                         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
                             <div style="flex:1;">
                                 <div style="font-weight:700;font-size:15px;color:#111827;margin-bottom:4px;">
-                                    👤 ${ride.customerName || 'Unbekannt'}
+                                    📞 ${ride.customerName || 'Unbekannt'}
                                 </div>
                                 <div style="font-size:13px;color:#6b7280;">
                                     📅 ${pickupDate} · 🕐 ${pickupTime}
@@ -38363,7 +38369,7 @@ Funk Taxi Team`;
             // Zusätzliche Daten
             let extraInfo = '';
             if (log.data) {
-                if (log.data.customer) extraInfo += ` 👤${log.data.customer}`;
+                if (log.data.customer) extraInfo += ` 📞${log.data.customer}`;
                 // E-Mail bei Fahrer-Logs anzeigen (falls nicht schon in message)
                 if (log.data.email && log.type === 'driver' && !log.message.includes(log.data.email)) {
                     extraInfo += ` 📧${log.data.email}`;
@@ -38613,7 +38619,7 @@ Funk Taxi Team`;
                                 <strong style="color:#dc2626;">🗑️ Gelöscht am ${timeStr}</strong>
                             </div>
                             <div style="font-size:13px;color:#333;">
-                                <div style="margin-bottom:4px;">👤 <strong>Kunde:</strong> ${data.customer || 'Unbekannt'}</div>
+                                <div style="margin-bottom:4px;">📞 <strong>Kunde:</strong> ${data.customer || 'Unbekannt'}</div>
                                 <div style="margin-bottom:4px;">📞 <strong>Telefon:</strong> ${data.phone || '-'}</div>
                                 <div style="margin-bottom:4px;">📍 <strong>Von:</strong> ${data.pickup || data.from || '-'}</div>
                                 <div style="margin-bottom:4px;">📍 <strong>Nach:</strong> ${data.destination || data.to || '-'}</div>
@@ -38735,7 +38741,7 @@ Funk Taxi Team`;
                         </div>
                         ${log.data && Object.keys(log.data).length > 0 ? `
                             <div style="font-size:11px;color:#666;margin-top:5px;">
-                                ${log.data.customer ? `👤 ${log.data.customer}` : ''}
+                                ${log.data.customer ? `📞 ${log.data.customer}` : ''}
                                 ${log.data.email ? `📧 ${log.data.email}` : ''}
                                 ${log.data.phone ? ` • 📞 ${log.data.phone}` : ''}
                                 ${log.data.driver ? ` • 🚗 ${log.data.driver}` : ''}
@@ -39700,7 +39706,7 @@ Funk Taxi Team`;
                 let roleText = u.role || 'Fahrgast';
                 if (u.role === 'admin') { roleColor = '#dc2626'; roleText = '👑 Admin'; }
                 else if (u.role === 'driver') { roleColor = '#2563eb'; roleText = '🚗 Fahrer'; }
-                else { roleText = '👤 Fahrgast'; }
+                else { roleText = '📞 Fahrgast'; }
                 
                 return `
                     <div style="background:white;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;">
@@ -39977,7 +39983,7 @@ Funk Taxi Team`;
                     }
                 });
                 
-                console.log(`✅ Matches: ${customerRides.length} (📞 Phone: ${phoneMatches}, 👤 Exakt: ${nameMatches}, 🔍 Fuzzy: ${fuzzyMatches})`);
+                console.log(`✅ Matches: ${customerRides.length} (📞 Phone: ${phoneMatches}, 📞 Exakt: ${nameMatches}, 🔍 Fuzzy: ${fuzzyMatches})`);
                 
                 // Sortiere nach Datum (neueste zuerst)
                 customerRides.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -39989,7 +39995,7 @@ Funk Taxi Team`;
                             <div style="font-weight:600;color:#92400e;margin-bottom:4px;">Keine Fahrten gefunden</div>
                             <div style="font-size:12px;color:#92400e;">
                                 Suchte nach:<br>
-                                👤 Name: "${customerName}"<br>
+                                📞 Name: "${customerName}"<br>
                                 📞 Telefon: "${customerPhone}"
                             </div>
                         </div>
@@ -40138,7 +40144,7 @@ Funk Taxi Team`;
             }
             
             // Bestätigung
-            alert('✅ Daten übernommen!\n\n📍 ' + pickup + ' → ' + destination + '\n👤 ' + customerName + '\n\nBitte Abholzeit wählen und buchen.');
+            alert('✅ Daten übernommen!\n\n📍 ' + pickup + ' → ' + destination + '\n📞 ' + customerName + '\n\nBitte Abholzeit wählen und buchen.');
         }
         
         // 🆕 v5.90.173: RECHNUNG FÜR KUNDEN ERSTELLEN (nutzt bestehendes Modal!)
@@ -40308,7 +40314,7 @@ Funk Taxi Team`;
                         
                         <!-- Kunde -->
                         <div style="margin-bottom:15px;position:relative;">
-                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Kunde aus CRM wählen oder neu anlegen">👤 Kunde (Rechnung)</label>
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Kunde aus CRM wählen oder neu anlegen">📞 Kunde (Rechnung)</label>
                             <input 
                                 type="text" 
                                 id="quick-booking-customer-search" 
@@ -40885,7 +40891,7 @@ Funk Taxi Team`;
                     </div>
                     
                     <div style="margin-bottom:12px;">
-                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">👤 Name: <span style="color:#ef4444;">*</span></label>
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Name: <span style="color:#ef4444;">*</span></label>
                         <input type="text" id="new-qb-customer-name" value="${prefillName}" placeholder="z.B. Max Mustermann" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
                     
@@ -40997,7 +41003,7 @@ Funk Taxi Team`;
                     </div>
                     
                     <div style="margin-bottom:12px;">
-                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">👤 Name: <span style="color:#ef4444;">*</span></label>
+                        <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">📞 Name: <span style="color:#ef4444;">*</span></label>
                         <input type="text" id="new-qb-customer-name" value="" placeholder="z.B. Max Mustermann" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                     </div>
                     
@@ -43442,7 +43448,7 @@ Funk Taxi Team`;
             // 🆕 v5.49.0: Zeige häufige Zielorte!
             showFrequentDestinations(customer.phone, customer.id, 'qb-panel-frequent-destinations');
             
-            console.log('👤 Kunde gewählt:', customer);
+            console.log('📞 Kunde gewählt:', customer);
         }
         
         // 🆕 Zeige/Verstecke Adress-Optionen
@@ -44734,7 +44740,7 @@ Funk Taxi Team`;
                 const extraConfirm = confirm(
                     `⚠️ ACHTUNG: HOTEL-FAHRT!\n\n` +
                     `🏨 Hotel: ${hotelName}\n` +
-                    `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n` +
+                    `📞 Gast: ${ride.guestName || ride.customerName || '?'}\n` +
                     `📍 Von: ${ride.pickup || '?'}\n` +
                     `🎯 Nach: ${ride.destination || '?'}\n\n` +
                     `🔒 Diese Fahrt wurde vom Hotel-Kalender importiert!\n\n` +
@@ -44751,7 +44757,7 @@ Funk Taxi Team`;
             const confirmMsg = `Fahrt wirklich stornieren?\n\n` +
                 `📍 Von: ${ride.pickup || '?'}\n` +
                 `🎯 Nach: ${ride.destination || '?'}\n` +
-                `👤 Kunde: ${ride.customerName || '?'}\n\n` +
+                `📞 Kunde: ${ride.customerName || '?'}\n\n` +
                 `⚠️ Der Fahrer wird per Telegram benachrichtigt!`;
             
             if (!confirm(confirmMsg)) {
@@ -44772,7 +44778,7 @@ Funk Taxi Team`;
                 
                 // Nachricht vorbereiten
                 const cancelMessage = `🚫 <b>FAHRT STORNIERT (ADMIN)!</b>\n\n` +
-                    `👤 Kunde: ${ride.customerName || 'Unbekannt'}\n` +
+                    `📞 Kunde: ${ride.customerName || 'Unbekannt'}\n` +
                     `📍 Von: ${ride.pickup}\n` +
                     `🎯 Nach: ${ride.destination}\n` +
                     `💰 Preis: ${ride.price || '?'}€\n\n` +
@@ -44829,7 +44835,7 @@ Funk Taxi Team`;
             const confirmMsg = `Fahrt jetzt abschließen?\n\n` +
                 `📍 Von: ${ride.pickup || '?'}\n` +
                 `🎯 Nach: ${ride.destination || '?'}\n` +
-                `👤 Kunde: ${ride.customerName || '?'}\n` +
+                `📞 Kunde: ${ride.customerName || '?'}\n` +
                 `💰 Preis: ${ride.price || '?'}€\n\n` +
                 `✅ Status wird auf "Abgeschlossen" gesetzt.`;
             
@@ -44881,7 +44887,7 @@ Funk Taxi Team`;
             const confirmMsg = `Fahrt wirklich löschen?\n\n` +
                 `📍 Von: ${ride.pickup || '?'}\n` +
                 `🎯 Nach: ${ride.destination || '?'}\n` +
-                `👤 Kunde: ${ride.customerName || '?'}`;
+                `📞 Kunde: ${ride.customerName || '?'}`;
             
             if (!confirm(confirmMsg)) {
                 return;
@@ -45133,7 +45139,7 @@ Funk Taxi Team`;
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
                                         <input type="checkbox" id="inv-show-customer" checked style="width:18px;height:18px;">
-                                        <span>👤 Kundenname</span>
+                                        <span>📞 Kundenname</span>
                                     </label>
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
                                         <input type="checkbox" id="inv-show-address" checked style="width:18px;height:18px;">
@@ -45648,7 +45654,7 @@ Funk Taxi Team`;
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
                                         <input type="checkbox" id="inv-show-customer" checked style="width:18px;height:18px;">
-                                        <span>👤 Kundenname</span>
+                                        <span>📞 Kundenname</span>
                                     </label>
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;background:white;border-radius:6px;">
                                         <input type="checkbox" id="inv-show-address" checked style="width:18px;height:18px;">
@@ -47525,7 +47531,7 @@ Funk Taxi Team`;
                         
                         <!-- Kunde -->
                         <div style="margin-bottom:8px;">
-                            <span style="font-weight:700;font-size:16px;color:#8b5cf6;">👤 ${ride.customerName || 'Unbekannt'}</span>
+                            <span style="font-weight:700;font-size:16px;color:#8b5cf6;">📞 ${ride.customerName || 'Unbekannt'}</span>
                             ${ride.guestName ? `<span style="font-size:13px;color:#6b7280;margin-left:8px;">(${ride.guestName})</span>` : ''}
                         </div>
                         
@@ -48158,7 +48164,7 @@ Funk Taxi Team`;
                         <div style="padding:20px;">
                             <!-- KUNDE -->
                             <div style="background:#f9fafb;padding:15px;border-radius:10px;margin-bottom:20px;">
-                                <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">👤 Kunde</div>
+                                <div style="font-weight:700;margin-bottom:10px;color:#1f2937;">📞 Kunde</div>
                                 <div style="margin-bottom:5px;"><strong>Name:</strong> ${ride.customerName || customer?.name || 'Unbekannt'}</div>
                                 ${customer?.email ? `<div style="margin-bottom:5px;"><strong>Email:</strong> ${customer.email}</div>` : ''}
                                 ${customer?.phone ? `<div style="margin-bottom:5px;"><strong>Telefon:</strong> ${customer.phone}</div>` : ''}
@@ -48691,7 +48697,7 @@ Funk Taxi Team`;
                 if (isNewPhoneCustomer) {
                     console.log('🆕 Neuer Kunde aus Telefon - speichere ins CRM...');
                     console.log('📞 Telefon:', newCustomerPhone);
-                    console.log('👤 Name:', newCustomerName);
+                    console.log('📞 Name:', newCustomerName);
                     console.log('📍 Adresse:', pickup); // 🆕 v5.87.73
                     
                     try {
@@ -48772,7 +48778,7 @@ Funk Taxi Team`;
                     // Wenn Kundenname leer → Frage nach dem AUFTRAGGEBER (nicht Fahrgast!)
                     if (!customerName) {
                         customerName = prompt(
-                            '👤 Wer ist der AUFTRAGGEBER?\n\n' +
+                            '📞 Wer ist der AUFTRAGGEBER?\n\n' +
                             '📞 Telefon: ' + finalCustomer.phone + '\n\n' +
                             '💡 Das ist der Kunde der die Rechnung bekommt!\n' +
                             '(z.B. Hotel-Name, Firmenname, oder Privatperson)\n\n' +
@@ -49178,7 +49184,7 @@ Funk Taxi Team`;
                     
                     // 🆕 v5.57.0: Erfolgs-Meldung MIT Fahrzeug-Info!
                     let successMessage = '✅ Fahrt erfolgreich gebucht!\n\n' +
-                          '👤 ' + finalCustomer.name + '\n';
+                          '📞 ' + finalCustomer.name + '\n';
                     
                     // 🆕 v5.75.0: Gast-Name anzeigen wenn vorhanden!
                     if (ride.guestName) {
@@ -50206,7 +50212,7 @@ Zeitpunkt: ${debugInfo.timestamp}
 📱 GERÄT:
 ${debugInfo.userAgent}
 
-👤 USER:
+📞 USER:
 - Angemeldet: ${debugInfo.currentUser ? 'Ja (' + debugInfo.currentUser.email + ')' : 'Nein'}
 - Stammkunde: ${debugInfo.regularCustomer ? debugInfo.regularCustomer.name + ' (' + debugInfo.regularCustomer.rideCount + ' Fahrten)' : 'Nein'}
 
@@ -50413,7 +50419,7 @@ Stack: ${err.stack}
         }
 
         // SOUNDS
-        // 🔊 ALERT STATUS TRACKING
+        // 🔊 ALERT STATUS TELEFON-FIX
         let soundAvailable = false;
         let vibrationAvailable = false;
         
@@ -50553,7 +50559,7 @@ Stack: ${err.stack}
                         margin-bottom: 25px;
                         text-align: left;
                     ">
-                        ${ride.customerName ? `<div style="font-size: 18px; margin-bottom: 10px;">👤 ${ride.customerName}</div>` : ''}
+                        ${ride.customerName ? `<div style="font-size: 18px; margin-bottom: 10px;">📞 ${ride.customerName}</div>` : ''}
                         <div style="font-size: 14px; margin-bottom: 8px;">📍 Von: ${ride.pickup}</div>
                         <div style="font-size: 14px; margin-bottom: 8px;">🎯 Nach: ${ride.destination}</div>
                         <div style="font-size: 16px; font-weight: bold;">💰 ${ride.price}€</div>
@@ -50632,7 +50638,7 @@ Stack: ${err.stack}
                     ${ride.customerName ? `
                     <div style="background: #dbeafe; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
                         <div style="font-size: 16px; font-weight: 600; color: #1e3a8a;">
-                            👤 ${ride.customerName}
+                            📞 ${ride.customerName}
                         </div>
                     </div>
                     ` : ''}
@@ -50938,7 +50944,7 @@ Stack: ${err.stack}
             }
         }
 
-        // 🔗 TRACKING-LINK KOPIEREN
+        // 🔗 TELEFON-FIX-LINK KOPIEREN
         // 🆕 v5.30.4: Tracking-Link teilen (optional)
         function shareTrackingLink(link) {
             // Kopiere Link
@@ -51105,7 +51111,7 @@ Stack: ${err.stack}
                             <strong style="color:#667eea;">#${r.id}</strong>
                             <span style="background:#d1fae5;padding:4px 8px;border-radius:12px;font-size:12px;color:#065f46;">Abgeschlossen</span>
                         </div>
-                        ${r.customerName ? `<div style="font-size:15px;font-weight:600;margin-bottom:8px;">👤 ${r.customerName}</div>` : ''}
+                        ${r.customerName ? `<div style="font-size:15px;font-weight:600;margin-bottom:8px;">📞 ${r.customerName}</div>` : ''}
                         <div style="font-size:14px;color:#666;line-height:1.8;">
                             <strong>Von:</strong> ${r.pickup}<br>
                             <strong>Nach:</strong> ${r.destination}<br>
@@ -51136,8 +51142,8 @@ Stack: ${err.stack}
             }
         }
 
-        // RIDE STATUS & TRACKING
-        // 🆕 v5.90.329: KOMPLETTES 5-PHASEN TRACKING FÜR FAHRGÄSTE!
+        // RIDE STATUS & TELEFON-FIX
+        // 🆕 v5.90.329: KOMPLETTES 5-PHASEN TELEFON-FIX FÜR FAHRGÄSTE!
         let rideStatusListener = null; // Firebase Listener für Live-Updates
         let rideTrackingMap = null; // Karte für Live-Tracking
         let taxiMarkerTracking = null; // Taxi-Marker
@@ -51490,7 +51496,7 @@ Stack: ${err.stack}
             initTrackingMap(driverLoc, customerLoc, ride.vehicleId);
         }
         
-        // 🗺️ INITIALISIERE TRACKING-KARTE
+        // 🗺️ INITIALISIERE TELEFON-FIX-KARTE
         function initTrackingMap(driverLoc, customerLoc, vehicleId) {
             // Warte kurz bis DOM bereit ist
             setTimeout(() => {
@@ -53689,7 +53695,7 @@ Stack: ${err.stack}
                         }
                     } else {
                         // BESTEHENDER USER → Name aus Firebase laden
-                        console.log('👤 Bestehender User → lade Name aus Firebase');
+                        console.log('📞 Bestehender User → lade Name aus Firebase');
                         console.log('📞 Suche Kunde mit Telefon:', userPhone);
                         
                         try {
@@ -53946,7 +53952,7 @@ Stack: ${err.stack}
                     <div style="display:flex;flex-direction:column;gap:12px;">
                         <!-- Name -->
                         <div>
-                            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">👤 Name</label>
+                            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:600;">📞 Name</label>
                             <input type="text" id="quick-profile-name" value="${name}" placeholder="Max Mustermann" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
                         </div>
                         
@@ -54135,7 +54141,7 @@ Stack: ${err.stack}
             closeQuickProfileModal();
             
             // Zeige Erfolg
-            alert('✅ Profil gespeichert!\n\n👤 ' + name + (address ? '\n📍 ' + address : ''));
+            alert('✅ Profil gespeichert!\n\n📞 ' + name + (address ? '\n📍 ' + address : ''));
             
             // Aktualisiere Formularfelder falls leer
             const nameField = document.getElementById('customer-name');
@@ -54166,7 +54172,7 @@ Stack: ${err.stack}
         // ═══════════════════════════════════════════════════════════════════════════
 
         async function onUserLoggedIn(user) {
-            console.log('👤 User eingeloggt:', user.email || user.phoneNumber);
+            console.log('📞 User eingeloggt:', user.email || user.phoneNumber);
             currentUser = user;
             
             // 🆕 v5.26.0: Login-Screen verstecken
@@ -54322,7 +54328,7 @@ Stack: ${err.stack}
                 nameField.value = user.displayName;
             }
             
-            // 👤 Lade "Mein Profil" für eingeloggte Kunden
+            // 📞 Lade "Mein Profil" für eingeloggte Kunden
             loadMyProfile();
             
             // 🆕 v5.42.1: Lade auch Quick-Login Daten (für Phone-Login)
@@ -54367,7 +54373,7 @@ Stack: ${err.stack}
         
         function onUserLoggedOut() {
             // 🆕 v5.21.0: Stack Trace um zu sehen WOHER der Logout kommt
-            console.log('👤 onUserLoggedOut aufgerufen');
+            console.log('📞 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
@@ -54383,13 +54389,13 @@ Stack: ${err.stack}
                 });
             }
             
-            console.log('👤 User ausgeloggt');
+            console.log('📞 User ausgeloggt');
             currentUser = null;
             userRole = 'fahrgast';
             myProfileData = null;
             quickLoginData = null; // 🆕 v5.42.1
             
-            // 👤 "Mein Profil" Box ausblenden
+            // 📞 "Mein Profil" Box ausblenden
             const profileBox = document.getElementById('my-profile-box');
             if (profileBox) profileBox.style.display = 'none';
             
@@ -55514,7 +55520,7 @@ Stack: ${err.stack}
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e5e7eb;">
                                 <div style="display:flex;flex-direction:column;gap:4px;">
-                                    ${ride.customerName ? `<div style="font-size: 13px; color: #6b7280;">👤 ${ride.customerName}</div>` : '<div></div>'}
+                                    ${ride.customerName ? `<div style="font-size: 13px; color: #6b7280;">📞 ${ride.customerName}</div>` : '<div></div>'}
                                     ${(() => {
                                         // 🆕 v5.90.525: FAHRTDAUER ANZEIGEN!
                                         let durationMin = 30; // Fallback
@@ -55573,7 +55579,7 @@ Stack: ${err.stack}
                                                 <div style="font-size: 18px;">🚗</div>
                                                 <div>
                                                     <div style="font-weight: 600; font-size: 13px; color: #048257;">${vehicleDisplay}</div>
-                                                    ${ride.driverName ? `<div style="font-size: 11px; color: #059669;">👤 ${ride.driverName}</div>` : ''}
+                                                    ${ride.driverName ? `<div style="font-size: 11px; color: #059669;">📞 ${ride.driverName}</div>` : ''}
                                                 </div>
                                             </div>
                                         </div>
@@ -55598,7 +55604,7 @@ Stack: ${err.stack}
                             })()}
                             
                             ${(() => {
-                                // 🆕 v5.90.48: TRACKING-LINK ANZEIGEN!
+                                // 🆕 v5.90.48: TELEFON-FIX-LINK ANZEIGEN!
                                 // Link wird jetzt IMMER sofort erstellt bei Fahrzeug-Zuweisung
                                 if (ride.trackingLink) {
                                     return `
@@ -55654,7 +55660,7 @@ Stack: ${err.stack}
                                 <button onclick="event.stopPropagation(); openCustomerEditFromCalendar('${ride.customerId || ''}', '${(ride.customerName || '').replace(/'/g, "\\'")}', '${ride.firebaseId || ride.id}')" 
                                         style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
                                         onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                                    👤 CRM
+                                    📞 CRM
                                 </button>
                                 
                                 ${ride.status !== 'completed' && ride.status !== 'abgeschlossen' && ride.status !== 'cancelled' && ride.status !== 'storniert' ? `
@@ -56490,7 +56496,7 @@ Stack: ${err.stack}
                 console.log('✅ GPS-Button Click-Handler registriert!');
             }
             
-            // 🆕 TRACKING-LINK: Prüfe ob ?ride=XXX in URL
+            // 🆕 TELEFON-FIX-LINK: Prüfe ob ?ride=XXX in URL
             const urlParams = new URLSearchParams(window.location.search);
             const trackingRideId = urlParams.get('ride');
             if (trackingRideId) {
@@ -58479,7 +58485,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                         <div><strong>📍 Abholort:</strong> ${data.pickup || '<span style="color: #dc3545;">❌ Fehlt</span>'}</div>
                         <div><strong>🎯 Zielort:</strong> ${data.destination || '<span style="color: #dc3545;">❌ Fehlt</span>'}</div>
                         <div><strong>👥 Personen:</strong> ${data.passengers || 1}</div>
-                        <div><strong>👤 Name:</strong> ${data.name || '<span style="color: #999;">(nicht angegeben)</span>'}</div>
+                        <div><strong>📞 Name:</strong> ${data.name || '<span style="color: #999;">(nicht angegeben)</span>'}</div>
                         <div><strong>📞 Telefon:</strong> ${data.phone || '<span style="color: #999;">(nicht angegeben)</span>'}</div>
                     </div>
                 </div>
@@ -59235,7 +59241,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                                 ${data.pickup ? `<div>📍 Von: ${data.pickup}</div>` : '<div>❌ Von: Nicht angegeben</div>'}
                                 ${data.destination ? `<div>🎯 Nach: ${data.destination}</div>` : '<div>❌ Nach: Nicht angegeben</div>'}
                                 ${data.passengers ? `<div>👥 Personen: ${data.passengers}</div>` : ''}
-                                ${data.name ? `<div>👤 Name: ${data.name}</div>` : ''}
+                                ${data.name ? `<div>📞 Name: ${data.name}</div>` : ''}
                                 ${data.phone ? `<div>📞 Telefon: ${data.phone}</div>` : ''}
                                 ${data.notes && data.notes !== 'null' ? `<div>📝 Notizen: ${data.notes}</div>` : ''}
                             </div>
@@ -59285,7 +59291,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             </div>
                             ${data.name ? `
                                 <div style="display: grid; grid-template-columns: 120px 1fr; gap: 8px;">
-                                    <div style="font-weight: 600; color: #048257;">👤 Name:</div>
+                                    <div style="font-weight: 600; color: #048257;">📞 Name:</div>
                                     <div>${data.name}</div>
                                 </div>
                             ` : ''}
@@ -60386,7 +60392,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         // Test: Tracking-SMS
         async function testSMSTracking() {
-            const testPhone = prompt('📱 Test TRACKING-SMS senden an:\n\n(Format: 0171xxxxxxx)');
+            const testPhone = prompt('📱 Test TELEFON-FIX-SMS senden an:\n\n(Format: 0171xxxxxxx)');
             if (!testPhone) return;
             
             let formattedPhone = testPhone.replace(/[\s\-\/\(\)]/g, '');
@@ -64372,7 +64378,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                             <!-- GAST -->
                             <div style="margin-bottom: 16px;">
                                 <label style="display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px;">
-                                    👤 Gast / Kunde
+                                    📞 Gast / Kunde
                                 </label>
                                 <input type="text" id="edit-guest" value="${ride.guestName || ride.customerName || ''}" style="
                                     width: 100%;
@@ -64555,7 +64561,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 
                 // WARNUNG für Hotel-Fahrten
                 let confirmMsg = '🗑️ Fahrt wirklich löschen?\n\n' +
-                    `👤 Gast: ${ride.guestName || ride.customerName || '?'}\n` +
+                    `📞 Gast: ${ride.guestName || ride.customerName || '?'}\n` +
                     `📍 Von: ${ride.pickup || '?'}\n` +
                     `🎯 Nach: ${ride.destination || '?'}\n` +
                     `💰 Preis: ${ride.price || 0}€\n\n`;
@@ -67362,7 +67368,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:15px;">
                             <div>
                                 <div style="font-size:16px;font-weight:700;color:#1f2937;margin-bottom:4px;">
-                                    ${isAuto ? '🤖' : '👤'} ${reason}
+                                    ${isAuto ? '🤖' : '📞'} ${reason}
                                 </div>
                                 <div style="font-size:13px;color:#6b7280;">
                                     ⏰ Gelöscht: ${cancelledDate ? cancelledDate.toLocaleString('de-DE') : 'Unbekannt'}
@@ -67923,7 +67929,7 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
     <div style="padding:20px;">
         <!-- Kunde -->
         <div style="margin-bottom:15px;">
-            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">👤 Kunde</label>
+            <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">📞 Kunde</label>
             <div style="position:relative;">
                 <input 
                     type="text" 
@@ -68168,6 +68174,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        👤 v5.90.533
+        📞 v5.90.534
     </div>
 </div>

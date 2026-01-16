@@ -197,7 +197,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.536 - KARTEN-PICKER ÜBERALL! 🗺️ (Build 2026-01-16_1045)');
+        console.log('🚕 Funk Taxi App v5.90.537 - MAP-PICKER Z-INDEX FIX! 🗺️ (Build 2026-01-16_1115)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.536 - KARTEN-PICKER ÜBERALL! 🗺️ (Build 20260116-1045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.537 - MAP-PICKER Z-INDEX FIX! 🗺️ (Build 20260116-1115)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,10 +1544,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.536: VERSION BADGE -->
+                <!-- 🆕 v5.90.537: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🗺️ v5.90.536 - KARTEN-PICKER ÜBERALL
+                        🗺️ v5.90.537 - Z-INDEX FIX
                     </span>
                 </div>
             </div>
@@ -43252,7 +43252,7 @@ Funk Taxi Team`;
             // Modal erstellen
             const modal = document.createElement('div');
             modal.id = 'universal-map-picker-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10003;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:100001;padding:20px;';
             
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -49832,7 +49832,7 @@ Funk Taxi Team`;
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;display:flex;gap:8px;align-items:center;">
                             <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;flex:1;">
-                            <button onclick="openUniversalMapPicker('edit-customer-address', '🏠 Wohnanschrift auf Karte wählen')" style="background:#10b981;color:white;border:none;border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Auf Karte wählen">
+                            <button onclick="openUniversalMapPicker('edit-customer-address', '🏠 Wohnanschrift auf Karte wählen')" style="background:#10b981;color:white;border:none;border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:10001;" title="Auf Karte wählen">
                                 🗺️
                             </button>
                             <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:52px;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
@@ -63431,12 +63431,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             }
             
             try {
-                // 🆕 v5.87.52: Zeitfilter 1 JAHR zurück (für alle Events!)
-                const oneYearAgo = new Date();
-                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                const timeMin = oneYearAgo.toISOString();
+                // 🆕 v5.90.537: Zeitfilter 2 JAHRE zurück (für Oktober/Dezember 2024!)
+                const twoYearsAgo = new Date();
+                twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+                const timeMin = twoYearsAgo.toISOString();
                 
-                console.log(`🕐 Lade Events ab: ${oneYearAgo.toLocaleDateString('de-DE')} (1 Jahr zurück)`);
+                console.log(`🕐 Lade Events ab: ${twoYearsAgo.toLocaleDateString('de-DE')} (2 Jahre zurück)`);
                 
                 // 🆕 v5.87.42: Funktion für API Call (mit Auto-Retry)
                 const fetchEvents = async (accessToken, retryCount = 0) => {
@@ -68644,6 +68644,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.536
+        🗺️ v5.90.537
     </div>
 </div>

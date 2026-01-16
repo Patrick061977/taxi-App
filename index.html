@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💾 Version 5.90.534 - WER HAT ABGESCHLOSSEN? 💾 (Build 20260116-0950)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱 Version 5.90.540 - KONTAKTE-KOMPAKT! 📱 (Build 20260116-0950)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -46865,12 +46865,12 @@ Funk Taxi Team`;
                         // ✅ NUTZE BESTEHENDE NUMMER!
                         invoiceNumber = rideData.invoiceNumber;
                         invoiceDate = rideData.invoiceCreatedAt ? new Date(rideData.invoiceCreatedAt) : new Date();
-                        console.log('🔄 v5.90.540: Verwende bestehende Nummer:', invoiceNumber);
+                        console.log('🔄 v5.90.538: Verwende bestehende Nummer:', invoiceNumber);
                     } else {
                         // ✅ NEUE NUMMER!
                         invoiceNumber = await getNextInvoiceNumber();
                         invoiceDate = new Date();
-                        console.log('🆕 v5.90.540: Neue Rechnung-Nummer:', invoiceNumber);
+                        console.log('🆕 v5.90.538: Neue Rechnung-Nummer:', invoiceNumber);
                     }
                 } else {
                     // Ohne rideId → Neue Nummer

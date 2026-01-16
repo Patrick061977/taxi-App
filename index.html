@@ -197,7 +197,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.539 - POI-VORSCHLÄGE NACH KARTEN-CLICK! 💡 (Build 2026-01-16_1200)');
+        console.log('🚕 Funk Taxi App v5.90.537 - MAP-PICKER Z-INDEX FIX! 🗺️ (Build 2026-01-16_1115)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💡 Version 5.90.539 - POI-VORSCHLÄGE NACH KLICK! 💡 (Build 20260116-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.537 - MAP-PICKER Z-INDEX FIX! 🗺️ (Build 20260116-1115)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,10 +1544,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.539: VERSION BADGE -->
+                <!-- 🆕 v5.90.537: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        💡 v5.90.539 - POI NACH KLICK
+                        🗺️ v5.90.537 - Z-INDEX FIX
                     </span>
                 </div>
             </div>
@@ -43278,22 +43278,13 @@ Funk Taxi Team`;
                         <div id="universal-map-picker-address" style="font-size:14px;color:#1f2937;font-weight:600;"></div>
                     </div>
                     
-                    <!-- 🆕 v5.90.539: POI VORSCHLÄGE (NACH Karten-Click) -->
-                    <div id="universal-map-picker-pois" style="display:none;padding:15px;background:#fffbeb;border-top:2px solid #f59e0b;max-height:180px;overflow-y:auto;">
-                        <div style="font-size:12px;color:#92400e;font-weight:600;margin-bottom:8px;">💡 Das könnte sein:</div>
-                        <div id="universal-map-picker-pois-list"></div>
-                    </div>
-                    
                     <!-- Buttons -->
                     <div style="padding:20px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:10px;">
                         <button onclick="closeUniversalMapPicker()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                             Abbrechen
                         </button>
-                        <button id="universal-map-picker-confirm-address" onclick="confirmUniversalMapPicker(false)" disabled style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;">
-                            📍 Nur Adresse
-                        </button>
-                        <button id="universal-map-picker-confirm-poi" onclick="confirmUniversalMapPicker(true)" disabled style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;display:none;">
-                            ✅ Mit POI-Name
+                        <button id="universal-map-picker-confirm" onclick="confirmUniversalMapPicker()" disabled style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;">
+                            ✅ Übernehmen
                         </button>
                     </div>
                 </div>
@@ -43417,15 +43408,9 @@ Funk Taxi Team`;
                 universalMapPicker.marker.pickedLon = lon;
                 universalMapPicker.marker.pickedData = data;
                 
-                // Aktiviere "Nur Adresse" Button
-                const confirmAddressBtn = document.getElementById('universal-map-picker-confirm-address');
-                if (confirmAddressBtn) {
-                    confirmAddressBtn.disabled = false;
-                    confirmAddressBtn.style.opacity = '1';
-                }
-                
-                // 🆕 v5.90.539: POI-SUCHE NACH KARTEN-CLICK!
-                await searchNearbyPOIs(lat, lon, displayAddress);
+                // Aktiviere Button
+                confirmBtn.disabled = false;
+                confirmBtn.style.opacity = '1';
                 
             } catch (error) {
                 console.error('💾 v5.90.535: Fehler beim Laden der Adresse:', error);
@@ -43435,44 +43420,33 @@ Funk Taxi Team`;
             }
         }
         
-        function confirmUniversalMapPicker(withPOI = false) {
+        function confirmUniversalMapPicker() {
             if (!universalMapPicker.marker || !universalMapPicker.marker.pickedAddress) {
                 alert('💾 Bitte erst einen Ort auf der Karte auswählen!');
                 return;
             }
             
-            let finalAddress = universalMapPicker.marker.pickedAddress;
-            
-            // 🆕 v5.90.539: Mit POI-Name?
-            if (withPOI && selectedPOIIndex !== null && universalMapPicker.nearbyPOIs) {
-                const poi = universalMapPicker.nearbyPOIs[selectedPOIIndex];
-                if (poi && poi.name) {
-                    finalAddress = `${poi.name}, ${universalMapPicker.marker.pickedAddress}`;
-                    console.log('✅ v5.90.539: Mit POI:', poi.name);
-                }
-            }
-            
-            console.log('✅ v5.90.539: Übernehme:', finalAddress);
+            console.log('✅ v5.90.535: Übernehme Adresse:', universalMapPicker.marker.pickedAddress);
             console.log('   Für Input:', universalMapPicker.targetInputId);
             
             // Fülle Ziel-Feld
             const targetField = document.getElementById(universalMapPicker.targetInputId);
             if (targetField) {
-                targetField.value = finalAddress;
+                targetField.value = universalMapPicker.marker.pickedAddress;
                 
                 // Trigger Input Event (für Autocomplete/Validation)
                 const event = new Event('input', { bubbles: true });
                 targetField.dispatchEvent(event);
                 
-                console.log('✅ v5.90.539: Adresse ins Feld geschrieben!');
+                console.log('✅ v5.90.535: Adresse ins Feld geschrieben!');
             } else {
-                console.error('💾 v5.90.539: Ziel-Feld nicht gefunden:', universalMapPicker.targetInputId);
+                console.error('💾 v5.90.535: Ziel-Feld nicht gefunden:', universalMapPicker.targetInputId);
             }
             
             // Custom Callback?
             if (universalMapPicker.onConfirm && typeof universalMapPicker.onConfirm === 'function') {
                 universalMapPicker.onConfirm({
-                    address: finalAddress,
+                    address: universalMapPicker.marker.pickedAddress,
                     lat: universalMapPicker.marker.pickedLat,
                     lon: universalMapPicker.marker.pickedLon,
                     data: universalMapPicker.marker.pickedData
@@ -43500,129 +43474,6 @@ Funk Taxi Team`;
                 
                 console.log('🗑️ v5.90.535: Universal Map Picker geschlossen');
             }
-        }
-        
-        // 🆕 v5.90.539: POI-SUCHE **NACH** KARTEN-CLICK
-        async function searchNearbyPOIs(lat, lon, baseAddress) {
-            console.log('🔍 v5.90.539: Suche POIs bei:', lat, lon);
-            
-            const poisDiv = document.getElementById('universal-map-picker-pois');
-            const listDiv = document.getElementById('universal-map-picker-pois-list');
-            const poiBtn = document.getElementById('universal-map-picker-confirm-poi');
-            
-            if (!poisDiv || !listDiv) {
-                console.error('💾 POI Container nicht gefunden!');
-                return;
-            }
-            
-            // Zeige Loading
-            poisDiv.style.display = 'block';
-            listDiv.innerHTML = '<div style="padding:8px;text-align:center;color:#92400e;font-size:12px;">🔄 Suche POIs...</div>';
-            
-            try {
-                // Rate-Limit
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-                // Search POIs nearby
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?` +
-                    `format=json&` +
-                    `lat=${lat}&` +
-                    `lon=${lon}&` +
-                    `addressdetails=1&` +
-                    `extratags=1&` +
-                    `limit=5`
-                );
-                
-                const results = await response.json();
-                
-                console.log('✅ v5.90.539: POI-Ergebnisse:', results.length);
-                
-                // Filter: Nur POIs mit Namen
-                const pois = results.filter(r => 
-                    r.name && 
-                    r.name.trim() !== '' && 
-                    (r.type === 'amenity' || r.type === 'tourism' || r.type === 'shop' || r.type === 'restaurant' || r.class)
-                );
-                
-                if (pois.length === 0) {
-                    poisDiv.style.display = 'none';
-                    return;
-                }
-                
-                // Speichere POIs
-                universalMapPicker.nearbyPOIs = pois;
-                
-                // Rendere POIs
-                listDiv.innerHTML = pois.map((poi, index) => {
-                    const poiType = poi.type || poi.class || '';
-                    const icon = getPoiIcon(poiType);
-                    
-                    return `
-                        <div onclick="selectPOI(${index})" 
-                             id="poi-${index}"
-                             style="padding:10px;margin-bottom:6px;background:white;border:2px solid #f59e0b;border-radius:8px;cursor:pointer;transition:all 0.2s;"
-                             onmouseover="this.style.background='#fffbeb';this.style.borderColor='#d97706'"
-                             onmouseout="if(!this.classList.contains('selected')){this.style.background='white';this.style.borderColor='#f59e0b'}">
-                            <div style="font-weight:600;color:#1f2937;font-size:13px;">
-                                ${icon} ${poi.name}
-                            </div>
-                            <div style="font-size:11px;color:#6b7280;margin-top:2px;">
-                                ${poiType}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-                // Zeige POI-Button
-                if (poiBtn) {
-                    poiBtn.style.display = 'block';
-                }
-                
-            } catch (error) {
-                console.error('💾 v5.90.539: POI-Suche Fehler:', error);
-                poisDiv.style.display = 'none';
-            }
-        }
-        
-        function getPoiIcon(type) {
-            const icons = {
-                'restaurant': '🍽️',
-                'cafe': '☕',
-                'hotel': '🏨',
-                'shop': '🏪',
-                'tourism': '🗺️',
-                'amenity': '📍',
-                'bar': '🍺',
-                'fast_food': '🍔'
-            };
-            return icons[type] || '📍';
-        }
-        
-        let selectedPOIIndex = null;
-        function selectPOI(index) {
-            document.querySelectorAll('[id^="poi-"]').forEach(el => {
-                el.classList.remove('selected');
-                el.style.background = 'white';
-                el.style.borderColor = '#f59e0b';
-            });
-            
-            const selectedEl = document.getElementById(`poi-${index}`);
-            if (selectedEl) {
-                selectedEl.classList.add('selected');
-                selectedEl.style.background = '#fef3c7';
-                selectedEl.style.borderColor = '#d97706';
-            }
-            
-            selectedPOIIndex = index;
-            
-            const poiBtn = document.getElementById('universal-map-picker-confirm-poi');
-            if (poiBtn) {
-                poiBtn.disabled = false;
-                poiBtn.style.opacity = '1';
-            }
-            
-            console.log('✅ POI ausgewählt:', index, universalMapPicker.nearbyPOIs[index].name);
         }
         
         // 🆕 v5.90.240: KARTEN-PICKER FÜR ABHOLORT!
@@ -68793,6 +68644,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        💡 v5.90.539
+        🗺️ v5.90.537
     </div>
 </div>

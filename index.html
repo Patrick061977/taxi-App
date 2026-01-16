@@ -208,7 +208,18 @@
             return `${yyyy}-${mm}-${dd}`;  // YYYY-MM-DD (lokal!)
         }
         
-        console.log('🚕 Funk Taxi App v5.90.544 - CRITICAL FIX! 🔧 (Build 2026-01-16_1305)');
+        // 🆕 v5.90.545: MISSING FUNCTIONS (Stubs to prevent errors)
+        function loadQuickLoginData() {
+            console.log('ℹ️ loadQuickLoginData() stub');
+            // Diese Funktion ist optional - verhindert nur Fehler
+        }
+        
+        function loadMyProfile() {
+            console.log('ℹ️ loadMyProfile() stub');
+            // Diese Funktion ist optional - verhindert nur Fehler
+        }
+        
+        console.log('🚕 Funk Taxi App v5.90.547 - STATUS-SYNC FIX! 🔧 (Build 2026-01-16_1335)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1153,7 +1164,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚀 Version 5.90.544 - ALL CRITICAL FIXES! 🚀 (Build 20260116-1305)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.547 - STATUS-SYNC FIX! 🔄 (Build 20260116-1335)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1555,10 +1566,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.544: VERSION BADGE -->
+                <!-- 🆕 v5.90.547: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🚀 v5.90.544 - CRITICAL
+                        🔄 v5.90.547 - STATUS SYNC
                     </span>
                 </div>
             </div>
@@ -9907,11 +9918,28 @@
             const vehicleSelect = document.getElementById('edit-vehicle');
             if (isFirebaseReady && vehicleSelect) {
                 try {
-                    const snapshot = await db.ref('vehicles').once('value');
-                    const vehicles = [];
-                    snapshot.forEach(child => {
-                        vehicles.push({id: child.key, ...child.val()});
+                    // 🆕 v5.90.545: Lade BEIDE vehicles UND drivers!
+                    const [vehiclesSnap, driversSnap] = await Promise.all([
+                        db.ref('vehicles').once('value'),
+                        db.ref('drivers').once('value')
+                    ]);
+                    
+                    const vehiclesMap = new Map();
+                    
+                    // Vehicles zuerst
+                    vehiclesSnap.forEach(child => {
+                        vehiclesMap.set(child.key, {id: child.key, ...child.val()});
                     });
+                    
+                    // Dann drivers (überschreiben falls beide vorhanden)
+                    driversSnap.forEach(child => {
+                        if (!vehiclesMap.has(child.key)) {
+                            vehiclesMap.set(child.key, {id: child.key, ...child.val()});
+                        }
+                    });
+                    
+                    const vehicles = Array.from(vehiclesMap.values());
+                    console.log('🚗 Fahrzeuge geladen:', vehicles.length);
                     
                     vehicles.forEach(v => {
                         const option = document.createElement('option');
@@ -14737,12 +14765,23 @@ Aktuell: ${currentNum}`;
                 if (timeSinceLastUpdate && timeSinceLastUpdate > 15) {
                     console.warn('⚠️ GPS VERLOREN! Keine Updates seit', Math.round(timeSinceLastUpdate), 'Sekunden');
                     
-                    // Versuche GPS neu zu starten
-                    if (watchId && currentVehicle) {
-                        console.log('🔄 Versuche GPS neu zu starten...');
-                        navigator.geolocation.clearWatch(watchId);
-                        watchId = null;
-                        setTimeout(() => startGPSTracking(), 1000);
+                    // 🆕 v5.90.546: Versuche GPS neu zu starten (auch wenn watchId null!)
+                    if (currentVehicle && isOnline) {
+                        console.log('🔄 GPS-Neustart (watchId:', watchId, ')');
+                        
+                        // Stop falls läuft
+                        if (watchId) {
+                            navigator.geolocation.clearWatch(watchId);
+                            watchId = null;
+                        }
+                        
+                        // Neu starten nach 1 Sekunde
+                        setTimeout(() => {
+                            if (!watchId && currentVehicle && isOnline) {
+                                console.log('🔄 Starte GPS neu...');
+                                startGPSTracking();
+                            }
+                        }, 1000);
                     }
                 }
             }, 5000); // Alle 5 Sekunden prüfen
@@ -14888,8 +14927,20 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.295: UBER-STYLE UPDATE FUNKTION!
         // 🆕 v5.90.300: ISARFUNK-STYLE UPDATE!
         // 🆕 v5.90.311: USER-INFO UPDATE!
+        // 🆕 v5.90.546: DEBOUNCE für updateDriverView (verhindert Endlos-Schleife!)
+        let updateDriverViewTimeout = null;
+        let lastUpdateDriverViewCall = 0;
+        
         function updateDriverViewIsarfunk() {
             try {
+                // 🆕 v5.90.546: DEBOUNCE - Max 1x pro 2 Sekunden!
+                const now = Date.now();
+                if (now - lastUpdateDriverViewCall < 2000) {
+                    console.log('⏭️ Update Driver View GEDROSSELT (zu früh)');
+                    return;
+                }
+                lastUpdateDriverViewCall = now;
+                
                 console.log('🔧 v5.90.366: Update Driver View - START');
                 
                 // 🆕 v5.90.366: SAFETY FIRST - Check if view is even visible
@@ -29563,7 +29614,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     console.warn('⚠️ Wake Lock API nicht verfügbar');
                 }
             } catch (err) {
-                console.error('💾 Wake Lock Fehler:', err);
+                // 🆕 v5.90.546: DETAILLIERTE Fehler-Info statt leerem Objekt!
+                console.error('💾 Wake Lock Fehler:', {
+                    name: err.name || 'Unknown',
+                    message: err.message || 'No message',
+                    code: err.code || 'No code',
+                    stack: err.stack ? err.stack.substring(0, 200) : 'No stack'
+                });
                 wakeLock = null;
                 
                 // Bei Fehler sofort nochmal versuchen wenn online
@@ -34924,7 +34981,8 @@ Funk Taxi Team`;
                     const now = Date.now();
                     
                     // Nur zukünftige Fahrten mit aktivem Status
-                    const activeStatuses = ['new', 'vorbestellt', 'assigned', 'accepted'];
+                    // 🆕 v5.90.547: AUCH on_way und picked_up zeigen!
+                    const activeStatuses = ['new', 'vorbestellt', 'assigned', 'accepted', 'on_way', 'picked_up'];
                     if (pickupTime > now && activeStatuses.includes(ride.status)) {
                         allFutureRides.push({
                             ...ride,
@@ -34965,6 +35023,29 @@ Funk Taxi Team`;
                         textColor = '#92400e';
                     }
                     
+                    // 🆕 v5.90.547: STATUS-BADGE!
+                    let statusBadge = '';
+                    let statusText = '';
+                    if (nextRide.status === 'on_way') {
+                        statusText = '🚗 UNTERWEGS';
+                        statusBadge = `<span style="background:#10b981;color:white;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;">${statusText}</span>`;
+                    } else if (nextRide.status === 'picked_up') {
+                        statusText = '👤 KUNDE DRIN';
+                        statusBadge = `<span style="background:#8b5cf6;color:white;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;">${statusText}</span>`;
+                    } else if (nextRide.status === 'accepted') {
+                        statusText = '✅ ANGENOMMEN';
+                        statusBadge = `<span style="background:#3b82f6;color:white;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;">${statusText}</span>`;
+                    } else if (nextRide.status === 'assigned') {
+                        statusText = '⏳ ZUGETEILT';
+                        statusBadge = `<span style="background:#f59e0b;color:white;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;">${statusText}</span>`;
+                    } else if (nextRide.status === 'vorbestellt' || nextRide.pickupTime > Date.now()) {
+                        statusText = '📅 VORBESTELLT';
+                        statusBadge = `<span style="background:#6b7280;color:white;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;">${statusText}</span>`;
+                    } else {
+                        statusText = '🆕 NEU';
+                        statusBadge = `<span style="background:#06b6d4;color:white;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;">${statusText}</span>`;
+                    }
+                    
                     nextAppointmentHtml = `
                         <div style="
                             background:${bgColor};
@@ -34973,8 +35054,9 @@ Funk Taxi Team`;
                             border-radius:10px;
                             margin-bottom:12px;
                         ">
-                            <div style="font-weight:700;font-size:14px;color:${textColor};margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-                                🔔 NÄCHSTER TERMIN
+                            <div style="font-weight:700;font-size:14px;color:${textColor};margin-bottom:8px;display:flex;align-items:center;gap:8px;justify-content:space-between;">
+                                <span>🔔 NÄCHSTER TERMIN</span>
+                                ${statusBadge}
                             </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                                 <div style="font-size:20px;font-weight:700;color:${textColor};">
@@ -56911,7 +56993,7 @@ Stack: ${err.stack}
                                 ${hasGPS ? `
                                     <div style="font-size: 12px; color: #059669; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
                                         <span>📍</span>
-                                        <span>${driver.location.latitude.toFixed(4)}, ${driver.location.longitude.toFixed(4)}</span>
+                                        <span>${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}</span>
                                     </div>
                                 ` : ''}
                                 
@@ -68866,6 +68948,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🚀 v5.90.544
+        🔄 v5.90.547
     </div>
 </div>

@@ -219,7 +219,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.547 - STATUS-SYNC FIX! 🔧 (Build 2026-01-16_1335)');
+        console.log('🚕 Funk Taxi App v5.90.548 - EXPRESS-BOOKING! ⚡ (Build 2026-01-16_1345)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1164,7 +1164,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔄 Version 5.90.547 - STATUS-SYNC FIX! 🔄 (Build 20260116-1335)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.548 - EXPRESS-BOOKING! ⚡ (Build 20260116-1345)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1233,6 +1233,22 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     ">
         <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <!-- 🆕 v5.90.548: EXPRESS-BOOKING TAB! -->
+            <button onclick="switchView('express-booking')" class="admin-tab-btn admin-only tab-toggleable" data-view="express-booking" data-tab-id="express-booking" style="
+                padding: 10px 16px;
+                border: 2px solid #f59e0b;
+                background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                color: white;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+                box-shadow: 0 2px 4px rgba(245,158,11,0.3);
+            ">
+                ⚡ Express-Buchung
+            </button>
             <button onclick="switchView('passenger')" class="admin-tab-btn admin-only tab-toggleable" data-view="passenger" data-tab-id="passenger" style="
                 padding: 10px 16px;
                 border: 2px solid #667eea;
@@ -1566,10 +1582,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.547: VERSION BADGE -->
+                <!-- 🆕 v5.90.548: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔄 v5.90.547 - STATUS SYNC
+                        ⚡ v5.90.548 - EXPRESS
                     </span>
                 </div>
             </div>
@@ -2250,6 +2266,57 @@
             <button onclick="clearAppCache()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
                 🧹 Cache leeren & App neu laden
             </button>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.90.548: EXPRESS-BOOKING VIEW! -->
+    <div id="express-booking-view" class="view admin-only" style="display:none;">
+        <div style="max-width:1400px;margin:0 auto;padding:20px;">
+            
+            <!-- HEADER -->
+            <div style="background:linear-gradient(135deg,#fbbf24,#f59e0b);padding:20px;border-radius:12px;margin-bottom:20px;color:white;box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                <h2 style="margin:0 0 8px 0;font-size:24px;font-weight:700;">⚡ Express-Buchung</h2>
+                <p style="margin:0;opacity:0.95;font-size:14px;">Klicke 2x auf die Karte: 📍 Abholort (grün) → 🎯 Zielort (blau)</p>
+            </div>
+
+            <!-- KARTE -->
+            <div style="position:relative;margin-bottom:20px;">
+                <div id="express-booking-map" style="height:500px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                
+                <!-- RESET BUTTON -->
+                <button id="express-reset-btn" onclick="resetExpressBooking()" style="
+                    position:absolute;
+                    top:10px;
+                    right:10px;
+                    background:white;
+                    border:2px solid #ef4444;
+                    color:#ef4444;
+                    padding:10px 16px;
+                    border-radius:8px;
+                    font-weight:700;
+                    cursor:pointer;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.2);
+                    z-index:1000;
+                    display:none;
+                ">
+                    🔄 Zurücksetzen
+                </button>
+            </div>
+
+            <!-- INFO PANEL -->
+            <div id="express-info-panel" style="
+                background:white;
+                padding:20px;
+                border-radius:12px;
+                box-shadow:0 2px 8px rgba(0,0,0,0.1);
+                border-left:4px solid #f59e0b;
+            ">
+                <div style="color:#666;font-size:14px;line-height:1.6;">
+                    <p style="margin:0 0 10px 0;"><strong>📍 Schritt 1:</strong> Klicke auf die Karte um den Abholort zu setzen (grüner Pin)</p>
+                    <p style="margin:0;"><strong>🎯 Schritt 2:</strong> Klicke nochmal um das Ziel zu setzen (blauer Pin)</p>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -13963,7 +14030,8 @@ Aktuell: ${currentNum}`;
             
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
             // 🆕 v5.90.525: fleet-overview-view hinzugefügt!
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view'];
+            // 🆕 v5.90.548: express-booking-view hinzugefügt!
+            const allViews = ['express-booking-view', 'passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -14044,6 +14112,18 @@ Aktuell: ${currentNum}`;
                         loadSchedule();
                     } else {
                         console.error('💾 loadSchedule() Funktion nicht gefunden!');
+                    }
+                }, 100);
+            }
+            
+            // 🆕 v5.90.548: Express-Booking initialisieren!
+            if (view === 'express-booking') {
+                console.log('⚡ Express-Booking View geöffnet!');
+                setTimeout(() => {
+                    if (typeof initExpressBooking === 'function') {
+                        initExpressBooking();
+                    } else {
+                        console.error('💾 initExpressBooking() nicht gefunden!');
                     }
                 }, 100);
             }
@@ -68685,6 +68765,192 @@ async function exportCustomerToVCF(customerId) {
 }
 
 console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 v5.90.548: EXPRESS-BOOKING SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+let expressBookingMap = null;
+let expressPickupPin = null;
+let expressDestinationPin = null;
+let expressRouteLine = null;
+let expressPickupData = null;
+let expressDestinationData = null;
+
+function initExpressBooking() {
+    console.log('⚡ Initialisiere Express-Booking...');
+    
+    if (!expressBookingMap) {
+        expressBookingMap = L.map('express-booking-map').setView([53.9547, 14.1783], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(expressBookingMap);
+        
+        // Klick-Handler
+        expressBookingMap.on('click', handleExpressMapClick);
+        
+        console.log('✅ Express-Booking Karte initialisiert!');
+    } else {
+        expressBookingMap.invalidateSize();
+    }
+}
+
+async function handleExpressMapClick(e) {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+    
+    console.log('📍 Klick auf Karte:', lat, lon);
+    
+    // SCHRITT 1: Abholort setzen
+    if (!expressPickupPin && !expressPickupData) {
+        await setExpressPickup(lat, lon);
+        document.getElementById('express-reset-btn').style.display = 'block';
+        document.getElementById('express-info-panel').innerHTML = `
+            <div style="color:#10b981;font-size:14px;line-height:1.6;">
+                <p style="margin:0;"><strong>✅ Abholort gesetzt!</strong></p>
+                <p style="margin:10px 0 0 0;"><strong>🎯 Schritt 2:</strong> Klicke nochmal für das Ziel</p>
+            </div>
+        `;
+    }
+    // SCHRITT 2: Zielort setzen
+    else if (expressPickupData && !expressDestinationPin && !expressDestinationData) {
+        await setExpressDestination(lat, lon);
+        await calculateExpressRoute();
+        showExpressBookingModal();
+    }
+}
+
+async function setExpressPickup(lat, lon) {
+    console.log('📍 Setze Abholort:', lat, lon);
+    
+    // Entferne alten Pin
+    if (expressPickupPin) {
+        expressBookingMap.removeLayer(expressPickupPin);
+    }
+    
+    // Erstelle grünen Pin
+    expressPickupPin = L.marker([lat, lon], {
+        icon: L.divIcon({
+            className: 'custom-pin',
+            html: '<div style="background:#10b981;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><div style="transform:rotate(45deg);font-size:16px;text-align:center;line-height:24px;">📍</div></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 30]
+        }),
+        draggable: true
+    }).addTo(expressBookingMap);
+    
+    // Geocoding
+    const address = await reverseGeocode(lat, lon);
+    expressPickupData = { lat, lon, address };
+    
+    console.log('✅ Abholort:', address);
+}
+
+async function setExpressDestination(lat, lon) {
+    console.log('🎯 Setze Zielort:', lat, lon);
+    
+    // Entferne alten Pin
+    if (expressDestinationPin) {
+        expressBookingMap.removeLayer(expressDestinationPin);
+    }
+    
+    // Erstelle blauen Pin
+    expressDestinationPin = L.marker([lat, lon], {
+        icon: L.divIcon({
+            className: 'custom-pin',
+            html: '<div style="background:#3b82f6;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><div style="transform:rotate(45deg);font-size:16px;text-align:center;line-height:24px;">🎯</div></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 30]
+        }),
+        draggable: true
+    }).addTo(expressBookingMap);
+    
+    // Geocoding
+    const address = await reverseGeocode(lat, lon);
+    expressDestinationData = { lat, lon, address };
+    
+    console.log('✅ Zielort:', address);
+}
+
+async function calculateExpressRoute() {
+    if (!expressPickupData || !expressDestinationData) return;
+    
+    console.log('🗺️ Berechne Route...');
+    
+    try {
+        const route = await calculateRoute(expressPickupData, expressDestinationData);
+        
+        if (route && route.geometry) {
+            // Entferne alte Route
+            if (expressRouteLine) {
+                expressBookingMap.removeLayer(expressRouteLine);
+            }
+            
+            // Zeichne neue Route
+            const coords = route.geometry.map(coord => [coord[1], coord[0]]);
+            expressRouteLine = L.polyline(coords, {
+                color: '#f59e0b',
+                weight: 4,
+                opacity: 0.8
+            }).addTo(expressBookingMap);
+            
+            // Zoom auf Route
+            const bounds = L.latLngBounds([
+                [expressPickupData.lat, expressPickupData.lon],
+                [expressDestinationData.lat, expressDestinationData.lon]
+            ]);
+            expressBookingMap.fitBounds(bounds, { padding: [50, 50] });
+        }
+        
+        console.log('✅ Route berechnet:', route.distance, 'km,', route.duration, 'Min');
+        
+    } catch (error) {
+        console.error('💾 Route-Fehler:', error);
+    }
+}
+
+function showExpressBookingModal() {
+    console.log('💾 Öffne Buchungs-Modal...');
+    alert('🎉 Modal kommt im nächsten Update!
+📍 Von: ' + expressPickupData.address + '
+🎯 Nach: ' + expressDestinationData.address);
+}
+
+function resetExpressBooking() {
+    console.log('🔄 Zurücksetzen...');
+    
+    // Entferne Pins
+    if (expressPickupPin) {
+        expressBookingMap.removeLayer(expressPickupPin);
+        expressPickupPin = null;
+    }
+    if (expressDestinationPin) {
+        expressBookingMap.removeLayer(expressDestinationPin);
+        expressDestinationPin = null;
+    }
+    if (expressRouteLine) {
+        expressBookingMap.removeLayer(expressRouteLine);
+        expressRouteLine = null;
+    }
+    
+    // Reset Daten
+    expressPickupData = null;
+    expressDestinationData = null;
+    
+    // Reset UI
+    document.getElementById('express-reset-btn').style.display = 'none';
+    document.getElementById('express-info-panel').innerHTML = `
+        <div style="color:#666;font-size:14px;line-height:1.6;">
+            <p style="margin:0 0 10px 0;"><strong>📍 Schritt 1:</strong> Klicke auf die Karte um den Abholort zu setzen (grüner Pin)</p>
+            <p style="margin:0;"><strong>🎯 Schritt 2:</strong> Klicke nochmal um das Ziel zu setzen (blauer Pin)</p>
+        </div>
+    `;
+    
+    console.log('✅ Express-Booking zurückgesetzt!');
+}
+
+console.log('✅ v5.90.548: Express-Booking System geladen!');
     </script>
 
 
@@ -68948,6 +69214,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔄 v5.90.547
+        ⚡ v5.90.548
     </div>
 </div>

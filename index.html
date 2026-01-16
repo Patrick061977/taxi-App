@@ -197,7 +197,18 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.543 - TRY-CATCH FIX! 🔧 (Build 2026-01-16_1300)');
+        // 🆕 v5.90.544: CRITICAL HELPER FUNCTIONS (MUST BE FIRST!)
+        // Diese Funktionen werden in DOMContentLoaded verwendet - müssen GANZ AM ANFANG sein!
+        function getLocalDateString(date) {
+            if (!date) date = new Date();
+            if (typeof date === 'number') date = new Date(date);
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;  // YYYY-MM-DD (lokal!)
+        }
+        
+        console.log('🚕 Funk Taxi App v5.90.544 - CRITICAL FIX! 🔧 (Build 2026-01-16_1305)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1142,7 +1153,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.543 - TRY-CATCH FIX! 🔧 (Build 20260116-1300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚀 Version 5.90.544 - ALL CRITICAL FIXES! 🚀 (Build 20260116-1305)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,10 +1555,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.543: VERSION BADGE -->
+                <!-- 🆕 v5.90.544: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.543 - TRY-CATCH
+                        🚀 v5.90.544 - CRITICAL
                     </span>
                 </div>
             </div>
@@ -7609,15 +7620,6 @@
             console.log('✅ CallPopup Listener aktiv');
         }
         
-        // 🆕 v5.90.542: HELPER FUNCTIONS (müssen VOR Verwendung definiert sein!)
-        function getLocalDateString(date) {
-            if (!date) date = new Date();
-            if (typeof date === 'number') date = new Date(date);
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, '0');
-            const dd = String(date.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;  // YYYY-MM-DD (lokal!)
-        }
         
         function showCallPopup(data) {
             console.log('🎯 showCallPopup() gestartet!');
@@ -68286,17 +68288,42 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // 🔧 v5.90.337: GELÖSCHT - Doppelte leere Funktion entfernt!
         // startAutoAssignment ist bereits in Zeile 21759 definiert!
         
+        // 🆕 v5.90.544: WARTE AUF FIREBASE!
+        async function waitForFirebase() {
+            let attempts = 0;
+            while (!isFirebaseReady && attempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            if (!isFirebaseReady) {
+                console.error('💾 Firebase konnte nicht initialisiert werden nach 5s!');
+                return false;
+            }
+            return true;
+        }
+        
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                initTabDragDrop();
-                initTabSettingsPanel(); // 🆕 v5.90.29: Panel initialisieren (jetzt async!)
+            setTimeout(async () => {
+                // ✅ WARTE auf Firebase!
+                if (await waitForFirebase()) {
+                    initTabDragDrop();
+                    initTabSettingsPanel();
+                }
             }, 1000);
             
             // 🆕 v5.90.29: Tab-Einstellungen laden
-            setTimeout(() => loadTabSettings(), 1500);
+            setTimeout(async () => {
+                if (await waitForFirebase()) {
+                    loadTabSettings();
+                }
+            }, 1500);
             
             // 🆕 v5.90.108: Assignment Mode laden
-            setTimeout(() => loadAssignmentMode(), 2000);
+            setTimeout(async () => {
+                if (await waitForFirebase()) {
+                    loadAssignmentMode();
+                }
+            }, 2000);
         });
 
 // ═══════════════════════════════════════════════════════════════
@@ -68839,6 +68866,6 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.543
+        🚀 v5.90.544
     </div>
 </div>

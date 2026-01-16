@@ -197,7 +197,7 @@
             };
         })();
         
-        console.log('🚕 Funk Taxi App v5.90.525 - COMPLETE FIX! 🎉 (Build 2026-01-15_1515)');
+        console.log('🚕 Funk Taxi App v5.90.531 - ZEITPUFFER-SYSTEM! ⏱️ (Build 2026-01-16_0730)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1142,7 +1142,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.482 - MASTER FIX! 🔧 (Build 20260115-1645)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏱️ Version 5.90.531 - ZEITPUFFER-SYSTEM! ⏱️ (Build 20260116-0730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1544,6 +1544,12 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
+                <!-- 🆕 v5.90.531: VERSION BADGE -->
+                <div style="margin-top: 10px;">
+                    <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
+                        ⏱️ v5.90.531 - ZEITPUFFER
+                    </span>
+                </div>
             </div>
             
             <!-- SCHRITT 1: Telefonnummer eingeben -->
@@ -12076,36 +12082,32 @@ Funk Taxi Heringsdorf`;
         let callFavorites = [];
         
         // Lade Favoriten aus localStorage
-        function loadCallFavorites() {
+        async function loadCallFavorites() {
             console.log('📞 loadCallFavorites() aufgerufen!');
             console.log('   currentUser:', currentUser?.uid || 'NICHT EINGELOGGT');
             console.log('   isFirebaseReady:', isFirebaseReady);
             
             try {
-                // 🆕 v5.90.255: ERST aus Firebase laden! (persistent!)
+                // 🆕 v5.90.532: ASYNC - Warte auf Firebase + CRM!
                 if (currentUser && currentUser.uid && isFirebaseReady) {
                     console.log('☁️ Versuche Firebase zu laden...');
-                    db.ref(`users/${currentUser.uid}/callFavorites`).once('value')
-                        .then(snapshot => {
-                            if (snapshot.exists()) {
-                                callFavorites = snapshot.val();
-                                console.log('☁️ Favoriten aus Firebase geladen:', callFavorites.length, '✅');
-                                
-                                // Speichere auch in localStorage (Backup)
-                                localStorage.setItem('call_favorites', JSON.stringify(callFavorites));
-                            } else {
-                                console.log('📂 Keine Firebase-Favoriten, lade aus localStorage...');
-                                loadFromLocalStorage();
-                            }
-                            
-                            // Lade CRM-Favoriten
-                            loadCRMFavoritesIntoCallList();
-                            renderCallFavorites();
-                        })
-                        .catch(err => {
-                            console.error('❌ Firebase Fehler beim Laden:', err);
-                            loadFromLocalStorage();
-                        });
+                    const snapshot = await db.ref(`users/${currentUser.uid}/callFavorites`).once('value');
+                    
+                    if (snapshot.exists()) {
+                        callFavorites = snapshot.val();
+                        console.log('☁️ Favoriten aus Firebase geladen:', callFavorites.length, '✅');
+                        
+                        // Speichere auch in localStorage (Backup)
+                        localStorage.setItem('call_favorites', JSON.stringify(callFavorites));
+                    } else {
+                        console.log('📂 Keine Firebase-Favoriten, lade aus localStorage...');
+                        loadFromLocalStorage();
+                    }
+                    
+                    // 🆕 v5.90.532: WARTE auf CRM-Favoriten!
+                    await loadCRMFavoritesIntoCallList();
+                    console.log('✅ Alle Favoriten geladen (Firebase + CRM)!');
+                    
                 } else {
                     console.log('⚠️ Firebase nicht bereit oder User nicht eingeloggt → Fallback localStorage');
                     console.log('   Grund: currentUser =', !!currentUser, ', isFirebaseReady =', isFirebaseReady);
@@ -12399,16 +12401,35 @@ Funk Taxi Heringsdorf`;
             const backdrop = document.getElementById('call-favorites-backdrop'); // Kann null sein!
             
             if (modal.style.display === 'none' || modal.style.display === '') {
-                // 🆕 v5.90.257: LADE FAVORITEN BEIM ÖFFNEN!
+                // 🆕 v5.90.532: ASYNC - Warte auf CRM-Favoriten!
                 console.log('📞 Anruf-Zentrale wird geöffnet → Lade Favoriten...');
-                loadCallFavorites();
                 
                 modal.style.display = 'block';
-                if (backdrop) backdrop.style.display = 'block'; // 🆕 v5.90.273: Nur wenn vorhanden!
-                renderCallFavorites();
+                if (backdrop) backdrop.style.display = 'block';
+                
+                // Zeige Loading
+                const list = document.getElementById('call-favorites-list');
+                if (list) {
+                    list.innerHTML = `
+                        <div style="text-align:center;padding:40px;color:#6b7280;">
+                            <div style="font-size:48px;margin-bottom:10px;">⏳</div>
+                            <div style="font-size:14px;">Lade Kategorien...</div>
+                        </div>
+                    `;
+                }
+                
+                // ASYNC Laden + Rendern!
+                loadCallFavorites().then(() => {
+                    console.log('✅ Favoriten geladen, rendere jetzt...');
+                    renderCallFavorites();
+                }).catch(err => {
+                    console.error('❌ Fehler beim Laden:', err);
+                    renderCallFavorites(); // Zeige was da ist
+                });
+                
             } else {
                 modal.style.display = 'none';
-                if (backdrop) backdrop.style.display = 'none'; // 🆕 v5.90.273: Nur wenn vorhanden!
+                if (backdrop) backdrop.style.display = 'none';
             }
         }
         
@@ -24067,8 +24088,7 @@ Aktuell: ${currentNum}`;
             // Berechne Preis MIT Zeitstempel (für korrekten Tag/Nacht-Tarif)
             const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp);
             
-            // 🆕 v5.90.528: BERECHNE GESAMT-DAUER MIT PUFFERN!
-            const validWaypoints = waypoints.filter(wp => wp.coords);
+            // 🆕 v5.90.528: BERECHNE GESAMT-DAUER MIT PUFFERN! (validWaypoints bereits oben definiert)
             const durationCalc = calculateTotalDuration(route.duration, validWaypoints.length);
             
             window.currentPrice = pricing.total;
@@ -68118,4 +68138,12 @@ console.log('✅ v5.90.525: Status ändern + Export-Funktionen geladen!');
         </button>
         <button onclick="addCallFavorite()" style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;transition:all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
             ➕ Manuell
-        </button>
+        </button></div>
+</div>
+
+<!-- 🆕 v5.90.531: VERSION FOOTER -->
+<div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
+    <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        ⏱️ v5.90.531
+    </div>
+</div>

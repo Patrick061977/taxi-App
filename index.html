@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.586 - USER TAB VERWALTUNG! 📱 (Build 2026-01-17_1800)');
+        console.log('🚕 Funk Taxi App v5.90.588 - \\n FEHLER GEFIXT! 🐛 (Build 2026-01-17_1820)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱 Version 5.90.586 - USER TABS! 📱 (Build 20260117-1800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.588 - \\n FIX! 🐛 (Build 20260117-1820)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4672,8 +4672,19 @@
                     <option value="schedule">📅 Termine</option>
                     <option value="history">📜 Verlauf</option>
                     <option value="calendar">📆 Kalender</option>
+                    <option value="hotel-calendar">🏨 Hotel-Kalender</option>
                     <option value="driver">🚗 Fahrer</option>
                     <option value="admin">⚙️ Admin</option>
+                    <option value="shift-plan">🗓️ Schichtplan</option>
+                    <option value="poi-management">⭐ POI-Verwaltung</option>
+                    <option value="vehicle-overview">🚙 Fahrzeug-Übersicht</option>
+                    <option value="express-booking">⚡ Express-Buchung</option>
+                    <option value="simulator">🎮 Simulator</option>
+                    <option value="booking-requests">📋 Buchungsanfragen</option>
+                    <option value="ai-assistant">🤖 AI Assistant</option>
+                    <option value="backup">💾 Backup</option>
+                    <option value="archive">📦 Archiv</option>
+                    <option value="debug">🐛 Debug</option>
                 </select>
             </div>
             
@@ -15563,8 +15574,7 @@ Aktuell: ${currentNum}`;
                                 'Unbekannt';
                             const customerName = blockingRide.customerName || blockingRide.pickup || 'Unbekannt';
                             
-                            statusBoxEl.innerHTML = `
-                                <div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(239,68,68,0.3);margin-bottom:15px;">
+                            statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(239,68,68,0.3);margin-bottom:15px;">
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                                         <div style="font-size:24px;">🔴</div>
                                         <div style="font-weight:700;font-size:18px;">BESETZT</div>
@@ -15580,8 +15590,7 @@ Aktuell: ${currentNum}`;
                             `;
                         } else {
                             // 🟢 FREI
-                            statusBoxEl.innerHTML = `
-                                <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(16,185,129,0.3);margin-bottom:15px;">
+                            statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(16,185,129,0.3);margin-bottom:15px;">
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
                                         <div style="font-size:24px;">🟢</div>
                                         <div style="font-weight:700;font-size:18px;">FREI</div>
@@ -71424,6 +71433,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📱 v5.90.586
+        🐛 v5.90.588
     </div>
 </div>

@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.561 - EXPRESS-BOOKING FIXED! ⚡ (Build 2026-01-17_1630)');
+        console.log('🚕 Funk Taxi App v5.90.562 - FINALE VERSION! 🎉 (Build 2026-01-17_1700)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.561 - EXPRESS FIXED! ⚡ (Build 20260117-1630)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.90.562 - FINALE VERSION! 🎉 (Build 20260117-1700)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1268,7 +1268,11 @@
         z-index: 999;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     ">
-        <div style="display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <div style="display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #667eea #e5e7eb; padding-bottom: 5px;">
+            <!-- 🆕 v5.90.562: SCROLL-HINWEIS -->
+            <div style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); background: linear-gradient(to left, white 50%, transparent); padding: 5px 15px; pointer-events: none; font-size: 20px; opacity: 0.6;">
+                ▶
+            </div>
             <!-- 🆕 v5.90.548: EXPRESS-BOOKING TAB! -->
             <button onclick="switchView('express-booking')" class="admin-tab-btn admin-only tab-toggleable" data-view="express-booking" data-tab-id="express-booking" style="
                 padding: 10px 16px;
@@ -1634,10 +1638,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.561: VERSION BADGE -->
+                <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ⚡ v5.90.561 - FIXED
+                        🎉 v5.90.562 - FINAL
                     </span>
                 </div>
             </div>
@@ -70685,6 +70689,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⚡ v5.90.561
+        🎉 v5.90.562
     </div>
 </div>

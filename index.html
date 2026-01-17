@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.583 - EXPRESS-BOOKING FREIGEGEBEN! ⚡ (Build 2026-01-17_1730)');
+        console.log('🚕 Funk Taxi App v5.90.584 - POI-NAME ÜBERSCHREIBEN! 🏷️ (Build 2026-01-17_1745)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.583 - EXPRESS FREIGEGEBEN! ⚡ (Build 20260117-1730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏷️ Version 5.90.584 - POI-NAME FIX! 🏷️ (Build 20260117-1745)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -44467,12 +44467,14 @@ Funk Taxi Team`;
                         console.log('✅ v5.90.574: CRM-Feld erkannt - POI-Name separat behandeln');
                         // finalAddress bleibt wie sie ist (nur Adresse)
                         
-                        // Versuche Name-Feld zu füllen
+                        // 🆕 v5.90.584: POI-Name IMMER übernehmen!
                         const nameField = document.getElementById('edit-customer-name');
-                        if (nameField && !nameField.value.trim()) {
-                            // Nur wenn Name-Feld leer ist!
+                        if (nameField) {
+                            // IMMER überschreiben wenn POI ausgewählt!
                             nameField.value = poiName;
-                            console.log('✅ POI-Name ins Name-Feld geschrieben:', poiName);
+                            console.log('✅ v5.90.584: POI-Name ins Name-Feld geschrieben (überschrieben):', poiName);
+                        } else {
+                            console.warn('⚠️ v5.90.584: Name-Feld nicht gefunden!');
                         }
                     } else {
                         // Schnellbuchung/andere: Name + Adresse zusammen
@@ -56196,10 +56198,11 @@ Stack: ${err.stack}
             
             // 🆕 v5.90.582: ROLE-BASED AUTO-SWITCH!
             setTimeout(() => {
-                console.log('🎯 v5.90.582: Role-Based View Switch:', role);
+                console.log('🎯 v5.90.584: Role-Based View Switch:', role);
                 
-                if (role === 'driver') {
-                    console.log('🚗 v5.90.582: Fahrer-Login → Wechsle zu Driver-View (GESPERRT!)');
+                // 🔧 v5.90.584: DEUTSCH + ENGLISCH! Firebase kann beides haben!
+                if (role === 'driver' || role === 'fahrer') {
+                    console.log('🚗 v5.90.584: Fahrer-Login → Wechsle zu Driver-View (GESPERRT!)');
                     switchView('driver');
                     
                     // 🔒 Verstecke andere Tabs für Fahrer!
@@ -56213,14 +56216,14 @@ Stack: ${err.stack}
                                 btn.style.display = 'none';
                             }
                         });
-                        console.log('🔒 v5.90.582: Andere Tabs für Fahrer ausgeblendet!');
+                        console.log('🔒 v5.90.584: Andere Tabs für Fahrer ausgeblendet!');
                     }
                 } else if (role === 'admin') {
-                    console.log('👨‍💼 v5.90.582: Admin-Login → Lade letzten Tab');
+                    console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
                     switchView(lastTab);
                 } else {
-                    console.log('👤 v5.90.582: Passenger-Login → Passenger-View');
+                    console.log('👤 v5.90.584: Passenger-Login → Passenger-View');
                     switchView('passenger');
                 }
             }, 500);
@@ -71318,6 +71321,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⚡ v5.90.583
+        🏷️ v5.90.584
     </div>
 </div>

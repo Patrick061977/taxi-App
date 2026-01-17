@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.559 - AUTOCOMPLETE-FILTER FIX + QB WAYPOINTS! 🎯 (Build 2026-01-16_1535)');
+        console.log('🚕 Funk Taxi App v5.90.560 - SIMULATOR HOME-POSITIONEN! 🏠 (Build 2026-01-17_1545)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.559 - FILTER-FIX + WAYPOINTS! 🎯 (Build 20260116-1535)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏠 Version 5.90.560 - SIMULATOR HOME! 🏠 (Build 20260117-1545)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1634,10 +1634,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.559: VERSION BADGE -->
+                <!-- 🆕 v5.90.560: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🎯 v5.90.559 - FILTER
+                        🏠 v5.90.560 - HOME
                     </span>
                 </div>
             </div>
@@ -69708,8 +69708,11 @@ function loadInitialVehicles() {
         {
             id: 'sim-tesla',
             name: 'Tesla Model Y',
-            lat: 53.9547,
-            lon: 14.1783,
+            lat: 53.9533,  // 🔧 v5.90.560: Bahnhof Heringsdorf!
+            lon: 14.1633,
+            homeLat: 53.9533,  // 🆕 Home-Position
+            homeLon: 14.1633,
+            homeLocation: 'Bahnhof Heringsdorf',
             status: 'free',
             online: true,
             marker: null,
@@ -69719,8 +69722,11 @@ function loadInitialVehicles() {
         {
             id: 'sim-renault',
             name: 'Renault Traffic',
-            lat: 53.9396,
-            lon: 14.1556,
+            lat: 53.9444,  // 🔧 v5.90.560: Seebrücke Ahlbeck!
+            lon: 14.1933,
+            homeLat: 53.9444,
+            homeLon: 14.1933,
+            homeLocation: 'Seebrücke Ahlbeck',
             status: 'free',
             online: true,
             marker: null,
@@ -69730,8 +69736,11 @@ function loadInitialVehicles() {
         {
             id: 'sim-toyota',
             name: 'Toyota Prius',
-            lat: 53.9596,
-            lon: 14.1956,
+            lat: 53.9633,  // 🔧 v5.90.560: Seebrücke Bansin!
+            lon: 14.1433,
+            homeLat: 53.9633,
+            homeLon: 14.1433,
+            homeLocation: 'Seebrücke Bansin',
             status: 'free',
             online: true,
             marker: null,
@@ -69769,12 +69778,16 @@ function renderSimVehicles() {
                 }</div>
             </div>
             ${v.currentRide ? `<div style="font-size:9px;color:#6b7280;margin-bottom:4px;">→ ${v.currentRide.customerName} ${v.currentRide.eta ? '(' + v.currentRide.eta + ')' : ''}</div>` : ''}
+            ${v.homeLocation ? `<div style="font-size:8px;color:#9ca3af;margin-bottom:4px;">🏠 ${v.homeLocation}</div>` : ''}
             <div style="display:flex;gap:3px;">
                 <button onclick="toggleVehicleOnline('${v.id}')" style="flex:1;padding:3px;background:${v.online ? '#ef4444' : '#10b981'};color:white;border:none;border-radius:3px;font-size:9px;cursor:pointer;font-weight:600;">
                     ${v.online ? 'Off' : 'On'}
                 </button>
-                <button onclick="moveVehicleRandom('${v.id}')" style="flex:1;padding:3px;background:#3b82f6;color:white;border:none;border-radius:3px;font-size:9px;cursor:pointer;font-weight:600;">
+                <button onclick="moveVehicleRandom('${v.id}')" style="flex:1;padding:3px;background:#3b82f6;color:white;border:none;border-radius:3px;font-size:9px;cursor:pointer;font-weight:600;" title="Zufällige Position">
                     📍
+                </button>
+                <button onclick="sendVehicleHome('${v.id}')" style="flex:1;padding:3px;background:#10b981;color:white;border:none;border-radius:3px;font-size:9px;cursor:pointer;font-weight:600;" title="Zurück zur Basis">
+                    🏠
                 </button>
             </div>
         </div>
@@ -69958,7 +69971,30 @@ function completeRide(vehicle, ride) {
     }
     
     logSimEvent(`🎉 ${vehicle.name} hat Fahrt abgeschlossen!`);
+    
+    // 🆕 v5.90.560: ZURÜCK ZUR BASIS!
+    returnVehicleToBase(vehicle);
+    
     renderSimulator();
+}
+
+// 🆕 v5.90.560: FAHRZEUG ZURÜCK ZUR BASIS FAHREN
+async function returnVehicleToBase(vehicle) {
+    if (!vehicle.homeLat || !vehicle.homeLon) {
+        console.log('⚠️ Fahrzeug hat keine Home-Position:', vehicle.name);
+        return;
+    }
+    
+    logSimEvent(`🏠 ${vehicle.name} fährt zurück nach ${vehicle.homeLocation}`);
+    
+    // Berechne Route zur Basis
+    await calculateAndDrawRoute(
+        vehicle, 
+        {lat: vehicle.lat, lon: vehicle.lon}, 
+        {lat: vehicle.homeLat, lon: vehicle.homeLon}, 
+        '#10b981'  // Grün für Rückfahrt
+    );
+}
 }
 
 async function calculateAndDrawRoute(vehicle, from, to, color) {
@@ -70208,15 +70244,40 @@ function moveVehicleRandom(vehicleId) {
     }
 }
 
+// 🆕 v5.90.560: MANUELL NACH HAUSE SCHICKEN
+function sendVehicleHome(vehicleId) {
+    const vehicle = simVehicles.find(v => v.id === vehicleId);
+    if (!vehicle) return;
+    
+    if (!vehicle.homeLat || !vehicle.homeLon) {
+        alert('❌ Fahrzeug hat keine Home-Position!');
+        return;
+    }
+    
+    if (vehicle.currentRide) {
+        alert('⚠️ Fahrzeug ist gerade auf einer Fahrt!');
+        return;
+    }
+    
+    returnVehicleToBase(vehicle);
+    renderSimulator();
+}
+
 function addSimVehicle() {
     const name = prompt('Fahrzeugname:', 'Taxi ' + (simVehicles.length + 1));
     if (!name) return;
     
+    const startLat = 53.93 + Math.random() * 0.05;
+    const startLon = 14.12 + Math.random() * 0.12;
+    
     simVehicles.push({
         id: 'sim-' + Date.now(),
         name: name,
-        lat: 53.93 + Math.random() * 0.05,
-        lon: 14.12 + Math.random() * 0.12,
+        lat: startLat,
+        lon: startLon,
+        homeLat: startLat,  // 🆕 v5.90.560: Home = Start!
+        homeLon: startLon,
+        homeLocation: 'Start-Position',
         status: 'free',
         online: true,
         marker: null,
@@ -70585,6 +70646,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎯 v5.90.559
+        🏠 v5.90.560
     </div>
 </div>

@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.569 - SIMULATOR ECHTE ADRESSEN! 🗺️ (Build 2026-01-17_1425)');
+        console.log('🚕 Funk Taxi App v5.90.570 - PERFORMANCE FIX! ⚡ (Build 2026-01-17_1430)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.569 - SIMULATOR ECHTE ADRESSEN! 🗺️ (Build 20260117-1425)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.570 - PERFORMANCE FIX! ⚡ (Build 20260117-1430)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -22285,6 +22285,8 @@ Aktuell: ${currentNum}`;
                 if (!isFirebaseReady || !rides || rides.length === 0) return;
                 
                 const now = Date.now();
+                let checkedCount = 0;
+                let skippedCount = 0;
                 
                 for (const ride of rides) {
                     // Nur vorbestellte Fahrten prüfen
@@ -22293,11 +22295,16 @@ Aktuell: ${currentNum}`;
                     const rideKey = ride.firebaseId || ride.id;
                     if (activatedPrebookings.has(rideKey)) continue; // Schon aktiviert
                     
-                    // 🆕 v5.90.525: DYNAMISCHE AKTIVIERUNG!
-                    // Nicht fest 15 Min, sondern basierend auf Anfahrtszeit!
-                    
                     const pickupTime = ride.pickupTimestamp || 0;
                     const minutesUntilPickup = (pickupTime - now) / (1000 * 60);
+                    
+                    // 🆕 v5.90.570: NUR Fahrten < 60 Min prüfen! (Performance!)
+                    if (minutesUntilPickup > 60 || minutesUntilPickup < 0) {
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    checkedCount++;
                     
                     // Finde nächstes verfügbares Taxi
                     const blacklist = ride.assignmentBlacklist || [];
@@ -25200,49 +25207,39 @@ Aktuell: ${currentNum}`;
         }
 
         // Finde nächstes verfügbares Taxi nach GPS-Entfernung
-        // 🆕 v5.19.0: Angepasst für Standby-Modus
-        // 🆕 v5.21.8: Blacklist-Parameter um abgelehnte Fahrer zu überspringen
-        // 🆕 v5.25.6: Temporäre Sperre prüfen
-        // Findet Fahrer auch wenn GPS nicht ganz aktuell (< 10 Min)
+        // 🆕 v5.90.570: Reduziertes Logging (Performance!)
         function findNearestAvailableVehicle(pickupCoords, blacklist = []) {
-            console.log('═══════════════════════════════════════════════════════════');
-            console.log('🔍 v5.90.329: findNearestAvailableVehicle AUFGERUFEN!');
-            console.log('   pickupCoords:', pickupCoords);
-            console.log('   blacklist:', blacklist);
-            console.log('   drivers Objekt:', drivers);
-            console.log('   drivers Anzahl:', Object.keys(drivers || {}).length);
-            console.log('═══════════════════════════════════════════════════════════');
+            // Logging nur bei Bedarf (zu viel Performance-Last!)
+            const debugMode = false; // Auf true setzen für Debug
+            
+            if (debugMode) {
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('🔍 findNearestAvailableVehicle aufgerufen');
+                console.log('   pickupCoords:', pickupCoords);
+                console.log('   blacklist:', blacklist);
+                console.log('   drivers Anzahl:', Object.keys(drivers || {}).length);
+            }
             
             const availableVehicles = [];
             const now = Date.now();
             const MAX_GPS_AGE = 10 * 60 * 1000; // 10 Minuten
             
-            console.log('🔍 v5.90.329: Durchsuche', Object.keys(drivers).length, 'Fahrer...');
-            
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
                 const driver = drivers[vehicleId];
-                console.log(`🔍 v5.90.329: Prüfe ${vehicleId}:`, {
-                    hasLat: !!driver.lat,
-                    hasLon: !!driver.lon,
-                    hasTimestamp: !!driver.timestamp,
-                    timestamp: driver.timestamp,
-                    gpsAge: driver.timestamp ? Math.round((now - driver.timestamp) / 60000) + ' Min' : 'N/A'
-                });
                 
                 // 🆕 v5.21.8: Blacklist-Check ZUERST!
                 if (blacklist.includes(vehicleId)) {
-                    console.log(`⛔ v5.90.329: ${vehicleId}: Auf Blacklist`);
+                    if (debugMode) console.log(`⛔ ${vehicleId}: Auf Blacklist`);
                     continue;
                 }
                 
                 // 🆕 v5.25.6: Temporäre Sperre prüfen
                 if (driver.temporaryBlock && driver.temporaryBlock.blockedUntil > now) {
-                    const remainingMinutes = Math.ceil((driver.temporaryBlock.blockedUntil - now) / 60000);
-                    const untilTime = new Date(driver.temporaryBlock.blockedUntil).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
-                    console.log(`🚫 v5.90.329: ${vehicleId}: Temporär gesperrt (${remainingMinutes} Min)`);
-                    console.log(`   ⏰ Frei ab: ${untilTime} Uhr`);
-                    console.log(`   ℹ️  Grund: ${driver.temporaryBlock.reason || 'Unbekannt'}`);
+                    if (debugMode) {
+                        const remainingMinutes = Math.ceil((driver.temporaryBlock.blockedUntil - now) / 60000);
+                        console.log(`🚫 ${vehicleId}: Temporär gesperrt (${remainingMinutes} Min)`);
+                    }
                     continue;
                 }
                 
@@ -25254,11 +25251,9 @@ Aktuell: ${currentNum}`;
                     const gpsAge = now - driver.timestamp;
                     const gpsAgeMinutes = Math.round(gpsAge / 60000);
                     
-                    console.log(`📍 v5.90.329: ${vehicleId} GPS-Alter: ${gpsAgeMinutes} Min (Max: 10 Min)`);
-                    
                     // Position zu alt? Überspringen
                     if (gpsAge > MAX_GPS_AGE) {
-                        console.log(`⏰ v5.90.329: ${vehicleId}: GPS zu alt! (${gpsAgeMinutes} Min > 10 Min)`);
+                        if (debugMode) console.log(`⏰ ${vehicleId}: GPS zu alt! (${gpsAgeMinutes} Min)`);
                         continue;
                     }
                     
@@ -25269,7 +25264,7 @@ Aktuell: ${currentNum}`;
                     );
                     
                     if (hasActiveRide) {
-                        console.log(`🚗 v5.90.329: ${vehicleId}: Hat bereits aktive Fahrt!`);
+                        if (debugMode) console.log(`🚗 ${vehicleId}: Hat bereits aktive Fahrt!`);
                         continue;
                     }
                     
@@ -70898,6 +70893,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.569
+        ⚡ v5.90.570
     </div>
 </div>

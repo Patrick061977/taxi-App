@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.590 - SPEICHERN-BUTTON FIX! 💾 (Build 2026-01-17_1835)');
+        console.log('🚕 Funk Taxi App v5.90.591 - TABS + RECHNUNG FIX! 🎯 (Build 2026-01-17_1845)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💾 Version 5.90.590 - BUTTON FIX! 💾 (Build 20260117-1835)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.591 - TABS + RECHNUNG! 🎯 (Build 20260117-1845)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -14884,7 +14884,7 @@ Aktuell: ${currentNum}`;
                     const role = userData?.role || 'passenger';
                     
                     console.log(`🔐 Wende Tab-Berechtigungen an für Rolle: ${role}`);
-                    applyTabPermissions(permissions, role);
+                    await applyTabPermissions(permissions, role);
                 }
                 
                 // 🆕 v5.90.586: Fülle USER Tab-Verwaltung (nicht Rollen)!
@@ -14942,20 +14942,41 @@ Aktuell: ${currentNum}`;
         }
         
         // Wende Tab-Berechtigungen an
-        function applyTabPermissions(permissions, role) {
-            console.log(`🎨 Wende Tab-Berechtigungen an für: ${role}`);
+        async function applyTabPermissions(permissions, role) {
+            console.log(`🎨 v5.90.591: Wende Tab-Berechtigungen an für: ${role}`);
             
             const allowedTabs = permissions[role] || [];
             
-            // 🆕 v5.90.65: Nutze data-tab-id statt data-view!
+            // 🆕 v5.90.591: LADE USER CUSTOM TABS!
+            const user = auth.currentUser;
+            let userCustomTabs = {};
+            
+            if (user) {
+                try {
+                    const userRef = db.ref(`users/${user.uid}/customTabs`);
+                    const snapshot = await userRef.once('value');
+                    userCustomTabs = snapshot.val() || {};
+                    console.log('📋 v5.90.591: User Custom Tabs geladen:', userCustomTabs);
+                } catch (error) {
+                    console.error('💾 v5.90.591: Fehler beim Laden Custom Tabs:', error);
+                }
+            }
+            
             const allTabs = document.querySelectorAll('.tab-toggleable[data-tab-id]');
             
             console.log(`📱 Gefundene Tabs: ${allTabs.length}`);
-            console.log(`📋 Erlaubte Tabs: ${allowedTabs.join(', ')}`);
+            console.log(`📋 Erlaubte Tabs (Rolle): ${allowedTabs.join(', ')}`);
             
             allTabs.forEach(tab => {
-                const tabId = tab.dataset.tabId; // 🆕 Nutze tab-id!
-                const isAllowed = allowedTabs.includes(tabId);
+                const tabId = tab.dataset.tabId;
+                
+                let isAllowed = allowedTabs.includes(tabId);
+                
+                // 🆕 v5.90.591: User Custom Override!
+                if (userCustomTabs.hasOwnProperty(tabId)) {
+                    isAllowed = userCustomTabs[tabId] === true;
+                    console.log(`  🎨 v5.90.591: Custom für ${tabId}: ${isAllowed}`);
+                }
                 
                 if (isAllowed) {
                     tab.style.display = '';
@@ -14966,8 +14987,6 @@ Aktuell: ${currentNum}`;
                 }
             });
         }
-        
-        // Fülle Tab-Berechtigungs-Checkboxen im Admin
         function fillTabPermissionCheckboxes(permissions) {
             const container = document.getElementById('tab-permissions-container');
             if (!container) return;
@@ -15147,7 +15166,7 @@ Aktuell: ${currentNum}`;
                     const currentRole = userData?.role || 'passenger';
                     
                     if (currentRole === role) {
-                        applyTabPermissions(permissions, currentRole);
+                        await applyTabPermissions(permissions, currentRole);
                     }
                 }
                 
@@ -46578,6 +46597,13 @@ Funk Taxi Team`;
                     return;
                 }
                 
+                // 🆕 v5.90.591: CHECK STATUS BEVOR MODAL ÖFFNET!
+                if (ride.status !== 'completed' && ride.status !== 'cancelled') {
+                    alert('⚠️ Rechnung kann nur für abgeschlossene oder stornierte Fahrten erstellt werden!\n\nAktueller Status: ' + (ride.status || 'unbekannt'));
+                    console.warn('🚫 v5.90.591: Rechnung nicht erlaubt für Status:', ride.status);
+                    return;
+                }
+                
                 // Lade Kunde (falls customerId vorhanden)
                 let customer = null;
                 if (ride.customerId) {
@@ -71358,6 +71384,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        💾 v5.90.590
+        🎯 v5.90.591
     </div>
 </div>

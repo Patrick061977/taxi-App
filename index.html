@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.560 - SIMULATOR HOME-POSITIONEN! 🏠 (Build 2026-01-17_1545)');
+        console.log('🚕 Funk Taxi App v5.90.561 - EXPRESS-BOOKING FIXED! ⚡ (Build 2026-01-17_1630)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏠 Version 5.90.560 - SIMULATOR HOME! 🏠 (Build 20260117-1545)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.561 - EXPRESS FIXED! ⚡ (Build 20260117-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1634,10 +1634,10 @@
                 <div style="font-size: 64px; margin-bottom: 10px;">🚕</div>
                 <h1 style="color: white; font-size: 24px; margin-bottom: 5px;">Funk Taxi Heringsdorf</h1>
                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">Anmelden um Taxi zu buchen</p>
-                <!-- 🆕 v5.90.560: VERSION BADGE -->
+                <!-- 🆕 v5.90.561: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🏠 v5.90.560 - HOME
+                        ⚡ v5.90.561 - FIXED
                     </span>
                 </div>
             </div>
@@ -14286,7 +14286,47 @@ Aktuell: ${currentNum}`;
             
             // 🆕 v5.26.0: Telefon-Auth prüfen bei Fahrgast-Tab
             if (view === 'passenger') {
-                setTimeout(() => checkPassengerAuth(), 100);
+                setTimeout(() => {
+                    checkPassengerAuth();
+                    
+                    // 🆕 v5.90.561: EXPRESS-BOOKING DATEN LADEN!
+                    const expressPickup = localStorage.getItem('expressBookingPickup');
+                    const expressDest = localStorage.getItem('expressBookingDestination');
+                    
+                    if (expressPickup) {
+                        try {
+                            const data = JSON.parse(expressPickup);
+                            const pickupInput = document.getElementById('pickup');
+                            if (pickupInput && data.address) {
+                                pickupInput.value = data.address;
+                                // Setze Koordinaten global
+                                window.pickupCoords = { lat: data.lat, lon: data.lon };
+                                window.pickupConfirmed = true;
+                                console.log('✅ Express-Abholort geladen:', data.address);
+                            }
+                            localStorage.removeItem('expressBookingPickup');
+                        } catch (e) {
+                            console.error('❌ Express-Pickup Parse-Fehler:', e);
+                        }
+                    }
+                    
+                    if (expressDest) {
+                        try {
+                            const data = JSON.parse(expressDest);
+                            const destInput = document.getElementById('destination');
+                            if (destInput && data.address) {
+                                destInput.value = data.address;
+                                // Setze Koordinaten global
+                                window.destCoords = { lat: data.lat, lon: data.lon };
+                                window.destinationConfirmed = true;
+                                console.log('✅ Express-Zielort geladen:', data.address);
+                            }
+                            localStorage.removeItem('expressBookingDestination');
+                        } catch (e) {
+                            console.error('❌ Express-Dest Parse-Fehler:', e);
+                        }
+                    }
+                }, 100);
             } else {
                 // Login-Screen verstecken bei anderen Tabs
                 const authScreen = document.getElementById('phone-auth-screen');
@@ -69284,6 +69324,39 @@ function initExpressBooking() {
     }
 }
 
+// 🆕 v5.90.561: REVERSE GEOCODING (Koordinaten → Adresse)
+async function reverseGeocode(lat, lon) {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`
+        );
+        
+        if (!response.ok) {
+            throw new Error('Nominatim API Fehler');
+        }
+        
+        const data = await response.json();
+        
+        if (data.display_name) {
+            return data.display_name;
+        } else if (data.address) {
+            // Baue Adresse aus Komponenten
+            const parts = [];
+            if (data.address.road) parts.push(data.address.road);
+            if (data.address.house_number) parts.push(data.address.house_number);
+            if (data.address.village || data.address.town || data.address.city) {
+                parts.push(data.address.village || data.address.town || data.address.city);
+            }
+            return parts.join(', ') || 'Unbekannte Adresse';
+        } else {
+            return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        }
+    } catch (error) {
+        console.error('❌ Reverse Geocoding Fehler:', error);
+        return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    }
+}
+
 async function handleExpressMapClick(e) {
     const lat = e.latlng.lat;
     const lon = e.latlng.lng;
@@ -69427,31 +69500,14 @@ function askBookingMode() {
     if (choice) {
         // Als Abholort
         localStorage.setItem('expressBookingPickup', JSON.stringify(expressPickupData));
-        switchView('passenger');
-        setTimeout(() => {
-            const pickupInput = document.getElementById('pickup');
-            if (pickupInput) {
-                pickupInput.value = expressPickupData.address;
-                pickupInput.dataset.lat = expressPickupData.lat;
-                pickupInput.dataset.lon = expressPickupData.lon;
-            }
-        }, 300);
     } else {
         // Als Zielort
         localStorage.setItem('expressBookingDestination', JSON.stringify(expressPickupData));
-        switchView('passenger');
-        setTimeout(() => {
-            const destInput = document.getElementById('destination');
-            if (destInput) {
-                destInput.value = expressPickupData.address;
-                destInput.dataset.lat = expressPickupData.lat;
-                destInput.dataset.lon = expressPickupData.lon;
-            }
-        }, 300);
     }
     
     console.log('🚕 Öffne Buchung:', choice ? 'Abholort' : 'Zielort');
     resetExpressBooking();
+    switchView('passenger');
 }
 
 function bookExpressRoute() {
@@ -69461,28 +69517,11 @@ function bookExpressRoute() {
     localStorage.setItem('expressBookingPickup', JSON.stringify(expressPickupData));
     localStorage.setItem('expressBookingDestination', JSON.stringify(expressDestinationData));
     
-    // Zu Taxi buchen wechseln
-    switchView('passenger');
-    
-    setTimeout(() => {
-        const pickupInput = document.getElementById('pickup');
-        const destInput = document.getElementById('destination');
-        
-        if (pickupInput) {
-            pickupInput.value = expressPickupData.address;
-            pickupInput.dataset.lat = expressPickupData.lat;
-            pickupInput.dataset.lon = expressPickupData.lon;
-        }
-        
-        if (destInput) {
-            destInput.value = expressDestinationData.address;
-            destInput.dataset.lat = expressDestinationData.lat;
-            destInput.dataset.lon = expressDestinationData.lon;
-        }
-    }, 300);
-    
     console.log('🚕 Route übernommen!');
     resetExpressBooking();
+    
+    // Zu Taxi buchen wechseln (switchView lädt die Daten automatisch!)
+    switchView('passenger');
 }
 
 function copyExpressAddress() {
@@ -70646,6 +70685,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🏠 v5.90.560
+        ⚡ v5.90.561
     </div>
 </div>

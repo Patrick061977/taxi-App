@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.580 - LÖSCH-BUTTON-FIX (X)! 🗑️ (Build 2026-01-17_1630)');
+        console.log('🚕 Funk Taxi App v5.90.581 - EXPRESS-BOOKING DEBUG! ⚡ (Build 2026-01-17_1640)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗑️ Version 5.90.580 - LÖSCH-BUTTON (X)! 🗑️ (Build 20260117-1630)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.581 - EXPRESS DEBUG! ⚡ (Build 20260117-1640)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -69855,6 +69855,8 @@ async function handleExpressMapClick(e) {
 }
 
 async function setSinglePin(lat, lon) {
+    console.log('📍 v5.90.581: setSinglePin aufgerufen!', lat, lon);
+    
     // Setze Pin
     expressPickupPin = L.marker([lat, lon], {
         icon: L.divIcon({
@@ -69865,6 +69867,8 @@ async function setSinglePin(lat, lon) {
         }),
         draggable: true
     }).addTo(expressBookingMap);
+    
+    console.log('✅ Pin zur Karte hinzugefügt');
     
     // Drag-Event
     expressPickupPin.on('dragend', async function(e) {
@@ -69878,13 +69882,17 @@ async function setSinglePin(lat, lon) {
     });
     
     // Geocoding
+    console.log('🔍 Starte Reverse Geocoding...');
     const address = await reverseGeocode(lat, lon);
     expressPickupData = { lat, lon, address };
     
     console.log('✅ Pin gesetzt:', address);
+    console.log('📦 expressPickupData:', expressPickupData);
     
     // Update Panel
+    console.log('🔄 Rufe updateExpressInfoPanel() auf...');
     updateExpressInfoPanel();
+    console.log('✅ Panel sollte jetzt aktualisiert sein!');
 }
 
 async function setSecondPin(lat, lon) {
@@ -69913,10 +69921,16 @@ async function setSecondPin(lat, lon) {
 }
 
 function updateExpressInfoPanel() {
+    console.log('🔄 v5.90.581: updateExpressInfoPanel START');
     const panel = document.getElementById('express-info-panel');
     const resetBtn = document.getElementById('express-reset-btn');
     
+    console.log('📦 Panel Element:', panel ? 'GEFUNDEN' : 'NICHT GEFUNDEN');
+    console.log('📦 Reset Button:', resetBtn ? 'GEFUNDEN' : 'NICHT GEFUNDEN');
+    console.log('📦 expressPickupData:', expressPickupData);
+    
     if (!expressPickupData) {
+        console.log('⚠️ Kein Pickup Data - zeige Initial-Text');
         panel.innerHTML = `
             <div style="color:#6b7280;font-size:13px;text-align:center;padding:20px;">
                 <p style="margin:0;">📍 Klicke auf die Karte um einen Standort zu wählen</p>
@@ -69926,6 +69940,9 @@ function updateExpressInfoPanel() {
         resetBtn.style.display = 'none';
         return;
     }
+    
+    console.log('✅ Pickup Data vorhanden - zeige Buttons!');
+    console.log('📍 Adresse:', expressPickupData.address);
     
     panel.innerHTML = `
         <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white;padding:12px;border-radius:8px;margin-bottom:10px;">
@@ -69952,6 +69969,7 @@ function updateExpressInfoPanel() {
     `;
     
     resetBtn.style.display = 'block';
+    console.log('✅ v5.90.581: Panel HTML gesetzt! Buttons sollten sichtbar sein!');
 }
 
 function updateExpressInfoPanelWithRoute() {
@@ -71269,6 +71287,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗑️ v5.90.580
+        ⚡ v5.90.581
     </div>
 </div>

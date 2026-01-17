@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.567 - REALISTISCHER SIMULATOR! 🎯 (Build 2026-01-17_1400)');
+        console.log('🚕 Funk Taxi App v5.90.568 - CRM TELEFON + POI FIX! 📞 (Build 2026-01-17_1415)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.567 - REALISTISCHER SIMULATOR! 🎯 (Build 20260117-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.568 - CRM TELEFON + POI FIX! 📞 (Build 20260117-1415)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -44198,7 +44198,7 @@ Funk Taxi Team`;
         
         // 🆕 v5.90.539: POI-SUCHE **NACH** KARTEN-CLICK
         async function searchNearbyPOIs(lat, lon, baseAddress) {
-            console.log('🔍 v5.90.539: Suche POIs bei:', lat, lon);
+            console.log('🔍 v5.90.568: Suche POIs bei:', lat, lon);
             
             const poisDiv = document.getElementById('universal-map-picker-pois');
             const listDiv = document.getElementById('universal-map-picker-pois-list');
@@ -44211,33 +44211,59 @@ Funk Taxi Team`;
             
             // Zeige Loading
             poisDiv.style.display = 'block';
-            listDiv.innerHTML = '<div style="padding:8px;text-align:center;color:#92400e;font-size:12px;">🔄 Suche POIs...</div>';
+            listDiv.innerHTML = '<div style="padding:8px;text-align:center;color:#92400e;font-size:12px;">🔄 Suche POIs in der Nähe...</div>';
             
             try {
-                // Search POIs nearby
+                // 🆕 v5.90.568: Reverse Geocoding mit POI-Details
                 const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?` +
+                    `https://nominatim.openstreetmap.org/reverse?` +
                     `format=json&` +
                     `lat=${lat}&` +
                     `lon=${lon}&` +
+                    `zoom=18&` +
                     `addressdetails=1&` +
                     `extratags=1&` +
-                    `limit=5`
+                    `namedetails=1`
                 );
                 
-                const results = await response.json();
+                const data = await response.json();
                 
-                console.log('✅ v5.90.539: POI-Ergebnisse:', results.length);
+                console.log('✅ v5.90.568: POI-Daten:', data);
                 
-                // Filter: Nur POIs mit Namen
-                const pois = results.filter(r => 
-                    r.name && 
-                    r.name.trim() !== '' && 
-                    (r.type === 'amenity' || r.type === 'tourism' || r.type === 'shop' || r.type === 'restaurant' || r.class)
-                );
+                // Baue POI-Liste
+                const pois = [];
+                
+                // 1. Haupt-POI (falls vorhanden)
+                if (data.name && data.name !== data.address?.road) {
+                    pois.push({
+                        name: data.name,
+                        type: data.type || data.class || 'Ort',
+                        class: data.class,
+                        isMain: true
+                    });
+                }
+                
+                // 2. POI aus Adresse extrahieren
+                const addr = data.address || {};
+                if (addr.amenity) pois.push({ name: addr.amenity, type: 'amenity' });
+                if (addr.tourism) pois.push({ name: addr.tourism, type: 'tourism' });
+                if (addr.shop) pois.push({ name: addr.shop, type: 'shop' });
+                if (addr.restaurant) pois.push({ name: addr.restaurant, type: 'restaurant' });
+                if (addr.hotel) pois.push({ name: addr.hotel, type: 'hotel' });
+                if (addr.cafe) pois.push({ name: addr.cafe, type: 'cafe' });
+                
+                // 3. Straßenname als Fallback
+                if (pois.length === 0 && addr.road) {
+                    pois.push({
+                        name: addr.road + (addr.house_number ? ' ' + addr.house_number : ''),
+                        type: 'address',
+                        isAddress: true
+                    });
+                }
                 
                 if (pois.length === 0) {
                     poisDiv.style.display = 'none';
+                    console.log('ℹ️ Keine POIs gefunden');
                     return;
                 }
                 
@@ -44246,8 +44272,8 @@ Funk Taxi Team`;
                 
                 // Rendere POIs
                 listDiv.innerHTML = pois.map((poi, index) => {
-                    const poiType = poi.type || poi.class || '';
-                    const icon = getPoiIcon(poiType);
+                    const icon = getPoiIcon(poi.type);
+                    const label = poi.isMain ? '<span style="background:#f59e0b;color:white;padding:1px 4px;border-radius:3px;font-size:9px;margin-left:4px;">Haupt</span>' : '';
                     
                     return `
                         <div onclick="selectPOI(${index})" 
@@ -44256,10 +44282,10 @@ Funk Taxi Team`;
                              onmouseover="this.style.background='#fffbeb';this.style.borderColor='#d97706'"
                              onmouseout="if(!this.classList.contains('selected')){this.style.background='white';this.style.borderColor='#f59e0b'}">
                             <div style="font-weight:600;color:#1f2937;font-size:13px;">
-                                ${icon} ${poi.name}
+                                ${icon} ${poi.name} ${label}
                             </div>
                             <div style="font-size:11px;color:#6b7280;margin-top:2px;">
-                                ${poiType}
+                                ${poi.type}
                             </div>
                         </div>
                     `;
@@ -44270,8 +44296,10 @@ Funk Taxi Team`;
                     poiBtn.style.display = 'block';
                 }
                 
+                console.log(`✅ ${pois.length} POI(s) gefunden!`);
+                
             } catch (error) {
-                console.error('💾 v5.90.539: POI-Suche Fehler:', error);
+                console.error('💾 v5.90.568: POI-Suche Fehler:', error);
                 poisDiv.style.display = 'none';
             }
         }
@@ -50697,7 +50725,7 @@ Funk Taxi Team`;
                         
                         <!-- 🆕 v5.90.129: TELEFON MIT LÄNDERVORWAHL -->
                         <div>
-                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">Telefon</label>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📞 Festnetz-Telefon</label>
                             <div style="display:flex;gap:8px;">
                                 <select id="edit-customer-phone-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
                                     <option value="+49">🇩🇪 +49</option>
@@ -50709,9 +50737,37 @@ Funk Taxi Team`;
                                     onblur="addCountryCode(this)"
                                     oninput="autoCleanPhoneInput(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
-                                ${customer.phone ? `<button onclick="window.location.href='tel:${customer.phone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;">💾</button>` : ''}
+                                ${customer.phone ? `<button onclick="window.location.href='tel:${customer.phone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;" title="Anrufen">📞</button>` : ''}
                             </div>
                         </div>
+                        
+                        <!-- 🆕 v5.90.568: ZWEITE FESTNETZ-NUMMER (für Hotels mit Durchwahl) -->
+                        <div id="second-phone-container" style="display:none;position:relative;">
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📞 Zweite Festnetz-Nummer (z.B. Durchwahl)</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="edit-customer-phone2-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="edit-customer-phone2" placeholder="170 1234828" 
+                                    onblur="addCountryCode(this)"
+                                    oninput="autoCleanPhoneInput(this)"
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
+                                <button onclick="removeSecondPhone()" style="padding:12px 16px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;min-width:50px;" title="Entfernen">
+                                    ✕
+                                </button>
+                            </div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
+                                ℹ️ Für Hotels/Unternehmen mit mehreren Telefonnummern
+                            </div>
+                        </div>
+                        
+                        <!-- Button zum Hinzufügen der 2. Nummer -->
+                        <button id="add-second-phone-btn" onclick="showSecondPhone()" style="width:100%;padding:10px;background:#f3f4f6;color:#6b7280;border:2px dashed #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#e5e7eb';this.style.borderColor='#9ca3af'" onmouseout="this.style.background='#f3f4f6';this.style.borderColor='#d1d5db'">
+                            ➕ Zweite Festnetz-Nummer hinzufügen
+                        </button>
                         
                         <!-- 🆕 v5.90.129: MOBILFUNKNUMMER MIT LÄNDERVORWAHL -->
                         <div style="position:relative;">
@@ -50727,40 +50783,12 @@ Funk Taxi Team`;
                                     onblur="addCountryCode(this)"
                                     oninput="autoCleanPhoneInput(this)"
                                     style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
-                                ${customer.mobilePhone ? `<button onclick="window.location.href='tel:${customer.mobilePhone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;">💾</button>` : ''}
+                                ${customer.mobilePhone ? `<button onclick="window.location.href='tel:${customer.mobilePhone}'" style="padding:12px 16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;cursor:pointer;font-size:18px;min-width:50px;" title="Anrufen">📞</button>` : ''}
                             </div>
                             <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
                                 ℹ️ Optional: Wird für Google Kalender-Synchronisation verwendet
                             </div>
                         </div>
-                        
-                        <!-- 🆕 v5.90.565: ZWEITE FESTNETZ-NUMMER (für Hotels mit Durchwahl) -->
-                        <div id="second-phone-container" style="display:none;position:relative;">
-                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📞 Zweite Festnetz-Nummer (z.B. Durchwahl)</label>
-                            <div style="display:flex;gap:8px;">
-                                <select id="edit-customer-phone2-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
-                                    <option value="+49">🇩🇪 +49</option>
-                                    <option value="+43">🇦🇹 +43</option>
-                                    <option value="+41">🇨🇭 +41</option>
-                                    <option value="+48">🇵🇱 +48</option>
-                                </select>
-                                <input type="tel" id="edit-customer-phone2" placeholder="170 1234828" 
-                                    onblur="addCountryCode(this)"
-                                    oninput="autoCleanPhoneInput(this)"
-                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
-                                <button onclick="removeSecondPhone()" style="padding:12px 16px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;min-width:50px;">
-                                    ✕
-                                </button>
-                            </div>
-                            <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
-                                ℹ️ Für Hotels/Unternehmen mit mehreren Telefonnummern
-                            </div>
-                        </div>
-                        
-                        <!-- Button zum Hinzufügen der 2. Nummer -->
-                        <button id="add-second-phone-btn" onclick="showSecondPhone()" style="width:100%;padding:10px;background:#f3f4f6;color:#6b7280;border:2px dashed #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#e5e7eb';this.style.borderColor='#9ca3af'" onmouseout="this.style.background='#f3f4f6';this.style.borderColor='#d1d5db'">
-                            ➕ Zweite Telefonnummer hinzufügen
-                        </button>
                         
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;display:flex;gap:8px;align-items:center;">
@@ -70871,6 +70899,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎯 v5.90.567
+        📞 v5.90.568
     </div>
 </div>

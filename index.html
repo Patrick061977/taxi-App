@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.562 - FINALE VERSION! 🎉 (Build 2026-01-17_1700)');
+        console.log('🚕 Funk Taxi App v5.90.564 - TAB-SETTINGS-FIX! ⚙️ (Build 2026-01-17_1245)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.90.562 - FINALE VERSION! 🎉 (Build 20260117-1700)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚙️ Version 5.90.564 - TAB-SETTINGS-FIX! ⚙️ (Build 20260117-1245)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -14424,6 +14424,16 @@ Aktuell: ${currentNum}`;
                     if (typeof window.reloadDebugUI === 'function') {
                         console.log('🔄 Lade Debug-Logs in UI...');
                         window.reloadDebugUI();
+                    }
+                }, 100);
+            }
+            
+            // 🆕 v5.90.563: Tab-Settings-Panel laden bei Admin-View!
+            if (view === 'admin') {
+                setTimeout(() => {
+                    if (typeof initTabSettingsPanel === 'function') {
+                        console.log('⚙️ Lade Tab-Einstellungen Panel...');
+                        initTabSettingsPanel();
                     }
                 }, 100);
             }
@@ -68445,21 +68455,28 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         
         // 🆕 v5.90.29: TAB-EINSTELLUNGEN - EINFACH UND KLAR!
         const ALL_TABS = [
+            { id: 'express-booking', name: '⚡ Express-Booking', admin: true },
+            { id: 'simulator', name: '🎮 Simulator', admin: true },
             { id: 'passenger', name: '🚕 Taxi buchen', admin: false },
-            { id: 'quick-booking', name: '⚡ Schnellbuchung', admin: true },
-            { id: 'calendar', name: '📅 Kalender', admin: true },
-            { id: 'rechnung', name: '📱 Rechnung', admin: true },
-            { id: 'fahrplan', name: '🚌 Fahrplan', admin: false },
-            { id: 'history', name: '📋 Verlauf', admin: false },
+            { id: 'schedule', name: '📅 Termine', admin: false },
+            { id: 'history', name: '📜 Verlauf', admin: false },
+            { id: 'calendar', name: '📆 Kalender', admin: true },
+            { id: 'rechnung', name: '🧾 Rechnung', admin: true },
             { id: 'hotel-calendar', name: '🏨 Hotel-Kalender', admin: true },
+            { id: 'quick-booking', name: '⚡ Schnellbuchung', admin: true },
             { id: 'driver', name: '🚗 Fahrer', admin: false },
+            { id: 'crm', name: '👥 CRM', admin: true },
+            { id: 'email-inbox', name: '📧 E-Mail', admin: true },
             { id: 'admin', name: '⚙️ Admin', admin: true },
-            { id: 'shift-plan', name: '📱 Schichtplan', admin: true },
+            { id: 'fleet-overview', name: '🚗 Fahrzeug-Übersicht', admin: true },
+            { id: 'shift-plan', name: '📋 Schichtplan', admin: true },
+            { id: 'system-diagnostics', name: '🔍 System-Diagnose', admin: true },
+            { id: 'live-monitor', name: '📊 Live-Monitor', admin: true },
             { id: 'debug', name: '🐛 Debug', admin: true },
             { id: 'ai-assistant', name: '🤖 AI-Assistent', admin: true },
             { id: 'booking-requests', name: '📬 Anfragen', admin: true },
-            { id: 'backup', name: '🔽 Backup', admin: true },
             { id: 'poi-management', name: '📍 POI-Verwaltung', admin: true },
+            { id: 'backup', name: '💾 Backup', admin: true },
             { id: 'archive', name: '🗄️ Archiv', admin: true }
         ];
         
@@ -70038,7 +70055,6 @@ async function returnVehicleToBase(vehicle) {
         '#10b981'  // Grün für Rückfahrt
     );
 }
-}
 
 async function calculateAndDrawRoute(vehicle, from, to, color) {
     try {
@@ -70689,6 +70705,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎉 v5.90.562
+        ⚙️ v5.90.564
     </div>
 </div>

@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.573 - RESTAURANT-KATEGORIE! 🍽️ (Build 2026-01-17_1510)');
+        console.log('🚕 Funk Taxi App v5.90.574 - KOMPLETT NEU! 🎉 (Build 2026-01-17_1515)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🍽️ Version 5.90.573 - RESTAURANT-KATEGORIE! 🍽️ (Build 20260117-1510)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎉 Version 5.90.574 - KOMPLETT NEU! 🎉 (Build 20260117-1515)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2065,7 +2065,7 @@
                 <label>📍 Abholort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <div style="flex:1;position:relative;">
-                        <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" oninput="toggleClearButton('pickup')" style="width:100%;padding-right:40px;">
+                        <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" oninput="toggleClearButton('pickup')" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         <button id="clear-pickup-btn" onclick="clearField('pickup')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
                             ✕
                         </button>
@@ -2130,7 +2130,7 @@
                 <label>🎯 Zielort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <div style="flex:1;position:relative;">
-                        <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" oninput="toggleClearButton('destination')" style="width:100%;padding-right:40px;">
+                        <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" oninput="toggleClearButton('destination')" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         <button id="clear-destination-btn" onclick="clearField('destination')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
                             ✕
                         </button>
@@ -44142,18 +44142,18 @@ Funk Taxi Team`;
             let finalAddress = universalMapPicker.marker.pickedAddress;
             let poiName = null;
             
-            // 🆕 v5.90.572: Mit POI-Name?
+            // 🆕 v5.90.574: Mit POI-Name?
             if (withPOI && selectedPOIIndex !== null && universalMapPicker.nearbyPOIs) {
                 const poi = universalMapPicker.nearbyPOIs[selectedPOIIndex];
                 if (poi && poi.name) {
                     poiName = poi.name;
                     
-                    // 🆕 v5.90.572: Prüfe ob CRM-Feld (edit-customer-address)
+                    // 🆕 v5.90.574: Prüfe ob CRM-Feld (edit-customer-address)
                     const isCRMField = universalMapPicker.targetInputId === 'edit-customer-address';
                     
                     if (isCRMField) {
                         // CRM: Name NICHT in Adresse schreiben, nur pure Adresse
-                        console.log('✅ v5.90.572: CRM-Feld erkannt - POI-Name separat behandeln');
+                        console.log('✅ v5.90.574: CRM-Feld erkannt - POI-Name separat behandeln');
                         // finalAddress bleibt wie sie ist (nur Adresse)
                         
                         // Versuche Name-Feld zu füllen
@@ -44166,12 +44166,12 @@ Funk Taxi Team`;
                     } else {
                         // Schnellbuchung/andere: Name + Adresse zusammen
                         finalAddress = `${poiName}, ${universalMapPicker.marker.pickedAddress}`;
-                        console.log('✅ v5.90.572: Mit POI (Name + Adresse):', poiName);
+                        console.log('✅ v5.90.574: Mit POI (Name + Adresse):', poiName);
                     }
                 }
             }
             
-            console.log('✅ v5.90.572: Übernehme:', finalAddress);
+            console.log('✅ v5.90.574: Übernehme:', finalAddress);
             console.log('   Für Input:', universalMapPicker.targetInputId);
             
             // Fülle Ziel-Feld
@@ -44183,9 +44183,9 @@ Funk Taxi Team`;
                 const event = new Event('input', { bubbles: true });
                 targetField.dispatchEvent(event);
                 
-                console.log('✅ v5.90.572: Adresse ins Feld geschrieben!');
+                console.log('✅ v5.90.574: Adresse ins Feld geschrieben!');
             } else {
-                console.error('💾 v5.90.572: Ziel-Feld nicht gefunden:', universalMapPicker.targetInputId);
+                console.error('💾 v5.90.574: Ziel-Feld nicht gefunden:', universalMapPicker.targetInputId);
             }
             
             // Custom Callback?
@@ -70665,20 +70665,20 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 
 console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 
-// 🆕 v5.90.571: Löschen-Buttons für Abholort/Zielort
+// 🆕 v5.90.574: Löschen-Buttons für Abholort/Zielort
 function toggleClearButton(fieldId) {
     const field = document.getElementById(fieldId);
     const btn = document.getElementById(`clear-${fieldId}-btn`);
     
     if (field && btn) {
-        btn.style.display = field.value.trim() ? 'block' : 'none';
+        btn.style.display = field.value.trim() ? "block" : "none";
     }
 }
 
 function clearField(fieldId) {
     const field = document.getElementById(fieldId);
     if (field) {
-        field.value = '';
+        field.value = "";
         toggleClearButton(fieldId);
         field.focus();
     }
@@ -70946,6 +70946,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🍽️ v5.90.573
+        🎉 v5.90.574
     </div>
 </div>

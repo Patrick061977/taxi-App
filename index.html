@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.597 - START-TAB FIX! 📑 (Build 2026-01-17_2200)');
+        console.log('🚕 Funk Taxi App v5.90.598 - SYNTAX-FIX! ✅ (Build 2026-01-17_2300)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📑 Version 5.90.597 - START-TAB! 📑 (Build 20260117-2200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">✅ Version 5.90.598 - SYNTAX-FIX! ✅ (Build 20260117-2300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -32060,8 +32060,6 @@ function showDiagnosticDashboard() {
     document.body.appendChild(div);
 }
 
-    document.body.appendChild(div);
-}
 
 // Export Log
 function exportDiagnosticLog() {
@@ -32258,7 +32256,7 @@ async function initBatteryMonitor() {
     try {
         const battery = await navigator.getBattery();
         
-        console.log('📑 v5.90.597: Battery Monitor aktiviert!');
+        console.log('✅ v5.90.598: Battery Monitor aktiviert!');
         console.log('   Akku:', Math.round(battery.level * 100) + '%');
         console.log('   Lädt:', battery.charging ? 'Ja' : 'Nein');
         
@@ -71351,7 +71349,6 @@ function addSimRide() {
     logSimEvent(`➕ Neue Fahrt: ${simRides[simRides.length-1].customerName} | ${pickupAddr.name} → ${destAddr.name} (${new Date(pickupTime).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})})`);
     renderSimulator();
 }
-}
 
 let rideGenActive = false;
 
@@ -71911,7 +71908,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📑 v5.90.597
+        ✅ v5.90.598
     </div>
 </div>
 

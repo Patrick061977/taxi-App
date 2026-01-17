@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.570 - PERFORMANCE FIX! ⚡ (Build 2026-01-17_1430)');
+        console.log('🚕 Funk Taxi App v5.90.572 - CRM POI-NAME FIX! 🏨 (Build 2026-01-17_1500)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.570 - PERFORMANCE FIX! ⚡ (Build 20260117-1430)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🏨 Version 5.90.572 - CRM POI-NAME FIX! 🏨 (Build 20260117-1500)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2064,7 +2064,12 @@
             <div class="input-group">
                 <label>📍 Abholort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" style="flex:1;">
+                    <div style="flex:1;position:relative;">
+                        <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" oninput="toggleClearButton('pickup')" style="width:100%;padding-right:40px;">
+                        <button id="clear-pickup-btn" onclick="clearField('pickup')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
+                            ✕
+                        </button>
+                    </div>
                     <button onclick="openUniversalMapPicker('pickup', '📍 Abholort auf Karte wählen')" style="padding:12px 14px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Auf Karte wählen">
                         🗺️
                     </button>
@@ -2124,13 +2129,14 @@
             <div class="input-group">
                 <label>🎯 Zielort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" style="flex:1;">
+                    <div style="flex:1;position:relative;">
+                        <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" oninput="toggleClearButton('destination')" style="width:100%;padding-right:40px;">
+                        <button id="clear-destination-btn" onclick="clearField('destination')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
+                            ✕
+                        </button>
+                    </div>
                     <button onclick="openUniversalMapPicker('destination', '🎯 Zielort auf Karte wählen')" style="padding:12px 14px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Auf Karte wählen">
                         🗺️
-                    </button>
-                    <!-- 🆕 v5.90.77: ROTES X - Nur Ziel ändern! -->
-                    <button id="clear-destination-btn" onclick="clearDestinationOnly()" style="display:none;padding:10px 12px;border:2px solid #ef4444;background:#fee2e2;color:#991b1b;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Nur Ziel ändern">
-                        💾
                     </button>
                     <button onclick="saveLocationPOI('destination')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
                         ⭐
@@ -44131,17 +44137,38 @@ Funk Taxi Team`;
             }
             
             let finalAddress = universalMapPicker.marker.pickedAddress;
+            let poiName = null;
             
-            // 🆕 v5.90.539: Mit POI-Name?
+            // 🆕 v5.90.572: Mit POI-Name?
             if (withPOI && selectedPOIIndex !== null && universalMapPicker.nearbyPOIs) {
                 const poi = universalMapPicker.nearbyPOIs[selectedPOIIndex];
                 if (poi && poi.name) {
-                    finalAddress = `${poi.name}, ${universalMapPicker.marker.pickedAddress}`;
-                    console.log('✅ v5.90.539: Mit POI:', poi.name);
+                    poiName = poi.name;
+                    
+                    // 🆕 v5.90.572: Prüfe ob CRM-Feld (edit-customer-address)
+                    const isCRMField = universalMapPicker.targetInputId === 'edit-customer-address';
+                    
+                    if (isCRMField) {
+                        // CRM: Name NICHT in Adresse schreiben, nur pure Adresse
+                        console.log('✅ v5.90.572: CRM-Feld erkannt - POI-Name separat behandeln');
+                        // finalAddress bleibt wie sie ist (nur Adresse)
+                        
+                        // Versuche Name-Feld zu füllen
+                        const nameField = document.getElementById('edit-customer-name');
+                        if (nameField && !nameField.value.trim()) {
+                            // Nur wenn Name-Feld leer ist!
+                            nameField.value = poiName;
+                            console.log('✅ POI-Name ins Name-Feld geschrieben:', poiName);
+                        }
+                    } else {
+                        // Schnellbuchung/andere: Name + Adresse zusammen
+                        finalAddress = `${poiName}, ${universalMapPicker.marker.pickedAddress}`;
+                        console.log('✅ v5.90.572: Mit POI (Name + Adresse):', poiName);
+                    }
                 }
             }
             
-            console.log('✅ v5.90.539: Übernehme:', finalAddress);
+            console.log('✅ v5.90.572: Übernehme:', finalAddress);
             console.log('   Für Input:', universalMapPicker.targetInputId);
             
             // Fülle Ziel-Feld
@@ -44153,15 +44180,16 @@ Funk Taxi Team`;
                 const event = new Event('input', { bubbles: true });
                 targetField.dispatchEvent(event);
                 
-                console.log('✅ v5.90.539: Adresse ins Feld geschrieben!');
+                console.log('✅ v5.90.572: Adresse ins Feld geschrieben!');
             } else {
-                console.error('💾 v5.90.539: Ziel-Feld nicht gefunden:', universalMapPicker.targetInputId);
+                console.error('💾 v5.90.572: Ziel-Feld nicht gefunden:', universalMapPicker.targetInputId);
             }
             
             // Custom Callback?
             if (universalMapPicker.onConfirm && typeof universalMapPicker.onConfirm === 'function') {
                 universalMapPicker.onConfirm({
                     address: finalAddress,
+                    poiName: poiName,
                     lat: universalMapPicker.marker.pickedLat,
                     lon: universalMapPicker.marker.pickedLon,
                     data: universalMapPicker.marker.pickedData
@@ -70630,6 +70658,25 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
+
+// 🆕 v5.90.571: Löschen-Buttons für Abholort/Zielort
+function toggleClearButton(fieldId) {
+    const field = document.getElementById(fieldId);
+    const btn = document.getElementById(`clear-${fieldId}-btn`);
+    
+    if (field && btn) {
+        btn.style.display = field.value.trim() ? 'block' : 'none';
+    }
+}
+
+function clearField(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.value = '';
+        toggleClearButton(fieldId);
+        field.focus();
+    }
+}
     </script>
 
 
@@ -70893,6 +70940,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⚡ v5.90.570
+        🏨 v5.90.572
     </div>
 </div>

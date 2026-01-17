@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.577 - CRM RESTAURANT SIDEBAR! 🍽️ (Build 2026-01-17_1535)');
+        console.log('🚕 Funk Taxi App v5.90.580 - LÖSCH-BUTTON-FIX (X)! 🗑️ (Build 2026-01-17_1630)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🍽️ Version 5.90.577 - CRM RESTAURANT SIDEBAR! 🍽️ (Build 20260117-1535)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗑️ Version 5.90.580 - LÖSCH-BUTTON (X)! 🗑️ (Build 20260117-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -3184,6 +3184,10 @@
             ">
                 ≡
             </button>
+        </div>
+        
+        <!-- 🆕 v5.90.578: STATUS-BOX (FREI/BESETZT) -->\n        <div id="driver-status-box" style="margin:10px;">
+            <!-- Wird dynamisch von updateDriverViewIsarfunk() gefüllt -->
         </div>
         
         <!-- 🆕 v5.90.491: AKTUELLE FAHRTEN DIREKT ANZEIGEN! -->
@@ -14293,6 +14297,29 @@ Aktuell: ${currentNum}`;
             
             currentView = view;
             
+            // 🆕 v5.90.578: KARTEN INITIALISIEREN!
+            if (view === 'express-booking') {
+                setTimeout(() => {
+                    console.log('🗺️ v5.90.578: Initialisiere Express-Booking Karte...');
+                    if (typeof initExpressBooking === 'function') {
+                        initExpressBooking();
+                    } else {
+                        console.error('❌ initExpressBooking() nicht gefunden!');
+                    }
+                }, 300);
+            }
+            
+            if (view === 'simulator') {
+                setTimeout(() => {
+                    console.log('🗺️ v5.90.578: Initialisiere Simulator Karte...');
+                    if (typeof initSimulator === 'function') {
+                        initSimulator();
+                    } else {
+                        console.error('❌ initSimulator() nicht gefunden!');
+                    }
+                }, 300);
+            }
+            
             // 🆕 v5.90.25: Speichere aktiven Tab!
             localStorage.setItem('lastActiveTab', view);
             console.log('💾 Aktiver Tab gespeichert:', view);
@@ -15412,7 +15439,59 @@ Aktuell: ${currentNum}`;
                         }
                     }
                 } catch (e) {
-                    console.error('💾 Fehler bei GPS Status:', e);
+                    console.error('❌ Fehler bei GPS Status:', e);
+                }
+                
+                // 🆕 v5.90.578: STATUS-BOX - FREI oder BESETZT?
+                try {
+                    const statusBoxEl = document.getElementById('driver-status-box');
+                    if (statusBoxEl) {
+                        // Prüfe ALLE Fahrten (auch alte!) auf blockierende Status
+                        const blockingRide = rides.find(r => 
+                            r.vehicleId === currentVehicle && 
+                            (r.status === 'assigned' || r.status === 'accepted' || 
+                             r.status === 'picked_up' || r.status === 'on_way')
+                        );
+                        
+                        if (blockingRide) {
+                            // 🔴 BESETZT
+                            const pickupDate = blockingRide.pickupTime ? 
+                                new Date(blockingRide.pickupTime).toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit'}) : 
+                                'Unbekannt';
+                            const customerName = blockingRide.customerName || blockingRide.pickup || 'Unbekannt';
+                            
+                            statusBoxEl.innerHTML = `
+                                <div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(239,68,68,0.3);margin-bottom:15px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                        <div style="font-size:24px;">🔴</div>
+                                        <div style="font-weight:700;font-size:18px;">BESETZT</div>
+                                    </div>
+                                    <div style="font-size:14px;opacity:0.9;margin-bottom:12px;">
+                                        Aktive Fahrt: <strong>${customerName}</strong> (${pickupDate})
+                                    </div>
+                                    <button onclick="quickCompleteBlockingRide('${blockingRide.id}')" 
+                                            style="width:100%;padding:12px;background:white;color:#ef4444;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;">
+                                        🔄 Fahrt abschließen
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            // 🟢 FREI
+                            statusBoxEl.innerHTML = `
+                                <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(16,185,129,0.3);margin-bottom:15px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+                                        <div style="font-size:24px;">🟢</div>
+                                        <div style="font-weight:700;font-size:18px;">FREI</div>
+                                    </div>
+                                    <div style="font-size:14px;opacity:0.9;">
+                                        Bereit für neue Buchungen
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                } catch (e) {
+                    console.error('❌ Fehler bei Status-Box:', e);
                 }
                 
                 // 🆕 v5.90.366: Rides filtering with complete safety
@@ -15734,6 +15813,123 @@ Aktuell: ${currentNum}`;
                 gpsIcon.textContent = '💾';
                 gpsText.textContent = 'GPS AUS';
                 gpsText.style.color = '#6b7280';
+            }
+            
+            // 🆕 v5.90.578: Update Status-Indikator!
+            updateDriverStatusIndicator();
+        }
+        
+        // 🆕 v5.90.578: STATUS-INDIKATOR FÜR FAHRER!
+        function updateDriverStatusIndicator() {
+            if (!currentVehicle) return;
+            
+            const indicator = document.getElementById('driver-status-indicator');
+            if (!indicator) return;
+            
+            // Suche ALLE aktiven Fahrten (auch alte!) die das Fahrzeug blockieren
+            const blockingRide = rides.find(r => 
+                r.vehicleId === currentVehicle && 
+                (r.status === 'assigned' || r.status === 'accepted' || r.status === 'on_way' || r.status === 'picked_up')
+            );
+            
+            if (blockingRide) {
+                // 🔴 BESETZT!
+                const customerName = blockingRide.customerName || blockingRide.guestName || 'Unbekannt';
+                const pickupDate = new Date(blockingRide.pickupTimestamp || blockingRide.timestamp);
+                const dateStr = pickupDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                const timeStr = pickupDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                
+                const isOld = pickupDate.toDateString() !== new Date().toDateString();
+                
+                indicator.style.display = 'block';
+                indicator.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+                indicator.style.color = 'white';
+                indicator.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <div style="font-size: 32px;">🔴</div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">
+                                BESETZT
+                            </div>
+                            <div style="font-size: 13px; opacity: 0.9;">
+                                Du hast eine aktive Fahrt
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                        <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px;">
+                            📍 ${customerName}
+                        </div>
+                        <div style="font-size: 13px; opacity: 0.9; margin-bottom: 4px;">
+                            📅 ${dateStr} • ⏰ ${timeStr}
+                        </div>
+                        ${isOld ? `
+                            <div style="font-size: 12px; background: rgba(251,191,36,0.3); color: #fbbf24; padding: 6px 10px; border-radius: 6px; margin-top: 8px; font-weight: 600;">
+                                ⚠️ Alte Fahrt (von gestern/früher)
+                            </div>
+                        ` : ''}
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">
+                            Status: ${blockingRide.status}
+                        </div>
+                    </div>
+                    
+                    <button onclick="completeBlockingRide('${blockingRide.id}')" style="
+                        width: 100%;
+                        background: white;
+                        color: #dc2626;
+                        border: none;
+                        padding: 14px;
+                        border-radius: 8px;
+                        font-size: 15px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                    ">
+                        ✅ Fahrt abschließen & freigeben
+                    </button>
+                `;
+                
+            } else {
+                // 🟢 FREI!
+                indicator.style.display = 'block';
+                indicator.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                indicator.style.color = 'white';
+                indicator.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="font-size: 32px;">🟢</div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">
+                                FREI
+                            </div>
+                            <div style="font-size: 13px; opacity: 0.9;">
+                                Bereit für neue Buchungen
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // 🆕 v5.90.578: Blockierende Fahrt abschließen!
+        async function completeBlockingRide(rideId) {
+            if (!confirm('Möchtest du diese Fahrt wirklich abschließen?')) return;
+            
+            try {
+                await db.ref(`rides/${rideId}`).update({
+                    status: 'completed',
+                    completedAt: Date.now(),
+                    completedBy: currentUser.email
+                });
+                
+                alert('✅ Fahrt abgeschlossen! Du bist jetzt frei.');
+                
+                // Update View
+                updateDriverViewV295();
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Abschließen:', error);
+                alert('❌ Fehler: ' + error.message);
             }
         }
         
@@ -25984,13 +26180,18 @@ Aktuell: ${currentNum}`;
                     <div id="${wp.containerId}" class="input-group" style="margin-bottom:15px;">
                         <label>🛑 Zwischenstopp ${index + 1}</label>
                         <div style="display:flex;gap:8px;align-items:center;">
-                            <input 
-                                type="text" 
-                                id="${wp.autocompleteId}" 
-                                placeholder="z.B. Sparkasse Seestraße"
-                                value="${wp.address}"
-                                oninput="handleWaypointInput(${wp.id})"
-                                style="flex:1;">
+                            <div style="flex:1;position:relative;">
+                                <input 
+                                    type="text" 
+                                    id="${wp.autocompleteId}" 
+                                    placeholder="z.B. Sparkasse Seestraße"
+                                    value="${wp.address}"
+                                    oninput="handleWaypointInput(${wp.id}); toggleClearButton('${wp.autocompleteId}')"
+                                    style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                <button id="clear-${wp.autocompleteId}-btn" onclick="clearField('${wp.autocompleteId}')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
+                                    ✕
+                                </button>
+                            </div>
                             <button 
                                 onclick="saveLocationPOI('${wp.autocompleteId}')" 
                                 style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" 
@@ -26001,7 +26202,7 @@ Aktuell: ${currentNum}`;
                                 onclick="removeWaypoint(${wp.id})" 
                                 style="padding:12px 14px;border:2px solid #ef4444;background:#fee2e2;color:#991b1b;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" 
                                 title="Zwischenstopp entfernen">
-                                💾
+                                🗑️
                             </button>
                         </div>
                         <div class="autocomplete-dropdown" id="${wp.dropdownId}"></div>
@@ -31498,35 +31699,34 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 },
                 { 
                     enableHighAccuracy: true, 
-                    maximumAge: 0,       // 🆕 v5.90.525: IMMER frische Position!
-                    timeout: 10000       // 🆕 v5.90.525: 10 Sek Timeout
+                    maximumAge: 30000,   // 🆕 v5.90.578: 30 Sekunden Cache (Akku schonen!)
+                    timeout: 15000       // 🆕 v5.90.578: 15 Sek Timeout
                 }
             );
             
             console.log('🎯 GPS watchId:', watchId);
             
-            // 🆕 v5.90.525: AGGRESSIVE GPS MAP-NULL-CHECK-FIX - Alle 5 Sekunden!
+            // 🆕 v5.90.578: GPS Backup-Check - Alle 60 Sekunden (Akku schonen!)
             window.gpsRegularInterval = setInterval(() => {
                 if (!isOnline || !currentVehicle) {
                     return;
                 }
                 
-                // 🆕 v5.90.525: IMMER GPS holen (auch wenn watchPosition läuft!)
-                // Grund: Browser schläft → watchPosition pausiert!
-                console.log('📍 GPS (5s Intervall): Hole Position...');
+                // 🆕 v5.90.578: Backup wenn watchPosition hängt
+                console.log('📍 GPS (60s Backup): Hole Position...');
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
                         handleGPSPosition(pos, currentTrackingRideId);
-                        console.log('📍 GPS (30s Intervall): Position erhalten');
+                        console.log('📍 GPS (60s Backup): Position erhalten');
                     },
                     (err) => {
-                        console.warn('⚠️ GPS 30s Intervall-Fehler:', err.message);
+                        console.warn('⚠️ GPS 60s Backup-Fehler:', err.message);
                     },
-                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+                    { enableHighAccuracy: true, maximumAge: 30000, timeout: 15000 }
                 );
-            }, 5000); // 🆕 v5.90.525: Alle 5 Sekunden!
+            }, 60000); // 🆕 v5.90.578: Alle 60 Sekunden (Akku schonen!)
             
-            console.log('✅ GPS 5s Intervall gestartet (aggressiv!)');
+            console.log('✅ GPS 60s Backup-Intervall gestartet');
             
             // 🆕 v5.61.0: GPS-HEALTH-MONITOR - Warnt Fahrer bei GPS-Problemen!
             startGPSHealthMonitor();
@@ -31584,19 +31784,53 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         // 🆕 Separate Funktion für GPS-Position-Handling
+        // 🆕 v5.90.578: Letzte gesendete Position speichern
+        let lastSentPosition = null;
+        
         function handleGPSPosition(pos, rideId) {
             // 🔥 v5.90.375: UMFANGREICHES GPS DEBUG LOGGING!
             console.log('═══════════════════════════════════════════════════════════');
-            console.log('📍 v5.90.375: GPS POSITION ERHALTEN');
+            console.log('📍 v5.90.578: GPS POSITION ERHALTEN');
             console.log('═══════════════════════════════════════════════════════════');
             console.log('   Fahrzeug:', currentVehicle);
             console.log('   Fahrzeug-Name:', VEHICLES[currentVehicle]?.name || 'Unbekannt');
-            console.log('   Online:', isOnline ? '✅' : '💾', isOnline);
+            console.log('   Online:', isOnline ? '✅' : '❌', isOnline);
             console.log('   Position:', pos.coords.latitude.toFixed(6), pos.coords.longitude.toFixed(6));
             console.log('   Genauigkeit:', Math.round(pos.coords.accuracy), 'm');
             console.log('   Timestamp:', new Date().toLocaleString('de-DE'));
-            console.log('   Firebase Ready:', isFirebaseReady ? '✅' : '💾');
+            console.log('   Firebase Ready:', isFirebaseReady ? '✅' : '❌');
             console.log('   rideId:', rideId || 'Standby');
+            
+            // 🆕 v5.90.578: Prüfe ob Bewegung signifikant (>10m)
+            if (lastSentPosition) {
+                const distance = calculateDistance(
+                    lastSentPosition.lat, lastSentPosition.lon,
+                    pos.coords.latitude, pos.coords.longitude
+                );
+                const timeSince = Date.now() - lastSentPosition.timestamp;
+                
+                console.log('   Distanz seit letztem Send:', Math.round(distance * 1000), 'm');
+                console.log('   Zeit seit letztem Send:', Math.round(timeSince / 1000), 's');
+                
+                // 🆕 v5.90.578: Nur senden wenn >10m ODER >60s vergangen
+                if (distance < 0.01 && timeSince < 60000) {
+                    console.log('⏭️ v5.90.578: Position nicht signifikant geändert - NICHT senden (Akku schonen!)');
+                    console.log('═══════════════════════════════════════════════════════════');
+                    
+                    // Update nur UI, NICHT Firebase!
+                    const gpsIndicator = document.getElementById('gps-indicator');
+                    const gpsDot = document.getElementById('gps-dot');
+                    const gpsStatus = document.getElementById('gps-status');
+                    if (gpsIndicator && gpsDot && gpsStatus) {
+                        gpsIndicator.style.display = 'flex';
+                        gpsDot.classList.add('online');
+                        gpsStatus.textContent = '📍 GPS: ' + Math.round(pos.coords.accuracy) + 'm';
+                    }
+                    return; // ← NICHT zu Firebase senden!
+                }
+                
+                console.log('✅ v5.90.578: Position signifikant geändert - SENDE zu Firebase!');
+            }
             
             // 🔥 v5.90.370: Track GPS Success
             trackGPSStatus('active', pos);
@@ -31695,9 +31929,17 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 db.ref('rides/' + rideId + '/driverLocation').set(location).then(() => {
                     console.log('✅ GPS → rides/' + rideId + '/driverLocation ERFOLGREICH!');
                 }).catch(err => {
-                    console.error('💾 Fehler beim GPS-Upload zur Fahrt:', err);
+                    console.error('❌ Fehler beim GPS-Upload zur Fahrt:', err);
                 });
             }
+            
+            // 🆕 v5.90.578: Speichere letzte gesendete Position
+            lastSentPosition = {
+                lat: location.lat,
+                lon: location.lon,
+                timestamp: Date.now()
+            };
+            console.log('💾 v5.90.578: Letzte Position gespeichert für Filter');
         }
 
         function stopDriverTracking() {
@@ -33225,6 +33467,47 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             } catch (e) {
                 console.error('💾 Fehler:', e);
                 alert('Fehler beim Abschließen: ' + e.message);
+            }
+        }
+        
+        // 🆕 v5.90.578: Schnell-Abschließen für blockierende Fahrten
+        async function quickCompleteBlockingRide(rideId) {
+            if (!confirm('🔄 Fahrt jetzt abschließen?\n\nDas Fahrzeug wird danach wieder als FREI angezeigt.')) {
+                return;
+            }
+            
+            try {
+                console.log('🔄 v5.90.578: Schließe blockierende Fahrt ab:', rideId);
+                
+                // Lade Fahrt-Daten
+                const rideSnapshot = await db.ref('rides/' + rideId).once('value');
+                const ride = rideSnapshot.val();
+                
+                if (!ride) {
+                    alert('❌ Fahrt nicht gefunden!');
+                    return;
+                }
+                
+                // Setze Status auf completed
+                await db.ref('rides/' + rideId).update({
+                    status: 'completed',
+                    completedTimestamp: Date.now(),
+                    completedBy: currentUser ? (currentUser.email || currentUser.phoneNumber || currentUser.uid) : 'Fahrer',
+                    actualPrice: ride.estimatedPrice || ride.price || 0,
+                    paymentMethod: 'Unbekannt'
+                });
+                
+                console.log('✅ v5.90.578: Fahrt abgeschlossen!');
+                alert('✅ Fahrt abgeschlossen!\n\nFahrzeug ist jetzt FREI.');
+                
+                // Update View
+                if (typeof updateDriverView === 'function') {
+                    updateDriverView();
+                }
+                
+            } catch (error) {
+                console.error('❌ v5.90.578: Fehler beim Abschließen:', error);
+                alert('❌ Fehler beim Abschließen: ' + error.message);
             }
         }
         
@@ -70710,6 +70993,17 @@ function clearField(fieldId) {
         field.value = "";
         toggleClearButton(fieldId);
         field.focus();
+        
+        // 🆕 v5.90.580: Bei Waypoints auch Daten löschen!
+        if (fieldId.startsWith('waypoint-')) {
+            const waypointId = parseInt(fieldId.split('-')[1]);
+            const waypoint = waypoints.find(w => w.id === waypointId);
+            if (waypoint) {
+                waypoint.address = '';
+                waypoint.coords = null;
+                console.log('🗑️ v5.90.580: Waypoint gelöscht:', waypointId);
+            }
+        }
     }
 }
     </script>
@@ -70975,6 +71269,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🍽️ v5.90.577
+        🗑️ v5.90.580
     </div>
 </div>

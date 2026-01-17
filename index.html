@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.582 - FAHRER-TAB GESPERRT! 🔒 (Build 2026-01-17_1720)');
+        console.log('🚕 Funk Taxi App v5.90.583 - EXPRESS-BOOKING FREIGEGEBEN! ⚡ (Build 2026-01-17_1730)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔒 Version 5.90.582 - FAHRER-TAB GESPERRT! 🔒 (Build 20260117-1720)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.583 - EXPRESS FREIGEGEBEN! ⚡ (Build 20260117-1730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -14962,7 +14962,7 @@ Aktuell: ${currentNum}`;
         // Standard-Berechtigungen
         function getDefaultPermissions() {
             return {
-                admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive'],
+                admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive', 'express-booking', 'simulator'],
                 driver: ['driver'], // 🆕 v5.90.525: NUR Fahrer-Tab!
                 passenger: ['passenger', 'history']  // 🔧 v5.90.89: Nur Buchen + Meine Fahrten!
             };
@@ -14977,7 +14977,7 @@ Aktuell: ${currentNum}`;
                 const snapshot = await settingsRef.once('value');
                 let permissions = snapshot.exists() ? snapshot.val() : null;
                 
-                const allTabs = ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive'];
+                const allTabs = ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive', 'express-booking', 'simulator'];
                 
                 // Wenn keine Permissions oder Admin hat nicht alle Tabs
                 if (!permissions || !permissions.admin || permissions.admin.length < allTabs.length) {
@@ -15036,7 +15036,7 @@ Aktuell: ${currentNum}`;
             const container = document.getElementById('tab-permissions-container');
             if (!container) return;
             
-            const allTabIds = ['passenger', 'schedule', 'history', 'calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management'];
+            const allTabIds = ['passenger', 'schedule', 'history', 'calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'express-booking', 'simulator'];
             const roles = ['admin', 'driver', 'passenger'];
             
             let html = '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">';
@@ -71318,6 +71318,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔒 v5.90.582
+        ⚡ v5.90.583
     </div>
 </div>

@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.591 - TABS + RECHNUNG FIX! 🎯 (Build 2026-01-17_1845)');
+        console.log('🚕 Funk Taxi App v5.90.595 - PHONE2 FIX! 📞 (Build 2026-01-17_2015)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.591 - TABS + RECHNUNG! 🎯 (Build 20260117-1845)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.595 - PHONE2 FIX! 📞 (Build 20260117-2015)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -31839,11 +31839,526 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             }, 10000); // Alle 10 Sekunden prüfen
         }
         
+// 🆕 v5.90.592: DIAGNOSE-SYSTEM
+
+// Globale Metriken
+window.diagnostics = {
+    gps: {
+        updates: 0,
+        errors: 0,
+        lastUpdate: null,
+        accuracy: [],
+        updateTimes: []
+    },
+    firebase: {
+        writes: 0,
+        reads: 0,
+        errors: 0,
+        latencies: []
+    },
+    system: {
+        memoryUsage: [],
+        activeIntervals: 0,
+        activeListeners: 0,
+        cpuHigh: false
+    },
+    events: {
+        ridesAccepted: 0,
+        statusChanges: 0,
+        errors: []
+    },
+    startTime: Date.now()
+};
+
+// Sammle GPS-Metriken
+function trackGPSUpdate(position) {
+    const now = Date.now();
+    const metrics = window.diagnostics.gps;
+    
+    metrics.updates++;
+    metrics.lastUpdate = now;
+    
+    if (position.coords.accuracy) {
+        metrics.accuracy.push(position.coords.accuracy);
+        if (metrics.accuracy.length > 20) metrics.accuracy.shift();
+    }
+    
+    if (metrics.updateTimes.length > 0) {
+        const timeSinceLast = now - metrics.updateTimes[metrics.updateTimes.length - 1];
+        // Log wenn Updates zu häufig (< 5s) oder zu selten (> 60s)
+        if (timeSinceLast < 5000 || timeSinceLast > 60000) {
+            console.warn(`⚠️ GPS Update Timing: ${timeSinceLast}ms`);
+        }
+    }
+    
+    metrics.updateTimes.push(now);
+    if (metrics.updateTimes.length > 20) metrics.updateTimes.shift();
+}
+
+// Sammle Firebase-Metriken
+function trackFirebaseWrite(path, duration) {
+    const metrics = window.diagnostics.firebase;
+    metrics.writes++;
+    if (duration) {
+        metrics.latencies.push(duration);
+        if (metrics.latencies.length > 20) metrics.latencies.shift();
+    }
+    
+    // Warnung bei zu vielen Writes
+    if (metrics.writes > 100) {
+        console.warn(`⚠️ Viele Firebase Writes: ${metrics.writes}`);
+    }
+}
+
+function trackFirebaseRead(path, duration) {
+    const metrics = window.diagnostics.firebase;
+    metrics.reads++;
+    if (duration) {
+        metrics.latencies.push(duration);
+        if (metrics.latencies.length > 20) metrics.latencies.shift();
+    }
+}
+
+// Memory Tracking
+function trackMemoryUsage() {
+    if (performance.memory) {
+        const usage = Math.round(performance.memory.usedJSHeapSize / 1048576); // MB
+        window.diagnostics.system.memoryUsage.push(usage);
+        if (window.diagnostics.system.memoryUsage.length > 20) {
+            window.diagnostics.system.memoryUsage.shift();
+        }
+        
+        // Warnung bei > 100 MB
+        if (usage > 100) {
+            console.warn(`⚠️ Hoher Memory-Verbrauch: ${usage} MB`);
+        }
+    }
+}
+
+// Zeige Dashboard
+function showDiagnosticDashboard() {
+    const metrics = window.diagnostics;
+    const runtime = Math.floor((Date.now() - metrics.startTime) / 60000); // Minuten
+    
+    // GPS Stats
+    const avgAccuracy = metrics.gps.accuracy.length > 0 
+        ? Math.round(metrics.gps.accuracy.reduce((a,b) => a+b, 0) / metrics.gps.accuracy.length)
+        : 0;
+    const gpsPerMin = runtime > 0 ? Math.round(metrics.gps.updates / runtime) : 0;
+    
+    // Firebase Stats
+    const writesPerMin = runtime > 0 ? Math.round(metrics.firebase.writes / runtime) : 0;
+    const readsPerMin = runtime > 0 ? Math.round(metrics.firebase.reads / runtime) : 0;
+    const avgLatency = metrics.firebase.latencies.length > 0
+        ? Math.round(metrics.firebase.latencies.reduce((a,b) => a+b, 0) / metrics.firebase.latencies.length)
+        : 0;
+    
+    // Memory Stats
+    const currentMemory = metrics.system.memoryUsage.length > 0
+        ? metrics.system.memoryUsage[metrics.system.memoryUsage.length - 1]
+        : 0;
+    
+    // 🆕 v5.90.594: Battery Stats
+    const batteryLevel = metrics.battery ? metrics.battery.level : null;
+    const batteryCharging = metrics.battery ? metrics.battery.charging : false;
+    const batteryDrain = calculateTotalDrain();
+    const remainingTime = calculateRemainingTime();
+    
+    // Status Icons
+    const gpsStatus = gpsPerMin >= 3 && gpsPerMin <= 10 ? '✅' : '⚠️';
+    const firebaseStatus = writesPerMin < 20 ? '✅' : '⚠️';
+    const memoryStatus = currentMemory < 100 ? '✅' : '⚠️';
+    const batteryStatus = batteryLevel === null ? '⏸️' : (batteryLevel > 20 ? '✅' : '⚠️');
+    
+    // 🆕 Battery HTML
+    let batteryHTML = '';
+    if (batteryLevel !== null) {
+        const drainText = batteryDrain !== null && batteryDrain > 0 
+            ? `${Math.round(batteryDrain)}%/Std` 
+            : 'Berechne...';
+        const remainingText = remainingTime !== null && remainingTime > 0
+            ? `~${Math.round(remainingTime)} Std`
+            : 'Berechne...';
+        
+        batteryHTML = `
+            <div style="margin-bottom:15px;">
+                <div style="color:#10b981;font-weight:700;margin-bottom:8px;">🔋 AKKU-STATUS</div>
+                <div style="padding-left:10px;line-height:1.6;">
+                    ${batteryStatus} Level: ${batteryLevel}%<br>
+                    ${batteryCharging ? '🔌' : '🔋'} Status: ${batteryCharging ? 'Lädt' : 'Entlädt'}<br>
+                    ${batteryDrain < 20 ? '✅' : '⚠️'} Verbrauch: ${drainText}<br>
+                    ${remainingTime > 4 ? '✅' : '⚠️'} Verbleibend: ${remainingText}
+                </div>
+            </div>
+        `;
+    }
+    
+    const html = `
+        <div style="position:fixed;top:10px;right:10px;z-index:999999;background:rgba(0,0,0,0.95);color:white;padding:20px;border-radius:12px;font-family:monospace;font-size:12px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;">
+            <div style="font-size:16px;font-weight:700;margin-bottom:15px;border-bottom:2px solid #3b82f6;padding-bottom:10px;">
+                🔍 FAHRER-APP DIAGNOSE
+                <button onclick="document.getElementById('diagnostic-dashboard').remove()" style="float:right;background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:0;margin:0;">×</button>
+            </div>
+            
+            ${batteryHTML}
+            
+            <div style="margin-bottom:15px;">
+                <div style="color:#3b82f6;font-weight:700;margin-bottom:8px;">📍 GPS STATUS</div>
+                <div style="padding-left:10px;line-height:1.6;">
+                    ${gpsStatus} Updates: ${gpsPerMin}/Min (${metrics.gps.updates} total)<br>
+                    ${avgAccuracy > 0 && avgAccuracy < 50 ? '✅' : '⚠️'} Genauigkeit: ${avgAccuracy}m<br>
+                    ${metrics.gps.lastUpdate ? '✅' : '❌'} Letztes Update: ${metrics.gps.lastUpdate ? 'vor ' + Math.round((Date.now() - metrics.gps.lastUpdate)/1000) + 's' : 'nie'}<br>
+                    ${metrics.gps.errors === 0 ? '✅' : '❌'} Fehler: ${metrics.gps.errors}
+                </div>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <div style="color:#f59e0b;font-weight:700;margin-bottom:8px;">🔥 FIREBASE STATUS</div>
+                <div style="padding-left:10px;line-height:1.6;">
+                    ${firebaseStatus} Writes: ${writesPerMin}/Min (${metrics.firebase.writes} total)<br>
+                    ✅ Reads: ${readsPerMin}/Min (${metrics.firebase.reads} total)<br>
+                    ${avgLatency < 500 ? '✅' : '⚠️'} Latenz: ${avgLatency}ms<br>
+                    ${metrics.firebase.errors === 0 ? '✅' : '❌'} Fehler: ${metrics.firebase.errors}
+                </div>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <div style="color:#8b5cf6;font-weight:700;margin-bottom:8px;">💻 SYSTEM RESSOURCEN</div>
+                <div style="padding-left:10px;line-height:1.6;">
+                    ${memoryStatus} Memory: ${currentMemory} MB<br>
+                    ✅ Laufzeit: ${runtime} Min<br>
+                    ${metrics.events.ridesAccepted > 0 ? '✅' : '⏸️'} Fahrten: ${metrics.events.ridesAccepted}<br>
+                    ${metrics.events.errors.length === 0 ? '✅' : '❌'} App-Fehler: ${metrics.events.errors.length}
+                </div>
+            </div>
+            
+            <div style="margin-top:15px;padding-top:15px;border-top:1px solid #374151;display:flex;gap:10px;">
+                <button onclick="exportDiagnosticLog()" style="flex:1;padding:8px;background:#3b82f6;border:none;border-radius:6px;color:white;font-weight:600;cursor:pointer;">
+                    📋 Log Export
+                </button>
+                <button onclick="resetDiagnostics()" style="flex:1;padding:8px;background:#ef4444;border:none;border-radius:6px;color:white;font-weight:600;cursor:pointer;">
+                    🔄 Reset
+                </button>
+            </div>
+            
+            <div style="margin-top:15px;text-align:center;font-size:11px;color:#9ca3af;">
+                ${gpsStatus === '✅' && firebaseStatus === '✅' && memoryStatus === '✅' ? '🟢 ALLES OK' : ''}
+                ${gpsStatus === '⚠️' || firebaseStatus === '⚠️' || memoryStatus === '⚠️' ? '⚠️ WARNUNGEN' : ''}
+                ${metrics.gps.errors > 0 || metrics.firebase.errors > 0 ? '❌ FEHLER' : ''}
+            </div>
+        </div>
+    `;
+    
+    // Entferne altes Dashboard
+    const old = document.getElementById('diagnostic-dashboard');
+    if (old) old.remove();
+    
+    // Füge neues hinzu
+    const div = document.createElement('div');
+    div.id = 'diagnostic-dashboard';
+    div.innerHTML = html;
+    document.body.appendChild(div);
+}
+
+    document.body.appendChild(div);
+}
+
+// Export Log
+function exportDiagnosticLog() {
+    const metrics = window.diagnostics;
+    const log = {
+        timestamp: new Date().toISOString(),
+        runtime: Math.floor((Date.now() - metrics.startTime) / 60000),
+        gps: metrics.gps,
+        firebase: metrics.firebase,
+        system: metrics.system,
+        events: metrics.events
+    };
+    
+    const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fahrer-diagnose-${Date.now()}.json`;
+    a.click();
+    
+    alert('✅ Diagnose-Log exportiert!');
+}
+
+// Reset
+function resetDiagnostics() {
+    if (confirm('🔄 Statistiken zurücksetzen?')) {
+        window.diagnostics = {
+            gps: { updates: 0, errors: 0, lastUpdate: null, accuracy: [], updateTimes: [] },
+            firebase: { writes: 0, reads: 0, errors: 0, latencies: [] },
+            system: { memoryUsage: [], activeIntervals: 0, activeListeners: 0, cpuHigh: false },
+            events: { ridesAccepted: 0, statusChanges: 0, errors: [] },
+            startTime: Date.now()
+        };
+        showDiagnosticDashboard();
+        alert('✅ Statistiken zurückgesetzt!');
+    }
+}
+
+// Auto-Update Dashboard alle 5 Sekunden
+setInterval(() => {
+    if (document.getElementById('diagnostic-dashboard')) {
+        showDiagnosticDashboard();
+    }
+}, 5000);
+
+// Memory Tracking alle 10 Sekunden
+setInterval(trackMemoryUsage, 10000);
+
+console.log('✅ v5.90.592: Diagnose-System aktiviert!');
+console.log('💡 Nutze showDiagnosticDashboard() zum Öffnen');
+
+// 🆕 v5.90.593: FIREBASE-TRACKING WRAPPER
+
+// Originale Firebase-Funktionen sichern
+const originalUpdate = firebase.database.Reference.prototype.update;
+const originalSet = firebase.database.Reference.prototype.set;
+const originalOnce = firebase.database.Reference.prototype.once;
+const originalOn = firebase.database.Reference.prototype.on;
+
+// WRAPPER: update()
+firebase.database.Reference.prototype.update = function(data) {
+    const start = Date.now();
+    const path = this.toString().split('.com/')[1] || 'unknown';
+    
+    return originalUpdate.call(this, data).then(result => {
+        const duration = Date.now() - start;
+        trackFirebaseWrite(path, duration);
+        return result;
+    }).catch(err => {
+        window.diagnostics.firebase.errors++;
+        console.error('🔥 Firebase Write Error:', err);
+        throw err;
+    });
+};
+
+// WRAPPER: set()
+firebase.database.Reference.prototype.set = function(data) {
+    const start = Date.now();
+    const path = this.toString().split('.com/')[1] || 'unknown';
+    
+    return originalSet.call(this, data).then(result => {
+        const duration = Date.now() - start;
+        trackFirebaseWrite(path, duration);
+        return result;
+    }).catch(err => {
+        window.diagnostics.firebase.errors++;
+        console.error('🔥 Firebase Write Error:', err);
+        throw err;
+    });
+};
+
+// WRAPPER: once() - Read
+firebase.database.Reference.prototype.once = function(...args) {
+    const start = Date.now();
+    const path = this.toString().split('.com/')[1] || 'unknown';
+    
+    return originalOnce.apply(this, args).then(result => {
+        const duration = Date.now() - start;
+        trackFirebaseRead(path, duration);
+        return result;
+    }).catch(err => {
+        window.diagnostics.firebase.errors++;
+        console.error('🔥 Firebase Read Error:', err);
+        throw err;
+    });
+};
+
+console.log('✅ v5.90.593: Firebase-Tracking aktiviert!');
+console.log('📊 Alle Writes/Reads werden jetzt gezählt!');
+
+// 🆕 v5.90.593: GPS-DEBOUNCING
+
+// Letzte gesendete Position speichern
+let lastSentGPSPosition = null;
+let lastGPSWrite = 0;
+
+// Berechne Distanz zwischen 2 Punkten (Haversine)
+function calculateGPSDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Erdradius in Metern
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distanz in Metern
+}
+
+// Prüfe ob GPS-Update geschrieben werden soll
+function shouldWriteGPSUpdate(lat, lon) {
+    const now = Date.now();
+    
+    // REGEL 1: Erste Position IMMER schreiben
+    if (!lastSentGPSPosition) {
+        console.log('📍 v5.90.593: Erste GPS-Position → SCHREIBEN');
+        return true;
+    }
+    
+    // REGEL 2: Mindestens alle 2 Minuten schreiben (Lebenszeichen!)
+    const timeSinceLastWrite = now - lastGPSWrite;
+    if (timeSinceLastWrite > 120000) {
+        console.log('📍 v5.90.593: >2 Min seit letztem Write → SCHREIBEN');
+        return true;
+    }
+    
+    // REGEL 3: Nur bei signifikanter Bewegung (>50m) schreiben
+    const distance = calculateGPSDistance(
+        lastSentGPSPosition.lat,
+        lastSentGPSPosition.lon,
+        lat,
+        lon
+    );
+    
+    if (distance > 50) {
+        console.log(`📍 v5.90.593: Bewegung ${Math.round(distance)}m → SCHREIBEN`);
+        return true;
+    }
+    
+    console.log(`📍 v5.90.593: Bewegung nur ${Math.round(distance)}m → SKIP (Akku schonen!)`);
+    return false;
+}
+
+// Markiere Position als geschrieben
+function markGPSPositionWritten(lat, lon) {
+    lastSentGPSPosition = { lat, lon };
+    lastGPSWrite = Date.now();
+}
+
+console.log('✅ v5.90.593: GPS-Debouncing aktiviert!');
+console.log('📍 Schreibt nur bei >50m Bewegung oder >2 Min');
+
+// 🆕 v5.90.594: BATTERY MONITOR
+
+// Battery-Metriken
+window.diagnostics.battery = {
+    level: 100,
+    charging: false,
+    history: [], // Letzte 10 Werte
+    startLevel: 100,
+    startTime: Date.now()
+};
+
+// Battery API starten
+async function initBatteryMonitor() {
+    if (!('getBattery' in navigator)) {
+        console.warn('⚠️ Battery API nicht verfügbar');
+        return;
+    }
+    
+    try {
+        const battery = await navigator.getBattery();
+        
+        console.log('📞 v5.90.595: Battery Monitor aktiviert!');
+        console.log('   Akku:', Math.round(battery.level * 100) + '%');
+        console.log('   Lädt:', battery.charging ? 'Ja' : 'Nein');
+        
+        // Initial-Werte
+        window.diagnostics.battery.level = Math.round(battery.level * 100);
+        window.diagnostics.battery.charging = battery.charging;
+        window.diagnostics.battery.startLevel = Math.round(battery.level * 100);
+        window.diagnostics.battery.startTime = Date.now();
+        
+        // Event Listeners
+        battery.addEventListener('levelchange', () => {
+            const level = Math.round(battery.level * 100);
+            window.diagnostics.battery.level = level;
+            window.diagnostics.battery.history.push({
+                level: level,
+                time: Date.now()
+            });
+            
+            // Nur letzte 10 Werte behalten
+            if (window.diagnostics.battery.history.length > 10) {
+                window.diagnostics.battery.history.shift();
+            }
+            
+            console.log('🔋 Akku-Level geändert:', level + '%');
+        });
+        
+        battery.addEventListener('chargingchange', () => {
+            window.diagnostics.battery.charging = battery.charging;
+            console.log('🔌 Ladestatus:', battery.charging ? 'Lädt' : 'Entlädt');
+        });
+        
+    } catch (err) {
+        console.error('❌ Battery Monitor Fehler:', err);
+    }
+}
+
+// Berechne Verbrauch pro Stunde
+function calculateBatteryDrain() {
+    const battery = window.diagnostics.battery;
+    
+    if (battery.history.length < 2) {
+        return null; // Noch nicht genug Daten
+    }
+    
+    const first = battery.history[0];
+    const last = battery.history[battery.history.length - 1];
+    
+    const levelDiff = first.level - last.level;
+    const timeDiff = (last.time - first.time) / 1000 / 60 / 60; // Stunden
+    
+    if (timeDiff === 0) return null;
+    
+    return levelDiff / timeDiff; // %/Stunde
+}
+
+// Berechne verbleibende Zeit
+function calculateRemainingTime() {
+    const battery = window.diagnostics.battery;
+    const drain = calculateBatteryDrain();
+    
+    if (!drain || drain <= 0) return null;
+    
+    const remainingHours = battery.level / drain;
+    return remainingHours;
+}
+
+// Berechne Gesamt-Verbrauch seit Start
+function calculateTotalDrain() {
+    const battery = window.diagnostics.battery;
+    const runtime = (Date.now() - battery.startTime) / 1000 / 60 / 60; // Stunden
+    const totalDrain = battery.startLevel - battery.level;
+    
+    if (runtime === 0) return 0;
+    
+    return totalDrain / runtime; // %/Stunde
+}
+
+// Starte Battery Monitor
+initBatteryMonitor();
+
+// Update Battery alle 30 Sekunden
+setInterval(async () => {
+    if ('getBattery' in navigator) {
+        const battery = await navigator.getBattery();
+        window.diagnostics.battery.level = Math.round(battery.level * 100);
+        window.diagnostics.battery.charging = battery.charging;
+    }
+}, 30000);
+
+console.log('✅ v5.90.594: Battery Monitor läuft!');
+
+
+
         // 🆕 Separate Funktion für GPS-Position-Handling
-        // 🆕 v5.90.578: Letzte gesendete Position speichern
-        let lastSentPosition = null;
+        // 🆕 v5.90.593: GPS-Debouncing (siehe oben)
         
         function handleGPSPosition(pos, rideId) {
+            // 🆕 v5.90.592: DIAGNOSE-TRACKING!
+            trackGPSUpdate(pos);
+            
             // 🔥 v5.90.375: UMFANGREICHES GPS DEBUG LOGGING!
             console.log('═══════════════════════════════════════════════════════════');
             console.log('📍 v5.90.578: GPS POSITION ERHALTEN');
@@ -31943,6 +32458,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 return;
             }
             
+            // 🆕 v5.90.593: DEBOUNCING - Nur bei Bewegung >50m schreiben!
+            if (!shouldWriteGPSUpdate(location.lat, location.lon)) {
+                console.log('⏭️ v5.90.593: GPS-Update ÜBERSPRUNGEN (Akku schonen!)');
+                console.log('═══════════════════════════════════════════════════════════');
+                return; // SKIP Firebase Write!
+            }
+            
             console.log('📤 Sende GPS zu Firebase...');
             
             // 🆕 v5.90.525: Erstelle Fahrzeug in Firebase wenn nicht vorhanden!
@@ -31963,6 +32485,9 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // 🔥 v5.90.525: Schreibe in vehicles/ (für Position)
             db.ref('vehicles/' + currentVehicle).set(vehicleData).then(() => {
                 console.log('✅ GPS → vehicles/' + currentVehicle + ' ERFOLGREICH!');
+                
+                // 🆕 v5.90.593: Markiere als geschrieben für Debouncing
+                markGPSPositionWritten(location.lat, location.lon);
             }).catch(err => {
                 console.error('💾 Fehler beim GPS-Upload (vehicles):', err);
                 console.error('   Fehler-Details:', err.message);
@@ -51291,7 +51816,7 @@ Funk Taxi Team`;
                 
                 // 🆕 v5.90.565: Zweite Telefonnummer (falls vorhanden)
                 if (customer.phone2) {
-                    const phone2Parts = parsePhoneNumber(customer.phone2);
+                    const phone2Parts = splitPhoneNumber(customer.phone2);
                     const phone2Container = document.getElementById('second-phone-container');
                     const phone2CountrySelect = document.getElementById('edit-customer-phone2-country');
                     const phone2Input = document.getElementById('edit-customer-phone2');
@@ -71381,9 +71906,68 @@ function clearField(fieldId) {
         </button></div>
 </div>
 
+
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎯 v5.90.591
+        📞 v5.90.595
     </div>
 </div>
+
+<script>
+// 🆕 v5.90.592: Diagnose-Button hinzufügen
+function addDiagnosticButton() {
+    const existingBtn = document.getElementById('diagnostic-btn');
+    if (existingBtn) return;
+    
+    const btn = document.createElement('button');
+    btn.id = 'diagnostic-btn';
+    btn.innerHTML = '🔍';
+    btn.title = 'Diagnose öffnen';
+    btn.style = `
+        position: fixed;
+        bottom: 80px;
+        right: 10px;
+        z-index: 9999;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+        display: none;
+    `;
+    btn.onclick = () => showDiagnosticDashboard();
+    document.body.appendChild(btn);
+    
+    // Zeige nur im Fahrer-View
+    const observer = new MutationObserver(() => {
+        const driverView = document.getElementById('driver-view');
+        if (driverView && driverView.style.display !== 'none') {
+            btn.style.display = 'block';
+        } else {
+            btn.style.display = 'none';
+        }
+    });
+    
+    observer.observe(document.body, { 
+        childList: true, 
+        subtree: true, 
+        attributes: true, 
+        attributeFilter: ['style'] 
+    });
+}
+
+// Füge Button hinzu sobald DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addDiagnosticButton);
+} else {
+    addDiagnosticButton();
+}
+</script>
+
+</body>
+</html>

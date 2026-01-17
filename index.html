@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.585 - EXPRESS & SIMULATOR FIX! ⚡ (Build 2026-01-17_1750)');
+        console.log('🚕 Funk Taxi App v5.90.586 - USER TAB VERWALTUNG! 📱 (Build 2026-01-17_1800)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.585 - EXPRESS & SIMULATOR! ⚡ (Build 20260117-1750)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📱 Version 5.90.586 - USER TABS! 📱 (Build 20260117-1800)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -14951,8 +14951,8 @@ Aktuell: ${currentNum}`;
                     applyTabPermissions(permissions, role);
                 }
                 
-                // Fülle Admin-Panel Checkboxen
-                fillTabPermissionCheckboxes(permissions);
+                // 🆕 v5.90.586: Fülle USER Tab-Verwaltung (nicht Rollen)!
+                fillUserTabManagement();
                 
             } catch (error) {
                 console.error('💾 Fehler beim Laden der Tab-Berechtigungen:', error);
@@ -15069,6 +15069,109 @@ Aktuell: ${currentNum}`;
             html += '</div>';
             
             container.innerHTML = html;
+        }
+        
+        // 🆕 v5.90.586: FILL USER TAB MANAGEMENT (PER-USER!)
+        async function fillUserTabManagement() {
+            const container = document.getElementById('tab-permissions-container');
+            if (!container) return;
+            
+            const allTabIds = ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive', 'express-booking', 'simulator', 'vehicle-overview'];
+            
+            // Lade aktuelle User Tabs
+            const user = auth.currentUser;
+            if (!user) {
+                container.innerHTML = '<p style="color:#ef4444;">⚠️ Bitte einloggen</p>';
+                return;
+            }
+            
+            const userRef = db.ref(`users/${user.uid}/customTabs`);
+            const snapshot = await userRef.once('value');
+            const customTabs = snapshot.val() || {};
+            
+            console.log('📋 v5.90.586: Lade User Tabs:', customTabs);
+            
+            let html = `
+                <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0; color: #1e40af;">📱 Meine Tabs</h3>
+                    <p style="margin: 5px 0; color: #64748b; font-size: 13px;">
+                        User: <strong>${user.email || user.phoneNumber}</strong><br>
+                        ✅ Aktivierte Tabs werden in deiner Tab-Leiste angezeigt
+                    </p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+            `;
+            
+            allTabIds.forEach(tabId => {
+                const isEnabled = customTabs[tabId] !== false; // Default: true
+                const label = tabId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                
+                const icons = {
+                    'passenger': '🚕', 'schedule': '📅', 'history': '📜', 'calendar': '📆',
+                    'hotel-calendar': '🏨', 'driver': '🚗', 'admin': '⚙️', 'shift-plan': '🗓️',
+                    'debug': '🐛', 'ai-assistant': '🤖', 'booking-requests': '📋', 'backup': '💾',
+                    'poi-management': '⭐', 'archive': '📦', 'express-booking': '⚡',
+                    'simulator': '🎮', 'vehicle-overview': '🚙'
+                };
+                const icon = icons[tabId] || '📌';
+                
+                html += `
+                    <label style="display:flex;align-items:center;gap:10px;padding:12px;background:${isEnabled ? '#d1fae5' : '#f3f4f6'};border:2px solid ${isEnabled ? '#10b981' : '#e5e7eb'};border-radius:8px;cursor:pointer;">
+                        <input type="checkbox" data-tab="${tabId}" ${isEnabled ? 'checked' : ''} onchange="updateUserTabPermission('${tabId}', this.checked)" style="width:18px;height:18px;">
+                        <span style="font-size:18px;">${icon}</span>
+                        <span style="font-weight:600;color:#1f2937;">${label}</span>
+                    </label>
+                `;
+            });
+            
+            html += `</div>
+                <div style="margin-top:20px;padding:15px;background:#fef3c7;border-radius:8px;">
+                    <p style="margin:0;color:#92400e;font-weight:600;">💡 Nach Änderung: <strong>F5 drücken!</strong></p>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        // 🆕 v5.90.586: UPDATE USER TAB PERMISSION!
+        window.updateUserTabPermission = async function(tabId, isEnabled) {
+            console.log(`🔄 v5.90.586: Update User Tab: ${tabId} = ${isEnabled}`);
+            
+            const user = auth.currentUser;
+            if (!user) {
+                alert('⚠️ Nicht eingeloggt!');
+                return;
+            }
+            
+            try {
+                const userRef = db.ref(`users/${user.uid}/customTabs/${tabId}`);
+                await userRef.set(isEnabled);
+                
+                console.log('✅ v5.90.586: Tab-Einstellung gespeichert!');
+                
+                // Zeige Feedback
+                const feedback = document.createElement('div');
+                feedback.style.cssText = `
+                    position: fixed;
+                    top: 80px;
+                    right: 20px;
+                    background: #10b981;
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    z-index: 999999;
+                    font-weight: 600;
+                `;
+                feedback.textContent = `✅ ${tabId} ${isEnabled ? 'aktiviert' : 'deaktiviert'}!`;
+                document.body.appendChild(feedback);
+                
+                setTimeout(() => feedback.remove(), 2000);
+                
+            } catch (error) {
+                console.error('💾 v5.90.586: Fehler:', error);
+                alert('❌ Fehler beim Speichern!');
+            }
         }
         
         // Update Tab-Berechtigung
@@ -71321,6 +71424,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⚡ v5.90.585
+        📱 v5.90.586
     </div>
 </div>

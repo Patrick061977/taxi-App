@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.575 - RESTAURANT FIX! 🍽️ (Build 2026-01-17_1520)');
+        console.log('🚕 Funk Taxi App v5.90.576 - UNDEFINED FIX! 🐛 (Build 2026-01-17_1530)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🍽️ Version 5.90.575 - RESTAURANT FIX! 🍽️ (Build 20260117-1520)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.576 - UNDEFINED FIX! 🐛 (Build 20260117-1530)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -23951,13 +23951,18 @@ Aktuell: ${currentNum}`;
             }
             
             const onlineDrivers = Object.values(drivers).filter(d => {
+                // 🆕 v5.90.576: Normalisiere vehicleId SOFORT!
+                if (!d.vehicleId && d.id) {
+                    d.vehicleId = d.id;
+                }
+                
                 // Basis-Checks
                 if (!d.online || !d.timestamp || (Date.now() - d.timestamp) >= 120000) {
                     return false;
                 }
                 
                 // 🆕 v5.90.357: Prüfe ob Fahrzeug bereits eine Fahrt hat!
-                const vehicleId = d.vehicleId || d.id;
+                const vehicleId = d.vehicleId;
                 const hasActiveRide = rides.some(r => 
                     (r.vehicleId === vehicleId || r.assignedTo === vehicleId) && 
                     (r.status === 'assigned' || r.status === 'accepted' || r.status === 'picked_up')
@@ -24013,8 +24018,18 @@ Aktuell: ${currentNum}`;
                             </div>
                         </div>
                         ${onlineDrivers.slice(0, 3).map(d => {
-                            const plate = VEHICLES[d.vehicleId] ? VEHICLES[d.vehicleId].plate : '';
-                            const name = VEHICLES[d.vehicleId] ? VEHICLES[d.vehicleId].name : d.vehicleId;
+                            // 🆕 v5.90.576: Besserer Fallback!
+                            let name = 'Taxi';
+                            let plate = '';
+                            
+                            if (VEHICLES[d.vehicleId]) {
+                                name = VEHICLES[d.vehicleId].name || 'Taxi';
+                                plate = VEHICLES[d.vehicleId].plate || '';
+                            } else if (OFFICIAL_VEHICLES[d.vehicleId]) {
+                                name = OFFICIAL_VEHICLES[d.vehicleId].name || 'Taxi';
+                                plate = OFFICIAL_VEHICLES[d.vehicleId].plate || '';
+                            }
+                            
                             return `
                                 <div class="taxi-item" style="background:#f0fdfa;border:2px solid #14b8a6;padding:12px;border-radius:8px;margin-bottom:8px;">
                                     <div style="font-weight:600;font-size:15px;color:#0f766e;margin-bottom:4px;">
@@ -24053,11 +24068,22 @@ Aktuell: ${currentNum}`;
                         </div>
                     </div>
                     ${taxisWithETA.slice(0, 3).map(t => {
-                        const plate = VEHICLES[t.vehicleId] ? VEHICLES[t.vehicleId].plate : '';
+                        // 🆕 v5.90.576: Besserer Fallback!
+                        let name = t.vehicle || 'Taxi';
+                        let plate = '';
+                        
+                        if (VEHICLES[t.vehicleId]) {
+                            name = VEHICLES[t.vehicleId].name || name;
+                            plate = VEHICLES[t.vehicleId].plate || '';
+                        } else if (OFFICIAL_VEHICLES[t.vehicleId]) {
+                            name = OFFICIAL_VEHICLES[t.vehicleId].name || name;
+                            plate = OFFICIAL_VEHICLES[t.vehicleId].plate || '';
+                        }
+                        
                         return `
                             <div class="taxi-item" style="background:#f0fdfa;border:2px solid #14b8a6;padding:12px;border-radius:8px;margin-bottom:8px;">
                                 <div style="font-weight:600;font-size:15px;color:#0f766e;margin-bottom:4px;">
-                                    ${t.vehicle}
+                                    ${name}
                                 </div>
                                 ${plate ? `<div style="font-size:13px;color:#14b8a6;margin-bottom:6px;">🚗 ${plate}</div>` : ''}
                                 <div style="font-size:13px;color:#0f766e;">
@@ -70947,6 +70973,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🍽️ v5.90.575
+        🐛 v5.90.576
     </div>
 </div>

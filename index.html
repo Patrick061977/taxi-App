@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.581 - EXPRESS-BOOKING DEBUG! ⚡ (Build 2026-01-17_1640)');
+        console.log('🚕 Funk Taxi App v5.90.582 - FAHRER-TAB GESPERRT! 🔒 (Build 2026-01-17_1720)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⚡ Version 5.90.581 - EXPRESS DEBUG! ⚡ (Build 20260117-1640)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔒 Version 5.90.582 - FAHRER-TAB GESPERRT! 🔒 (Build 20260117-1720)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -56193,6 +56193,37 @@ Stack: ${err.stack}
             // 🆕 v5.90.227: Lade Anruf-Favoriten!
             loadCallFavorites();
             updateCallFavoritesFAB();
+            
+            // 🆕 v5.90.582: ROLE-BASED AUTO-SWITCH!
+            setTimeout(() => {
+                console.log('🎯 v5.90.582: Role-Based View Switch:', role);
+                
+                if (role === 'driver') {
+                    console.log('🚗 v5.90.582: Fahrer-Login → Wechsle zu Driver-View (GESPERRT!)');
+                    switchView('driver');
+                    
+                    // 🔒 Verstecke andere Tabs für Fahrer!
+                    const tabBar = document.getElementById('main-tab-bar');
+                    if (tabBar) {
+                        // Verstecke alle Tabs außer Driver
+                        const allTabs = tabBar.querySelectorAll('.view-btn, .admin-tab-btn');
+                        allTabs.forEach(btn => {
+                            const isDriverBtn = btn.getAttribute('onclick')?.includes('driver');
+                            if (!isDriverBtn) {
+                                btn.style.display = 'none';
+                            }
+                        });
+                        console.log('🔒 v5.90.582: Andere Tabs für Fahrer ausgeblendet!');
+                    }
+                } else if (role === 'admin') {
+                    console.log('👨‍💼 v5.90.582: Admin-Login → Lade letzten Tab');
+                    const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
+                    switchView(lastTab);
+                } else {
+                    console.log('👤 v5.90.582: Passenger-Login → Passenger-View');
+                    switchView('passenger');
+                }
+            }, 500);
         }
         
         function onUserLoggedOut() {
@@ -71287,6 +71318,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⚡ v5.90.581
+        🔒 v5.90.582
     </div>
 </div>

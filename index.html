@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.565 - CRM KARTENPICKER FIX! 🗺️ (Build 2026-01-17_1300)');
+        console.log('🚕 Funk Taxi App v5.90.567 - REALISTISCHER SIMULATOR! 🎯 (Build 2026-01-17_1400)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.565 - CRM KARTENPICKER FIX! 🗺️ (Build 20260117-1300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.567 - REALISTISCHER SIMULATOR! 🎯 (Build 20260117-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -50734,6 +50734,34 @@ Funk Taxi Team`;
                             </div>
                         </div>
                         
+                        <!-- 🆕 v5.90.565: ZWEITE FESTNETZ-NUMMER (für Hotels mit Durchwahl) -->
+                        <div id="second-phone-container" style="display:none;position:relative;">
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📞 Zweite Festnetz-Nummer (z.B. Durchwahl)</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="edit-customer-phone2-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;box-sizing:border-box;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="edit-customer-phone2" placeholder="170 1234828" 
+                                    onblur="addCountryCode(this)"
+                                    oninput="autoCleanPhoneInput(this)"
+                                    style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;min-width:0;">
+                                <button onclick="removeSecondPhone()" style="padding:12px 16px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;min-width:50px;">
+                                    ✕
+                                </button>
+                            </div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:4px;padding:0 4px;">
+                                ℹ️ Für Hotels/Unternehmen mit mehreren Telefonnummern
+                            </div>
+                        </div>
+                        
+                        <!-- Button zum Hinzufügen der 2. Nummer -->
+                        <button id="add-second-phone-btn" onclick="showSecondPhone()" style="width:100%;padding:10px;background:#f3f4f6;color:#6b7280;border:2px dashed #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;transition:all 0.2s;" onmouseover="this.style.background='#e5e7eb';this.style.borderColor='#9ca3af'" onmouseout="this.style.background='#f3f4f6';this.style.borderColor='#d1d5db'">
+                            ➕ Zweite Telefonnummer hinzufügen
+                        </button>
+                        
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;display:flex;gap:8px;align-items:center;">
                             <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;flex:1;">
@@ -50826,6 +50854,22 @@ Funk Taxi Team`;
                 if (mobileCountrySelect && mobileInput) {
                     mobileCountrySelect.value = mobile.country;
                     mobileInput.value = mobile.number;
+                }
+                
+                // 🆕 v5.90.565: Zweite Telefonnummer (falls vorhanden)
+                if (customer.phone2) {
+                    const phone2Parts = parsePhoneNumber(customer.phone2);
+                    const phone2Container = document.getElementById('second-phone-container');
+                    const phone2CountrySelect = document.getElementById('edit-customer-phone2-country');
+                    const phone2Input = document.getElementById('edit-customer-phone2');
+                    const addBtn = document.getElementById('add-second-phone-btn');
+                    
+                    if (phone2Container && phone2CountrySelect && phone2Input && addBtn) {
+                        phone2Container.style.display = 'block';
+                        addBtn.style.display = 'none';
+                        phone2CountrySelect.value = phone2Parts.country;
+                        phone2Input.value = phone2Parts.number;
+                    }
                 }
                 
                 // 🆕 v5.90.245: Setze Kategorie (Custom Dropdown!)
@@ -51254,6 +51298,27 @@ Funk Taxi Team`;
             currentCustomerBillingAddresses = [];
         }
         
+        // 🆕 v5.90.565: Zweite Telefonnummer ein-/ausblenden
+        function showSecondPhone() {
+            const container = document.getElementById('second-phone-container');
+            const addBtn = document.getElementById('add-second-phone-btn');
+            if (container && addBtn) {
+                container.style.display = 'block';
+                addBtn.style.display = 'none';
+            }
+        }
+        
+        function removeSecondPhone() {
+            const container = document.getElementById('second-phone-container');
+            const addBtn = document.getElementById('add-second-phone-btn');
+            const input = document.getElementById('edit-customer-phone2');
+            if (container && addBtn && input) {
+                container.style.display = 'none';
+                addBtn.style.display = 'block';
+                input.value = ''; // Leere das Feld
+            }
+        }
+        
         async function updateCustomer(customerId) {
             const name = document.getElementById('edit-customer-name').value.trim();
             if (!name) {
@@ -51311,10 +51376,31 @@ Funk Taxi Team`;
             
             const fullMobile = mobileNumber ? mobileCountry + mobileNumber : '';
             
+            // 🆕 v5.90.565: Zweite Telefonnummer (optional)
+            const phone2Country = document.getElementById('edit-customer-phone2-country')?.value || '+49';
+            let phone2Number = document.getElementById('edit-customer-phone2')?.value?.trim().replace(/\s/g, '') || '';
+            
+            let fullPhone2 = '';
+            if (phone2Number) {
+                // Entferne doppelte Vorwahl
+                if (phone2Number.startsWith('+49')) {
+                    phone2Number = phone2Number.substring(3);
+                } else if (phone2Number.startsWith('+')) {
+                    phone2Number = phone2Number.substring(1);
+                } else if (phone2Number.startsWith('49')) {
+                    phone2Number = phone2Number.substring(2);
+                }
+                if (phone2Number.startsWith('0')) {
+                    phone2Number = phone2Number.substring(1);
+                }
+                fullPhone2 = phone2Country + phone2Number;
+            }
+            
             const updates = {
                 name: name,
                 phone: fullPhone, // 🆕 v5.90.129: Vollständige Nummer mit Ländervorwahl
                 mobilePhone: fullMobile, // 🆕 v5.90.129: Vollständige Nummer mit Ländervorwahl
+                phone2: fullPhone2, // 🆕 v5.90.565: Zweite Telefonnummer
                 email: document.getElementById('edit-customer-email').value.trim(),
                 address: address,
                 billingAddresses: currentCustomerBillingAddresses, // 🆕 v5.52.5: Array!
@@ -69748,23 +69834,60 @@ const SIM_PICKUP_PAUSE_MS = 60000; // 1 Min Pause beim Abholen
 const SIM_DROPOFF_PAUSE_MS = 30000; // 30 Sek beim Absetzen
 
 function initSimulator() {
-    console.log('🎮 v5.90.556: Initialisiere Realistischen Simulator...');
+    console.log('🎮 v5.90.565: Initialisiere Simulator mit Usedom-Karte...');
     
     if (!simulatorMap) {
-        simulatorMap = L.map('simulator-map').setView([53.9547, 14.1783], 12);
+        // 🆕 v5.90.565: Höherer Zoom für Usedom (Straßen + Hausnummern sichtbar!)
+        simulatorMap = L.map('simulator-map').setView([53.9547, 14.1783], 14);
         
+        // 🆕 v5.90.565: OpenStreetMap mit allen Details (Straßen + Hausnummern)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
+            attribution: '© OpenStreetMap',
+            maxZoom: 19,  // Sehr hoher Zoom möglich!
+            minZoom: 11   // Mindestens Usedom-Übersicht
         }).addTo(simulatorMap);
         
-        console.log('✅ Simulator-Karte initialisiert!');
+        console.log('✅ Simulator-Karte initialisiert (Usedom-Region mit Straßen & Hausnummern)!');
     } else {
         simulatorMap.invalidateSize();
     }
     
     loadInitialVehicles();
     renderSimulator();
-    logSimEvent('🎮 Simulator gestartet - OSRM-Routing aktiv');
+    logSimEvent('🎮 Simulator gestartet - Usedom-Karte mit OSRM-Routing aktiv');
+}
+
+// 🆕 v5.90.567: ECHTE USEDOM-ADRESSEN FÜR SIMULATOR
+const USEDOM_ADDRESSES = [
+    { name: "Bahnhof Heringsdorf", address: "Bahnhofstraße 2, 17424 Heringsdorf", lat: 53.9533, lon: 14.1633 },
+    { name: "Bahnhof Ahlbeck", address: "Bahnhofstraße 5, 17419 Ahlbeck", lat: 53.9461, lon: 14.1989 },
+    { name: "Bahnhof Bansin", address: "Bahnhofstraße 3, 17429 Bansin", lat: 53.9639, lon: 14.1442 },
+    { name: "Bahnhof Zinnowitz", address: "Bahnhofstraße 40, 17454 Zinnowitz", lat: 54.0933, lon: 13.9197 },
+    { name: "Seebrücke Heringsdorf", address: "Strandpromenade, 17424 Heringsdorf", lat: 53.9525, lon: 14.1592 },
+    { name: "Seebrücke Ahlbeck", address: "Dünenstraße, 17419 Ahlbeck", lat: 53.9444, lon: 14.1933 },
+    { name: "Seebrücke Bansin", address: "Strandpromenade, 17429 Bansin", lat: 53.9633, lon: 14.1433 },
+    { name: "Seebrücke Zinnowitz", address: "Strandpromenade, 17454 Zinnowitz", lat: 54.0947, lon: 13.9228 },
+    { name: "Hotel Kaiserhof Heringsdorf", address: "Kulmstraße 28, 17424 Heringsdorf", lat: 53.9558, lon: 14.1564 },
+    { name: "Steigenberger Grandhotel", address: "Liehrstraße 11, 17424 Heringsdorf", lat: 53.9547, lon: 14.1583 },
+    { name: "Hotel Ahlbecker Hof", address: "Dünenstraße 47, 17419 Ahlbeck", lat: 53.9472, lon: 14.1917 },
+    { name: "Seetelhotel Ostseeresidenz Bansin", address: "Strandpromenade 5, 17429 Bansin", lat: 53.9628, lon: 14.1447 },
+    { name: "Hotel Preussenhof Zinnowitz", address: "Neue Strandstraße 36, 17454 Zinnowitz", lat: 54.0939, lon: 13.9222 },
+    { name: "Fischrestaurant Seeblick", address: "Strandpromenade 1, 17424 Heringsdorf", lat: 53.9519, lon: 14.1578 },
+    { name: "Café Asgaard Ahlbeck", address: "Dünenstraße 41, 17419 Ahlbeck", lat: 53.9458, lon: 14.1928 },
+    { name: "Restaurant Seebrücke Bansin", address: "Seebrückenpromenade 2, 17429 Bansin", lat: 53.9631, lon: 14.1436 },
+    { name: "OstseeTherme Usedom", address: "Lindenstraße 60, 17429 Heringsdorf", lat: 53.9611, lon: 14.1519 },
+    { name: "Edeka Heringsdorf", address: "Delbrückstraße 31, 17424 Heringsdorf", lat: 53.9592, lon: 14.1653 },
+    { name: "Kaufland Heringsdorf", address: "Delbrückstraße 51, 17424 Heringsdorf", lat: 53.9603, lon: 14.1672 },
+    { name: "Flughafen Heringsdorf", address: "Am Flughafen 1, 17424 Heringsdorf", lat: 53.8786, lon: 14.1522 },
+    { name: "Bernsteintherme Zinnowitz", address: "Dünenstraße 8, 17454 Zinnowitz", lat: 54.0953, lon: 13.9211 }
+];
+
+function getRandomAddress(excludeAddress = null) {
+    let filtered = USEDOM_ADDRESSES;
+    if (excludeAddress) {
+        filtered = USEDOM_ADDRESSES.filter(a => a.address !== excludeAddress);
+    }
+    return filtered[Math.floor(Math.random() * filtered.length)];
 }
 
 function loadInitialVehicles() {
@@ -69846,6 +69969,9 @@ function renderSimVehicles() {
             <div style="display:flex;gap:3px;">
                 <button onclick="toggleVehicleOnline('${v.id}')" style="flex:1;padding:3px;background:${v.online ? '#ef4444' : '#10b981'};color:white;border:none;border-radius:3px;font-size:9px;cursor:pointer;font-weight:600;">
                     ${v.online ? 'Off' : 'On'}
+                </button>
+                <button onclick="editSimVehicle('${v.id}')" style="flex:1;padding:3px;background:#8b5cf6;color:white;border:none;border-radius:3px;font-size:9px;cursor:pointer;font-weight:600;" title="Koordinaten editieren">
+                    ✏️
                 </button>
                 <button onclick="moveVehicleRandom('${v.id}')" style="flex:1;padding:3px;background:#3b82f6;color:white;border:none;border-radius:3px;font-size:9px;cursor:pointer;font-weight:600;" title="Zufällige Position">
                     📍
@@ -70386,6 +70512,42 @@ function resetSimulation() {
     
     loadInitialVehicles();
     
+
+// 🆕 v5.90.565: FAHRZEUG-KOORDINATEN EDITIEREN
+function editSimVehicle(vehicleId) {
+    const v = simVehicles.find(vehicle => vehicle.id === vehicleId);
+    if (!v) return;
+    
+    const coords = prompt(`Koordinaten für "${v.name}" (Format: Lat,Lon):\n\nBeispiele:\n- Heringsdorf Bahnhof: 53.9533, 14.1633\n- Ahlbeck Seebrücke: 53.9444, 14.1933\n- Bansin Seebrücke: 53.9633, 14.1433`, `${v.lat}, ${v.lon}`);
+    
+    if (!coords) return;
+    
+    const parts = coords.split(',').map(p => p.trim());
+    if (parts.length !== 2) {
+        alert('❌ Ungültiges Format! Nutze: Lat,Lon (z.B. 53.9547, 14.1783)');
+        return;
+    }
+    
+    const lat = parseFloat(parts[0]);
+    const lon = parseFloat(parts[1]);
+    
+    if (isNaN(lat) || isNaN(lon) || lat < 53.8 || lat > 54.1 || lon < 13.9 || lon > 14.4) {
+        alert('❌ Koordinaten außerhalb von Usedom! (53.8-54.1 N, 13.9-14.4 E)');
+        return;
+    }
+    
+    v.lat = lat;
+    v.lon = lon;
+    v.homeLat = lat;
+    v.homeLon = lon;
+    
+    logSimEvent(`✏️ ${v.name} → ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+    renderSimulator();
+    
+    if (simulatorMap && v.marker) {
+        simulatorMap.setView([lat, lon], 16);
+    }
+}
     if (simRunning) toggleSimulation();
     if (rideGenerationInterval) clearInterval(rideGenerationInterval);
     rideGenActive = false;
@@ -70709,6 +70871,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.565
+        🎯 v5.90.567
     </div>
 </div>

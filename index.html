@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.588 - \\n FEHLER GEFIXT! 🐛 (Build 2026-01-17_1820)');
+        console.log('🚕 Funk Taxi App v5.90.589 - TAB-CONTAINER FIX! 📦 (Build 2026-01-17_1825)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.588 - \\n FIX! 🐛 (Build 20260117-1820)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📦 Version 5.90.589 - TAB-CONTAINER! 📦 (Build 20260117-1825)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -4599,67 +4599,13 @@
             </div>
             
             <!-- Checkboxen für Tabs -->
-            <div id="tab-checkboxes" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;margin-bottom:20px;">
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="passenger" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">🚕 Fahrgast</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="schedule" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">📅 Termine</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="history" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">📜 Verlauf</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="calendar" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">📆 Kalender</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="rechnung" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">🧾 Rechnung</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="hotel-calendar" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">🏨 Hotel-Kalender</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="quick-booking" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">⚡ Schnellbuchung</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="driver" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">🚗 Fahrer</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="admin" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">⚙️ Admin</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="shift-plan" checked style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">📋 Schichtplan</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="debug" style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">🐛 Debug</span>
-                </label>
-                
-                <label style="display:flex;align-items:center;gap:8px;padding:12px;background:#f0f9ff;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='transparent'">
-                    <input type="checkbox" value="ai-assistant" style="width:20px;height:20px;cursor:pointer;">
-                    <span style="font-weight:600;color:#1e40af;">🤖 AI Assistent</span>
-                </label>
+            
+            <!-- 🆕 v5.90.589: DYNAMISCHE TAB-VERWALTUNG (PRO USER!) -->
+            <div id="tab-permissions-container" style="margin-bottom:20px;">
+                <!-- Wird dynamisch von fillUserTabManagement() gefüllt -->
+                <p style="text-align:center;color:#94a3b8;padding:40px;font-size:14px;">
+                    ⏳ Lade Tab-Einstellungen...
+                </p>
             </div>
             
             <!-- Standard-Tab Auswahl -->
@@ -71433,6 +71379,6 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🐛 v5.90.588
+        📦 v5.90.589
     </div>
 </div>

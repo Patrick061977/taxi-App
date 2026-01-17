@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.568 - CRM TELEFON + POI FIX! 📞 (Build 2026-01-17_1415)');
+        console.log('🚕 Funk Taxi App v5.90.569 - SIMULATOR ECHTE ADRESSEN! 🗺️ (Build 2026-01-17_1425)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📞 Version 5.90.568 - CRM TELEFON + POI FIX! 📞 (Build 20260117-1415)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.569 - SIMULATOR ECHTE ADRESSEN! 🗺️ (Build 20260117-1425)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -70342,34 +70342,33 @@ function addSimRide() {
     const now = simTime;
     const pickupTime = now + (Math.random() * 20 + 5) * 60 * 1000;
     
-    const customers = ['Marion', 'Klaus', 'Anna', 'Peter', 'Maria', 'Hans', 'Lisa', 'Tom'];
-    const locations = [
-        {name: 'Heringsdorf Bahnhof', lat: 53.9547, lon: 14.1783},
-        {name: 'Hotel Ahlbeck', lat: 53.9396, lon: 14.1556},
-        {name: 'Seebrücke Bansin', lat: 53.9596, lon: 14.1356},
-        {name: 'Usedom Park Hotel', lat: 53.9247, lon: 14.0983},
-        {name: 'Flughafen Heringsdorf', lat: 53.8791, lon: 14.1525}
-    ];
+    // 🆕 v5.90.569: ECHTE KUNDENNAMEN
+    const customers = ['Marion Schmidt', 'Klaus Müller', 'Anna Weber', 'Peter Fischer', 'Maria Wagner', 'Hans Becker', 'Lisa Hoffmann', 'Tom Schulz', 'Sabine Koch', 'Frank Meyer'];
     
-    const pickup = locations[Math.floor(Math.random() * locations.length)];
-    let dest = locations[Math.floor(Math.random() * locations.length)];
-    while (dest === pickup) dest = locations[Math.floor(Math.random() * locations.length)];
+    // 🆕 v5.90.569: ECHTE USEDOM-ADRESSEN!
+    const pickupAddr = getRandomAddress();
+    const destAddr = getRandomAddress(pickupAddr.address);
     
     simRides.push({
         customerName: customers[Math.floor(Math.random() * customers.length)],
-        pickup: pickup.name,
-        destination: dest.name,
+        pickup: pickupAddr.name,
+        pickupAddress: pickupAddr.address,
+        destination: destAddr.name,
+        destAddress: destAddr.address,
         pickupTime: pickupTime,
-        pickupLat: pickup.lat,
-        pickupLon: pickup.lon,
-        destLat: dest.lat,
-        destLon: dest.lon,
+        pickupLat: pickupAddr.lat,
+        pickupLon: pickupAddr.lon,
+        destLat: destAddr.lat,
+        destLon: destAddr.lon,
         status: 'new',
-        vehicleId: null
+        vehicleId: null,
+        distance: null,
+        duration: null
     });
     
-    logSimEvent(`➕ Fahrt erstellt: ${simRides[simRides.length-1].customerName} (${new Date(pickupTime).toLocaleTimeString('de-DE')})`);
+    logSimEvent(`➕ Neue Fahrt: ${simRides[simRides.length-1].customerName} | ${pickupAddr.name} → ${destAddr.name} (${new Date(pickupTime).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})})`);
     renderSimulator();
+}
 }
 
 let rideGenActive = false;
@@ -70899,6 +70898,6 @@ console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📞 v5.90.568
+        🗺️ v5.90.569
     </div>
 </div>

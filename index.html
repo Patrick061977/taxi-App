@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.624 | Build: 2026-01-18_2030 | Basis: v5.90.604 + Scope-Fix -->
+    <!-- Version: v5.90.625 | Build: 2026-01-18_2030 | Fix: MwSt 19% statt 7% bei Rechnungen -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -260,7 +260,7 @@
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.624: SCOPE-FIX auf Basis der funktionierenden v5.90.604');
-        console.log('🔧 v5.90.624: db + isFirebaseReady als window-Variablen');
+        console.log('🔧 v5.90.625: MwSt-Satz aus rideData.vatRate (19% Default statt 7%)');
         console.log('🔧 v5.90.624: Minimale Änderung - maximale Stabilität!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1205,7 +1205,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.624 - SCOPE-FIX! ✅ (Build 20260118-2030)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.624 - MWST-FIX! ✅ (Build 20260118-2045)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1646,7 +1646,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.624 - SCOPE-FIX
+                        🔧 v5.90.625 - MWST-FIX
                     </span>
                 </div>
             </div>
@@ -34356,7 +34356,8 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 doc.text('Positionen:', 20, 145);
                 
                 const price = rideData.actualPrice || rideData.estimatedPrice || rideData.price || 0;
-                const taxRate = 0.07; // 7% MwSt
+                // 🔧 FIX v5.90.625: Verwende eingestellten MwSt-Satz (19% Default statt 7%)
+                const taxRate = (rideData.vatRate || 19) / 100;
                 const netPrice = price / (1 + taxRate);
                 const taxAmount = price - netPrice;
                 
@@ -34374,7 +34375,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 doc.line(20, 175, 190, 175);
                 doc.text('Netto:', 130, 183);
                 doc.text(`${netPrice.toFixed(2)} €`, 150, 183);
-                doc.text('MwSt. (7%):', 130, 188);
+                doc.text(`MwSt. (${(taxRate * 100).toFixed(0)}%):`, 130, 188); // 🔧 FIX v5.90.625
                 doc.text(`${taxAmount.toFixed(2)} €`, 150, 188);
                 
                 doc.setFont(undefined, 'bold');
@@ -34529,7 +34530,7 @@ Funk Taxi Team`;
                 doc.text('Positionen:', 20, 145);
                 
                 const price = rideData.actualPrice || rideData.estimatedPrice || rideData.price || 0;
-                const taxRate = 0.07;
+                const taxRate = (rideData.vatRate || 19) / 100; // 🔧 FIX v5.90.625
                 const netPrice = price / (1 + taxRate);
                 const taxAmount = price - netPrice;
                 
@@ -34545,7 +34546,7 @@ Funk Taxi Team`;
                 doc.line(20, 175, 190, 175);
                 doc.text('Netto:', 130, 183);
                 doc.text(`${netPrice.toFixed(2)} €`, 150, 183);
-                doc.text('MwSt. (7%):', 130, 188);
+                doc.text(`MwSt. (${(taxRate * 100).toFixed(0)}%):`, 130, 188); // 🔧 FIX v5.90.625
                 doc.text(`${taxAmount.toFixed(2)} €`, 150, 188);
                 
                 doc.setFont(undefined, 'bold');

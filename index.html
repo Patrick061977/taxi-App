@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.610 - REDECLARATION FIX! 🔥 (Build 2026-01-18_1730)');
+        console.log('🚕 Funk Taxi App v5.90.611 - DIREKTER FIREBASE INIT! 🔥 (Build 2026-01-18_1715)');
         console.log('');
         
         // 🔥 v5.90.608: KRITISCHER FIX - FIREBASE VARIABLEN GANZ NACH OBEN!
@@ -1221,7 +1221,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔥 Version 5.90.610 - REDECLARATION FIX! (Build 20260118-1730)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔥 v5.90.611 - DIREKTER INIT (Build 20260118-1715)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1662,7 +1662,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔥 v5.90.610 - FINAL FIX
+                        🔥 v5.90.611 - DIRECT INIT
                     </span>
                 </div>
             </div>
@@ -7477,10 +7477,26 @@
             if (!firebaseLoaded && typeof initApp === 'function') initApp(false); 
         }, 5000);
     </script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" onload="firebaseLoaded = true;" onerror="if(typeof initApp === 'function') initApp(false);"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    
+    <!-- 🔥 v5.90.611: Firebase Init DIREKT HIER! -->
+    <script>
+        // Warte kurz bis alle Scripts geladen sind
+        setTimeout(() => {
+            console.log('🔥 v5.90.611: Starte Firebase Init...');
+            firebaseLoaded = true;
+            if (typeof firebase !== 'undefined' && typeof initApp === 'function') {
+                console.log('✅ Firebase SDK gefunden, rufe initApp(true) auf');
+                initApp(true);
+            } else {
+                console.error('❌ Firebase SDK NICHT gefunden!');
+                if (typeof initApp === 'function') initApp(false);
+            }
+        }, 100);
+    </script>
     
     <!-- 📅 v5.87.23: Google Calendar API -->
     <script src="https://apis.google.com/js/api.js"></script>
@@ -72398,7 +72414,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔥 v5.90.610
+        🔥 v5.90.611
     </div>
 </div>
 

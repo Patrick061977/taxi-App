@@ -7667,7 +7667,10 @@
         }
 
         // STATE
-        let db, isFirebaseReady = false, isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
+        // 🔧 FIX v5.90.622: Globale Variablen für Cross-Script Zugriff
+        let db = window.db = null;
+        let isFirebaseReady = window.isFirebaseReady = false;
+        let isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
         let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
         
@@ -13180,10 +13183,10 @@ Aktuell: ${currentNum}`;
                     }
                     
                     firebase.initializeApp(firebaseConfig);
-                    db = firebase.database();
+                    db = window.db = firebase.database(); // 🔧 FIX v5.90.622: Auch window.db setzen
                     const storage = firebase.storage(); // 🆕 v5.90.316: Firebase Storage initialisieren!
                     window.firebaseStorage = storage; // Für globalen Zugriff
-                    isFirebaseReady = true;
+                    isFirebaseReady = window.isFirebaseReady = true; // 🔧 FIX v5.90.622: Auch window setzen
                     
                     // 🆕 v5.90.525: LADE TELEGRAM TOKEN PARALLEL (nicht warten!)
                     loadTelegramToken().catch(err => console.error('💾 Token-Load-Fehler:', err));
@@ -62874,14 +62877,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const statsDiv = document.getElementById('fifty-fifty-stats');
             if (!statsDiv) return;
             
-            // Check ob Firebase bereit ist
-            if (!db || typeof isFirebaseReady === 'undefined' || !isFirebaseReady) {
+            // 🔧 FIX v5.90.622: Check ob Firebase bereit ist (window Variablen)
+            if (!window.db || typeof window.isFirebaseReady === 'undefined' || !window.isFirebaseReady) {
                 console.log('⚠️ Firebase nicht bereit für 50/50 Stats');
                 return;
             }
             
             try {
-                const snapshot = await db.ref('rides').orderByChild('fiftyFifty/enabled').equalTo(true).once('value');
+                const snapshot = await window.db.ref('rides').orderByChild('fiftyFifty/enabled').equalTo(true).once('value');
                 const rides = snapshot.val() || {};
                 
                 let totalRides = 0;
@@ -70296,13 +70299,14 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         // startAutoAssignment ist bereits in Zeile 21759 definiert!
         
         // 🆕 v5.90.544: WARTE AUF FIREBASE!
+        // 🔧 FIX v5.90.622: Verwende window.isFirebaseReady für Cross-Script Zugriff
         async function waitForFirebase() {
             let attempts = 0;
-            while (!isFirebaseReady && attempts < 50) {
+            while (!window.isFirebaseReady && attempts < 50) {
                 await new Promise(resolve => setTimeout(resolve, 100));
                 attempts++;
             }
-            if (!isFirebaseReady) {
+            if (!window.isFirebaseReady) {
                 console.error('💾 Firebase konnte nicht initialisiert werden nach 5s!');
                 return false;
             }

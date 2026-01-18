@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.633 | Build: 2026-01-18_2325 | Fix: DROPDOWN-FIX - Fahrzeug reset bei GPS stop -->
+    <!-- Version: v5.90.636 | Build: 2026-01-18_2355 | Fix: MERGED - Battery-Saver + All Fixes -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,14 +256,14 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.633 - DROPDOWN-FIX! 🔧✅ (Build 2026-01-18_2325)');
+        console.log('🚕 Funk Taxi App v5.90.636 - MERGED! 🔧✅ (Build 2026-01-18_2355)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
         console.log('🔧 v5.90.632: PERFORMANCE-FIX - Fahrten nur EINMALIG laden + Dropdown nur mit GPS');
         console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
-        console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
-        console.log('✅ v5.90.525: FLEET-MAP ENDLOS-SCHLEIFE BEHOBEN');
+        console.log('🔧 v5.90.635: Ignoriere Fahrzeuge mit String-Timestamps (altes GPS-Format)');
+        console.log('🔋 v5.90.636: BATTERY-SAVER - Standby: 50m/60s, Aktiv: 10m/10s');
         console.log('✅ v5.90.525: FAHRER SIEHT NUR ASSIGNED FAHRTEN (kein Zeit-Filter)');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
@@ -32412,7 +32412,13 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             console.log('   Firebase Ready:', isFirebaseReady ? '✅' : '❌');
             console.log('   rideId:', rideId || 'Standby');
             
-            // 🆕 v5.90.578: Prüfe ob Bewegung signifikant (>10m)
+            // 🆕 v5.90.636: BATTERY-SAVER - Standby-Modus!
+            // Bei aktiver Fahrt: Häufiger senden (10m / 10s)
+            // Im Standby: Seltener senden (50m / 60s)
+            const hasActiveRide = rideId && rideId !== 'Standby';
+            const minDistance = hasActiveRide ? 0.01 : 0.05;  // 10m vs 50m (in km)
+            const minTime = hasActiveRide ? 10000 : 60000;     // 10s vs 60s
+            
             if (lastSentPosition) {
                 const distance = calculateDistance(
                     lastSentPosition.lat, lastSentPosition.lon,
@@ -32422,10 +32428,12 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 
                 console.log('   Distanz seit letztem Send:', Math.round(distance * 1000), 'm');
                 console.log('   Zeit seit letztem Send:', Math.round(timeSince / 1000), 's');
+                console.log('   🔋 Modus:', hasActiveRide ? 'AKTIVE FAHRT (10m/10s)' : 'STANDBY (50m/60s)');
                 
-                // 🆕 v5.90.578: Nur senden wenn >10m ODER >60s vergangen
-                if (distance < 0.01 && timeSince < 60000) {
-                    console.log('⏭️ v5.90.578: Position nicht signifikant geändert - NICHT senden (Akku schonen!)');
+                // 🆕 v5.90.636: Dynamischer Filter je nach Fahrt-Status
+                if (distance < minDistance && timeSince < minTime) {
+                    console.log('⏭️ v5.90.636: Position nicht signifikant - NICHT senden (Akku schonen!)');
+                    console.log(`   Filter: ${hasActiveRide ? '10m/10s' : '50m/60s'}`);
                     console.log('═══════════════════════════════════════════════════════════');
                     
                     // Update nur UI, NICHT Firebase!
@@ -36793,7 +36801,9 @@ Funk Taxi Team`;
                             if (!driver || !driver.lat || !driver.lon) return;
                             
                             // 🆕 v5.90.525: GPS-Alter berechnen
-                            const gpsAge = driver.timestamp ? (Date.now() - driver.timestamp) / 60000 : 999;
+                            // 🆕 v5.90.635: IGNORIERE String-Timestamps (altes Format)!
+                            const timestampIsValid = driver.timestamp && typeof driver.timestamp === 'number';
+                            const gpsAge = timestampIsValid ? (Date.now() - driver.timestamp) / 60000 : 999;
                             const hasRecentGPS = gpsAge <= 10;
                             
                             // 🆕 v5.90.525: NUR Fahrzeuge mit GPS < 10 Min anzeigen!
@@ -36819,11 +36829,13 @@ Funk Taxi Team`;
                             // NUR wenn GPS aktuell & online!
                             const canMakeIt = hasRecentGPS && isOnline && drivingTimeMinutes < minutesUntil;
                             
+                            // 🆕 v5.90.634: Fallback wenn Name null/undefined/leer!
                             const vehicleName = driver.vehicle || VEHICLES[vehicleId]?.name || vehicleId;
+                            const displayName = vehicleName && vehicleName !== 'null' ? vehicleName : vehicleId;
                             
                             vehiclesNearby.push({
                                 id: vehicleId,
-                                name: vehicleName,
+                                name: displayName,
                                 distance: distance,
                                 drivingTime: drivingTimeMinutes,
                                 canMakeIt: canMakeIt,

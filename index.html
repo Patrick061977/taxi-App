@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.632 | Build: 2026-01-18_2315 | Fix: PERFORMANCE-FIX - Fahrten nur noch einmalig laden -->
+    <!-- Version: v5.90.633 | Build: 2026-01-18_2325 | Fix: DROPDOWN-FIX - Fahrzeug reset bei GPS stop -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,12 +256,12 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.632 - PERFORMANCE-FIX! 🔧✅ (Build 2026-01-18_2315)');
+        console.log('🚕 Funk Taxi App v5.90.633 - DROPDOWN-FIX! 🔧✅ (Build 2026-01-18_2325)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
         console.log('🔧 v5.90.632: PERFORMANCE-FIX - Fahrten nur EINMALIG laden + Dropdown nur mit GPS');
-        console.log('═══════════════════════════════════════════════════════════');
+        console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
         console.log('✅ v5.90.525: FLEET-MAP ENDLOS-SCHLEIFE BEHOBEN');
         console.log('✅ v5.90.525: FAHRER SIEHT NUR ASSIGNED FAHRTEN (kein Zeit-Filter)');
@@ -31794,13 +31794,6 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             
             console.log('🎯 GPS watchId:', watchId);
             
-            // 🆕 v5.90.632: ZEIGE FAHRZEUG-DROPDOWN WENN GPS AN!
-            const vehicleSelect = document.getElementById('vehicle');
-            if (vehicleSelect) {
-                vehicleSelect.style.display = '';  // Zurück zu default (sichtbar)
-                console.log('🔧 v5.90.632: Fahrzeug-Dropdown angezeigt (GPS an)');
-            }
-            
             // 🆕 v5.90.578: GPS Backup-Check - Alle 60 Sekunden (Akku schonen!)
             window.gpsRegularInterval = setInterval(() => {
                 if (!isOnline || !currentVehicle) {
@@ -32635,11 +32628,23 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     });
             }
             
-            // 🆕 v5.90.632: VERSTECKE FAHRZEUG-DROPDOWN WENN GPS AUS!
+            // 🆕 v5.90.633: FAHRZEUG ZURÜCKSETZEN + DROPDOWN LEEREN!
+            currentVehicle = null;
             const vehicleSelect = document.getElementById('vehicle');
             if (vehicleSelect) {
-                vehicleSelect.style.display = 'none';
-                console.log('🔧 v5.90.632: Fahrzeug-Dropdown versteckt (GPS aus)');
+                vehicleSelect.value = '';  // Zurück zu "Fahrzeug wählen"
+                console.log('🔧 v5.90.633: Fahrzeug abgewählt - Dropdown auf "Fahrzeug wählen"');
+            }
+            
+            // 🆕 v5.90.633: TOGGLE SPERREN bis neues Fahrzeug gewählt!
+            const toggle = document.getElementById('online-toggle');
+            if (toggle) {
+                toggle.disabled = true;
+                toggle.checked = false;
+                toggle.style.opacity = '0.5';
+                toggle.style.cursor = 'not-allowed';
+                isOnline = false;
+                console.log('🔒 v5.90.633: Toggle gesperrt - erst Fahrzeug wählen!');
             }
         }
 

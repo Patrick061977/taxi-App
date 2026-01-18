@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.631 | Build: 2026-01-18_2030 | Fix: SYNTAX-FIX - Doppelte Variable entfernt -->
+    <!-- Version: v5.90.632 | Build: 2026-01-18_2315 | Fix: PERFORMANCE-FIX - Fahrten nur noch einmalig laden -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,13 +256,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.624 - SCOPE-FIX (basiert auf v604)! 🔧✅ (Build 2026-01-18_2030)');
+        console.log('🚕 Funk Taxi App v5.90.632 - PERFORMANCE-FIX! 🔧✅ (Build 2026-01-18_2315)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
-        console.log('🔧 v5.90.624: SCOPE-FIX auf Basis der funktionierenden v5.90.604');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
-        console.log('🔧 v5.90.624: Minimale Änderung - maximale Stabilität!');
-        console.log('🔧 v5.90.625: MwSt-Satz aus rideData.vatRate (19% Default statt 7%)');
+        console.log('🔧 v5.90.632: PERFORMANCE-FIX - Fahrten nur EINMALIG laden + Dropdown nur mit GPS');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
         console.log('✅ v5.90.525: FLEET-MAP ENDLOS-SCHLEIFE BEHOBEN');
@@ -7706,6 +7704,10 @@
         let cancellations = []; // Neue Variable für Stornierungen
         let notifiedCancellations = new Set(); // 🆕 v5.21.7: Verhindert doppelte Stornierung-Alerts
         let bookingSystemOnline = true; // 🆕 v5.38.2: Buchungssystem AN/AUS (Standard: AN)
+        
+        // 🆕 v5.90.632: PERFORMANCE-FIX - Rides Listener statt ständiges neu laden!
+        let ridesListener = null;
+        let ridesLoadedOnce = false;
         
         // 🆕 v5.38.5: DEBUG-MODUS (Legacy - umbenannt um Konflikt mit Floating Debug zu vermeiden)
         // debugMode ist bereits global definiert!
@@ -16942,8 +16944,11 @@ Aktuell: ${currentNum}`;
                 if (driverReady) driverReady.style.display = 'block';
                 
                 // 🆕 v5.90.261: Zeige Fahrten-Liste statt "Bereit"
-                if (currentVehicle && typeof loadDriverRides === 'function') {
+                // 🆕 v5.90.632: NUR beim ERSTEN Mal laden! Nicht jede Sekunde!
+                if (currentVehicle && typeof loadDriverRides === 'function' && !ridesLoadedOnce) {
                     loadDriverRides();
+                    ridesLoadedOnce = true;  // Merke dass wir schon geladen haben
+                    console.log('🔧 v5.90.632: Fahrten EINMALIG geladen beim Start');
                 } else {
                     // Fallback: Zeige "Bereit" wenn keine Fahrten-Funktion
                     const noRides = document.getElementById('driver-no-rides');
@@ -31047,6 +31052,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             updateDriverHeader();
             
             // 🆕 v5.90.261: Lade Fahrten für diesen Fahrer
+            // 🆕 v5.90.632: Setze Flag zurück wenn Fahrzeug gewechselt wird
+            ridesLoadedOnce = false;  // Erlaube neu laden bei Fahrzeugwechsel
             loadDriverRides();
         }
         
@@ -31786,6 +31793,13 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             );
             
             console.log('🎯 GPS watchId:', watchId);
+            
+            // 🆕 v5.90.632: ZEIGE FAHRZEUG-DROPDOWN WENN GPS AN!
+            const vehicleSelect = document.getElementById('vehicle');
+            if (vehicleSelect) {
+                vehicleSelect.style.display = '';  // Zurück zu default (sichtbar)
+                console.log('🔧 v5.90.632: Fahrzeug-Dropdown angezeigt (GPS an)');
+            }
             
             // 🆕 v5.90.578: GPS Backup-Check - Alle 60 Sekunden (Akku schonen!)
             window.gpsRegularInterval = setInterval(() => {
@@ -32619,6 +32633,13 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     .catch(err => {
                         console.error('❌ Fehler beim Entfernen:', err);
                     });
+            }
+            
+            // 🆕 v5.90.632: VERSTECKE FAHRZEUG-DROPDOWN WENN GPS AUS!
+            const vehicleSelect = document.getElementById('vehicle');
+            if (vehicleSelect) {
+                vehicleSelect.style.display = 'none';
+                console.log('🔧 v5.90.632: Fahrzeug-Dropdown versteckt (GPS aus)');
             }
         }
 

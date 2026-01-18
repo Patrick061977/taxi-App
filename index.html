@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.630 | Build: 2026-01-18_2030 | Fix: STABLE - Basis für Einsteiger-Modus -->
+    <!-- Version: v5.90.631 | Build: 2026-01-18_2030 | Fix: SYNTAX-FIX - Doppelte Variable entfernt -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -260,7 +260,7 @@
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.624: SCOPE-FIX auf Basis der funktionierenden v5.90.604');
-        console.log('✅ v5.90.630: STABLE Version - Firebase garantiert funktionsfähig');
+        console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
         console.log('🔧 v5.90.624: Minimale Änderung - maximale Stabilität!');
         console.log('🔧 v5.90.625: MwSt-Satz aus rideData.vatRate (19% Default statt 7%)');
         console.log('═══════════════════════════════════════════════════════════');
@@ -32383,7 +32383,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
         let routePoints = [];
         let routeStartTime = null;
         let totalDistance = 0;
-        let currentTrackingRideId = null;
+        // currentTrackingRideId bereits in Zeile 7703 deklariert
         
         // 🆕 Separate Funktion für GPS-Position-Handling
         // 🆕 v5.90.593: GPS-Debouncing (siehe oben)

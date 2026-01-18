@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.604 - SIMULATOR VISUAL! 🗺️ (Build 2026-01-18_0600)');
+        console.log('🚕 Funk Taxi App v5.90.607 - NÄCHSTE VERMITTLUNG! 🎯 (Build 2026-01-18_1000)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.604 - SIMULATOR VISUAL! 🗺️ (Build 20260118-0600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.607 - NÄCHSTE VERMITTLUNG! 🎯 (Build 20260118-1000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1641,7 +1641,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🗺️ v5.90.604 - VISUAL
+                        🎯 v5.90.607 - VERMITTLUNG
                     </span>
                 </div>
             </div>
@@ -31198,7 +31198,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                             <div style="font-size:20px;">🎯</div>
                             <div style="flex:1;">
                                 <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">NACH</div>
-                                <div style="font-weight:600;font-size:15px;color:#111827;">${ride.dropoff || ride.destination || 'Unbekannt'}</div>
+                                <div style="font-weight:600;font-size:15px;color:#111827;">${ride.dropoff || ride.destination || ride.destAddress || 'Ziel nicht angegeben'}</div>
                             </div>
                         </div>
                     </div>
@@ -32330,7 +32330,8 @@ setInterval(async () => {
 
 console.log('✅ v5.90.594: Battery Monitor läuft!');
 
-
+// 🆕 v5.90.606: GPS THROTTLING VARIABLE (CRITICAL FIX!)
+let lastSentPosition = null;
 
         // 🆕 Separate Funktion für GPS-Position-Handling
         // 🆕 v5.90.593: GPS-Debouncing (siehe oben)
@@ -32363,9 +32364,9 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 console.log('   Distanz seit letztem Send:', Math.round(distance * 1000), 'm');
                 console.log('   Zeit seit letztem Send:', Math.round(timeSince / 1000), 's');
                 
-                // 🆕 v5.90.578: Nur senden wenn >10m ODER >60s vergangen
-                if (distance < 0.01 && timeSince < 60000) {
-                    console.log('⏭️ v5.90.578: Position nicht signifikant geändert - NICHT senden (Akku schonen!)');
+                // 🆕 v5.90.606: Nur senden wenn >10m ODER >2s vergangen (AGGRESIVES THROTTLING!)
+                if (distance < 0.01 && timeSince < 2000) {
+                    console.log('⏭️ v5.90.606: Position nicht signifikant geändert - NICHT senden (Pop-up Fix!)');
                     console.log('═══════════════════════════════════════════════════════════');
                     
                     // Update nur UI, NICHT Firebase!
@@ -36045,6 +36046,90 @@ Funk Taxi Team`;
             }
         }
         
+        // 🆕 v5.90.607: BERECHNE NÄCHSTE VERMITTLUNG FÜR FAHRZEUG
+        function calculateNextAssignment(vehicleId, vehicleData, allRides) {
+            // Prüfe ob Fahrzeug frei ist
+            if (!vehicleData || !vehicleData.lat || !vehicleData.lon) {
+                return null;
+            }
+            
+            // Prüfe ob Fahrzeug schon Fahrt hat
+            const hasActiveRide = Object.values(allRides).some(ride => 
+                ride.vehicleId === vehicleId && 
+                ['assigned', 'accepted', 'on_way', 'picked_up'].includes(ride.status)
+            );
+            
+            if (hasActiveRide) {
+                return null; // Hat schon Fahrt
+            }
+            
+            // Finde alle "new" Fahrten
+            const pendingRides = [];
+            const now = Date.now();
+            
+            for (const rideId in allRides) {
+                const ride = allRides[rideId];
+                
+                // Nur neue Fahrten ohne Fahrzeug
+                if (ride.status !== 'new' || ride.vehicleId) continue;
+                
+                // Nur zukünftige Fahrten
+                const pickupTime = ride.pickupTimestamp || ride.timestamp || 0;
+                if (pickupTime <= now) continue;
+                
+                // Prüfe ob Koordinaten vorhanden
+                if (!ride.pickupCoords || !ride.pickupCoords.lat) continue;
+                
+                // Berechne Distanz zu diesem Pickup
+                const R = 6371; // km
+                const dLat = (ride.pickupCoords.lat - vehicleData.lat) * Math.PI / 180;
+                const dLon = (ride.pickupCoords.lon - vehicleData.lon) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                         Math.cos(vehicleData.lat * Math.PI / 180) * Math.cos(ride.pickupCoords.lat * Math.PI / 180) *
+                         Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c;
+                
+                // Anfahrtszeit schätzen (50 km/h Durchschnitt)
+                const travelTime = (distance / 50) * 60; // Minuten
+                
+                pendingRides.push({
+                    ride: ride,
+                    rideId: rideId,
+                    distance: distance,
+                    travelTime: travelTime,
+                    pickupTime: pickupTime
+                });
+            }
+            
+            // Keine Fahrten gefunden
+            if (pendingRides.length === 0) {
+                return null;
+            }
+            
+            // Sortiere nach Distanz (nächstes zuerst)
+            pendingRides.sort((a, b) => a.distance - b.distance);
+            
+            // Nehme nächste Fahrt
+            const best = pendingRides[0];
+            const ride = best.ride;
+            
+            // Berechne wann Vermittlung kommt
+            const timeUntilPickup = best.pickupTime - now;
+            const timeUntilAssignment = timeUntilPickup - (best.travelTime * 60 * 1000) - (5 * 60 * 1000); // -5 Min Puffer
+            
+            return {
+                ride: ride,
+                rideId: best.rideId,
+                distance: best.distance,
+                travelTime: best.travelTime,
+                assignIn: Math.max(0, timeUntilAssignment), // Millisekunden
+                assignInMinutes: Math.max(0, Math.round(timeUntilAssignment / 60000)),
+                pickupTime: best.pickupTime,
+                reason: best.distance < 5 ? 'Nächstes verfügbares Fahrzeug' : 'Verfügbares Fahrzeug in der Nähe'
+            };
+        }
+        
         async function refreshFleetMap() {
             if (!isFirebaseReady) {
                 console.log('💾 Firebase nicht bereit');
@@ -36311,10 +36396,23 @@ Funk Taxi Team`;
                                         </div>
                                     </div>
                                 ` : `
-                                    <div style="font-size:11px;color:${gpsAgeColor};">
-                                        ${gpsAgeIcon} GPS: ${lastUpdate}
-                                        ${gpsAgeMinutes > 0 ? `<span style="color:#888;font-size:10px;">(${gpsAgeMinutes} Min)</span>` : ''}
+                                    <div style="font-size:11px;">
+                                        <div style="color:${gpsAgeColor};margin-bottom:4px;">
+                                            ${gpsAgeIcon} GPS: ${lastUpdate}
+                                            ${gpsAgeMinutes > 0 ? `<span style="color:#888;font-size:10px;">(${gpsAgeMinutes} Min)</span>` : ''}
+                                        </div>
+                                        ${(() => {
+                                            const nextAssignment = calculateNextAssignment(vehicleId, driver, ridesData);
+                                            if (!nextAssignment) {
+                                                return '<div style="font-size:10px;color:#9ca3af;">💤 Keine Fahrten</div>';
+                                            }
+                                            const ride = nextAssignment.ride;
+                                            const assignMinutes = nextAssignment.assignInMinutes;
+                                            const pickupTimeStr = new Date(nextAssignment.pickupTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                            return `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:6px;margin-top:4px;"><div style="font-size:10px;font-weight:700;color:#16a34a;margin-bottom:3px;">🎯 VERMITTLUNG: ${assignMinutes < 1 ? 'JETZT!' : '~' + assignMinutes + ' Min'}</div><div style="font-size:9px;color:#15803d;">⏰ ${pickupTimeStr} - ${ride.customerName || 'Kunde'}</div><div style="font-size:9px;color:#15803d;">📍 ${ride.pickup || 'Start'} → ${ride.destination || ride.dropoff || 'Ziel'}</div><div style="font-size:9px;color:#15803d;margin-top:2px;">💰 ~${ride.estimatedPrice ? ride.estimatedPrice.toFixed(2) : ride.price || '?'}€ | 📏 ${nextAssignment.distance.toFixed(1)} km</div><div style="font-size:8px;color:#16a34a;margin-top:3px;opacity:0.8;">✅ ${nextAssignment.reason}</div></div>`;
+                                        })()}
                                     </div>
+                                `}
                                 `}
                             </div>
                             <div style="
@@ -71457,7 +71555,71 @@ async function runAutoAssignForRide(rideIndex) {
 
 // 🆕 v5.90.603: Wrapper für onclick (kann nicht direkt async sein)
 function addSimRideSync() {
-    addSimRide().catch(err => console.error('Fehler beim Erstellen der Fahrt:', err));
+    // 🆕 v5.90.605: ADRESSEN-BASIERTE FAHRT-ERSTELLUNG!
+    
+    // VON-Adresse wählen
+    let pickupOptions = '📍 ABHOLADRESSE\\n\\nWähle Nummer:\\n\\n';
+    USEDOM_ADDRESSES.forEach((addr, i) => {
+        pickupOptions += `${i + 1}. ${addr.name}\\n`;
+    });
+    
+    const pickupInput = prompt(pickupOptions, '1');
+    if (!pickupInput) return;
+    
+    const pickupNum = parseInt(pickupInput);
+    if (isNaN(pickupNum) || pickupNum < 1 || pickupNum > USEDOM_ADDRESSES.length) {
+        alert('❌ Ungültige Auswahl!');
+        return;
+    }
+    
+    const pickupAddr = USEDOM_ADDRESSES[pickupNum - 1];
+    
+    // NACH-Adresse wählen  
+    let destOptions = '🎯 ZIELADRESSE\\n\\nWähle Nummer:\\n\\n';
+    USEDOM_ADDRESSES.forEach((addr, i) => {
+        destOptions += `${i + 1}. ${addr.name}\\n`;
+    });
+    
+    const destInput = prompt(destOptions, '2');
+    if (!destInput) return;
+    
+    const destNum = parseInt(destInput);
+    if (isNaN(destNum) || destNum < 1 || destNum > USEDOM_ADDRESSES.length) {
+        alert('❌ Ungültige Auswahl!');
+        return;
+    }
+    
+    const destAddr = USEDOM_ADDRESSES[destNum - 1];
+    
+    if (pickupNum === destNum) {
+        alert('⚠️ Start und Ziel sind gleich!');
+        return;
+    }
+    
+    const customerName = prompt('Kundenname:', 'Max Mustermann') || 'Unbekannt';
+    
+    const now = simTime;
+    const pickupTime = now + 10 * 60 * 1000; // +10 Min
+    
+    simRides.push({
+        customerName: customerName,
+        pickup: pickupAddr.name,  // 🆕 LESBARE ADRESSE!
+        pickupAddress: pickupAddr.address,
+        destination: destAddr.name,  // 🆕 LESBARE ADRESSE!
+        destAddress: destAddr.address,
+        pickupTime: pickupTime,
+        pickupLat: pickupAddr.lat,
+        pickupLon: pickupAddr.lon,
+        destLat: destAddr.lat,
+        destLon: destAddr.lon,
+        status: 'new',
+        vehicleId: null,
+        distance: null,
+        duration: null
+    });
+    
+    logSimEvent(`➕ Neue Fahrt: ${customerName} | ${pickupAddr.name} → ${destAddr.name}`);
+    renderSimulator();
 }
 
 async function addSimRide() {
@@ -71549,7 +71711,7 @@ function cancelSimRide(index) {
     renderSimulator();
 }
 
-// 🆕 v5.90.604: Fahrt auf Karte anzeigen mit Route!
+// 🆕 v5.90.605: Fahrt auf Karte anzeigen mit Route!
 let rideMarkers = []; // Pickup + Destination Marker
 let rideRouteLine = null; // Route-Linie
 
@@ -71730,21 +71892,56 @@ function sendVehicleHome(vehicleId) {
     renderSimulator();
 }
 
-function addSimVehicle() {
+async function addSimVehicle() {
     const name = prompt('Fahrzeugname:', 'Taxi ' + (simVehicles.length + 1));
     if (!name) return;
     
-    const startLat = 53.93 + Math.random() * 0.05;
-    const startLon = 14.12 + Math.random() * 0.12;
+    // 🆕 v5.90.605: ADRESS-AUSWAHL statt Koordinaten!
+    let addressOptions = '\\nWähle Start-Adresse (Nummer eingeben) oder eigene Adresse:\\n\\n';
+    USEDOM_ADDRESSES.forEach((addr, i) => {
+        addressOptions += `${i + 1}. ${addr.name}\\n`;
+    });
+    addressOptions += '\\nOder gib eine eigene Adresse ein:';
+    
+    const input = prompt(addressOptions, '1');
+    if (!input) return;
+    
+    let address, lat, lon;
+    
+    // Prüfe ob Nummer gewählt
+    const num = parseInt(input);
+    if (!isNaN(num) && num > 0 && num <= USEDOM_ADDRESSES.length) {
+        // Aus Liste gewählt
+        const selected = USEDOM_ADDRESSES[num - 1];
+        address = selected.name;
+        lat = selected.lat;
+        lon = selected.lon;
+    } else {
+        // Eigene Adresse eingegeben → Geocoden
+        try {
+            const coords = await geocodeAddress(input);
+            if (!coords) {
+                alert('❌ Adresse nicht gefunden! Bitte erneut versuchen.');
+                return;
+            }
+            address = input;
+            lat = coords.lat;
+            lon = coords.lon;
+        } catch (error) {
+            alert('❌ Geocoding Fehler: ' + error.message);
+            return;
+        }
+    }
     
     simVehicles.push({
         id: 'sim-' + Date.now(),
         name: name,
-        lat: startLat,
-        lon: startLon,
-        homeLat: startLat,  // 🆕 v5.90.560: Home = Start!
-        homeLon: startLon,
-        homeLocation: 'Start-Position',
+        address: address,  // 🆕 ADRESSE GESPEICHERT!
+        lat: lat,
+        lon: lon,
+        homeLat: lat,
+        homeLon: lon,
+        homeLocation: address,  // 🆕 LESBAR!
         status: 'free',
         online: true,
         marker: null,
@@ -71752,7 +71949,7 @@ function addSimVehicle() {
         routeData: null
     });
     
-    logSimEvent(`➕ Fahrzeug: ${name}`);
+    logSimEvent(`➕ Fahrzeug: ${name} | ${address}`);
     renderSimulator();
 }
 
@@ -71792,38 +71989,39 @@ function resetSimulation() {
     
 
 // 🆕 v5.90.565: FAHRZEUG-KOORDINATEN EDITIEREN
-function editSimVehicle(vehicleId) {
+async function editSimVehicle(vehicleId) {
     const v = simVehicles.find(vehicle => vehicle.id === vehicleId);
     if (!v) return;
     
-    const coords = prompt(`Koordinaten für "${v.name}" (Format: Lat,Lon):\n\nBeispiele:\n- Heringsdorf Bahnhof: 53.9533, 14.1633\n- Ahlbeck Seebrücke: 53.9444, 14.1933\n- Bansin Seebrücke: 53.9633, 14.1433`, `${v.lat}, ${v.lon}`);
+    // 🆕 v5.90.605: ADRESS-AUSWAHL statt Koordinaten!
+    let addressOptions = 'NEUE POSITION FÜR "' + v.name + '"\n\nWähle Nummer:\n\n';
+    USEDOM_ADDRESSES.forEach((addr, i) => {
+        addressOptions += (i + 1) + '. ' + addr.name + '\n';
+    });
     
-    if (!coords) return;
+    const input = prompt(addressOptions, '1');
+    if (!input) return;
     
-    const parts = coords.split(',').map(p => p.trim());
-    if (parts.length !== 2) {
-        alert('❌ Ungültiges Format! Nutze: Lat,Lon (z.B. 53.9547, 14.1783)');
+    const num = parseInt(input);
+    if (isNaN(num) || num < 1 || num > USEDOM_ADDRESSES.length) {
+        alert('❌ Ungültige Auswahl!');
         return;
     }
     
-    const lat = parseFloat(parts[0]);
-    const lon = parseFloat(parts[1]);
+    const selected = USEDOM_ADDRESSES[num - 1];
     
-    if (isNaN(lat) || isNaN(lon) || lat < 53.8 || lat > 54.1 || lon < 13.9 || lon > 14.4) {
-        alert('❌ Koordinaten außerhalb von Usedom! (53.8-54.1 N, 13.9-14.4 E)');
-        return;
-    }
+    v.address = selected.name;
+    v.lat = selected.lat;
+    v.lon = selected.lon;
+    v.homeLat = selected.lat;
+    v.homeLon = selected.lon;
+    v.homeLocation = selected.name;
     
-    v.lat = lat;
-    v.lon = lon;
-    v.homeLat = lat;
-    v.homeLon = lon;
-    
-    logSimEvent(`✏️ ${v.name} → ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+    logSimEvent('✏️ ' + v.name + ' → ' + selected.name);
     renderSimulator();
     
     if (simulatorMap && v.marker) {
-        simulatorMap.setView([lat, lon], 16);
+        simulatorMap.setView([selected.lat, selected.lon], 16);
     }
 }
     if (simRunning) toggleSimulation();
@@ -72180,7 +72378,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.604
+        🎯 v5.90.607
     </div>
 </div>
 

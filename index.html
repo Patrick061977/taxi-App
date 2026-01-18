@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.615 - NÄCHSTE VERMITTLUNG (auf v5.90.604 basierend)! 🎯 (Build 2026-01-18_1800)');
+        console.log('🚕 Funk Taxi App v5.90.621 - PAUSE & BESETZT! ⏸️🔴 (Build 2026-01-18_1900)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
@@ -1200,7 +1200,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.615 - NÄCHSTE VERMITTLUNG! 🗺️ (Build 20260118-1800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.617 - PAUSE OFFLINE STATUS FIX BESETZT! 🗺️ (Build 20260118-1900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1641,7 +1641,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🎯 v5.90.615 - VISUAL
+                        🗺️ v5.90.621 - VISUAL
                     </span>
                 </div>
             </div>
@@ -13330,7 +13330,49 @@ Aktuell: ${currentNum}`;
                             logActivity('system', 'connection_restored', '✅ Firebase-Verbindung wiederhergestellt', {});
                         }
                     });
-                    db.ref('rides').on('value', (s) => {
+                    
+                    // 🔥 v5.90.621: Berechne HEUTE 00:00 Uhr
+                    const heuteStart = new Date();
+                    heuteStart.setHours(0, 0, 0, 0);
+                    const heuteTimestamp = heuteStart.getTime();
+                    
+                    console.log('📅 v5.90.621: Lade nur Fahrten ab HEUTE:', heuteStart.toLocaleDateString('de-DE'));
+                    
+                    // 🔥 v5.90.621: THROTTLE Firebase Listener (nur alle 2 Sek!)
+                    let lastRidesUpdate = 0;
+                    let pendingRidesUpdate = null;
+                    
+                    // 🔥 v5.90.621: NUR FAHRTEN AB HEUTE LADEN!
+                    db.ref('rides')
+                        .orderByChild('timestamp')
+                        .startAt(heuteTimestamp)
+                        .on('value', (s) => {
+                        const now = Date.now();
+                        
+                        // 🔥 v5.90.621: Zu früh? Warte!
+                        if (now - lastRidesUpdate < 2000) {
+                            console.log('⏭️ v5.90.621: Firebase zu schnell - Throttle!');
+                            
+                            // Speichere für später
+                            if (pendingRidesUpdate) {
+                                clearTimeout(pendingRidesUpdate);
+                            }
+                            
+                            pendingRidesUpdate = setTimeout(() => {
+                                processRidesUpdate(s);
+                                lastRidesUpdate = Date.now();
+                                pendingRidesUpdate = null;
+                            }, 2000 - (now - lastRidesUpdate));
+                            
+                            return;
+                        }
+                        
+                        lastRidesUpdate = now;
+                        processRidesUpdate(s);
+                    });
+                    
+                    // 🔥 v5.90.621: Eigentliche Verarbeitung in separater Funktion
+                    function processRidesUpdate(s) {
                         console.log('🔄 Firebase: rides value event triggered');
                         const previousCount = rides.filter(r => r.status === 'new' || r.status === 'vorbestellt').length;
                         rides = [];
@@ -13486,7 +13528,7 @@ Aktuell: ${currentNum}`;
                             cancellations.push(cancel);
                         });
                         if (currentView === 'admin') updateAdminView();
-                    });
+                    } // 🔥 v5.90.621: Ende von processRidesUpdate
                     
                     // 🆕 v5.31.0: child_changed ENTFERNT - verursachte Race Conditions!
                     // Der 'value' Listener oben updated schon alles automatisch!
@@ -15533,17 +15575,88 @@ Aktuell: ${currentNum}`;
                                 </div>
                             `;
                         } else {
-                            // 🟢 FREI
-                            statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(16,185,129,0.3);margin-bottom:15px;">
-                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
-                                        <div style="font-size:24px;">🟢</div>
-                                        <div style="font-weight:700;font-size:18px;">FREI</div>
+                            // 🔴 v5.90.621: Prüfe ob Online!
+                            if (isOnline) {
+                                // 🆕 v5.90.621: Prüfe PAUSE & BESETZT Status
+                                if (isPaused) {
+                                    statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(245,158,11,0.3);margin-bottom:15px;">
+                                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+                                                <div style="font-size:24px;">⏸️</div>
+                                                <div style="font-weight:700;font-size:18px;">IN PAUSE</div>
+                                            </div>
+                                            <div style="font-size:14px;opacity:0.9;">
+                                                Keine neuen Buchungen - Drücke "PAUSE BEENDEN"
+                                            </div>
+                                        </div>
+                                    `;
+                                } else if (isBusy) {
+                                    statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(239,68,68,0.3);margin-bottom:15px;">
+                                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+                                                <div style="font-size:24px;">🔴</div>
+                                                <div style="font-weight:700;font-size:18px;">BESETZT</div>
+                                            </div>
+                                            <div style="font-size:14px;opacity:0.9;">
+                                                Nicht buchbar - Drücke "VERFÜGBAR"
+                                            </div>
+                                        </div>
+                                    `;
+                                } else {
+                                    statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(16,185,129,0.3);margin-bottom:15px;">
+                                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+                                                <div style="font-size:24px;">🟢</div>
+                                            <div style="font-weight:700;font-size:18px;">FREI</div>
+                                        </div>
+                                        <div style="font-size:14px;opacity:0.9;">
+                                            Bereit für neue Buchungen
+                                        </div>
                                     </div>
-                                    <div style="font-size:14px;opacity:0.9;">
-                                        Bereit für neue Buchungen
+                                `;
+                                }
+                            } else {
+                                statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#6b7280,#4b5563);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(107,114,128,0.3);margin-bottom:15px;">
+                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+                                            <div style="font-size:24px;">⚪</div>
+                                            <div style="font-weight:700;font-size:18px;">OFFLINE</div>
+                                        </div>
+                                        <div style="font-size:14px;opacity:0.9;">
+                                            Aktiviere Toggle um Online zu gehen
+                                        </div>
                                     </div>
+                                `;
+                            }
+                        }
+                        
+                        // 🆕 v5.90.621: PAUSE & BESETZT Buttons!
+                        if (isOnline) {
+                            const buttonsHTML = `
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+                                    <button onclick="togglePause()" id="pause-btn" style="
+                                        padding:12px;
+                                        border:none;
+                                        border-radius:8px;
+                                        font-weight:700;
+                                        cursor:pointer;
+                                        background:linear-gradient(135deg,#f59e0b,#d97706);
+                                        color:white;
+                                        box-shadow:0 2px 8px rgba(245,158,11,0.3);
+                                    ">
+                                        ⏸️ PAUSE
+                                    </button>
+                                    <button onclick="toggleBusy()" id="busy-btn" style="
+                                        padding:12px;
+                                        border:none;
+                                        border-radius:8px;
+                                        font-weight:700;
+                                        cursor:pointer;
+                                        background:linear-gradient(135deg,#ef4444,#dc2626);
+                                        color:white;
+                                        box-shadow:0 2px 8px rgba(239,68,68,0.3);
+                                    ">
+                                        🔴 BESETZT
+                                    </button>
                                 </div>
                             `;
+                            statusBoxEl.insertAdjacentHTML('afterend', buttonsHTML);
                         }
                     }
                 } catch (e) {
@@ -25143,7 +25256,7 @@ Aktuell: ${currentNum}`;
                     allRides.push(ride);
                 });
                 
-                // Filtere Vorbestellungen (NUR HEUTE + ZUKUNFT!)
+                // Filtere Vorbestellungen (PAUSE OFFLINE STATUS FIX BESETZT + ZUKUNFT!)
                 const todayStart = new Date();
                 todayStart.setHours(0, 0, 0, 0);
                 const todayTimestamp = todayStart.getTime();
@@ -30909,6 +31022,94 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // 🆕 v5.90.267: Update Header-Anzeige!
             updateDriverHeader();
         }
+        
+        // 🆕 v5.90.621: PAUSE-Modus
+        let isPaused = false;
+        function togglePause() {
+            if (!currentVehicle || !isOnline) return;
+            
+            isPaused = !isPaused;
+            
+            const btn = document.getElementById('pause-btn');
+            if (!btn) return;
+            
+            if (isPaused) {
+                // PAUSE AN
+                btn.innerHTML = '▶️ PAUSE BEENDEN';
+                btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+                
+                // Update Firebase
+                db.ref('vehicles/' + currentVehicle).update({
+                    status: 'pause',
+                    pauseStart: Date.now()
+                });
+                
+                alert('⏸️ PAUSE aktiviert!\\n\\nDu bekommst keine neuen Buchungen.\\nDrücke "PAUSE BEENDEN" um wieder verfügbar zu sein.');
+                
+                console.log('⏸️ Fahrer in PAUSE');
+            } else {
+                // PAUSE AUS
+                btn.innerHTML = '⏸️ PAUSE';
+                btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+                
+                // Update Firebase
+                db.ref('vehicles/' + currentVehicle).update({
+                    status: 'free',
+                    pauseStart: null
+                });
+                
+                console.log('▶️ Fahrer PAUSE beendet');
+            }
+            
+            // Refresh View
+            if (currentView === 'driver') {
+                setTimeout(() => switchView('driver'), 100);
+            }
+        }
+        
+        // 🆕 v5.90.621: BESETZT-Modus
+        let isBusy = false;
+        function toggleBusy() {
+            if (!currentVehicle || !isOnline) return;
+            
+            isBusy = !isBusy;
+            
+            const btn = document.getElementById('busy-btn');
+            if (!btn) return;
+            
+            if (isBusy) {
+                // BESETZT AN
+                btn.innerHTML = '🟢 VERFÜGBAR';
+                btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                
+                // Update Firebase
+                db.ref('vehicles/' + currentVehicle).update({
+                    status: 'busy',
+                    busyStart: Date.now()
+                });
+                
+                alert('🔴 BESETZT aktiviert!\\n\\nDu bist jetzt als BESETZT markiert.\\nDrücke "VERFÜGBAR" um wieder frei zu sein.');
+                
+                console.log('🔴 Fahrer BESETZT');
+            } else {
+                // BESETZT AUS
+                btn.innerHTML = '🔴 BESETZT';
+                btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+                
+                // Update Firebase
+                db.ref('vehicles/' + currentVehicle).update({
+                    status: 'free',
+                    busyStart: null
+                });
+                
+                console.log('🟢 Fahrer wieder VERFÜGBAR');
+            }
+            
+            // Refresh View
+            if (currentView === 'driver') {
+                setTimeout(() => switchView('driver'), 100);
+            }
+        }
 
         function setVehicle() {
             const previousVehicle = currentVehicle;
@@ -31150,7 +31351,32 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
         }
         
         // 🆕 v5.90.525: RENDERE FAHRER-FAHRTEN (NUR ERSTE!)
+        // 🔥 v5.90.621: RENDER-LOCK - Verhindert Flackern!
+        let lastRidesRenderHash = null;
+        let isCurrentlyRendering = false;
+        
         function renderDriverRides(rides) {
+            // 🔥 v5.90.621: STOP wenn bereits am Rendern!
+            if (isCurrentlyRendering) {
+                console.log('⏭️ v5.90.621: Render läuft bereits - SKIP!');
+                return;
+            }
+            
+            // 🔥 v5.90.621: Hash berechnen (nur relevante Daten!)
+            const ridesHash = rides.map(r => 
+                `${r.id}-${r.status}-${r.vehicleId}-${r.timestamp}`
+            ).join('|');
+            
+            // 🔥 v5.90.621: Hat sich was geändert?
+            if (ridesHash === lastRidesRenderHash) {
+                console.log('⏭️ v5.90.621: Keine Änderung - SKIP Render!');
+                return;
+            }
+            
+            console.log('🎨 v5.90.621: Änderung erkannt - Rendere jetzt!');
+            isCurrentlyRendering = true;
+            lastRidesRenderHash = ridesHash;
+            
             const container = document.getElementById('current-rides-display');
             
             if (!container) {
@@ -31262,6 +31488,8 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 'completed': '#6b7280',    // Erledigt (Grau)
                 'cancelled': '#ef4444'     // Storniert (Rot)
             }[status] || '#6b7280';
+            // 🔥 v5.90.621: Render fertig - Lock freigeben!
+            isCurrentlyRendering = false;
         }
         
         function getStatusText(status) {
@@ -31792,8 +32020,14 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     return;
                 }
                 
+                // 🔥 v5.90.621: NUR warnen wenn lastGPSUpdate existiert!
+                if (!lastGPSUpdate) {
+                    warningBanner.style.display = 'none';
+                    return;
+                }
+                
                 // Prüfe wie lange letztes GPS-Update her ist
-                const timeSinceLastUpdate = Date.now() - (lastGPSUpdate || 0);
+                const timeSinceLastUpdate = Date.now() - lastGPSUpdate;
                 
                 // KRITISCH: Länger als 30 Sekunden kein Update!
                 if (timeSinceLastUpdate > 30000) {
@@ -36327,34 +36561,6 @@ Funk Taxi Team`;
                             ">${displayStatus === 'frei' ? 'FREI' : displayStatus === 'zugewiesen' ? 'ZUGEWIESEN' : displayStatus === 'stale' ? 'GPS ALT!' : 'BESETZT'}</div>
                         </div>
                     `;
-                    
-                    // 🆕 v5.90.615: NÄCHSTE VERMITTLUNG für freie Fahrzeuge
-                    if (displayStatus === 'frei' && !isStale) {
-                        const nextAssignment = calculateNextAssignment(vehicleId, driver, ridesData);
-                        if (nextAssignment) {
-                            const timeText = nextAssignment.timeUntilAssignment <= 0 ? 'JETZT' : `~${nextAssignment.timeUntilAssignment} Min`;
-                            vehicleListHtml += `
-                                <div style="
-                                    background:linear-gradient(135deg,#10b981,#059669);
-                                    padding:8px 10px;
-                                    border-radius:6px;
-                                    margin:8px 10px;
-                                    border-left:3px solid #047857;
-                                    box-shadow:0 2px 4px rgba(16,185,129,0.2);
-                                ">
-                                    <div style="color:white;font-size:11px;font-weight:600;margin-bottom:4px;">
-                                        🎯 VERMITTLUNG: ${timeText}
-                                    </div>
-                                    <div style="color:rgba(255,255,255,0.95);font-size:10px;line-height:1.4;">
-                                        <div style="margin-bottom:2px;">⏰ ${new Date(nextAssignment.pickupTime).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})} - ${nextAssignment.customerName}</div>
-                                        <div style="margin-bottom:2px;">📍 ${nextAssignment.pickup} → ${nextAssignment.destination}</div>
-                                        <div>💰 ~${nextAssignment.estimatedPrice}€ | 📏 ${nextAssignment.distance} km</div>
-                                        <div style="margin-top:4px;font-size:9px;opacity:0.8;">✅ ${nextAssignment.reason}</div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    }
                 }
                 
                 // Offline-Fahrzeuge aus VEHICLES hinzufügen
@@ -36589,77 +36795,6 @@ Funk Taxi Team`;
                 console.error('💾 Fehler beim Initialisieren der Fleet-Map-Overview:', error);
                 return;
             }
-        }
-        
-        // 🆕 v5.90.615: NÄCHSTE VERMITTLUNG BERECHNEN
-        function calculateNextAssignment(vehicleId, vehicleData, allRides) {
-            // Nur für freie Fahrzeuge
-            if (!vehicleData || vehicleData.currentRideId) return null;
-            
-            const now = Date.now();
-            const pendingRides = [];
-            
-            // Finde alle Fahrten die noch zugewiesen werden müssen
-            for (const rideId in allRides) {
-                const ride = allRides[rideId];
-                
-                // Nur "new" Fahrten ohne Fahrzeug und in der Zukunft
-                if (ride.status === 'new' && 
-                    !ride.vehicleId && 
-                    ride.timestamp > now &&
-                    ride.pickupCoords?.lat && 
-                    ride.pickupCoords?.lon &&
-                    vehicleData.lat && 
-                    vehicleData.lon) {
-                    
-                    // Berechne Entfernung (Haversine)
-                    const R = 6371; // Erdradius in km
-                    const dLat = (ride.pickupCoords.lat - vehicleData.lat) * Math.PI / 180;
-                    const dLon = (ride.pickupCoords.lon - vehicleData.lon) * Math.PI / 180;
-                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                             Math.cos(vehicleData.lat * Math.PI / 180) * Math.cos(ride.pickupCoords.lat * Math.PI / 180) *
-                             Math.sin(dLon/2) * Math.sin(dLon/2);
-                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    const distance = R * c;
-                    
-                    // Geschätzte Fahrzeit (50 km/h Durchschnitt)
-                    const travelTimeMs = (distance / 50) * 60 * 60 * 1000;
-                    const arrivalTime = now + travelTimeMs;
-                    const bufferTime = 5 * 60 * 1000; // 5 Min Puffer
-                    
-                    // Kann Fahrzeug rechtzeitig da sein?
-                    if (arrivalTime + bufferTime <= ride.timestamp) {
-                        pendingRides.push({
-                            rideId,
-                            ride,
-                            distance: distance,
-                            travelTimeMs: travelTimeMs,
-                            timeUntilAssignment: ride.timestamp - travelTimeMs - bufferTime - now
-                        });
-                    }
-                }
-            }
-            
-            // Sortiere nach Entfernung (nächste zuerst)
-            pendingRides.sort((a, b) => a.distance - b.distance);
-            
-            // Gib nächste Fahrt zurück
-            if (pendingRides.length > 0) {
-                const next = pendingRides[0];
-                return {
-                    rideId: next.rideId,
-                    customerName: next.ride.customerName || 'Unbekannt',
-                    pickup: next.ride.pickup || next.ride.pickupAddress || 'Abholort',
-                    destination: next.ride.dropoff || next.ride.destination || next.ride.destAddress || 'Zielort',
-                    pickupTime: next.ride.timestamp,
-                    distance: next.distance.toFixed(1),
-                    estimatedPrice: next.ride.estimatedPrice || 0,
-                    timeUntilAssignment: Math.max(0, Math.round(next.timeUntilAssignment / 1000 / 60)), // in Minuten
-                    reason: 'Nächstes verfügbares Fahrzeug'
-                };
-            }
-            
-            return null;
         }
         
         // Refresh-Funktion (ruft ADMIN-Funktion auf + kopiert zu Overview-IDs!)
@@ -71648,7 +71783,7 @@ function cancelSimRide(index) {
     renderSimulator();
 }
 
-// 🆕 v5.90.604: Fahrt auf Karte anzeigen mit Route!
+// 🆕 v5.90.621: Fahrt auf Karte anzeigen mit Route!
 let rideMarkers = []; // Pickup + Destination Marker
 let rideRouteLine = null; // Route-Linie
 
@@ -71778,7 +71913,7 @@ function moveVehicleRandom(vehicleId) {
 }
 
 // 🆕 v5.90.560: MANUELL NACH HAUSE SCHICKEN
-// 🆕 v5.90.604: Home-Standort setzen
+// 🆕 v5.90.621: Home-Standort setzen
 function setSimVehicleHome(vehicleId) {
     const v = simVehicles.find(vehicle => vehicle.id === vehicleId);
     if (!v) return;
@@ -72279,7 +72414,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎯 v5.90.615
+        🗺️ v5.90.621
     </div>
 </div>
 

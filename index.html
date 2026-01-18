@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.625 | Build: 2026-01-18_2030 | Fix: MwSt 19% statt 7% bei Rechnungen -->
+    <!-- Version: v5.90.629 | Build: 2026-01-18_2030 | Fix: Filter-Fix: Alte Fahrten nicht mehr anzeigen -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -260,8 +260,10 @@
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.624: SCOPE-FIX auf Basis der funktionierenden v5.90.604');
-        console.log('🔧 v5.90.625: MwSt-Satz aus rideData.vatRate (19% Default statt 7%)');
+        console.log('🔧 v5.90.629: FILTER-FIX - myRides schließt alte/abgeschlossene Fahrten aus');
         console.log('🔧 v5.90.624: Minimale Änderung - maximale Stabilität!');
+        console.log('🔧 v5.90.627: FREI Status nur wenn isOnline=true (GPS Toggle AN + Sync läuft)');
+        console.log('🔧 v5.90.625: MwSt-Satz aus rideData.vatRate (19% Default statt 7%)');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.525: DYNAMISCHES AUTO-ASSIGN (Anfahrtszeit + 5 Min Puffer)');
         console.log('✅ v5.90.525: FLEET-MAP ENDLOS-SCHLEIFE BEHOBEN');
@@ -15541,17 +15543,31 @@ Aktuell: ${currentNum}`;
                                 </div>
                             `;
                         } else {
-                            // 🟢 FREI
-                            statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(16,185,129,0.3);margin-bottom:15px;">
-                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
-                                        <div style="font-size:24px;">🟢</div>
-                                        <div style="font-weight:700;font-size:18px;">FREI</div>
+                            // 🟢 FREI - 🔧 FIX v5.90.627: Nur wenn GPS Toggle AN und Sync läuft
+                            if (isOnline) {
+                                statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(16,185,129,0.3);margin-bottom:15px;">
+                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+                                            <div style="font-size:24px;">🟢</div>
+                                            <div style="font-weight:700;font-size:18px;">FREI</div>
+                                        </div>
+                                        <div style="font-size:14px;opacity:0.9;">
+                                            Bereit für neue Buchungen
+                                        </div>
                                     </div>
-                                    <div style="font-size:14px;opacity:0.9;">
-                                        Bereit für neue Buchungen
+                                `;
+                            } else {
+                                // ⚪ OFFLINE - GPS Toggle AUS oder keine Sync
+                                statusBoxEl.innerHTML = `<div style="background:linear-gradient(135deg,#6b7280,#4b5563);color:white;padding:15px;border-radius:12px;box-shadow:0 4px 12px rgba(107,114,128,0.3);margin-bottom:15px;">
+                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+                                            <div style="font-size:24px;">⚪</div>
+                                            <div style="font-weight:700;font-size:18px;">OFFLINE</div>
+                                        </div>
+                                        <div style="font-size:14px;opacity:0.9;">
+                                            GPS Toggle einschalten & Online gehen
+                                        </div>
                                     </div>
-                                </div>
-                            `;
+                                `;
+                            }
                         }
                     }
                 } catch (e) {
@@ -15791,7 +15807,13 @@ Aktuell: ${currentNum}`;
                     return;
                 }
                 
-                const myRides = rides.filter(r => r && r.vehicleId === currentVehicle);
+                // 🔧 v5.90.629: Filter nur relevante Fahrten
+                const myRides = rides.filter(r => {
+                    if (!r || r.vehicleId !== currentVehicle) return false;
+                    const excludedStatuses = ['completed', 'cancelled', 'storniert', 'cancelled_pending_driver'];
+                    if (excludedStatuses.includes(r.status)) return false;
+                    return true;
+                });
                 const activeRide = myRides.find(r => 
                     r.status === 'accepted' || 
                     r.status === 'on_way' || 
@@ -15837,8 +15859,13 @@ Aktuell: ${currentNum}`;
                 document.getElementById('driver-go-button').style.opacity = '1';
             }
             
-            // Meine Fahrten filtern (nur für dieses Fahrzeug)
-            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            // 🔧 v5.90.629: Meine Fahrten filtern - NUR relevante Status!
+            const myRides = rides.filter(r => {
+                if (r.vehicleId !== currentVehicle) return false;
+                const excludedStatuses = ['completed', 'cancelled', 'storniert', 'cancelled_pending_driver'];
+                if (excludedStatuses.includes(r.status)) return false;
+                return true;
+            });
             
             // 🎯 AKTIVE FAHRT (on_way oder picked_up) - NUR JETZT!
             const activeRide = myRides.find(r => 
@@ -15955,23 +15982,43 @@ Aktuell: ${currentNum}`;
                 `;
                 
             } else {
-                // 🟢 FREI!
-                indicator.style.display = 'block';
-                indicator.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                indicator.style.color = 'white';
-                indicator.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="font-size: 32px;">🟢</div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">
-                                FREI
-                            </div>
-                            <div style="font-size: 13px; opacity: 0.9;">
-                                Bereit für neue Buchungen
+                // 🟢 FREI - 🔧 FIX v5.90.627: Nur wenn GPS Toggle AN und Sync läuft
+                if (isOnline) {
+                    indicator.style.display = 'block';
+                    indicator.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                    indicator.style.color = 'white';
+                    indicator.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 32px;">🟢</div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">
+                                    FREI
+                                </div>
+                                <div style="font-size: 13px; opacity: 0.9;">
+                                    Bereit für neue Buchungen
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    // ⚪ OFFLINE
+                    indicator.style.display = 'block';
+                    indicator.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+                    indicator.style.color = 'white';
+                    indicator.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 32px;">⚪</div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">
+                                    OFFLINE
+                                </div>
+                                <div style="font-size: 13px; opacity: 0.9;">
+                                    GPS Toggle einschalten & Online gehen
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
             }
         }
         
@@ -16283,8 +16330,17 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            // Meine Fahrten filtern
-            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            // 🔧 v5.90.629: Meine Fahrten filtern - NUR relevante Status!
+            // Ausschließen: completed, cancelled, storniert (alte Fahrten die nicht mehr angezeigt werden sollen)
+            const myRides = rides.filter(r => {
+                if (r.vehicleId !== currentVehicle) return false;
+                
+                // 🆕 v5.90.629: WICHTIG - Keine abgeschlossenen/stornierten Fahrten!
+                const excludedStatuses = ['completed', 'cancelled', 'storniert', 'cancelled_pending_driver'];
+                if (excludedStatuses.includes(r.status)) return false;
+                
+                return true;
+            });
             
             // Aktive Fahrt (on_way oder picked_up) - NICHT accepted!
             const now = Date.now();
@@ -16406,6 +16462,10 @@ Aktuell: ${currentNum}`;
             
             const navUrl = `https://www.google.com/maps/dir/${encodeURIComponent(pickup)}/${encodeURIComponent(destination)}`;
             
+            // 🆕 v5.90.628: EINSTEIGER - Prüfe ob Route-Tracking aktiv
+            const hasStarted = ride.startLocation || (isTrackingRoute && currentTrackingRideId === (ride.firebaseId || ride.id));
+            const hasEnded = ride.endLocation;
+            
             return `
                 <div style="text-align: center; margin-bottom: 16px;">
                     <div style="font-size: 24px; font-weight: 700; color: #1f2937; margin-bottom: 4px;">
@@ -16467,6 +16527,85 @@ Aktuell: ${currentNum}`;
                         <div style="font-size: 16px; font-weight: 700; color: #048257;">💰 ${price}€</div>
                     </div>
                 </div>
+                
+                ${!hasStarted ? `
+                    <!-- 🆕 v5.90.628: EINSTEIGER - START Button -->
+                    <button onclick="startRideTracking('${ride.firebaseId || ride.id}')" style="
+                        width: 100%;
+                        padding: 16px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-weight: 700;
+                        font-size: 16px;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                        margin-bottom: 12px;
+                    ">
+                        📍 START - Abholung
+                    </button>
+                    <div style="font-size: 12px; color: #6b7280; text-align: center; margin-bottom: 16px;">
+                        ℹ️ Drücke START wenn du beim Kunden angekommen bist
+                    </div>
+                ` : ''}
+                
+                ${hasStarted && !hasEnded ? `
+                    <!-- 🆕 v5.90.628: EINSTEIGER - Route-Tracking UI -->
+                    <div id="ride-tracking-ui">
+                        <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px;border-radius:12px;margin-bottom:15px;">
+                            <div style="font-size:18px;font-weight:700;margin-bottom:15px;">
+                                🚗 FAHRT LÄUFT
+                            </div>
+                            
+                            <div style="background:rgba(255,255,255,0.2);padding:15px;border-radius:8px;margin-bottom:15px;">
+                                <div style="font-size:13px;margin-bottom:8px;">
+                                    📍 START: ✅ ${new Date(ride.startTime || Date.now()).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})} Uhr
+                                </div>
+                                <div style="font-size:13px;font-weight:700;margin-bottom:5px;">
+                                    🗺️ ROUTE-TRACKING:
+                                </div>
+                                <div style="font-size:24px;font-weight:700;margin-bottom:5px;">
+                                    📏 <span id="route-distance">${(ride.route?.totalDistance || totalDistance || 0).toFixed(1)} km</span>
+                                </div>
+                                <div style="font-size:18px;margin-bottom:5px;">
+                                    ⏱️ <span id="route-duration">00:00</span>
+                                </div>
+                                <div style="font-size:18px;">
+                                    🚗 <span id="current-speed">-- km/h</span>
+                                </div>
+                            </div>
+                            
+                            <button onclick="endRideTracking('${ride.firebaseId || ride.id}')" 
+                                    style="width:100%;padding:15px;background:white;color:#3b82f6;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;">
+                                🎯 ZIEL - Angekommen
+                            </button>
+                            
+                            <div style="font-size:12px;opacity:0.8;margin-top:10px;text-align:center;">
+                                ℹ️ Drücke ZIEL wenn du am Zielort angekommen bist
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${hasEnded ? `
+                    <!-- 🆕 v5.90.628: EINSTEIGER - Route abgeschlossen -->
+                    <div style="background:#dcfce7;border:2px solid #10b981;padding:15px;border-radius:12px;margin-bottom:16px;">
+                        <div style="font-size:14px;font-weight:700;color:#065f46;margin-bottom:10px;text-align:center;">
+                            ✅ ROUTE ABGESCHLOSSEN
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;color:#065f46;">
+                            <div>
+                                <div style="opacity:0.7;">Gefahren:</div>
+                                <div style="font-weight:700;font-size:16px;">${(ride.route?.totalDistance || ride.actualDistance || 0).toFixed(1)} km</div>
+                            </div>
+                            <div>
+                                <div style="opacity:0.7;">Fahrzeit:</div>
+                                <div style="font-weight:700;font-size:16px;">${Math.floor((ride.route?.duration || 0) / 60000)}:${String(Math.floor(((ride.route?.duration || 0) % 60000) / 1000)).padStart(2, '0')}</div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <a href="${navUrl}" target="_blank" style="
@@ -32340,6 +32479,16 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
 
 
 
+        // 🔧 FIX v5.90.626: Deklariere lastSentPosition Variable
+        let lastSentPosition = null;
+        
+        // 🆕 v5.90.628: EINSTEIGER-MODUS - Route-Tracking Variablen
+        let isTrackingRoute = false;
+        let routePoints = [];
+        let routeStartTime = null;
+        let totalDistance = 0;
+        let currentTrackingRideId = null;
+        
         // 🆕 Separate Funktion für GPS-Position-Handling
         // 🆕 v5.90.593: GPS-Debouncing (siehe oben)
         
@@ -32509,6 +32658,324 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 timestamp: Date.now()
             };
             console.log('💾 v5.90.578: Letzte Position gespeichert für Filter');
+            
+            // 🆕 v5.90.628: EINSTEIGER - Route-Tracking während Fahrt
+            if (isTrackingRoute && currentTrackingRideId) {
+                trackRoutePoint(pos);
+            }
+        }
+        
+        // 🆕 v5.90.628: EINSTEIGER-MODUS - Route-Tracking Funktionen
+        
+        function trackRoutePoint(position) {
+            const point = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                timestamp: Date.now(),
+                speed: position.coords.speed ? (position.coords.speed * 3.6).toFixed(0) : 0, // m/s → km/h
+                accuracy: position.coords.accuracy
+            };
+            
+            // Berechne Distanz zum letzten Punkt
+            if (routePoints.length > 0) {
+                const lastPoint = routePoints[routePoints.length - 1];
+                const distance = calculateDistance(
+                    lastPoint.lat, lastPoint.lon,
+                    point.lat, point.lon
+                );
+                totalDistance += distance;
+            }
+            
+            routePoints.push(point);
+            
+            // Update UI live
+            updateRouteTrackingUI();
+        }
+        
+        function updateRouteTrackingUI() {
+            // Update Distanz
+            const distanceEl = document.getElementById('route-distance');
+            if (distanceEl) {
+                distanceEl.textContent = totalDistance.toFixed(1) + ' km';
+            }
+            
+            // Update Fahrzeit
+            const durationEl = document.getElementById('route-duration');
+            if (durationEl && routeStartTime) {
+                const durationMs = Date.now() - routeStartTime;
+                const minutes = Math.floor(durationMs / 60000);
+                const seconds = Math.floor((durationMs % 60000) / 1000);
+                durationEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            
+            // Update Geschwindigkeit
+            const speedEl = document.getElementById('current-speed');
+            if (speedEl && routePoints.length > 0) {
+                const lastPoint = routePoints[routePoints.length - 1];
+                speedEl.textContent = lastPoint.speed + ' km/h';
+            }
+        }
+        
+        // 🆕 v5.90.628: START Button - Fahrt beginnen
+        async function startRideTracking(rideId) {
+            console.log('📍 v5.90.628: START Button gedrückt - Beginne Route-Tracking');
+            
+            // Hole aktuelle GPS-Position
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const startLocation = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude,
+                    timestamp: Date.now(),
+                    accuracy: position.coords.accuracy
+                };
+                
+                // Hole Fahrt-Daten
+                const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                const rideData = rideSnapshot.val();
+                
+                if (rideData) {
+                    startLocation.address = rideData.pickup || 'Unbekannt';
+                }
+                
+                // Speichere Start-Position in Firebase
+                await db.ref(`rides/${rideId}`).update({
+                    startLocation: startLocation,
+                    startTime: Date.now(),
+                    status: 'picked_up' // Kunde eingestiegen
+                });
+                
+                // Starte Route-Tracking
+                isTrackingRoute = true;
+                currentTrackingRideId = rideId;
+                routePoints = [startLocation];
+                routeStartTime = Date.now();
+                totalDistance = 0;
+                
+                console.log('✅ v5.90.628: Route-Tracking gestartet');
+                console.log('   Position:', startLocation.lat.toFixed(5), startLocation.lon.toFixed(5));
+                console.log('   Adresse:', startLocation.address);
+                
+                // Update UI
+                updateRideTrackingUI('in_progress');
+                
+            }, (error) => {
+                console.error('❌ GPS-Fehler beim START:', error.message);
+                alert('❌ GPS-Position konnte nicht ermittelt werden!\n\nBitte GPS aktivieren und erneut versuchen.');
+            }, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        }
+        
+        // 🆕 v5.90.628: ZIEL Button - Fahrt beenden
+        async function endRideTracking(rideId) {
+            console.log('🎯 v5.90.628: ZIEL Button gedrückt - Beende Route-Tracking');
+            
+            // Hole aktuelle GPS-Position
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const endLocation = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude,
+                    timestamp: Date.now(),
+                    accuracy: position.coords.accuracy
+                };
+                
+                // Hole Fahrt-Daten
+                const rideSnapshot = await db.ref(`rides/${rideId}`).once('value');
+                const rideData = rideSnapshot.val();
+                
+                if (rideData) {
+                    endLocation.address = rideData.destination || rideData.dropoff || 'Unbekannt';
+                }
+                
+                // Berechne Route-Statistiken
+                const duration = Date.now() - routeStartTime;
+                const avgSpeed = totalDistance > 0 ? (totalDistance / (duration / 3600000)).toFixed(1) : 0;
+                
+                const routeData = {
+                    startLocation: routePoints[0],
+                    endLocation: endLocation,
+                    points: routePoints,
+                    totalDistance: parseFloat(totalDistance.toFixed(2)),
+                    duration: duration,
+                    avgSpeed: parseFloat(avgSpeed),
+                    pointsCount: routePoints.length
+                };
+                
+                // Speichere in Firebase
+                await db.ref(`rides/${rideId}`).update({
+                    endLocation: endLocation,
+                    endTime: Date.now(),
+                    status: 'on_way', // Auf dem Weg zum Ziel → Kunde kann noch abrechnen
+                    route: routeData,
+                    actualDistance: parseFloat(totalDistance.toFixed(2)) // Für Abrechnung!
+                });
+                
+                console.log('✅ v5.90.628: Route-Tracking beendet');
+                console.log('   Position:', endLocation.lat.toFixed(5), endLocation.lon.toFixed(5));
+                console.log('   Adresse:', endLocation.address);
+                console.log('   Gefahren:', totalDistance.toFixed(1), 'km');
+                console.log('   Dauer:', Math.floor(duration / 60000), 'Min', Math.floor((duration % 60000) / 1000), 'Sek');
+                console.log('   Ø Speed:', avgSpeed, 'km/h');
+                console.log('   Punkte:', routePoints.length);
+                
+                // Stoppe Route-Tracking
+                isTrackingRoute = false;
+                currentTrackingRideId = null;
+                
+                // Zeige Zusammenfassung
+                showRideSummary(rideId, routeData);
+                
+            }, (error) => {
+                console.error('❌ GPS-Fehler beim ZIEL:', error.message);
+                alert('❌ GPS-Position konnte nicht ermittelt werden!\n\nBitte GPS aktivieren und erneut versuchen.');
+            }, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        }
+        
+        // 🆕 v5.90.628: Zeige Fahrt-Zusammenfassung nach ZIEL
+        function showRideSummary(rideId, routeData) {
+            // Hole Fahrt-Daten
+            db.ref(`rides/${rideId}`).once('value').then((snapshot) => {
+                const ride = snapshot.val();
+                if (!ride) return;
+                
+                const durationMin = Math.floor(routeData.duration / 60000);
+                const durationSec = Math.floor((routeData.duration % 60000) / 1000);
+                
+                // Modal erstellen
+                const modal = document.createElement('div');
+                modal.id = 'ride-summary-modal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+                modal.innerHTML = `
+                    <div style="background:white;border-radius:16px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                        <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:20px;border-radius:16px 16px 0 0;">
+                            <div style="font-size:24px;font-weight:700;margin-bottom:5px;">
+                                ✅ FAHRT ABGESCHLOSSEN
+                            </div>
+                            <div style="font-size:14px;opacity:0.9;">
+                                ${ride.customerName || 'Kunde'}
+                            </div>
+                        </div>
+                        
+                        <div style="padding:20px;">
+                            <div style="background:#f3f4f6;padding:15px;border-radius:12px;margin-bottom:15px;">
+                                <div style="font-size:13px;font-weight:600;color:#6b7280;margin-bottom:10px;">📍 START</div>
+                                <div style="font-size:14px;margin-bottom:5px;">${routeData.startLocation.address || 'Abholadresse'}</div>
+                                <div style="font-size:12px;color:#6b7280;">
+                                    ${routeData.startLocation.lat.toFixed(5)}, ${routeData.startLocation.lon.toFixed(5)}
+                                </div>
+                                <div style="font-size:12px;color:#6b7280;">
+                                    ⏰ ${new Date(routeData.startLocation.timestamp).toLocaleTimeString('de-DE')}
+                                </div>
+                            </div>
+                            
+                            <div style="background:#f3f4f6;padding:15px;border-radius:12px;margin-bottom:15px;">
+                                <div style="font-size:13px;font-weight:600;color:#6b7280;margin-bottom:10px;">🎯 ZIEL</div>
+                                <div style="font-size:14px;margin-bottom:5px;">${routeData.endLocation.address || 'Zieladresse'}</div>
+                                <div style="font-size:12px;color:#6b7280;">
+                                    ${routeData.endLocation.lat.toFixed(5)}, ${routeData.endLocation.lon.toFixed(5)}
+                                </div>
+                                <div style="font-size:12px;color:#6b7280;">
+                                    ⏰ ${new Date(routeData.endLocation.timestamp).toLocaleTimeString('de-DE')}
+                                </div>
+                            </div>
+                            
+                            <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px;border-radius:12px;margin-bottom:20px;">
+                                <div style="font-size:16px;font-weight:700;margin-bottom:15px;">📊 ROUTE-STATISTIK</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                                    <div>
+                                        <div style="font-size:12px;opacity:0.8;margin-bottom:5px;">Gefahren</div>
+                                        <div style="font-size:24px;font-weight:700;">${routeData.totalDistance} km</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:12px;opacity:0.8;margin-bottom:5px;">Fahrzeit</div>
+                                        <div style="font-size:24px;font-weight:700;">${durationMin}:${String(durationSec).padStart(2, '0')}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:12px;opacity:0.8;margin-bottom:5px;">Ø Geschw.</div>
+                                        <div style="font-size:20px;font-weight:700;">${routeData.avgSpeed} km/h</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:12px;opacity:0.8;margin-bottom:5px;">GPS-Punkte</div>
+                                        <div style="font-size:20px;font-weight:700;">${routeData.pointsCount}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button onclick="document.getElementById('ride-summary-modal').remove(); showBillingScreen('${rideId}');" 
+                                    style="width:100%;padding:15px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;">
+                                💳 Zur Abrechnung
+                            </button>
+                            
+                            <button onclick="document.getElementById('ride-summary-modal').remove();" 
+                                    style="width:100%;padding:15px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                                Schließen
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+            });
+        }
+        
+        // 🆕 v5.90.628: Update Ride-Tracking UI
+        function updateRideTrackingUI(status) {
+            const container = document.getElementById('ride-tracking-ui');
+            if (!container) return;
+            
+            if (status === 'in_progress') {
+                // Zeige Route-Tracking UI
+                container.innerHTML = `
+                    <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px;border-radius:12px;margin-bottom:15px;">
+                        <div style="font-size:18px;font-weight:700;margin-bottom:15px;">
+                            🚗 FAHRT LÄUFT
+                        </div>
+                        
+                        <div style="background:rgba(255,255,255,0.2);padding:15px;border-radius:8px;margin-bottom:15px;">
+                            <div style="font-size:13px;margin-bottom:8px;">
+                                📍 START: ✅ ${new Date(routeStartTime).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})} Uhr
+                            </div>
+                            <div style="font-size:13px;font-weight:700;margin-bottom:5px;">
+                                🗺️ ROUTE-TRACKING:
+                            </div>
+                            <div style="font-size:24px;font-weight:700;margin-bottom:5px;">
+                                📏 <span id="route-distance">0.0 km</span>
+                            </div>
+                            <div style="font-size:18px;margin-bottom:5px;">
+                                ⏱️ <span id="route-duration">00:00</span>
+                            </div>
+                            <div style="font-size:18px;">
+                                🚗 <span id="current-speed">-- km/h</span>
+                            </div>
+                        </div>
+                        
+                        <button onclick="endRideTracking('${currentTrackingRideId}')" 
+                                style="width:100%;padding:15px;background:white;color:#3b82f6;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;">
+                            🎯 ZIEL - Angekommen
+                        </button>
+                        
+                        <div style="font-size:12px;opacity:0.8;margin-top:10px;text-align:center;">
+                            ℹ️ Drücke ZIEL wenn du am Zielort angekommen bist
+                        </div>
+                    </div>
+                `;
+                
+                // Starte UI-Update Timer
+                if (window.routeUpdateInterval) clearInterval(window.routeUpdateInterval);
+                window.routeUpdateInterval = setInterval(() => {
+                    if (isTrackingRoute) {
+                        updateRouteTrackingUI();
+                    } else {
+                        clearInterval(window.routeUpdateInterval);
+                    }
+                }, 1000); // Jede Sekunde
+            }
         }
 
         function stopDriverTracking() {
@@ -54620,8 +55087,13 @@ Stack: ${err.stack}
             const vehicle = VEHICLES[currentVehicle];
             if (!vehicle.lat || !vehicle.lon) return;
             
-            // 🆕 v5.90.298: Hole aktive Fahrt!
-            const myRides = rides.filter(r => r.vehicleId === currentVehicle);
+            // 🔧 v5.90.629: Hole aktive Fahrt - NUR relevante Status!
+            const myRides = rides.filter(r => {
+                if (r.vehicleId !== currentVehicle) return false;
+                const excludedStatuses = ['completed', 'cancelled', 'storniert', 'cancelled_pending_driver'];
+                if (excludedStatuses.includes(r.status)) return false;
+                return true;
+            });
             const activeRide = myRides.find(r => 
                 r.status === 'on_way' || r.status === 'picked_up' || r.status === 'accepted'
             );

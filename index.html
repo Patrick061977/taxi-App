@@ -255,7 +255,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.609 - FIREBASE LOADED FIX! 🔥 (Build 2026-01-18_1200)');
+        console.log('🚕 Funk Taxi App v5.90.610 - REDECLARATION FIX! 🔥 (Build 2026-01-18_1730)');
         console.log('');
         
         // 🔥 v5.90.608: KRITISCHER FIX - FIREBASE VARIABLEN GANZ NACH OBEN!
@@ -1221,7 +1221,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔥 Version 5.90.609 - FIREBASE LOADED FIX! 🔥 (Build 20260118-1200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔥 Version 5.90.610 - REDECLARATION FIX! (Build 20260118-1730)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1662,7 +1662,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔥 v5.90.609 - LOADED FIX
+                        🔥 v5.90.610 - FINAL FIX
                     </span>
                 </div>
             </div>
@@ -7471,7 +7471,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
-        let firebaseLoadTimeout, firebaseLoaded = false;
+        // 🔥 v5.90.610: firebaseLoaded ist jetzt in Zeile ~264 global!
+        let firebaseLoadTimeout;
         firebaseLoadTimeout = setTimeout(() => { 
             if (!firebaseLoaded && typeof initApp === 'function') initApp(false); 
         }, 5000);
@@ -72397,7 +72398,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔥 v5.90.609
+        🔥 v5.90.610
     </div>
 </div>
 

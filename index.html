@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.643 | Build: 2026-01-18_0230 | Fix: CRASH-FIX - missing Variable -->
+    <!-- Version: v5.90.644 | Build: 2026-01-18_0300 | Fix: 3-IN-1-FIX - Datum Min + Init + Slot-Check -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,7 +256,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.643 - CRASH-FIX! 🔧✅ (Build 2026-01-18_0230)');
+        console.log('🚕 Funk Taxi App v5.90.644 - 3-IN-1! 🔧✅ (Build 2026-01-18_0300)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
@@ -264,7 +264,7 @@
         console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
         console.log('🔧 v5.90.635: Ignoriere Fahrzeuge mit String-Timestamps (altes GPS-Format)');
         console.log('🔋 v5.90.636: BATTERY-SAVER - Standby: 50m/60s, Aktiv: 10m/10s');
-        console.log('🐛 v5.90.643: CRASH-FIX - missing Variable richtig deklariert!');
+        console.log('🔧 v5.90.644: 3-IN-1 - Datum Min + Init + Slot läuft ohne Adressen!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
         console.log('🔧 v5.90.525: renderDriverRides() nutzt Isarfunk HTML!');
@@ -1204,7 +1204,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - CRASH-FIX! ✅ (Build 20260119-0230)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - 3-IN-1! ✅ (Build 20260119-0300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1645,7 +1645,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.643 - CRASH-FIX
+                        🔧 v5.90.644 - 3-IN-1
                     </span>
                 </div>
             </div>
@@ -25695,7 +25695,7 @@ Aktuell: ${currentNum}`;
             });
         }
         
-        // 🆕 v5.90.640: TRIGGER SLOT-CHECK NUR WENN ALLE FELDER DA SIND!
+        // 🆕 v5.90.640: TRIGGER SLOT-CHECK NUR WENN DATUM + ZEIT DA SIND!
         async function triggerSlotCheck() {
             const pickupInput = document.getElementById('pickup');
             const destinationInput = document.getElementById('destination');
@@ -25708,21 +25708,24 @@ Aktuell: ${currentNum}`;
             const date = dateInput ? dateInput.value : '';
             const time = timeDisplayBtn ? timeDisplayBtn.textContent.trim() : '';
             
-            console.log('🔍 v5.90.643: Slot-Check Trigger');
+            console.log('🔍 v5.90.644: Slot-Check Trigger');
             console.log('   Pickup:', pickup ? '✅' : '❌');
             console.log('   Destination:', destination ? '✅' : '❌');
             console.log('   Datum:', date ? '✅' : '❌');
             console.log('   Zeit:', time ? '✅' : '❌');
             
-            // Prüfe ob ALLE Felder ausgefüllt sind
-            if (pickup && destination && date && time) {
-                console.log('✅ Alle Felder ausgefüllt - starte Prüfung!');
+            // 🆕 v5.90.644: Prüfe NUR Datum + Zeit (Adressen optional!)
+            if (date && time) {
+                console.log('✅ Datum + Zeit vorhanden - starte Prüfung!');
+                if (pickup && destination) {
+                    console.log('✅ Pickup + Destination vorhanden - mit Distanz-Prüfung!');
+                } else {
+                    console.log('ℹ️ Keine Adressen - ohne Distanz-Prüfung!');
+                }
                 await checkSlotAvailability(date, time);
             } else {
                 // Zeige Hinweis welche Felder fehlen
                 let missing = [];
-                if (!pickup) missing.push('Abholort');
-                if (!destination) missing.push('Zielort');
                 if (!date) missing.push('Datum');
                 if (!time) missing.push('Uhrzeit');
                 
@@ -59232,6 +59235,19 @@ Stack: ${err.stack}
             debugLog('info', '🚀 Funk Taxi App gestartet!');
             debugLog('info', `📦 Version: 5.90.367 - MAP CRASH GEFIXT!`);
             debugLog('info', '🐛 Floating Debug Panel aktiv!');
+            
+            // 🆕 v5.90.644: Setze Mindestdatum auf HEUTE + setze initial heutiges Datum
+            const dateInput = document.getElementById('custom-date');
+            if (dateInput) {
+                const today = new Date();
+                const minDate = today.getFullYear() + '-' + 
+                               String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(today.getDate()).padStart(2, '0');
+                dateInput.setAttribute('min', minDate);
+                dateInput.value = minDate; // 🆕 Setze auch initial!
+                console.log('📅 v5.90.644: Mindestdatum gesetzt:', minDate);
+                console.log('📅 v5.90.644: Initial-Datum gesetzt:', minDate);
+            }
             
             // 🆕 v5.38.5: Debug-Icon initialisieren
             const debugIcon = document.getElementById('debug-icon');

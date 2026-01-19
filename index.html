@@ -9,23 +9,24 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.662
-    📅 BUILD: 19.01.2026 23:50 Uhr
+    📦 VERSION: v5.90.663
+    📅 BUILD: 19.01.2026 00:10 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.662
+    📋 CHANGELOG v5.90.663
     ═══════════════════════════════════════════════════════════════════════════
     
-    📊 v5.90.662 (19.01.2026):
-       • ZEIGT NEUE FAHRT-DETAILS im Konflikt!
-       • Admin sieht komplette Berechnung der neuen Fahrt
-       • Zeigt wann neue Fahrt endet + Überschneidung
-       • Entfernt doppelte Alternativen-Anzeige
-       • Klare Darstellung: Neue Fahrt → Konflikt → Alternativen
+    📊 v5.90.663 (19.01.2026):
+       • VOLLSTÄNDIGE ANALYSE FÜR ALLE KONFLIKT-TYPEN!
+       • Auch bei exactTimeConflict: Zeige beide Fahrten
+       • Auch bei duringRideConflict: Zeige neue Fahrt
+       • Berechnet IMMER wann neue Fahrt enden würde
+       • Zeigt IMMER spätesten Start-Zeitpunkt VORHER
+       • Komplette Transparenz für Admin!
     
-    🚨 v5.90.661 (19.01.2026):
-       • KRITISCHER FIX: Prüft auch NÄCHSTE Fahrt!
+    📊 v5.90.662 (19.01.2026):
+       • Zeigte neue Fahrt-Details bei nextRideConflict
     
     🗺️ v5.90.651 (19.01.2026):
        • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
@@ -280,11 +281,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.662 - ZEIGE NEUE FAHRT-DETAILS! 📊✨ (Build 2026-01-19_2350)');
-        console.log('📊 v5.90.662: Zeigt komplette Berechnung der neuen Fahrt im Konflikt');
-        console.log('📊 v5.90.662: Admin sieht wann neue Fahrt endet + Überschneidung');
-        console.log('🚨 v5.90.661: Prüft auch nächste Fahrt - verhindert Überschneidung');
-        console.log('📝 v5.90.660: Bessere Formulierung - kundenfreundlicher');
+        console.log('🚕 Funk Taxi App v5.90.663 - VOLLSTÄNDIGE ANALYSE! 📊✨ (Build 2026-01-20_0010)');
+        console.log('📊 v5.90.663: Zeigt neue Fahrt-Details bei ALLEN Konflikt-Typen!');
+        console.log('📊 v5.90.663: Auch exactTimeConflict + duringRideConflict komplett');
+        console.log('⏰ v5.90.663: Berechnet spätesten Start VORHER für alle Fälle');
+        console.log('🚨 v5.90.661: Prüft nächste Fahrt - verhindert Überschneidung');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten!');
@@ -1232,7 +1233,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.662 - ZEIGE NEUE FAHRT-DETAILS! ✨ (Build 20260119-2350)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.663 - VOLLSTÄNDIGE ANALYSE! ✨ (Build 20260120-0010)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1673,7 +1674,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        📊 v5.90.662 - ZEIGE NEUE FAHRT
+                        📊 v5.90.663 - VOLLSTÄNDIGE ANALYSE
                     </span>
                 </div>
             </div>
@@ -25896,10 +25897,24 @@ Aktuell: ${currentNum}`;
                         html += `<div style="font-size:13px;color:#dc2626;font-weight:700;margin-top:6px;">❌ ${distanceCheck.exactTimeConflict || distanceCheck.duringRideConflict || distanceCheck.nextRideConflict ? 'NICHT MÖGLICH!' : 'Fehlen: ' + Math.abs(distanceCheck.reserveMinutes) + ' Minuten'}</div>`;
                         html += '</div>';
                         
-                        // 🆕 v5.90.662: ZEIGE NEUE FAHRT-DETAILS bei nextRideConflict!
-                        if (distanceCheck.nextRideConflict && distanceCheck.newRideDuration) {
+                        // 🆕 v5.90.663: ZEIGE NEUE FAHRT-DETAILS FÜR ALLE KONFLIKT-TYPEN!
+                        // Hole Route-Dauer für neue Fahrt (falls nicht schon vorhanden)
+                        let newRideDuration = distanceCheck.newRideDuration;
+                        let newTotalDuration = distanceCheck.newTotalDuration;
+                        let newRideEnd = distanceCheck.newRideEnd;
+                        
+                        // Falls Daten fehlen (bei exactTimeConflict / duringRideConflict), hole Fahrt-Dauer aus Formular
+                        if (!newRideDuration && duration) {
+                            newRideDuration = parseInt(duration) || 15;
+                            newTotalDuration = newRideDuration + 4; // +2 Ein +2 Aus
+                            const slotTime = new Date(date + 'T' + time + ':00');
+                            newRideEnd = slotTime.getTime() + (newTotalDuration * 60000);
+                        }
+                        
+                        // Zeige NEUE FAHRT für ALLE Konflikt-Typen
+                        if (newRideDuration && (distanceCheck.exactTimeConflict || distanceCheck.duringRideConflict || distanceCheck.nextRideConflict)) {
                             html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #3b82f6;">';
-                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#3b82f6;">🆕 NEUE FAHRT (die du gerade buchst):</div>';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#3b82f6;">🆕 NEUE FAHRT (Vorbestellung):</div>';
                             html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${time} Uhr</div>`;
                             html += `<div style="font-size:11px;"><strong>Von:</strong> ${pickup || '-'}</div>`;
                             html += `<div style="font-size:11px;"><strong>Nach:</strong> ${destination || '-'}</div>`;
@@ -25907,20 +25922,83 @@ Aktuell: ${currentNum}`;
                             // Dauer-Berechnung
                             html += '<div style="background:#eff6ff;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #93c5fd;">';
                             html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;">⏱️ Dauer-Berechnung:</div>';
-                            html += `<div style="font-size:10px;">Fahrt: ${distanceCheck.newRideDuration} Min</div>`;
+                            html += `<div style="font-size:10px;">Fahrt: ${newRideDuration} Min</div>`;
                             html += `<div style="font-size:10px;">+ Einsteigen: 2 Min</div>`;
                             html += `<div style="font-size:10px;">+ Aussteigen: 2 Min</div>`;
-                            html += `<div style="font-size:11px;border-top:1px solid #93c5fd;padding-top:4px;margin-top:4px;font-weight:600;">= Gesamt: ${distanceCheck.newTotalDuration} Min</div>`;
+                            html += `<div style="font-size:11px;border-top:1px solid #93c5fd;padding-top:4px;margin-top:4px;font-weight:600;">= Gesamt: ${newTotalDuration} Min</div>`;
                             html += '</div>';
                             
                             // Ende-Zeit
-                            const newRideEndTime = new Date(distanceCheck.newRideEnd);
+                            const newRideEndTime = new Date(newRideEnd);
                             html += '<div style="background:#eff6ff;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #93c5fd;">';
                             html += `<div style="font-size:11px;font-weight:600;">📍 ENDE: ${newRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
                             html += '</div>';
                             html += '</div>';
-                            
-                            // Nächste Fahrt mit Konflikt
+                        }
+                        
+                        // 🆕 v5.90.663: Zeige BESTEHENDE FAHRT für alle Konflikt-Typen
+                        if (distanceCheck.exactTimeConflict || distanceCheck.duringRideConflict) {
+                            // Bei exactTime/duringRide ist conflictRide die blockierende Fahrt
+                            const conflictingRide = distanceCheck.conflictRide || distanceCheck.previousRide;
+                            if (conflictingRide) {
+                                const conflictTime = new Date(conflictingRide.pickupTimestamp || conflictingRide.pickupTime);
+                                const conflictCustomerName = conflictingRide.customerName || conflictingRide.name || 'Unbekannt';
+                                const conflictDuration = conflictingRide.duration || 30;
+                                const conflictTotalDuration = conflictDuration + 4;
+                                const conflictEndTime = new Date(conflictTime.getTime() + conflictTotalDuration * 60000);
+                                
+                                html += '<div style="background:#fee2e2;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #dc2626;">';
+                                html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#dc2626;">🚖 BESTEHENDE FAHRT (blockiert):</div>';
+                                html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${conflictTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                html += `<div style="font-size:11px;"><strong>Kunde:</strong> ${conflictCustomerName}</div>`;
+                                html += `<div style="font-size:11px;"><strong>Von:</strong> ${conflictingRide.pickup}</div>`;
+                                html += `<div style="font-size:11px;"><strong>Nach:</strong> ${conflictingRide.destination}</div>`;
+                                
+                                // Dauer-Berechnung
+                                html += '<div style="background:#fff1f2;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fca5a5;">';
+                                html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;">⏱️ Dauer-Berechnung:</div>';
+                                html += `<div style="font-size:10px;">Fahrt: ${conflictDuration} Min</div>`;
+                                html += `<div style="font-size:10px;">+ Einsteigen: 2 Min</div>`;
+                                html += `<div style="font-size:10px;">+ Aussteigen: 2 Min</div>`;
+                                html += `<div style="font-size:11px;border-top:1px solid #fca5a5;padding-top:4px;margin-top:4px;font-weight:600;">= Gesamt: ${conflictTotalDuration} Min</div>`;
+                                html += '</div>';
+                                
+                                html += '<div style="background:#fff1f2;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fca5a5;">';
+                                html += `<div style="font-size:11px;font-weight:600;">📍 ENDE: ${conflictEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                html += '</div>';
+                                
+                                // Problem
+                                html += '<div style="background:white;padding:6px;border-radius:4px;margin-top:6px;border:2px solid #dc2626;">';
+                                html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#dc2626;">❌ PROBLEM:</div>';
+                                if (distanceCheck.exactTimeConflict) {
+                                    html += `<div style="font-size:10px;">Beide Fahrten starten: <strong>${time} Uhr</strong></div>`;
+                                    html += `<div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:4px;">= ZUR GLEICHEN ZEIT!</div>`;
+                                } else {
+                                    html += `<div style="font-size:10px;">Neue Fahrt startet: <strong>${time} Uhr</strong></div>`;
+                                    html += `<div style="font-size:10px;">Bestehende endet: <strong>${conflictEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                                    html += `<div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:4px;">= TAXI NOCH UNTERWEGS!</div>`;
+                                }
+                                html += '</div>';
+                                
+                                // Lösung: Wann muss neue Fahrt VORHER starten?
+                                if (newRideDuration && newTotalDuration) {
+                                    const latestStartMs = conflictTime.getTime() - (newTotalDuration * 60000);
+                                    const latestStartDate = new Date(latestStartMs);
+                                    
+                                    html += '<div style="background:#fffbeb;padding:8px;border-radius:4px;margin-top:6px;border:2px solid #f59e0b;">';
+                                    html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#f59e0b;">⏰ LÖSUNG:</div>';
+                                    html += '<div style="font-size:11px;margin-bottom:4px;">Neue Fahrt muss VOR bestehender Fahrt fertig sein:</div>';
+                                    html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;">📍 Spätestens START: ${latestStartDate.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                    html += `<div style="font-size:10px;margin-top:4px;">(Dann fertig um ${conflictTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr)</div>`;
+                                    html += '</div>';
+                                }
+                                
+                                html += '</div>';
+                            }
+                        }
+                        
+                        // 🆕 v5.90.662: Für nextRideConflict - Zeige nur noch die nächste Fahrt + Lösung
+                        if (distanceCheck.nextRideConflict) {
                             if (distanceCheck.nextRide) {
                                 const nextRideTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
                                 const nextCustomerName = distanceCheck.nextRide.customerName || distanceCheck.nextRide.name || 'Unbekannt';
@@ -73528,7 +73606,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📊 v5.90.662
+        📊 v5.90.663
     </div>
 </div>
 

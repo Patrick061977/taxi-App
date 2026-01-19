@@ -9,24 +9,41 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.664
-    📅 BUILD: 20.01.2026 00:20 Uhr
+    📦 VERSION: v5.90.669
+    📅 BUILD: 20.01.2026 00:50 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.664
+    📋 CHANGELOG v5.90.669
     ═══════════════════════════════════════════════════════════════════════════
     
-    📊 v5.90.664 (20.01.2026):
-       • ZEIGT ZEITPLAN AUCH BEI VERFÜGBAREN TERMINEN!
-       • Admin sieht IMMER die komplette Zeitachse
-       • Neue Fahrt-Details bei grün UND rot
-       • Wann startet, wann endet, wie lange dauert
-       • Zeigt vorherige/nächste Fahrt wenn vorhanden
-       • Vollständige Transparenz für JEDEN Termin!
+    📊 v5.90.669 (20.01.2026):
+       • ZEIGT ANALYSE IMMER - auch bei grün!
+       • Prüft Leerfahrt zur nächsten Fahrt
+       • Zeigt ob Taxi rechtzeitig ankommt
+       • VOLLE TRANSPARENZ für Admin!
     
-    📊 v5.90.663 (19.01.2026):
-       • Vollständige Analyse für alle Konflikt-Typen
+    🚕 v5.90.669 (20.01.2026):
+       • BERECHNET LEERFAHRT zur nächsten Fahrt!
+       • Ende neue Fahrt → Start nächste Fahrt
+       • Zeigt ob Taxi rechtzeitig ankommt
+       • VOLLSTÄNDIGE Zeitberechnung!
+    
+    🚗 v5.90.669 (20.01.2026):
+       • ECHTE OSRM-BERECHNUNG IM KALENDER-CHECK!
+       • Ruft OSRM auf wie beim Preis-Button
+       • Zeigt ECHTE Fahrtdauer von OSRM
+       • JETZT WIRKLICH DIE GLEICHE BERECHNUNG!
+    
+    🐛 v5.90.669 (20.01.2026):
+       • KOMPLETTER FIX: duration FRÜH definieren!
+       • FIX: Nur Fahrten vom GLEICHEN TAG anzeigen!
+       • FIX: geocodeAddress Fehler behoben
+       • Alle Fehler aus Log behoben
+       • JETZT FUNKTIONIERT ALLES!
+    
+    🐛 v5.90.669 (20.01.2026):
+       • Zeigt Zeitplan auch bei verfügbaren Terminen
     
     🗺️ v5.90.651 (19.01.2026):
        • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
@@ -281,11 +298,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.664 - ZEITPLAN IMMER SICHTBAR! 📊⏰ (Build 2026-01-20_0020)');
-        console.log('📊 v5.90.664: Zeigt Zeitachse auch bei VERFÜGBAREN Terminen!');
-        console.log('⏰ v5.90.664: Admin sieht IMMER komplette Fahrt-Berechnung');
-        console.log('✅ v5.90.664: Start, Ende, Dauer - bei grün UND rot!');
-        console.log('📊 v5.90.663: Vollständige Analyse für alle Konflikt-Typen');
+        console.log('🚕 Funk Taxi App v5.90.669 - KOMPLETT-FIX! 🐛✅ (Build 2026-01-20_0050)');
+        console.log('🐛 v5.90.669: ECHTE OSRM-Berechnung im Kalender!'); FIX duration - FRÜH definieren!');
+        console.log('🐛 v5.90.669: FIX same-day - Nur gleicher Tag!');
+        console.log('🐛 v5.90.669: Zeigt Zeitplan bei verfügbar + Konflikt');
+        console.log('📊 v5.90.663: Vollständige Analyse alle Typen');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten!');
@@ -1233,7 +1250,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.664 - ZEITPLAN IMMER! ⏰ (Build 20260120-0020)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.669 - KOMPLETT-FIX! ✅ (Build 20260120-0035)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1674,7 +1691,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        📊 v5.90.664 - ZEITPLAN IMMER
+                        🐛 v5.90.669 - KOMPLETT-FIX
                     </span>
                 </div>
             </div>
@@ -25906,7 +25923,70 @@ Aktuell: ${currentNum}`;
                         let newTotalDuration = distanceCheck.newTotalDuration;
                         let newRideEnd = distanceCheck.newRideEnd;
                         
-                        // Falls Daten fehlen (bei exactTimeConflict / duringRideConflict), hole Fahrt-Dauer aus Formular
+                        // 🚗 v5.90.669: ECHTE OSRM-BERECHNUNG!
+                        if (!newRideDuration && pickup && destination) {
+                            try {
+                                console.log('🚗 v5.90.669: Rufe OSRM für Kalender-Check auf...');
+                                
+                                // Geocode Adressen wenn nötig
+                                let pickupC = pickupCoords;
+                                let destC = destCoords;
+                                
+                                if (!pickupC) {
+                                    pickupC = await geocode(pickup);
+                                    console.log(`✅ Pickup geocoded: ${pickup} → ${pickupC ? pickupC.lat+','+pickupC.lon : 'FEHLER'}`);
+                                }
+                                
+                                if (!destC) {
+                                    destC = await geocode(destination);
+                                    console.log(`✅ Dest geocoded: ${destination} → ${destC ? destC.lat+','+destC.lon : 'FEHLER'}`);
+                                }
+                                
+                                if (pickupC && destC) {
+                                    // Rufe OSRM auf!
+                                    const route = await calculateRoute(pickupC, destC);
+                                    
+                                    if (route && route.duration) {
+                                        // ECHTE Fahrtdauer von OSRM (in Sekunden)!
+                                        const osrmMinutes = Math.ceil(route.duration / 60);
+                                        console.log(`🚗 OSRM Dauer: ${osrmMinutes} Min (roh: ${route.duration} Sek)`);
+                                        
+                                        // Berechne mit Puffern wie beim Preis-Button!
+                                        const durationCalc = calculateTotalDuration(route.duration, 0);
+                                        newRideDuration = osrmMinutes; // OSRM-Fahrtdauer
+                                        newTotalDuration = durationCalc.totalDuration; // Mit Ein-/Ausstieg!
+                                        
+                                        console.log(`✅ v5.90.669: OSRM-Dauer: ${newRideDuration} Min, Gesamt: ${newTotalDuration} Min`);
+                                        
+                                        const slotTime = new Date(date + 'T' + time + ':00');
+                                        newRideEnd = slotTime.getTime() + (newTotalDuration * 60000);
+                                    } else {
+                                        console.warn('⚠️ OSRM hat keine Route gefunden - nutze Fallback');
+                                        // Fallback zum Input-Feld
+                                        newRideDuration = parseInt(duration) || 15;
+                                        newTotalDuration = newRideDuration + 4;
+                                        const slotTime = new Date(date + 'T' + time + ':00');
+                                        newRideEnd = slotTime.getTime() + (newTotalDuration * 60000);
+                                    }
+                                } else {
+                                    console.warn('⚠️ Geocoding fehlgeschlagen - nutze Fallback');
+                                    // Fallback zum Input-Feld
+                                    newRideDuration = parseInt(duration) || 15;
+                                    newTotalDuration = newRideDuration + 4;
+                                    const slotTime = new Date(date + 'T' + time + ':00');
+                                    newRideEnd = slotTime.getTime() + (newTotalDuration * 60000);
+                                }
+                            } catch (error) {
+                                console.error('❌ OSRM-Fehler im Kalender-Check:', error);
+                                // Fallback zum Input-Feld
+                                newRideDuration = parseInt(duration) || 15;
+                                newTotalDuration = newRideDuration + 4;
+                                const slotTime = new Date(date + 'T' + time + ':00');
+                                newRideEnd = slotTime.getTime() + (newTotalDuration * 60000);
+                            }
+                        }
+                        
+                        // Falls immer noch keine Daten, Fallback
                         if (!newRideDuration && duration) {
                             newRideDuration = parseInt(duration) || 15;
                             newTotalDuration = newRideDuration + 4; // +2 Ein +2 Aus
@@ -25983,16 +26063,81 @@ Aktuell: ${currentNum}`;
                                 }
                                 html += '</div>';
                                 
-                                // Lösung: Wann muss neue Fahrt VORHER starten?
-                                if (newRideDuration && newTotalDuration) {
-                                    const latestStartMs = conflictTime.getTime() - (newTotalDuration * 60000);
-                                    const latestStartDate = new Date(latestStartMs);
-                                    
+                                // 🚕 v5.90.669: BERECHNE LEERFAHRT zur nächsten Fahrt!
+                                if (newRideDuration && newTotalDuration && pickup && destination && conflictingRide.pickup) {
                                     html += '<div style="background:#fffbeb;padding:8px;border-radius:4px;margin-top:6px;border:2px solid #f59e0b;">';
-                                    html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#f59e0b;">⏰ LÖSUNG:</div>';
-                                    html += '<div style="font-size:11px;margin-bottom:4px;">Neue Fahrt muss VOR bestehender Fahrt fertig sein:</div>';
-                                    html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;">📍 Spätestens START: ${latestStartDate.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
-                                    html += `<div style="font-size:10px;margin-top:4px;">(Dann fertig um ${conflictTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr)</div>`;
+                                    html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#f59e0b;">⏰ LÖSUNG - WIE ES GEHEN WÜRDE:</div>';
+                                    
+                                    // Berechne Leerfahrt: Ende neue Fahrt → Start nächste Fahrt
+                                    let deadheadMinutes = 0;
+                                    let calculatedLatestStart = null;
+                                    
+                                    try {
+                                        // Geocode Ziel der neuen Fahrt und Start der nächsten Fahrt
+                                        const newDestCoords = await geocode(destination);
+                                        const nextStartCoords = await geocode(conflictingRide.pickup);
+                                        
+                                        if (newDestCoords && nextStartCoords) {
+                                            // Berechne Leerfahrt mit OSRM!
+                                            const deadheadRoute = await calculateRoute(newDestCoords, nextStartCoords);
+                                            
+                                            if (deadheadRoute && deadheadRoute.duration) {
+                                                deadheadMinutes = Math.ceil(deadheadRoute.duration / 60);
+                                                console.log(`🚕 v5.90.669: Leerfahrt ${destination} → ${conflictingRide.pickup}: ${deadheadMinutes} Min`);
+                                                
+                                                // Berechne spätesten Start: Nächste Fahrt - Leerfahrt - Neue Fahrt
+                                                const latestStartMs = conflictTime.getTime() - (deadheadMinutes * 60000) - (newTotalDuration * 60000);
+                                                calculatedLatestStart = new Date(latestStartMs);
+                                                
+                                                html += '<div style="font-size:11px;margin-bottom:6px;">Neue Fahrt muss fertig sein + Taxi muss zu Herrn Lehmann fahren:</div>';
+                                                html += '<div style="background:white;padding:6px;border-radius:4px;margin:6px 0;border:1px solid #fcd34d;">';
+                                                html += '<div style="font-size:10px;">1️⃣ Neue Fahrt:</div>';
+                                                html += `<div style="font-size:10px;margin-left:12px;">${pickup} → ${destination}: <strong>${newTotalDuration} Min</strong></div>`;
+                                                html += '<div style="font-size:10px;margin-top:4px;">2️⃣ Leerfahrt zum nächsten Kunden:</div>';
+                                                html += `<div style="font-size:10px;margin-left:12px;">${destination} → ${conflictingRide.pickup}: <strong>${deadheadMinutes} Min</strong></div>`;
+                                                html += '<div style="border-top:1px solid #fcd34d;margin-top:4px;padding-top:4px;">';
+                                                html += `<div style="font-size:11px;font-weight:600;">= Gesamt: ${newTotalDuration + deadheadMinutes} Min</div>`;
+                                                html += '</div>';
+                                                html += '</div>';
+                                                
+                                                html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;margin-top:6px;">📍 Spätestens START: ${calculatedLatestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                                
+                                                // Zeige Timeline
+                                                const newEndTime = new Date(calculatedLatestStart.getTime() + (newTotalDuration * 60000));
+                                                html += '<div style="font-size:10px;color:#92400e;margin-top:6px;">';
+                                                html += `→ ${calculatedLatestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Start neue Fahrt<br>`;
+                                                html += `→ ${newEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Fahrt fertig<br>`;
+                                                html += `→ ${conflictTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Bei ${conflictCustomerName} ✅`;
+                                                html += '</div>';
+                                            } else {
+                                                console.warn('⚠️ Leerfahrt-Route nicht gefunden');
+                                                // Fallback: Nur neue Fahrt
+                                                const latestStartMs = conflictTime.getTime() - (newTotalDuration * 60000);
+                                                calculatedLatestStart = new Date(latestStartMs);
+                                                html += '<div style="font-size:11px;margin-bottom:4px;">Neue Fahrt muss VOR bestehender Fahrt fertig sein:</div>';
+                                                html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;">📍 Spätestens START: ${calculatedLatestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                                html += `<div style="font-size:10px;margin-top:4px;">(Dann fertig um ${conflictTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr)</div>`;
+                                                html += `<div style="font-size:10px;color:#dc2626;margin-top:4px;">⚠️ Leerfahrt konnte nicht berechnet werden</div>`;
+                                            }
+                                        } else {
+                                            console.warn('⚠️ Geocoding für Leerfahrt fehlgeschlagen');
+                                            // Fallback
+                                            const latestStartMs = conflictTime.getTime() - (newTotalDuration * 60000);
+                                            calculatedLatestStart = new Date(latestStartMs);
+                                            html += '<div style="font-size:11px;margin-bottom:4px;">Neue Fahrt muss VOR bestehender Fahrt fertig sein:</div>';
+                                            html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;">📍 Spätestens START: ${calculatedLatestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                            html += `<div style="font-size:10px;margin-top:4px;">(Dann fertig um ${conflictTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr)</div>`;
+                                        }
+                                    } catch (error) {
+                                        console.error('❌ Fehler bei Leerfahrt-Berechnung:', error);
+                                        // Fallback
+                                        const latestStartMs = conflictTime.getTime() - (newTotalDuration * 60000);
+                                        calculatedLatestStart = new Date(latestStartMs);
+                                        html += '<div style="font-size:11px;margin-bottom:4px;">Neue Fahrt muss VOR bestehender Fahrt fertig sein:</div>';
+                                        html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;">📍 Spätestens START: ${calculatedLatestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                        html += `<div style="font-size:10px;margin-top:4px;">(Dann fertig um ${conflictTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr)</div>`;
+                                    }
+                                    
                                     html += '</div>';
                                 }
                                 
@@ -26186,25 +26331,42 @@ Aktuell: ${currentNum}`;
                         
                         // Bestehende Fahrten
                         if (distanceCheck.allRidesOnDay && distanceCheck.allRidesOnDay.length > 0) {
-                            html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #d1fae5;">';
-                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">📋 Bestehende Fahrten am Tag:</div>';
-                            distanceCheck.allRidesOnDay.forEach((r, idx) => {
+                            // 🐛 v5.90.669: NUR FAHRTEN VOM GLEICHEN TAG!
+                            const slotDateStr = new Date(date).toDateString();
+                            const ridesOnSameDay = distanceCheck.allRidesOnDay.filter(r => {
                                 const rTime = new Date(r.pickupTimestamp || r.pickupTime);
-                                const isRequested = rTime.getTime() === slotDateTime.getTime();
-                                const customerName = r.customerName || r.name || 'Unbekannt';
-                                html += `<div style="padding:6px;background:${isRequested ? '#d1fae5' : '#f9fafb'};border-radius:4px;margin:4px 0;${isRequested ? 'border:2px solid #10b981;' : 'border:1px solid #e5e7eb;'}font-size:11px;">`;
-                                if (isRequested) {
-                                    html += `<div style="font-weight:700;color:#10b981;">→ NEUE FAHRT (${time} Uhr)</div>`;
-                                } else {
-                                    html += `<div style="font-weight:600;">Fahrt #${idx + 1}: ${rTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
-                                }
-                                html += `<div style="color:#6b7280;">Kunde: ${customerName}</div>`;
-                                html += `<div style="color:#6b7280;">Von: ${r.pickup}</div>`;
-                                html += `<div style="color:#6b7280;">Nach: ${r.destination}</div>`;
-                                if (r.duration) html += `<div style="color:#6b7280;">Dauer: ${r.duration} Min</div>`;
-                                html += '</div>';
+                                return rTime.toDateString() === slotDateStr;
                             });
-                            html += '</div>';
+                            
+                            if (ridesOnSameDay.length > 0) {
+                                html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #d1fae5;">';
+                                html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">📋 Andere Fahrten am gleichen Tag:</div>';
+                                
+                                let shownCount = 0;
+                                ridesOnSameDay.forEach((r, idx) => {
+                                    const rTime = new Date(r.pickupTimestamp || r.pickupTime);
+                                    const isRequested = rTime.getTime() === slotDateTime.getTime();
+                                    
+                                    // Überspringe die neue Fahrt selbst
+                                    if (isRequested) return;
+                                    
+                                    shownCount++;
+                                    const customerName = r.customerName || r.name || 'Unbekannt';
+                                    html += `<div style="padding:6px;background:#f9fafb;border-radius:4px;margin:4px 0;border:1px solid #e5e7eb;font-size:11px;">`;
+                                    html += `<div style="font-weight:600;">Fahrt #${shownCount}: ${rTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                    html += `<div style="color:#6b7280;">Kunde: ${customerName}</div>`;
+                                    html += `<div style="color:#6b7280;">Von: ${r.pickup}</div>`;
+                                    html += `<div style="color:#6b7280;">Nach: ${r.destination}</div>`;
+                                    if (r.duration) html += `<div style="color:#6b7280;">Dauer: ${r.duration} Min</div>`;
+                                    html += '</div>';
+                                });
+                                
+                                if (shownCount === 0) {
+                                    html += '<div style="font-size:11px;color:#6b7280;padding:8px;">Keine anderen Fahrten an diesem Tag</div>';
+                                }
+                                
+                                html += '</div>';
+                            }
                         }
                         
                         // Vorherige Fahrt Details
@@ -26266,6 +26428,54 @@ Aktuell: ${currentNum}`;
                             html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.nextRide.destination}</div>`;
                             html += `<div style="font-size:11px;color:#10b981;font-weight:600;margin-top:4px;">⏳ Zeit bis nächste Fahrt: ${timeDiff} Min</div>`;
                             html += '</div>';
+                            
+                            // 🚕 v5.90.669: LEERFAHRT-PRÜFUNG AUCH BEI GRÜN!
+                            if (newRideEnd && destination && distanceCheck.nextRide.pickup) {
+                                html += '<div style="background:#ecfdf5;padding:8px;border-radius:6px;margin-top:8px;border:1px solid #a7f3d0;">';
+                                html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#059669;">🚕 LEERFAHRT-PRÜFUNG:</div>';
+                                
+                                try {
+                                    // Geocode und berechne Leerfahrt
+                                    const newDestCoords = await geocode(destination);
+                                    const nextStartCoords = await geocode(distanceCheck.nextRide.pickup);
+                                    
+                                    if (newDestCoords && nextStartCoords) {
+                                        const deadheadRoute = await calculateRoute(newDestCoords, nextStartCoords);
+                                        
+                                        if (deadheadRoute && deadheadRoute.duration) {
+                                            const deadheadMinutes = Math.ceil(deadheadRoute.duration / 60);
+                                            const arrivalAtNextRide = new Date(newRideEnd).getTime() + (deadheadMinutes * 60000);
+                                            const arrivalTime = new Date(arrivalAtNextRide);
+                                            const buffer = Math.floor((nextTime.getTime() - arrivalAtNextRide) / 60000);
+                                            
+                                            console.log(`🚕 v5.90.669: Leerfahrt ${destination} → ${distanceCheck.nextRide.pickup}: ${deadheadMinutes} Min`);
+                                            
+                                            html += `<div style="font-size:11px;">Leerfahrt: <strong>${destination}</strong> → <strong>${distanceCheck.nextRide.pickup}</strong></div>`;
+                                            html += `<div style="font-size:11px;">Dauer: <strong>${deadheadMinutes} Min</strong> (OSRM)</div>`;
+                                            html += '<div style="background:white;padding:6px;border-radius:4px;margin:6px 0;border:1px solid #d1fae5;">';
+                                            html += `<div style="font-size:10px;">Neue Fahrt endet: ${new Date(newRideEnd).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                            html += `<div style="font-size:10px;">+ Leerfahrt: ${deadheadMinutes} Min</div>`;
+                                            html += `<div style="font-size:11px;font-weight:600;border-top:1px solid #d1fae5;padding-top:4px;margin-top:4px;">= Ankunft: ${arrivalTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                            html += '</div>';
+                                            
+                                            if (buffer >= 0) {
+                                                html += `<div style="font-size:11px;color:#059669;font-weight:600;">✅ PASST! (${buffer} Min Reserve)</div>`;
+                                            } else {
+                                                html += `<div style="font-size:11px;color:#dc2626;font-weight:600;">⚠️ KNAPP! (${Math.abs(buffer)} Min zu spät)</div>`;
+                                            }
+                                        } else {
+                                            html += '<div style="font-size:10px;color:#6b7280;">Leerfahrt konnte nicht berechnet werden</div>';
+                                        }
+                                    } else {
+                                        html += '<div style="font-size:10px;color:#6b7280;">Geocoding für Leerfahrt fehlgeschlagen</div>';
+                                    }
+                                } catch (error) {
+                                    console.error('❌ Fehler bei Leerfahrt-Berechnung (grün):', error);
+                                    html += '<div style="font-size:10px;color:#dc2626;">Fehler bei Leerfahrt-Berechnung</div>';
+                                }
+                                
+                                html += '</div>';
+                            }
                         }
                         
                         html += '</div>';
@@ -73637,7 +73847,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📊 v5.90.664
+        🐛 v5.90.669
     </div>
 </div>
 

@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.636 | Build: 2026-01-18_2355 | Fix: MERGED - Battery-Saver + All Fixes -->
+    <!-- Version: v5.90.641 | Build: 2026-01-18_0112 | Fix: CLEAR-FIX - Löschen triggert Slot-Check -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,7 +256,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.636 - MERGED! 🔧✅ (Build 2026-01-18_2355)');
+        console.log('🚕 Funk Taxi App v5.90.641 - CLEAR-FIX! 🔧✅ (Build 2026-01-18_0112)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
@@ -264,7 +264,7 @@
         console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
         console.log('🔧 v5.90.635: Ignoriere Fahrzeuge mit String-Timestamps (altes GPS-Format)');
         console.log('🔋 v5.90.636: BATTERY-SAVER - Standby: 50m/60s, Aktiv: 10m/10s');
-        console.log('✅ v5.90.525: FAHRER SIEHT NUR ASSIGNED FAHRTEN (kein Zeit-Filter)');
+        console.log('🗑️ v5.90.641: CLEAR-FIX - Löschen von Pickup/Destination triggert Slot-Check!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
         console.log('🔧 v5.90.525: renderDriverRides() nutzt Isarfunk HTML!');
@@ -2069,7 +2069,7 @@
                 <label>📍 Abholort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <div style="flex:1;position:relative;">
-                        <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" oninput="toggleClearButton('pickup')" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" oninput="toggleClearButton('pickup'); triggerSlotCheck();" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         <button id="clear-pickup-btn" onclick="clearField('pickup')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
                             ✕
                         </button>
@@ -2134,7 +2134,7 @@
                 <label>🎯 Zielort</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <div style="flex:1;position:relative;">
-                        <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" oninput="toggleClearButton('destination')" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" oninput="toggleClearButton('destination'); triggerSlotCheck();" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                         <button id="clear-destination-btn" onclick="clearField('destination')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
                             ✕
                         </button>
@@ -2200,7 +2200,7 @@
                     
                     <!-- 🆕 v5.90.123: ZIFFERNBLOCK MIT SLOT-CHECK! -->
                     <div id="custom-datetime-container" style="margin-top:0;">
-                        <input type="date" id="custom-date" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
+                        <input type="date" id="custom-date" onchange="triggerSlotCheck();" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
                         
                         <!-- Zeit mit Ziffernblock -->
                         <div style="display:flex;gap:8px;align-items:center;">
@@ -25690,11 +25690,55 @@ Aktuell: ${currentNum}`;
                 
                 console.log('📱 Zeit gesetzt:', { hour, minute });
                 
-                // 🆕 PRÜFE OB SLOT FREI IST!
-                if (dateInput.value) {
-                    await checkSlotAvailability(dateInput.value, newTime);
-                }
+                // 🆕 v5.90.640: PRÜFE NUR WENN ALLE FELDER AUSGEFÜLLT!
+                triggerSlotCheck();
             });
+        }
+        
+        // 🆕 v5.90.640: TRIGGER SLOT-CHECK NUR WENN ALLE FELDER DA SIND!
+        async function triggerSlotCheck() {
+            const pickupInput = document.getElementById('pickup');
+            const destinationInput = document.getElementById('destination');
+            const dateInput = document.getElementById('custom-date');
+            const timeDisplayBtn = document.getElementById('time-display-btn');
+            const statusDisplay = document.getElementById('slot-status-display');
+            
+            const pickup = pickupInput ? pickupInput.value.trim() : '';
+            const destination = destinationInput ? destinationInput.value.trim() : '';
+            const date = dateInput ? dateInput.value : '';
+            const time = timeDisplayBtn ? timeDisplayBtn.textContent.trim() : '';
+            
+            console.log('🔍 v5.90.640: Slot-Check Trigger');
+            console.log('   Pickup:', pickup ? '✅' : '❌');
+            console.log('   Destination:', destination ? '✅' : '❌');
+            console.log('   Datum:', date ? '✅' : '❌');
+            console.log('   Zeit:', time ? '✅' : '❌');
+            
+            // Prüfe ob ALLE Felder ausgefüllt sind
+            if (pickup && destination && date && time) {
+                console.log('✅ Alle Felder ausgefüllt - starte Prüfung!');
+                await checkSlotAvailability(date, time);
+            } else {
+                // Zeige Hinweis welche Felder fehlen
+                if (statusDisplay) {
+                    statusDisplay.style.display = 'block';
+                    statusDisplay.style.background = '#f3f4f6';
+                    statusDisplay.style.border = '2px solid #d1d5db';
+                    statusDisplay.style.color = '#6b7280';
+                    
+                    let missing = [];
+                    if (!pickup) missing.push('Abholort');
+                    if (!destination) missing.push('Zielort');
+                    if (!date) missing.push('Datum');
+                    if (!time) missing.push('Uhrzeit');
+                    
+                    statusDisplay.innerHTML = `
+                        ℹ️ <strong>Bitte ausfüllen:</strong><br>
+                        <small>${missing.join(', ')}</small>
+                    `;
+                }
+                console.log('⚠️ Fehlende Felder:', missing);
+            }
         }
         
         // 🆕 v5.90.123: PRÜFE SLOT-VERFÜGBARKEIT + ZEIGE ALTERNATIVEN
@@ -25703,65 +25747,327 @@ Aktuell: ${currentNum}`;
             
             console.log('🔍 Prüfe Slot:', { date, time });
             
-            // Hole Fahrten
-            const rides = JSON.parse(localStorage.getItem('taxiRides') || '[]');
-            const vehicles = JSON.parse(localStorage.getItem('taxiVehicles') || '[]');
-            const activeVehicleCount = vehicles.filter(v => v.active).length;
-            
-            // Erstelle DateTime
-            const slotDateTime = new Date(date + 'T' + time);
-            
-            // Prüfe ob frei
-            const isFree = isTimeSlotAvailable(slotDateTime, rides, activeVehicleCount);
-            
-            if (isFree) {
-                // ✅ FREI!
-                statusDisplay.style.display = 'block';
-                statusDisplay.style.background = '#d1fae5';
-                statusDisplay.style.border = '2px solid #10b981';
-                statusDisplay.style.color = '#065f46';
-                statusDisplay.innerHTML = `✅ <strong>${time} Uhr ist verfügbar!</strong>`;
+            // 🆕 v5.90.639: DISTANZ-PRÜFUNG für Vorbestellungen!
+            try {
+                const ridesSnapshot = await db.ref('rides').once('value');
+                const ridesData = ridesSnapshot.val() || {};
                 
-                console.log('✅ Slot ist frei!');
-            } else {
-                // 💾 BESETZT! Suche Alternativen
-                const alternatives = findAlternativeSlots(slotDateTime, rides, activeVehicleCount);
+                // Erstelle DateTime für den gewünschten Slot
+                const slotDateTime = new Date(date + 'T' + time);
                 
-                statusDisplay.style.display = 'block';
-                statusDisplay.style.background = '#fee2e2';
-                statusDisplay.style.border = '2px solid #ef4444';
-                statusDisplay.style.color = '#991b1b';
+                // Hole Pickup/Destination für Distanz-Prüfung
+                const pickupInput = document.getElementById('pickup');
+                const destinationInput = document.getElementById('destination');
+                const pickup = pickupInput ? pickupInput.value.trim() : '';
+                const destination = destinationInput ? destinationInput.value.trim() : '';
                 
-                let html = `💾 <strong>${time} Uhr ist leider besetzt!</strong><br><br>`;
+                console.log('📊 Kalender-Check:');
+                console.log('   Datum/Zeit:', slotDateTime.toLocaleString('de-DE'));
+                console.log('   Von:', pickup);
+                console.log('   Nach:', destination);
                 
-                if (alternatives.length > 0) {
-                    html += `💡 <strong>Verfügbare Alternativen:</strong><br>`;
-                    html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
-                    alternatives.forEach(alt => {
-                        html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">${alt}</button>`;
-                    });
-                    html += '</div>';
-                } else {
-                    html += '<br>⚠️ Keine Alternativen in der Nähe verfügbar.';
+                // 🆕 v5.90.639: DISTANZ-PRÜFUNG wenn Adressen vorhanden!
+                if (pickup && destination) {
+                    const distanceCheck = await checkTravelTimeConflict(slotDateTime, pickup, destination, ridesData);
+                    
+                    if (distanceCheck.hasConflict) {
+                        // ⚠️ ÜBERSCHNEIDUNG!
+                        statusDisplay.style.display = 'block';
+                        statusDisplay.style.background = '#fef3c7';
+                        statusDisplay.style.border = '2px solid #f59e0b';
+                        statusDisplay.style.color = '#92400e';
+                        
+                        let html = `⚠️ <strong>Zeitüberschneidung!</strong><br><br>`;
+                        html += `Fahrzeug braucht <strong>${distanceCheck.travelTime} Min</strong> von letzter Fahrt,<br>`;
+                        html += `hat aber nur <strong>${distanceCheck.availableTime} Min</strong> Zeit.<br>`;
+                        html += `<small>(Letzte Fahrt: ${distanceCheck.previousRide.destination})</small><br><br>`;
+                        
+                        if (distanceCheck.alternatives && distanceCheck.alternatives.length > 0) {
+                            html += `💡 <strong>Bessere Zeiten:</strong><br>`;
+                            html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
+                            distanceCheck.alternatives.forEach(alt => {
+                                html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">${alt}</button>`;
+                            });
+                            html += '</div>';
+                        }
+                        
+                        statusDisplay.innerHTML = html;
+                        
+                        console.log('⚠️ Zeitüberschneidung!', distanceCheck);
+                        return;
+                    } else if (distanceCheck.reserveMinutes !== null) {
+                        // ✅ PASST mit Reserve!
+                        statusDisplay.style.display = 'block';
+                        statusDisplay.style.background = '#d1fae5';
+                        statusDisplay.style.border = '2px solid #10b981';
+                        statusDisplay.style.color = '#065f46';
+                        statusDisplay.innerHTML = `✅ <strong>${time} Uhr ist verfügbar!</strong><br><small>Reserve: ${distanceCheck.reserveMinutes} Min</small>`;
+                        
+                        console.log('✅ Slot ist frei! Reserve:', distanceCheck.reserveMinutes, 'Min');
+                        return;
+                    }
                 }
                 
-                statusDisplay.innerHTML = html;
+                // Fallback: Alte Logik wenn keine Adressen
+                const activeVehicles = Object.keys(VEHICLES).filter(id => VEHICLES[id].active !== false);
+                const isFree = await isTimeSlotAvailable(slotDateTime, ridesData, activeVehicles);
                 
-                console.log('💾 Slot besetzt! Alternativen:', alternatives);
+                if (isFree) {
+                    statusDisplay.style.display = 'block';
+                    statusDisplay.style.background = '#d1fae5';
+                    statusDisplay.style.border = '2px solid #10b981';
+                    statusDisplay.style.color = '#065f46';
+                    statusDisplay.innerHTML = `✅ <strong>${time} Uhr ist verfügbar!</strong>`;
+                    console.log('✅ Slot ist frei!');
+                } else {
+                    const alternatives = await findAlternativeSlots(slotDateTime, ridesData, activeVehicles);
+                    statusDisplay.style.display = 'block';
+                    statusDisplay.style.background = '#fee2e2';
+                    statusDisplay.style.border = '2px solid #ef4444';
+                    statusDisplay.style.color = '#991b1b';
+                    
+                    let html = `🚫 <strong>${time} Uhr ist leider besetzt!</strong><br><br>`;
+                    if (alternatives.length > 0) {
+                        html += `💡 <strong>Verfügbare Alternativen:</strong><br>`;
+                        html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
+                        alternatives.forEach(alt => {
+                            html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">${alt}</button>`;
+                        });
+                        html += '</div>';
+                    }
+                    statusDisplay.innerHTML = html;
+                    console.log('🔴 Slot besetzt! Alternativen:', alternatives);
+                }
+            } catch (error) {
+                console.error('❌ Fehler beim Kalender-Check:', error);
+                statusDisplay.style.display = 'block';
+                statusDisplay.style.background = '#fef3c7';
+                statusDisplay.style.border = '2px solid #f59e0b';
+                statusDisplay.style.color = '#92400e';
+                statusDisplay.innerHTML = '⚠️ Kalender konnte nicht geprüft werden.';
             }
         }
         
-        // 🆕 v5.90.123: FINDE ALTERNATIVE ZEITSLOTS
-        function findAlternativeSlots(originalTime, rides, vehicleCount) {
+        // 🆕 v5.90.639: PRÜFE DISTANZ/FAHRTZEIT ZWISCHEN TERMINEN!
+        async function checkTravelTimeConflict(slotDateTime, pickup, destination, ridesData) {
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🚗 v5.90.639: DISTANZ-PRÜFUNG FÜR VORBESTELLUNG');
+            console.log('═══════════════════════════════════════════════════════════');
+            
+            // Finde vorherige Fahrt (chronologisch vor dem neuen Slot)
+            const allRides = Object.values(ridesData).filter(r => 
+                r.status !== 'cancelled' && 
+                r.status !== 'storniert' &&
+                r.status !== 'completed' &&
+                r.status !== 'abgeschlossen'
+            );
+            
+            // Sortiere nach Zeit
+            allRides.sort((a, b) => {
+                const timeA = new Date(a.pickupTimestamp || a.pickupTime).getTime();
+                const timeB = new Date(b.pickupTimestamp || b.pickupTime).getTime();
+                return timeA - timeB;
+            });
+            
+            console.log('📊 Aktive Fahrten:', allRides.length);
+            
+            // Finde letzte Fahrt VOR dem neuen Slot
+            let previousRide = null;
+            const slotTime = slotDateTime.getTime();
+            
+            for (let i = allRides.length - 1; i >= 0; i--) {
+                const rideTime = new Date(allRides[i].pickupTimestamp || allRides[i].pickupTime).getTime();
+                if (rideTime < slotTime) {
+                    previousRide = allRides[i];
+                    break;
+                }
+            }
+            
+            if (!previousRide) {
+                console.log('✅ Keine vorherige Fahrt gefunden - Slot ist frei!');
+                return {
+                    hasConflict: false,
+                    reserveMinutes: null
+                };
+            }
+            
+            console.log('📍 Vorherige Fahrt gefunden:');
+            console.log('   Zeit:', new Date(previousRide.pickupTimestamp || previousRide.pickupTime).toLocaleString('de-DE'));
+            console.log('   Von:', previousRide.pickup);
+            console.log('   Nach:', previousRide.destination);
+            
+            // Berechne Ende der vorherigen Fahrt
+            const previousStartTime = new Date(previousRide.pickupTimestamp || previousRide.pickupTime);
+            const previousDuration = previousRide.duration || 30; // Fallback: 30 Min
+            const previousEndTime = new Date(previousStartTime.getTime() + previousDuration * 60000);
+            
+            console.log('   Dauer:', previousDuration, 'Min');
+            console.log('   Ende:', previousEndTime.toLocaleString('de-DE'));
+            
+            // Verfügbare Zeit bis zum neuen Slot
+            const availableTime = Math.floor((slotTime - previousEndTime.getTime()) / 60000);
+            
+            console.log('⏱️ Verfügbare Zeit:', availableTime, 'Min');
+            
+            // Geocode Adressen
+            try {
+                const previousDestCoords = await geocodeAddress(previousRide.destination);
+                const newPickupCoords = await geocodeAddress(pickup);
+                
+                if (!previousDestCoords || !newPickupCoords) {
+                    console.warn('⚠️ Geocoding fehlgeschlagen - nutze Fallback');
+                    return {
+                        hasConflict: false,
+                        reserveMinutes: availableTime
+                    };
+                }
+                
+                // Berechne Route: Letztes Ziel → Neuer Start
+                const route = await calculateRoute(previousDestCoords, newPickupCoords);
+                const travelTime = route.duration; // in Minuten
+                
+                console.log('🗺️ Route berechnet:');
+                console.log('   Von:', previousRide.destination);
+                console.log('   Nach:', pickup);
+                console.log('   Distanz:', route.distance, 'km');
+                console.log('   Fahrtzeit:', travelTime, 'Min');
+                
+                const reserveMinutes = availableTime - travelTime;
+                
+                console.log('📊 ERGEBNIS:');
+                console.log('   Verfügbare Zeit:', availableTime, 'Min');
+                console.log('   Benötigte Zeit:', travelTime, 'Min');
+                console.log('   Reserve:', reserveMinutes, 'Min');
+                
+                if (reserveMinutes < 0) {
+                    // ⚠️ KONFLIKT!
+                    console.log('⚠️ ZEITÜBERSCHNEIDUNG!');
+                    
+                    // Finde bessere Zeiten
+                    const neededExtraTime = Math.abs(reserveMinutes) + 5; // +5 Min Puffer
+                    const alternatives = [];
+                    
+                    for (let offset = 5; offset <= 60; offset += 5) {
+                        const testTime = new Date(slotTime + offset * 60000);
+                        const testHour = String(testTime.getHours()).padStart(2, '0');
+                        const testMin = String(testTime.getMinutes()).padStart(2, '0');
+                        alternatives.push(`${testHour}:${testMin}`);
+                        
+                        if (alternatives.length >= 5) break;
+                    }
+                    
+                    console.log('═══════════════════════════════════════════════════════════');
+                    
+                    return {
+                        hasConflict: true,
+                        travelTime: travelTime,
+                        availableTime: availableTime,
+                        reserveMinutes: reserveMinutes,
+                        previousRide: previousRide,
+                        alternatives: alternatives
+                    };
+                } else {
+                    // ✅ PASST!
+                    console.log('✅ Slot ist machbar!');
+                    console.log('═══════════════════════════════════════════════════════════');
+                    
+                    return {
+                        hasConflict: false,
+                        reserveMinutes: reserveMinutes,
+                        travelTime: travelTime,
+                        availableTime: availableTime
+                    };
+                }
+                
+            } catch (error) {
+                console.error('❌ Fehler bei Distanz-Berechnung:', error);
+                return {
+                    hasConflict: false,
+                    reserveMinutes: availableTime
+                };
+            }
+        }
+        
+        // 🆕 v5.90.638: PRÜFE OB ZEITSLOT FREI IST (mit Auto-Assign Logik!)
+        async function isTimeSlotAvailable(slotDateTime, ridesData, activeVehicles) {
+            if (activeVehicles.length === 0) {
+                console.log('⚠️ Keine aktiven Fahrzeuge definiert!');
+                return false;  // Keine Fahrzeuge = nicht buchbar
+            }
+            
+            // Hole ALLE Fahrten aus Firebase für bessere Übersicht
+            const allRidesSnapshot = await db.ref('rides').once('value');
+            const allRides = allRidesSnapshot.val() || {};
+            
+            // Für jedes Fahrzeug prüfen ob es zu dieser Zeit verfügbar ist
+            const availableVehicles = [];
+            
+            for (const vehicleId of activeVehicles) {
+                // 🎯 GLEICHE LOGIK WIE AUTO-ASSIGN!
+                // Prüfe ob Fahrzeug bereits eine Fahrt hat zu dieser Zeit
+                let hasConflict = false;
+                
+                Object.values(allRides).forEach(ride => {
+                    // ✅ Ignoriere stornierte Fahrten
+                    if (ride.status === 'cancelled' || ride.status === 'storniert') return;
+                    
+                    // ✅ NUR Fahrten für DIESES Fahrzeug prüfen
+                    if (ride.vehicleId !== vehicleId && ride.assignedTo !== vehicleId) return;
+                    
+                    // ✅ Ignoriere Fahrten die bereits erledigt sind
+                    if (ride.status === 'completed' || ride.status === 'abgeschlossen') return;
+                    
+                    const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime);
+                    if (isNaN(rideTime.getTime())) return;
+                    
+                    // 🎯 KONFLIKT-PRÜFUNG WIE AUTO-ASSIGN:
+                    // Fahrt läuft wenn Status: assigned, accepted, oder picked_up
+                    const isActiveRide = ['assigned', 'accepted', 'picked_up', 'new'].includes(ride.status);
+                    
+                    if (isActiveRide) {
+                        // Fahrtdauer: 30 Min + 10 Min Puffer zwischen Fahrten
+                        const rideDuration = (ride.duration || 30) * 60000;  // in ms
+                        const buffer = 10 * 60000;  // 10 Min Puffer
+                        const rideEndTime = new Date(rideTime.getTime() + rideDuration + buffer);
+                        
+                        // Prüfe ob Slot mit dieser Fahrt kollidiert
+                        const slotEndTime = new Date(slotDateTime.getTime() + rideDuration + buffer);
+                        
+                        // Kollision wenn:
+                        // - Neuer Slot startet während Fahrt läuft
+                        // - Neue Fahrt würde während Slot laufen
+                        if ((slotDateTime >= rideTime && slotDateTime < rideEndTime) ||
+                            (rideTime >= slotDateTime && rideTime < slotEndTime)) {
+                            hasConflict = true;
+                            console.log(`   🔴 ${vehicleId} besetzt: ${rideTime.toLocaleTimeString('de-DE')} - ${rideEndTime.toLocaleTimeString('de-DE')} (${ride.status})`);
+                        }
+                    }
+                });
+                
+                if (!hasConflict) {
+                    availableVehicles.push(vehicleId);
+                    console.log(`   ✅ ${vehicleId} ist frei!`);
+                }
+            }
+            
+            console.log(`📊 Verfügbare Fahrzeuge: ${availableVehicles.length}/${activeVehicles.length}`);
+            return availableVehicles.length > 0;
+        }
+        
+        // 🆕 v5.90.637: FINDE ALTERNATIVE ZEITSLOTS (mit Firebase)
+        async function findAlternativeSlots(originalTime, ridesData, activeVehicles) {
             const alternatives = [];
             
-            // Suche ±30 Minuten in 5-Min-Schritten
-            for (let offset = -30; offset <= 30; offset += 5) {
+            // Suche ±60 Minuten in 5-Min-Schritten
+            for (let offset = -60; offset <= 60; offset += 5) {
                 if (offset === 0) continue; // Original Zeit überspringen
                 
                 const testTime = new Date(originalTime.getTime() + offset * 60000);
                 
-                if (isTimeSlotAvailable(testTime, rides, vehicleCount)) {
+                // 🆕 v5.90.638: await weil isTimeSlotAvailable jetzt async ist
+                const isAvailable = await isTimeSlotAvailable(testTime, ridesData, activeVehicles);
+                
+                if (isAvailable) {
                     const timeStr = `${String(testTime.getHours()).padStart(2, '0')}:${String(testTime.getMinutes()).padStart(2, '0')}`;
                     alternatives.push(timeStr);
                     
@@ -25789,27 +26095,6 @@ Aktuell: ${currentNum}`;
             
             // Neu prüfen
             checkSlotAvailability(dateInput.value, time);
-        }
-        
-        // 🆕 v5.90.123: PRÜFE OB ZEITSLOT VERFÜGBAR IST
-        function isTimeSlotAvailable(slotDateTime, rides, activeVehicleCount) {
-            // Zähle wie viele Fahrten zu dieser Zeit laufen
-            let bookedCount = 0;
-            
-            rides.forEach(ride => {
-                if (ride.status === 'cancelled' || ride.status === 'storniert') return;
-                
-                const rideTime = new Date(ride.pickupTime);
-                const rideEndTime = new Date(rideTime.getTime() + 30 * 60000); // +30 Min Puffer
-                
-                // Prüfe ob Slot innerhalb der Fahrtzeit liegt
-                if (slotDateTime >= rideTime && slotDateTime <= rideEndTime) {
-                    bookedCount++;
-                }
-            });
-            
-            // Slot ist frei wenn weniger Fahrten als Fahrzeuge
-            return bookedCount < activeVehicleCount;
         }
         
         // 🆕 v5.90.322: PRÜFE OB FAHRER ONLINE SIND
@@ -72018,6 +72303,11 @@ function clearField(fieldId) {
                 waypoint.coords = null;
                 console.log('🗑️ v5.90.580: Waypoint gelöscht:', waypointId);
             }
+        }
+        
+        // 🆕 v5.90.641: Nach Löschen Slot-Check aktualisieren!
+        if (fieldId === 'pickup' || fieldId === 'destination') {
+            triggerSlotCheck();
         }
     }
 }

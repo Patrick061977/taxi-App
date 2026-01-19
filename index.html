@@ -9,13 +9,32 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.651
-    📅 BUILD: 19.01.2026 19:15 Uhr
+    📦 VERSION: v5.90.654
+    📅 BUILD: 19.01.2026 21:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.651
+    📋 CHANGELOG v5.90.654
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🔍 v5.90.654 (19.01.2026):
+       • NEU: DETAILLIERTER SLOT-CHECK bei Vorbestellungen!
+       • Zeigt alle Fahrten VORHER mit Zeiten und Distanzen
+       • Zeigt alle Fahrten NACHHER mit Zeiten und Distanzen
+       • Genaue Berechnung: Wo ist Taxi, wie weit muss es fahren
+       • Zeigt Reserve-Zeit zwischen Terminen
+       • Erklärt WARUM ein Termin verfügbar ist oder nicht
+       • Nur bei VORBESTELLUNGEN (nicht bei Sofort-Fahrten)
+       • Hilft beim Training und Verstehen des Systems!
+    
+    🗺️ v5.90.653 (19.01.2026):
+       • NEU: POI Filter-Buttons auf Karten-Picker!
+       • Buttons: 🚉 Bahnhöfe, 🏨 Hotels, 🍽️ Restaurants, ☕ Cafés, Alle
+       • POI-Typen an/ausschalten nach Bedarf
+       • NEU: Zoom-responsive Icons!
+       • Rausgezoomt = kleine Icons (bessere Übersicht)
+       • Reingezoomt = große Icons (besser anklickbar)
+       • Automatische Größenanpassung beim Zoomen!
     
     🗺️ v5.90.651 (19.01.2026):
        • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
@@ -270,9 +289,15 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.651 - POI-MARKER! 🗺️✅ (Build 2026-01-19_1915)');
+        console.log('🚕 Funk Taxi App v5.90.654 - SLOT-CHECK DETAILS! 🔍📊 (Build 2026-01-19_2130)');
+        console.log('🔍 v5.90.654: Detaillierter Slot-Check bei Vorbestellungen!');
+        console.log('📊 v5.90.654: Zeigt Fahrten vorher/nachher + Distanzen');
+        console.log('🗺️ v5.90.653: POI Filter-Buttons + Zoom-responsive Icons');
+        console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
+        console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten!');
+        console.log('✅ v5.90.652: "Termin verfügbar" / "Termin nicht verfügbar"');
         console.log('🗺️ v5.90.651: POI-MARKER auf Karten-Picker!');
         console.log('🔧 v5.90.651: Nur echte POIs (Bahnhöfe, Hotels) - keine Privatadressen');
         console.log('🔧 v5.90.651: Klickbare Marker mit Icons (🚉 🏨 🍽️ ☕)');
@@ -24721,7 +24746,7 @@ Aktuell: ${currentNum}`;
                         
                         // Erstelle HTML mit Alternativen
                         let html = `<div style="color:#f59e0b;font-weight:bold;margin-bottom:10px;">
-                            ⚠️ ${chosenTime} Uhr ist bereits belegt!
+                            ❌ Termin nicht verfügbar
                         </div>`;
                         
                         if (alternatives.length > 0) {
@@ -25806,33 +25831,144 @@ Aktuell: ${currentNum}`;
                         statusDisplay.style.border = '2px solid #f59e0b';
                         statusDisplay.style.color = '#92400e';
                         
-                        let html = `⚠️ <strong>Zeitüberschneidung!</strong><br><br>`;
-                        html += `Fahrzeug braucht <strong>${distanceCheck.travelTime} Min</strong> von letzter Fahrt,<br>`;
-                        html += `hat aber nur <strong>${distanceCheck.availableTime} Min</strong> Zeit.<br>`;
-                        html += `<small>(Letzte Fahrt: ${distanceCheck.previousRide.destination})</small><br><br>`;
+                        // 🆕 v5.90.654: DETAILLIERTE ANALYSE!
+                        let html = '<div style="font-size:13px;line-height:1.6;">';
+                        html += '<div style="text-align:center;font-size:16px;font-weight:700;color:#f59e0b;margin-bottom:12px;">❌ TERMIN NICHT VERFÜGBAR</div>';
+                        html += '<div style="border-top:2px solid #f59e0b;margin:12px 0;"></div>';
                         
-                        if (distanceCheck.alternatives && distanceCheck.alternatives.length > 0) {
-                            html += `💡 <strong>Bessere Zeiten:</strong><br>`;
-                            html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
-                            distanceCheck.alternatives.forEach(alt => {
-                                html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;">${alt}</button>`;
-                            });
+                        // Problem erklären
+                        html += '<div style="margin-bottom:12px;padding:8px;background:#fef3c7;border-radius:6px;border:1px solid #f59e0b;">';
+                        html += '<div style="font-weight:700;margin-bottom:4px;">⚠️ PROBLEM:</div>';
+                        html += `<div style="font-size:12px;">Fahrzeug braucht <strong>${distanceCheck.travelTime} Min</strong> von letzter Fahrt,</div>`;
+                        html += `<div style="font-size:12px;">hat aber nur <strong>${distanceCheck.availableTime} Min</strong> Zeit.</div>`;
+                        html += `<div style="font-size:12px;color:#991b1b;margin-top:4px;font-weight:600;">❌ Fehlen: ${Math.abs(distanceCheck.reserveMinutes)} Minuten</div>`;
+                        html += '</div>';
+                        
+                        html += '<div style="border-top:1px solid #fde68a;margin:12px 0;"></div>';
+                        
+                        // Vorherige Fahrt
+                        if (distanceCheck.previousRide) {
+                            const prevTime = new Date(distanceCheck.previousRide.pickupTimestamp || distanceCheck.previousRide.pickupTime);
+                            html += '<div style="margin-bottom:12px;">';
+                            html += '<div style="font-weight:700;margin-bottom:6px;">🚖 Letzte Fahrt:</div>';
+                            html += `<div style="padding:8px;background:#fffbeb;border-radius:6px;">`;
+                            html += `<div><strong>${prevTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                            html += `<div style="font-size:12px;">Von: ${distanceCheck.previousRide.pickup}</div>`;
+                            html += `<div style="font-size:12px;">Nach: ${distanceCheck.previousRide.destination}</div>`;
+                            html += '</div>';
                             html += '</div>';
                         }
                         
+                        html += '<div style="border-top:1px solid #fde68a;margin:12px 0;"></div>';
+                        
+                        // Alternativen
+                        if (distanceCheck.alternatives && distanceCheck.alternatives.length > 0) {
+                            html += '<div style="margin-bottom:8px;">';
+                            html += `<div style="font-weight:700;margin-bottom:6px;">💡 Verfügbare Zeiten:</div>`;
+                            html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+                            distanceCheck.alternatives.forEach(alt => {
+                                html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${alt}</button>`;
+                            });
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                        
+                        html += '</div>';
                         statusDisplay.innerHTML = html;
                         
                         console.log('⚠️ Zeitüberschneidung!', distanceCheck);
                         return;
-                    } else if (distanceCheck.reserveMinutes !== null) {
+                    } else if (distanceCheck.reserveMinutes !== null || distanceCheck.noPreviousRide) {
                         // ✅ PASST mit Reserve!
                         statusDisplay.style.display = 'block';
-                        statusDisplay.style.background = '#d1fae5';
+                        statusDisplay.style.background = '#ecfdf5';
                         statusDisplay.style.border = '2px solid #10b981';
                         statusDisplay.style.color = '#065f46';
-                        statusDisplay.innerHTML = `✅ <strong>${time} Uhr ist verfügbar!</strong><br><small>Reserve: ${distanceCheck.reserveMinutes} Min</small>`;
                         
-                        console.log('✅ Slot ist frei! Reserve:', distanceCheck.reserveMinutes, 'Min');
+                        // 🆕 v5.90.654: DETAILLIERTE ANALYSE!
+                        let html = '<div style="font-size:13px;line-height:1.6;">';
+                        html += '<div style="text-align:center;font-size:16px;font-weight:700;color:#10b981;margin-bottom:12px;">✅ TERMIN VERFÜGBAR</div>';
+                        html += '<div style="border-top:2px solid #10b981;margin:12px 0;"></div>';
+                        
+                        // Fahrten am Tag
+                        if (distanceCheck.allRidesOnDay && distanceCheck.allRidesOnDay.length > 0) {
+                            html += '<div style="margin-bottom:12px;">';
+                            html += '<div style="font-weight:700;margin-bottom:6px;">📅 Fahrten am ' + new Date(date).toLocaleDateString('de-DE', {weekday: 'short', day: '2-digit', month: '2-digit'}) + ':</div>';
+                            distanceCheck.allRidesOnDay.forEach((r, idx) => {
+                                const rTime = new Date(r.pickupTimestamp || r.pickupTime);
+                                const isRequested = rTime.getTime() === slotDateTime.getTime();
+                                html += `<div style="padding:4px 8px;background:${isRequested ? '#d1fae5' : '#f9fafb'};border-radius:4px;margin:4px 0;${isRequested ? 'border:2px solid #10b981;font-weight:700;' : ''}">`;
+                                html += `${isRequested ? '→ ' : ''}${rTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} | ${r.pickup} → ${r.destination}`;
+                                if (isRequested) html += ' <span style="color:#10b981;">← NEUE FAHRT</span>';
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                        }
+                        
+                        html += '<div style="border-top:1px solid #d1fae5;margin:12px 0;"></div>';
+                        
+                        // Vorherige Fahrt
+                        if (distanceCheck.previousRide) {
+                            const prevTime = new Date(distanceCheck.previousRide.pickupTimestamp || distanceCheck.previousRide.pickupTime);
+                            html += '<div style="margin-bottom:12px;">';
+                            html += '<div style="font-weight:700;margin-bottom:6px;">🚖 Fahrt VORHER:</div>';
+                            html += `<div style="padding:8px;background:#f0fdf4;border-radius:6px;">`;
+                            html += `<div><strong>${prevTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                            html += `<div style="font-size:12px;color:#065f46;">Von: ${distanceCheck.previousRide.pickup}</div>`;
+                            html += `<div style="font-size:12px;color:#065f46;">Nach: ${distanceCheck.previousRide.destination}</div>`;
+                            html += `<div style="font-size:12px;color:#065f46;">Ende: ${distanceCheck.previousEndTime ? new Date(distanceCheck.previousEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</div>`;
+                            html += '</div>';
+                            html += '</div>';
+                            
+                            // Distanz-Berechnung
+                            html += '<div style="margin-bottom:12px;">';
+                            html += '<div style="font-weight:700;margin-bottom:6px;">🗺️ Rückfahrt zum neuen Termin:</div>';
+                            html += `<div style="padding:8px;background:#fffbeb;border-radius:6px;">`;
+                            html += `<div style="font-size:12px;">Von: <strong>${distanceCheck.previousDestination}</strong></div>`;
+                            html += `<div style="font-size:12px;">Nach: <strong>${distanceCheck.newPickup}</strong></div>`;
+                            html += `<div style="font-size:12px;color:#92400e;margin-top:4px;">📏 Distanz: <strong>${distanceCheck.routeDistance} km</strong></div>`;
+                            html += `<div style="font-size:12px;color:#92400e;">⏱️ Fahrzeit: <strong>${distanceCheck.travelTime} Min</strong></div>`;
+                            html += '</div>';
+                            html += '</div>';
+                            
+                            // Zeitberechnung
+                            html += '<div style="margin-bottom:12px;">';
+                            html += '<div style="font-weight:700;margin-bottom:6px;">⏰ Zeitberechnung:</div>';
+                            html += `<div style="padding:8px;background:#f0fdf4;border-radius:6px;font-size:12px;">`;
+                            html += `<div>Letzte Fahrt fertig: ${distanceCheck.previousEndTime ? new Date(distanceCheck.previousEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</div>`;
+                            html += `<div>+ Rückfahrt: ${distanceCheck.travelTime} Min</div>`;
+                            html += `<div style="border-top:1px solid #d1fae5;margin:4px 0;padding-top:4px;">= Verfügbar ab: ${distanceCheck.previousEndTime ? new Date(new Date(distanceCheck.previousEndTime).getTime() + distanceCheck.travelTime * 60000).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</div>`;
+                            html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #d1fae5;">Neue Fahrt: <strong>${time} Uhr</strong></div>`;
+                            html += `<div style="color:#10b981;font-weight:700;font-size:14px;margin-top:4px;">⏳ Reserve: ${distanceCheck.reserveMinutes} Minuten ✅</div>`;
+                            html += '</div>';
+                            html += '</div>';
+                        } else {
+                            html += '<div style="margin-bottom:12px;padding:8px;background:#f0fdf4;border-radius:6px;">';
+                            html += '<div style="font-weight:700;color:#10b981;">✅ Erste Fahrt des Tages!</div>';
+                            html += '<div style="font-size:12px;margin-top:4px;">Keine vorherigen Fahrten - Taxi ist verfügbar.</div>';
+                            html += '</div>';
+                        }
+                        
+                        // Nächste Fahrt
+                        if (distanceCheck.nextRide) {
+                            const nextTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
+                            const timeDiff = Math.floor((nextTime.getTime() - slotDateTime.getTime()) / 60000);
+                            html += '<div style="border-top:1px solid #d1fae5;margin:12px 0;"></div>';
+                            html += '<div style="margin-bottom:12px;">';
+                            html += '<div style="font-weight:700;margin-bottom:6px;">🚖 Fahrt NACHHER:</div>';
+                            html += `<div style="padding:8px;background:#f0fdf4;border-radius:6px;">`;
+                            html += `<div><strong>${nextTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                            html += `<div style="font-size:12px;color:#065f46;">Von: ${distanceCheck.nextRide.pickup}</div>`;
+                            html += `<div style="font-size:12px;color:#065f46;">Nach: ${distanceCheck.nextRide.destination}</div>`;
+                            html += `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">⏳ Zeit bis nächste Fahrt: ${timeDiff} Min</div>`;
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                        
+                        html += '</div>';
+                        statusDisplay.innerHTML = html;
+                        
+                        console.log('✅ Slot ist frei! Details angezeigt.');
                         return;
                     }
                 }
@@ -25846,7 +25982,7 @@ Aktuell: ${currentNum}`;
                     statusDisplay.style.background = '#d1fae5';
                     statusDisplay.style.border = '2px solid #10b981';
                     statusDisplay.style.color = '#065f46';
-                    statusDisplay.innerHTML = `✅ <strong>${time} Uhr ist verfügbar!</strong>`;
+                    statusDisplay.innerHTML = `✅ <strong>Termin verfügbar</strong>`;
                     console.log('✅ Slot ist frei!');
                 } else {
                     const alternatives = await findAlternativeSlots(slotDateTime, ridesData, activeVehicles);
@@ -25855,7 +25991,7 @@ Aktuell: ${currentNum}`;
                     statusDisplay.style.border = '2px solid #ef4444';
                     statusDisplay.style.color = '#991b1b';
                     
-                    let html = `🚫 <strong>${time} Uhr ist leider besetzt!</strong><br><br>`;
+                    let html = `❌ <strong>Termin nicht verfügbar</strong><br><br>`;
                     if (alternatives.length > 0) {
                         html += `💡 <strong>Verfügbare Alternativen:</strong><br>`;
                         html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">';
@@ -25967,10 +26103,32 @@ Aktuell: ${currentNum}`;
             
             if (!previousRide) {
                 console.log('✅ ERGEBNIS: Keine vorherige Fahrt am gleichen Tag - Slot ist frei!');
+                
+                // 🆕 v5.90.654: Suche nächste Fahrt NACH dem Slot
+                let nextRide = null;
+                for (let i = 0; i < allRides.length; i++) {
+                    const ride = allRides[i];
+                    const rideDateTime = new Date(ride.pickupTimestamp || ride.pickupTime);
+                    const rideTime = rideDateTime.getTime();
+                    const rideDate = rideDateTime.toDateString();
+                    
+                    if (rideDate === slotDate && rideTime > slotTime) {
+                        nextRide = ride;
+                        console.log('📍 NÄCHSTE FAHRT GEFUNDEN:', rideDateTime.toLocaleString('de-DE'));
+                        break;
+                    }
+                }
+                
                 console.log('═══════════════════════════════════════════════════════════');
                 return {
                     hasConflict: false,
-                    reserveMinutes: null
+                    reserveMinutes: null,
+                    // 🆕 v5.90.654: Details für UI
+                    noPreviousRide: true,
+                    newPickup: pickup,
+                    newDestination: destination,
+                    nextRide: nextRide,
+                    allRidesOnDay: ridesOnSameDay
                 };
             }
             
@@ -26066,13 +26224,38 @@ Aktuell: ${currentNum}`;
                     // ✅ PASST!
                     console.log('✅ ERGEBNIS: SLOT IST VERFÜGBAR!');
                     console.log('   Reserve:', reserveMinutes, 'Min');
+                    
+                    // 🆕 v5.90.654: Suche auch nächste Fahrt NACH dem Slot!
+                    let nextRide = null;
+                    for (let i = 0; i < allRides.length; i++) {
+                        const ride = allRides[i];
+                        const rideDateTime = new Date(ride.pickupTimestamp || ride.pickupTime);
+                        const rideTime = rideDateTime.getTime();
+                        const rideDate = rideDateTime.toDateString();
+                        
+                        if (rideDate === slotDate && rideTime > slotTime) {
+                            nextRide = ride;
+                            console.log('📍 NÄCHSTE FAHRT GEFUNDEN:', rideDateTime.toLocaleString('de-DE'));
+                            break;
+                        }
+                    }
+                    
                     console.log('═══════════════════════════════════════════════════════════');
                     
                     return {
                         hasConflict: false,
                         reserveMinutes: reserveMinutes,
                         travelTime: travelTime,
-                        availableTime: availableTime
+                        availableTime: availableTime,
+                        // 🆕 v5.90.654: Details für UI
+                        previousRide: previousRide,
+                        previousDestination: previousRide.destination,
+                        previousEndTime: previousEndTime,
+                        newPickup: pickup,
+                        routeDistance: route.distance,
+                        nextRide: nextRide,  // Kann null sein
+                        allRidesOnDay: ridesOnSameDay
+                    };
                     };
                 }
                 
@@ -45389,6 +45572,28 @@ Funk Taxi Team`;
                         </div>
                     </div>
                     
+                    <!-- 🆕 v5.90.653: POI FILTER BUTTONS -->
+                    <div id="poi-filter-buttons" style="padding:12px 15px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                        <button onclick="filterPOIsByType('all')" class="poi-filter-btn active" data-type="all" style="padding:8px 14px;background:#10b981;color:white;border:2px solid #10b981;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                            🗺️ Alle
+                        </button>
+                        <button onclick="filterPOIsByType('bahnhof')" class="poi-filter-btn" data-type="bahnhof" style="padding:8px 14px;background:white;color:#374151;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                            🚉 Bahnhöfe
+                        </button>
+                        <button onclick="filterPOIsByType('hotel')" class="poi-filter-btn" data-type="hotel" style="padding:8px 14px;background:white;color:#374151;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                            🏨 Hotels
+                        </button>
+                        <button onclick="filterPOIsByType('restaurant')" class="poi-filter-btn" data-type="restaurant" style="padding:8px 14px;background:white;color:#374151;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                            🍽️ Restaurants
+                        </button>
+                        <button onclick="filterPOIsByType('cafe')" class="poi-filter-btn" data-type="cafe" style="padding:8px 14px;background:white;color:#374151;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                            ☕ Cafés
+                        </button>
+                        <button onclick="filterPOIsByType('museum')" class="poi-filter-btn" data-type="museum" style="padding:8px 14px;background:white;color:#374151;border:2px solid #e5e7eb;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                            🏛️ Sehenswürdigkeiten
+                        </button>
+                    </div>
+                    
                     <!-- Karte -->
                     <div id="universal-map-picker-container" style="flex:1;min-height:400px;"></div>
                     
@@ -45428,8 +45633,9 @@ Funk Taxi Team`;
         }
         
         // 🆕 v5.90.651: POI-Marker auf Karte anzeigen
-        function addPOIMarkersToMap() {
-            console.log('🗺️ v5.90.651: Füge POI-Marker hinzu...');
+        // 🔧 v5.90.653: Mit Filter und Zoom-Responsive!
+        function addPOIMarkersToMap(filterType = 'all') {
+            console.log('🗺️ v5.90.653: Füge POI-Marker hinzu... Filter:', filterType);
             
             // Entferne alte Marker
             if (universalMapPicker.poiMarkers && universalMapPicker.poiMarkers.length > 0) {
@@ -45468,17 +45674,57 @@ Funk Taxi Team`;
                 return '📍'; // Default
             }
             
+            // 🆕 v5.90.653: Bestimme POI-Typ für Filter
+            function getPOIType(poiName) {
+                const name = poiName.toLowerCase();
+                
+                if (name.includes('bahnhof')) return 'bahnhof';
+                if (name.includes('hotel') || name.includes('pension')) return 'hotel';
+                if (name.includes('restaurant') || name.includes('gaststätte')) return 'restaurant';
+                if (name.includes('café') || name.includes('cafe')) return 'cafe';
+                if (name.includes('museum') || name.includes('kirche') || name.includes('seebrücke')) return 'museum';
+                
+                return 'other';
+            }
+            
+            // 🆕 v5.90.653: Hole aktuellen Zoom-Level
+            const currentZoom = universalMapPicker.map.getZoom();
+            
+            // Zoom-responsive Icon-Größe
+            // Zoom 10-12 = klein (20px), Zoom 13-15 = mittel (28px), Zoom 16+ = groß (36px)
+            let iconSize, fontSize;
+            if (currentZoom >= 16) {
+                iconSize = 36;
+                fontSize = 18;
+            } else if (currentZoom >= 13) {
+                iconSize = 28;
+                fontSize = 14;
+            } else {
+                iconSize = 20;
+                fontSize = 11;
+            }
+            
+            console.log(`🔍 Zoom ${currentZoom} → Icon-Größe: ${iconSize}px`);
+            
             // Erstelle Marker für jeden POI
             publicPOIs.forEach(poi => {
                 const icon = getPOIIcon(poi.name);
+                const poiType = getPOIType(poi.name);
+                
+                // 🆕 v5.90.653: Filter anwenden
+                if (filterType !== 'all' && poiType !== filterType) {
+                    return; // Skip this POI
+                }
+                
                 const markerColor = '#f59e0b'; // Orange für POIs
                 
                 const marker = L.marker([poi.lat, poi.lon], {
                     icon: L.divIcon({
-                        html: `<div style="background:${markerColor};color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;">${icon}</div>`,
-                        iconSize: [28, 28],
-                        iconAnchor: [14, 14]
-                    })
+                        html: `<div style="background:${markerColor};color:white;border-radius:50%;width:${iconSize}px;height:${iconSize}px;display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;">${icon}</div>`,
+                        iconSize: [iconSize, iconSize],
+                        iconAnchor: [iconSize/2, iconSize/2]
+                    }),
+                    poiType: poiType // Speichere Typ für Filter
                 }).addTo(universalMapPicker.map);
                 
                 // Popup mit POI-Info
@@ -45545,6 +45791,31 @@ Funk Taxi Team`;
             universalMapPicker.map.closePopup();
         }
         
+        // 🆕 v5.90.653: POI Filter Funktion
+        let currentPOIFilter = 'all';
+        
+        function filterPOIsByType(type) {
+            console.log('🔍 v5.90.653: Filter POIs nach Typ:', type);
+            
+            currentPOIFilter = type;
+            
+            // Update Button-Styles
+            document.querySelectorAll('.poi-filter-btn').forEach(btn => {
+                if (btn.dataset.type === type) {
+                    btn.style.background = '#10b981';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = '#10b981';
+                } else {
+                    btn.style.background = 'white';
+                    btn.style.color = '#374151';
+                    btn.style.borderColor = '#e5e7eb';
+                }
+            });
+            
+            // Marker neu laden mit Filter
+            addPOIMarkersToMap(type);
+        }
+        
         function initUniversalMapPicker() {
             const container = document.getElementById('universal-map-picker-container');
             if (!container) {
@@ -45567,6 +45838,12 @@ Funk Taxi Team`;
             
             // 🆕 v5.90.651: POI-MARKER auf Karte anzeigen!
             addPOIMarkersToMap();
+            
+            // 🆕 v5.90.653: Zoom-Event für responsive Icons!
+            universalMapPicker.map.on('zoomend', function() {
+                console.log('🔍 Zoom geändert, aktualisiere POI-Marker...');
+                addPOIMarkersToMap(currentPOIFilter);
+            });
             
             // Klick auf Karte
             universalMapPicker.map.on('click', async function(e) {

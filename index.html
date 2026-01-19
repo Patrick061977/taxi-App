@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.641 | Build: 2026-01-18_0112 | Fix: CLEAR-FIX - Löschen triggert Slot-Check -->
+    <!-- Version: v5.90.642 | Build: 2026-01-18_0200 | Fix: DEBUG-LOGGING - Ausführliche Prüf-Logs -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,7 +256,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.641 - CLEAR-FIX! 🔧✅ (Build 2026-01-18_0112)');
+        console.log('🚕 Funk Taxi App v5.90.642 - DEBUG-LOG! 🔧✅ (Build 2026-01-18_0200)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
@@ -264,7 +264,7 @@
         console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
         console.log('🔧 v5.90.635: Ignoriere Fahrzeuge mit String-Timestamps (altes GPS-Format)');
         console.log('🔋 v5.90.636: BATTERY-SAVER - Standby: 50m/60s, Aktiv: 10m/10s');
-        console.log('🗑️ v5.90.641: CLEAR-FIX - Löschen von Pickup/Destination triggert Slot-Check!');
+        console.log('🔍 v5.90.642: DEBUG-LOGGING - Zeigt genau was geprüft wird + NUR gleicher Tag!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
         console.log('🔧 v5.90.525: renderDriverRides() nutzt Isarfunk HTML!');
@@ -1204,7 +1204,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.624 - MWST-FIX! ✅ (Build 20260118-2045)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - DEBUG-LOG! ✅ (Build 20260119-0200)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1645,7 +1645,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.625 - MWST-FIX
+                        🔧 v5.90.642 - DEBUG-LOG
                     </span>
                 </div>
             </div>
@@ -25851,8 +25851,13 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.639: PRÜFE DISTANZ/FAHRTZEIT ZWISCHEN TERMINEN!
         async function checkTravelTimeConflict(slotDateTime, pickup, destination, ridesData) {
             console.log('═══════════════════════════════════════════════════════════');
-            console.log('🚗 v5.90.639: DISTANZ-PRÜFUNG FÜR VORBESTELLUNG');
+            console.log('🚗 v5.90.642: DISTANZ-PRÜFUNG FÜR VORBESTELLUNG (DEBUG)');
             console.log('═══════════════════════════════════════════════════════════');
+            console.log('📥 EINGABE:');
+            console.log('   Datum/Zeit:', slotDateTime.toLocaleString('de-DE'));
+            console.log('   Pickup:', pickup);
+            console.log('   Destination:', destination);
+            console.log('');
             
             // Finde vorherige Fahrt (chronologisch vor dem neuen Slot)
             const allRides = Object.values(ridesData).filter(r => 
@@ -25862,6 +25867,11 @@ Aktuell: ${currentNum}`;
                 r.status !== 'abgeschlossen'
             );
             
+            console.log('📊 FIREBASE FAHRTEN:');
+            console.log('   Gesamt (alle Status):', Object.keys(ridesData).length);
+            console.log('   Nach Filter (aktive):', allRides.length);
+            console.log('');
+            
             // Sortiere nach Zeit
             allRides.sort((a, b) => {
                 const timeA = new Date(a.pickupTimestamp || a.pickupTime).getTime();
@@ -25869,53 +25879,96 @@ Aktuell: ${currentNum}`;
                 return timeA - timeB;
             });
             
-            console.log('📊 Aktive Fahrten:', allRides.length);
+            // Zeige Fahrten für den gewählten Tag
+            const slotDate = slotDateTime.toDateString();
+            const ridesOnSameDay = allRides.filter(r => {
+                const rideDate = new Date(r.pickupTimestamp || r.pickupTime).toDateString();
+                return rideDate === slotDate;
+            });
             
-            // Finde letzte Fahrt VOR dem neuen Slot
+            console.log('📅 FAHRTEN AM GLEICHEN TAG (' + slotDate + '):');
+            console.log('   Anzahl:', ridesOnSameDay.length);
+            if (ridesOnSameDay.length > 0) {
+                ridesOnSameDay.forEach((r, idx) => {
+                    const rideTime = new Date(r.pickupTimestamp || r.pickupTime);
+                    console.log(`   [${idx + 1}] ${rideTime.toLocaleTimeString('de-DE')} | ${r.pickup} → ${r.destination} | Status: ${r.status}`);
+                });
+            } else {
+                console.log('   ⚠️ Keine Fahrten am gleichen Tag gefunden!');
+            }
+            console.log('');
+            
+            // Finde letzte Fahrt VOR dem neuen Slot (NUR am gleichen Tag!)
             let previousRide = null;
             const slotTime = slotDateTime.getTime();
             
+            console.log('🔍 SUCHE VORHERIGE FAHRT:');
+            console.log('   Slot-Zeit:', slotDateTime.toLocaleString('de-DE'));
+            
             for (let i = allRides.length - 1; i >= 0; i--) {
-                const rideTime = new Date(allRides[i].pickupTimestamp || allRides[i].pickupTime).getTime();
-                if (rideTime < slotTime) {
-                    previousRide = allRides[i];
+                const ride = allRides[i];
+                const rideDateTime = new Date(ride.pickupTimestamp || ride.pickupTime);
+                const rideTime = rideDateTime.getTime();
+                const rideDate = rideDateTime.toDateString();
+                
+                console.log(`   Prüfe: ${rideDateTime.toLocaleString('de-DE')} | Gleicher Tag: ${rideDate === slotDate} | Vor Slot: ${rideTime < slotTime}`);
+                
+                // 🆕 v5.90.642: NUR Fahrten vom GLEICHEN TAG!
+                if (rideDate === slotDate && rideTime < slotTime) {
+                    previousRide = ride;
+                    console.log('   ✅ GEFUNDEN!');
                     break;
                 }
             }
+            console.log('');
             
             if (!previousRide) {
-                console.log('✅ Keine vorherige Fahrt gefunden - Slot ist frei!');
+                console.log('✅ ERGEBNIS: Keine vorherige Fahrt am gleichen Tag - Slot ist frei!');
+                console.log('═══════════════════════════════════════════════════════════');
                 return {
                     hasConflict: false,
                     reserveMinutes: null
                 };
             }
             
-            console.log('📍 Vorherige Fahrt gefunden:');
+            console.log('📍 VORHERIGE FAHRT GEFUNDEN:');
             console.log('   Zeit:', new Date(previousRide.pickupTimestamp || previousRide.pickupTime).toLocaleString('de-DE'));
             console.log('   Von:', previousRide.pickup);
             console.log('   Nach:', previousRide.destination);
+            console.log('   Status:', previousRide.status);
+            console.log('');
             
             // Berechne Ende der vorherigen Fahrt
             const previousStartTime = new Date(previousRide.pickupTimestamp || previousRide.pickupTime);
             const previousDuration = previousRide.duration || 30; // Fallback: 30 Min
             const previousEndTime = new Date(previousStartTime.getTime() + previousDuration * 60000);
             
-            console.log('   Dauer:', previousDuration, 'Min');
-            console.log('   Ende:', previousEndTime.toLocaleString('de-DE'));
+            console.log('⏱️ ZEITBERECHNUNG:');
+            console.log('   Fahrt-Start:', previousStartTime.toLocaleString('de-DE'));
+            console.log('   Fahrt-Dauer:', previousDuration, 'Min');
+            console.log('   Fahrt-Ende:', previousEndTime.toLocaleString('de-DE'));
             
             // Verfügbare Zeit bis zum neuen Slot
             const availableTime = Math.floor((slotTime - previousEndTime.getTime()) / 60000);
-            
-            console.log('⏱️ Verfügbare Zeit:', availableTime, 'Min');
+            console.log('   Slot-Start:', slotDateTime.toLocaleString('de-DE'));
+            console.log('   Verfügbare Zeit:', availableTime, 'Min');
+            console.log('');
             
             // Geocode Adressen
             try {
+                console.log('🗺️ GEOCODING:');
+                console.log('   Ziel der vorherigen Fahrt:', previousRide.destination);
                 const previousDestCoords = await geocodeAddress(previousRide.destination);
+                console.log('   → Koordinaten:', previousDestCoords);
+                
+                console.log('   Start der neuen Fahrt:', pickup);
                 const newPickupCoords = await geocodeAddress(pickup);
+                console.log('   → Koordinaten:', newPickupCoords);
+                console.log('');
                 
                 if (!previousDestCoords || !newPickupCoords) {
-                    console.warn('⚠️ Geocoding fehlgeschlagen - nutze Fallback');
+                    console.warn('⚠️ GEOCODING FEHLGESCHLAGEN - Fallback');
+                    console.log('═══════════════════════════════════════════════════════════');
                     return {
                         hasConflict: false,
                         reserveMinutes: availableTime
@@ -25923,39 +25976,39 @@ Aktuell: ${currentNum}`;
                 }
                 
                 // Berechne Route: Letztes Ziel → Neuer Start
+                console.log('🚗 ROUTE BERECHNUNG:');
+                console.log('   Von:', previousRide.destination);
+                console.log('   Nach:', pickup);
                 const route = await calculateRoute(previousDestCoords, newPickupCoords);
                 const travelTime = route.duration; // in Minuten
                 
-                console.log('🗺️ Route berechnet:');
-                console.log('   Von:', previousRide.destination);
-                console.log('   Nach:', pickup);
-                console.log('   Distanz:', route.distance, 'km');
-                console.log('   Fahrtzeit:', travelTime, 'Min');
+                console.log('   → Distanz:', route.distance, 'km');
+                console.log('   → Fahrtzeit:', travelTime, 'Min');
+                console.log('');
                 
                 const reserveMinutes = availableTime - travelTime;
                 
-                console.log('📊 ERGEBNIS:');
+                console.log('📊 FINALE BERECHNUNG:');
                 console.log('   Verfügbare Zeit:', availableTime, 'Min');
-                console.log('   Benötigte Zeit:', travelTime, 'Min');
-                console.log('   Reserve:', reserveMinutes, 'Min');
+                console.log('   - Benötigte Fahrtzeit:', travelTime, 'Min');
+                console.log('   = Reserve:', reserveMinutes, 'Min');
+                console.log('');
                 
                 if (reserveMinutes < 0) {
                     // ⚠️ KONFLIKT!
-                    console.log('⚠️ ZEITÜBERSCHNEIDUNG!');
+                    console.log('⚠️ ERGEBNIS: ZEITÜBERSCHNEIDUNG!');
+                    console.log('   Fahrzeug kommt', Math.abs(reserveMinutes), 'Min zu spät!');
                     
                     // Finde bessere Zeiten
-                    const neededExtraTime = Math.abs(reserveMinutes) + 5; // +5 Min Puffer
                     const alternatives = [];
-                    
                     for (let offset = 5; offset <= 60; offset += 5) {
                         const testTime = new Date(slotTime + offset * 60000);
                         const testHour = String(testTime.getHours()).padStart(2, '0');
                         const testMin = String(testTime.getMinutes()).padStart(2, '0');
                         alternatives.push(`${testHour}:${testMin}`);
-                        
                         if (alternatives.length >= 5) break;
                     }
-                    
+                    console.log('   Bessere Zeiten:', alternatives.join(', '));
                     console.log('═══════════════════════════════════════════════════════════');
                     
                     return {
@@ -25968,7 +26021,8 @@ Aktuell: ${currentNum}`;
                     };
                 } else {
                     // ✅ PASST!
-                    console.log('✅ Slot ist machbar!');
+                    console.log('✅ ERGEBNIS: SLOT IST VERFÜGBAR!');
+                    console.log('   Reserve:', reserveMinutes, 'Min');
                     console.log('═══════════════════════════════════════════════════════════');
                     
                     return {
@@ -25980,7 +26034,9 @@ Aktuell: ${currentNum}`;
                 }
                 
             } catch (error) {
-                console.error('❌ Fehler bei Distanz-Berechnung:', error);
+                console.error('❌ FEHLER BEI DISTANZ-BERECHNUNG:', error);
+                console.log('   Nutze Fallback: Verfügbare Zeit =', availableTime, 'Min');
+                console.log('═══════════════════════════════════════════════════════════');
                 return {
                     hasConflict: false,
                     reserveMinutes: availableTime
@@ -72575,7 +72631,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.624
+        🔧 v5.90.641
     </div>
 </div>
 

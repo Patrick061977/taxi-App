@@ -9,24 +9,24 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.657
-    📅 BUILD: 19.01.2026 22:15 Uhr
+    📦 VERSION: v5.90.659
+    📅 BUILD: 19.01.2026 23:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.657
+    📋 CHANGELOG v5.90.659
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🚨 v5.90.659 (19.01.2026):
+       • KRITISCHER FIX: Zeit-Überschneidung wird jetzt erkannt!
+       • Prüft ob neue Fahrt zur gleichen Zeit wie bestehende
+       • Prüft ob Taxi rechtzeitig von vorheriger Fahrt zurück ist
+       • ALLE Zeiten mit Ein-/Ausstieg (+ 4 Min)
+       • Detaillierte Zeitberechnung in der Analyse
+       • Verhindert Doppelbuchungen zur gleichen Zeit!
     
     ⏱️ v5.90.657 (19.01.2026):
        • NEU: EIN-/AUSSTIEGSZEIT EINBERECHNET!
-       • Jede Fahrt: Dauer + 2 Min Einsteigen + 2 Min Aussteigen
-       • Gesamt-Fahrzeit = Fahrt + 4 Min
-       • Rückfahrt-Verfügbarkeit realistischer
-       • Wie bei Routenberechnung!
-    
-    📊 v5.90.656 (19.01.2026):
-       • NEU: VOLLSTÄNDIGE SLOT-ANALYSE!
-       • ZWEI BEREICHE: Admin-Analyse (grün) + Kunden-Sicht (blau)
     
     🗺️ v5.90.651 (19.01.2026):
        • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
@@ -281,11 +281,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.657 - EIN-/AUSSTIEG EINBERECHNET! ⏱️🚪 (Build 2026-01-19_2215)');
-        console.log('⏱️ v5.90.657: Jede Fahrt + 4 Min (2 Min ein, 2 Min aus)!');
-        console.log('🚪 v5.90.657: Realistische Verfügbarkeit wie Routenberechnung');
-        console.log('📊 v5.90.656: Admin-Analyse (grün) + Kunden-Sicht (blau)');
-        console.log('🔍 v5.90.656: Zeigt ALLE Berechnungen transparent');
+        console.log('🚕 Funk Taxi App v5.90.659 - ZEIT-ÜBERSCHNEIDUNG GEFIXT! 🚨⏰ (Build 2026-01-19_2300)');
+        console.log('🚨 v5.90.659: KRITISCHER FIX - Verhindert Doppelbuchungen!');
+        console.log('⏰ v5.90.659: Prüft exakte Zeit-Überschneidung + Rückfahrt-Zeit');
+        console.log('🔧 v5.90.659: Alle Zeiten mit Ein-/Ausstieg (+4 Min)');
+        console.log('📊 v5.90.656: Detaillierte Analyse für Admin + Kunde');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten!');
@@ -1233,7 +1233,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏱️ Version 5.90.657 - EIN-/AUSSTIEG EINBERECHNET! 🚪 (Build 20260119-2215)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚨 Version 5.90.659 - ZEIT-ÜBERSCHNEIDUNG GEFIXT! ⏰ (Build 20260119-2300)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1674,7 +1674,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ⏱️ v5.90.657 - EIN-/AUSSTIEG EINBERECHNET
+                        🚨 v5.90.659 - ZEIT-ÜBERSCHNEIDUNG GEFIXT
                     </span>
                 </div>
             </div>
@@ -25875,9 +25875,20 @@ Aktuell: ${currentNum}`;
                         // Problem-Erklärung
                         html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #f59e0b;">';
                         html += '<div style="font-weight:700;font-size:12px;color:#dc2626;margin-bottom:6px;">⚠️ KONFLIKT ERKANNT:</div>';
-                        html += `<div style="font-size:11px;">Taxi braucht <strong>${distanceCheck.travelTime} Min</strong> von letzter Fahrt,</div>`;
-                        html += `<div style="font-size:11px;">hat aber nur <strong>${distanceCheck.availableTime} Min</strong> Zeit.</div>`;
-                        html += `<div style="font-size:13px;color:#dc2626;font-weight:700;margin-top:6px;">❌ Fehlen: ${Math.abs(distanceCheck.reserveMinutes)} Minuten</div>`;
+                        
+                        // 🆕 v5.90.659: UNTERSCHIEDLICHE KONFLIKT-TYPEN!
+                        if (distanceCheck.exactTimeConflict) {
+                            html += `<div style="font-size:11px;"><strong>EXAKTE ZEIT-ÜBERSCHNEIDUNG!</strong></div>`;
+                            html += `<div style="font-size:11px;">Um ${time} Uhr ist bereits eine Fahrt gebucht.</div>`;
+                        } else if (distanceCheck.duringRideConflict) {
+                            html += `<div style="font-size:11px;"><strong>NEUE FAHRT WÄHREND BESTEHENDER FAHRT!</strong></div>`;
+                            html += `<div style="font-size:11px;">Das Taxi ist um ${time} Uhr noch bei einer anderen Fahrt.</div>`;
+                        } else {
+                            html += `<div style="font-size:11px;">Taxi braucht <strong>${distanceCheck.travelTime} Min</strong> von letzter Fahrt,</div>`;
+                            html += `<div style="font-size:11px;">hat aber nur <strong>${distanceCheck.availableTime} Min</strong> Zeit.</div>`;
+                        }
+                        
+                        html += `<div style="font-size:13px;color:#dc2626;font-weight:700;margin-top:6px;">❌ ${distanceCheck.exactTimeConflict || distanceCheck.duringRideConflict ? 'NICHT MÖGLICH!' : 'Fehlen: ' + Math.abs(distanceCheck.reserveMinutes) + ' Minuten'}</div>`;
                         html += '</div>';
                         
                         // Vorherige Fahrt
@@ -26228,6 +26239,49 @@ Aktuell: ${currentNum}`;
             if (!previousRide) {
                 console.log('✅ ERGEBNIS: Keine vorherige Fahrt am gleichen Tag - Slot ist frei!');
                 
+                // 🆕 v5.90.659: PRÜFE OB ZUR GLEICHEN ZEIT SCHON EINE FAHRT IST!
+                let exactTimeConflict = null;
+                for (let i = 0; i < allRides.length; i++) {
+                    const ride = allRides[i];
+                    const rideDateTime = new Date(ride.pickupTimestamp || ride.pickupTime);
+                    const rideTime = rideDateTime.getTime();
+                    const rideDate = rideDateTime.toDateString();
+                    
+                    // Prüfe ob zur EXAKT gleichen Zeit!
+                    if (rideDate === slotDate && rideTime === slotTime) {
+                        exactTimeConflict = ride;
+                        console.log('🚨 v5.90.659: EXAKTE ZEIT-ÜBERSCHNEIDUNG!', rideDateTime.toLocaleString('de-DE'));
+                        break;
+                    }
+                }
+                
+                if (exactTimeConflict) {
+                    console.log('⚠️ ERGEBNIS: SLOT IST BESETZT - Zur gleichen Zeit!');
+                    
+                    // Finde bessere Zeiten
+                    const alternatives = [];
+                    for (let offset = 30; offset <= 120; offset += 30) {
+                        const testTime = new Date(slotTime + offset * 60000);
+                        const testHour = String(testTime.getHours()).padStart(2, '0');
+                        const testMin = String(testTime.getMinutes()).padStart(2, '0');
+                        alternatives.push(`${testHour}:${testMin}`);
+                        if (alternatives.length >= 4) break;
+                    }
+                    
+                    console.log('═══════════════════════════════════════════════════════════');
+                    return {
+                        hasConflict: true,
+                        exactTimeConflict: true,
+                        conflictRide: exactTimeConflict,
+                        travelTime: 0,
+                        availableTime: 0,
+                        reserveMinutes: 0,
+                        previousRide: exactTimeConflict,
+                        alternatives: alternatives,
+                        allRidesOnDay: ridesOnSameDay
+                    };
+                }
+                
                 // 🆕 v5.90.654: Suche nächste Fahrt NACH dem Slot
                 let nextRide = null;
                 for (let i = 0; i < allRides.length; i++) {
@@ -26281,6 +26335,40 @@ Aktuell: ${currentNum}`;
             console.log('   🚪 v5.90.657: + Aussteigen:', ALIGHTING_TIME, 'Min');
             console.log('   ⏱️ v5.90.657: GESAMT-DAUER:', totalDuration, 'Min');
             console.log('   Fahrt-Ende:', previousEndTime.toLocaleString('de-DE'));
+            
+            // 🆕 v5.90.659: PRÜFE OB NEUE FAHRT WÄHREND VORHERIGER FAHRT LIEGT!
+            if (slotTime >= previousStartTime.getTime() && slotTime < previousEndTime.getTime()) {
+                console.log('🚨 v5.90.659: NEUE FAHRT LIEGT WÄHREND VORHERIGER FAHRT!');
+                console.log('   Vorherige Fahrt:', previousStartTime.toLocaleTimeString('de-DE'), '-', previousEndTime.toLocaleTimeString('de-DE'));
+                console.log('   Neue Fahrt:', slotDateTime.toLocaleTimeString('de-DE'));
+                
+                // Finde bessere Zeiten (nach Ende der vorherigen Fahrt)
+                const alternatives = [];
+                const earliestPossible = previousEndTime.getTime();
+                for (let offset = 0; offset <= 60; offset += 15) {
+                    const testTime = new Date(earliestPossible + offset * 60000);
+                    const testHour = String(testTime.getHours()).padStart(2, '0');
+                    const testMin = String(testTime.getMinutes()).padStart(2, '0');
+                    alternatives.push(`${testHour}:${testMin}`);
+                    if (alternatives.length >= 4) break;
+                }
+                
+                console.log('   Bessere Zeiten:', alternatives.join(', '));
+                console.log('═══════════════════════════════════════════════════════════');
+                
+                return {
+                    hasConflict: true,
+                    duringRideConflict: true,
+                    conflictRide: previousRide,
+                    travelTime: 0,
+                    availableTime: Math.floor((slotTime - previousEndTime.getTime()) / 60000),
+                    reserveMinutes: Math.floor((slotTime - previousEndTime.getTime()) / 60000),
+                    previousRide: previousRide,
+                    previousEndTime: previousEndTime.getTime(),
+                    alternatives: alternatives,
+                    allRidesOnDay: ridesOnSameDay
+                };
+            }
             
             // Verfügbare Zeit bis zum neuen Slot
             const availableTime = Math.floor((slotTime - previousEndTime.getTime()) / 60000);
@@ -73280,7 +73368,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⏱️ v5.90.657
+        🚨 v5.90.659
     </div>
 </div>
 

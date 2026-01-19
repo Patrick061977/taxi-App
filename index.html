@@ -9,25 +9,23 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.661
-    📅 BUILD: 19.01.2026 23:30 Uhr
+    📦 VERSION: v5.90.662
+    📅 BUILD: 19.01.2026 23:50 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.661
+    📋 CHANGELOG v5.90.662
     ═══════════════════════════════════════════════════════════════════════════
+    
+    📊 v5.90.662 (19.01.2026):
+       • ZEIGT NEUE FAHRT-DETAILS im Konflikt!
+       • Admin sieht komplette Berechnung der neuen Fahrt
+       • Zeigt wann neue Fahrt endet + Überschneidung
+       • Entfernt doppelte Alternativen-Anzeige
+       • Klare Darstellung: Neue Fahrt → Konflikt → Alternativen
     
     🚨 v5.90.661 (19.01.2026):
        • KRITISCHER FIX: Prüft auch NÄCHSTE Fahrt!
-       • Berechnet ob neue Fahrt rechtzeitig fertig ist
-       • Zeigt "Termin verfügbar BIS:" mit letzter Möglichkeit
-       • Zeigt "Letzte Möglichkeit VORHER:" bei Konflikt
-       • Zeigt "Nächster Termin DANACH ab:" für später
-       • Vollständige Zeitberechnung mit Ein-/Ausstieg
-       • Verhindert dass neue Fahrt in nächste Fahrt ragt!
-    
-    📝 v5.90.660 (19.01.2026):
-       • BESSERE FORMULIERUNG: "Nächster freier Termin ab:"
     
     🗺️ v5.90.651 (19.01.2026):
        • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
@@ -282,10 +280,10 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.661 - PRÜFE NÄCHSTE FAHRT! 🚨⏰ (Build 2026-01-19_2330)');
-        console.log('🚨 v5.90.661: KRITISCHER FIX - Prüft auch nächste Fahrt!');
-        console.log('⏰ v5.90.661: "Termin verfügbar BIS:" + "Letzte Möglichkeit VORHER:"');
-        console.log('📊 v5.90.661: Vollständige Berechnung ob neue Fahrt rechtzeitig fertig');
+        console.log('🚕 Funk Taxi App v5.90.662 - ZEIGE NEUE FAHRT-DETAILS! 📊✨ (Build 2026-01-19_2350)');
+        console.log('📊 v5.90.662: Zeigt komplette Berechnung der neuen Fahrt im Konflikt');
+        console.log('📊 v5.90.662: Admin sieht wann neue Fahrt endet + Überschneidung');
+        console.log('🚨 v5.90.661: Prüft auch nächste Fahrt - verhindert Überschneidung');
         console.log('📝 v5.90.660: Bessere Formulierung - kundenfreundlicher');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
@@ -1234,7 +1232,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🚨 Version 5.90.661 - PRÜFE NÄCHSTE FAHRT! ⏰ (Build 20260119-2330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.662 - ZEIGE NEUE FAHRT-DETAILS! ✨ (Build 20260119-2350)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1675,7 +1673,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🚨 v5.90.661 - PRÜFE NÄCHSTE FAHRT
+                        📊 v5.90.662 - ZEIGE NEUE FAHRT
                     </span>
                 </div>
             </div>
@@ -25898,8 +25896,64 @@ Aktuell: ${currentNum}`;
                         html += `<div style="font-size:13px;color:#dc2626;font-weight:700;margin-top:6px;">❌ ${distanceCheck.exactTimeConflict || distanceCheck.duringRideConflict || distanceCheck.nextRideConflict ? 'NICHT MÖGLICH!' : 'Fehlen: ' + Math.abs(distanceCheck.reserveMinutes) + ' Minuten'}</div>`;
                         html += '</div>';
                         
-                        // Vorherige Fahrt
-                        if (distanceCheck.previousRide) {
+                        // 🆕 v5.90.662: ZEIGE NEUE FAHRT-DETAILS bei nextRideConflict!
+                        if (distanceCheck.nextRideConflict && distanceCheck.newRideDuration) {
+                            html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #3b82f6;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#3b82f6;">🆕 NEUE FAHRT (die du gerade buchst):</div>';
+                            html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${time} Uhr</div>`;
+                            html += `<div style="font-size:11px;"><strong>Von:</strong> ${pickup || '-'}</div>`;
+                            html += `<div style="font-size:11px;"><strong>Nach:</strong> ${destination || '-'}</div>`;
+                            
+                            // Dauer-Berechnung
+                            html += '<div style="background:#eff6ff;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #93c5fd;">';
+                            html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;">⏱️ Dauer-Berechnung:</div>';
+                            html += `<div style="font-size:10px;">Fahrt: ${distanceCheck.newRideDuration} Min</div>`;
+                            html += `<div style="font-size:10px;">+ Einsteigen: 2 Min</div>`;
+                            html += `<div style="font-size:10px;">+ Aussteigen: 2 Min</div>`;
+                            html += `<div style="font-size:11px;border-top:1px solid #93c5fd;padding-top:4px;margin-top:4px;font-weight:600;">= Gesamt: ${distanceCheck.newTotalDuration} Min</div>`;
+                            html += '</div>';
+                            
+                            // Ende-Zeit
+                            const newRideEndTime = new Date(distanceCheck.newRideEnd);
+                            html += '<div style="background:#eff6ff;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #93c5fd;">';
+                            html += `<div style="font-size:11px;font-weight:600;">📍 ENDE: ${newRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                            html += '</div>';
+                            html += '</div>';
+                            
+                            // Nächste Fahrt mit Konflikt
+                            if (distanceCheck.nextRide) {
+                                const nextRideTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
+                                const nextCustomerName = distanceCheck.nextRide.customerName || distanceCheck.nextRide.name || 'Unbekannt';
+                                
+                                html += '<div style="background:#fee2e2;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #dc2626;">';
+                                html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#dc2626;">🚨 KONFLIKT MIT NÄCHSTER FAHRT:</div>';
+                                html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                html += `<div style="font-size:11px;"><strong>Kunde:</strong> ${nextCustomerName}</div>`;
+                                html += `<div style="font-size:11px;"><strong>Von:</strong> ${distanceCheck.nextRide.pickup}</div>`;
+                                html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.nextRide.destination}</div>`;
+                                
+                                // Problem-Darstellung
+                                html += '<div style="background:white;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fca5a5;">';
+                                html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#dc2626;">❌ PROBLEM:</div>';
+                                html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>${newRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                                html += `<div style="font-size:10px;">Nächste startet: <strong>${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                                html += `<div style="font-size:11px;border-top:1px solid #fca5a5;padding-top:4px;margin-top:4px;font-weight:600;color:#dc2626;">= Überschneidung: ${Math.abs(distanceCheck.timeUntilNextRide)} Min!</div>`;
+                                html += '</div>';
+                                html += '</div>';
+                                
+                                // 🆕 v5.90.662: LETZTE MÖGLICHKEIT VORHER!
+                                if (distanceCheck.latestPossibleTime) {
+                                    html += '<div style="background:#fffbeb;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #f59e0b;">';
+                                    html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#f59e0b;">⏰ LÖSUNG:</div>';
+                                    html += '<div style="font-size:11px;margin-bottom:4px;">Damit die Fahrt VORHER noch passt:</div>';
+                                    html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;">📍 Spätestens: ${distanceCheck.latestPossibleTime} Uhr</div>`;
+                                    html += '</div>';
+                                }
+                            }
+                        }
+                        
+                        // Vorherige Fahrt (nur wenn NICHT nextRideConflict)
+                        if (distanceCheck.previousRide && !distanceCheck.nextRideConflict) {
                             const prevTime = new Date(distanceCheck.previousRide.pickupTimestamp || distanceCheck.previousRide.pickupTime);
                             const customerName = distanceCheck.previousRide.customerName || distanceCheck.previousRide.name || 'Unbekannt';
                             const rideDuration = distanceCheck.previousRide.duration || 30;
@@ -73474,7 +73528,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🚨 v5.90.661
+        📊 v5.90.662
     </div>
 </div>
 

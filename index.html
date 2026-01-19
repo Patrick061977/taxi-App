@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.642 | Build: 2026-01-18_0200 | Fix: DEBUG-LOGGING - Ausführliche Prüf-Logs -->
+    <!-- Version: v5.90.643 | Build: 2026-01-18_0230 | Fix: CRASH-FIX - missing Variable -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,7 +256,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.642 - DEBUG-LOG! 🔧✅ (Build 2026-01-18_0200)');
+        console.log('🚕 Funk Taxi App v5.90.643 - CRASH-FIX! 🔧✅ (Build 2026-01-18_0230)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
@@ -264,7 +264,7 @@
         console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
         console.log('🔧 v5.90.635: Ignoriere Fahrzeuge mit String-Timestamps (altes GPS-Format)');
         console.log('🔋 v5.90.636: BATTERY-SAVER - Standby: 50m/60s, Aktiv: 10m/10s');
-        console.log('🔍 v5.90.642: DEBUG-LOGGING - Zeigt genau was geprüft wird + NUR gleicher Tag!');
+        console.log('🐛 v5.90.643: CRASH-FIX - missing Variable richtig deklariert!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
         console.log('🔧 v5.90.525: renderDriverRides() nutzt Isarfunk HTML!');
@@ -1204,7 +1204,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - DEBUG-LOG! ✅ (Build 20260119-0200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - CRASH-FIX! ✅ (Build 20260119-0230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1645,7 +1645,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.642 - DEBUG-LOG
+                        🔧 v5.90.643 - CRASH-FIX
                     </span>
                 </div>
             </div>
@@ -25708,7 +25708,7 @@ Aktuell: ${currentNum}`;
             const date = dateInput ? dateInput.value : '';
             const time = timeDisplayBtn ? timeDisplayBtn.textContent.trim() : '';
             
-            console.log('🔍 v5.90.640: Slot-Check Trigger');
+            console.log('🔍 v5.90.643: Slot-Check Trigger');
             console.log('   Pickup:', pickup ? '✅' : '❌');
             console.log('   Destination:', destination ? '✅' : '❌');
             console.log('   Datum:', date ? '✅' : '❌');
@@ -25720,24 +25720,25 @@ Aktuell: ${currentNum}`;
                 await checkSlotAvailability(date, time);
             } else {
                 // Zeige Hinweis welche Felder fehlen
+                let missing = [];
+                if (!pickup) missing.push('Abholort');
+                if (!destination) missing.push('Zielort');
+                if (!date) missing.push('Datum');
+                if (!time) missing.push('Uhrzeit');
+                
+                console.log('⚠️ Fehlende Felder:', missing);
+                
                 if (statusDisplay) {
                     statusDisplay.style.display = 'block';
                     statusDisplay.style.background = '#f3f4f6';
                     statusDisplay.style.border = '2px solid #d1d5db';
                     statusDisplay.style.color = '#6b7280';
                     
-                    let missing = [];
-                    if (!pickup) missing.push('Abholort');
-                    if (!destination) missing.push('Zielort');
-                    if (!date) missing.push('Datum');
-                    if (!time) missing.push('Uhrzeit');
-                    
                     statusDisplay.innerHTML = `
                         ℹ️ <strong>Bitte ausfüllen:</strong><br>
                         <small>${missing.join(', ')}</small>
                     `;
                 }
-                console.log('⚠️ Fehlende Felder:', missing);
             }
         }
         

@@ -9,32 +9,24 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.654
-    📅 BUILD: 19.01.2026 21:30 Uhr
+    📦 VERSION: v5.90.657
+    📅 BUILD: 19.01.2026 22:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.654
+    📋 CHANGELOG v5.90.657
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔍 v5.90.654 (19.01.2026):
-       • NEU: DETAILLIERTER SLOT-CHECK bei Vorbestellungen!
-       • Zeigt alle Fahrten VORHER mit Zeiten und Distanzen
-       • Zeigt alle Fahrten NACHHER mit Zeiten und Distanzen
-       • Genaue Berechnung: Wo ist Taxi, wie weit muss es fahren
-       • Zeigt Reserve-Zeit zwischen Terminen
-       • Erklärt WARUM ein Termin verfügbar ist oder nicht
-       • Nur bei VORBESTELLUNGEN (nicht bei Sofort-Fahrten)
-       • Hilft beim Training und Verstehen des Systems!
+    ⏱️ v5.90.657 (19.01.2026):
+       • NEU: EIN-/AUSSTIEGSZEIT EINBERECHNET!
+       • Jede Fahrt: Dauer + 2 Min Einsteigen + 2 Min Aussteigen
+       • Gesamt-Fahrzeit = Fahrt + 4 Min
+       • Rückfahrt-Verfügbarkeit realistischer
+       • Wie bei Routenberechnung!
     
-    🗺️ v5.90.653 (19.01.2026):
-       • NEU: POI Filter-Buttons auf Karten-Picker!
-       • Buttons: 🚉 Bahnhöfe, 🏨 Hotels, 🍽️ Restaurants, ☕ Cafés, Alle
-       • POI-Typen an/ausschalten nach Bedarf
-       • NEU: Zoom-responsive Icons!
-       • Rausgezoomt = kleine Icons (bessere Übersicht)
-       • Reingezoomt = große Icons (besser anklickbar)
-       • Automatische Größenanpassung beim Zoomen!
+    📊 v5.90.656 (19.01.2026):
+       • NEU: VOLLSTÄNDIGE SLOT-ANALYSE!
+       • ZWEI BEREICHE: Admin-Analyse (grün) + Kunden-Sicht (blau)
     
     🗺️ v5.90.651 (19.01.2026):
        • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
@@ -289,11 +281,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.654 - SLOT-CHECK DETAILS! 🔍📊 (Build 2026-01-19_2130)');
-        console.log('🔍 v5.90.654: Detaillierter Slot-Check bei Vorbestellungen!');
-        console.log('📊 v5.90.654: Zeigt Fahrten vorher/nachher + Distanzen');
-        console.log('🗺️ v5.90.653: POI Filter-Buttons + Zoom-responsive Icons');
-        console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten');
+        console.log('🚕 Funk Taxi App v5.90.657 - EIN-/AUSSTIEG EINBERECHNET! ⏱️🚪 (Build 2026-01-19_2215)');
+        console.log('⏱️ v5.90.657: Jede Fahrt + 4 Min (2 Min ein, 2 Min aus)!');
+        console.log('🚪 v5.90.657: Realistische Verfügbarkeit wie Routenberechnung');
+        console.log('📊 v5.90.656: Admin-Analyse (grün) + Kunden-Sicht (blau)');
+        console.log('🔍 v5.90.656: Zeigt ALLE Berechnungen transparent');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten!');
@@ -1241,7 +1233,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.651 - POI-MARKER! ✅ (Build 20260119-1915)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏱️ Version 5.90.657 - EIN-/AUSSTIEG EINBERECHNET! 🚪 (Build 20260119-2215)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1682,7 +1674,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🗺️ v5.90.651 - POI-MARKER
+                        ⏱️ v5.90.657 - EIN-/AUSSTIEG EINBERECHNET
                     </span>
                 </div>
             </div>
@@ -8545,6 +8537,41 @@
             // Format mit führenden Nullen!
             const timeString = String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
             console.log('✅ v5.90.146: Zeit gewählt:', timeString);
+            
+            // 🆕 v5.90.655: VERGANGENHEITS-CHECK (nur für HEUTE!)
+            const dateInput = document.getElementById('pickup-date') || document.getElementById('date');
+            if (dateInput && dateInput.value) {
+                const selectedDate = new Date(dateInput.value + 'T00:00:00');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                // Nur prüfen wenn HEUTE gewählt
+                if (selectedDate.getTime() === today.getTime()) {
+                    const now = new Date();
+                    const selectedDateTime = new Date();
+                    selectedDateTime.setHours(hour, minute, 0, 0);
+                    
+                    // 🆕 30 MINUTEN PUFFER!
+                    const minBookingTime = new Date(now.getTime() + 30 * 60000);
+                    
+                    console.log('🚫 v5.90.655: Vergangenheits-Check');
+                    console.log('   Jetzt:', now.toLocaleTimeString('de-DE'));
+                    console.log('   Gewählt:', selectedDateTime.toLocaleTimeString('de-DE'));
+                    console.log('   Min. Zeit (+ 30 Min):', minBookingTime.toLocaleTimeString('de-DE'));
+                    
+                    if (selectedDateTime < minBookingTime) {
+                        // ❌ ZU FRÜH!
+                        const minHour = String(minBookingTime.getHours()).padStart(2, '0');
+                        const minMinute = String(minBookingTime.getMinutes()).padStart(2, '0');
+                        
+                        console.log('❌ v5.90.655: Zeit liegt in Vergangenheit!');
+                        alert(`⏰ Bitte wähle eine Zeit in der Zukunft!\n\nFrüheste mögliche Zeit: ${minHour}:${minMinute} Uhr\n(Jetzt + 30 Min Vorlauf)`);
+                        return; // Abbrechen!
+                    } else {
+                        console.log('✅ v5.90.655: Zeit liegt in Zukunft - OK!');
+                    }
+                }
+            }
             
             // Callback aufrufen
             if (keypadCallback) keypadCallback(timeString);
@@ -25827,125 +25854,204 @@ Aktuell: ${currentNum}`;
                     if (distanceCheck.hasConflict) {
                         // ⚠️ ÜBERSCHNEIDUNG!
                         statusDisplay.style.display = 'block';
-                        statusDisplay.style.background = '#fef3c7';
+                        statusDisplay.style.background = 'linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%)';
                         statusDisplay.style.border = '2px solid #f59e0b';
                         statusDisplay.style.color = '#92400e';
                         
-                        // 🆕 v5.90.654: DETAILLIERTE ANALYSE!
+                        // 🆕 v5.90.656: ZWEIGETEILTE ANALYSE!
                         let html = '<div style="font-size:13px;line-height:1.6;">';
-                        html += '<div style="text-align:center;font-size:16px;font-weight:700;color:#f59e0b;margin-bottom:12px;">❌ TERMIN NICHT VERFÜGBAR</div>';
-                        html += '<div style="border-top:2px solid #f59e0b;margin:12px 0;"></div>';
                         
-                        // Problem erklären
-                        html += '<div style="margin-bottom:12px;padding:8px;background:#fef3c7;border-radius:6px;border:1px solid #f59e0b;">';
-                        html += '<div style="font-weight:700;margin-bottom:4px;">⚠️ PROBLEM:</div>';
-                        html += `<div style="font-size:12px;">Fahrzeug braucht <strong>${distanceCheck.travelTime} Min</strong> von letzter Fahrt,</div>`;
-                        html += `<div style="font-size:12px;">hat aber nur <strong>${distanceCheck.availableTime} Min</strong> Zeit.</div>`;
-                        html += `<div style="font-size:12px;color:#991b1b;margin-top:4px;font-weight:600;">❌ Fehlen: ${Math.abs(distanceCheck.reserveMinutes)} Minuten</div>`;
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 📊 ADMIN-BEREICH (ORANGE)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        html += '<div style="background:#f59e0b;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin:-1px -1px 0 -1px;">';
+                        html += '❌ TERMIN NICHT VERFÜGBAR';
                         html += '</div>';
                         
-                        html += '<div style="border-top:1px solid #fde68a;margin:12px 0;"></div>';
+                        html += '<div style="background:#fef3c7;padding:12px;border:2px solid #f59e0b;border-top:none;margin:-1px -1px 12px -1px;">';
+                        html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#d97706;">🔍 SYSTEM-ANALYSE (Admin-Sicht):</div>';
+                        html += '<div style="font-size:11px;color:#92400e;margin-bottom:8px;">Warum der Termin nicht möglich ist:</div>';
+                        
+                        // Problem-Erklärung
+                        html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #f59e0b;">';
+                        html += '<div style="font-weight:700;font-size:12px;color:#dc2626;margin-bottom:6px;">⚠️ KONFLIKT ERKANNT:</div>';
+                        html += `<div style="font-size:11px;">Taxi braucht <strong>${distanceCheck.travelTime} Min</strong> von letzter Fahrt,</div>`;
+                        html += `<div style="font-size:11px;">hat aber nur <strong>${distanceCheck.availableTime} Min</strong> Zeit.</div>`;
+                        html += `<div style="font-size:13px;color:#dc2626;font-weight:700;margin-top:6px;">❌ Fehlen: ${Math.abs(distanceCheck.reserveMinutes)} Minuten</div>`;
+                        html += '</div>';
                         
                         // Vorherige Fahrt
                         if (distanceCheck.previousRide) {
                             const prevTime = new Date(distanceCheck.previousRide.pickupTimestamp || distanceCheck.previousRide.pickupTime);
-                            html += '<div style="margin-bottom:12px;">';
-                            html += '<div style="font-weight:700;margin-bottom:6px;">🚖 Letzte Fahrt:</div>';
-                            html += `<div style="padding:8px;background:#fffbeb;border-radius:6px;">`;
-                            html += `<div><strong>${prevTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
-                            html += `<div style="font-size:12px;">Von: ${distanceCheck.previousRide.pickup}</div>`;
-                            html += `<div style="font-size:12px;">Nach: ${distanceCheck.previousRide.destination}</div>`;
+                            const customerName = distanceCheck.previousRide.customerName || distanceCheck.previousRide.name || 'Unbekannt';
+                            const rideDuration = distanceCheck.previousRide.duration || 30;
+                            
+                            html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #fde68a;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">🚖 Letzte Fahrt (blockiert den Slot):</div>';
+                            html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${prevTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                            html += `<div style="font-size:11px;"><strong>Kunde:</strong> ${customerName}</div>`;
+                            html += `<div style="font-size:11px;"><strong>Von:</strong> ${distanceCheck.previousRide.pickup}</div>`;
+                            html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.previousRide.destination}</div>`;
+                            
+                            // 🆕 v5.90.657: AUFSCHLÜSSELUNG DER DAUER!
+                            html += '<div style="background:#fffbeb;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fde68a;">';
+                            html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;">⏱️ Dauer-Berechnung:</div>';
+                            html += `<div style="font-size:10px;">Fahrt: ${rideDuration} Min</div>`;
+                            html += `<div style="font-size:10px;">+ Einsteigen: 2 Min</div>`;
+                            html += `<div style="font-size:10px;">+ Aussteigen: 2 Min</div>`;
+                            html += `<div style="font-size:11px;border-top:1px solid #fde68a;padding-top:4px;margin-top:4px;font-weight:600;">= Gesamt: ${rideDuration + 4} Min</div>`;
                             html += '</div>';
+                            html += '</div>';
+                            
+                            // Warum es nicht geht
+                            const totalDuration = rideDuration + 4;
+                            const rideEnd = new Date(prevTime.getTime() + totalDuration * 60000);
+                            const earliestAvailable = new Date(rideEnd.getTime() + distanceCheck.travelTime * 60000);
+                            
+                            html += '<div style="background:#fffbeb;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #fde68a;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">⏰ Zeitproblem:</div>';
+                            html += `<div style="font-size:11px;">Letzte Fahrt fertig: <strong>${rideEnd.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                            html += `<div style="font-size:11px;">+ Rückfahrt: <strong>${distanceCheck.travelTime} Min</strong></div>`;
+                            html += `<div style="font-size:11px;border-top:1px solid #fde68a;padding-top:4px;margin-top:4px;">= Frühestens verfügbar: <strong>${earliestAvailable.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                            html += `<div style="font-size:11px;margin-top:8px;border-top:1px solid #fde68a;padding-top:8px;">Gewünschter Termin: <strong>${time} Uhr</strong></div>`;
+                            html += `<div style="font-size:13px;color:#dc2626;font-weight:700;margin-top:4px;">❌ ZU FRÜH um ${Math.abs(distanceCheck.reserveMinutes)} Min!</div>`;
                             html += '</div>';
                         }
                         
-                        html += '<div style="border-top:1px solid #fde68a;margin:12px 0;"></div>';
+                        html += '</div>';
                         
-                        // Alternativen
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 👤 KUNDEN-BEREICH (BLAU)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        html += '<div style="background:#3b82f6;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin-top:16px;">';
+                        html += '👤 KUNDEN-SICHT';
+                        html += '</div>';
+                        
+                        html += '<div style="background:#eff6ff;padding:12px;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;">';
+                        html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e40af;">Was der Kunde sieht:</div>';
+                        
+                        html += '<div style="background:white;padding:12px;border-radius:8px;border:2px solid #f59e0b;text-align:center;margin-bottom:12px;">';
+                        html += '<div style="font-size:20px;margin-bottom:8px;">❌</div>';
+                        html += '<div style="font-size:16px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Termin nicht verfügbar</div>';
+                        html += `<div style="font-size:13px;color:#6b7280;">${time} Uhr ist bereits belegt</div>`;
+                        html += '</div>';
+                        
+                        // Alternative Zeiten
                         if (distanceCheck.alternatives && distanceCheck.alternatives.length > 0) {
-                            html += '<div style="margin-bottom:8px;">';
-                            html += `<div style="font-weight:700;margin-bottom:6px;">💡 Verfügbare Zeiten:</div>`;
-                            html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+                            html += '<div style="background:white;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">';
+                            html += '<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#374151;">💡 Nächste freie Zeiten:</div>';
+                            html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">';
                             distanceCheck.alternatives.forEach(alt => {
-                                html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${alt}</button>`;
+                                html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 4px rgba(16,185,129,0.3);">${alt} Uhr</button>`;
                             });
                             html += '</div>';
                             html += '</div>';
                         }
                         
                         html += '</div>';
+                        
+                        html += '</div>';
                         statusDisplay.innerHTML = html;
                         
-                        console.log('⚠️ Zeitüberschneidung!', distanceCheck);
+                        console.log('⚠️ Zeitüberschneidung! Vollständige Analyse angezeigt.');
                         return;
                     } else if (distanceCheck.reserveMinutes !== null || distanceCheck.noPreviousRide) {
                         // ✅ PASST mit Reserve!
                         statusDisplay.style.display = 'block';
-                        statusDisplay.style.background = '#ecfdf5';
+                        statusDisplay.style.background = 'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)';
                         statusDisplay.style.border = '2px solid #10b981';
                         statusDisplay.style.color = '#065f46';
                         
-                        // 🆕 v5.90.654: DETAILLIERTE ANALYSE!
+                        // 🆕 v5.90.656: ZWEIGETEILTE ANALYSE!
                         let html = '<div style="font-size:13px;line-height:1.6;">';
-                        html += '<div style="text-align:center;font-size:16px;font-weight:700;color:#10b981;margin-bottom:12px;">✅ TERMIN VERFÜGBAR</div>';
-                        html += '<div style="border-top:2px solid #10b981;margin:12px 0;"></div>';
                         
-                        // Fahrten am Tag
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 📊 ADMIN-BEREICH (GRÜN)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        html += '<div style="background:#10b981;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin:-1px -1px 0 -1px;">';
+                        html += '✅ TERMIN VERFÜGBAR';
+                        html += '</div>';
+                        
+                        html += '<div style="background:#ecfdf5;padding:12px;border:2px solid #10b981;border-top:none;margin:-1px -1px 12px -1px;">';
+                        html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#059669;">🔍 SYSTEM-ANALYSE (Admin-Sicht):</div>';
+                        html += '<div style="font-size:11px;color:#065f46;margin-bottom:8px;">Komplette Berechnung wie bei Routenplanung:</div>';
+                        
+                        // Datum Info
+                        html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #d1fae5;">';
+                        html += `<div style="font-weight:600;font-size:12px;">📅 Gewählter Termin:</div>`;
+                        html += `<div style="font-size:11px;margin-top:4px;">${new Date(date).toLocaleDateString('de-DE', {weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})} um ${time} Uhr</div>`;
+                        html += `<div style="font-size:11px;color:#059669;">Von: ${pickup}</div>`;
+                        html += `<div style="font-size:11px;color:#059669;">Nach: ${destination}</div>`;
+                        html += '</div>';
+                        
+                        // Bestehende Fahrten
                         if (distanceCheck.allRidesOnDay && distanceCheck.allRidesOnDay.length > 0) {
-                            html += '<div style="margin-bottom:12px;">';
-                            html += '<div style="font-weight:700;margin-bottom:6px;">📅 Fahrten am ' + new Date(date).toLocaleDateString('de-DE', {weekday: 'short', day: '2-digit', month: '2-digit'}) + ':</div>';
+                            html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #d1fae5;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">📋 Bestehende Fahrten am Tag:</div>';
                             distanceCheck.allRidesOnDay.forEach((r, idx) => {
                                 const rTime = new Date(r.pickupTimestamp || r.pickupTime);
                                 const isRequested = rTime.getTime() === slotDateTime.getTime();
-                                html += `<div style="padding:4px 8px;background:${isRequested ? '#d1fae5' : '#f9fafb'};border-radius:4px;margin:4px 0;${isRequested ? 'border:2px solid #10b981;font-weight:700;' : ''}">`;
-                                html += `${isRequested ? '→ ' : ''}${rTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} | ${r.pickup} → ${r.destination}`;
-                                if (isRequested) html += ' <span style="color:#10b981;">← NEUE FAHRT</span>';
+                                const customerName = r.customerName || r.name || 'Unbekannt';
+                                html += `<div style="padding:6px;background:${isRequested ? '#d1fae5' : '#f9fafb'};border-radius:4px;margin:4px 0;${isRequested ? 'border:2px solid #10b981;' : 'border:1px solid #e5e7eb;'}font-size:11px;">`;
+                                if (isRequested) {
+                                    html += `<div style="font-weight:700;color:#10b981;">→ NEUE FAHRT (${time} Uhr)</div>`;
+                                } else {
+                                    html += `<div style="font-weight:600;">Fahrt #${idx + 1}: ${rTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                }
+                                html += `<div style="color:#6b7280;">Kunde: ${customerName}</div>`;
+                                html += `<div style="color:#6b7280;">Von: ${r.pickup}</div>`;
+                                html += `<div style="color:#6b7280;">Nach: ${r.destination}</div>`;
+                                if (r.duration) html += `<div style="color:#6b7280;">Dauer: ${r.duration} Min</div>`;
                                 html += '</div>';
                             });
                             html += '</div>';
                         }
                         
-                        html += '<div style="border-top:1px solid #d1fae5;margin:12px 0;"></div>';
-                        
-                        // Vorherige Fahrt
+                        // Vorherige Fahrt Details
                         if (distanceCheck.previousRide) {
                             const prevTime = new Date(distanceCheck.previousRide.pickupTimestamp || distanceCheck.previousRide.pickupTime);
-                            html += '<div style="margin-bottom:12px;">';
-                            html += '<div style="font-weight:700;margin-bottom:6px;">🚖 Fahrt VORHER:</div>';
-                            html += `<div style="padding:8px;background:#f0fdf4;border-radius:6px;">`;
-                            html += `<div><strong>${prevTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
-                            html += `<div style="font-size:12px;color:#065f46;">Von: ${distanceCheck.previousRide.pickup}</div>`;
-                            html += `<div style="font-size:12px;color:#065f46;">Nach: ${distanceCheck.previousRide.destination}</div>`;
-                            html += `<div style="font-size:12px;color:#065f46;">Ende: ${distanceCheck.previousEndTime ? new Date(distanceCheck.previousEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</div>`;
+                            const rideDuration = distanceCheck.previousRide.duration || 30;
+                            
+                            html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #d1fae5;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">🚖 Letzte Fahrt VOR neuem Termin:</div>';
+                            html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${prevTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                            html += `<div style="font-size:11px;"><strong>Von:</strong> ${distanceCheck.previousRide.pickup}</div>`;
+                            html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.previousRide.destination}</div>`;
+                            
+                            // 🆕 v5.90.657: AUFSCHLÜSSELUNG DER DAUER!
+                            html += '<div style="background:#ecfdf5;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #d1fae5;">';
+                            html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;">⏱️ Dauer-Berechnung:</div>';
+                            html += `<div style="font-size:10px;">Fahrt: ${rideDuration} Min</div>`;
+                            html += `<div style="font-size:10px;">+ Einsteigen: 2 Min</div>`;
+                            html += `<div style="font-size:10px;">+ Aussteigen: 2 Min</div>`;
+                            html += `<div style="font-size:11px;border-top:1px solid #d1fae5;padding-top:4px;margin-top:4px;font-weight:600;">= Gesamt: ${rideDuration + 4} Min</div>`;
                             html += '</div>';
+                            
+                            html += `<div style="font-size:11px;color:#059669;margin-top:6px;"><strong>Ende:</strong> ${distanceCheck.previousEndTime ? new Date(distanceCheck.previousEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</div>`;
                             html += '</div>';
                             
                             // Distanz-Berechnung
-                            html += '<div style="margin-bottom:12px;">';
-                            html += '<div style="font-weight:700;margin-bottom:6px;">🗺️ Rückfahrt zum neuen Termin:</div>';
-                            html += `<div style="padding:8px;background:#fffbeb;border-radius:6px;">`;
-                            html += `<div style="font-size:12px;">Von: <strong>${distanceCheck.previousDestination}</strong></div>`;
-                            html += `<div style="font-size:12px;">Nach: <strong>${distanceCheck.newPickup}</strong></div>`;
-                            html += `<div style="font-size:12px;color:#92400e;margin-top:4px;">📏 Distanz: <strong>${distanceCheck.routeDistance} km</strong></div>`;
-                            html += `<div style="font-size:12px;color:#92400e;">⏱️ Fahrzeit: <strong>${distanceCheck.travelTime} Min</strong></div>`;
-                            html += '</div>';
+                            html += '<div style="background:#fffbeb;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #fde68a;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">🗺️ Rückfahrt-Berechnung:</div>';
+                            html += `<div style="font-size:11px;"><strong>Taxi steht:</strong> ${distanceCheck.previousDestination}</div>`;
+                            html += `<div style="font-size:11px;"><strong>Muss hin:</strong> ${distanceCheck.newPickup}</div>`;
+                            html += `<div style="font-size:11px;color:#d97706;"><strong>📏 Distanz:</strong> ${distanceCheck.routeDistance} km</div>`;
+                            html += `<div style="font-size:11px;color:#d97706;"><strong>⏱️ Fahrzeit:</strong> ${distanceCheck.travelTime} Min</div>`;
                             html += '</div>';
                             
-                            // Zeitberechnung
-                            html += '<div style="margin-bottom:12px;">';
-                            html += '<div style="font-weight:700;margin-bottom:6px;">⏰ Zeitberechnung:</div>';
-                            html += `<div style="padding:8px;background:#f0fdf4;border-radius:6px;font-size:12px;">`;
-                            html += `<div>Letzte Fahrt fertig: ${distanceCheck.previousEndTime ? new Date(distanceCheck.previousEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</div>`;
-                            html += `<div>+ Rückfahrt: ${distanceCheck.travelTime} Min</div>`;
-                            html += `<div style="border-top:1px solid #d1fae5;margin:4px 0;padding-top:4px;">= Verfügbar ab: ${distanceCheck.previousEndTime ? new Date(new Date(distanceCheck.previousEndTime).getTime() + distanceCheck.travelTime * 60000).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</div>`;
-                            html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #d1fae5;">Neue Fahrt: <strong>${time} Uhr</strong></div>`;
-                            html += `<div style="color:#10b981;font-weight:700;font-size:14px;margin-top:4px;">⏳ Reserve: ${distanceCheck.reserveMinutes} Minuten ✅</div>`;
-                            html += '</div>';
+                            // Zeit-Berechnung
+                            html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #d1fae5;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">⏰ Zeitberechnung:</div>';
+                            html += `<div style="font-size:11px;">Letzte Fahrt fertig: <strong>${distanceCheck.previousEndTime ? new Date(distanceCheck.previousEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</strong></div>`;
+                            html += `<div style="font-size:11px;">+ Rückfahrt: <strong>${distanceCheck.travelTime} Min</strong></div>`;
+                            html += `<div style="font-size:11px;border-top:1px solid #d1fae5;padding-top:4px;margin-top:4px;">= Taxi verfügbar ab: <strong>${distanceCheck.previousEndTime ? new Date(new Date(distanceCheck.previousEndTime).getTime() + distanceCheck.travelTime * 60000).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'}) : '?'} Uhr</strong></div>`;
+                            html += `<div style="font-size:11px;margin-top:8px;border-top:1px solid #d1fae5;padding-top:8px;">Neue Fahrt startet: <strong>${time} Uhr</strong></div>`;
+                            html += `<div style="font-size:13px;color:#10b981;font-weight:700;margin-top:4px;">⏳ Reserve: ${distanceCheck.reserveMinutes} Minuten ✅</div>`;
                             html += '</div>';
                         } else {
-                            html += '<div style="margin-bottom:12px;padding:8px;background:#f0fdf4;border-radius:6px;">';
-                            html += '<div style="font-weight:700;color:#10b981;">✅ Erste Fahrt des Tages!</div>';
-                            html += '<div style="font-size:12px;margin-top:4px;">Keine vorherigen Fahrten - Taxi ist verfügbar.</div>';
+                            html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:1px solid #d1fae5;">';
+                            html += '<div style="font-weight:600;font-size:12px;color:#10b981;">✅ Erste Fahrt des Tages!</div>';
+                            html += '<div style="font-size:11px;margin-top:4px;color:#065f46;">Keine vorherigen Fahrten - Taxi ist verfügbar.</div>';
                             html += '</div>';
                         }
                         
@@ -25953,22 +26059,40 @@ Aktuell: ${currentNum}`;
                         if (distanceCheck.nextRide) {
                             const nextTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
                             const timeDiff = Math.floor((nextTime.getTime() - slotDateTime.getTime()) / 60000);
-                            html += '<div style="border-top:1px solid #d1fae5;margin:12px 0;"></div>';
-                            html += '<div style="margin-bottom:12px;">';
-                            html += '<div style="font-weight:700;margin-bottom:6px;">🚖 Fahrt NACHHER:</div>';
-                            html += `<div style="padding:8px;background:#f0fdf4;border-radius:6px;">`;
-                            html += `<div><strong>${nextTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
-                            html += `<div style="font-size:12px;color:#065f46;">Von: ${distanceCheck.nextRide.pickup}</div>`;
-                            html += `<div style="font-size:12px;color:#065f46;">Nach: ${distanceCheck.nextRide.destination}</div>`;
-                            html += `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">⏳ Zeit bis nächste Fahrt: ${timeDiff} Min</div>`;
-                            html += '</div>';
+                            html += '<div style="background:white;padding:8px;border-radius:6px;border:1px solid #d1fae5;">';
+                            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">🚖 Nächste Fahrt NACH neuem Termin:</div>';
+                            html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${nextTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                            html += `<div style="font-size:11px;"><strong>Von:</strong> ${distanceCheck.nextRide.pickup}</div>`;
+                            html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.nextRide.destination}</div>`;
+                            html += `<div style="font-size:11px;color:#10b981;font-weight:600;margin-top:4px;">⏳ Zeit bis nächste Fahrt: ${timeDiff} Min</div>`;
                             html += '</div>';
                         }
                         
                         html += '</div>';
+                        
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        // 👤 KUNDEN-BEREICH (BLAU)
+                        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        html += '<div style="background:#3b82f6;color:white;padding:12px;border-radius:8px 8px 0 0;text-align:center;font-weight:700;font-size:16px;margin-top:16px;">';
+                        html += '👤 KUNDEN-SICHT';
+                        html += '</div>';
+                        
+                        html += '<div style="background:#eff6ff;padding:12px;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;">';
+                        html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e40af;">Was der Kunde sieht:</div>';
+                        
+                        html += '<div style="background:white;padding:12px;border-radius:8px;border:2px solid #10b981;text-align:center;">';
+                        html += '<div style="font-size:20px;margin-bottom:8px;">✅</div>';
+                        html += '<div style="font-size:16px;font-weight:700;color:#10b981;margin-bottom:8px;">Termin verfügbar!</div>';
+                        html += `<div style="font-size:13px;color:#374151;margin-bottom:12px;">${new Date(date).toLocaleDateString('de-DE', {weekday:'long',day:'numeric',month:'long'})} um ${time} Uhr</div>`;
+                        html += '<button style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Jetzt buchen</button>';
+                        html += '</div>';
+                        
+                        html += '</div>';
+                        
+                        html += '</div>';
                         statusDisplay.innerHTML = html;
                         
-                        console.log('✅ Slot ist frei! Details angezeigt.');
+                        console.log('✅ Slot ist frei! Vollständige Analyse angezeigt.');
                         return;
                     }
                 }
@@ -26142,11 +26266,20 @@ Aktuell: ${currentNum}`;
             // Berechne Ende der vorherigen Fahrt
             const previousStartTime = new Date(previousRide.pickupTimestamp || previousRide.pickupTime);
             const previousDuration = previousRide.duration || 30; // Fallback: 30 Min
-            const previousEndTime = new Date(previousStartTime.getTime() + previousDuration * 60000);
+            
+            // 🆕 v5.90.657: EIN-/AUSSTIEGSZEIT EINBERECHNEN!
+            const BOARDING_TIME = 2;  // 2 Min Einsteigen
+            const ALIGHTING_TIME = 2; // 2 Min Aussteigen
+            const totalDuration = previousDuration + BOARDING_TIME + ALIGHTING_TIME;
+            
+            const previousEndTime = new Date(previousStartTime.getTime() + totalDuration * 60000);
             
             console.log('⏱️ ZEITBERECHNUNG:');
             console.log('   Fahrt-Start:', previousStartTime.toLocaleString('de-DE'));
-            console.log('   Fahrt-Dauer:', previousDuration, 'Min');
+            console.log('   Fahrt-Dauer (rein):', previousDuration, 'Min');
+            console.log('   🚪 v5.90.657: + Einsteigen:', BOARDING_TIME, 'Min');
+            console.log('   🚪 v5.90.657: + Aussteigen:', ALIGHTING_TIME, 'Min');
+            console.log('   ⏱️ v5.90.657: GESAMT-DAUER:', totalDuration, 'Min');
             console.log('   Fahrt-Ende:', previousEndTime.toLocaleString('de-DE'));
             
             // Verfügbare Zeit bis zum neuen Slot
@@ -73147,7 +73280,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.651
+        ⏱️ v5.90.657
     </div>
 </div>
 

@@ -9,24 +9,24 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.663
-    📅 BUILD: 19.01.2026 00:10 Uhr
+    📦 VERSION: v5.90.664
+    📅 BUILD: 20.01.2026 00:20 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.663
+    📋 CHANGELOG v5.90.664
     ═══════════════════════════════════════════════════════════════════════════
     
-    📊 v5.90.663 (19.01.2026):
-       • VOLLSTÄNDIGE ANALYSE FÜR ALLE KONFLIKT-TYPEN!
-       • Auch bei exactTimeConflict: Zeige beide Fahrten
-       • Auch bei duringRideConflict: Zeige neue Fahrt
-       • Berechnet IMMER wann neue Fahrt enden würde
-       • Zeigt IMMER spätesten Start-Zeitpunkt VORHER
-       • Komplette Transparenz für Admin!
+    📊 v5.90.664 (20.01.2026):
+       • ZEIGT ZEITPLAN AUCH BEI VERFÜGBAREN TERMINEN!
+       • Admin sieht IMMER die komplette Zeitachse
+       • Neue Fahrt-Details bei grün UND rot
+       • Wann startet, wann endet, wie lange dauert
+       • Zeigt vorherige/nächste Fahrt wenn vorhanden
+       • Vollständige Transparenz für JEDEN Termin!
     
-    📊 v5.90.662 (19.01.2026):
-       • Zeigte neue Fahrt-Details bei nextRideConflict
+    📊 v5.90.663 (19.01.2026):
+       • Vollständige Analyse für alle Konflikt-Typen
     
     🗺️ v5.90.651 (19.01.2026):
        • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
@@ -281,11 +281,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.663 - VOLLSTÄNDIGE ANALYSE! 📊✨ (Build 2026-01-20_0010)');
-        console.log('📊 v5.90.663: Zeigt neue Fahrt-Details bei ALLEN Konflikt-Typen!');
-        console.log('📊 v5.90.663: Auch exactTimeConflict + duringRideConflict komplett');
-        console.log('⏰ v5.90.663: Berechnet spätesten Start VORHER für alle Fälle');
-        console.log('🚨 v5.90.661: Prüft nächste Fahrt - verhindert Überschneidung');
+        console.log('🚕 Funk Taxi App v5.90.664 - ZEITPLAN IMMER SICHTBAR! 📊⏰ (Build 2026-01-20_0020)');
+        console.log('📊 v5.90.664: Zeigt Zeitachse auch bei VERFÜGBAREN Terminen!');
+        console.log('⏰ v5.90.664: Admin sieht IMMER komplette Fahrt-Berechnung');
+        console.log('✅ v5.90.664: Start, Ende, Dauer - bei grün UND rot!');
+        console.log('📊 v5.90.663: Vollständige Analyse für alle Konflikt-Typen');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('✅ v5.90.652: Slot-Check mit konsistenten Texten!');
@@ -1233,7 +1233,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.663 - VOLLSTÄNDIGE ANALYSE! ✨ (Build 20260120-0010)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.664 - ZEITPLAN IMMER! ⏰ (Build 20260120-0020)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1674,7 +1674,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        📊 v5.90.663 - VOLLSTÄNDIGE ANALYSE
+                        📊 v5.90.664 - ZEITPLAN IMMER
                     </span>
                 </div>
             </div>
@@ -25839,13 +25839,16 @@ Aktuell: ${currentNum}`;
                 // Hole Pickup/Destination für Distanz-Prüfung
                 const pickupInput = document.getElementById('pickup');
                 const destinationInput = document.getElementById('destination');
+                const durationInput = document.getElementById('duration'); // 🆕 v5.90.664: DURATION HOLEN!
                 const pickup = pickupInput ? pickupInput.value.trim() : '';
                 const destination = destinationInput ? destinationInput.value.trim() : '';
+                const duration = durationInput ? durationInput.value.trim() : '15'; // 🆕 v5.90.664: DEFAULT 15 MIN
                 
                 console.log('📊 Kalender-Check:');
                 console.log('   Datum/Zeit:', slotDateTime.toLocaleString('de-DE'));
                 console.log('   Von:', pickup);
                 console.log('   Nach:', destination);
+                console.log('   Dauer:', duration, 'Min'); // 🆕 v5.90.664: LOG DURATION!
                 
                 // 🆕 v5.90.639: DISTANZ-PRÜFUNG wenn Adressen vorhanden!
                 if (pickup && destination) {
@@ -26151,6 +26154,34 @@ Aktuell: ${currentNum}`;
                         html += `<div style="font-size:11px;margin-top:4px;">${new Date(date).toLocaleDateString('de-DE', {weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})} um ${time} Uhr</div>`;
                         html += `<div style="font-size:11px;color:#059669;">Von: ${pickup}</div>`;
                         html += `<div style="font-size:11px;color:#059669;">Nach: ${destination}</div>`;
+                        html += '</div>';
+                        
+                        // 🆕 v5.90.664: ZEIGE NEUE FAHRT-DETAILS AUCH BEI VERFÜGBAR!
+                        html += '<div style="background:white;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #10b981;">';
+                        html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#10b981;">🆕 NEUE FAHRT (Zeitplan):</div>';
+                        html += `<div style="font-size:11px;"><strong>Start:</strong> ${time} Uhr</div>`;
+                        html += `<div style="font-size:11px;"><strong>Von:</strong> ${pickup}</div>`;
+                        html += `<div style="font-size:11px;"><strong>Nach:</strong> ${destination}</div>`;
+                        
+                        // Berechne Fahrt-Dauer
+                        const newRideDuration = parseInt(duration) || 15;
+                        const newTotalDuration = newRideDuration + 4; // +2 Ein +2 Aus
+                        const slotDateTime = new Date(date + 'T' + time + ':00');
+                        const newRideEnd = new Date(slotDateTime.getTime() + (newTotalDuration * 60000));
+                        
+                        // Dauer-Berechnung
+                        html += '<div style="background:#ecfdf5;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #a7f3d0;">';
+                        html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;">⏱️ Dauer-Berechnung:</div>';
+                        html += `<div style="font-size:10px;">Fahrt: ${newRideDuration} Min</div>`;
+                        html += `<div style="font-size:10px;">+ Einsteigen: 2 Min</div>`;
+                        html += `<div style="font-size:10px;">+ Aussteigen: 2 Min</div>`;
+                        html += `<div style="font-size:11px;border-top:1px solid #a7f3d0;padding-top:4px;margin-top:4px;font-weight:600;">= Gesamt: ${newTotalDuration} Min</div>`;
+                        html += '</div>';
+                        
+                        // Ende-Zeit
+                        html += '<div style="background:#ecfdf5;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #a7f3d0;">';
+                        html += `<div style="font-size:11px;font-weight:600;color:#059669;">📍 ENDE: ${newRideEnd.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                        html += '</div>';
                         html += '</div>';
                         
                         // Bestehende Fahrten
@@ -73606,7 +73637,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📊 v5.90.663
+        📊 v5.90.664
     </div>
 </div>
 

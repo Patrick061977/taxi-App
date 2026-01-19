@@ -9,13 +9,27 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.339
-    📅 BUILD: 12.01.2026 06:55 Uhr
+    📦 VERSION: v5.90.651
+    📅 BUILD: 19.01.2026 19:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.339
+    📋 CHANGELOG v5.90.651
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🗺️ v5.90.651 (19.01.2026):
+       • NEU: POI-Marker auf Karten-Picker (Bahnhöfe, Hotels, Restaurants)!
+       • Filter: Nur echte POIs (keine Privatadressen)
+       • Klickbar: POI-Marker → Adresse direkt übernehmen
+       • Icons: 🚉 Bahnhöfe, 🏨 Hotels, 🍽️ Restaurants, ☕ Cafés, etc.
+       • Schnelle Orientierung für Kunden beim Adresse wählen!
+    
+    🏨 v5.90.650 (19.01.2026):
+       • FIX: Autocomplete zeigt jetzt POIs (Hotels, Restaurants) wie CRM-Picker!
+       • Lierstraße 11 zeigt jetzt "Strandhotel Heringsdorf" statt "Poolsauna"
+       • API-Calls mit extratags=1 + namedetails=1 für volle POI-Daten
+       • Verbesserte POI-Extraktion: hotel, restaurant, cafe, tourism, amenity
+       • Gilt für: Taxi buchen + Schnellbuchung Autocomplete
     
     🐛 v5.90.339 (12.01.2026):
        • FIX: "distance is not defined" Fehler behoben
@@ -256,15 +270,13 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.645 - SPEED! 🔧✅ (Build 2026-01-18_0330)');
+        console.log('🚕 Funk Taxi App v5.90.651 - POI-MARKER! 🗺️✅ (Build 2026-01-19_1915)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
-        console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
-        console.log('🔧 v5.90.632: PERFORMANCE-FIX - Fahrten nur EINMALIG laden + Dropdown nur mit GPS');
-        console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
-        console.log('🔧 v5.90.635: Ignoriere Fahrzeuge mit String-Timestamps (altes GPS-Format)');
-        console.log('🔋 v5.90.636: BATTERY-SAVER - Standby: 50m/60s, Aktiv: 10m/10s');
-        console.log('⚡ v5.90.645: PERFORMANCE - Vergangenheit ignoriert = SCHNELL!');
+        console.log('🗺️ v5.90.651: POI-MARKER auf Karten-Picker!');
+        console.log('🔧 v5.90.651: Nur echte POIs (Bahnhöfe, Hotels) - keine Privatadressen');
+        console.log('🔧 v5.90.651: Klickbare Marker mit Icons (🚉 🏨 🍽️ ☕)');
+        console.log('🎯 v5.90.651: Schnelle Orientierung für Kunden!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
         console.log('🔧 v5.90.525: renderDriverRides() nutzt Isarfunk HTML!');
@@ -1204,7 +1216,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - SPEED! ✅ (Build 20260119-0330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.651 - POI-MARKER! ✅ (Build 20260119-1915)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1645,7 +1657,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.645 - SPEED
+                        🗺️ v5.90.651 - POI-MARKER
                     </span>
                 </div>
             </div>
@@ -23757,13 +23769,14 @@ Aktuell: ${currentNum}`;
                 }
                 
                 // Starte beide Suchen parallel
+                // 🆕 v5.90.650: MIT extratags + namedetails für POI-Namen (Hotels, Restaurants)!
                 const searchPromises = [
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1&extratags=1&namedetails=1`)
                 ];
                 
                 if (queriesAreDifferent) {
                     searchPromises.push(
-                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1&extratags=1&namedetails=1`)
                     );
                 }
                 
@@ -23895,7 +23908,19 @@ Aktuell: ${currentNum}`;
                     let fullAddress = '';
                     
                     // 🏨 HOTEL, RESTAURANT, POI Namen
-                    const poiName = address.amenity || address.tourism || address.building || r.name;
+                    // 🆕 v5.90.650: ERWEITERTE POI-Erkennung wie im CRM Map Picker!
+                    let poiName = r.name; // Primär: Offizieller Name aus Nominatim!
+                    
+                    // Falls kein Name: Versuche spezifische POI-Felder
+                    if (!poiName || poiName === address.road) {
+                        poiName = address.hotel || 
+                                  address.restaurant || 
+                                  address.cafe || 
+                                  address.tourism || 
+                                  address.amenity || 
+                                  address.shop || 
+                                  address.building;
+                    }
                     
                     // Baue Haupt-Adresszeile
                     if (address.road) {
@@ -23914,7 +23939,7 @@ Aktuell: ${currentNum}`;
                     const zip = address.postcode || '';
                     
                     // 🎨 Baue schöne Anzeige
-                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                    if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
                         displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
                         displayText += `<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">`;
                         if (fullAddress) displayText += fullAddress;
@@ -23933,8 +23958,8 @@ Aktuell: ${currentNum}`;
                     
                     // Vollständige Adresse als String
                     let addressString = '';
-                    if (poiName && poiName !== fullAddress && poiName !== city) {
-                        addressString = poiName + ' ';
+                    if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
+                        addressString = poiName + ', ';
                     }
                     if (fullAddress) addressString += fullAddress;
                     if (zip) addressString += ', ' + zip;
@@ -44277,13 +44302,14 @@ Funk Taxi Team`;
                 }
                 
                 // Starte beide Suchen parallel
+                // 🆕 v5.90.650: MIT extratags + namedetails für POI-Namen (Hotels, Restaurants)!
                 const searchPromises = [
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1&extratags=1&namedetails=1`)
                 ];
                 
                 if (queriesAreDifferent) {
                     searchPromises.push(
-                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1`)
+                        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(polishQuery)}&countrycodes=de&viewbox=10.6,54.7,14.4,53.1&bounded=1&limit=15&addressdetails=1&extratags=1&namedetails=1`)
                     );
                 }
                 
@@ -44438,7 +44464,19 @@ Funk Taxi Team`;
                     const isVirtual = r.isVirtual === true;
                     
                     // 🏨 HOTEL, RESTAURANT, POI, KRANKENHAUS Namen
-                    const poiName = address.amenity || address.tourism || address.building || r.name;
+                    // 🆕 v5.90.650: ERWEITERTE POI-Erkennung wie im CRM Map Picker!
+                    let poiName = r.name; // Primär: Offizieller Name aus Nominatim!
+                    
+                    // Falls kein Name: Versuche spezifische POI-Felder
+                    if (!poiName || poiName === address.road) {
+                        poiName = address.hotel || 
+                                  address.restaurant || 
+                                  address.cafe || 
+                                  address.tourism || 
+                                  address.amenity || 
+                                  address.shop || 
+                                  address.building;
+                    }
                     
                     // Baue Haupt-Adresszeile
                     if (address.road) {
@@ -44457,7 +44495,7 @@ Funk Taxi Team`;
                     const zip = address.postcode || '';
                     
                     // 🎨 Baue schöne Anzeige (wie Fahrgast-Tab!)
-                    if (poiName && poiName !== fullAddress && poiName !== city) {
+                    if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
                         displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
                         displayText += `<div style="font-size:13px;color:#666;margin-top:2px;padding-left:20px;">`;
                         if (fullAddress) displayText += fullAddress;
@@ -44485,8 +44523,8 @@ Funk Taxi Team`;
                     
                     // Vollständige Adresse als String
                     let addressString = '';
-                    if (poiName && poiName !== fullAddress && poiName !== city) {
-                        addressString = poiName + ' ';
+                    if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
+                        addressString = poiName + ', ';
                     }
                     if (fullAddress) addressString += fullAddress;
                     if (zip) addressString += ', ' + zip;
@@ -45279,8 +45317,51 @@ Funk Taxi Team`;
             map: null,
             marker: null,
             targetInputId: null,
-            onConfirm: null
+            onConfirm: null,
+            nearbyPOIs: [],
+            poiMarkers: [] // 🆕 v5.90.651: Marker für POIs auf der Karte
         };
+        
+        // 🆕 v5.90.651: Filtere nur echte POIs (keine Privatadressen)
+        function filterPublicPOIs(allPOIs) {
+            if (!allPOIs || allPOIs.length === 0) return [];
+            
+            const poiKeywords = [
+                'bahnhof', 'hotel', 'restaurant', 'café', 'cafe', 
+                'seebrücke', 'strand', 'flughafen', 'krankenhaus',
+                'klinik', 'apotheke', 'kirche', 'museum', 'rathaus',
+                'einkaufszentrum', 'supermarkt', 'tankstelle',
+                'campingplatz', 'ferienwohnung', 'pension', 'imbiss',
+                'pizzeria', 'gaststätte', 'bar', 'kneipe', 'disco',
+                'theater', 'kino', 'bibliothek', 'schwimmbad', 'sauna',
+                'fitness', 'arzt', 'zahnarzt', 'tierarzt', 'polizei',
+                'feuerwehr', 'post', 'bank', 'sparkasse', 'geldautomat'
+            ];
+            
+            // Häufige Personennamen (Blacklist)
+            const nameBlacklist = [
+                'herr', 'frau', 'dr.', 'prof.', 'familie',
+                'müller', 'schmidt', 'schneider', 'fischer', 'weber',
+                'meyer', 'wagner', 'becker', 'schulz', 'hoffmann'
+            ];
+            
+            return allPOIs.filter(poi => {
+                if (!poi.name || !poi.lat || !poi.lon) return false;
+                
+                const nameLower = poi.name.toLowerCase();
+                
+                // Blacklist Check: Personennamen raus!
+                if (nameBlacklist.some(name => nameLower.includes(name))) {
+                    return false;
+                }
+                
+                // Keyword Check: Enthält POI-Keywords?
+                const hasPOIKeyword = poiKeywords.some(keyword => nameLower.includes(keyword));
+                
+                // Nur durchlassen wenn POI-Keyword gefunden
+                return hasPOIKeyword;
+            });
+        }
         
         function openUniversalMapPicker(inputId, title = '📍 Adresse auf Karte wählen', onConfirmCallback = null) {
             console.log('📍 v5.90.535: Öffne Universal Karten-Picker für:', inputId);
@@ -45346,6 +45427,124 @@ Funk Taxi Team`;
             }, 100);
         }
         
+        // 🆕 v5.90.651: POI-Marker auf Karte anzeigen
+        function addPOIMarkersToMap() {
+            console.log('🗺️ v5.90.651: Füge POI-Marker hinzu...');
+            
+            // Entferne alte Marker
+            if (universalMapPicker.poiMarkers && universalMapPicker.poiMarkers.length > 0) {
+                universalMapPicker.poiMarkers.forEach(marker => {
+                    universalMapPicker.map.removeLayer(marker);
+                });
+                universalMapPicker.poiMarkers = [];
+            }
+            
+            // Filtere nur echte POIs (keine Privatadressen)
+            const publicPOIs = filterPublicPOIs(allPOIs);
+            
+            console.log(`🏨 ${publicPOIs.length} öffentliche POIs gefiltert (von ${allPOIs.length} gesamt)`);
+            
+            if (publicPOIs.length === 0) {
+                console.log('ℹ️ Keine POIs zum Anzeigen');
+                return;
+            }
+            
+            // Bestimme Icon basierend auf POI-Type
+            function getPOIIcon(poiName) {
+                const name = poiName.toLowerCase();
+                
+                if (name.includes('bahnhof')) return '🚉';
+                if (name.includes('seebrücke')) return '🌊';
+                if (name.includes('hotel') || name.includes('pension')) return '🏨';
+                if (name.includes('restaurant') || name.includes('gaststätte')) return '🍽️';
+                if (name.includes('café') || name.includes('cafe')) return '☕';
+                if (name.includes('strand')) return '🏖️';
+                if (name.includes('krankenhaus') || name.includes('klinik')) return '🏥';
+                if (name.includes('apotheke')) return '💊';
+                if (name.includes('supermarkt') || name.includes('einkauf')) return '🛒';
+                if (name.includes('kirche')) return '⛪';
+                if (name.includes('museum')) return '🏛️';
+                
+                return '📍'; // Default
+            }
+            
+            // Erstelle Marker für jeden POI
+            publicPOIs.forEach(poi => {
+                const icon = getPOIIcon(poi.name);
+                const markerColor = '#f59e0b'; // Orange für POIs
+                
+                const marker = L.marker([poi.lat, poi.lon], {
+                    icon: L.divIcon({
+                        html: `<div style="background:${markerColor};color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;">${icon}</div>`,
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    })
+                }).addTo(universalMapPicker.map);
+                
+                // Popup mit POI-Info
+                marker.bindPopup(`
+                    <div style="min-width:200px;">
+                        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${icon} ${poi.name}</div>
+                        <div style="font-size:12px;color:#666;margin-bottom:8px;">${poi.address || 'Keine Adresse'}</div>
+                        <button onclick="selectPOIFromMap('${poi.name.replace(/'/g, "\\'")}', '${poi.address ? poi.address.replace(/'/g, "\\'") : ''}', ${poi.lat}, ${poi.lon})" 
+                                style="width:100%;padding:8px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">
+                            ✅ Auswählen
+                        </button>
+                    </div>
+                `, {
+                    maxWidth: 250
+                });
+                
+                universalMapPicker.poiMarkers.push(marker);
+            });
+            
+            console.log(`✅ ${universalMapPicker.poiMarkers.length} POI-Marker zur Karte hinzugefügt!`);
+        }
+        
+        // 🆕 v5.90.651: POI vom Marker auswählen
+        function selectPOIFromMap(name, address, lat, lon) {
+            console.log('✅ v5.90.651: POI vom Marker gewählt:', name);
+            
+            // Entferne alten User-Marker (falls vorhanden)
+            if (universalMapPicker.marker) {
+                universalMapPicker.map.removeLayer(universalMapPicker.marker);
+            }
+            
+            // Setze neuen Marker an POI-Position
+            universalMapPicker.marker = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    html: '<div style="background:#10b981;color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">✅</div>',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                })
+            }).addTo(universalMapPicker.map);
+            
+            // Speichere Daten
+            const fullAddress = address || name;
+            universalMapPicker.marker.pickedAddress = fullAddress;
+            universalMapPicker.marker.pickedLat = lat;
+            universalMapPicker.marker.pickedLon = lon;
+            universalMapPicker.marker.pickedName = name;
+            
+            // Zeige ausgewählte Adresse an
+            const selectedDiv = document.getElementById('universal-map-picker-selected');
+            const addressDiv = document.getElementById('universal-map-picker-address');
+            if (selectedDiv && addressDiv) {
+                selectedDiv.style.display = 'block';
+                addressDiv.textContent = `${name} - ${fullAddress}`;
+            }
+            
+            // Aktiviere Confirm-Button
+            const confirmAddressBtn = document.getElementById('universal-map-picker-confirm-address');
+            if (confirmAddressBtn) {
+                confirmAddressBtn.disabled = false;
+                confirmAddressBtn.style.opacity = '1';
+            }
+            
+            // Schließe alle Popups
+            universalMapPicker.map.closePopup();
+        }
+        
         function initUniversalMapPicker() {
             const container = document.getElementById('universal-map-picker-container');
             if (!container) {
@@ -45365,6 +45564,9 @@ Funk Taxi Team`;
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap'
             }).addTo(universalMapPicker.map);
+            
+            // 🆕 v5.90.651: POI-MARKER auf Karte anzeigen!
+            addPOIMarkersToMap();
             
             // Klick auf Karte
             universalMapPicker.map.on('click', async function(e) {
@@ -72669,7 +72871,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.641
+        🗺️ v5.90.651
     </div>
 </div>
 

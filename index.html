@@ -135,7 +135,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.644 | Build: 2026-01-18_0300 | Fix: 3-IN-1-FIX - Datum Min + Init + Slot-Check -->
+    <!-- Version: v5.90.645 | Build: 2026-01-18_0330 | Fix: PERFORMANCE - Nur Fahrten ab HEUTE -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -256,7 +256,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.644 - 3-IN-1! 🔧✅ (Build 2026-01-18_0300)');
+        console.log('🚕 Funk Taxi App v5.90.645 - SPEED! 🔧✅ (Build 2026-01-18_0330)');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('🔧 v5.90.631: SYNTAX-FIX - Doppelte currentTrackingRideId Deklaration entfernt');
@@ -264,7 +264,7 @@
         console.log('🔧 v5.90.633: Fahrzeug RESET bei GPS-Stop + Toggle gesperrt bis Fahrzeug gewählt');
         console.log('🔧 v5.90.635: Ignoriere Fahrzeuge mit String-Timestamps (altes GPS-Format)');
         console.log('🔋 v5.90.636: BATTERY-SAVER - Standby: 50m/60s, Aktiv: 10m/10s');
-        console.log('🔧 v5.90.644: 3-IN-1 - Datum Min + Init + Slot läuft ohne Adressen!');
+        console.log('⚡ v5.90.645: PERFORMANCE - Vergangenheit ignoriert = SCHNELL!');
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
         console.log('🔧 v5.90.525: renderDriverRides() nutzt Isarfunk HTML!');
@@ -1204,7 +1204,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - 3-IN-1! ✅ (Build 20260119-0300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.641 - SPEED! ✅ (Build 20260119-0330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1645,7 +1645,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.644 - 3-IN-1
+                        🔧 v5.90.645 - SPEED
                     </span>
                 </div>
             </div>
@@ -25863,17 +25863,31 @@ Aktuell: ${currentNum}`;
             console.log('   Destination:', destination);
             console.log('');
             
+            // 🆕 v5.90.645: NUR Fahrten ab HEUTE prüfen!
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Mitternacht heute
+            
             // Finde vorherige Fahrt (chronologisch vor dem neuen Slot)
-            const allRides = Object.values(ridesData).filter(r => 
-                r.status !== 'cancelled' && 
-                r.status !== 'storniert' &&
-                r.status !== 'completed' &&
-                r.status !== 'abgeschlossen'
-            );
+            const allRides = Object.values(ridesData).filter(r => {
+                // Status-Filter
+                if (r.status === 'cancelled' || r.status === 'storniert' || 
+                    r.status === 'completed' || r.status === 'abgeschlossen') {
+                    return false;
+                }
+                
+                // 🆕 v5.90.645: NUR ab heute!
+                const rideDate = new Date(r.pickupTimestamp || r.pickupTime);
+                if (rideDate < today) {
+                    return false; // Vergangenheit ignorieren!
+                }
+                
+                return true;
+            });
             
             console.log('📊 FIREBASE FAHRTEN:');
             console.log('   Gesamt (alle Status):', Object.keys(ridesData).length);
-            console.log('   Nach Filter (aktive):', allRides.length);
+            console.log('   Nach Filter (aktive ab heute):', allRides.length);
+            console.log('   🚀 v5.90.645: Vergangenheit ignoriert!');
             console.log('');
             
             // Sortiere nach Zeit
@@ -26059,6 +26073,10 @@ Aktuell: ${currentNum}`;
             const allRidesSnapshot = await db.ref('rides').once('value');
             const allRides = allRidesSnapshot.val() || {};
             
+            // 🆕 v5.90.645: Filter - nur ab heute!
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
             // Für jedes Fahrzeug prüfen ob es zu dieser Zeit verfügbar ist
             const availableVehicles = [];
             
@@ -26079,6 +26097,9 @@ Aktuell: ${currentNum}`;
                     
                     const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime);
                     if (isNaN(rideTime.getTime())) return;
+                    
+                    // 🆕 v5.90.645: Ignoriere Vergangenheit!
+                    if (rideTime < today) return;
                     
                     // 🎯 KONFLIKT-PRÜFUNG WIE AUTO-ASSIGN:
                     // Fahrt läuft wenn Status: assigned, accepted, oder picked_up

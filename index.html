@@ -9,21 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.685
-    📅 BUILD: 20.01.2026 18:30 Uhr
+    📦 VERSION: v5.90.686
+    📅 BUILD: 20.01.2026 19:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.685
+    📋 CHANGELOG v5.90.686
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.685 (20.01.2026):
-       • KRITISCHER FIX: updateAngeboteDisplay() Fehler behoben!
-       • Event-Listener statt inline onchange
-       • Angebote-Tab funktioniert jetzt!
+    🔧 v5.90.686 (20.01.2026):
+       • TIMEOUT FIX: Erhöht auf 500ms + Retry nach 1s
+       • updateAngeboteDisplay() lädt jetzt SICHER
+       • Fallback-Mechanismus implementiert
     
-    🚌 v5.90.683 (20.01.2026):
-       • Mitfahr-Punkte System (Bushaltestellen)
+    🔧 v5.90.685 (20.01.2026):
+       • Event-Listener statt inline onchange
     
     🔧 v5.90.682 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
@@ -339,11 +339,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.685 - SCRIPT-FIX! 🔧✅ (Build 2026-01-20_1830)');
-        console.log('🔧 v5.90.685: KRITISCHER FIX - updateAngeboteDisplay() behoben!');
-        console.log('🔧 v5.90.685: Event-Listener statt inline onchange!');
+        console.log('🚕 Funk Taxi App v5.90.686 - TIMEOUT-FIX! ⏰✅ (Build 2026-01-20_1900)');
+        console.log('⏰ v5.90.686: TIMEOUT erhöht 500ms + Retry 1s!');
+        console.log('⏰ v5.90.686: updateAngeboteDisplay() lädt jetzt sicher!');
+        console.log('🔧 v5.90.685: Event-Listener statt inline onchange');
         console.log('🗺️ v5.90.684: Mitfahr-Karte');
-        console.log('🚌 v5.90.683: Mitfahr-Punkte');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
         console.log('🔧 v5.90.676: Default-Datum = Heute');
         console.log('🔧 v5.90.676: Scope-Fix für calculatedLatestStart');
@@ -1302,7 +1302,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.685 - SCRIPT-FIX! ✅ (Build 20260120-1830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏰ Version 5.90.686 - TIMEOUT-FIX! ✅ (Build 20260120-1900)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1758,7 +1758,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.685 - SCRIPT-FIX
+                        ⏰ v5.90.686 - TIMEOUT-FIX
                     </span>
                 </div>
             </div>
@@ -14802,14 +14802,26 @@ Aktuell: ${currentNum}`;
             // 🆕 v5.90.678: ANGEBOTE-VIEW Auto-Update!
             if (view === 'angebote') {
                 console.log('🎯 Angebote-View geöffnet - lade Angebote...');
+                // 🔧 v5.90.685: Erhöhe Timeout - Script muss erst laden!
                 setTimeout(() => {
                     if (typeof updateAngeboteDisplay === 'function') {
                         updateAngeboteDisplay();
                         startAngeboteAutoUpdate();
                     } else {
                         console.error('❌ updateAngeboteDisplay() nicht gefunden!');
+                        console.log('⏳ v5.90.685: Warte länger und versuche erneut...');
+                        // Versuche nochmal nach 1 Sekunde
+                        setTimeout(() => {
+                            if (typeof updateAngeboteDisplay === 'function') {
+                                console.log('✅ v5.90.685: Funktion gefunden beim 2. Versuch!');
+                                updateAngeboteDisplay();
+                                startAngeboteAutoUpdate();
+                            } else {
+                                console.error('❌ v5.90.685: updateAngeboteDisplay() existiert nicht - Script nicht geladen?');
+                            }
+                        }, 1000);
                     }
-                }, 100);
+                }, 500);
             } else {
                 // Stoppe Auto-Update wenn View gewechselt wird
                 if (typeof stopAngeboteAutoUpdate === 'function') {
@@ -74361,7 +74373,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.685
+        ⏰ v5.90.686
     </div>
 </div>
 

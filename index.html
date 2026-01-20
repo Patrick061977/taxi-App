@@ -9,13 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.676
-    📅 BUILD: 20.01.2026 13:00 Uhr
+    📦 VERSION: v5.90.678
+    📅 BUILD: 20.01.2026 14:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.676
+    📋 CHANGELOG v5.90.678
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🎯 v5.90.678 (20.01.2026):
+       • NEU: 🎯 ANGEBOTE-TAB - Günstige Rückfahrten!
+       • Zeigt alle verfügbaren Leerfahrten mit 50% Rabatt
+       • Auto-Update alle 30 Sekunden
+       • 1-Click Buchung direkt aus Angebote-Liste
+       • Filter: Heute, Morgen, Alle
+       • Nutzt bestehende OSRM & Firebase-Integration
     
     🔧 v5.90.676 (20.01.2026):
        • FIX: Orange "Frühester Termin" Button zeigt jetzt calculatedLatestStart!
@@ -308,7 +316,13 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.676 - 3 BUGFIXES! 🔧✅ (Build 2026-01-20_1010)');
+        console.log('🚕 Funk Taxi App v5.90.678 - ANGEBOTE-TAB! 🎯✨ (Build 2026-01-20_1400)');
+        console.log('🎯 v5.90.678: NEU - Angebote-Tab für günstige Rückfahrten!');
+        console.log('🎯 v5.90.678: Auto-Update alle 30 Sekunden');
+        console.log('🎯 v5.90.678: 50% Rabatt auf Leerfahrten');
+        console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
+        console.log('🔧 v5.90.676: Default-Datum = Heute');
+        console.log('🔧 v5.90.676: Scope-Fix für calculatedLatestStart');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin!');
         console.log('🔧 v5.90.676: Default-Datum = Heute!');
         console.log('🔧 v5.90.676: calculatedLatestStart Scope Fix!');
@@ -1264,7 +1278,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.675 - SCOPE FIX ✅ (Build 20260120-1010)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.678 - ANGEBOTE-TAB! ✨ (Build 20260120-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1410,6 +1424,21 @@
                 transition: all 0.2s;
             ">
                 📖 Verlauf
+            </button>
+            <!-- 🆕 v5.90.678: ANGEBOTE-TAB (Günstige Rückfahrten!) -->
+            <button onclick="switchView('angebote')" class="admin-tab-btn tab-toggleable" data-view="angebote" data-tab-id="angebote" style="
+                padding: 10px 16px;
+                border: 2px solid #8b5cf6;
+                background: white;
+                color: #8b5cf6;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            ">
+                🎯 Angebote
             </button>
             <!-- 🆕 v5.89: KALENDER-TAB (Direkt-Sprung zu Vorbestellungen!) -->
             <button onclick="switchView('calendar')" class="admin-tab-btn admin-only tab-toggleable" data-view="calendar" data-tab-id="calendar" style="
@@ -1705,7 +1734,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.676 - 3 BUGFIXES
+                        🎯 v5.90.678 - ANGEBOTE-TAB
                     </span>
                 </div>
             </div>
@@ -2910,6 +2939,54 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 🆕 v5.90.678: ANGEBOTE VIEW (Günstige Rückfahrten!) -->
+    <div id="angebote-view" class="view" style="display:none;">
+        <div style="max-width:800px;margin:40px auto;padding:0 20px;">
+            
+            <!-- HEADER -->
+            <div style="background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%);color:white;border-radius:16px;padding:30px;text-align:center;margin-bottom:30px;box-shadow:0 8px 24px rgba(139,92,246,0.2);">
+                <h2 style="margin:0 0 12px 0;font-size:28px;font-weight:800;">
+                    🎯 ANGEBOTE
+                </h2>
+                <p style="margin:0;font-size:16px;opacity:0.95;font-weight:500;">
+                    Günstige Rückfahrten - Nutze Leerfahrten und spare bis zu 50%!
+                </p>
+            </div>
+            
+            <!-- FILTER & INFO -->
+            <div style="background:white;border-radius:12px;padding:20px;margin-bottom:20px;border:2px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                    <div style="flex:1;min-width:200px;">
+                        <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:6px;font-weight:600;">
+                            📅 Zeitraum filtern
+                        </label>
+                        <select id="angebote-filter" onchange="updateAngeboteDisplay()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;font-weight:600;color:#1f2937;background:white;cursor:pointer;">
+                            <option value="today">Nur heute</option>
+                            <option value="tomorrow">Morgen</option>
+                            <option value="all">Alle anzeigen</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;min-width:200px;text-align:right;">
+                        <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">
+                            🔄 Automatische Aktualisierung
+                        </div>
+                        <div style="font-size:14px;font-weight:600;color:#8b5cf6;">
+                            Alle 30 Sekunden
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ANGEBOTE-LISTE -->
+            <div id="angebote-list">
+                <div style="text-align:center;padding:40px;color:#6b7280;">
+                    ⏳ Lade Angebote...
+                </div>
+            </div>
+            
         </div>
     </div>
 
@@ -14302,7 +14379,8 @@ Aktuell: ${currentNum}`;
             // 🆕 v5.33.4: EXTRA BRUTAL - Verstecke alle Views einzeln!
             // 🆕 v5.90.525: fleet-overview-view hinzugefügt!
             // 🆕 v5.90.548: express-booking-view hinzugefügt!
-            const allViews = ['simulator-view', 'express-booking-view', 'passenger-view', 'schedule-view', 'history-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view'];
+            // 🆕 v5.90.678: angebote-view hinzugefügt!
+            const allViews = ['simulator-view', 'express-booking-view', 'passenger-view', 'schedule-view', 'history-view', 'angebote-view', 'rechnung-view', 'hotel-calendar-view', 'crm-view', 'email-inbox-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'system-diagnostics-view', 'live-monitor-view', 'ai-assistant-view', 'booking-requests-view', 'backup-view', 'poi-management-view', 'fleet-overview-view'];
             allViews.forEach(viewId => {
                 const viewEl = document.getElementById(viewId);
                 if (viewEl) {
@@ -14516,6 +14594,24 @@ Aktuell: ${currentNum}`;
                         }
                     }, 500);
                 }, 100);
+            }
+            
+            // 🆕 v5.90.678: ANGEBOTE-VIEW Auto-Update!
+            if (view === 'angebote') {
+                console.log('🎯 Angebote-View geöffnet - lade Angebote...');
+                setTimeout(() => {
+                    if (typeof updateAngeboteDisplay === 'function') {
+                        updateAngeboteDisplay();
+                        startAngeboteAutoUpdate();
+                    } else {
+                        console.error('❌ updateAngeboteDisplay() nicht gefunden!');
+                    }
+                }, 100);
+            } else {
+                // Stoppe Auto-Update wenn View gewechselt wird
+                if (typeof stopAngeboteAutoUpdate === 'function') {
+                    stopAngeboteAutoUpdate();
+                }
             }
             
             // 🆕 v5.39.8: Debug-Logs neu laden bei Debug-View!
@@ -73850,9 +73946,379 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.676
+        🎯 v5.90.678
     </div>
 </div>
+
+<!-- 🆕 v5.90.678: ANGEBOTE-TAB JAVASCRIPT -->
+<script>
+// 🎯 ANGEBOTE: Alle Rückfahrten finden
+async function generateAngebote() {
+    console.log('🎯 Generiere Angebote...');
+    
+    const angebote = [];
+    
+    try {
+        if (!isFirebaseReady) {
+            console.log('⚠️ Firebase nicht bereit');
+            return [];
+        }
+        
+        // 1. Hole alle Rides aus Firebase
+        const snapshot = await db.ref('rides').once('value');
+        const rides = snapshot.val() || {};
+        
+        const now = Date.now();
+        const filter = document.getElementById('angebote-filter')?.value || 'today';
+        
+        // Zeitfilter berechnen
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dayAfterTomorrow = new Date(tomorrow);
+        dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+        
+        for (const [rideId, ride] of Object.entries(rides)) {
+            // Nur Vorbestellungen
+            if (ride.status !== 'vorbestellt') continue;
+            
+            // Nur zukünftige
+            if (!ride.pickupTimestamp || ride.pickupTimestamp < now) continue;
+            
+            // Zeitfilter anwenden
+            if (filter === 'today' && ride.pickupTimestamp >= tomorrow.getTime()) continue;
+            if (filter === 'tomorrow' && (ride.pickupTimestamp < tomorrow.getTime() || ride.pickupTimestamp >= dayAfterTomorrow.getTime())) continue;
+            
+            // Nur wenn Distanz > 5 km (lohnt sich)
+            if (!ride.distance || ride.distance < 5) continue;
+            
+            // Nur wenn Koordinaten vorhanden
+            if (!ride.pickupCoords || !ride.destCoords) continue;
+            
+            // Überspringe stornierte Fahrten
+            if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
+            
+            // 2. Berechne Rückfahrt-Details
+            const rideDuration = (ride.duration || 15) + 3 + 2; // Mit Ein/Ausstieg (BOARDING + ALIGHTING)
+            const rideEnd = ride.pickupTimestamp + (rideDuration * 60000);
+            
+            // Ist Rückfahrt in der Vergangenheit?
+            if (rideEnd < now) continue;
+            
+            // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
+            let deadheadDuration = 15; // Fallback
+            try {
+                deadheadDuration = await calculateRouteDuration(
+                    ride.destCoords,
+                    ride.pickupCoords
+                );
+            } catch (error) {
+                console.warn('⚠️ Route-Berechnung fehlgeschlagen, nutze Fallback:', error);
+            }
+            
+            // 4. Berechne Preis
+            const normalPrice = ride.price || Math.round(ride.distance * 2.5); // Fallback-Preis
+            const discountPrice = Math.round(normalPrice * 0.5); // 50% Rabatt
+            
+            // 5. Erstelle Angebot
+            angebote.push({
+                id: 'angebot_' + rideId,
+                type: 'rueckfahrt',
+                from: ride.destination,
+                to: ride.pickup,
+                fromCoords: ride.destCoords,
+                toCoords: ride.pickupCoords,
+                availableAt: new Date(rideEnd),
+                availableTimestamp: rideEnd,
+                duration: deadheadDuration,
+                distance: ride.distance,
+                normalPrice: normalPrice,
+                discountPrice: discountPrice,
+                discount: 50,
+                reason: 'Nutzt Leerfahrt',
+                parentRide: rideId,
+                parentCustomer: ride.customerName
+            });
+        }
+        
+        // 6. Sortiere nach Zeit (früheste zuerst)
+        angebote.sort((a, b) => a.availableTimestamp - b.availableTimestamp);
+        
+        console.log(`✅ ${angebote.length} Angebote gefunden (Filter: ${filter})`);
+        return angebote;
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Generieren der Angebote:', error);
+        return [];
+    }
+}
+
+// 🎯 ANGEBOTE: UI aktualisieren
+async function updateAngeboteDisplay() {
+    const listContainer = document.getElementById('angebote-list');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#6b7280;"><div style="font-size:24px;margin-bottom:8px;">⏳</div><div>Lade Angebote...</div></div>';
+    
+    const angebote = await generateAngebote();
+    
+    if (angebote.length === 0) {
+        const filter = document.getElementById('angebote-filter')?.value || 'today';
+        let filterText = '';
+        if (filter === 'today') filterText = 'heute';
+        else if (filter === 'tomorrow') filterText = 'morgen';
+        else filterText = 'im gewählten Zeitraum';
+        
+        listContainer.innerHTML = `
+            <div style="text-align:center;padding:60px 20px;color:#94a3b8;">
+                <div style="font-size:64px;margin-bottom:20px;">🎯</div>
+                <div style="font-size:20px;font-weight:700;margin-bottom:12px;color:#64748b;">Keine Angebote verfügbar</div>
+                <div style="font-size:15px;line-height:1.6;">
+                    Aktuell gibt es keine günstigen Rückfahrten ${filterText}.<br>
+                    Sobald Leerfahrten verfügbar sind, werden sie hier angezeigt.
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Baue HTML
+    let html = '';
+    
+    for (const angebot of angebote) {
+        const now = Date.now();
+        const minutesUntil = Math.round((angebot.availableTimestamp - now) / 60000);
+        
+        // Zeitanzeige
+        let timeDisplay, timeColor;
+        if (minutesUntil < 0) {
+            // Bereits verfügbar!
+            timeDisplay = 'JETZT verfügbar!';
+            timeColor = '#059669';
+        } else if (minutesUntil < 60) {
+            timeDisplay = `in ${minutesUntil} Min`;
+            timeColor = '#f59e0b';
+        } else if (minutesUntil < 1440) {
+            const hours = Math.floor(minutesUntil / 60);
+            const mins = minutesUntil % 60;
+            timeDisplay = `in ${hours}h ${mins}min`;
+            timeColor = '#6b7280';
+        } else {
+            timeDisplay = angebot.availableAt.toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            timeColor = '#6b7280';
+        }
+        
+        const timeStr = angebot.availableAt.toLocaleTimeString('de-DE', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        // Kurze Adresse (erstes Komma)
+        const fromShort = angebot.from.split(',')[0];
+        const toShort = angebot.to.split(',')[0];
+        
+        html += `
+            <div style="background:white;border-radius:16px;padding:24px;margin-bottom:20px;border:2px solid #e5e7eb;box-shadow:0 4px 12px rgba(0,0,0,0.08);transition:all 0.2s;" 
+                 onmouseover="this.style.borderColor='#8b5cf6';this.style.boxShadow='0 8px 20px rgba(139,92,246,0.15)';"
+                 onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';">
+                
+                <!-- Zeit -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+                    <div style="font-size:26px;font-weight:800;color:#1f2937;">
+                        ⏰ ${timeStr} Uhr
+                    </div>
+                    <div style="background:${timeColor === '#059669' ? '#ecfdf5' : '#fef3c7'};color:${timeColor === '#059669' ? '#059669' : '#92400e'};padding:8px 16px;border-radius:24px;font-size:13px;font-weight:700;border:2px solid ${timeColor === '#059669' ? '#a7f3d0' : '#fde68a'};">
+                        ${timeDisplay}
+                    </div>
+                </div>
+                
+                <!-- Route -->
+                <div style="margin-bottom:20px;">
+                    <div style="font-size:13px;color:#6b7280;margin-bottom:8px;font-weight:600;">
+                        🔄 RÜCKFAHRT
+                    </div>
+                    <div style="background:#f9fafb;border-radius:12px;padding:16px;border:2px solid #e5e7eb;">
+                        <div style="font-size:17px;font-weight:700;color:#1f2937;margin-bottom:4px;">
+                            📍 ${fromShort}
+                        </div>
+                        <div style="font-size:24px;color:#8b5cf6;text-align:center;margin:12px 0;font-weight:800;">
+                            ↓
+                        </div>
+                        <div style="font-size:17px;font-weight:700;color:#1f2937;">
+                            📍 ${toShort}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Details -->
+                <div style="display:flex;gap:20px;margin-bottom:20px;font-size:14px;color:#6b7280;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:16px;">📏</span>
+                        <span style="font-weight:600;">${angebot.distance.toFixed(1)} km</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:16px;">⏱️</span>
+                        <span style="font-weight:600;">${angebot.duration} Min</span>
+                    </div>
+                </div>
+                
+                <!-- Preis -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;padding:20px;border:2px solid #bbf7d0;">
+                    <div>
+                        <div style="font-size:13px;color:#6b7280;margin-bottom:6px;font-weight:600;">Normalpreis</div>
+                        <div style="font-size:22px;color:#94a3b8;text-decoration:line-through;font-weight:700;">
+                            ${angebot.normalPrice}€
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:14px;color:#059669;font-weight:800;margin-bottom:6px;">-50% RABATT</div>
+                        <div style="font-size:40px;color:#059669;font-weight:900;line-height:1;">
+                            ${angebot.discountPrice}€
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hinweis -->
+                <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;color:#1e40af;line-height:1.6;">
+                    <div style="font-weight:700;margin-bottom:6px;">💡 Warum so günstig?</div>
+                    <div>Das Taxi fährt nach der Fahrt von <strong>${angebot.parentCustomer}</strong> sowieso leer zurück nach "${fromShort}". Nutze die Leerfahrt und spare 50%!</div>
+                </div>
+                
+                <!-- Button -->
+                <button 
+                    onclick="bookAngebot('${angebot.id}')" 
+                    style="width:100%;background:linear-gradient(135deg,#059669 0%,#047857 100%);color:white;border:none;border-radius:12px;padding:18px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(5,150,105,0.3);transition:all 0.3s;"
+                    onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 24px rgba(5,150,105,0.4)';"
+                    onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 16px rgba(5,150,105,0.3)';"
+                >
+                    🎯 Jetzt für ${angebot.discountPrice}€ buchen!
+                </button>
+                
+            </div>
+        `;
+    }
+    
+    listContainer.innerHTML = html;
+}
+
+// 🎯 ANGEBOTE: Buchen
+async function bookAngebot(angebotId) {
+    console.log('🎯 Buche Angebot:', angebotId);
+    
+    try {
+        // Hole Angebot-Details
+        const angebote = await generateAngebote();
+        const angebot = angebote.find(a => a.id === angebotId);
+        
+        if (!angebot) {
+            alert('❌ Angebot nicht mehr verfügbar!\n\nBitte aktualisiere die Seite.');
+            return;
+        }
+        
+        // Wechsle zu Passenger View
+        switchView('passenger');
+        
+        // Kurze Verzögerung für View-Wechsel
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Fülle Formular aus
+        const customerNameField = document.getElementById('customer-name');
+        const customerPhoneField = document.getElementById('customer-phone');
+        const pickupField = document.getElementById('pickup');
+        const destinationField = document.getElementById('destination');
+        const dateField = document.getElementById('custom-date');
+        const timeField = document.getElementById('custom-time');
+        
+        if (customerNameField) customerNameField.value = '';
+        if (customerPhoneField) customerPhoneField.value = '';
+        if (pickupField) pickupField.value = angebot.from;
+        if (destinationField) destinationField.value = angebot.to;
+        
+        // Koordinaten global setzen
+        window.pickupCoords = angebot.fromCoords;
+        window.destCoords = angebot.toCoords;
+        
+        // Zeit setzen
+        const date = new Date(angebot.availableTimestamp);
+        const dateStr = date.toISOString().split('T')[0];
+        const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        
+        if (dateField) dateField.value = dateStr;
+        if (timeField) timeField.value = timeStr;
+        
+        // Vorbestellung aktivieren
+        const vorbestellenBtn = document.getElementById('btn-vorbestellen');
+        if (vorbestellenBtn) {
+            vorbestellenBtn.click();
+        }
+        
+        // Preis setzen (mit Rabatt-Flag)
+        window.discountActive = true;
+        window.discountPrice = angebot.discountPrice;
+        window.discountReason = 'Nutzt Leerfahrt (Angebote-Tab)';
+        
+        // Trigger Preis-Berechnung
+        if (typeof calculateAndDisplayPrice === 'function') {
+            await calculateAndDisplayPrice();
+        }
+        
+        // Scroll zum Formular
+        const bookingForm = document.getElementById('booking-form');
+        if (bookingForm) {
+            bookingForm.scrollIntoView({ 
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+        
+        // Benachrichtigung
+        alert(
+            `🎯 Angebot ausgewählt!\n\n` +
+            `✅ Route vorausgefüllt\n` +
+            `📅 Zeit: ${date.toLocaleString('de-DE')}\n` +
+            `💰 Rabattpreis: ${angebot.discountPrice}€ (statt ${angebot.normalPrice}€)\n\n` +
+            `Bitte Name & Telefon eingeben und buchen!`
+        );
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Buchen des Angebots:', error);
+        alert('❌ Fehler beim Öffnen des Buchungsformulars.\n\nBitte versuche es erneut.');
+    }
+}
+
+// 🎯 ANGEBOTE: Auto-Update alle 30 Sekunden
+let angeboteUpdateInterval = null;
+
+function startAngeboteAutoUpdate() {
+    if (angeboteUpdateInterval) {
+        clearInterval(angeboteUpdateInterval);
+    }
+    
+    console.log('🔄 Angebote Auto-Update gestartet (alle 30 Sek)');
+    
+    angeboteUpdateInterval = setInterval(() => {
+        const angeboteView = document.getElementById('angebote-view');
+        if (angeboteView && angeboteView.style.display !== 'none') {
+            console.log('🔄 Auto-Update Angebote...');
+            updateAngeboteDisplay();
+        }
+    }, 30000); // 30 Sekunden
+}
+
+function stopAngeboteAutoUpdate() {
+    if (angeboteUpdateInterval) {
+        clearInterval(angeboteUpdateInterval);
+        angeboteUpdateInterval = null;
+        console.log('⏹️ Angebote Auto-Update gestoppt');
+    }
+}
+</script>
 
 <script>
 // 🆕 v5.90.592: Diagnose-Button hinzufügen

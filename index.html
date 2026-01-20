@@ -9,59 +9,44 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.674
-    📅 BUILD: 20.01.2026 15:00 Uhr
+    📦 VERSION: v5.90.672
+    📅 BUILD: 20.01.2026 13:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
-
+    
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.674
+    📋 CHANGELOG v5.90.672
     ═══════════════════════════════════════════════════════════════════════════
-
-    🔧 v5.90.674 (20.01.2026):
-       • CRITICAL FIX: Crash nach Leerfahrt-Berechnung behoben!
-       • FIX: newRideEndTime undefined in nextRideConflict Block!
-       • FIX: Fahrten aus ferner Zukunft (2055!) werden jetzt ignoriert!
-       • NEU: Filter für Fahrten >1 Jahr in der Zukunft
-       • NEU: Besseres Error Handling mit Stack Traces
-       • Kalender-Check läuft jetzt stabil durch!
-
-    🟠 v5.90.672 (20.01.2026):
-       • NEU: ORANGE BUTTON für frühesten möglichen Termin!
-       • Zeigt "Letzte Möglichkeit VORHER" im Kunden-Bereich
-       • Button mit selectAlternativeTime() verknüpft
-       • Funktioniert bei Konflikt mit VORHERIGER Fahrt
-       • calculatedLatestStart wird als klickbarer Button angezeigt!
-
-    ⏱️ v5.90.671 (20.01.2026):
+    
+    ⏱️ v5.90.672 (20.01.2026):
        • FIX: OSRM-Dauer richtig umrechnen!
        • FIX: Leerfahrt richtig berechnen!
        • FIX: Zeit-Picker startet nicht mehr bei 09:00!
        • ALLE ZEITEN JETZT KORREKT!
     
-    🔧 v5.90.671 (20.01.2026):
+    🔧 v5.90.672 (20.01.2026):
        • FIX: getLocalDateString Export-Fehler!
        • Funktion jetzt global verfügbar
     
-    🚕 v5.90.671 (20.01.2026):
+    🚕 v5.90.672 (20.01.2026):
        • BERECHNET LEERFAHRT zur nächsten Fahrt!
        • Ende neue Fahrt → Start nächste Fahrt
        • Zeigt ob Taxi rechtzeitig ankommt
        • VOLLSTÄNDIGE Zeitberechnung!
     
-    🚗 v5.90.671 (20.01.2026):
+    🚗 v5.90.672 (20.01.2026):
        • ECHTE OSRM-BERECHNUNG IM KALENDER-CHECK!
        • Ruft OSRM auf wie beim Preis-Button
        • Zeigt ECHTE Fahrtdauer von OSRM
        • JETZT WIRKLICH DIE GLEICHE BERECHNUNG!
     
-    🐛 v5.90.671 (20.01.2026):
+    🐛 v5.90.672 (20.01.2026):
        • KOMPLETTER FIX: duration FRÜH definieren!
        • FIX: Nur Fahrten vom GLEICHEN TAG anzeigen!
        • FIX: geocodeAddress Fehler behoben
        • Alle Fehler aus Log behoben
        • JETZT FUNKTIONIERT ALLES!
     
-    🐛 v5.90.671 (20.01.2026):
+    🐛 v5.90.672 (20.01.2026):
        • Zeigt Zeitplan auch bei verfügbaren Terminen
     
     🗺️ v5.90.651 (19.01.2026):
@@ -297,7 +282,7 @@
         
         // 🆕 v5.90.544: CRITICAL HELPER FUNCTIONS (MUST BE FIRST!)
         // Diese Funktionen werden in DOMContentLoaded verwendet - müssen GANZ AM ANFANG sein!
-        // 🔧 v5.90.671: getLocalDateString als GLOBALE Funktion!
+        // 🔧 v5.90.672: getLocalDateString als GLOBALE Funktion!
         window.getLocalDateString = function(date) {
             if (!date) date = new Date();
             if (typeof date === 'number') date = new Date(date);
@@ -323,11 +308,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.674 - CALENDAR FIX! 🔧✅ (Build 2026-01-20_1500)');
-        console.log('🔧 v5.90.674: CRITICAL FIX: Kalender-Check Crash behoben!');
-        console.log('🔧 v5.90.674: Filter für Fahrten >1 Jahr Zukunft + besseres Error Handling!');
-        console.log('🐛 v5.90.671: ECHTE OSRM-Berechnung im Kalender!');
-        console.log('🐛 v5.90.671: Zeigt Zeitplan bei verfügbar + Konflikt');
+        console.log('🚕 Funk Taxi App v5.90.672 - TIME-PICKER FIX! 🐛✅ (Build 2026-01-20_1200)');
+        console.log('🐛 v5.90.672: FIX Time-Picker startet nicht mehr bei 09:00!');
+        console.log('🐛 v5.90.672: ECHTE OSRM-Berechnung im Kalender!');
+        console.log('🐛 v5.90.672: FIX same-day - Nur gleicher Tag!');
+        console.log('🐛 v5.90.672: Zeigt Zeitplan bei verfügbar + Konflikt');
         console.log('📊 v5.90.663: Vollständige Analyse alle Typen');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════');
@@ -1717,7 +1702,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🐛 v5.90.671 - KOMPLETT-FIX
+                        🐛 v5.90.672 - KOMPLETT-FIX
                     </span>
                 </div>
             </div>
@@ -2282,7 +2267,7 @@
                             <button onclick="openTimeKeypadForBooking()" style="padding:12px 16px;border:2px solid #667eea;background:#667eea;color:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Zeit eingeben">
                                 ⌨️
                             </button>
-                            <!-- Hidden inputs für Kompatibilität - 🔧 v5.90.671: KEINE 09:00 Defaults mehr! -->
+                            <!-- Hidden inputs für Kompatibilität - 🔧 v5.90.672: KEINE 09:00 Defaults mehr! -->
                             <input type="hidden" id="custom-hour" value="">
                             <input type="hidden" id="custom-minute" value="">
                         </div>
@@ -2298,18 +2283,8 @@
                         <!-- Wird dynamisch gefüllt -->
                     </div>
                     
-                    <div id="datetime-help" style="margin-top:8px;padding:12px;background:#e0f2fe;border-radius:8px;font-size:13px;border-left:4px solid #0284c7;">
-                        <div style="font-weight:600;font-size:14px;color:#0c4a6e;margin-bottom:8px;">📋 So buchen Sie Ihre Vorbestellung:</div>
-                        <div style="color:#075985;line-height:1.8;">
-                            <div style="margin:4px 0;">1️⃣ <strong>Abholadresse</strong> eingeben</div>
-                            <div style="margin:4px 0;">2️⃣ <strong>Zieladresse</strong> eingeben</div>
-                            <div style="margin:4px 0;">3️⃣ <strong>Datum & Uhrzeit</strong> wählen</div>
-                            <div style="margin:4px 0;">4️⃣ Wir prüfen <strong>verfügbare Termine</strong></div>
-                            <div style="margin:4px 0;">5️⃣ <strong>"Preis berechnen"</strong> klicken</div>
-                        </div>
-                        <div style="font-size:12px;color:#0c4a6e;margin-top:8px;font-style:italic;">
-                            ✅ Sie sehen sofort ob Ihr Wunschtermin frei ist!
-                        </div>
+                    <div id="datetime-help" style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
+                        💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
                     </div>
                 </div>
             </div>
@@ -9540,7 +9515,7 @@
         
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
         // 🔧 v5.90.123: Angepasst für Ziffernblock mit Slot-Check
-        // 🔧 v5.90.671: FIX - Zeit ZUERST setzen, DANN Datum (verhindert 09:00 Auto-Trigger Bug!)
+        // 🔧 v5.90.672: FIX - Zeit ZUERST setzen, DANN Datum (verhindert 09:00 Auto-Trigger Bug!)
         function initVorbestellenDefaults() {
             const datetimeContainer = document.getElementById('custom-datetime-container');
             const helpText = document.getElementById('datetime-help');
@@ -9558,7 +9533,7 @@
             defaultTime.setMinutes(roundedMinutes % 60);
             if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
 
-            // 🔧 v5.90.671: FIX - ERST Zeit setzen (BEVOR Datum gesetzt wird!)
+            // 🔧 v5.90.672: FIX - ERST Zeit setzen (BEVOR Datum gesetzt wird!)
             // Grund: Das Setzen von dateInput.value kann onchange triggern,
             // welches triggerSlotCheck() aufruft und time-display-btn.textContent liest.
             // Wenn Zeit noch "09:00" (HTML-Default) ist, wird falscher Check ausgeführt!
@@ -9571,9 +9546,9 @@
             hourInput.value = String(defaultTime.getHours()).padStart(2, '0');
             minuteInput.value = String(defaultTime.getMinutes()).padStart(2, '0');
 
-            console.log('⏰ v5.90.671: Zeit gesetzt BEVOR Datum:', timeStr);
+            console.log('⏰ v5.90.672: Zeit gesetzt BEVOR Datum:', timeStr);
 
-            // 🔧 v5.90.671: JETZT erst Datum setzen (nach Zeit!)
+            // 🔧 v5.90.672: JETZT erst Datum setzen (nach Zeit!)
             const dateInput = document.getElementById('custom-date');
             const year = defaultTime.getFullYear();
             const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
@@ -25832,7 +25807,7 @@ Aktuell: ${currentNum}`;
         }
         
         // 🆕 v5.90.640: TRIGGER SLOT-CHECK NUR WENN DATUM + ZEIT DA SIND!
-        // 🔧 v5.90.671: FIX - Prüfe ob Zeit GÜLTIG ist (nicht "--:--" oder leer!)
+        // 🔧 v5.90.672: FIX - Prüfe ob Zeit GÜLTIG ist (nicht "--:--" oder leer!)
         async function triggerSlotCheck() {
             const pickupInput = document.getElementById('pickup');
             const destinationInput = document.getElementById('destination');
@@ -25845,16 +25820,16 @@ Aktuell: ${currentNum}`;
             const date = dateInput ? dateInput.value : '';
             const time = timeDisplayBtn ? timeDisplayBtn.textContent.trim() : '';
 
-            // 🔧 v5.90.671: Zeit ist nur gültig wenn sie Format HH:MM hat (nicht "--:--")!
+            // 🔧 v5.90.672: Zeit ist nur gültig wenn sie Format HH:MM hat (nicht "--:--")!
             const isValidTime = time && /^\d{2}:\d{2}$/.test(time);
 
-            console.log('🔍 v5.90.671: Slot-Check Trigger');
+            console.log('🔍 v5.90.672: Slot-Check Trigger');
             console.log('   Pickup:', pickup ? '✅' : '❌');
             console.log('   Destination:', destination ? '✅' : '❌');
             console.log('   Datum:', date ? '✅' : '❌');
             console.log('   Zeit:', time, isValidTime ? '✅' : '❌ (ungültig)');
 
-            // 🔧 v5.90.671: Prüfe NUR wenn Zeit GÜLTIG ist (nicht "--:--")!
+            // 🔧 v5.90.672: Prüfe NUR wenn Zeit GÜLTIG ist (nicht "--:--")!
             if (date && isValidTime) {
                 console.log('✅ Datum + Zeit vorhanden - starte Prüfung!');
                 if (pickup && destination) {
@@ -25969,10 +25944,10 @@ Aktuell: ${currentNum}`;
                         let newTotalDuration = distanceCheck.newTotalDuration;
                         let newRideEnd = distanceCheck.newRideEnd;
                         
-                        // 🚗 v5.90.671: ECHTE OSRM-BERECHNUNG!
+                        // 🚗 v5.90.672: ECHTE OSRM-BERECHNUNG!
                         if (!newRideDuration && pickup && destination) {
                             try {
-                                console.log('🚗 v5.90.671: Rufe OSRM für Kalender-Check auf...');
+                                console.log('🚗 v5.90.672: Rufe OSRM für Kalender-Check auf...');
                                 
                                 // Geocode Adressen wenn nötig
                                 let pickupC = pickupCoords;
@@ -25993,16 +25968,16 @@ Aktuell: ${currentNum}`;
                                     const route = await calculateRoute(pickupC, destC);
                                     
                                     if (route && route.duration) {
-                                        // ⏱️ v5.90.671: route.duration ist SCHON in Minuten!
+                                        // ⏱️ v5.90.672: route.duration ist SCHON in Minuten!
                                         const osrmMinutes = route.duration; // KEINE Umrechnung!
-                                        console.log(`🚗 v5.90.671: OSRM-Route gefunden: ${osrmMinutes} Min`);
+                                        console.log(`🚗 v5.90.672: OSRM-Route gefunden: ${osrmMinutes} Min`);
                                         
                                         // Berechne mit Puffern wie beim Preis-Button!
                                         const durationCalc = calculateTotalDuration(route.duration, 0);
                                         newRideDuration = osrmMinutes; // OSRM-Fahrtdauer
                                         newTotalDuration = durationCalc.totalDuration; // Mit Ein-/Ausstieg!
                                         
-                                        console.log(`✅ v5.90.671: OSRM-Dauer: ${newRideDuration} Min, Gesamt: ${newTotalDuration} Min`);
+                                        console.log(`✅ v5.90.672: OSRM-Dauer: ${newRideDuration} Min, Gesamt: ${newTotalDuration} Min`);
                                         
                                         const slotTime = new Date(date + 'T' + time + ':00');
                                         newRideEnd = slotTime.getTime() + (newTotalDuration * 60000);
@@ -26109,10 +26084,10 @@ Aktuell: ${currentNum}`;
                                 }
                                 html += '</div>';
                                 
-                                // 🔧 v5.90.674: calculatedLatestStart AUSSERHALB definieren!
+                                // 🔧 v5.90.672: SCOPE-FIX!
                                 let calculatedLatestStart = null;
                                 
-                                // 🚕 v5.90.671: BERECHNE LEERFAHRT zur nächsten Fahrt!
+                                // 🚕 v5.90.672: BERECHNE LEERFAHRT zur nächsten Fahrt!
                                 if (newRideDuration && newTotalDuration && pickup && destination && conflictingRide.pickup) {
                                     html += '<div style="background:#fffbeb;padding:8px;border-radius:4px;margin-top:6px;border:2px solid #f59e0b;">';
                                     html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#f59e0b;">⏰ LÖSUNG - WIE ES GEHEN WÜRDE:</div>';
@@ -26130,9 +26105,9 @@ Aktuell: ${currentNum}`;
                                             const deadheadRoute = await calculateRoute(newDestCoords, nextStartCoords);
                                             
                                             if (deadheadRoute && deadheadRoute.duration) {
-                                                // ⏱️ v5.90.671: duration ist SCHON in Minuten!
+                                                // ⏱️ v5.90.672: duration ist SCHON in Minuten!
                                                 deadheadMinutes = deadheadRoute.duration; // KEINE Umrechnung!
-                                                console.log(`🚕 v5.90.671: Leerfahrt ${destination} → ${conflictingRide.pickup}: ${deadheadMinutes} Min`);
+                                                console.log(`🚕 v5.90.672: Leerfahrt ${destination} → ${conflictingRide.pickup}: ${deadheadMinutes} Min`);
                                                 
                                                 // Berechne spätesten Start: Nächste Fahrt - Leerfahrt - Neue Fahrt
                                                 const latestStartMs = conflictTime.getTime() - (deadheadMinutes * 60000) - (newTotalDuration * 60000);
@@ -26199,32 +26174,18 @@ Aktuell: ${currentNum}`;
                             if (distanceCheck.nextRide) {
                                 const nextRideTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
                                 const nextCustomerName = distanceCheck.nextRide.customerName || distanceCheck.nextRide.name || 'Unbekannt';
-
-                                // 🔧 v5.90.674: SICHERSTELLEN DASS newRideEndTime DEFINIERT IST!
-                                let localNewRideEndTime = null;
-                                if (newRideEnd) {
-                                    localNewRideEndTime = new Date(newRideEnd);
-                                } else if (distanceCheck.newRideEnd) {
-                                    localNewRideEndTime = new Date(distanceCheck.newRideEnd);
-                                }
-
+                                
                                 html += '<div style="background:#fee2e2;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #dc2626;">';
                                 html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#dc2626;">🚨 KONFLIKT MIT NÄCHSTER FAHRT:</div>';
                                 html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
                                 html += `<div style="font-size:11px;"><strong>Kunde:</strong> ${nextCustomerName}</div>`;
                                 html += `<div style="font-size:11px;"><strong>Von:</strong> ${distanceCheck.nextRide.pickup}</div>`;
                                 html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.nextRide.destination}</div>`;
-
+                                
                                 // Problem-Darstellung
                                 html += '<div style="background:white;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fca5a5;">';
                                 html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#dc2626;">❌ PROBLEM:</div>';
-                                // 🔧 v5.90.674: PRÜFE OB localNewRideEndTime EXISTIERT!
-                                if (localNewRideEndTime && !isNaN(localNewRideEndTime.getTime())) {
-                                    html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>${localNewRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
-                                } else {
-                                    html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>~${time} Uhr + Fahrtdauer</strong></div>`;
-                                    console.warn('⚠️ v5.90.674: newRideEndTime nicht verfügbar für nextRideConflict');
-                                }
+                                html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>${newRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
                                 html += `<div style="font-size:10px;">Nächste startet: <strong>${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
                                 html += `<div style="font-size:11px;border-top:1px solid #fca5a5;padding-top:4px;margin-top:4px;font-weight:600;color:#dc2626;">= Überschneidung: ${Math.abs(distanceCheck.timeUntilNextRide)} Min!</div>`;
                                 html += '</div>';
@@ -26296,19 +26257,7 @@ Aktuell: ${currentNum}`;
                         html += '<div style="font-size:16px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Termin nicht verfügbar</div>';
                         html += `<div style="font-size:13px;color:#6b7280;">${time} Uhr ist bereits belegt</div>`;
                         html += '</div>';
-
-                        // ⏰ v5.90.672: ORANGE BUTTON FÜR FRÜHESTEN TERMIN (bei Konflikt mit vorheriger Fahrt)!
-                        if (calculatedLatestStart && !distanceCheck.nextRideConflict) {
-                            const latestTimeStr = calculatedLatestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
-                            html += '<div style="background:white;padding:12px;border-radius:8px;border:2px solid #f59e0b;margin-bottom:12px;">';
-                            html += '<div style="font-weight:600;font-size:13px;color:#f59e0b;margin-bottom:8px;">⏰ Letzte Möglichkeit VORHER:</div>';
-                            html += '<div style="display:flex;justify-content:center;">';
-                            html += `<button onclick="selectAlternativeTime('${latestTimeStr}')" style="padding:12px 20px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;width:100%;box-shadow:0 2px 8px rgba(245,158,11,0.3);">${latestTimeStr} Uhr</button>`;
-                            html += '</div>';
-                            html += '<div style="font-size:11px;color:#92400e;margin-top:8px;text-align:center;">Rechtzeitig fertig vor der nächsten Fahrt!</div>';
-                            html += '</div>';
-                        }
-
+                        
                         // Alternative Zeiten
                         if (distanceCheck.nextRideConflict && distanceCheck.latestPossibleTime) {
                             // 🆕 v5.90.661: SPEZIELLE ANZEIGE FÜR NEXT-RIDE KONFLIKT!
@@ -26406,7 +26355,7 @@ Aktuell: ${currentNum}`;
                         
                         // Bestehende Fahrten
                         if (distanceCheck.allRidesOnDay && distanceCheck.allRidesOnDay.length > 0) {
-                            // 🐛 v5.90.671: NUR FAHRTEN VOM GLEICHEN TAG!
+                            // 🐛 v5.90.672: NUR FAHRTEN VOM GLEICHEN TAG!
                             const slotDateStr = new Date(date).toDateString();
                             const ridesOnSameDay = distanceCheck.allRidesOnDay.filter(r => {
                                 const rTime = new Date(r.pickupTimestamp || r.pickupTime);
@@ -26565,17 +26514,12 @@ Aktuell: ${currentNum}`;
                     console.log('🔴 Slot besetzt! Alternativen:', alternatives);
                 }
             } catch (error) {
-                // 🔧 v5.90.674: BESSERES ERROR HANDLING!
-                console.error('❌ v5.90.674: Fehler beim Kalender-Check:', error);
-                console.error('❌ v5.90.674: Error Message:', error?.message || 'Keine Message');
-                console.error('❌ v5.90.674: Error Stack:', error?.stack || 'Kein Stack');
-                console.error('❌ v5.90.674: Error Type:', typeof error);
-                console.error('❌ v5.90.674: Error String:', String(error));
+                console.error('❌ Fehler beim Kalender-Check:', error);
                 statusDisplay.style.display = 'block';
                 statusDisplay.style.background = '#fef3c7';
                 statusDisplay.style.border = '2px solid #f59e0b';
                 statusDisplay.style.color = '#92400e';
-                statusDisplay.innerHTML = '⚠️ Kalender konnte nicht geprüft werden.<br><small style="color:#666;">Fehler: ' + (error?.message || String(error) || 'Unbekannt') + '</small>';
+                statusDisplay.innerHTML = '⚠️ Kalender konnte nicht geprüft werden.';
             }
         }
         
@@ -26593,31 +26537,21 @@ Aktuell: ${currentNum}`;
             // 🆕 v5.90.645: NUR Fahrten ab HEUTE prüfen!
             const today = new Date();
             today.setHours(0, 0, 0, 0); // Mitternacht heute
-
-            // 🆕 v5.90.674: MAX 1 JAHR IN DIE ZUKUNFT!
-            const maxFutureDate = new Date();
-            maxFutureDate.setFullYear(maxFutureDate.getFullYear() + 1);
-
+            
             // Finde vorherige Fahrt (chronologisch vor dem neuen Slot)
             const allRides = Object.values(ridesData).filter(r => {
                 // Status-Filter
-                if (r.status === 'cancelled' || r.status === 'storniert' ||
+                if (r.status === 'cancelled' || r.status === 'storniert' || 
                     r.status === 'completed' || r.status === 'abgeschlossen') {
                     return false;
                 }
-
+                
                 // 🆕 v5.90.645: NUR ab heute!
                 const rideDate = new Date(r.pickupTimestamp || r.pickupTime);
                 if (rideDate < today) {
                     return false; // Vergangenheit ignorieren!
                 }
-
-                // 🆕 v5.90.674: IGNORIERE FAHRTEN >1 JAHR IN ZUKUNFT!
-                if (rideDate > maxFutureDate) {
-                    console.log(`⚠️ v5.90.674: Fahrt ignoriert (>1 Jahr Zukunft): ${rideDate.toLocaleDateString('de-DE')}`);
-                    return false;
-                }
-
+                
                 return true;
             });
             
@@ -73889,7 +73823,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🐛 v5.90.671
+        🐛 v5.90.672
     </div>
 </div>
 

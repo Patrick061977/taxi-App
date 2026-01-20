@@ -9,13 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.672
-    📅 BUILD: 20.01.2026 14:00 Uhr
+    📦 VERSION: v5.90.673
+    📅 BUILD: 20.01.2026 15:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.672
+    📋 CHANGELOG v5.90.673
     ═══════════════════════════════════════════════════════════════════════════
+
+    🔧 v5.90.673 (20.01.2026):
+       • CRITICAL FIX: Crash nach Leerfahrt-Berechnung behoben!
+       • FIX: newRideEndTime undefined in nextRideConflict Block!
+       • FIX: Fahrten aus ferner Zukunft (2055!) werden jetzt ignoriert!
+       • NEU: Filter für Fahrten >1 Jahr in der Zukunft
+       • NEU: Besseres Error Handling mit Stack Traces
+       • Kalender-Check läuft jetzt stabil durch!
 
     🟠 v5.90.672 (20.01.2026):
        • NEU: ORANGE BUTTON für frühesten möglichen Termin!
@@ -315,9 +323,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.672 - ORANGE BUTTON! 🟠✅ (Build 2026-01-20_1400)');
-        console.log('🟠 v5.90.672: NEU: Orange Button für frühesten möglichen Termin!');
-        console.log('🟠 v5.90.672: "Letzte Möglichkeit VORHER" als klickbarer Button!');
+        console.log('🚕 Funk Taxi App v5.90.673 - CALENDAR FIX! 🔧✅ (Build 2026-01-20_1500)');
+        console.log('🔧 v5.90.673: CRITICAL FIX: Kalender-Check Crash behoben!');
+        console.log('🔧 v5.90.673: Filter für Fahrten >1 Jahr Zukunft + besseres Error Handling!');
         console.log('🐛 v5.90.671: ECHTE OSRM-Berechnung im Kalender!');
         console.log('🐛 v5.90.671: Zeigt Zeitplan bei verfügbar + Konflikt');
         console.log('📊 v5.90.663: Vollständige Analyse alle Typen');
@@ -26179,18 +26187,32 @@ Aktuell: ${currentNum}`;
                             if (distanceCheck.nextRide) {
                                 const nextRideTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
                                 const nextCustomerName = distanceCheck.nextRide.customerName || distanceCheck.nextRide.name || 'Unbekannt';
-                                
+
+                                // 🔧 v5.90.673: SICHERSTELLEN DASS newRideEndTime DEFINIERT IST!
+                                let localNewRideEndTime = null;
+                                if (newRideEnd) {
+                                    localNewRideEndTime = new Date(newRideEnd);
+                                } else if (distanceCheck.newRideEnd) {
+                                    localNewRideEndTime = new Date(distanceCheck.newRideEnd);
+                                }
+
                                 html += '<div style="background:#fee2e2;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #dc2626;">';
                                 html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#dc2626;">🚨 KONFLIKT MIT NÄCHSTER FAHRT:</div>';
                                 html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
                                 html += `<div style="font-size:11px;"><strong>Kunde:</strong> ${nextCustomerName}</div>`;
                                 html += `<div style="font-size:11px;"><strong>Von:</strong> ${distanceCheck.nextRide.pickup}</div>`;
                                 html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.nextRide.destination}</div>`;
-                                
+
                                 // Problem-Darstellung
                                 html += '<div style="background:white;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fca5a5;">';
                                 html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#dc2626;">❌ PROBLEM:</div>';
-                                html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>${newRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                                // 🔧 v5.90.673: PRÜFE OB localNewRideEndTime EXISTIERT!
+                                if (localNewRideEndTime && !isNaN(localNewRideEndTime.getTime())) {
+                                    html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>${localNewRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
+                                } else {
+                                    html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>~${time} Uhr + Fahrtdauer</strong></div>`;
+                                    console.warn('⚠️ v5.90.673: newRideEndTime nicht verfügbar für nextRideConflict');
+                                }
                                 html += `<div style="font-size:10px;">Nächste startet: <strong>${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
                                 html += `<div style="font-size:11px;border-top:1px solid #fca5a5;padding-top:4px;margin-top:4px;font-weight:600;color:#dc2626;">= Überschneidung: ${Math.abs(distanceCheck.timeUntilNextRide)} Min!</div>`;
                                 html += '</div>';
@@ -26531,12 +26553,17 @@ Aktuell: ${currentNum}`;
                     console.log('🔴 Slot besetzt! Alternativen:', alternatives);
                 }
             } catch (error) {
-                console.error('❌ Fehler beim Kalender-Check:', error);
+                // 🔧 v5.90.673: BESSERES ERROR HANDLING!
+                console.error('❌ v5.90.673: Fehler beim Kalender-Check:', error);
+                console.error('❌ v5.90.673: Error Message:', error?.message || 'Keine Message');
+                console.error('❌ v5.90.673: Error Stack:', error?.stack || 'Kein Stack');
+                console.error('❌ v5.90.673: Error Type:', typeof error);
+                console.error('❌ v5.90.673: Error String:', String(error));
                 statusDisplay.style.display = 'block';
                 statusDisplay.style.background = '#fef3c7';
                 statusDisplay.style.border = '2px solid #f59e0b';
                 statusDisplay.style.color = '#92400e';
-                statusDisplay.innerHTML = '⚠️ Kalender konnte nicht geprüft werden.';
+                statusDisplay.innerHTML = '⚠️ Kalender konnte nicht geprüft werden.<br><small style="color:#666;">Fehler: ' + (error?.message || String(error) || 'Unbekannt') + '</small>';
             }
         }
         
@@ -26554,21 +26581,31 @@ Aktuell: ${currentNum}`;
             // 🆕 v5.90.645: NUR Fahrten ab HEUTE prüfen!
             const today = new Date();
             today.setHours(0, 0, 0, 0); // Mitternacht heute
-            
+
+            // 🆕 v5.90.673: MAX 1 JAHR IN DIE ZUKUNFT!
+            const maxFutureDate = new Date();
+            maxFutureDate.setFullYear(maxFutureDate.getFullYear() + 1);
+
             // Finde vorherige Fahrt (chronologisch vor dem neuen Slot)
             const allRides = Object.values(ridesData).filter(r => {
                 // Status-Filter
-                if (r.status === 'cancelled' || r.status === 'storniert' || 
+                if (r.status === 'cancelled' || r.status === 'storniert' ||
                     r.status === 'completed' || r.status === 'abgeschlossen') {
                     return false;
                 }
-                
+
                 // 🆕 v5.90.645: NUR ab heute!
                 const rideDate = new Date(r.pickupTimestamp || r.pickupTime);
                 if (rideDate < today) {
                     return false; // Vergangenheit ignorieren!
                 }
-                
+
+                // 🆕 v5.90.673: IGNORIERE FAHRTEN >1 JAHR IN ZUKUNFT!
+                if (rideDate > maxFutureDate) {
+                    console.log(`⚠️ v5.90.673: Fahrt ignoriert (>1 Jahr Zukunft): ${rideDate.toLocaleDateString('de-DE')}`);
+                    return false;
+                }
+
                 return true;
             });
             

@@ -10,7 +10,7 @@
     ═══════════════════════════════════════════════════════════════════════════
     
     📦 VERSION: v5.90.671
-    📅 BUILD: 20.01.2026 12:00 Uhr
+    📅 BUILD: 20.01.2026 13:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
@@ -2262,14 +2262,14 @@
                         <!-- Zeit mit Ziffernblock -->
                         <div style="display:flex;gap:8px;align-items:center;">
                             <button id="time-display-btn" onclick="openTimeKeypadForBooking()" style="flex:1;padding:15px 12px;border:2px solid #667eea;background:white;border-radius:8px;font-size:18px;font-weight:600;color:#667eea;cursor:pointer;text-align:center;font-family:'Courier New',monospace;">
-                                09:00
+                                --:--
                             </button>
                             <button onclick="openTimeKeypadForBooking()" style="padding:12px 16px;border:2px solid #667eea;background:#667eea;color:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Zeit eingeben">
                                 ⌨️
                             </button>
-                            <!-- Hidden inputs für Kompatibilität -->
-                            <input type="hidden" id="custom-hour" value="09">
-                            <input type="hidden" id="custom-minute" value="00">
+                            <!-- Hidden inputs für Kompatibilität - 🔧 v5.90.671: KEINE 09:00 Defaults mehr! -->
+                            <input type="hidden" id="custom-hour" value="">
+                            <input type="hidden" id="custom-minute" value="">
                         </div>
                         
                         <!-- Slot-Status Anzeige -->
@@ -25807,26 +25807,30 @@ Aktuell: ${currentNum}`;
         }
         
         // 🆕 v5.90.640: TRIGGER SLOT-CHECK NUR WENN DATUM + ZEIT DA SIND!
+        // 🔧 v5.90.671: FIX - Prüfe ob Zeit GÜLTIG ist (nicht "--:--" oder leer!)
         async function triggerSlotCheck() {
             const pickupInput = document.getElementById('pickup');
             const destinationInput = document.getElementById('destination');
             const dateInput = document.getElementById('custom-date');
             const timeDisplayBtn = document.getElementById('time-display-btn');
             const statusDisplay = document.getElementById('slot-status-display');
-            
+
             const pickup = pickupInput ? pickupInput.value.trim() : '';
             const destination = destinationInput ? destinationInput.value.trim() : '';
             const date = dateInput ? dateInput.value : '';
             const time = timeDisplayBtn ? timeDisplayBtn.textContent.trim() : '';
-            
-            console.log('🔍 v5.90.644: Slot-Check Trigger');
+
+            // 🔧 v5.90.671: Zeit ist nur gültig wenn sie Format HH:MM hat (nicht "--:--")!
+            const isValidTime = time && /^\d{2}:\d{2}$/.test(time);
+
+            console.log('🔍 v5.90.671: Slot-Check Trigger');
             console.log('   Pickup:', pickup ? '✅' : '❌');
             console.log('   Destination:', destination ? '✅' : '❌');
             console.log('   Datum:', date ? '✅' : '❌');
-            console.log('   Zeit:', time ? '✅' : '❌');
-            
-            // 🆕 v5.90.644: Prüfe NUR Datum + Zeit (Adressen optional!)
-            if (date && time) {
+            console.log('   Zeit:', time, isValidTime ? '✅' : '❌ (ungültig)');
+
+            // 🔧 v5.90.671: Prüfe NUR wenn Zeit GÜLTIG ist (nicht "--:--")!
+            if (date && isValidTime) {
                 console.log('✅ Datum + Zeit vorhanden - starte Prüfung!');
                 if (pickup && destination) {
                     console.log('✅ Pickup + Destination vorhanden - mit Distanz-Prüfung!');

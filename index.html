@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.686
+    📦 VERSION: v5.90.688
     📅 BUILD: 20.01.2026 19:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.686
+    📋 CHANGELOG v5.90.688
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.686 (20.01.2026):
+    🔧 v5.90.688 (20.01.2026):
        • TIMEOUT FIX: Erhöht auf 500ms + Retry nach 1s
        • updateAngeboteDisplay() lädt jetzt SICHER
        • Fallback-Mechanismus implementiert
@@ -339,9 +339,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.686 - TIMEOUT-FIX! ⏰✅ (Build 2026-01-20_1900)');
-        console.log('⏰ v5.90.686: TIMEOUT erhöht 500ms + Retry 1s!');
-        console.log('⏰ v5.90.686: updateAngeboteDisplay() lädt jetzt sicher!');
+        console.log('🚕 Funk Taxi App v5.90.688 - SYNTAX-FIX! ⏰✅ (Build 2026-01-20_1900)');
+        console.log('⏰ v5.90.688: TIMEOUT erhöht 500ms + Retry 1s!');
+        console.log('⏰ v5.90.688: updateAngeboteDisplay() lädt jetzt sicher!');
         console.log('🔧 v5.90.685: Event-Listener statt inline onchange');
         console.log('🗺️ v5.90.684: Mitfahr-Karte');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1302,7 +1302,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏰ Version 5.90.686 - TIMEOUT-FIX! ✅ (Build 20260120-1900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">⏰ Version 5.90.686 - SYNTAX-FIX! ✅ (Build 20260120-2000)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1758,7 +1758,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ⏰ v5.90.686 - TIMEOUT-FIX
+                        ⏰ v5.90.688 - SYNTAX-FIX
                     </span>
                 </div>
             </div>
@@ -74373,7 +74373,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ⏰ v5.90.686
+        ⏰ v5.90.688
     </div>
 </div>
 
@@ -75063,121 +75063,6 @@ function renderHinfahrtAngebot(hinfahrt, rideshares) {
     
     return html;
 }
-                        <div style="font-size:24px;color:#8b5cf6;text-align:center;margin:12px 0;font-weight:800;">
-                            ↓
-                        </div>
-                        <div style="font-size:17px;font-weight:700;color:#1f2937;">
-                            📍 ${toShort}
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Details -->
-                <div style="display:flex;gap:20px;margin-bottom:20px;font-size:14px;color:#6b7280;flex-wrap:wrap;">
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-size:16px;">📏</span>
-                        <span style="font-weight:600;">${parseFloat(angebot.distance || 0).toFixed(1)} km</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-size:16px;">⏱️</span>
-                        <span style="font-weight:600;">${angebot.duration || 0} Min</span>
-                    </div>
-                </div>
-                
-                <!-- Preis -->
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;padding:20px;border:2px solid #bbf7d0;">
-                    <div>
-                        <div style="font-size:13px;color:#6b7280;margin-bottom:6px;font-weight:600;">Normalpreis</div>
-                        <div style="font-size:22px;color:#94a3b8;text-decoration:line-through;font-weight:700;">
-                            ${angebot.normalPrice}€
-                        </div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:14px;color:#059669;font-weight:800;margin-bottom:6px;">-50% RABATT</div>
-                        <div style="font-size:40px;color:#059669;font-weight:900;line-height:1;">
-                            ${angebot.discountPrice}€
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Hinweis -->
-                <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;color:#1e40af;line-height:1.6;">
-                    <div style="font-weight:700;margin-bottom:6px;">💡 Warum so günstig?</div>
-                    <div>Das Taxi muss zur Buchung von <strong>${angebot.parentCustomer}</strong> nach "${toShort}" fahren (Abholung ${angebot.targetBookingTime ? angebot.targetBookingTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) + ' Uhr' : ''}). Nutze die Leerfahrt von "${fromShort}" und spare 50%!</div>
-                </div>
-                
-                <!-- Button -->
-                <button 
-                    onclick="bookAngebot('${angebot.id}')" 
-                    style="width:100%;background:linear-gradient(135deg,#059669 0%,#047857 100%);color:white;border:none;border-radius:12px;padding:18px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(5,150,105,0.3);transition:all 0.3s;"
-                    onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 24px rgba(5,150,105,0.4)';"
-                    onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 16px rgba(5,150,105,0.3)';"
-                >
-                    🎯 Jetzt für ${angebot.discountPrice}€ buchen!
-                </button>
-                
-            </div>
-        `;
-    }
-    
-    listContainer.innerHTML = html;
-}
-
-// 🎯 ANGEBOTE: Buchen
-async function bookAngebot(angebotId) {
-    console.log('🎯 Buche Angebot:', angebotId);
-    
-    try {
-        // Hole Angebot-Details
-        const angebote = await generateAngebote();
-        const angebot = angebote.find(a => a.id === angebotId);
-        
-        if (!angebot) {
-            alert('❌ Angebot nicht mehr verfügbar!\n\nBitte aktualisiere die Seite.');
-            return;
-        }
-        
-        // Wechsle zu Passenger View
-        switchView('passenger');
-        
-        // Kurze Verzögerung für View-Wechsel
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // Fülle Formular aus
-        const customerNameField = document.getElementById('customer-name');
-        const customerPhoneField = document.getElementById('customer-phone');
-        const pickupField = document.getElementById('pickup');
-        const destinationField = document.getElementById('destination');
-        const dateField = document.getElementById('custom-date');
-        const timeField = document.getElementById('custom-time');
-        
-        if (customerNameField) customerNameField.value = '';
-        if (customerPhoneField) customerPhoneField.value = '';
-        if (pickupField) pickupField.value = angebot.from;
-        if (destinationField) destinationField.value = angebot.to;
-        
-        // Koordinaten global setzen
-        window.pickupCoords = angebot.fromCoords;
-        window.destCoords = angebot.toCoords;
-        
-        // Zeit setzen
-        const date = new Date(angebot.availableTimestamp);
-        const dateStr = date.toISOString().split('T')[0];
-        const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-        
-        if (dateField) dateField.value = dateStr;
-        if (timeField) timeField.value = timeStr;
-        
-        // Vorbestellung aktivieren
-        const vorbestellenBtn = document.getElementById('btn-vorbestellen');
-        if (vorbestellenBtn) {
-            vorbestellenBtn.click();
-        }
-        
-        // Preis setzen (mit Rabatt-Flag)
-        window.discountActive = true;
-        window.discountPrice = angebot.discountPrice;
-        window.discountReason = 'Nutzt Leerfahrt (Angebote-Tab)';
         
         // Trigger Preis-Berechnung
         if (typeof calculateAndDisplayPrice === 'function') {

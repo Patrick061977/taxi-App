@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.673
+    📦 VERSION: v5.90.674
     📅 BUILD: 20.01.2026 15:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.673
+    📋 CHANGELOG v5.90.674
     ═══════════════════════════════════════════════════════════════════════════
 
-    🔧 v5.90.673 (20.01.2026):
+    🔧 v5.90.674 (20.01.2026):
        • CRITICAL FIX: Crash nach Leerfahrt-Berechnung behoben!
        • FIX: newRideEndTime undefined in nextRideConflict Block!
        • FIX: Fahrten aus ferner Zukunft (2055!) werden jetzt ignoriert!
@@ -323,9 +323,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.673 - CALENDAR FIX! 🔧✅ (Build 2026-01-20_1500)');
-        console.log('🔧 v5.90.673: CRITICAL FIX: Kalender-Check Crash behoben!');
-        console.log('🔧 v5.90.673: Filter für Fahrten >1 Jahr Zukunft + besseres Error Handling!');
+        console.log('🚕 Funk Taxi App v5.90.674 - CALENDAR FIX! 🔧✅ (Build 2026-01-20_1500)');
+        console.log('🔧 v5.90.674: CRITICAL FIX: Kalender-Check Crash behoben!');
+        console.log('🔧 v5.90.674: Filter für Fahrten >1 Jahr Zukunft + besseres Error Handling!');
         console.log('🐛 v5.90.671: ECHTE OSRM-Berechnung im Kalender!');
         console.log('🐛 v5.90.671: Zeigt Zeitplan bei verfügbar + Konflikt');
         console.log('📊 v5.90.663: Vollständige Analyse alle Typen');
@@ -2298,8 +2298,18 @@
                         <!-- Wird dynamisch gefüllt -->
                     </div>
                     
-                    <div id="datetime-help" style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
-                        💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
+                    <div id="datetime-help" style="margin-top:8px;padding:12px;background:#e0f2fe;border-radius:8px;font-size:13px;border-left:4px solid #0284c7;">
+                        <div style="font-weight:600;font-size:14px;color:#0c4a6e;margin-bottom:8px;">📋 So buchen Sie Ihre Vorbestellung:</div>
+                        <div style="color:#075985;line-height:1.8;">
+                            <div style="margin:4px 0;">1️⃣ <strong>Abholadresse</strong> eingeben</div>
+                            <div style="margin:4px 0;">2️⃣ <strong>Zieladresse</strong> eingeben</div>
+                            <div style="margin:4px 0;">3️⃣ <strong>Datum & Uhrzeit</strong> wählen</div>
+                            <div style="margin:4px 0;">4️⃣ Wir prüfen <strong>verfügbare Termine</strong></div>
+                            <div style="margin:4px 0;">5️⃣ <strong>"Preis berechnen"</strong> klicken</div>
+                        </div>
+                        <div style="font-size:12px;color:#0c4a6e;margin-top:8px;font-style:italic;">
+                            ✅ Sie sehen sofort ob Ihr Wunschtermin frei ist!
+                        </div>
                     </div>
                 </div>
             </div>
@@ -26099,6 +26109,9 @@ Aktuell: ${currentNum}`;
                                 }
                                 html += '</div>';
                                 
+                                // 🔧 v5.90.674: calculatedLatestStart AUSSERHALB definieren!
+                                let calculatedLatestStart = null;
+                                
                                 // 🚕 v5.90.671: BERECHNE LEERFAHRT zur nächsten Fahrt!
                                 if (newRideDuration && newTotalDuration && pickup && destination && conflictingRide.pickup) {
                                     html += '<div style="background:#fffbeb;padding:8px;border-radius:4px;margin-top:6px;border:2px solid #f59e0b;">';
@@ -26106,7 +26119,6 @@ Aktuell: ${currentNum}`;
                                     
                                     // Berechne Leerfahrt: Ende neue Fahrt → Start nächste Fahrt
                                     let deadheadMinutes = 0;
-                                    let calculatedLatestStart = null;
                                     
                                     try {
                                         // Geocode Ziel der neuen Fahrt und Start der nächsten Fahrt
@@ -26188,7 +26200,7 @@ Aktuell: ${currentNum}`;
                                 const nextRideTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
                                 const nextCustomerName = distanceCheck.nextRide.customerName || distanceCheck.nextRide.name || 'Unbekannt';
 
-                                // 🔧 v5.90.673: SICHERSTELLEN DASS newRideEndTime DEFINIERT IST!
+                                // 🔧 v5.90.674: SICHERSTELLEN DASS newRideEndTime DEFINIERT IST!
                                 let localNewRideEndTime = null;
                                 if (newRideEnd) {
                                     localNewRideEndTime = new Date(newRideEnd);
@@ -26206,12 +26218,12 @@ Aktuell: ${currentNum}`;
                                 // Problem-Darstellung
                                 html += '<div style="background:white;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fca5a5;">';
                                 html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#dc2626;">❌ PROBLEM:</div>';
-                                // 🔧 v5.90.673: PRÜFE OB localNewRideEndTime EXISTIERT!
+                                // 🔧 v5.90.674: PRÜFE OB localNewRideEndTime EXISTIERT!
                                 if (localNewRideEndTime && !isNaN(localNewRideEndTime.getTime())) {
                                     html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>${localNewRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
                                 } else {
                                     html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>~${time} Uhr + Fahrtdauer</strong></div>`;
-                                    console.warn('⚠️ v5.90.673: newRideEndTime nicht verfügbar für nextRideConflict');
+                                    console.warn('⚠️ v5.90.674: newRideEndTime nicht verfügbar für nextRideConflict');
                                 }
                                 html += `<div style="font-size:10px;">Nächste startet: <strong>${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
                                 html += `<div style="font-size:11px;border-top:1px solid #fca5a5;padding-top:4px;margin-top:4px;font-weight:600;color:#dc2626;">= Überschneidung: ${Math.abs(distanceCheck.timeUntilNextRide)} Min!</div>`;
@@ -26553,12 +26565,12 @@ Aktuell: ${currentNum}`;
                     console.log('🔴 Slot besetzt! Alternativen:', alternatives);
                 }
             } catch (error) {
-                // 🔧 v5.90.673: BESSERES ERROR HANDLING!
-                console.error('❌ v5.90.673: Fehler beim Kalender-Check:', error);
-                console.error('❌ v5.90.673: Error Message:', error?.message || 'Keine Message');
-                console.error('❌ v5.90.673: Error Stack:', error?.stack || 'Kein Stack');
-                console.error('❌ v5.90.673: Error Type:', typeof error);
-                console.error('❌ v5.90.673: Error String:', String(error));
+                // 🔧 v5.90.674: BESSERES ERROR HANDLING!
+                console.error('❌ v5.90.674: Fehler beim Kalender-Check:', error);
+                console.error('❌ v5.90.674: Error Message:', error?.message || 'Keine Message');
+                console.error('❌ v5.90.674: Error Stack:', error?.stack || 'Kein Stack');
+                console.error('❌ v5.90.674: Error Type:', typeof error);
+                console.error('❌ v5.90.674: Error String:', String(error));
                 statusDisplay.style.display = 'block';
                 statusDisplay.style.background = '#fef3c7';
                 statusDisplay.style.border = '2px solid #f59e0b';
@@ -26582,7 +26594,7 @@ Aktuell: ${currentNum}`;
             const today = new Date();
             today.setHours(0, 0, 0, 0); // Mitternacht heute
 
-            // 🆕 v5.90.673: MAX 1 JAHR IN DIE ZUKUNFT!
+            // 🆕 v5.90.674: MAX 1 JAHR IN DIE ZUKUNFT!
             const maxFutureDate = new Date();
             maxFutureDate.setFullYear(maxFutureDate.getFullYear() + 1);
 
@@ -26600,9 +26612,9 @@ Aktuell: ${currentNum}`;
                     return false; // Vergangenheit ignorieren!
                 }
 
-                // 🆕 v5.90.673: IGNORIERE FAHRTEN >1 JAHR IN ZUKUNFT!
+                // 🆕 v5.90.674: IGNORIERE FAHRTEN >1 JAHR IN ZUKUNFT!
                 if (rideDate > maxFutureDate) {
-                    console.log(`⚠️ v5.90.673: Fahrt ignoriert (>1 Jahr Zukunft): ${rideDate.toLocaleDateString('de-DE')}`);
+                    console.log(`⚠️ v5.90.674: Fahrt ignoriert (>1 Jahr Zukunft): ${rideDate.toLocaleDateString('de-DE')}`);
                     return false;
                 }
 

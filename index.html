@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.692
-    📅 BUILD: 20.01.2026 23:00 Uhr
+    📦 VERSION: v5.90.693
+    📅 BUILD: 20.01.2026 23:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.692
+    📋 CHANGELOG v5.90.693
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.692 (20.01.2026):
+    🔧 v5.90.693 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
        • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
@@ -336,9 +336,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.692 - ROUTE-FIX! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.692: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.692: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.693 - DISTANCE-FIX! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.693: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.693: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - ROUTE-FIX! ✅ (Build 20260120-2300)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - DISTANCE-FIX! ✅ (Build 20260120-2330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.692 - ROUTE-FIX
+                        🔧 v5.90.693 - DISTANCE-FIX
                     </span>
                 </div>
             </div>
@@ -25370,7 +25370,7 @@ Aktuell: ${currentNum}`;
                 clearDestBtn.style.display = 'inline-block';
             }
             
-            // 🗺️ ROUTE-FIX ANZEIGEN
+            // 🗺️ DISTANCE-FIX ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
@@ -25397,7 +25397,7 @@ Aktuell: ${currentNum}`;
             priceCalculated = true;
         }
 
-        // 🗺️ ROUTE-FIX ANZEIGEN
+        // 🗺️ DISTANCE-FIX ANZEIGEN
         let routeMapInstance = null;
         function showRouteMap(route, pickupCoords, destCoords) {
             // 🐛 v5.90.542: NULL-CHECK!
@@ -28490,7 +28490,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ ROUTE-FIX VERSTECKEN
+            // 🗺️ DISTANCE-FIX VERSTECKEN
             const routeMap = document.getElementById('route-map');
             if (routeMap) {
                 routeMap.style.display = 'none';
@@ -74188,7 +74188,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.692
+        🔧 v5.90.693
     </div>
 </div>
 
@@ -74242,7 +74242,7 @@ async function generateAngebote() {
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
             // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
-            // 🔧 v5.90.692: LOGIK UMGEDREHT!
+            // 🔧 v5.90.693: LOGIK UMGEDREHT!
             // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
             
             // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
@@ -74272,19 +74272,19 @@ async function generateAngebote() {
             // 6. Erstelle Angebot
             angebote.push({
                 id: 'angebot_' + rideId,
-                type: 'hinfahrt',  // 🔧 v5.90.692: HINFAHRT!
+                type: 'hinfahrt',  // 🔧 v5.90.693: HINFAHRT!
                 from: ride.destination,  // VON: Ziel der Buchung
                 to: ride.pickup,         // NACH: Start der Buchung
                 fromCoords: ride.destCoords,
                 toCoords: ride.pickupCoords,
-                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.692: HINFAHRT-START!
-                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.692: HINFAHRT-START!
+                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.693: HINFAHRT-START!
+                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.693: HINFAHRT-START!
                 duration: deadheadDuration,
                 distance: ride.distance,
                 normalPrice: normalPrice,
                 discountPrice: discountPrice,
                 discount: 50,
-                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.692: Klarere Beschreibung
+                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.693: Klarere Beschreibung
                 parentRide: rideId,
                 parentCustomer: ride.customerName,
                 targetBookingTime: new Date(ride.pickupTimestamp),  // Wann die Buchung beginnt
@@ -74548,9 +74548,9 @@ async function bookAngebot(angebotId) {
     }
 }
 
-// 🗺️ v5.90.692: ROUTE AUF KARTE ANZEIGEN
+// 🗺️ v5.90.693: ROUTE AUF KARTE ANZEIGEN
 async function showRouteOnMap(angebotId) {
-    console.log('🗺️ v5.90.692: Zeige Route auf Karte für Angebot:', angebotId);
+    console.log('🗺️ v5.90.693: Zeige Route auf Karte für Angebot:', angebotId);
     
     try {
         // Hole Angebot
@@ -74604,8 +74604,8 @@ async function showRouteOnMap(angebotId) {
                 <!-- Footer -->
                 <div style="padding:20px;background:#f9fafb;border-top:2px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
                     <div style="font-size:14px;color:#6b7280;">
-                        <div><strong>Distanz:</strong> ${angebot.distance.toFixed(1)} km</div>
-                        <div><strong>Dauer:</strong> ~${angebot.duration} Min</div>
+                        <div><strong>Distanz:</strong> ${parseFloat(angebot.distance || 0).toFixed(1)} km</div>
+                        <div><strong>Dauer:</strong> ~${angebot.duration || 0} Min</div>
                     </div>
                     <button onclick="closeRouteMap()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">
                         Schließen
@@ -74632,10 +74632,10 @@ async function initRouteMap(angebot) {
         if (!container) return;
         
         // Berechne Route mit OSRM
-        console.log('📍 v5.90.692: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
+        console.log('📍 v5.90.693: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
         const routeData = await calculateRoute(angebot.fromCoords, angebot.toCoords);
         
-        console.log('📍 v5.90.692: Route-Daten:', routeData);
+        console.log('📍 v5.90.693: Route-Daten:', routeData);
         
         if (!routeData || !routeData.geometry) {
             throw new Error('Keine Route gefunden');
@@ -74688,10 +74688,10 @@ async function initRouteMap(angebot) {
         // Zoom auf Route
         map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
         
-        console.log('✅ v5.90.692: Karte initialisiert');
+        console.log('✅ v5.90.693: Karte initialisiert');
         
     } catch (error) {
-        console.error('❌ v5.90.692: Fehler beim Initialisieren der Karte:', error);
+        console.error('❌ v5.90.693: Fehler beim Initialisieren der Karte:', error);
         const container = document.getElementById('route-map-container');
         if (container) {
             container.innerHTML = `

@@ -9,21 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.683
-    📅 BUILD: 20.01.2026 17:00 Uhr
+    📦 VERSION: v5.90.685
+    📅 BUILD: 20.01.2026 18:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.683
+    📋 CHANGELOG v5.90.685
     ═══════════════════════════════════════════════════════════════════════════
     
+    🔧 v5.90.685 (20.01.2026):
+       • KRITISCHER FIX: updateAngeboteDisplay() Fehler behoben!
+       • Event-Listener statt inline onchange
+       • Angebote-Tab funktioniert jetzt!
+    
     🚌 v5.90.683 (20.01.2026):
-       • NEU: Mitfahr-Punkte System (Bushaltestellen)!
-       • Bushaltestellen auf Route werden automatisch gefunden (OpenStreetMap)
-       • Angebote für Zwischenstopps mit konfigurierbarem Rabatt
-       • Admin-Panel mit allen Einstellungen (Rabatt, Distanzen, etc.)
-       • Overpass API Integration für Bushaltestellen
-       • Gruppierte Anzeige im Angebote-Tab
+       • Mitfahr-Punkte System (Bushaltestellen)
     
     🔧 v5.90.682 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
@@ -339,11 +339,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.683 - MITFAHR-PUNKTE! 🚌✨ (Build 2026-01-20_1700)');
-        console.log('🚌 v5.90.683: MITFAHR-PUNKTE SYSTEM - Bushaltestellen als Zwischenstopps!');
-        console.log('🚌 v5.90.683: Overpass API Integration + Admin-Panel');
-        console.log('🔧 v5.90.682: Hinfahrt-Logik korrigiert');
-        console.log('🐛 v5.90.681: Kopier-Funktion fix');
+        console.log('🚕 Funk Taxi App v5.90.685 - SCRIPT-FIX! 🔧✅ (Build 2026-01-20_1830)');
+        console.log('🔧 v5.90.685: KRITISCHER FIX - updateAngeboteDisplay() behoben!');
+        console.log('🔧 v5.90.685: Event-Listener statt inline onchange!');
+        console.log('🗺️ v5.90.684: Mitfahr-Karte');
+        console.log('🚌 v5.90.683: Mitfahr-Punkte');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
         console.log('🔧 v5.90.676: Default-Datum = Heute');
         console.log('🔧 v5.90.676: Scope-Fix für calculatedLatestStart');
@@ -1302,7 +1302,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.684 - MITFAHR-KARTE! ✨ (Build 20260120-1800)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.685 - SCRIPT-FIX! ✅ (Build 20260120-1830)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1758,7 +1758,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🗺️ v5.90.684 - MITFAHR-KARTE
+                        🔧 v5.90.685 - SCRIPT-FIX
                     </span>
                 </div>
             </div>
@@ -2987,7 +2987,7 @@
                         <label style="display:block;font-size:13px;color:#6b7280;margin-bottom:6px;font-weight:600;">
                             📅 Zeitraum filtern
                         </label>
-                        <select id="angebote-filter" onchange="updateAngeboteDisplay()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;font-weight:600;color:#1f2937;background:white;cursor:pointer;">
+                        <select id="angebote-filter" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;font-weight:600;color:#1f2937;background:white;cursor:pointer;">
                             <option value="today">Nur heute</option>
                             <option value="tomorrow">Morgen</option>
                             <option value="all">Alle anzeigen</option>
@@ -74361,7 +74361,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.684
+        🔧 v5.90.685
     </div>
 </div>
 
@@ -75222,6 +75222,18 @@ function stopAngeboteAutoUpdate() {
         console.log('⏹️ Angebote Auto-Update gestoppt');
     }
 }
+
+// 🆕 v5.90.685: Event-Listener für Angebote-Filter registrieren
+document.addEventListener('DOMContentLoaded', () => {
+    const filterSelect = document.getElementById('angebote-filter');
+    if (filterSelect) {
+        filterSelect.addEventListener('change', () => {
+            console.log('🔄 v5.90.685: Filter geändert - update Angebote...');
+            updateAngeboteDisplay();
+        });
+        console.log('✅ v5.90.685: Angebote-Filter Event-Listener registriert');
+    }
+});
 </script>
 
 <script>

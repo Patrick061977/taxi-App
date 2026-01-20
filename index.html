@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.690
-    📅 BUILD: 20.01.2026 22:00 Uhr
+    📦 VERSION: v5.90.691
+    📅 BUILD: 20.01.2026 22:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.690
+    📋 CHANGELOG v5.90.691
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.690 (20.01.2026):
+    🔧 v5.90.691 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
        • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
@@ -336,9 +336,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.690 - CLEAN-BASE! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.690: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.690: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.691 - ROUTE-KARTE! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.691: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.691: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - CLEAN-BASE! ✅ (Build 20260120-2200)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - ROUTE-KARTE! ✅ (Build 20260120-2230)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.690 - CLEAN-BASE
+                        🔧 v5.90.691 - ROUTE-KARTE
                     </span>
                 </div>
             </div>
@@ -74188,7 +74188,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.690
+        🔧 v5.90.691
     </div>
 </div>
 
@@ -74242,7 +74242,7 @@ async function generateAngebote() {
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
             // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
-            // 🔧 v5.90.690: LOGIK UMGEDREHT!
+            // 🔧 v5.90.691: LOGIK UMGEDREHT!
             // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
             
             // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
@@ -74272,19 +74272,19 @@ async function generateAngebote() {
             // 6. Erstelle Angebot
             angebote.push({
                 id: 'angebot_' + rideId,
-                type: 'hinfahrt',  // 🔧 v5.90.690: HINFAHRT!
+                type: 'hinfahrt',  // 🔧 v5.90.691: HINFAHRT!
                 from: ride.destination,  // VON: Ziel der Buchung
                 to: ride.pickup,         // NACH: Start der Buchung
                 fromCoords: ride.destCoords,
                 toCoords: ride.pickupCoords,
-                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.690: HINFAHRT-START!
-                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.690: HINFAHRT-START!
+                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.691: HINFAHRT-START!
+                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.691: HINFAHRT-START!
                 duration: deadheadDuration,
                 distance: ride.distance,
                 normalPrice: normalPrice,
                 discountPrice: discountPrice,
                 discount: 50,
-                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.690: Klarere Beschreibung
+                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.691: Klarere Beschreibung
                 parentRide: rideId,
                 parentCustomer: ride.customerName,
                 targetBookingTime: new Date(ride.pickupTimestamp),  // Wann die Buchung beginnt
@@ -74440,15 +74440,21 @@ async function updateAngeboteDisplay() {
                     <div>Das Taxi muss zur Buchung von <strong>${angebot.parentCustomer}</strong> nach "${toShort}" fahren (Abholung ${angebot.targetBookingTime ? angebot.targetBookingTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) + ' Uhr' : ''}). Nutze die Leerfahrt von "${fromShort}" und spare 50%!</div>
                 </div>
                 
-                <!-- Button -->
-                <button 
-                    onclick="bookAngebot('${angebot.id}')" 
-                    style="width:100%;background:linear-gradient(135deg,#059669 0%,#047857 100%);color:white;border:none;border-radius:12px;padding:18px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(5,150,105,0.3);transition:all 0.3s;"
-                    onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 24px rgba(5,150,105,0.4)';"
-                    onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 16px rgba(5,150,105,0.3)';"
-                >
-                    🎯 Jetzt für ${angebot.discountPrice}€ buchen!
-                </button>
+                <!-- Buttons -->
+                <div style="display:flex;gap:12px;margin-bottom:20px;">
+                    <button 
+                        onclick="showRouteOnMap('${angebot.id}')" 
+                        style="flex:1;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:white;border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,0.3);"
+                    >
+                        🗺️ Route anzeigen
+                    </button>
+                    <button 
+                        onclick="bookAngebot('${angebot.id}')" 
+                        style="flex:2;background:linear-gradient(135deg,#059669 0%,#047857 100%);color:white;border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(5,150,105,0.3);"
+                    >
+                        🎯 Für ${angebot.discountPrice}€ buchen!
+                    </button>
+                </div>
                 
             </div>
         `;
@@ -74541,6 +74547,169 @@ async function bookAngebot(angebotId) {
         alert('❌ Fehler beim Öffnen des Buchungsformulars.\n\nBitte versuche es erneut.');
     }
 }
+
+// 🗺️ v5.90.691: ROUTE AUF KARTE ANZEIGEN
+async function showRouteOnMap(angebotId) {
+    console.log('🗺️ v5.90.691: Zeige Route auf Karte für Angebot:', angebotId);
+    
+    try {
+        // Hole Angebot
+        const angebote = await generateAngebote();
+        const angebot = angebote.find(a => a.id === angebotId);
+        
+        if (!angebot) {
+            alert('❌ Angebot nicht mehr verfügbar!');
+            return;
+        }
+        
+        // Erstelle Modal
+        const modal = document.createElement('div');
+        modal.id = 'route-map-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        `;
+        
+        const fromShort = angebot.from.length > 30 ? angebot.from.substring(0, 30) + '...' : angebot.from;
+        const toShort = angebot.to.length > 30 ? angebot.to.substring(0, 30) + '...' : angebot.to;
+        
+        modal.innerHTML = `
+            <div style="background:white;border-radius:16px;max-width:1000px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+                <!-- Header -->
+                <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:20px;font-weight:800;margin-bottom:4px;">🗺️ Route Visualisierung</div>
+                        <div style="font-size:14px;opacity:0.9;">${fromShort} → ${toShort}</div>
+                    </div>
+                    <button onclick="closeRouteMap()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:20px;">✕</button>
+                </div>
+                
+                <!-- Karte -->
+                <div id="route-map-container" style="flex:1;min-height:500px;position:relative;">
+                    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#6b7280;">
+                        <div style="font-size:24px;margin-bottom:8px;">⏳</div>
+                        <div>Lade Karte...</div>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div style="padding:20px;background:#f9fafb;border-top:2px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-size:14px;color:#6b7280;">
+                        <div><strong>Distanz:</strong> ${angebot.distance.toFixed(1)} km</div>
+                        <div><strong>Dauer:</strong> ~${angebot.duration} Min</div>
+                    </div>
+                    <button onclick="closeRouteMap()" style="padding:12px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">
+                        Schließen
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Initialisiere Karte nach kurzer Verzögerung
+        setTimeout(() => initRouteMap(angebot), 200);
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Anzeigen der Route:', error);
+        alert('❌ Fehler beim Laden der Karte.');
+    }
+}
+
+// 🗺️ Initialisiere Route-Karte
+async function initRouteMap(angebot) {
+    try {
+        const container = document.getElementById('route-map-container');
+        if (!container) return;
+        
+        // Berechne Route mit OSRM
+        console.log('📍 Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
+        const route = await calculateRoute(angebot.fromCoords, angebot.toCoords);
+        
+        if (!route || !route.geometry) {
+            throw new Error('Keine Route gefunden');
+        }
+        
+        // Erstelle Leaflet Map
+        const map = L.map(container, {
+            zoomControl: true,
+            scrollWheelZoom: true
+        }).setView([angebot.fromCoords.lat, angebot.fromCoords.lon], 12);
+        
+        // Füge OSM Tiles hinzu
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+        
+        // Zeichne Route
+        const routeCoords = route.geometry.map(coord => [coord[1], coord[0]]);
+        const routeLine = L.polyline(routeCoords, {
+            color: '#3b82f6',
+            weight: 5,
+            opacity: 0.8
+        }).addTo(map);
+        
+        // Start-Marker (grün)
+        const startIcon = L.divIcon({
+            html: '<div style="font-size:32px;">🚕</div>',
+            className: '',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32]
+        });
+        
+        L.marker([angebot.fromCoords.lat, angebot.fromCoords.lon], { icon: startIcon })
+            .addTo(map)
+            .bindPopup(`<strong>Start:</strong><br>${angebot.from}`);
+        
+        // Ziel-Marker (rot)
+        const endIcon = L.divIcon({
+            html: '<div style="font-size:32px;">🏁</div>',
+            className: '',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32]
+        });
+        
+        L.marker([angebot.toCoords.lat, angebot.toCoords.lon], { icon: endIcon })
+            .addTo(map)
+            .bindPopup(`<strong>Ziel:</strong><br>${angebot.to}`);
+        
+        // Zoom auf Route
+        map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+        
+        console.log('✅ Karte initialisiert');
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Initialisieren der Karte:', error);
+        const container = document.getElementById('route-map-container');
+        if (container) {
+            container.innerHTML = `
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#ef4444;">
+                    <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+                    <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Fehler beim Laden</div>
+                    <div style="font-size:14px;color:#6b7280;">Route konnte nicht angezeigt werden.</div>
+                </div>
+            `;
+        }
+    }
+}
+
+// 🗺️ Schließe Route-Karte
+function closeRouteMap() {
+    const modal = document.getElementById('route-map-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
 
 // 🎯 ANGEBOTE: Auto-Update alle 30 Sekunden
 let angeboteUpdateInterval = null;

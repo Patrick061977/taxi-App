@@ -9,23 +9,23 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.681
-    📅 BUILD: 20.01.2026 16:00 Uhr
+    📦 VERSION: v5.90.682
+    📅 BUILD: 20.01.2026 16:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.681
+    📋 CHANGELOG v5.90.682
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🔧 v5.90.682 (20.01.2026):
+       • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
+       • Angebote zeigen jetzt Leerfahrt VOR der Buchung
+       • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
+       • Klarere Beschreibung im UI
     
     🐛 v5.90.681 (20.01.2026):
        • FIX: Kopier-Funktion - Koordinaten/Adressen-Mismatch behoben!
        • Beim Kopieren wird jetzt Reverse Geocoding verwendet
-       • Verhindert falsche Adressen bei kopierten Fahrten
-       • Alte Adress-Texte werden nicht mehr übernommen wenn Koordinaten existieren
-    
-    🐛 v5.90.680 (20.01.2026):
-       • FIX: Angebote-Tab Display-Fehler behoben!
-       • distance.toFixed → parseFloat(distance).toFixed()
        • Angebote werden jetzt korrekt angezeigt
        • Greifswald-Rückfahrt erscheint jetzt! ✅
     
@@ -336,11 +336,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.681 - KOPIER-FIX! 🐛✅ (Build 2026-01-20_1600)');
-        console.log('🐛 v5.90.681: FIX - Kopier-Funktion Koordinaten/Adressen-Mismatch!');
-        console.log('🐛 v5.90.681: Reverse Geocoding beim Kopieren');
+        console.log('🚕 Funk Taxi App v5.90.682 - HINFAHRT-FIX! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.682: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.682: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
-        console.log('✏️ v5.90.679: SMS-Text-Editor im Admin');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
         console.log('🔧 v5.90.676: Default-Datum = Heute');
         console.log('🔧 v5.90.676: Scope-Fix für calculatedLatestStart');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.681 - KOPIER-FIX! ✅ (Build 20260120-1600)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - HINFAHRT-FIX! ✅ (Build 20260120-1630)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🐛 v5.90.681 - KOPIER-FIX
+                        🔧 v5.90.682 - HINFAHRT-FIX
                     </span>
                 </div>
             </div>
@@ -74188,7 +74188,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🐛 v5.90.681
+        🔧 v5.90.682
     </div>
 </div>
 
@@ -74241,12 +74241,9 @@ async function generateAngebote() {
             // Überspringe stornierte Fahrten
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
-            // 2. Berechne Rückfahrt-Details
-            const rideDuration = (ride.duration || 15) + 3 + 2; // Mit Ein/Ausstieg (BOARDING + ALIGHTING)
-            const rideEnd = ride.pickupTimestamp + (rideDuration * 60000);
-            
-            // Ist Rückfahrt in der Vergangenheit?
-            if (rideEnd < now) continue;
+            // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
+            // 🔧 v5.90.682: LOGIK UMGEDREHT!
+            // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
             
             // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
             let deadheadDuration = 15; // Fallback
@@ -74259,28 +74256,39 @@ async function generateAngebote() {
                 console.warn('⚠️ Route-Berechnung fehlgeschlagen, nutze Fallback:', error);
             }
             
-            // 4. Berechne Preis
+            // 4. Berechne wann Taxi losfahren muss (Hinfahrt-Start)
+            // Buchung beginnt um: ride.pickupTimestamp
+            // Taxi braucht: deadheadDuration Minuten
+            // Also muss Taxi losfahren: pickupTimestamp - deadheadDuration
+            const hinfahrtStart = ride.pickupTimestamp - (deadheadDuration * 60000);
+            
+            // Ist Hinfahrt in der Vergangenheit?
+            if (hinfahrtStart < now) continue;
+            
+            // 5. Berechne Preis
             const normalPrice = ride.price || Math.round(ride.distance * 2.5); // Fallback-Preis
             const discountPrice = Math.round(normalPrice * 0.5); // 50% Rabatt
             
-            // 5. Erstelle Angebot
+            // 6. Erstelle Angebot
             angebote.push({
                 id: 'angebot_' + rideId,
-                type: 'rueckfahrt',
-                from: ride.destination,
-                to: ride.pickup,
+                type: 'hinfahrt',  // 🔧 v5.90.682: HINFAHRT!
+                from: ride.destination,  // VON: Ziel der Buchung
+                to: ride.pickup,         // NACH: Start der Buchung
                 fromCoords: ride.destCoords,
                 toCoords: ride.pickupCoords,
-                availableAt: new Date(rideEnd),
-                availableTimestamp: rideEnd,
+                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.682: HINFAHRT-START!
+                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.682: HINFAHRT-START!
                 duration: deadheadDuration,
                 distance: ride.distance,
                 normalPrice: normalPrice,
                 discountPrice: discountPrice,
                 discount: 50,
-                reason: 'Nutzt Leerfahrt',
+                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.682: Klarere Beschreibung
                 parentRide: rideId,
-                parentCustomer: ride.customerName
+                parentCustomer: ride.customerName,
+                targetBookingTime: new Date(ride.pickupTimestamp),  // Wann die Buchung beginnt
+                targetBookingTimestamp: ride.pickupTimestamp
             });
         }
         
@@ -74317,8 +74325,8 @@ async function updateAngeboteDisplay() {
                 <div style="font-size:64px;margin-bottom:20px;">🎯</div>
                 <div style="font-size:20px;font-weight:700;margin-bottom:12px;color:#64748b;">Keine Angebote verfügbar</div>
                 <div style="font-size:15px;line-height:1.6;">
-                    Aktuell gibt es keine günstigen Rückfahrten ${filterText}.<br>
-                    Sobald Leerfahrten verfügbar sind, werden sie hier angezeigt.
+                    Aktuell gibt es keine günstigen Leerfahrten ${filterText}.<br>
+                    Sobald Hinfahrten zu Buchungen verfügbar sind, werden sie hier angezeigt.
                 </div>
             </div>
         `;
@@ -74383,7 +74391,7 @@ async function updateAngeboteDisplay() {
                 <!-- Route -->
                 <div style="margin-bottom:20px;">
                     <div style="font-size:13px;color:#6b7280;margin-bottom:8px;font-weight:600;">
-                        🔄 RÜCKFAHRT
+                        🚕 HINFAHRT ZUR BUCHUNG
                     </div>
                     <div style="background:#f9fafb;border-radius:12px;padding:16px;border:2px solid #e5e7eb;">
                         <div style="font-size:17px;font-weight:700;color:#1f2937;margin-bottom:4px;">
@@ -74429,7 +74437,7 @@ async function updateAngeboteDisplay() {
                 <!-- Hinweis -->
                 <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;color:#1e40af;line-height:1.6;">
                     <div style="font-weight:700;margin-bottom:6px;">💡 Warum so günstig?</div>
-                    <div>Das Taxi fährt nach der Fahrt von <strong>${angebot.parentCustomer}</strong> sowieso leer zurück nach "${fromShort}". Nutze die Leerfahrt und spare 50%!</div>
+                    <div>Das Taxi muss zur Buchung von <strong>${angebot.parentCustomer}</strong> nach "${toShort}" fahren (Abholung ${angebot.targetBookingTime ? angebot.targetBookingTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) + ' Uhr' : ''}). Nutze die Leerfahrt von "${fromShort}" und spare 50%!</div>
                 </div>
                 
                 <!-- Button -->

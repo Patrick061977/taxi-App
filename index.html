@@ -9,14 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.671
-    📅 BUILD: 20.01.2026 13:00 Uhr
+    📦 VERSION: v5.90.672
+    📅 BUILD: 20.01.2026 14:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
-    
+
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.671
+    📋 CHANGELOG v5.90.672
     ═══════════════════════════════════════════════════════════════════════════
-    
+
+    🟠 v5.90.672 (20.01.2026):
+       • NEU: ORANGE BUTTON für frühesten möglichen Termin!
+       • Zeigt "Letzte Möglichkeit VORHER" im Kunden-Bereich
+       • Button mit selectAlternativeTime() verknüpft
+       • Funktioniert bei Konflikt mit VORHERIGER Fahrt
+       • calculatedLatestStart wird als klickbarer Button angezeigt!
+
     ⏱️ v5.90.671 (20.01.2026):
        • FIX: OSRM-Dauer richtig umrechnen!
        • FIX: Leerfahrt richtig berechnen!
@@ -308,10 +315,10 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.671 - TIME-PICKER FIX! 🐛✅ (Build 2026-01-20_1200)');
-        console.log('🐛 v5.90.671: FIX Time-Picker startet nicht mehr bei 09:00!');
+        console.log('🚕 Funk Taxi App v5.90.672 - ORANGE BUTTON! 🟠✅ (Build 2026-01-20_1400)');
+        console.log('🟠 v5.90.672: NEU: Orange Button für frühesten möglichen Termin!');
+        console.log('🟠 v5.90.672: "Letzte Möglichkeit VORHER" als klickbarer Button!');
         console.log('🐛 v5.90.671: ECHTE OSRM-Berechnung im Kalender!');
-        console.log('🐛 v5.90.671: FIX same-day - Nur gleicher Tag!');
         console.log('🐛 v5.90.671: Zeigt Zeitplan bei verfügbar + Konflikt');
         console.log('📊 v5.90.663: Vollständige Analyse alle Typen');
         console.log('');
@@ -26255,7 +26262,19 @@ Aktuell: ${currentNum}`;
                         html += '<div style="font-size:16px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Termin nicht verfügbar</div>';
                         html += `<div style="font-size:13px;color:#6b7280;">${time} Uhr ist bereits belegt</div>`;
                         html += '</div>';
-                        
+
+                        // ⏰ v5.90.672: ORANGE BUTTON FÜR FRÜHESTEN TERMIN (bei Konflikt mit vorheriger Fahrt)!
+                        if (calculatedLatestStart && !distanceCheck.nextRideConflict) {
+                            const latestTimeStr = calculatedLatestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+                            html += '<div style="background:white;padding:12px;border-radius:8px;border:2px solid #f59e0b;margin-bottom:12px;">';
+                            html += '<div style="font-weight:600;font-size:13px;color:#f59e0b;margin-bottom:8px;">⏰ Letzte Möglichkeit VORHER:</div>';
+                            html += '<div style="display:flex;justify-content:center;">';
+                            html += `<button onclick="selectAlternativeTime('${latestTimeStr}')" style="padding:12px 20px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;width:100%;box-shadow:0 2px 8px rgba(245,158,11,0.3);">${latestTimeStr} Uhr</button>`;
+                            html += '</div>';
+                            html += '<div style="font-size:11px;color:#92400e;margin-top:8px;text-align:center;">Rechtzeitig fertig vor der nächsten Fahrt!</div>';
+                            html += '</div>';
+                        }
+
                         // Alternative Zeiten
                         if (distanceCheck.nextRideConflict && distanceCheck.latestPossibleTime) {
                             // 🆕 v5.90.661: SPEZIELLE ANZEIGE FÜR NEXT-RIDE KONFLIKT!

@@ -9,13 +9,33 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.678
-    📅 BUILD: 20.01.2026 14:00 Uhr
+    📦 VERSION: v5.90.681
+    📅 BUILD: 20.01.2026 16:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.678
+    📋 CHANGELOG v5.90.681
     ═══════════════════════════════════════════════════════════════════════════
+    
+    🐛 v5.90.681 (20.01.2026):
+       • FIX: Kopier-Funktion - Koordinaten/Adressen-Mismatch behoben!
+       • Beim Kopieren wird jetzt Reverse Geocoding verwendet
+       • Verhindert falsche Adressen bei kopierten Fahrten
+       • Alte Adress-Texte werden nicht mehr übernommen wenn Koordinaten existieren
+    
+    🐛 v5.90.680 (20.01.2026):
+       • FIX: Angebote-Tab Display-Fehler behoben!
+       • distance.toFixed → parseFloat(distance).toFixed()
+       • Angebote werden jetzt korrekt angezeigt
+       • Greifswald-Rückfahrt erscheint jetzt! ✅
+    
+    ✏️ v5.90.679 (20.01.2026):
+       • NEU: ✏️ SMS-TEXT-EDITOR IM ADMIN!
+       • Bearbeite SMS-Texte direkt in Admin-Einstellungen
+       • Live-Vorschau mit Platzhaltern
+       • Platzhalter: {date}, {time}, {from}, {to}, {price}, {link}, {phone}
+       • Reset auf Standard-Texte möglich
+       • Texte werden in Firebase gespeichert
     
     🎯 v5.90.678 (20.01.2026):
        • NEU: 🎯 ANGEBOTE-TAB - Günstige Rückfahrten!
@@ -316,10 +336,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.678 - ANGEBOTE-TAB! 🎯✨ (Build 2026-01-20_1400)');
-        console.log('🎯 v5.90.678: NEU - Angebote-Tab für günstige Rückfahrten!');
-        console.log('🎯 v5.90.678: Auto-Update alle 30 Sekunden');
-        console.log('🎯 v5.90.678: 50% Rabatt auf Leerfahrten');
+        console.log('🚕 Funk Taxi App v5.90.681 - KOPIER-FIX! 🐛✅ (Build 2026-01-20_1600)');
+        console.log('🐛 v5.90.681: FIX - Kopier-Funktion Koordinaten/Adressen-Mismatch!');
+        console.log('🐛 v5.90.681: Reverse Geocoding beim Kopieren');
+        console.log('🐛 v5.90.680: Angebote-Display funktioniert');
+        console.log('✏️ v5.90.679: SMS-Text-Editor im Admin');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
         console.log('🔧 v5.90.676: Default-Datum = Heute');
         console.log('🔧 v5.90.676: Scope-Fix für calculatedLatestStart');
@@ -1278,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🎯 Version 5.90.678 - ANGEBOTE-TAB! ✨ (Build 20260120-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.681 - KOPIER-FIX! ✅ (Build 20260120-1600)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1734,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🎯 v5.90.678 - ANGEBOTE-TAB
+                        🐛 v5.90.681 - KOPIER-FIX
                     </span>
                 </div>
             </div>
@@ -6565,6 +6586,76 @@
                             <div style="font-size:12px;color:#6b7280;">SMS wenn Fahrer Fahrt annimmt</div>
                         </div>
                     </label>
+                </div>
+                
+                <!-- 🆕 v5.90.678: SMS-TEXT EDITOR -->
+                <div style="background:#eff6ff;border:2px solid #3b82f6;border-radius:12px;padding:16px;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                        <div style="font-size:24px;">✏️</div>
+                        <div style="font-weight:700;font-size:16px;color:#1e40af;">SMS-Texte anpassen</div>
+                    </div>
+                    
+                    <!-- Buchungsbestätigung Text -->
+                    <div style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;">
+                        <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:8px;">
+                            ✅ Buchungsbestätigung SMS
+                        </div>
+                        <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">
+                            📋 Verfügbare Platzhalter: {date}, {time}, {from}, {to}, {price}, {phone}
+                        </div>
+                        <textarea 
+                            id="sms-booking-text" 
+                            onchange="saveSMSSettings()"
+                            placeholder="✅ Taxi bestätigt!&#10;{date} {time}&#10;{from} → {to}&#10;{price}&#10;Funk Taxi {phone}"
+                            style="width:100%;min-height:120px;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;font-family:monospace;resize:vertical;box-sizing:border-box;"
+                        ></textarea>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                            <button onclick="previewSMS('booking')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                👁️ Vorschau
+                            </button>
+                            <button onclick="resetSMSText('booking')" style="flex:1;padding:8px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                🔄 Standard
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tracking SMS Text -->
+                    <div style="background:white;border-radius:8px;padding:12px;margin-bottom:8px;">
+                        <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:8px;">
+                            🚕 Fahrer unterwegs SMS
+                        </div>
+                        <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">
+                            📋 Verfügbare Platzhalter: {link}, {phone}
+                        </div>
+                        <textarea 
+                            id="sms-tracking-text" 
+                            onchange="saveSMSSettings()"
+                            placeholder="🚕 Ihr Taxi ist unterwegs!&#10;Ankunft in wenigen Min.&#10;Live verfolgen:&#10;{link}&#10;Bei Fragen: {phone}"
+                            style="width:100%;min-height:120px;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;font-family:monospace;resize:vertical;box-sizing:border-box;"
+                        ></textarea>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                            <button onclick="previewSMS('tracking')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                👁️ Vorschau
+                            </button>
+                            <button onclick="resetSMSText('tracking')" style="flex:1;padding:8px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                🔄 Standard
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Platzhalter-Hilfe -->
+                    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:10px;font-size:11px;color:#92400e;">
+                        <div style="font-weight:700;margin-bottom:6px;">💡 Platzhalter-Hilfe:</div>
+                        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
+                            <strong>{date}</strong><span>→ Datum (z.B. "20.01.")</span>
+                            <strong>{time}</strong><span>→ Uhrzeit (z.B. "14:30")</span>
+                            <strong>{from}</strong><span>→ Abholort (max 25 Zeichen)</span>
+                            <strong>{to}</strong><span>→ Zielort (max 25 Zeichen)</span>
+                            <strong>{price}</strong><span>→ Preis mit € (z.B. "25€")</span>
+                            <strong>{link}</strong><span>→ Tracking-URL</span>
+                            <strong>{phone}</strong><span>→ Ihre Telefonnummer</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <div style="background:#dcfce7;border-radius:6px;padding:10px;font-size:13px;color:#166534;margin-bottom:12px;">
@@ -22124,10 +22215,27 @@ Aktuell: ${currentNum}`;
             // Kurze Adressen
             const fromShort = (ride.pickup || '').split(',')[0].substring(0, 25);
             const toShort = (ride.destination || '').split(',')[0].substring(0, 25);
-            const priceStr = ride.price ? '\n' + ride.price + '€' : '';
+            const priceStr = ride.price ? ride.price + '€' : '';
             
-            // SMS 1: NUR Buchungsbestätigung (OHNE Tracking-Link!)
-            const smsText = `✅ Taxi bestätigt!\n${dateStr} ${timeStr}\n${fromShort} → ${toShort}${priceStr}\nFunk Taxi 038378/22022`;
+            // 🆕 v5.90.678: HOLE BENUTZERDEFINIERTEN SMS-TEXT!
+            let smsTemplate = '';
+            try {
+                const textSnapshot = await db.ref('settings/sms/bookingText').once('value');
+                smsTemplate = textSnapshot.val() || getDefaultSMSText('booking');
+            } catch (err) {
+                console.log('⚠️ Nutze Standard SMS-Text');
+                smsTemplate = getDefaultSMSText('booking');
+            }
+            
+            // Ersetze Platzhalter
+            const smsText = smsTemplate
+                .replace(/{date}/g, dateStr)
+                .replace(/{time}/g, timeStr)
+                .replace(/{from}/g, fromShort)
+                .replace(/{to}/g, toShort)
+                .replace(/{price}/g, priceStr)
+                .replace(/{phone}/g, '038378/22022')
+                .replace(/{link}/g, trackingLink || '');
             
             console.log('📱 Sende BUCHUNGS-SMS an:', formattedPhone);
             
@@ -22198,10 +22306,22 @@ Aktuell: ${currentNum}`;
                 return false;
             }
             
-            // SMS 2: Fahrer unterwegs + Tracking-Link
-            const smsText = `🚕 Ihr Taxi ist unterwegs!\nAnkunft in wenigen Min.\nLive verfolgen:\n${trackingLink}`;
+            // 🆕 v5.90.678: HOLE BENUTZERDEFINIERTEN SMS-TEXT!
+            let smsTemplate = '';
+            try {
+                const textSnapshot = await db.ref('settings/sms/trackingText').once('value');
+                smsTemplate = textSnapshot.val() || getDefaultSMSText('tracking');
+            } catch (err) {
+                console.log('⚠️ Nutze Standard SMS-Text');
+                smsTemplate = getDefaultSMSText('tracking');
+            }
             
-            console.log('📱 Sende MAP-NULL-CHECK-FIX-SMS an:', formattedPhone);
+            // Ersetze Platzhalter
+            const smsText = smsTemplate
+                .replace(/{link}/g, trackingLink || '')
+                .replace(/{phone}/g, '038378/22022');
+            
+            console.log('📱 Sende TRACKING-SMS an:', formattedPhone);
             
             try {
                 const response = await fetch(SMS_PROXY_URL, {
@@ -48584,8 +48704,32 @@ Funk Taxi Team`;
                     const notesInput = document.getElementById('quick-booking-notes');
                     const guestNameInput = document.getElementById('quick-booking-guest-name');
                     
-                    if (pickupInput) pickupInput.value = ride.pickup || '';
-                    if (destInput) destInput.value = ride.destination || '';
+                    // 🐛 v5.90.681: NUR Adress-Texte kopieren wenn KEINE Koordinaten vorhanden!
+                    // Problem: Wenn Koordinaten vorhanden sind, aber Adress-Text alt ist,
+                    // dann stimmen Text und Koordinaten nicht überein!
+                    const hasPickupCoords = ride.pickupCoords && ride.pickupCoords.lat && ride.pickupCoords.lon;
+                    const hasDestCoords = ride.destCoords && ride.destCoords.lat && ride.destCoords.lon;
+                    
+                    if (pickupInput) {
+                        if (hasPickupCoords) {
+                            pickupInput.value = ''; // Leer lassen - wird via Reverse Geocoding gefüllt
+                            console.log('⚠️ Pickup-Text NICHT kopiert (Koordinaten vorhanden - Reverse Geocoding wird gemacht)');
+                        } else {
+                            pickupInput.value = ride.pickup || '';
+                            console.log('✅ Pickup-Text kopiert (keine Koordinaten)');
+                        }
+                    }
+                    
+                    if (destInput) {
+                        if (hasDestCoords) {
+                            destInput.value = ''; // Leer lassen - wird via Reverse Geocoding gefüllt
+                            console.log('⚠️ Ziel-Text NICHT kopiert (Koordinaten vorhanden - Reverse Geocoding wird gemacht)');
+                        } else {
+                            destInput.value = ride.destination || '';
+                            console.log('✅ Ziel-Text kopiert (keine Koordinaten)');
+                        }
+                    }
+                    
                     if (passengersInput) passengersInput.value = ride.passengers || 1;
                     if (notesInput) notesInput.value = ride.notes || '';
                     
@@ -48601,11 +48745,31 @@ Funk Taxi Team`;
                     // Koordinaten für Route (falls vorhanden)
                     if (ride.pickupCoords) {
                         window.quickBookingPickupCoords = ride.pickupCoords;
-                        console.log('✅ Pickup-Koordinaten kopiert');
+                        console.log('✅ Pickup-Koordinaten kopiert:', ride.pickupCoords);
+                        
+                        // 🐛 v5.90.681: Reverse Geocoding für korrekte Adresse
+                        reverseGeocode(ride.pickupCoords.lat, ride.pickupCoords.lon).then(address => {
+                            if (pickupInput && address) {
+                                pickupInput.value = address;
+                                console.log('✅ Pickup-Adresse via Reverse Geocoding:', address);
+                            }
+                        }).catch(err => {
+                            console.error('⚠️ Reverse Geocoding Fehler (Pickup):', err);
+                        });
                     }
                     if (ride.destCoords) {
                         window.quickBookingDestCoords = ride.destCoords;
-                        console.log('✅ Ziel-Koordinaten kopiert');
+                        console.log('✅ Ziel-Koordinaten kopiert:', ride.destCoords);
+                        
+                        // 🐛 v5.90.681: Reverse Geocoding für korrekte Adresse
+                        reverseGeocode(ride.destCoords.lat, ride.destCoords.lon).then(address => {
+                            if (destInput && address) {
+                                destInput.value = address;
+                                console.log('✅ Ziel-Adresse via Reverse Geocoding:', address);
+                            }
+                        }).catch(err => {
+                            console.error('⚠️ Reverse Geocoding Fehler (Ziel):', err);
+                        });
                     }
                     
                     console.log('✅ Fahrt-Daten kopiert (ohne Fahrzeug + Zeit)!');
@@ -64517,14 +64681,21 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             const bookingEnabled = document.getElementById('sms-booking-enabled')?.checked || false;
             const trackingEnabled = document.getElementById('sms-tracking-enabled')?.checked || false;
             
+            // 🆕 v5.90.678: HOLE SMS-TEXTE!
+            const bookingText = document.getElementById('sms-booking-text')?.value || '';
+            const trackingText = document.getElementById('sms-tracking-text')?.value || '';
+            
             // 🆕 v5.88.9: Speichere in FIREBASE statt localStorage!
             if (isFirebaseReady) {
                 db.ref('settings/sms').set({
                     bookingEnabled: bookingEnabled,
                     trackingEnabled: trackingEnabled,
+                    bookingText: bookingText,      // 🆕 v5.90.678
+                    trackingText: trackingText,    // 🆕 v5.90.678
                     updatedAt: Date.now()
                 }).then(() => {
                     console.log('📱 SMS in Firebase gespeichert - Buchung:', bookingEnabled, '| Tracking:', trackingEnabled);
+                    console.log('✏️ v5.90.678: SMS-Texte gespeichert!');
                     showToast('✅ SMS-Einstellungen gespeichert!');
                 }).catch(err => {
                     console.error('💾 SMS-Speichern Fehler:', err);
@@ -64548,16 +64719,87 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 const bookingCheckbox = document.getElementById('sms-booking-enabled');
                 const trackingCheckbox = document.getElementById('sms-tracking-enabled');
                 
+                // 🆕 v5.90.678: LADE SMS-TEXTE!
+                const bookingTextarea = document.getElementById('sms-booking-text');
+                const trackingTextarea = document.getElementById('sms-tracking-text');
+                
                 if (bookingCheckbox) {
                     bookingCheckbox.checked = settings.bookingEnabled === true;
                 }
                 if (trackingCheckbox) {
                     trackingCheckbox.checked = settings.trackingEnabled === true;
                 }
+                
+                // 🆕 v5.90.678: Setze SMS-Texte (oder Standard)
+                if (bookingTextarea) {
+                    bookingTextarea.value = settings.bookingText || getDefaultSMSText('booking');
+                }
+                if (trackingTextarea) {
+                    trackingTextarea.value = settings.trackingText || getDefaultSMSText('tracking');
+                }
+                
                 console.log('📱 SMS-Settings aus Firebase geladen:', settings);
+                console.log('✏️ v5.90.678: SMS-Texte geladen!');
             }).catch(err => {
                 console.error('💾 SMS-Settings laden Fehler:', err);
             });
+        }
+        
+        // 🆕 v5.90.678: Standard-SMS-Texte
+        function getDefaultSMSText(type) {
+            if (type === 'booking') {
+                return `✅ Taxi bestätigt!
+{date} {time}
+{from} → {to}
+{price}
+Funk Taxi {phone}`;
+            } else if (type === 'tracking') {
+                return `🚕 Ihr Taxi ist unterwegs!
+Ankunft in wenigen Min.
+Live verfolgen:
+{link}`;
+            }
+            return '';
+        }
+        
+        // 🆕 v5.90.678: SMS-Text auf Standard zurücksetzen
+        function resetSMSText(type) {
+            const textarea = document.getElementById(`sms-${type}-text`);
+            if (textarea) {
+                textarea.value = getDefaultSMSText(type);
+                saveSMSSettings();
+                showToast(`✅ ${type === 'booking' ? 'Buchungs' : 'Tracking'}-SMS auf Standard zurückgesetzt!`);
+            }
+        }
+        
+        // 🆕 v5.90.678: SMS-Vorschau anzeigen
+        function previewSMS(type) {
+            const textarea = document.getElementById(`sms-${type}-text`);
+            if (!textarea) return;
+            
+            let text = textarea.value;
+            
+            // Ersetze Platzhalter mit Beispiel-Daten
+            const replacements = {
+                '{date}': '20.01.',
+                '{time}': '14:30',
+                '{from}': 'Heringsdorf, Strandstr. 5',
+                '{to}': 'Swinemünde, Bahnhofstr. 10',
+                '{price}': '25€',
+                '{link}': 'https://funktaxi.app/track/abc123',
+                '{phone}': '038378/22022'
+            };
+            
+            for (const [placeholder, value] of Object.entries(replacements)) {
+                text = text.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+            }
+            
+            // Zeige Vorschau in Alert
+            alert(
+                `📱 SMS-VORSCHAU (${type === 'booking' ? 'Buchung' : 'Tracking'}):\n\n` +
+                `${text}\n\n` +
+                `ℹ️ So sieht die SMS für Kunden aus!`
+            );
         }
         
         // Test: Buchungsbestätigung
@@ -73946,7 +74188,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎯 v5.90.678
+        🐛 v5.90.681
     </div>
 </div>
 
@@ -74160,11 +74402,11 @@ async function updateAngeboteDisplay() {
                 <div style="display:flex;gap:20px;margin-bottom:20px;font-size:14px;color:#6b7280;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:6px;">
                         <span style="font-size:16px;">📏</span>
-                        <span style="font-weight:600;">${angebot.distance.toFixed(1)} km</span>
+                        <span style="font-weight:600;">${parseFloat(angebot.distance || 0).toFixed(1)} km</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;">
                         <span style="font-size:16px;">⏱️</span>
-                        <span style="font-weight:600;">${angebot.duration} Min</span>
+                        <span style="font-weight:600;">${angebot.duration || 0} Min</span>
                     </div>
                 </div>
                 

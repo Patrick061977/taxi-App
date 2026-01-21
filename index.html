@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.716
+    📦 VERSION: v5.90.713
     📅 BUILD: 20.01.2026 23:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.716
+    📋 CHANGELOG v5.90.713
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.716 (20.01.2026):
+    🔧 v5.90.713 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
        • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
@@ -336,9 +336,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.716 - FAVORITEN-AUF-KARTE! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.716: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.716: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.713 - POI-LIST-DEBUG! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.713: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.713: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - FAVORITEN-AUF-KARTE! ✅ (Build 20260120-2330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - POI-LIST-DEBUG! ✅ (Build 20260120-2330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.716 - FAVORITEN-AUF-KARTE
+                        🔧 v5.90.713 - POI-LIST-DEBUG
                     </span>
                 </div>
             </div>
@@ -3001,7 +3001,7 @@
                 </div>
             </div>
             
-            <!-- 🐛 v5.90.716: LIVE FAVORITEN-AUF-KARTE BOX -->
+            <!-- 🐛 v5.90.713: LIVE POI-LIST-DEBUG BOX -->
             <div id="debug-analyse-container" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;border-radius:12px;padding:20px;margin-bottom:20px;border:3px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,0.4);">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
                     <div>
@@ -6623,7 +6623,19 @@
                             ✅ Buchungsbestätigung SMS
                         </div>
                         <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">
-                            📋 Verfügbare Platzhalter: {date}, {time}, {from}, {to}, {price}, {phone}
+                            📋 Verfügbare Platzhalter:
+                        </div>
+                        <div style="background:#f9fafb;padding:10px;border-radius:6px;margin-bottom:12px;font-size:11px;font-family:monospace;line-height:1.8;">
+                            <div style="display:grid;grid-template-columns:120px 1fr;gap:6px;">
+                                <strong>{date}</strong><span style="color:#6b7280;">→ Datum (z.B. "21.01.2026")</span>
+                                <strong>{time}</strong><span style="color:#6b7280;">→ Uhrzeit (z.B. "14:30")</span>
+                                <strong>{from}</strong><span style="color:#6b7280;">→ Abholadresse</span>
+                                <strong>{to}</strong><span style="color:#6b7280;">→ Zieladresse</span>
+                                <strong>{price}</strong><span style="color:#6b7280;">→ Preis (z.B. "25€")</span>
+                                <strong>{phone}</strong><span style="color:#6b7280;">→ Taxi-Telefon</span>
+                                <strong>{customer}</strong><span style="color:#6b7280;">→ Kundenname</span>
+                                <strong>{hotel}</strong><span style="color:#6b7280;">→ Hotel Name (falls Hotel-Buchung)</span>
+                            </div>
                         </div>
                         <textarea 
                             id="sms-booking-text" 
@@ -6642,12 +6654,71 @@
                     </div>
                     
                     <!-- Tracking SMS Text -->
-                    <div style="background:white;border-radius:8px;padding:12px;margin-bottom:8px;">
+                    <div style="background:white;border-radius:8px;padding:12px;margin-bottom:12px;">
                         <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:8px;">
                             🚕 Fahrer unterwegs SMS
                         </div>
                         <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">
-                            📋 Verfügbare Platzhalter: {link}, {phone}
+                            📋 Verfügbare Platzhalter:
+                        </div>
+                        <div style="background:#f9fafb;padding:10px;border-radius:6px;margin-bottom:12px;font-size:11px;font-family:monospace;line-height:1.8;">
+                            <div style="display:grid;grid-template-columns:120px 1fr;gap:6px;">
+                                <strong>{link}</strong><span style="color:#6b7280;">→ Tracking-Link</span>
+                                <strong>{phone}</strong><span style="color:#6b7280;">→ Taxi-Telefon</span>
+                                <strong>{driver}</strong><span style="color:#6b7280;">→ Fahrername</span>
+                                <strong>{vehicle}</strong><span style="color:#6b7280;">→ Fahrzeug (z.B. "VW Passat")</span>
+                            </div>
+                        </div>
+                        <textarea 
+                            id="sms-tracking-text" 
+                            onchange="saveSMSSettings()"
+                            placeholder="🚕 Ihr Taxi ist unterwegs!&#10;Ankunft in wenigen Min.&#10;Live verfolgen:&#10;{link}&#10;Bei Fragen: {phone}"
+                            style="width:100%;min-height:120px;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;font-family:monospace;resize:vertical;box-sizing:border-box;"
+                        ></textarea>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                            <button onclick="previewSMS('tracking')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                👁️ Vorschau
+                            </button>
+                            <button onclick="resetSMSText('tracking')" style="flex:1;padding:8px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                🔄 Standard
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 🆕 v5.90.713: Hotel Portal SMS -->
+                    <div style="background:white;border-radius:8px;padding:12px;">
+                        <div style="font-weight:600;font-size:14px;color:#374151;margin-bottom:8px;">
+                            🏨 Hotel Portal Genehmigung SMS
+                        </div>
+                        <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">
+                            📋 Verfügbare Platzhalter:
+                        </div>
+                        <div style="background:#f9fafb;padding:10px;border-radius:6px;margin-bottom:12px;font-size:11px;font-family:monospace;line-height:1.8;">
+                            <div style="display:grid;grid-template-columns:120px 1fr;gap:6px;">
+                                <strong>{hotel}</strong><span style="color:#6b7280;">→ Hotel Name</span>
+                                <strong>{date}</strong><span style="color:#6b7280;">→ Datum</span>
+                                <strong>{time}</strong><span style="color:#6b7280;">→ Uhrzeit</span>
+                                <strong>{from}</strong><span style="color:#6b7280;">→ Abholadresse</span>
+                                <strong>{to}</strong><span style="color:#6b7280;">→ Zieladresse</span>
+                                <strong>{guest}</strong><span style="color:#6b7280;">→ Gast Name</span>
+                                <strong>{phone}</strong><span style="color:#6b7280;">→ Taxi-Telefon</span>
+                            </div>
+                        </div>
+                        <textarea 
+                            id="sms-hotel-approved-text" 
+                            onchange="saveSMSSettings()"
+                            placeholder="✅ {hotel} - Fahrt genehmigt!&#10;{date} {time}&#10;{from} → {to}&#10;Gast: {guest}&#10;Taxi kommt pünktlich!&#10;{phone}"
+                            style="width:100%;min-height:120px;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:13px;font-family:monospace;resize:vertical;box-sizing:border-box;"
+                        ></textarea>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                            <button onclick="previewSMS('hotel-approved')" style="flex:1;padding:8px;background:#3b82f6;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                👁️ Vorschau
+                            </button>
+                            <button onclick="resetSMSText('hotel-approved')" style="flex:1;padding:8px;background:#6b7280;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                🔄 Standard
+                            </button>
+                        </div>
+                    </div>
                         </div>
                         <textarea 
                             id="sms-tracking-text" 
@@ -23770,7 +23841,7 @@ Aktuell: ${currentNum}`;
             }
             
             // ═══════════════════════════════════════════════
-            // FAVORITEN-AUF-KARTE: ERGEBNIS
+            // POI-LIST-DEBUG: ERGEBNIS
             // ═══════════════════════════════════════════════
             if (foundUserId) {
                 console.log('🎉 userId GEFUNDEN:', foundUserId);
@@ -25392,7 +25463,7 @@ Aktuell: ${currentNum}`;
                 clearDestBtn.style.display = 'inline-block';
             }
             
-            // 🗺️ FAVORITEN-AUF-KARTE ANZEIGEN
+            // 🗺️ POI-LIST-DEBUG ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
@@ -25419,7 +25490,7 @@ Aktuell: ${currentNum}`;
             priceCalculated = true;
         }
 
-        // 🗺️ FAVORITEN-AUF-KARTE ANZEIGEN
+        // 🗺️ POI-LIST-DEBUG ANZEIGEN
         let routeMapInstance = null;
         function showRouteMap(route, pickupCoords, destCoords) {
             // 🐛 v5.90.542: NULL-CHECK!
@@ -27040,7 +27111,7 @@ Aktuell: ${currentNum}`;
                 
                 const reserveMinutes = availableTime - travelTime;
                 
-                console.log('📊 FAVORITEN-AUF-KARTEE BERECHNUNG:');
+                console.log('📊 POI-LIST-DEBUGE BERECHNUNG:');
                 console.log('   Verfügbare Zeit:', availableTime, 'Min');
                 console.log('   - Benötigte Fahrtzeit:', travelTime, 'Min');
                 console.log('   = Reserve:', reserveMinutes, 'Min');
@@ -28512,7 +28583,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ FAVORITEN-AUF-KARTE VERSTECKEN
+            // 🗺️ POI-LIST-DEBUG VERSTECKEN
             const routeMap = document.getElementById('route-map');
             if (routeMap) {
                 routeMap.style.display = 'none';
@@ -36239,7 +36310,7 @@ Funk Taxi Team`;
             finalizeRideCompletion(rideId, rideData);
         }
         
-        // 🆕 v5.90.525: FAVORITEN-AUF-KARTEISIERE FAHRT-ABSCHLUSS!
+        // 🆕 v5.90.525: POI-LIST-DEBUGISIERE FAHRT-ABSCHLUSS!
         async function finalizeRideCompletion(rideId, rideData) {
             // 🆕 v5.26.14f: REALTIME FIX - Speichere abgeschlossene Fahrt in localStorage!
             if (rideData) {
@@ -38892,7 +38963,7 @@ Funk Taxi Team`;
                     console.log('   KM-Preis:', kmPreis.toFixed(2), '€');
                     console.log('   Basis:', (grundgebuehr + kmPreis).toFixed(2), '€');
                     console.log('   Surge:', surge.multiplier + '%');
-                    console.log('   FAVORITEN-AUF-KARTE:', price.toFixed(2), '€', surchargeText);
+                    console.log('   POI-LIST-DEBUG:', price.toFixed(2), '€', surchargeText);
                     
                     // 🆕 v5.90.206: GLOBALE VARIABLEN FÜR MODAL!
                     window.calculatedPrice = price;
@@ -39575,8 +39646,8 @@ Funk Taxi Team`;
         
         // Neuer Kunde schnell anlegen
         async function createNewCustomerQuick(searchTerm) {
-            // 🆕 v5.90.716: IMMER CRM-Modal öffnen!
-            console.log('✅ v5.90.716: Öffne CRM-Modal für neuen Kunden');
+            // 🆕 v5.90.713: IMMER CRM-Modal öffnen!
+            console.log('✅ v5.90.713: Öffne CRM-Modal für neuen Kunden');
             
             // Schließe Dropdown
             const dropdown = document.getElementById('fqb-customer-dropdown');
@@ -39655,10 +39726,10 @@ Funk Taxi Team`;
         
         // Neuer Kunde
         function createNewCustomerInBooking() {
-            // 🆕 v5.90.716: IMMER CRM-Modal öffnen!
+            // 🆕 v5.90.713: IMMER CRM-Modal öffnen!
             const phone = document.getElementById('fqb-customer-phone').value.trim();
             
-            console.log('✅ v5.90.716: Öffne CRM-Modal für neuen Kunden (Telefonsuche)');
+            console.log('✅ v5.90.713: Öffne CRM-Modal für neuen Kunden (Telefonsuche)');
             
             // Öffne CRM-Modal im "Neu"-Modus
             editCustomer('new');
@@ -44184,11 +44255,11 @@ Funk Taxi Team`;
         
         // 🆕 v5.52.9: NEUEN KUNDEN AUS SCHNELLBUCHUNG ANLEGEN
         async function createNewCustomerFromQuickBooking() {
-            // 🆕 v5.90.716: Öffne CRM-Modal statt Mini-Modal!
+            // 🆕 v5.90.713: Öffne CRM-Modal statt Mini-Modal!
             const searchInput = document.getElementById('quick-booking-customer-search');
             const enteredText = searchInput.value.trim();
             
-            console.log('✅ v5.90.716: Öffne CRM-Modal aus Schnellbuchung');
+            console.log('✅ v5.90.713: Öffne CRM-Modal aus Schnellbuchung');
             
             // Erkenne ob Telefon oder Name
             const isPhone = /^[\d\s\+\-\(\)]+$/.test(enteredText);
@@ -44204,8 +44275,8 @@ Funk Taxi Team`;
                 }
             }, 100);
             
-            // Öffne CRM Edit-Modal im "Neu"-Modus
-            editCustomer('new');
+            // Öffne CRM-Modal
+            showAddCustomerModal();
         }
         
         // 🔧 Helper: Schließe Mini-Modal sicher
@@ -46438,7 +46509,7 @@ Funk Taxi Team`;
                     </div>
                     
                     <!-- Karte -->
-                    <div id="universal-map-picker-container" style="flex:1;min-height:250px;max-height:40vh;"></div>
+                    <div id="universal-map-picker-container" style="flex:1;min-height:400px;"></div>
                     
                     <!-- Ausgewählte Adresse -->
                     <div id="universal-map-picker-selected" style="display:none;padding:15px;background:#f0fdf4;border-top:2px solid #10b981;">
@@ -46447,20 +46518,20 @@ Funk Taxi Team`;
                     </div>
                     
                     <!-- 🆕 v5.90.539: POI VORSCHLÄGE (NACH Karten-Click) -->
-                    <div id="universal-map-picker-pois" style="display:none;padding:10px;background:#fffbeb;border-top:2px solid #f59e0b;max-height:120px;overflow-y:auto;">
-                        <div style="font-size:11px;color:#92400e;font-weight:600;margin-bottom:6px;">💡 Das könnte sein:</div>
+                    <div id="universal-map-picker-pois" style="display:none;padding:15px;background:#fffbeb;border-top:2px solid #f59e0b;max-height:180px;overflow-y:auto;">
+                        <div style="font-size:12px;color:#92400e;font-weight:600;margin-bottom:8px;">💡 Das könnte sein:</div>
                         <div id="universal-map-picker-pois-list"></div>
                     </div>
                     
                     <!-- Buttons -->
-                    <div style="padding:12px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;">
-                        <button onclick="closeUniversalMapPicker()" style="flex:1;min-width:100px;padding:10px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                    <div style="padding:20px;background:#f9fafb;border-top:1px solid #e5e7eb;display:flex;gap:10px;">
+                        <button onclick="closeUniversalMapPicker()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">
                             Abbrechen
                         </button>
-                        <button id="universal-map-picker-confirm-address" onclick="confirmUniversalMapPicker(false)" disabled style="flex:1;min-width:100px;padding:10px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;font-size:13px;">
+                        <button id="universal-map-picker-confirm-address" onclick="confirmUniversalMapPicker(false)" disabled style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;">
                             📍 Nur Adresse
                         </button>
-                        <button id="universal-map-picker-confirm-poi" onclick="confirmUniversalMapPicker(true)" disabled style="flex:1;min-width:100px;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;display:none;font-size:13px;">
+                        <button id="universal-map-picker-confirm-poi" onclick="confirmUniversalMapPicker(true)" disabled style="flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5;display:none;">
                             ✅ Mit POI-Name
                         </button>
                     </div>
@@ -46477,9 +46548,8 @@ Funk Taxi Team`;
         
         // 🆕 v5.90.651: POI-Marker auf Karte anzeigen
         // 🔧 v5.90.653: Mit Filter und Zoom-Responsive!
-        // 🆕 v5.90.716: Lädt AUCH aus favoriteDestinations!
-        async function addPOIMarkersToMap(filterType = 'all') {
-            console.log('🗺️ v5.90.716: Füge POI-Marker hinzu... Filter:', filterType);
+        function addPOIMarkersToMap(filterType = 'all') {
+            console.log('🗺️ v5.90.653: Füge POI-Marker hinzu... Filter:', filterType);
             
             // Entferne alte Marker
             if (universalMapPicker.poiMarkers && universalMapPicker.poiMarkers.length > 0) {
@@ -46489,37 +46559,19 @@ Funk Taxi Team`;
                 universalMapPicker.poiMarkers = [];
             }
             
-            // 🆕 v5.90.716: Kombiniere POIs UND Favoriten!
-            let combinedPOIs = [...allPOIs]; // Start mit bestehenden POIs
-            
-            try {
-                // Lade auch Favoriten aus Firebase
-                const favSnapshot = await db.ref('favoriteDestinations').once('value');
-                if (favSnapshot.exists()) {
-                    favSnapshot.forEach(child => {
-                        const fav = child.val();
-                        // Füge Favorit als POI hinzu (wenn Koordinaten vorhanden)
-                        if (fav.lat && fav.lon) {
-                            combinedPOIs.push({
-                                id: child.key,
-                                name: fav.name,
-                                address: fav.address,
-                                lat: fav.lat,
-                                lon: fav.lon,
-                                isFavorite: true // Markierung dass es ein Favorit ist
-                            });
-                        }
-                    });
-                    console.log(`⭐ ${favSnapshot.numChildren()} Favoriten geladen`);
-                }
-            } catch (error) {
-                console.warn('⚠️ Fehler beim Laden der Favoriten:', error);
-            }
-            
             // Filtere nur echte POIs (keine Privatadressen)
-            const publicPOIs = filterPublicPOIs(combinedPOIs);
+            const publicPOIs = filterPublicPOIs(allPOIs);
             
             console.log(`🏨 ${publicPOIs.length} POIs gefiltert (${allPOIs.length} POIs + Favoriten)`);
+            
+            // 🐛 v5.90.713: DEBUG - Zeige welche POIs rausgefiltert wurden
+            const filteredOut = allPOIs.filter(poi => !publicPOIs.includes(poi));
+            if (filteredOut.length > 0) {
+                console.log(`⚠️ v5.90.713: ${filteredOut.length} POIs ausgefiltert:`);
+                filteredOut.forEach(poi => {
+                    console.log(`   ❌ "${poi.name}" (kein POI-Keyword gefunden)`);
+                });
+            }
             
             if (publicPOIs.length === 0) {
                 console.log('ℹ️ Keine POIs zum Anzeigen');
@@ -46527,11 +46579,8 @@ Funk Taxi Team`;
             }
             
             // Bestimme Icon basierend auf POI-Type
-            function getPOIIcon(poi) {
-                // 🆕 v5.90.716: Favoriten bekommen Stern!
-                if (poi.isFavorite) return '⭐';
-                
-                const name = poi.name ? poi.name.toLowerCase() : '';
+            function getPOIIcon(poiName) {
+                const name = poiName.toLowerCase();
                 
                 if (name.includes('bahnhof')) return '🚉';
                 if (name.includes('seebrücke')) return '🌊';
@@ -46582,7 +46631,7 @@ Funk Taxi Team`;
             
             // Erstelle Marker für jeden POI
             publicPOIs.forEach(poi => {
-                const icon = getPOIIcon(poi);
+                const icon = getPOIIcon(poi.name);
                 const poiType = getPOIType(poi.name);
                 
                 // 🆕 v5.90.653: Filter anwenden
@@ -53422,31 +53471,13 @@ Funk Taxi Team`;
         async function editCustomer(customerId) {
             console.log('🔧 editCustomer() aufgerufen für:', customerId);
             
-            let customer;
+            // Verwende zentrale getCustomer Funktion
+            const customer = await getCustomer(customerId);
             
-            // 🆕 v5.90.716: Unterstütze "new" für neue Kunden
-            if (customerId === 'new') {
-                console.log('✨ v5.90.716: Neuer Kunde wird erstellt');
-                customer = {
-                    id: 'cust_' + Date.now(),
-                    name: '',
-                    phone: '',
-                    mobilePhone: '',
-                    email: '',
-                    address: '',
-                    notes: '',
-                    discount: 0,
-                    isNew: true
-                };
-            } else {
-                // Verwende zentrale getCustomer Funktion
-                customer = await getCustomer(customerId);
-                
-                if (!customer) {
-                    console.error('💾 Kunde nicht gefunden!');
-                    alert('💾 Kunde nicht gefunden!');
-                    return;
-                }
+            if (!customer) {
+                console.error('💾 Kunde nicht gefunden!');
+                alert('💾 Kunde nicht gefunden!');
+                return;
             }
             
             console.log('✅ Kunde geladen, erstelle Modal...');
@@ -64658,6 +64689,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             // 🆕 v5.90.678: HOLE SMS-TEXTE!
             const bookingText = document.getElementById('sms-booking-text')?.value || '';
             const trackingText = document.getElementById('sms-tracking-text')?.value || '';
+            const hotelApprovedText = document.getElementById('sms-hotel-approved-text')?.value || ''; // 🆕 v5.90.713
             
             // 🆕 v5.88.9: Speichere in FIREBASE statt localStorage!
             if (isFirebaseReady) {
@@ -64666,10 +64698,12 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     trackingEnabled: trackingEnabled,
                     bookingText: bookingText,      // 🆕 v5.90.678
                     trackingText: trackingText,    // 🆕 v5.90.678
+                    hotelApprovedText: hotelApprovedText, // 🆕 v5.90.713
                     updatedAt: Date.now()
                 }).then(() => {
                     console.log('📱 SMS in Firebase gespeichert - Buchung:', bookingEnabled, '| Tracking:', trackingEnabled);
                     console.log('✏️ v5.90.678: SMS-Texte gespeichert!');
+                    console.log('🏨 v5.90.713: Hotel-SMS Text gespeichert!');
                     showToast('✅ SMS-Einstellungen gespeichert!');
                 }).catch(err => {
                     console.error('💾 SMS-Speichern Fehler:', err);
@@ -64696,6 +64730,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 // 🆕 v5.90.678: LADE SMS-TEXTE!
                 const bookingTextarea = document.getElementById('sms-booking-text');
                 const trackingTextarea = document.getElementById('sms-tracking-text');
+                const hotelApprovedTextarea = document.getElementById('sms-hotel-approved-text'); // 🆕 v5.90.713
                 
                 if (bookingCheckbox) {
                     bookingCheckbox.checked = settings.bookingEnabled === true;
@@ -64711,9 +64746,13 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 if (trackingTextarea) {
                     trackingTextarea.value = settings.trackingText || getDefaultSMSText('tracking');
                 }
+                if (hotelApprovedTextarea) { // 🆕 v5.90.713
+                    hotelApprovedTextarea.value = settings.hotelApprovedText || getDefaultSMSText('hotel-approved');
+                }
                 
                 console.log('📱 SMS-Settings aus Firebase geladen:', settings);
                 console.log('✏️ v5.90.678: SMS-Texte geladen!');
+                console.log('🏨 v5.90.713: Hotel-SMS Text geladen!');
             }).catch(err => {
                 console.error('💾 SMS-Settings laden Fehler:', err);
             });
@@ -64732,6 +64771,13 @@ Funk Taxi {phone}`;
 Ankunft in wenigen Min.
 Live verfolgen:
 {link}`;
+            } else if (type === 'hotel-approved') {
+                return `✅ {hotel} - Fahrt genehmigt!
+{date} {time}
+{from} → {to}
+Gast: {guest}
+Taxi kommt pünktlich!
+{phone}`;
             }
             return '';
         }
@@ -64742,7 +64788,8 @@ Live verfolgen:
             if (textarea) {
                 textarea.value = getDefaultSMSText(type);
                 saveSMSSettings();
-                showToast(`✅ ${type === 'booking' ? 'Buchungs' : 'Tracking'}-SMS auf Standard zurückgesetzt!`);
+                const label = type === 'booking' ? 'Buchungs' : type === 'tracking' ? 'Tracking' : 'Hotel';
+                showToast(`✅ ${label}-SMS auf Standard zurückgesetzt!`);
             }
         }
         
@@ -64761,7 +64808,12 @@ Live verfolgen:
                 '{to}': 'Swinemünde, Bahnhofstr. 10',
                 '{price}': '25€',
                 '{link}': 'https://funktaxi.app/track/abc123',
-                '{phone}': '038378/22022'
+                '{phone}': '038378/22022',
+                '{customer}': 'Max Mustermann',
+                '{hotel}': 'Kaiserhof Heringsdorf',
+                '{guest}': 'Anna Schmidt',
+                '{driver}': 'Patrick',
+                '{vehicle}': 'VW Passat'
             };
             
             for (const [placeholder, value] of Object.entries(replacements)) {
@@ -64769,8 +64821,9 @@ Live verfolgen:
             }
             
             // Zeige Vorschau in Alert
+            const label = type === 'booking' ? 'Buchung' : type === 'tracking' ? 'Tracking' : 'Hotel Genehmigung';
             alert(
-                `📱 SMS-VORSCHAU (${type === 'booking' ? 'Buchung' : 'Tracking'}):\n\n` +
+                `📱 SMS-VORSCHAU (${label}):\n\n` +
                 `${text}\n\n` +
                 `ℹ️ So sieht die SMS für Kunden aus!`
             );
@@ -65453,6 +65506,13 @@ Live verfolgen:
                 });
                 
                 console.log(`✅ ${allPOIs.length} POIs geladen`);
+                
+                // 🐛 v5.90.713: DEBUG - Zeige alle POI-Namen
+                console.log('📋 v5.90.713: Geladene POIs:');
+                allPOIs.forEach((poi, i) => {
+                    console.log(`   ${i+1}. "${poi.name}" (${poi.address || 'keine Adresse'})`);
+                });
+                
                 renderPOIList();
                 
             } catch (error) {
@@ -74162,7 +74222,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.716
+        🔧 v5.90.713
     </div>
 </div>
 
@@ -74170,7 +74230,7 @@ function clearField(fieldId) {
 <script>
 // 🎯 ANGEBOTE: Alle Rückfahrten finden
 async function generateAngebote() {
-    console.log('🎯 v5.90.716: Generiere Angebote mit DEBUG-Analyse...');
+    console.log('🎯 v5.90.713: Generiere Angebote mit DEBUG-Analyse...');
     
     const angebote = [];
     let debugHTML = ''; // 🐛 DEBUG-Ausgabe sammeln
@@ -74211,7 +74271,7 @@ async function generateAngebote() {
         for (const [rideId, ride] of Object.entries(rides)) {
             fahrtNr++;
             
-            // 🐛 v5.90.716: DEBUG für JEDE Fahrt (auch die gefilterten!)
+            // 🐛 v5.90.713: DEBUG für JEDE Fahrt (auch die gefilterten!)
             const fahrtTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleString('de-DE') : 'Keine Zeit';
             
             debugHTML += `<div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:6px;margin-bottom:12px;border-left:4px solid #3b82f6;">`;
@@ -74282,7 +74342,7 @@ async function generateAngebote() {
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
             // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
-            // 🔧 v5.90.716: LOGIK UMGEDREHT!
+            // 🔧 v5.90.713: LOGIK UMGEDREHT!
             // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
             
             // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
@@ -74312,19 +74372,19 @@ async function generateAngebote() {
             // 6. Erstelle Angebot
             angebote.push({
                 id: 'angebot_' + rideId,
-                type: 'hinfahrt',  // 🔧 v5.90.716: HINFAHRT!
+                type: 'hinfahrt',  // 🔧 v5.90.713: HINFAHRT!
                 from: ride.destination,  // VON: Ziel der Buchung
                 to: ride.pickup,         // NACH: Start der Buchung
                 fromCoords: ride.destCoords,
                 toCoords: ride.pickupCoords,
-                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.716: HINFAHRT-START!
-                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.716: HINFAHRT-START!
+                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.713: HINFAHRT-START!
+                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.713: HINFAHRT-START!
                 duration: deadheadDuration,
                 distance: ride.distance,
                 normalPrice: normalPrice,
                 discountPrice: discountPrice,
                 discount: 50,
-                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.716: Klarere Beschreibung
+                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.713: Klarere Beschreibung
                 parentRide: rideId,
                 parentCustomer: ride.customerName,
                 targetBookingTime: new Date(ride.pickupTimestamp),  // Wann die Buchung beginnt
@@ -74337,7 +74397,7 @@ async function generateAngebote() {
         
         console.log(`✅ ${angebote.length} Angebote gefunden (Filter: ${filter})`);
         
-        // 🐛 v5.90.716: Zeige Debug-Ausgabe
+        // 🐛 v5.90.713: Zeige Debug-Ausgabe
         debugHTML += '<div style="border-top:1px solid rgba(245,158,11,0.3);margin:15px 0;"></div>';
         debugHTML += `<div style="color:#10b981;font-weight:700;font-size:14px;">✅ ${angebote.length} ANGEBOTE GENERIERT</div>`;
         document.getElementById('debug-content').innerHTML = debugHTML;
@@ -74596,9 +74656,9 @@ async function bookAngebot(angebotId) {
     }
 }
 
-// 🗺️ v5.90.716: ROUTE AUF KARTE ANZEIGEN
+// 🗺️ v5.90.713: ROUTE AUF KARTE ANZEIGEN
 async function showRouteOnMap(angebotId) {
-    console.log('🗺️ v5.90.716: Zeige Route auf Karte für Angebot:', angebotId);
+    console.log('🗺️ v5.90.713: Zeige Route auf Karte für Angebot:', angebotId);
     
     try {
         // Hole Angebot
@@ -74680,10 +74740,10 @@ async function initRouteMap(angebot) {
         if (!container) return;
         
         // Berechne Route mit OSRM
-        console.log('📍 v5.90.716: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
+        console.log('📍 v5.90.713: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
         const routeData = await calculateRoute(angebot.fromCoords, angebot.toCoords);
         
-        console.log('📍 v5.90.716: Route-Daten:', routeData);
+        console.log('📍 v5.90.713: Route-Daten:', routeData);
         
         if (!routeData || !routeData.geometry) {
             throw new Error('Keine Route gefunden');
@@ -74736,10 +74796,10 @@ async function initRouteMap(angebot) {
         // Zoom auf Route
         map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
         
-        console.log('✅ v5.90.716: Karte initialisiert');
+        console.log('✅ v5.90.713: Karte initialisiert');
         
     } catch (error) {
-        console.error('❌ v5.90.716: Fehler beim Initialisieren der Karte:', error);
+        console.error('❌ v5.90.713: Fehler beim Initialisieren der Karte:', error);
         const container = document.getElementById('route-map-container');
         if (container) {
             container.innerHTML = `

@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.699
+    📦 VERSION: v5.90.703
     📅 BUILD: 20.01.2026 23:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.699
+    📋 CHANGELOG v5.90.703
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.699 (20.01.2026):
+    🔧 v5.90.703 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
        • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
@@ -336,9 +336,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.699 - KRANKENFAHRT-BEIDE! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.699: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.699: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.703 - KRANKENFAHRT-BEIDE! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.703: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.703: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.699 - KRANKENFAHRT-BEIDE
+                        🔧 v5.90.703 - KRANKENFAHRT-BEIDE
                     </span>
                 </div>
             </div>
@@ -23753,7 +23753,7 @@ Aktuell: ${currentNum}`;
             }
             
             // ═══════════════════════════════════════════════
-            // SMS-PLATZHALTER: ERGEBNIS
+            // PROGRESS-ZEITEN: ERGEBNIS
             // ═══════════════════════════════════════════════
             if (foundUserId) {
                 console.log('🎉 userId GEFUNDEN:', foundUserId);
@@ -27023,7 +27023,7 @@ Aktuell: ${currentNum}`;
                 
                 const reserveMinutes = availableTime - travelTime;
                 
-                console.log('📊 SMS-PLATZHALTERE BERECHNUNG:');
+                console.log('📊 PROGRESS-ZEITENE BERECHNUNG:');
                 console.log('   Verfügbare Zeit:', availableTime, 'Min');
                 console.log('   - Benötigte Fahrtzeit:', travelTime, 'Min');
                 console.log('   = Reserve:', reserveMinutes, 'Min');
@@ -36222,7 +36222,7 @@ Funk Taxi Team`;
             finalizeRideCompletion(rideId, rideData);
         }
         
-        // 🆕 v5.90.525: SMS-PLATZHALTERISIERE FAHRT-ABSCHLUSS!
+        // 🆕 v5.90.525: PROGRESS-ZEITENISIERE FAHRT-ABSCHLUSS!
         async function finalizeRideCompletion(rideId, rideData) {
             // 🆕 v5.26.14f: REALTIME FIX - Speichere abgeschlossene Fahrt in localStorage!
             if (rideData) {
@@ -38875,7 +38875,7 @@ Funk Taxi Team`;
                     console.log('   KM-Preis:', kmPreis.toFixed(2), '€');
                     console.log('   Basis:', (grundgebuehr + kmPreis).toFixed(2), '€');
                     console.log('   Surge:', surge.multiplier + '%');
-                    console.log('   SMS-PLATZHALTER:', price.toFixed(2), '€', surchargeText);
+                    console.log('   PROGRESS-ZEITEN:', price.toFixed(2), '€', surchargeText);
                     
                     // 🆕 v5.90.206: GLOBALE VARIABLEN FÜR MODAL!
                     window.calculatedPrice = price;
@@ -74193,7 +74193,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.699
+        🔧 v5.90.703
     </div>
 </div>
 
@@ -74227,9 +74227,15 @@ async function generateAngebote() {
         dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
         
         for (const [rideId, ride] of Object.entries(rides)) {
-            // 🚑 v5.90.699: Berücksichtige Krankenfahrten UND Vorbestellungen
-            // Beide blockieren das Taxi und erfordern eine Hinfahrt!
-            const isKrankenfahrt = ride.isKrankenfahrt === true || ride.priceType === 'krankenfahrt';
+            // 🚑 v5.90.703: Berücksichtige Krankenfahrten UND Vorbestellungen
+            // Prüfe ALLE möglichen Felder für Krankenfahrt!
+            const isKrankenfahrt = ride.isKrankenfahrt === true || 
+                                   ride.priceType === 'krankenfahrt' ||
+                                   ride.rideType === 'krankenfahrt';
+            
+            if (isKrankenfahrt) {
+                console.log(`🚑 v5.90.703: Krankenfahrt erkannt: ${ride.customerName || 'Unbekannt'} - ${ride.pickup} → ${ride.destination}`);
+            }
             
             // Akzeptiere: vorbestellt ODER Krankenfahrt
             if (!isKrankenfahrt && ride.status !== 'vorbestellt') continue;
@@ -74251,7 +74257,7 @@ async function generateAngebote() {
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
             // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
-            // 🔧 v5.90.699: LOGIK UMGEDREHT!
+            // 🔧 v5.90.703: LOGIK UMGEDREHT!
             // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
             
             // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
@@ -74279,7 +74285,7 @@ async function generateAngebote() {
             const discountPrice = Math.round(normalPrice * 0.5); // 50% Rabatt
             
             // 6. Erstelle Angebot
-            // 🚑 v5.90.699: Normale Fahrten = Leerfahrt, Krankenfahrten = Mitfahrt + Rückfahrt
+            // 🚑 v5.90.703: Normale Fahrten = Leerfahrt, Krankenfahrten = Mitfahrt + Rückfahrt
             if (!isKrankenfahrt) {
                 // NORMALE FAHRT: Leerfahrt zur Buchung
                 angebote.push({
@@ -74306,7 +74312,7 @@ async function generateAngebote() {
                 });
             }
             
-            // 🚑 v5.90.699: KRANKENFAHRT = 2 Angebote (Mitfahrt + Rückfahrt)
+            // 🚑 v5.90.703: KRANKENFAHRT = 2 Angebote (Mitfahrt + Rückfahrt)
             if (isKrankenfahrt) {
                 // ANGEBOT 1: MITFAHRT ZUM Krankenhaus (Patient ist dabei!)
                 angebote.push({
@@ -74359,7 +74365,7 @@ async function generateAngebote() {
                     direction: 'rueckfahrt'
                 });
                 
-                console.log(`🚑 v5.90.699: Krankenfahrt → 2 Angebote (Mitfahrt + Rückfahrt) für ${ride.customerName}`);
+                console.log(`🚑 v5.90.703: Krankenfahrt → 2 Angebote (Mitfahrt + Rückfahrt) für ${ride.customerName}`);
             }
         }
         
@@ -74619,9 +74625,9 @@ async function bookAngebot(angebotId) {
     }
 }
 
-// 🗺️ v5.90.699: ROUTE AUF KARTE ANZEIGEN
+// 🗺️ v5.90.703: ROUTE AUF KARTE ANZEIGEN
 async function showRouteOnMap(angebotId) {
-    console.log('🗺️ v5.90.699: Zeige Route auf Karte für Angebot:', angebotId);
+    console.log('🗺️ v5.90.703: Zeige Route auf Karte für Angebot:', angebotId);
     
     try {
         // Hole Angebot
@@ -74715,26 +74721,62 @@ async function initRouteMap(angebot) {
         const container = document.getElementById('route-map-container');
         if (!container) return;
         
+        // 🆕 v5.90.703: Progress-Overlay erstellen
+        container.innerHTML = `
+            <div id="route-progress-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;border-radius:12px;">
+                <div style="text-align:center;">
+                    <div style="font-size:48px;margin-bottom:20px;">🗺️</div>
+                    <div id="route-progress-message" style="font-size:18px;font-weight:700;color:#1f2937;margin-bottom:12px;">
+                        Initialisiere Karte...
+                    </div>
+                    <div style="width:300px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin:0 auto 12px;">
+                        <div id="route-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);transition:width 0.3s;"></div>
+                    </div>
+                    <div id="route-progress-detail" style="font-size:13px;color:#6b7280;"></div>
+                </div>
+            </div>
+        `;
+        
+        // Hilfsfunktion: Progress Update
+        const updateProgress = (message, percent, detail = '') => {
+            const msgEl = document.getElementById('route-progress-message');
+            const barEl = document.getElementById('route-progress-bar');
+            const detailEl = document.getElementById('route-progress-detail');
+            if (msgEl) msgEl.textContent = message;
+            if (barEl) barEl.style.width = `${percent}%`;
+            if (detailEl) detailEl.textContent = detail;
+        };
+        
         // Berechne Route mit OSRM
-        console.log('📍 v5.90.699: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
+        updateProgress('Berechne Route...', 10);
+        console.log('📍 v5.90.703: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
         const routeData = await calculateRoute(angebot.fromCoords, angebot.toCoords);
         
-        console.log('📍 v5.90.699: Route-Daten:', routeData);
+        console.log('📍 v5.90.703: Route-Daten:', routeData);
         
         if (!routeData || !routeData.geometry) {
             throw new Error('Keine Route gefunden');
         }
         
+        updateProgress('Erstelle Karte...', 20);
+        
+        // Container leeren und Map-Element erstellen
+        container.innerHTML = '<div id="route-map-element" style="width:100%;height:100%;"></div>';
+        
         // Erstelle Leaflet Map
-        const map = L.map(container, {
+        const map = L.map('route-map-element', {
             zoomControl: true,
             scrollWheelZoom: true
         }).setView([angebot.fromCoords.lat, angebot.fromCoords.lon], 12);
+        
+        updateProgress('Lade Kartendaten...', 30);
         
         // Füge OSM Tiles hinzu
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
+        
+        updateProgress('Zeichne Route...', 40);
         
         // Zeichne Route
         // routeData.geometry ist Array von [lon, lat] - für Leaflet brauchen wir [lat, lon]!
@@ -74769,15 +74811,16 @@ async function initRouteMap(angebot) {
             .addTo(map)
             .bindPopup(`<strong>Ziel:</strong><br>${angebot.to}`);
         
-        // 🆕 v5.90.699: Finde Bushaltestellen entlang der Route
-        console.log('🚌 v5.90.699: Suche Bushaltestellen...');
-        const busStops = await findPOIsAlongRoute(routeData.geometry, 'bus_stop', 500);
-        console.log('🚌 v5.90.699: Gefunden:', busStops.length, 'Bushaltestellen');
+        // 🆕 v5.90.703: Finde Bushaltestellen entlang der Route
+        updateProgress('Suche Bushaltestellen...', 50, 'Dies kann einen Moment dauern...');
+        console.log('🚌 v5.90.703: Suche Bushaltestellen...');
+        const busStops = await findPOIsAlongRoute(routeData.geometry, 'bus_stop', 500, updateProgress);
+        console.log('🚌 v5.90.703: Gefunden:', busStops.length, 'Bushaltestellen');
         
-        // 🆕 v5.90.699: Finde Bahnhöfe entlang der Route
-        console.log('🚉 v5.90.699: Suche Bahnhöfe...');
+        // 🆕 v5.90.703: Finde Bahnhöfe entlang der Route
+        console.log('🚉 v5.90.703: Suche Bahnhöfe...');
         const trainStations = await findPOIsAlongRoute(routeData.geometry, 'railway', 1000);
-        console.log('🚉 v5.90.699: Gefunden:', trainStations.length, 'Bahnhöfe');
+        console.log('🚉 v5.90.703: Gefunden:', trainStations.length, 'Bahnhöfe');
         
         // Füge Bushaltestellen-Marker hinzu
         busStops.forEach(stop => {
@@ -74788,9 +74831,19 @@ async function initRouteMap(angebot) {
                 iconAnchor: [14, 28]
             });
             
+            // 🆕 v5.90.703: Besseres Popup mit DB API Daten
+            let popupHTML = `<strong>🚌 Bushaltestelle</strong><br>${stop.name || 'Unbenannt'}`;
+            
+            if (stop.dbName && stop.dbName !== stop.overpassName) {
+                popupHTML = `<strong>🚌 ${stop.dbName}</strong>`;
+                if (stop.distance && stop.distance < 50) {
+                    popupHTML += `<br><small>📏 ${stop.distance}m zur Haltestelle</small>`;
+                }
+            }
+            
             const marker = L.marker([stop.lat, stop.lon], { icon })
                 .addTo(map)
-                .bindPopup(`<strong>🚌 Bushaltestelle</strong><br>${stop.name || 'Unbenannt'}`);
+                .bindPopup(popupHTML);
             
             routeMapMarkers.bus.push(marker);
         });
@@ -74804,9 +74857,19 @@ async function initRouteMap(angebot) {
                 iconAnchor: [14, 28]
             });
             
+            // 🆕 v5.90.703: Besseres Popup mit DB API Daten
+            let popupHTML = `<strong>🚉 Bahnhof</strong><br>${station.name || 'Unbenannt'}`;
+            
+            if (station.dbName && station.dbName !== station.overpassName) {
+                popupHTML = `<strong>🚉 ${station.dbName}</strong>`;
+                if (station.distance && station.distance < 50) {
+                    popupHTML += `<br><small>📏 ${station.distance}m zum Bahnhof</small>`;
+                }
+            }
+            
             const marker = L.marker([station.lat, station.lon], { icon })
                 .addTo(map)
-                .bindPopup(`<strong>🚉 Bahnhof</strong><br>${station.name || 'Unbenannt'}`);
+                .bindPopup(popupHTML);
             
             routeMapMarkers.train.push(marker);
         });
@@ -74814,10 +74877,10 @@ async function initRouteMap(angebot) {
         // Zoom auf Route
         map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
         
-        console.log('✅ v5.90.699: Karte initialisiert mit', busStops.length, 'Bushaltestellen und', trainStations.length, 'Bahnhöfen');
+        console.log('✅ v5.90.703: Karte initialisiert mit', busStops.length, 'Bushaltestellen und', trainStations.length, 'Bahnhöfen');
         
     } catch (error) {
-        console.error('❌ v5.90.699: Fehler beim Initialisieren der Karte:', error);
+        console.error('❌ v5.90.703: Fehler beim Initialisieren der Karte:', error);
         const container = document.getElementById('route-map-container');
         if (container) {
             container.innerHTML = `
@@ -74842,11 +74905,53 @@ function closeRouteMap() {
     routeMapMarkers = { bus: [], train: [] };
 }
 
-// 🆕 v5.90.699: Globale Marker-Arrays für Filter
+// 🆕 v5.90.703: Globale Marker-Arrays für Filter
 let routeMapMarkers = { bus: [], train: [] };
 
-// 🆕 v5.90.699: POIs entlang Route finden
-async function findPOIsAlongRoute(geometry, poiType, maxDistance) {
+// 🆕 v5.90.703: Reichere POIs mit DB API Daten an
+async function enrichPOIsWithDBAPI(pois, poiType) {
+    if (pois.length === 0) return;
+    
+    console.log(`🚀 v5.90.703: Starte DB API Lookup für ${pois.length} ${poiType}...`);
+    
+    for (let i = 0; i < pois.length; i++) {
+        const poi = pois[i];
+        
+        try {
+            // Hole DB API Info für diese Koordinaten
+            const url = `https://v6.db.transport.rest/locations/nearby?latitude=${poi.lat}&longitude=${poi.lon}&results=1&distance=100`;
+            
+            const response = await fetch(url);
+            const dbData = await response.json();
+            
+            if (dbData && dbData.length > 0) {
+                const dbStop = dbData[0];
+                
+                // Übernehme besseren Namen von DB API
+                if (dbStop.name && dbStop.name !== 'Unbekannt') {
+                    console.log(`✅ v5.90.703: ${poi.name} → ${dbStop.name}`);
+                    poi.name = dbStop.name;
+                    poi.dbName = dbStop.name;
+                    poi.distance = dbStop.distance || 0;
+                    poi.products = dbStop.products || {};
+                }
+            } else {
+                console.log(`⚠️ v5.90.703: Keine DB Daten für ${poi.name}`);
+            }
+            
+            // Kleiner Delay um API nicht zu überlasten
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+        } catch (error) {
+            console.warn(`⚠️ v5.90.703: DB API Fehler für ${poi.name}:`, error.message);
+        }
+    }
+    
+    console.log(`✅ v5.90.703: DB API Lookup abgeschlossen!`);
+}
+
+// 🆕 v5.90.703: POIs entlang Route finden
+async function findPOIsAlongRoute(geometry, poiType, maxDistance, progressCallback = null) {
     try {
         // Nimm alle 10. Punkt der Route für Performance
         const checkPoints = geometry.filter((_, i) => i % 10 === 0);
@@ -74856,14 +74961,25 @@ async function findPOIsAlongRoute(geometry, poiType, maxDistance) {
         for (const point of checkPoints) {
             const [lon, lat] = point;
             
-            // Overpass API Query für POIs
+            // 🔧 v5.90.703: Korrekte Overpass Query je nach Typ
+            let overpassFilter;
+            if (poiType === 'bus_stop') {
+                overpassFilter = '["highway"="bus_stop"]';
+            } else if (poiType === 'railway') {
+                overpassFilter = '["railway"="station"]';
+            } else {
+                overpassFilter = `["${poiType}"]`;
+            }
+            
             const query = `
-                [out:json];
+                [out:json][timeout:5];
                 (
-                    node["${poiType}"](around:${maxDistance},${lat},${lon});
+                    node${overpassFilter}(around:${maxDistance},${lat},${lon});
                 );
                 out body;
             `;
+            
+            console.log(`🔍 v5.90.703: Query ${poiType} bei [${lat.toFixed(4)}, ${lon.toFixed(4)}]`);
             
             try {
                 const response = await fetch('https://overpass-api.de/api/interpreter', {
@@ -74872,6 +74988,8 @@ async function findPOIsAlongRoute(geometry, poiType, maxDistance) {
                 });
                 
                 const data = await response.json();
+                
+                console.log(`📊 v5.90.703: ${poiType} - ${data.elements?.length || 0} gefunden`);
                 
                 if (data.elements) {
                     data.elements.forEach(poi => {
@@ -74882,28 +75000,33 @@ async function findPOIsAlongRoute(geometry, poiType, maxDistance) {
                                 lat: poi.lat,
                                 lon: poi.lon,
                                 name: poi.tags?.name || poi.tags?.ref || 'Unbenannt',
-                                type: poiType
+                                type: poiType,
+                                overpassName: poi.tags?.name || 'Unbenannt' // 🆕 v5.90.703: Original-Name merken
                             });
                         }
                     });
                 }
             } catch (e) {
-                console.warn('⚠️ v5.90.699: Overpass API Fehler:', e);
+                console.error('⚠️ v5.90.703: Overpass Fehler:', e.message || e);
             }
             
             // Nur bis zu 20 POIs pro Typ
             if (foundPOIs.length >= 20) break;
         }
         
+        // 🆕 v5.90.703: Hole bessere Namen von DB API
+        console.log(`🔍 v5.90.703: Hole Namen von DB API für ${foundPOIs.length} POIs...`);
+        await enrichPOIsWithDBAPI(foundPOIs, poiType);
+        
         return foundPOIs;
         
     } catch (error) {
-        console.error('❌ v5.90.699: Fehler beim Suchen von POIs:', error);
+        console.error('❌ v5.90.703: Fehler beim Suchen von POIs:', error);
         return [];
     }
 }
 
-// 🆕 v5.90.699: Toggle Marker-Sichtbarkeit
+// 🆕 v5.90.703: Toggle Marker-Sichtbarkeit
 function toggleMarkers(type) {
     const checkbox = document.getElementById(`filter-${type === 'bus' ? 'bushaltestellen' : 'bahnhoefe'}`);
     const markers = routeMapMarkers[type];
@@ -74916,7 +75039,7 @@ function toggleMarkers(type) {
         }
     });
     
-    console.log(`🔄 v5.90.699: ${type === 'bus' ? 'Bushaltestellen' : 'Bahnhöfe'} ${checkbox.checked ? 'angezeigt' : 'ausgeblendet'}`);
+    console.log(`🔄 v5.90.703: ${type === 'bus' ? 'Bushaltestellen' : 'Bahnhöfe'} ${checkbox.checked ? 'angezeigt' : 'ausgeblendet'}`);
 }
 
 

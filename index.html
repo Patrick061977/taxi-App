@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.722
-    📅 BUILD: 21.01.2026 18:50 Uhr
+    📦 VERSION: v5.90.723
+    📅 BUILD: 21.01.2026 19:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.722
+    📋 CHANGELOG v5.90.723
     ═══════════════════════════════════════════════════════════════════════════
+
+    📱 v5.90.723 (21.01.2026):
+       • FIX: Karten-Picker jetzt mobil-freundlich!
+       • Modal nutzt volle Bildschirmbreite auf Handys
+       • Karten-Höhe reduziert (200px statt 400px) auf mobilen Geräten
+       • POI-Filter Buttons kompakter auf kleinen Screens
+       • Buttons stapeln sich vertikal auf sehr kleinen Screens (<400px)
 
     📱 v5.90.722 (21.01.2026):
        • FIX: ALLE SMS-Platzhalter werden jetzt korrekt ersetzt!
@@ -965,21 +972,87 @@
                 padding: 16px !important;
                 font-size: 14px !important;
             }
+
+            /* 📱 v5.90.723: Karten-Picker Mobile-freundlich */
+            #quick-booking-map-picker-modal > div,
+            #universal-map-picker-modal > div {
+                max-width: 100% !important;
+                max-height: 100vh !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+            }
+
+            #quick-booking-map-picker-modal,
+            #universal-map-picker-modal {
+                padding: 0 !important;
+            }
+
+            /* Karte kleiner auf Mobile */
+            #quick-booking-map-picker,
+            #universal-map-picker-container {
+                min-height: 200px !important;
+            }
+
+            /* POI Filter Buttons kompakter */
+            #poi-filter-buttons {
+                padding: 8px 10px !important;
+                gap: 4px !important;
+            }
+
+            #poi-filter-buttons button {
+                padding: 6px 10px !important;
+                font-size: 11px !important;
+            }
+
+            /* Header und Buttons kompakter */
+            #quick-booking-map-picker-modal h3,
+            #universal-map-picker-modal h3 {
+                font-size: 15px !important;
+            }
+
+            #quick-booking-map-picker-modal [style*="padding:20px"],
+            #universal-map-picker-modal [style*="padding:20px"] {
+                padding: 12px !important;
+            }
+
+            #quick-booking-map-picker-modal [style*="padding:15px"],
+            #universal-map-picker-modal [style*="padding:15px"] {
+                padding: 10px !important;
+            }
         }
-        
+
         /* 📱 Sehr kleine Screens (unter 400px) */
         @media only screen and (max-width: 400px) {
             .header h1 {
                 font-size: 16px !important;
             }
-            
+
             .status-row {
                 font-size: 9px !important;
             }
-            
+
             .view-btn {
                 font-size: 13px !important;
                 padding: 15px 5px !important;
+            }
+
+            /* 📱 v5.90.723: Karten-Picker für sehr kleine Screens */
+            #quick-booking-map-picker,
+            #universal-map-picker-container {
+                min-height: 180px !important;
+            }
+
+            /* POI Filter noch kompakter - 2 Zeilen */
+            #poi-filter-buttons button {
+                padding: 5px 8px !important;
+                font-size: 10px !important;
+            }
+
+            /* Buttons übereinander auf sehr kleinen Screens */
+            #quick-booking-map-picker-modal [style*="display:flex;gap:10px"],
+            #universal-map-picker-modal [style*="display:flex;gap:10px"] {
+                flex-direction: column !important;
+                gap: 6px !important;
             }
         }
 

@@ -9,13 +9,27 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.723
-    📅 BUILD: 21.01.2026 19:30 Uhr
+    📦 VERSION: v5.90.725
+    📅 BUILD: 21.01.2026 20:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.723
+    📋 CHANGELOG v5.90.725
     ═══════════════════════════════════════════════════════════════════════════
+
+    🔍 v5.90.725 (21.01.2026):
+       • NEU: SUCHFELD IM KARTEN-PICKER!
+       • Suche nach Adresse/Hotel/Restaurant direkt im Karten-Picker
+       • Telefonnummern werden in Suchergebnissen angezeigt (📞)
+       • Bei Auswahl: Karte springt zur Position + zeigt POIs
+       • POI-Liste zeigt alle Geschäfte an der Adresse mit Telefon
+
+    📞 v5.90.724 (21.01.2026):
+       • NEU: Telefonnummern im Autocomplete-Dropdown!
+       • Bei Hotels/Restaurants wird jetzt die Telefonnummer angezeigt
+       • Grünes 📞 Symbol zeigt Telefonnummer unter dem POI-Namen
+       • Funktioniert in Buchungsformular UND Schnellbuchung
+       • Nutzt OpenStreetMap extratags (phone, contact:phone, telephone)
 
     📱 v5.90.723 (21.01.2026):
        • FIX: Karten-Picker jetzt mobil-freundlich!
@@ -24531,7 +24545,11 @@ Aktuell: ${currentNum}`;
                     
                     // PLZ
                     const zip = address.postcode || '';
-                    
+
+                    // 🆕 v5.90.724: Telefonnummer aus extratags extrahieren!
+                    const extratags = r.extratags || {};
+                    const poiPhone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
+
                     // 🎨 Baue schöne Anzeige
                     if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
                         displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
@@ -24540,6 +24558,10 @@ Aktuell: ${currentNum}`;
                         if (zip) displayText += ', ' + zip;
                         if (city) displayText += ' ' + city;
                         displayText += '</div>';
+                        // 🆕 v5.90.724: Telefonnummer anzeigen wenn vorhanden!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;padding-left:20px;font-weight:600;">📞 ${poiPhone}</div>`;
+                        }
                     } else {
                         if (fullAddress) {
                             displayText = fullAddress;
@@ -24548,8 +24570,12 @@ Aktuell: ${currentNum}`;
                         } else {
                             displayText = r.display_name;
                         }
+                        // 🆕 v5.90.724: Telefonnummer auch bei normalen Adressen!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">📞 ${poiPhone}</div>`;
+                        }
                     }
-                    
+
                     // Vollständige Adresse als String
                     let addressString = '';
                     if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
@@ -45760,7 +45786,11 @@ Funk Taxi Team`;
                     
                     // PLZ
                     const zip = address.postcode || '';
-                    
+
+                    // 🆕 v5.90.724: Telefonnummer aus extratags extrahieren!
+                    const extratags = r.extratags || {};
+                    const poiPhone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
+
                     // 🎨 Baue schöne Anzeige (wie Fahrgast-Tab!)
                     if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
                         displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
@@ -45769,12 +45799,16 @@ Funk Taxi Team`;
                         if (zip) displayText += ', ' + zip;
                         if (city) displayText += ' ' + city;
                         displayText += '</div>';
+                        // 🆕 v5.90.724: Telefonnummer anzeigen wenn vorhanden!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;padding-left:20px;font-weight:600;">📞 ${poiPhone}</div>`;
+                        }
                     } else {
                         if (fullAddress) {
                             displayText = fullAddress;
                             if (zip) displayText += ', ' + zip;
                             if (city) displayText += ' ' + city;
-                            
+
                             // 🆕 v5.90.200: Zeige Badge für virtuelle Hausnummer!
                             if (isVirtual) {
                                 displayText = `<div style="display:flex;align-items:center;gap:8px;">
@@ -45785,6 +45819,10 @@ Funk Taxi Team`;
                             }
                         } else {
                             displayText = r.display_name;
+                        }
+                        // 🆕 v5.90.724: Telefonnummer auch bei normalen Adressen!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">📞 ${poiPhone}</div>`;
                         }
                     }
                     
@@ -46652,10 +46690,23 @@ Funk Taxi Team`;
                     <!-- Info -->
                     <div style="padding:15px;background:#ecfdf5;border-bottom:2px solid #10b981;">
                         <div style="font-size:13px;color:#065f46;font-weight:600;">
-                            💡 Klicke auf die Karte um einen Ort auszuwählen
+                            💡 Klicke auf die Karte oder suche nach einem Ort
                         </div>
                     </div>
-                    
+
+                    <!-- 🆕 v5.90.725: SUCHFELD IM KARTEN-PICKER -->
+                    <div style="padding:12px 15px;background:#f0f9ff;border-bottom:1px solid #bae6fd;position:relative;">
+                        <div style="display:flex;gap:8px;">
+                            <input type="text"
+                                   id="map-picker-search-input"
+                                   placeholder="🔍 Hotel, Restaurant, Adresse suchen..."
+                                   oninput="searchInMapPicker()"
+                                   style="flex:1;padding:12px 16px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;outline:none;">
+                            <button onclick="clearMapPickerSearch()" style="padding:12px 16px;background:#6b7280;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">✕</button>
+                        </div>
+                        <div id="map-picker-search-results" style="display:none;position:absolute;left:15px;right:15px;top:100%;background:white;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;max-height:300px;overflow-y:auto;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                    </div>
+
                     <!-- 🆕 v5.90.653: POI FILTER BUTTONS -->
                     <div id="poi-filter-buttons" style="padding:12px 15px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
                         <button onclick="filterPOIsByType('all')" class="poi-filter-btn active" data-type="all" style="padding:8px 14px;background:#10b981;color:white;border:2px solid #10b981;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;">
@@ -47131,7 +47182,152 @@ Funk Taxi Team`;
             // Schließe Modal
             closeUniversalMapPicker();
         }
-        
+
+        // 🆕 v5.90.725: SUCHE IM KARTEN-PICKER
+        let mapPickerSearchTimeout = null;
+        async function searchInMapPicker() {
+            const input = document.getElementById('map-picker-search-input');
+            const resultsDiv = document.getElementById('map-picker-search-results');
+            const query = input?.value?.trim();
+
+            // Debounce
+            if (mapPickerSearchTimeout) clearTimeout(mapPickerSearchTimeout);
+
+            if (!query || query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            mapPickerSearchTimeout = setTimeout(async () => {
+                console.log('🔍 v5.90.725: Karten-Picker Suche:', query);
+
+                try {
+                    // Nominatim-Suche mit extratags für Telefonnummern!
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?` +
+                        `format=json&` +
+                        `q=${encodeURIComponent(query)}&` +
+                        `countrycodes=de&` +
+                        `viewbox=10.6,54.7,14.4,53.1&` +
+                        `bounded=1&` +
+                        `limit=8&` +
+                        `addressdetails=1&` +
+                        `extratags=1&` +
+                        `namedetails=1`
+                    );
+                    const results = await response.json();
+
+                    if (results.length === 0) {
+                        resultsDiv.innerHTML = '<div style="padding:15px;color:#6b7280;text-align:center;">Keine Ergebnisse gefunden</div>';
+                        resultsDiv.style.display = 'block';
+                        return;
+                    }
+
+                    // Ergebnisse anzeigen
+                    resultsDiv.innerHTML = results.map((r, index) => {
+                        const addr = r.address || {};
+                        const extratags = r.extratags || {};
+
+                        // POI-Name
+                        let poiName = r.name;
+                        if (!poiName || poiName === addr.road) {
+                            poiName = addr.hotel || addr.restaurant || addr.cafe || addr.tourism || addr.amenity || null;
+                        }
+
+                        // Adresse
+                        let addrText = '';
+                        if (addr.road) {
+                            addrText = addr.road;
+                            if (addr.house_number) addrText += ' ' + addr.house_number;
+                        }
+                        if (addr.postcode) addrText += ', ' + addr.postcode;
+                        if (addr.town || addr.city || addr.village) {
+                            addrText += ' ' + (addr.town || addr.city || addr.village);
+                        }
+                        if (!addrText) addrText = r.display_name;
+
+                        // Telefonnummer
+                        const phone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
+
+                        return \`
+                            <div onclick="selectMapPickerSearchResult(${r.lat}, ${r.lon}, '\${addrText.replace(/'/g, "\\\\'")}', '\${(poiName || '').replace(/'/g, "\\\\'")}')"
+                                 style="padding:12px 15px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;"
+                                 onmouseover="this.style.background='#f0f9ff'"
+                                 onmouseout="this.style.background='white'">
+                                \${poiName ? \`<div style="font-weight:600;color:#3b82f6;">🏨 \${poiName}</div>\` : ''}
+                                <div style="font-size:13px;color:#374151;\${poiName ? 'margin-top:4px;padding-left:20px;' : ''}">\${addrText}</div>
+                                \${phone ? \`<div style="font-size:12px;color:#10b981;margin-top:4px;padding-left:\${poiName ? '20px' : '0'};font-weight:600;">📞 \${phone}</div>\` : ''}
+                            </div>
+                        \`;
+                    }).join('');
+
+                    resultsDiv.style.display = 'block';
+
+                } catch (error) {
+                    console.error('💾 Karten-Picker Suche Fehler:', error);
+                    resultsDiv.innerHTML = '<div style="padding:15px;color:#ef4444;text-align:center;">Fehler bei der Suche</div>';
+                    resultsDiv.style.display = 'block';
+                }
+            }, 300);
+        }
+
+        function selectMapPickerSearchResult(lat, lon, address, poiName) {
+            console.log('📍 v5.90.725: Suchergebnis ausgewählt:', lat, lon, address, poiName);
+
+            // Schließe Suchergebnisse
+            const resultsDiv = document.getElementById('map-picker-search-results');
+            if (resultsDiv) resultsDiv.style.display = 'none';
+
+            // Karte zur Position bewegen
+            if (universalMapPicker.map) {
+                universalMapPicker.map.setView([lat, lon], 18);
+
+                // Marker setzen (simuliert Klick auf Karte)
+                if (universalMapPicker.marker) {
+                    universalMapPicker.map.removeLayer(universalMapPicker.marker);
+                }
+
+                universalMapPicker.marker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: '<div style="background:#ef4444;width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    })
+                }).addTo(universalMapPicker.map);
+
+                // Speichere Daten
+                universalMapPicker.marker.pickedLat = lat;
+                universalMapPicker.marker.pickedLon = lon;
+                universalMapPicker.marker.pickedAddress = poiName ? `${poiName}, ${address}` : address;
+
+                // Zeige ausgewählte Adresse
+                const selectedDiv = document.getElementById('universal-map-picker-selected');
+                const addressDiv = document.getElementById('universal-map-picker-address');
+                if (selectedDiv && addressDiv) {
+                    addressDiv.textContent = universalMapPicker.marker.pickedAddress;
+                    selectedDiv.style.display = 'block';
+                }
+
+                // Aktiviere Buttons
+                const confirmBtn = document.getElementById('universal-map-picker-confirm-address');
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.style.opacity = '1';
+                }
+
+                // 🆕 Suche POIs an dieser Stelle (zeigt Telefonnummern!)
+                searchNearbyPOIs(lat, lon, address);
+            }
+        }
+
+        function clearMapPickerSearch() {
+            const input = document.getElementById('map-picker-search-input');
+            const resultsDiv = document.getElementById('map-picker-search-results');
+            if (input) input.value = '';
+            if (resultsDiv) resultsDiv.style.display = 'none';
+        }
+
         function closeUniversalMapPicker() {
             const modal = document.getElementById('universal-map-picker-modal');
             if (modal) {

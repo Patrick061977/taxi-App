@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.720
-    📅 BUILD: 21.01.2026 18:00 Uhr
+    📦 VERSION: v5.90.721
+    📅 BUILD: 21.01.2026 18:45 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.720
+    📋 CHANGELOG v5.90.721
     ═══════════════════════════════════════════════════════════════════════════
+
+    🔧 v5.90.721 (21.01.2026):
+       • FIX: JavaScript Syntax-Fehler behoben!
+       • Escaped Backticks in Template-Literals korrigiert
+       • Extra Klammer in loadSMSSettings() entfernt
+       • Firebase lädt jetzt korrekt
+       • SMS-Vorschau funktioniert
 
     📞 v5.90.720 (21.01.2026):
        • NEU: Telefonnummern von Hotels/Restaurants im Karten-Picker!
@@ -361,8 +368,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.720 - TELEFONNUMMERN IM KARTEN-PICKER! 📞✅ (Build 2026-01-21_1800)');
-        console.log('📞 v5.90.720: Telefonnummern von Hotels/Restaurants werden angezeigt!');
+        console.log('🚕 Funk Taxi App v5.90.721 - SYNTAX FIX! 🔧✅ (Build 2026-01-21_1845)');
+        console.log('🔧 v5.90.721: JavaScript Syntax-Fehler behoben!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
@@ -53835,7 +53842,7 @@ Funk Taxi Team`;
             const modal = document.createElement('div');
             modal.id = 'edit-customer-modal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100000;';
-            modal.innerHTML = \`
+            modal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;">
                     <button onclick="document.getElementById('edit-customer-modal').remove()" style="
                         position: absolute;
@@ -53858,7 +53865,7 @@ Funk Taxi Team`;
                     ">✕</button>
                     <h3 style="margin:0 0 15px 0;padding-right:50px;">➕ Neuer Kunde</h3>
                     <div style="display:flex;flex-direction:column;gap:10px;">
-                        <input type="text" id="edit-customer-name" value="\${prefillName}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <input type="text" id="edit-customer-name" value="${prefillName}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
 
                         <!-- TELEFON MIT LÄNDERVORWAHL -->
                         <div>
@@ -53994,7 +54001,7 @@ Funk Taxi Team`;
                         <button onclick="closeEditCustomerModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
                     </div>
                 </div>
-            \`;
+            `;
             document.body.appendChild(modal);
             console.log('✅ v5.90.719: Neuer Kunde Modal geöffnet');
 
@@ -65030,8 +65037,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                 if (trackingTextarea) {
                     trackingTextarea.value = settings.trackingText || getDefaultSMSText('tracking');
                 }
-                }
-                
+
                 console.log('📱 SMS-Settings aus Firebase geladen:', settings);
                 console.log('✏️ v5.90.678: SMS-Texte geladen!');
                 console.log('🏨 v5.90.716: Hotel-SMS Text geladen!');
@@ -74544,7 +74550,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📞 v5.90.720
+        🔧 v5.90.721
     </div>
 </div>
 

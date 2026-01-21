@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.705
+    📦 VERSION: v5.90.693
     📅 BUILD: 20.01.2026 23:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.705
+    📋 CHANGELOG v5.90.693
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.705 (20.01.2026):
+    🔧 v5.90.693 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
        • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
@@ -336,9 +336,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.705 - KRANKENFAHRT-BEIDE! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.705: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.705: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.693 - DISTANCE-FIX! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.693: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.693: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - KRANKENFAHRT-BEIDE! ✅ (Build 20260120-2330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - DISTANCE-FIX! ✅ (Build 20260120-2330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.705 - KRANKENFAHRT-BEIDE
+                        🔧 v5.90.693 - DISTANCE-FIX
                     </span>
                 </div>
             </div>
@@ -6601,7 +6601,7 @@
                             ✅ Buchungsbestätigung SMS
                         </div>
                         <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">
-                            📋 Verfügbare Platzhalter: {date}, {time}, {from}, {to}, {price}, {phone}, {customerName}, {customerPhone}, {persons}, {distance}, {duration}
+                            📋 Verfügbare Platzhalter: {date}, {time}, {from}, {to}, {price}, {phone}
                         </div>
                         <textarea 
                             id="sms-booking-text" 
@@ -6652,11 +6652,6 @@
                             <strong>{from}</strong><span>→ Abholort (max 25 Zeichen)</span>
                             <strong>{to}</strong><span>→ Zielort (max 25 Zeichen)</span>
                             <strong>{price}</strong><span>→ Preis mit € (z.B. "25€")</span>
-                            <strong>{customerName}</strong><span>→ Name des Kunden</span>
-                            <strong>{customerPhone}</strong><span>→ Telefon des Kunden</span>
-                            <strong>{persons}</strong><span>→ Personenanzahl (z.B. "4 Pers.")</span>
-                            <strong>{distance}</strong><span>→ Distanz (z.B. "13.5 km")</span>
-                            <strong>{duration}</strong><span>→ Fahrtdauer (z.B. "30 Min")</span>
                             <strong>{link}</strong><span>→ Tracking-URL</span>
                             <strong>{phone}</strong><span>→ Ihre Telefonnummer</span>
                         </div>
@@ -10956,7 +10951,7 @@ Funk Taxi Heringsdorf`;
                 passengers: newPassengers,
                 status: newStatus,
                 editedAt: Date.now(),
-                // 🆕 v5.90.121: KRANKENFAHRT-BEIDE!
+                // 🆕 v5.90.121: KRANKENFAHRT!
                 isKrankenfahrt: isKrankenfahrt,
                 rideType: isKrankenfahrt ? 'krankenfahrt' : 'normal',
                 // 🆕 v5.75.0: PREIS/DISTANZ/DAUER!
@@ -23753,7 +23748,7 @@ Aktuell: ${currentNum}`;
             }
             
             // ═══════════════════════════════════════════════
-            // RUECKFAHRT: ERGEBNIS
+            // FINAL: ERGEBNIS
             // ═══════════════════════════════════════════════
             if (foundUserId) {
                 console.log('🎉 userId GEFUNDEN:', foundUserId);
@@ -25375,7 +25370,7 @@ Aktuell: ${currentNum}`;
                 clearDestBtn.style.display = 'inline-block';
             }
             
-            // 🗺️ KRANKENFAHRT-BEIDE ANZEIGEN
+            // 🗺️ DISTANCE-FIX ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
@@ -25402,7 +25397,7 @@ Aktuell: ${currentNum}`;
             priceCalculated = true;
         }
 
-        // 🗺️ KRANKENFAHRT-BEIDE ANZEIGEN
+        // 🗺️ DISTANCE-FIX ANZEIGEN
         let routeMapInstance = null;
         function showRouteMap(route, pickupCoords, destCoords) {
             // 🐛 v5.90.542: NULL-CHECK!
@@ -27023,7 +27018,7 @@ Aktuell: ${currentNum}`;
                 
                 const reserveMinutes = availableTime - travelTime;
                 
-                console.log('📊 RUECKFAHRTE BERECHNUNG:');
+                console.log('📊 FINALE BERECHNUNG:');
                 console.log('   Verfügbare Zeit:', availableTime, 'Min');
                 console.log('   - Benötigte Fahrtzeit:', travelTime, 'Min');
                 console.log('   = Reserve:', reserveMinutes, 'Min');
@@ -28495,7 +28490,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ KRANKENFAHRT-BEIDE VERSTECKEN
+            // 🗺️ DISTANCE-FIX VERSTECKEN
             const routeMap = document.getElementById('route-map');
             if (routeMap) {
                 routeMap.style.display = 'none';
@@ -36222,7 +36217,7 @@ Funk Taxi Team`;
             finalizeRideCompletion(rideId, rideData);
         }
         
-        // 🆕 v5.90.525: RUECKFAHRTISIERE FAHRT-ABSCHLUSS!
+        // 🆕 v5.90.525: FINALISIERE FAHRT-ABSCHLUSS!
         async function finalizeRideCompletion(rideId, rideData) {
             // 🆕 v5.26.14f: REALTIME FIX - Speichere abgeschlossene Fahrt in localStorage!
             if (rideData) {
@@ -38875,7 +38870,7 @@ Funk Taxi Team`;
                     console.log('   KM-Preis:', kmPreis.toFixed(2), '€');
                     console.log('   Basis:', (grundgebuehr + kmPreis).toFixed(2), '€');
                     console.log('   Surge:', surge.multiplier + '%');
-                    console.log('   RUECKFAHRT:', price.toFixed(2), '€', surchargeText);
+                    console.log('   FINAL:', price.toFixed(2), '€', surchargeText);
                     
                     // 🆕 v5.90.206: GLOBALE VARIABLEN FÜR MODAL!
                     window.calculatedPrice = price;
@@ -74193,7 +74188,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.705
+        🔧 v5.90.693
     </div>
 </div>
 
@@ -74201,16 +74196,9 @@ function clearField(fieldId) {
 <script>
 // 🎯 ANGEBOTE: Alle Rückfahrten finden
 async function generateAngebote() {
-    console.log('🎯 v5.90.705: Generiere Angebote mit Heringsdorf-Basis...');
+    console.log('🎯 Generiere Angebote...');
     
     const angebote = [];
-    
-    // 🏠 v5.90.705: Feste Taxi-Basis
-    const TAXI_HOME_BASE = {
-        lat: 53.9558,
-        lon: 14.1569,
-        address: "Heringsdorf"
-    };
     
     try {
         if (!isFirebaseReady) {
@@ -74233,210 +74221,81 @@ async function generateAngebote() {
         const dayAfterTomorrow = new Date(tomorrow);
         dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
         
-        // 2. Filtere relevante Fahrten
-        const relevantRides = [];
-        
         for (const [rideId, ride] of Object.entries(rides)) {
-            // Erkenne Krankenfahrt
-            const isKrankenfahrt = ride.isKrankenfahrt === true || 
-                                   ride.priceType === 'krankenfahrt' ||
-                                   ride.rideType === 'krankenfahrt';
-            
-            // Nur: vorbestellt ODER Krankenfahrt
-            if (!isKrankenfahrt && ride.status !== 'vorbestellt') continue;
+            // Nur Vorbestellungen
+            if (ride.status !== 'vorbestellt') continue;
             
             // Nur zukünftige
             if (!ride.pickupTimestamp || ride.pickupTimestamp < now) continue;
             
-            // Zeitfilter
+            // Zeitfilter anwenden
             if (filter === 'today' && ride.pickupTimestamp >= tomorrow.getTime()) continue;
             if (filter === 'tomorrow' && (ride.pickupTimestamp < tomorrow.getTime() || ride.pickupTimestamp >= dayAfterTomorrow.getTime())) continue;
             
-            // Nur wenn Distanz > 5 km
+            // Nur wenn Distanz > 5 km (lohnt sich)
             if (!ride.distance || ride.distance < 5) continue;
             
             // Nur wenn Koordinaten vorhanden
             if (!ride.pickupCoords || !ride.destCoords) continue;
             
-            // Überspringe stornierte
+            // Überspringe stornierte Fahrten
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
-            relevantRides.push({
-                id: rideId,
-                ...ride,
-                isKrankenfahrt
+            // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
+            // 🔧 v5.90.693: LOGIK UMGEDREHT!
+            // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
+            
+            // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
+            let deadheadDuration = 15; // Fallback
+            try {
+                deadheadDuration = await calculateRouteDuration(
+                    ride.destCoords,
+                    ride.pickupCoords
+                );
+            } catch (error) {
+                console.warn('⚠️ Route-Berechnung fehlgeschlagen, nutze Fallback:', error);
+            }
+            
+            // 4. Berechne wann Taxi losfahren muss (Hinfahrt-Start)
+            // Buchung beginnt um: ride.pickupTimestamp
+            // Taxi braucht: deadheadDuration Minuten
+            // Also muss Taxi losfahren: pickupTimestamp - deadheadDuration
+            const hinfahrtStart = ride.pickupTimestamp - (deadheadDuration * 60000);
+            
+            // Ist Hinfahrt in der Vergangenheit?
+            if (hinfahrtStart < now) continue;
+            
+            // 5. Berechne Preis
+            const normalPrice = ride.price || Math.round(ride.distance * 2.5); // Fallback-Preis
+            const discountPrice = Math.round(normalPrice * 0.5); // 50% Rabatt
+            
+            // 6. Erstelle Angebot
+            angebote.push({
+                id: 'angebot_' + rideId,
+                type: 'hinfahrt',  // 🔧 v5.90.693: HINFAHRT!
+                from: ride.destination,  // VON: Ziel der Buchung
+                to: ride.pickup,         // NACH: Start der Buchung
+                fromCoords: ride.destCoords,
+                toCoords: ride.pickupCoords,
+                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.693: HINFAHRT-START!
+                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.693: HINFAHRT-START!
+                duration: deadheadDuration,
+                distance: ride.distance,
+                normalPrice: normalPrice,
+                discountPrice: discountPrice,
+                discount: 50,
+                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.693: Klarere Beschreibung
+                parentRide: rideId,
+                parentCustomer: ride.customerName,
+                targetBookingTime: new Date(ride.pickupTimestamp),  // Wann die Buchung beginnt
+                targetBookingTimestamp: ride.pickupTimestamp
             });
         }
         
-        // 3. Sortiere chronologisch (nach Zeit)
-        relevantRides.sort((a, b) => a.pickupTimestamp - b.pickupTimestamp);
-        
-        console.log(`📋 v5.90.705: ${relevantRides.length} relevante Fahrten gefunden`);
-        
-        // 4. Gehe chronologisch durch alle Fahrten
-        let taxiPosition = TAXI_HOME_BASE; // Taxi startet in Heringsdorf
-        
-        for (let i = 0; i < relevantRides.length; i++) {
-            const ride = relevantRides[i];
-            
-            console.log(`🚕 v5.90.705: Verarbeite Fahrt #${i+1}: ${ride.pickup} → ${ride.destination} (${ride.isKrankenfahrt ? 'Krankenfahrt' : 'Normal'})`);
-            
-            // Preis berechnen
-            const normalPrice = ride.price || Math.round(ride.distance * 2.5);
-            const discountPrice = Math.round(normalPrice * 0.5);
-            
-            if (ride.isKrankenfahrt) {
-                // 🚑 KRANKENFAHRT: Mitfahrt möglich!
-                console.log(`🚑 v5.90.705: Krankenfahrt → Mitfahrt + Rückfahrt-Angebot`);
-                
-                // ANGEBOT 1: MITFAHRT zum Krankenhaus
-                angebote.push({
-                    id: `mitfahrt_${ride.id}`,
-                    type: 'mitfahrt',
-                    from: ride.pickup,
-                    to: ride.destination,
-                    fromCoords: ride.pickupCoords,
-                    toCoords: ride.destCoords,
-                    availableAt: new Date(ride.pickupTimestamp),
-                    availableTimestamp: ride.pickupTimestamp,
-                    duration: parseInt(ride.duration) || 30,
-                    distance: ride.distance,
-                    normalPrice: normalPrice,
-                    discountPrice: discountPrice,
-                    discount: 50,
-                    reason: 'Mitfahrt bei Krankenfahrt möglich',
-                    parentRide: ride.id,
-                    parentCustomer: ride.customerName,
-                    targetBookingTime: new Date(ride.pickupTimestamp),
-                    targetBookingTimestamp: ride.pickupTimestamp,
-                    isKrankenfahrtParent: true,
-                    direction: 'mitfahrt'
-                });
-                
-                // ANGEBOT 2: RÜCKFAHRT/LEERFAHRT vom Krankenhaus
-                const fahrtDauer = parseInt(ride.duration) || 30;
-                const rueckfahrtStart = ride.pickupTimestamp + (fahrtDauer * 60000);
-                
-                // Wohin fährt Taxi zurück? → Heringsdorf (Basis) oder zu nächster Fahrt
-                let rueckfahrtZiel = TAXI_HOME_BASE;
-                let rueckfahrtZielCoords = TAXI_HOME_BASE;
-                
-                // Prüfe ob es eine nächste Fahrt gibt
-                if (i + 1 < relevantRides.length) {
-                    const nextRide = relevantRides[i + 1];
-                    rueckfahrtZiel = nextRide.pickup;
-                    rueckfahrtZielCoords = nextRide.pickupCoords;
-                } else {
-                    rueckfahrtZiel = TAXI_HOME_BASE.address;
-                }
-                
-                // Berechne Rückfahrt-Dauer
-                let rueckfahrtDauer = fahrtDauer; // Fallback: gleiche Dauer wie Hinfahrt
-                try {
-                    rueckfahrtDauer = await calculateRouteDuration(
-                        ride.destCoords,
-                        rueckfahrtZielCoords
-                    );
-                } catch (error) {
-                    console.warn('⚠️ Rückfahrt-Berechnung fehlgeschlagen:', error);
-                }
-                
-                angebote.push({
-                    id: `rueckfahrt_${ride.id}`,
-                    type: 'hinfahrt',
-                    from: ride.destination,
-                    to: rueckfahrtZiel,
-                    fromCoords: ride.destCoords,
-                    toCoords: rueckfahrtZielCoords,
-                    availableAt: new Date(rueckfahrtStart),
-                    availableTimestamp: rueckfahrtStart,
-                    duration: rueckfahrtDauer,
-                    distance: ride.distance,
-                    normalPrice: normalPrice,
-                    discountPrice: discountPrice,
-                    discount: 50,
-                    reason: 'Nutzt Leerfahrt nach Krankenfahrt',
-                    parentRide: ride.id,
-                    parentCustomer: ride.customerName,
-                    targetBookingTime: new Date(rueckfahrtStart),
-                    targetBookingTimestamp: rueckfahrtStart,
-                    isKrankenfahrtParent: true,
-                    direction: 'rueckfahrt'
-                });
-                
-                // Taxi-Position nach Krankenfahrt updaten
-                if (ride.destCoords) {
-                    taxiPosition = {
-                        lat: ride.destCoords.lat,
-                        lon: ride.destCoords.lon,
-                        address: ride.destination
-                    };
-                } else {
-                    taxiPosition = TAXI_HOME_BASE; // Fallback
-                }
-                
-            } else {
-                // 🚕 NORMALE FAHRT: Leerfahrt von aktueller Position
-                console.log(`🚕 v5.90.705: Normale Fahrt → Leerfahrt von ${taxiPosition.address}`);
-                
-                // Berechne Leerfahrt-Dauer
-                let deadheadDuration = 15; // Fallback
-                try {
-                    deadheadDuration = await calculateRouteDuration(
-                        taxiPosition,
-                        ride.pickupCoords
-                    );
-                } catch (error) {
-                    console.warn('⚠️ Route-Berechnung fehlgeschlagen:', error);
-                }
-                
-                // Wann muss Taxi losfahren?
-                const hinfahrtStart = ride.pickupTimestamp - (deadheadDuration * 60000);
-                
-                // Nur wenn Hinfahrt in Zukunft
-                if (hinfahrtStart >= now) {
-                    angebote.push({
-                        id: `hinfahrt_${ride.id}`,
-                        type: 'hinfahrt',
-                        from: taxiPosition.address,
-                        to: ride.pickup,
-                        fromCoords: taxiPosition,
-                        toCoords: ride.pickupCoords,
-                        availableAt: new Date(hinfahrtStart),
-                        availableTimestamp: hinfahrtStart,
-                        duration: deadheadDuration,
-                        distance: ride.distance,
-                        normalPrice: normalPrice,
-                        discountPrice: discountPrice,
-                        discount: 50,
-                        reason: 'Nutzt Leerfahrt zur Buchung',
-                        parentRide: ride.id,
-                        parentCustomer: ride.customerName,
-                        targetBookingTime: new Date(ride.pickupTimestamp),
-                        targetBookingTimestamp: ride.pickupTimestamp,
-                        isKrankenfahrtParent: false,
-                        direction: 'hinfahrt'
-                    });
-                }
-                
-                // Taxi-Position nach dieser Fahrt updaten
-                if (ride.destCoords) {
-                    taxiPosition = {
-                        lat: ride.destCoords.lat,
-                        lon: ride.destCoords.lon,
-                        address: ride.destination
-                    };
-                } else {
-                    taxiPosition = TAXI_HOME_BASE; // Fallback: zurück zur Basis
-                }
-            }
-        }
-        
-        // 5. Sortiere Angebote nach Zeit
+        // 6. Sortiere nach Zeit (früheste zuerst)
         angebote.sort((a, b) => a.availableTimestamp - b.availableTimestamp);
         
-        console.log(`✅ v5.90.705: ${angebote.length} Angebote generiert`);
-        return angebote;
+        console.log(`✅ ${angebote.length} Angebote gefunden (Filter: ${filter})`);
         return angebote;
         
     } catch (error) {
@@ -74532,7 +74391,7 @@ async function updateAngeboteDisplay() {
                 <!-- Route -->
                 <div style="margin-bottom:20px;">
                     <div style="font-size:13px;color:#6b7280;margin-bottom:8px;font-weight:600;">
-                        ${angebot.direction === 'mitfahrt' ? '🚑 MITFAHRT ZUM KRANKENHAUS' : angebot.direction === 'rueckfahrt' ? '🚕 RÜCKFAHRT VON KRANKENFAHRT' : '🚕 HINFAHRT ZUR BUCHUNG'}
+                        🚕 HINFAHRT ZUR BUCHUNG
                     </div>
                     <div style="background:#f9fafb;border-radius:12px;padding:16px;border:2px solid #e5e7eb;">
                         <div style="font-size:17px;font-weight:700;color:#1f2937;margin-bottom:4px;">
@@ -74578,7 +74437,7 @@ async function updateAngeboteDisplay() {
                 <!-- Hinweis -->
                 <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;color:#1e40af;line-height:1.6;">
                     <div style="font-weight:700;margin-bottom:6px;">💡 Warum so günstig?</div>
-                    <div>Das Taxi muss ${angebot.isKrankenfahrtParent ? 'zu einer 🚑 <strong>Krankenfahrt</strong>' : 'zur Buchung von <strong>' + angebot.parentCustomer + '</strong>'} nach "${toShort}" fahren (Abholung ${angebot.targetBookingTime ? angebot.targetBookingTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) + ' Uhr' : ''}). Nutze die Leerfahrt von "${fromShort}" und spare 50%!</div>
+                    <div>Das Taxi muss zur Buchung von <strong>${angebot.parentCustomer}</strong> nach "${toShort}" fahren (Abholung ${angebot.targetBookingTime ? angebot.targetBookingTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) + ' Uhr' : ''}). Nutze die Leerfahrt von "${fromShort}" und spare 50%!</div>
                 </div>
                 
                 <!-- Buttons -->
@@ -74689,9 +74548,9 @@ async function bookAngebot(angebotId) {
     }
 }
 
-// 🗺️ v5.90.705: ROUTE AUF KARTE ANZEIGEN
+// 🗺️ v5.90.693: ROUTE AUF KARTE ANZEIGEN
 async function showRouteOnMap(angebotId) {
-    console.log('🗺️ v5.90.705: Zeige Route auf Karte für Angebot:', angebotId);
+    console.log('🗺️ v5.90.693: Zeige Route auf Karte für Angebot:', angebotId);
     
     try {
         // Hole Angebot
@@ -74728,23 +74587,10 @@ async function showRouteOnMap(angebotId) {
                 <!-- Header -->
                 <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
                     <div>
-                        <div style="font-size:20px;font-weight:800;margin-bottom:4px;">🗺️ Mitfahr-Punkte</div>
+                        <div style="font-size:20px;font-weight:800;margin-bottom:4px;">🗺️ Route Visualisierung</div>
                         <div style="font-size:14px;opacity:0.9;">${fromShort} → ${toShort}</div>
                     </div>
                     <button onclick="closeRouteMap()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:20px;">✕</button>
-                </div>
-                
-                <!-- Filter -->
-                <div style="padding:16px;background:#f9fafb;border-bottom:2px solid #e5e7eb;display:flex;gap:20px;align-items:center;">
-                    <div style="font-weight:700;color:#1f2937;">Anzeigen:</div>
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                        <input type="checkbox" id="filter-bushaltestellen" checked onchange="toggleMarkers('bus')" style="width:18px;height:18px;cursor:pointer;">
-                        <span style="font-weight:600;">🚌 Bushaltestellen</span>
-                    </label>
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                        <input type="checkbox" id="filter-bahnhoefe" checked onchange="toggleMarkers('train')" style="width:18px;height:18px;cursor:pointer;">
-                        <span style="font-weight:600;">🚉 Bahnhöfe</span>
-                    </label>
                 </div>
                 
                 <!-- Karte -->
@@ -74786,10 +74632,10 @@ async function initRouteMap(angebot) {
         if (!container) return;
         
         // Berechne Route mit OSRM
-        console.log('📍 v5.90.705: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
+        console.log('📍 v5.90.693: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
         const routeData = await calculateRoute(angebot.fromCoords, angebot.toCoords);
         
-        console.log('📍 v5.90.705: Route-Daten:', routeData);
+        console.log('📍 v5.90.693: Route-Daten:', routeData);
         
         if (!routeData || !routeData.geometry) {
             throw new Error('Keine Route gefunden');
@@ -74839,55 +74685,13 @@ async function initRouteMap(angebot) {
             .addTo(map)
             .bindPopup(`<strong>Ziel:</strong><br>${angebot.to}`);
         
-        // 🆕 v5.90.705: Finde Bushaltestellen entlang der Route
-        console.log('🚌 v5.90.705: Suche Bushaltestellen...');
-        const busStops = await findPOIsAlongRoute(routeData.geometry, 'bus_stop', 500);
-        console.log('🚌 v5.90.705: Gefunden:', busStops.length, 'Bushaltestellen');
-        
-        // 🆕 v5.90.705: Finde Bahnhöfe entlang der Route
-        console.log('🚉 v5.90.705: Suche Bahnhöfe...');
-        const trainStations = await findPOIsAlongRoute(routeData.geometry, 'railway', 1000);
-        console.log('🚉 v5.90.705: Gefunden:', trainStations.length, 'Bahnhöfe');
-        
-        // Füge Bushaltestellen-Marker hinzu
-        busStops.forEach(stop => {
-            const icon = L.divIcon({
-                html: '<div style="font-size:28px;">🚌</div>',
-                className: '',
-                iconSize: [28, 28],
-                iconAnchor: [14, 28]
-            });
-            
-            const marker = L.marker([stop.lat, stop.lon], { icon })
-                .addTo(map)
-                .bindPopup(`<strong>🚌 Bushaltestelle</strong><br>${stop.name || 'Unbenannt'}`);
-            
-            routeMapMarkers.bus.push(marker);
-        });
-        
-        // Füge Bahnhofs-Marker hinzu
-        trainStations.forEach(station => {
-            const icon = L.divIcon({
-                html: '<div style="font-size:28px;">🚉</div>',
-                className: '',
-                iconSize: [28, 28],
-                iconAnchor: [14, 28]
-            });
-            
-            const marker = L.marker([station.lat, station.lon], { icon })
-                .addTo(map)
-                .bindPopup(`<strong>🚉 Bahnhof</strong><br>${station.name || 'Unbenannt'}`);
-            
-            routeMapMarkers.train.push(marker);
-        });
-        
         // Zoom auf Route
         map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
         
-        console.log('✅ v5.90.705: Karte initialisiert mit', busStops.length, 'Bushaltestellen und', trainStations.length, 'Bahnhöfen');
+        console.log('✅ v5.90.693: Karte initialisiert');
         
     } catch (error) {
-        console.error('❌ v5.90.705: Fehler beim Initialisieren der Karte:', error);
+        console.error('❌ v5.90.693: Fehler beim Initialisieren der Karte:', error);
         const container = document.getElementById('route-map-container');
         if (container) {
             container.innerHTML = `
@@ -74908,85 +74712,6 @@ function closeRouteMap() {
     if (modal) {
         modal.remove();
     }
-    // Reset Marker-Arrays
-    routeMapMarkers = { bus: [], train: [] };
-}
-
-// 🆕 v5.90.705: Globale Marker-Arrays für Filter
-let routeMapMarkers = { bus: [], train: [] };
-
-// 🆕 v5.90.705: POIs entlang Route finden
-async function findPOIsAlongRoute(geometry, poiType, maxDistance) {
-    try {
-        // Nimm alle 10. Punkt der Route für Performance
-        const checkPoints = geometry.filter((_, i) => i % 10 === 0);
-        const foundPOIs = [];
-        const seenPOIs = new Set(); // Duplikate vermeiden
-        
-        for (const point of checkPoints) {
-            const [lon, lat] = point;
-            
-            // Overpass API Query für POIs
-            const query = `
-                [out:json];
-                (
-                    node["${poiType}"](around:${maxDistance},${lat},${lon});
-                );
-                out body;
-            `;
-            
-            try {
-                const response = await fetch('https://overpass-api.de/api/interpreter', {
-                    method: 'POST',
-                    body: query
-                });
-                
-                const data = await response.json();
-                
-                if (data.elements) {
-                    data.elements.forEach(poi => {
-                        const poiId = `${poi.lat},${poi.lon}`;
-                        if (!seenPOIs.has(poiId)) {
-                            seenPOIs.add(poiId);
-                            foundPOIs.push({
-                                lat: poi.lat,
-                                lon: poi.lon,
-                                name: poi.tags?.name || poi.tags?.ref || 'Unbenannt',
-                                type: poiType
-                            });
-                        }
-                    });
-                }
-            } catch (e) {
-                console.warn('⚠️ v5.90.705: Overpass API Fehler:', e);
-            }
-            
-            // Nur bis zu 20 POIs pro Typ
-            if (foundPOIs.length >= 20) break;
-        }
-        
-        return foundPOIs;
-        
-    } catch (error) {
-        console.error('❌ v5.90.705: Fehler beim Suchen von POIs:', error);
-        return [];
-    }
-}
-
-// 🆕 v5.90.705: Toggle Marker-Sichtbarkeit
-function toggleMarkers(type) {
-    const checkbox = document.getElementById(`filter-${type === 'bus' ? 'bushaltestellen' : 'bahnhoefe'}`);
-    const markers = routeMapMarkers[type];
-    
-    markers.forEach(marker => {
-        if (checkbox.checked) {
-            marker.addTo(marker._map);
-        } else {
-            marker.remove();
-        }
-    });
-    
-    console.log(`🔄 v5.90.705: ${type === 'bus' ? 'Bushaltestellen' : 'Bahnhöfe'} ${checkbox.checked ? 'angezeigt' : 'ausgeblendet'}`);
 }
 
 

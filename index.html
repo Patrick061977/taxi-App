@@ -9,13 +9,22 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.721
-    📅 BUILD: 21.01.2026 18:45 Uhr
+    📦 VERSION: v5.90.722
+    📅 BUILD: 21.01.2026 18:50 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.721
+    📋 CHANGELOG v5.90.722
     ═══════════════════════════════════════════════════════════════════════════
+
+    📱 v5.90.722 (21.01.2026):
+       • FIX: ALLE SMS-Platzhalter werden jetzt korrekt ersetzt!
+       • {customer} → Kundenname funktioniert jetzt
+       • {passengers} → Anzahl Personen funktioniert jetzt
+       • {day}, {date_short}, {distance}, {duration} hinzugefügt
+       • {payment}, {driver}, {vehicle}, {taxi_number} hinzugefügt
+       • {hotel}, {guest}, {booking_id} hinzugefügt
+       • Tracking-SMS erhält jetzt ride-Objekt für mehr Platzhalter
 
     🔧 v5.90.721 (21.01.2026):
        • FIX: JavaScript Syntax-Fehler behoben!
@@ -368,8 +377,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.721 - SYNTAX FIX! 🔧✅ (Build 2026-01-21_1845)');
-        console.log('🔧 v5.90.721: JavaScript Syntax-Fehler behoben!');
+        console.log('🚕 Funk Taxi App v5.90.722 - SMS PLATZHALTER FIX! 📱✅ (Build 2026-01-21_1850)');
+        console.log('📱 v5.90.722: Alle SMS-Platzhalter werden jetzt ersetzt!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
@@ -22379,15 +22388,44 @@ Aktuell: ${currentNum}`;
                 smsTemplate = getDefaultSMSText('booking');
             }
             
+            // 🆕 v5.90.722: ALLE Platzhalter für SMS!
+            const customerName = ride.customerName || ride.guestName || '';
+            const passengersCount = ride.passengers || '1';
+            const dayName = pickupTime.toLocaleDateString('de-DE', { weekday: 'long' });
+            const dateShort = pickupTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+            const distanceStr = ride.distance ? ride.distance + ' km' : '';
+            const durationStr = ride.duration ? ride.duration + ' Min' : '';
+            const paymentStr = ride.paymentMethod === 'bar' ? 'Bar' : ride.paymentMethod === 'karte' ? 'Karte' : (ride.paymentMethod || '');
+            const driverStr = ride.driverName || '';
+            const vehicleStr = ride.vehicle || ride.assignedVehicleName || '';
+            const taxiNumStr = ride.vehicleId || ride.assignedVehicle || '';
+            const hotelStr = ride.hotelName || '';
+            const guestStr = ride.guestName || '';
+            const bookingIdStr = ride.firebaseId || ride.id || '';
+
             // Ersetze Platzhalter
             const smsText = smsTemplate
                 .replace(/{date}/g, dateStr)
                 .replace(/{time}/g, timeStr)
+                .replace(/{day}/g, dayName)
+                .replace(/{date_short}/g, dateShort)
                 .replace(/{from}/g, fromShort)
                 .replace(/{to}/g, toShort)
+                .replace(/{distance}/g, distanceStr)
+                .replace(/{duration}/g, durationStr)
+                .replace(/{pickup_time}/g, timeStr)
                 .replace(/{price}/g, priceStr)
+                .replace(/{payment}/g, paymentStr)
                 .replace(/{phone}/g, '038378/22022')
-                .replace(/{link}/g, trackingLink || '');
+                .replace(/{link}/g, trackingLink || '')
+                .replace(/{customer}/g, customerName)
+                .replace(/{passengers}/g, passengersCount)
+                .replace(/{driver}/g, driverStr)
+                .replace(/{vehicle}/g, vehicleStr)
+                .replace(/{taxi_number}/g, taxiNumStr)
+                .replace(/{hotel}/g, hotelStr)
+                .replace(/{guest}/g, guestStr)
+                .replace(/{booking_id}/g, bookingIdStr);
             
             console.log('📱 Sende BUCHUNGS-SMS an:', formattedPhone);
             
@@ -22424,12 +22462,13 @@ Aktuell: ${currentNum}`;
         }
         
         // 🆕 v5.87.94: MAP-NULL-CHECK-FIX-SMS (wenn Fahrer annimmt)
-        async function sendTrackingSMS(phone, trackingLink) {
+        // 🆕 v5.90.722: ride Parameter für alle Platzhalter!
+        async function sendTrackingSMS(phone, trackingLink, ride = {}) {
             if (!phone) {
                 console.log('⚠️ Keine Telefonnummer für Tracking-SMS');
                 return false;
             }
-            
+
             // 🆕 v5.88.9: Prüfe ob MAP-NULL-CHECK-FIX-SMS aktiviert ist (aus FIREBASE!)
             let trackingEnabled = false;
             try {
@@ -22438,12 +22477,12 @@ Aktuell: ${currentNum}`;
             } catch (err) {
                 console.log('⚠️ Konnte SMS-Einstellung nicht laden:', err);
             }
-            
+
             if (!trackingEnabled) {
                 console.log('⚠️ Tracking-SMS ist deaktiviert (Firebase)');
                 return false;
             }
-            
+
             // Formatiere Telefonnummer
             let formattedPhone = phone.replace(/[\s\-\/\(\)]/g, '');
             if (formattedPhone.startsWith('0')) {
@@ -22451,13 +22490,13 @@ Aktuell: ${currentNum}`;
             } else if (formattedPhone.startsWith('+')) {
                 formattedPhone = formattedPhone.substring(1);
             }
-            
+
             // Prüfe ob gültige Mobilnummer
             if (!formattedPhone.match(/^49(15|16|17|1)/)) {
                 console.log('⚠️ Keine gültige Mobilnummer:', formattedPhone);
                 return false;
             }
-            
+
             // 🆕 v5.90.678: HOLE BENUTZERDEFINIERTEN SMS-TEXT!
             let smsTemplate = '';
             try {
@@ -22467,11 +22506,22 @@ Aktuell: ${currentNum}`;
                 console.log('⚠️ Nutze Standard SMS-Text');
                 smsTemplate = getDefaultSMSText('tracking');
             }
-            
+
+            // 🆕 v5.90.722: ALLE Platzhalter für Tracking-SMS!
+            const driverStr = ride.driverName || '';
+            const vehicleStr = ride.vehicle || ride.assignedVehicleName || '';
+            const taxiNumStr = ride.vehicleId || ride.assignedVehicle || '';
+            const customerName = ride.customerName || ride.guestName || '';
+
             // Ersetze Platzhalter
             const smsText = smsTemplate
                 .replace(/{link}/g, trackingLink || '')
-                .replace(/{phone}/g, '038378/22022');
+                .replace(/{phone}/g, '038378/22022')
+                .replace(/{driver}/g, driverStr)
+                .replace(/{vehicle}/g, vehicleStr)
+                .replace(/{taxi_number}/g, taxiNumStr)
+                .replace(/{customer}/g, customerName)
+                .replace(/{support_phone}/g, '038378/22022');
             
             console.log('📱 Sende TRACKING-SMS an:', formattedPhone);
             
@@ -22839,7 +22889,7 @@ Aktuell: ${currentNum}`;
                     const customerPhone = ride.customerPhone || ride.phone;
                     if (customerPhone) {
                         console.log('📱 Sende Tracking-SMS an Kunde:', customerPhone);
-                        await sendTrackingSMS(customerPhone, ride.trackingLink);
+                        await sendTrackingSMS(customerPhone, ride.trackingLink, ride);
                     }
                 }
                 

@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.723
-    📅 BUILD: 21.01.2026 19:30 Uhr
+    📦 VERSION: v5.90.724
+    📅 BUILD: 21.01.2026 20:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.723
+    📋 CHANGELOG v5.90.724
     ═══════════════════════════════════════════════════════════════════════════
+
+    📞 v5.90.724 (21.01.2026):
+       • NEU: Telefonnummern im Autocomplete-Dropdown!
+       • Bei Hotels/Restaurants wird jetzt die Telefonnummer angezeigt
+       • Grünes 📞 Symbol zeigt Telefonnummer unter dem POI-Namen
+       • Funktioniert in Buchungsformular UND Schnellbuchung
+       • Nutzt OpenStreetMap extratags (phone, contact:phone, telephone)
 
     📱 v5.90.723 (21.01.2026):
        • FIX: Karten-Picker jetzt mobil-freundlich!
@@ -24531,7 +24538,11 @@ Aktuell: ${currentNum}`;
                     
                     // PLZ
                     const zip = address.postcode || '';
-                    
+
+                    // 🆕 v5.90.724: Telefonnummer aus extratags extrahieren!
+                    const extratags = r.extratags || {};
+                    const poiPhone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
+
                     // 🎨 Baue schöne Anzeige
                     if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
                         displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
@@ -24540,6 +24551,10 @@ Aktuell: ${currentNum}`;
                         if (zip) displayText += ', ' + zip;
                         if (city) displayText += ' ' + city;
                         displayText += '</div>';
+                        // 🆕 v5.90.724: Telefonnummer anzeigen wenn vorhanden!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;padding-left:20px;font-weight:600;">📞 ${poiPhone}</div>`;
+                        }
                     } else {
                         if (fullAddress) {
                             displayText = fullAddress;
@@ -24548,8 +24563,12 @@ Aktuell: ${currentNum}`;
                         } else {
                             displayText = r.display_name;
                         }
+                        // 🆕 v5.90.724: Telefonnummer auch bei normalen Adressen!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">📞 ${poiPhone}</div>`;
+                        }
                     }
-                    
+
                     // Vollständige Adresse als String
                     let addressString = '';
                     if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
@@ -45760,7 +45779,11 @@ Funk Taxi Team`;
                     
                     // PLZ
                     const zip = address.postcode || '';
-                    
+
+                    // 🆕 v5.90.724: Telefonnummer aus extratags extrahieren!
+                    const extratags = r.extratags || {};
+                    const poiPhone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
+
                     // 🎨 Baue schöne Anzeige (wie Fahrgast-Tab!)
                     if (poiName && poiName !== fullAddress && poiName !== city && poiName !== address.road) {
                         displayText = `<div style="font-weight:600;color:#667eea;">🏨 ${poiName}</div>`;
@@ -45769,12 +45792,16 @@ Funk Taxi Team`;
                         if (zip) displayText += ', ' + zip;
                         if (city) displayText += ' ' + city;
                         displayText += '</div>';
+                        // 🆕 v5.90.724: Telefonnummer anzeigen wenn vorhanden!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;padding-left:20px;font-weight:600;">📞 ${poiPhone}</div>`;
+                        }
                     } else {
                         if (fullAddress) {
                             displayText = fullAddress;
                             if (zip) displayText += ', ' + zip;
                             if (city) displayText += ' ' + city;
-                            
+
                             // 🆕 v5.90.200: Zeige Badge für virtuelle Hausnummer!
                             if (isVirtual) {
                                 displayText = `<div style="display:flex;align-items:center;gap:8px;">
@@ -45785,6 +45812,10 @@ Funk Taxi Team`;
                             }
                         } else {
                             displayText = r.display_name;
+                        }
+                        // 🆕 v5.90.724: Telefonnummer auch bei normalen Adressen!
+                        if (poiPhone) {
+                            displayText += `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">📞 ${poiPhone}</div>`;
                         }
                     }
                     

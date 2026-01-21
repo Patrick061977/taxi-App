@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.707
+    📦 VERSION: v5.90.708
     📅 BUILD: 20.01.2026 23:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.707
+    📋 CHANGELOG v5.90.708
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.707 (20.01.2026):
+    🔧 v5.90.708 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
        • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
@@ -336,9 +336,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.707 - CRM-MODAL-SCHNELLBUCHUNG! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.707: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.707: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.708 - IMMER-CRM-MODAL! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.708: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.708: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - CRM-MODAL-SCHNELLBUCHUNG! ✅ (Build 20260120-2330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - IMMER-CRM-MODAL! ✅ (Build 20260120-2330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.707 - CRM-MODAL-SCHNELLBUCHUNG
+                        🔧 v5.90.708 - IMMER-CRM-MODAL
                     </span>
                 </div>
             </div>
@@ -3001,7 +3001,7 @@
                 </div>
             </div>
             
-            <!-- 🐛 v5.90.707: LIVE CRM-MODAL-SCHNELLBUCHUNG BOX -->
+            <!-- 🐛 v5.90.708: LIVE IMMER-CRM-MODAL BOX -->
             <div id="debug-analyse-container" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;border-radius:12px;padding:20px;margin-bottom:20px;border:3px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,0.4);">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
                     <div>
@@ -25392,7 +25392,7 @@ Aktuell: ${currentNum}`;
                 clearDestBtn.style.display = 'inline-block';
             }
             
-            // 🗺️ CRM-MODAL-SCHNELLBUCHUNG ANZEIGEN
+            // 🗺️ IMMER-CRM-MODAL ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
@@ -25419,7 +25419,7 @@ Aktuell: ${currentNum}`;
             priceCalculated = true;
         }
 
-        // 🗺️ CRM-MODAL-SCHNELLBUCHUNG ANZEIGEN
+        // 🗺️ IMMER-CRM-MODAL ANZEIGEN
         let routeMapInstance = null;
         function showRouteMap(route, pickupCoords, destCoords) {
             // 🐛 v5.90.542: NULL-CHECK!
@@ -28512,7 +28512,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ CRM-MODAL-SCHNELLBUCHUNG VERSTECKEN
+            // 🗺️ IMMER-CRM-MODAL VERSTECKEN
             const routeMap = document.getElementById('route-map');
             if (routeMap) {
                 routeMap.style.display = 'none';
@@ -39575,33 +39575,30 @@ Funk Taxi Team`;
         
         // Neuer Kunde schnell anlegen
         async function createNewCustomerQuick(searchTerm) {
-            // 🆕 v5.90.707: Öffne CRM-Modal statt einfaches Prompt!
-            console.log('✅ v5.90.707: Öffne CRM-Modal für neuen Kunden');
+            // 🆕 v5.90.708: IMMER CRM-Modal öffnen!
+            console.log('✅ v5.90.708: Öffne CRM-Modal für neuen Kunden');
+            
+            // Schließe Dropdown
+            const dropdown = document.getElementById('fqb-customer-dropdown');
+            if (dropdown) dropdown.style.display = 'none';
+            
+            // Öffne CRM-Modal im "Neu"-Modus
+            editCustomer('new');
             
             // Setze Suchbegriff als Vorschlag
             if (searchTerm) {
-                // Wenn Suchbegriff eine Nummer ist → Telefon
-                // Sonst → Name
-                if (/^\+?[\d\s\-()]+$/.test(searchTerm)) {
-                    // Ist Telefonnummer
-                    setTimeout(() => {
+                setTimeout(() => {
+                    if (/^\+?[\d\s\-()]+$/.test(searchTerm)) {
+                        // Ist Telefonnummer
                         const phoneField = document.getElementById('crm-customer-phone');
                         if (phoneField) phoneField.value = searchTerm;
-                    }, 100);
-                } else {
-                    // Ist Name
-                    setTimeout(() => {
+                    } else {
+                        // Ist Name
                         const nameField = document.getElementById('crm-customer-name');
                         if (nameField) nameField.value = searchTerm;
-                    }, 100);
-                }
+                    }
+                }, 200);
             }
-            
-            // Öffne CRM-Modal
-            openNewCustomerModal();
-            
-            // Wenn Kunde gespeichert wird, dann übernehme ihn in Schnellbuchung
-            // Das passiert automatisch durch die bestehende Logik
         }
         
         // Kunde suchen
@@ -39658,21 +39655,21 @@ Funk Taxi Team`;
         
         // Neuer Kunde
         function createNewCustomerInBooking() {
-            // 🆕 v5.90.707: Öffne CRM-Modal statt Prompt!
+            // 🆕 v5.90.708: IMMER CRM-Modal öffnen!
             const phone = document.getElementById('fqb-customer-phone').value.trim();
             
-            console.log('✅ v5.90.707: Öffne CRM-Modal für neuen Kunden (aus Telefonsuche)');
+            console.log('✅ v5.90.708: Öffne CRM-Modal für neuen Kunden (Telefonsuche)');
+            
+            // Öffne CRM-Modal im "Neu"-Modus
+            editCustomer('new');
             
             // Setze Telefon als Vorschlag
             if (phone) {
                 setTimeout(() => {
                     const phoneField = document.getElementById('crm-customer-phone');
                     if (phoneField) phoneField.value = phone;
-                }, 100);
+                }, 200);
             }
-            
-            // Öffne CRM-Modal
-            openNewCustomerModal();
         }
         
         // 🆕 v5.90.208: LIVE KUNDEN-SUCHE IM MODAL!
@@ -74205,7 +74202,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.707
+        🔧 v5.90.708
     </div>
 </div>
 
@@ -74213,7 +74210,7 @@ function clearField(fieldId) {
 <script>
 // 🎯 ANGEBOTE: Alle Rückfahrten finden
 async function generateAngebote() {
-    console.log('🎯 v5.90.707: Generiere Angebote mit DEBUG-Analyse...');
+    console.log('🎯 v5.90.708: Generiere Angebote mit DEBUG-Analyse...');
     
     const angebote = [];
     let debugHTML = ''; // 🐛 DEBUG-Ausgabe sammeln
@@ -74252,7 +74249,7 @@ async function generateAngebote() {
         for (const [rideId, ride] of Object.entries(rides)) {
             fahrtNr++;
             
-            // 🐛 v5.90.707: DEBUG für JEDE Fahrt (auch die gefilterten!)
+            // 🐛 v5.90.708: DEBUG für JEDE Fahrt (auch die gefilterten!)
             const fahrtTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleString('de-DE') : 'Keine Zeit';
             
             debugHTML += `<div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:6px;margin-bottom:12px;border-left:4px solid #3b82f6;">`;
@@ -74322,7 +74319,7 @@ async function generateAngebote() {
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
             // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
-            // 🔧 v5.90.707: LOGIK UMGEDREHT!
+            // 🔧 v5.90.708: LOGIK UMGEDREHT!
             // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
             
             // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
@@ -74352,19 +74349,19 @@ async function generateAngebote() {
             // 6. Erstelle Angebot
             angebote.push({
                 id: 'angebot_' + rideId,
-                type: 'hinfahrt',  // 🔧 v5.90.707: HINFAHRT!
+                type: 'hinfahrt',  // 🔧 v5.90.708: HINFAHRT!
                 from: ride.destination,  // VON: Ziel der Buchung
                 to: ride.pickup,         // NACH: Start der Buchung
                 fromCoords: ride.destCoords,
                 toCoords: ride.pickupCoords,
-                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.707: HINFAHRT-START!
-                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.707: HINFAHRT-START!
+                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.708: HINFAHRT-START!
+                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.708: HINFAHRT-START!
                 duration: deadheadDuration,
                 distance: ride.distance,
                 normalPrice: normalPrice,
                 discountPrice: discountPrice,
                 discount: 50,
-                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.707: Klarere Beschreibung
+                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.708: Klarere Beschreibung
                 parentRide: rideId,
                 parentCustomer: ride.customerName,
                 targetBookingTime: new Date(ride.pickupTimestamp),  // Wann die Buchung beginnt
@@ -74377,7 +74374,7 @@ async function generateAngebote() {
         
         console.log(`✅ ${angebote.length} Angebote gefunden (Filter: ${filter})`);
         
-        // 🐛 v5.90.707: Zeige Debug-Ausgabe
+        // 🐛 v5.90.708: Zeige Debug-Ausgabe
         debugHTML += '<div style="border-top:1px solid rgba(245,158,11,0.3);margin:15px 0;"></div>';
         debugHTML += `<div style="color:#10b981;font-weight:700;font-size:14px;">✅ ${angebote.length} ANGEBOTE GENERIERT</div>`;
         document.getElementById('debug-content').innerHTML = debugHTML;
@@ -74636,9 +74633,9 @@ async function bookAngebot(angebotId) {
     }
 }
 
-// 🗺️ v5.90.707: ROUTE AUF KARTE ANZEIGEN
+// 🗺️ v5.90.708: ROUTE AUF KARTE ANZEIGEN
 async function showRouteOnMap(angebotId) {
-    console.log('🗺️ v5.90.707: Zeige Route auf Karte für Angebot:', angebotId);
+    console.log('🗺️ v5.90.708: Zeige Route auf Karte für Angebot:', angebotId);
     
     try {
         // Hole Angebot
@@ -74720,10 +74717,10 @@ async function initRouteMap(angebot) {
         if (!container) return;
         
         // Berechne Route mit OSRM
-        console.log('📍 v5.90.707: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
+        console.log('📍 v5.90.708: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
         const routeData = await calculateRoute(angebot.fromCoords, angebot.toCoords);
         
-        console.log('📍 v5.90.707: Route-Daten:', routeData);
+        console.log('📍 v5.90.708: Route-Daten:', routeData);
         
         if (!routeData || !routeData.geometry) {
             throw new Error('Keine Route gefunden');
@@ -74776,10 +74773,10 @@ async function initRouteMap(angebot) {
         // Zoom auf Route
         map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
         
-        console.log('✅ v5.90.707: Karte initialisiert');
+        console.log('✅ v5.90.708: Karte initialisiert');
         
     } catch (error) {
-        console.error('❌ v5.90.707: Fehler beim Initialisieren der Karte:', error);
+        console.error('❌ v5.90.708: Fehler beim Initialisieren der Karte:', error);
         const container = document.getElementById('route-map-container');
         if (container) {
             container.innerHTML = `

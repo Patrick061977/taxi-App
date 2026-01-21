@@ -9,13 +9,17 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.717
-    📅 BUILD: 21.01.2026 16:50 Uhr
+    📦 VERSION: v5.90.718
+    📅 BUILD: 21.01.2026 17:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.717
+    📋 CHANGELOG v5.90.718
     ═══════════════════════════════════════════════════════════════════════════
+
+    🗺️ v5.90.718 (21.01.2026):
+       • FIX: Karten-Picker Button im "Neuer Kunde" Modal hinzugefügt!
+       • 🗺️ Button neben Adressfeld für "Auf Karte wählen"
 
     ➕ v5.90.717 (21.01.2026):
        • NEU: "Als neuen Kunden anlegen" öffnet jetzt das große CRM-Modal!
@@ -343,9 +347,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.717 - CRM-MODAL! ➕✅ (Build 2026-01-21_1650)');
-        console.log('➕ v5.90.717: NEU: CRM-Modal für neue Kunden!');
-        console.log('➕ v5.90.717: Schnellbuchung + CRM nutzen gleiches Modal!');
+        console.log('🚕 Funk Taxi App v5.90.718 - MAP-PICKER! 🗺️✅ (Build 2026-01-21_1700)');
+        console.log('🗺️ v5.90.718: Karten-Picker im Neuer Kunde Modal!');
+        console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -53853,8 +53857,13 @@ Funk Taxi Team`;
 
                         <div style="position:relative;">
                             <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">🏠 Wohnanschrift</label>
-                            <input type="text" id="edit-customer-address" placeholder="Straße Hausnr, PLZ Ort" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;box-sizing:border-box;">
-                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10001;box-shadow:0 4px 6px rgba(0,0,0,0.1);margin-top:4px;"></div>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="text" id="edit-customer-address" placeholder="Straße Hausnr, PLZ Ort" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;flex:1;">
+                                <button onclick="openUniversalMapPicker('edit-customer-address', '🏠 Wohnanschrift auf Karte wählen')" style="background:#10b981;color:white;border:none;border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Auf Karte wählen">
+                                    🗺️
+                                </button>
+                            </div>
+                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:52px;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10001;box-shadow:0 4px 6px rgba(0,0,0,0.1);margin-top:4px;"></div>
                         </div>
 
                         <div style="background:#f9fafb;border-radius:8px;padding:12px;margin-top:5px;">
@@ -74442,7 +74451,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        ➕ v5.90.717
+        🗺️ v5.90.718
     </div>
 </div>
 

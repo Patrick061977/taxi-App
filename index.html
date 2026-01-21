@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.719
-    📅 BUILD: 21.01.2026 17:30 Uhr
+    📦 VERSION: v5.90.720
+    📅 BUILD: 21.01.2026 18:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.719
+    📋 CHANGELOG v5.90.720
     ═══════════════════════════════════════════════════════════════════════════
+
+    📞 v5.90.720 (21.01.2026):
+       • NEU: Telefonnummern von Hotels/Restaurants im Karten-Picker!
+       • 📞 Telefonnummern werden aus OpenStreetMap extratags geladen
+       • Anzeige in POI-Vorschlägen mit grünem 📞 Symbol
+       • Bei CRM-Auswahl: Telefonnummer wird automatisch übernommen
+       • Auch Website-Info wird gespeichert (für zukünftige Nutzung)
 
     🎨 v5.90.719 (21.01.2026):
        • FIX: "Neuer Kunde" Modal ist jetzt 1:1 wie "Kunde bearbeiten"!
@@ -354,8 +361,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.719 - VOLLSTÄNDIGES CRM-MODAL! 🎨✅ (Build 2026-01-21_1730)');
-        console.log('🎨 v5.90.719: Neuer Kunde Modal jetzt 1:1 wie Kunde bearbeiten!');
+        console.log('🚕 Funk Taxi App v5.90.720 - TELEFONNUMMERN IM KARTEN-PICKER! 📞✅ (Build 2026-01-21_1800)');
+        console.log('📞 v5.90.720: Telefonnummern von Hotels/Restaurants werden angezeigt!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
@@ -46933,7 +46940,7 @@ Funk Taxi Team`;
                         // CRM: Name NICHT in Adresse schreiben, nur pure Adresse
                         console.log('✅ v5.90.574: CRM-Feld erkannt - POI-Name separat behandeln');
                         // finalAddress bleibt wie sie ist (nur Adresse)
-                        
+
                         // 🆕 v5.90.584: POI-Name IMMER übernehmen!
                         const nameField = document.getElementById('edit-customer-name');
                         if (nameField) {
@@ -46942,6 +46949,18 @@ Funk Taxi Team`;
                             console.log('✅ v5.90.584: POI-Name ins Name-Feld geschrieben (überschrieben):', poiName);
                         } else {
                             console.warn('⚠️ v5.90.584: Name-Feld nicht gefunden!');
+                        }
+
+                        // 🆕 v5.90.720: Telefonnummer übernehmen wenn vorhanden!
+                        if (poi.phone) {
+                            const phoneField = document.getElementById('edit-customer-phone');
+                            if (phoneField && !phoneField.value) {
+                                // Nur wenn Telefon-Feld leer ist
+                                phoneField.value = poi.phone;
+                                console.log('📞 v5.90.720: Telefonnummer ins CRM übernommen:', poi.phone);
+                            } else if (phoneField && phoneField.value) {
+                                console.log('ℹ️ v5.90.720: Telefon-Feld bereits gefüllt, nicht überschrieben');
+                            }
                         }
                     } else {
                         // Schnellbuchung/andere: Name + Adresse zusammen
@@ -47033,30 +47052,41 @@ Funk Taxi Team`;
                 );
                 
                 const data = await response.json();
-                
-                console.log('✅ v5.90.568: POI-Daten:', data);
-                
+
+                console.log('✅ v5.90.720: POI-Daten:', data);
+
+                // 🆕 v5.90.720: Extrahiere Telefonnummer aus extratags
+                const extratags = data.extratags || {};
+                const poiPhone = extratags.phone || extratags['contact:phone'] || extratags.telephone || null;
+                const poiWebsite = extratags.website || extratags['contact:website'] || null;
+
+                if (poiPhone) {
+                    console.log('📞 v5.90.720: Telefonnummer gefunden:', poiPhone);
+                }
+
                 // Baue POI-Liste
                 const pois = [];
-                
+
                 // 1. Haupt-POI (falls vorhanden)
                 if (data.name && data.name !== data.address?.road) {
                     pois.push({
                         name: data.name,
                         type: data.type || data.class || 'Ort',
                         class: data.class,
-                        isMain: true
+                        isMain: true,
+                        phone: poiPhone,
+                        website: poiWebsite
                     });
                 }
-                
+
                 // 2. POI aus Adresse extrahieren
                 const addr = data.address || {};
-                if (addr.amenity) pois.push({ name: addr.amenity, type: 'amenity' });
-                if (addr.tourism) pois.push({ name: addr.tourism, type: 'tourism' });
-                if (addr.shop) pois.push({ name: addr.shop, type: 'shop' });
-                if (addr.restaurant) pois.push({ name: addr.restaurant, type: 'restaurant' });
-                if (addr.hotel) pois.push({ name: addr.hotel, type: 'hotel' });
-                if (addr.cafe) pois.push({ name: addr.cafe, type: 'cafe' });
+                if (addr.amenity) pois.push({ name: addr.amenity, type: 'amenity', phone: poiPhone, website: poiWebsite });
+                if (addr.tourism) pois.push({ name: addr.tourism, type: 'tourism', phone: poiPhone, website: poiWebsite });
+                if (addr.shop) pois.push({ name: addr.shop, type: 'shop', phone: poiPhone, website: poiWebsite });
+                if (addr.restaurant) pois.push({ name: addr.restaurant, type: 'restaurant', phone: poiPhone, website: poiWebsite });
+                if (addr.hotel) pois.push({ name: addr.hotel, type: 'hotel', phone: poiPhone, website: poiWebsite });
+                if (addr.cafe) pois.push({ name: addr.cafe, type: 'cafe', phone: poiPhone, website: poiWebsite });
                 
                 // 3. Straßenname als Fallback
                 if (pois.length === 0 && addr.road) {
@@ -47076,13 +47106,14 @@ Funk Taxi Team`;
                 // Speichere POIs
                 universalMapPicker.nearbyPOIs = pois;
                 
-                // Rendere POIs
+                // Rendere POIs - 🆕 v5.90.720: Mit Telefonnummer!
                 listDiv.innerHTML = pois.map((poi, index) => {
                     const icon = getPoiIcon(poi.type);
                     const label = poi.isMain ? '<span style="background:#f59e0b;color:white;padding:1px 4px;border-radius:3px;font-size:9px;margin-left:4px;">Haupt</span>' : '';
-                    
+                    const phoneDisplay = poi.phone ? `<div style="font-size:12px;color:#10b981;margin-top:4px;font-weight:600;">📞 ${poi.phone}</div>` : '';
+
                     return `
-                        <div onclick="selectPOI(${index})" 
+                        <div onclick="selectPOI(${index})"
                              id="poi-${index}"
                              style="padding:10px;margin-bottom:6px;background:white;border:2px solid #f59e0b;border-radius:8px;cursor:pointer;transition:all 0.2s;"
                              onmouseover="this.style.background='#fffbeb';this.style.borderColor='#d97706'"
@@ -47093,6 +47124,7 @@ Funk Taxi Team`;
                             <div style="font-size:11px;color:#6b7280;margin-top:2px;">
                                 ${poi.type}
                             </div>
+                            ${phoneDisplay}
                         </div>
                     `;
                 }).join('');
@@ -74512,7 +74544,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎨 v5.90.719
+        📞 v5.90.720
     </div>
 </div>
 

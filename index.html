@@ -336,7 +336,7 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.708 - IMMER-CRM-MODAL! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🚕 Funk Taxi App v5.90.708 - DEBUG-FIX! 🔧✅ (Build 2026-01-20_1630)');
         console.log('🔧 v5.90.708: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
         console.log('🔧 v5.90.708: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - IMMER-CRM-MODAL! ✅ (Build 20260120-2330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - DEBUG-FIX! ✅ (Build 20260120-2330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.708 - IMMER-CRM-MODAL
+                        🔧 v5.90.708 - DEBUG-FIX
                     </span>
                 </div>
             </div>
@@ -3001,7 +3001,7 @@
                 </div>
             </div>
             
-            <!-- 🐛 v5.90.708: LIVE IMMER-CRM-MODAL BOX -->
+            <!-- 🐛 v5.90.708: LIVE DEBUG-FIX BOX -->
             <div id="debug-analyse-container" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;border-radius:12px;padding:20px;margin-bottom:20px;border:3px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,0.4);">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
                     <div>
@@ -25392,7 +25392,7 @@ Aktuell: ${currentNum}`;
                 clearDestBtn.style.display = 'inline-block';
             }
             
-            // 🗺️ IMMER-CRM-MODAL ANZEIGEN
+            // 🗺️ DEBUG-FIX ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
@@ -25419,7 +25419,7 @@ Aktuell: ${currentNum}`;
             priceCalculated = true;
         }
 
-        // 🗺️ IMMER-CRM-MODAL ANZEIGEN
+        // 🗺️ DEBUG-FIX ANZEIGEN
         let routeMapInstance = null;
         function showRouteMap(route, pickupCoords, destCoords) {
             // 🐛 v5.90.542: NULL-CHECK!
@@ -28512,7 +28512,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ IMMER-CRM-MODAL VERSTECKEN
+            // 🗺️ DEBUG-FIX VERSTECKEN
             const routeMap = document.getElementById('route-map');
             if (routeMap) {
                 routeMap.style.display = 'none';
@@ -74224,6 +74224,7 @@ async function generateAngebote() {
         }
         
         debugHTML += '<div style="color:#10b981;margin-bottom:10px;">✅ Firebase verbunden</div>';
+        document.getElementById('debug-content').innerHTML = debugHTML; // 🐛 Update SOFORT!
         
         // 1. Hole alle Rides aus Firebase
         const snapshot = await db.ref('rides').once('value');
@@ -74235,6 +74236,7 @@ async function generateAngebote() {
         debugHTML += `<div style="color:#fbbf24;margin-bottom:15px;">📊 ${Object.keys(rides).length} Fahrten in Firebase gefunden</div>`;
         debugHTML += `<div style="color:#8b5cf6;margin-bottom:15px;">🔍 Filter: ${filter}</div>`;
         debugHTML += '<div style="border-top:1px solid rgba(245,158,11,0.3);margin:15px 0;"></div>';
+        document.getElementById('debug-content').innerHTML = debugHTML; // 🐛 Update SOFORT!
         
         // Zeitfilter berechnen
         const today = new Date();
@@ -74298,6 +74300,7 @@ async function generateAngebote() {
             debugHTML += `<span style="color:#10b981;font-weight:700;">✅ WIRD VERARBEITET</span>`;
             debugHTML += `</div>`;
             debugHTML += `</div>`;
+            document.getElementById('debug-content').innerHTML = debugHTML; // 🐛 Update nach jeder Fahrt!
             
             // Nur Vorbestellungen
             if (ride.status !== 'vorbestellt') continue;

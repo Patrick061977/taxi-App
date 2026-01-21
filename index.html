@@ -39658,33 +39658,21 @@ Funk Taxi Team`;
         
         // Neuer Kunde
         function createNewCustomerInBooking() {
+            // 🆕 v5.90.707: Öffne CRM-Modal statt Prompt!
             const phone = document.getElementById('fqb-customer-phone').value.trim();
-            const name = prompt('Name des neuen Kunden:');
             
-            if (!name) return;
+            console.log('✅ v5.90.707: Öffne CRM-Modal für neuen Kunden (aus Telefonsuche)');
             
-            const customerId = 'cust_' + Date.now();
-            const customer = {
-                name: name,
-                phone: phone,
-                createdAt: Date.now(),
-                source: 'floating-quick-booking'
-            };
+            // Setze Telefon als Vorschlag
+            if (phone) {
+                setTimeout(() => {
+                    const phoneField = document.getElementById('crm-customer-phone');
+                    if (phoneField) phoneField.value = phone;
+                }, 100);
+            }
             
-            db.ref(`customers/${customerId}`).set(customer).then(() => {
-                alert('✅ Kunde angelegt: ' + name);
-                
-                document.getElementById('fqb-customer-info').innerHTML = `
-                    <strong style="color:#065f46;">✅ ${name}</strong><br>
-                    📱 ${phone}
-                `;
-                document.getElementById('fqb-customer-info').style.display = 'block';
-                document.getElementById('fqb-new-customer-btn').style.display = 'none';
-                
-                floatingBookingData.customerId = customerId;
-                floatingBookingData.customerName = name;
-                floatingBookingData.customerPhone = phone;
-            });
+            // Öffne CRM-Modal
+            openNewCustomerModal();
         }
         
         // 🆕 v5.90.208: LIVE KUNDEN-SUCHE IM MODAL!

@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.711
+    📦 VERSION: v5.90.713
     📅 BUILD: 20.01.2026 23:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
     
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.711
+    📋 CHANGELOG v5.90.713
     ═══════════════════════════════════════════════════════════════════════════
     
-    🔧 v5.90.711 (20.01.2026):
+    🔧 v5.90.713 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
        • Taxi-Start berechnet: Buchungszeit MINUS Fahrzeit
@@ -336,9 +336,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.711 - CRM-FIX! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.711: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.711: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.713 - CRM-NEW! 🔧✅ (Build 2026-01-20_1630)');
+        console.log('🔧 v5.90.713: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
+        console.log('🔧 v5.90.713: Leerfahrt VOR der Buchung berechnen!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -1299,7 +1299,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - CRM-FIX! ✅ (Build 20260120-2330)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.682 - CRM-NEW! ✅ (Build 20260120-2330)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -1755,7 +1755,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.711 - CRM-FIX
+                        🔧 v5.90.713 - CRM-NEW
                     </span>
                 </div>
             </div>
@@ -3001,7 +3001,7 @@
                 </div>
             </div>
             
-            <!-- 🐛 v5.90.711: LIVE CRM-FIX BOX -->
+            <!-- 🐛 v5.90.713: LIVE CRM-NEW BOX -->
             <div id="debug-analyse-container" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;border-radius:12px;padding:20px;margin-bottom:20px;border:3px solid #f59e0b;box-shadow:0 4px 16px rgba(245,158,11,0.4);">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
                     <div>
@@ -23770,7 +23770,7 @@ Aktuell: ${currentNum}`;
             }
             
             // ═══════════════════════════════════════════════
-            // CRM-FIX: ERGEBNIS
+            // CRM-NEW: ERGEBNIS
             // ═══════════════════════════════════════════════
             if (foundUserId) {
                 console.log('🎉 userId GEFUNDEN:', foundUserId);
@@ -25392,7 +25392,7 @@ Aktuell: ${currentNum}`;
                 clearDestBtn.style.display = 'inline-block';
             }
             
-            // 🗺️ CRM-FIX ANZEIGEN
+            // 🗺️ CRM-NEW ANZEIGEN
             showRouteMap(route, pickupCoords, destCoords);
             
             const bookBtn = document.getElementById('book-btn');
@@ -25419,7 +25419,7 @@ Aktuell: ${currentNum}`;
             priceCalculated = true;
         }
 
-        // 🗺️ CRM-FIX ANZEIGEN
+        // 🗺️ CRM-NEW ANZEIGEN
         let routeMapInstance = null;
         function showRouteMap(route, pickupCoords, destCoords) {
             // 🐛 v5.90.542: NULL-CHECK!
@@ -27040,7 +27040,7 @@ Aktuell: ${currentNum}`;
                 
                 const reserveMinutes = availableTime - travelTime;
                 
-                console.log('📊 CRM-FIXE BERECHNUNG:');
+                console.log('📊 CRM-NEWE BERECHNUNG:');
                 console.log('   Verfügbare Zeit:', availableTime, 'Min');
                 console.log('   - Benötigte Fahrtzeit:', travelTime, 'Min');
                 console.log('   = Reserve:', reserveMinutes, 'Min');
@@ -28512,7 +28512,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ CRM-FIX VERSTECKEN
+            // 🗺️ CRM-NEW VERSTECKEN
             const routeMap = document.getElementById('route-map');
             if (routeMap) {
                 routeMap.style.display = 'none';
@@ -36239,7 +36239,7 @@ Funk Taxi Team`;
             finalizeRideCompletion(rideId, rideData);
         }
         
-        // 🆕 v5.90.525: CRM-FIXISIERE FAHRT-ABSCHLUSS!
+        // 🆕 v5.90.525: CRM-NEWISIERE FAHRT-ABSCHLUSS!
         async function finalizeRideCompletion(rideId, rideData) {
             // 🆕 v5.26.14f: REALTIME FIX - Speichere abgeschlossene Fahrt in localStorage!
             if (rideData) {
@@ -38892,7 +38892,7 @@ Funk Taxi Team`;
                     console.log('   KM-Preis:', kmPreis.toFixed(2), '€');
                     console.log('   Basis:', (grundgebuehr + kmPreis).toFixed(2), '€');
                     console.log('   Surge:', surge.multiplier + '%');
-                    console.log('   CRM-FIX:', price.toFixed(2), '€', surchargeText);
+                    console.log('   CRM-NEW:', price.toFixed(2), '€', surchargeText);
                     
                     // 🆕 v5.90.206: GLOBALE VARIABLEN FÜR MODAL!
                     window.calculatedPrice = price;
@@ -39575,8 +39575,8 @@ Funk Taxi Team`;
         
         // Neuer Kunde schnell anlegen
         async function createNewCustomerQuick(searchTerm) {
-            // 🆕 v5.90.711: IMMER CRM-Modal öffnen!
-            console.log('✅ v5.90.711: Öffne CRM-Modal für neuen Kunden');
+            // 🆕 v5.90.713: IMMER CRM-Modal öffnen!
+            console.log('✅ v5.90.713: Öffne CRM-Modal für neuen Kunden');
             
             // Schließe Dropdown
             const dropdown = document.getElementById('fqb-customer-dropdown');
@@ -39655,10 +39655,10 @@ Funk Taxi Team`;
         
         // Neuer Kunde
         function createNewCustomerInBooking() {
-            // 🆕 v5.90.711: IMMER CRM-Modal öffnen!
+            // 🆕 v5.90.713: IMMER CRM-Modal öffnen!
             const phone = document.getElementById('fqb-customer-phone').value.trim();
             
-            console.log('✅ v5.90.711: Öffne CRM-Modal für neuen Kunden (Telefonsuche)');
+            console.log('✅ v5.90.713: Öffne CRM-Modal für neuen Kunden (Telefonsuche)');
             
             // Öffne CRM-Modal im "Neu"-Modus
             editCustomer('new');
@@ -44184,11 +44184,11 @@ Funk Taxi Team`;
         
         // 🆕 v5.52.9: NEUEN KUNDEN AUS SCHNELLBUCHUNG ANLEGEN
         async function createNewCustomerFromQuickBooking() {
-            // 🆕 v5.90.711: Öffne CRM-Modal statt Mini-Modal!
+            // 🆕 v5.90.713: Öffne CRM-Modal statt Mini-Modal!
             const searchInput = document.getElementById('quick-booking-customer-search');
             const enteredText = searchInput.value.trim();
             
-            console.log('✅ v5.90.711: Öffne CRM-Modal aus Schnellbuchung');
+            console.log('✅ v5.90.713: Öffne CRM-Modal aus Schnellbuchung');
             
             // Erkenne ob Telefon oder Name
             const isPhone = /^[\d\s\+\-\(\)]+$/.test(enteredText);
@@ -44204,8 +44204,8 @@ Funk Taxi Team`;
                 }
             }, 100);
             
-            // Öffne CRM-Modal
-            showAddCustomerModal();
+            // Öffne CRM Edit-Modal im "Neu"-Modus
+            editCustomer('new');
         }
         
         // 🔧 Helper: Schließe Mini-Modal sicher
@@ -53391,13 +53391,31 @@ Funk Taxi Team`;
         async function editCustomer(customerId) {
             console.log('🔧 editCustomer() aufgerufen für:', customerId);
             
-            // Verwende zentrale getCustomer Funktion
-            const customer = await getCustomer(customerId);
+            let customer;
             
-            if (!customer) {
-                console.error('💾 Kunde nicht gefunden!');
-                alert('💾 Kunde nicht gefunden!');
-                return;
+            // 🆕 v5.90.713: Unterstütze "new" für neue Kunden
+            if (customerId === 'new') {
+                console.log('✨ v5.90.713: Neuer Kunde wird erstellt');
+                customer = {
+                    id: 'cust_' + Date.now(),
+                    name: '',
+                    phone: '',
+                    mobilePhone: '',
+                    email: '',
+                    address: '',
+                    notes: '',
+                    discount: 0,
+                    isNew: true
+                };
+            } else {
+                // Verwende zentrale getCustomer Funktion
+                customer = await getCustomer(customerId);
+                
+                if (!customer) {
+                    console.error('💾 Kunde nicht gefunden!');
+                    alert('💾 Kunde nicht gefunden!');
+                    return;
+                }
             }
             
             console.log('✅ Kunde geladen, erstelle Modal...');
@@ -74113,7 +74131,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.711
+        🔧 v5.90.713
     </div>
 </div>
 
@@ -74121,7 +74139,7 @@ function clearField(fieldId) {
 <script>
 // 🎯 ANGEBOTE: Alle Rückfahrten finden
 async function generateAngebote() {
-    console.log('🎯 v5.90.711: Generiere Angebote mit DEBUG-Analyse...');
+    console.log('🎯 v5.90.713: Generiere Angebote mit DEBUG-Analyse...');
     
     const angebote = [];
     let debugHTML = ''; // 🐛 DEBUG-Ausgabe sammeln
@@ -74162,7 +74180,7 @@ async function generateAngebote() {
         for (const [rideId, ride] of Object.entries(rides)) {
             fahrtNr++;
             
-            // 🐛 v5.90.711: DEBUG für JEDE Fahrt (auch die gefilterten!)
+            // 🐛 v5.90.713: DEBUG für JEDE Fahrt (auch die gefilterten!)
             const fahrtTime = ride.pickupTimestamp ? new Date(ride.pickupTimestamp).toLocaleString('de-DE') : 'Keine Zeit';
             
             debugHTML += `<div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:6px;margin-bottom:12px;border-left:4px solid #3b82f6;">`;
@@ -74233,7 +74251,7 @@ async function generateAngebote() {
             if (ride.status === 'cancelled' || ride.status === 'storniert') continue;
             
             // 2. Berechne HINFAHRT-Details (Leerfahrt VOR der Buchung!)
-            // 🔧 v5.90.711: LOGIK UMGEDREHT!
+            // 🔧 v5.90.713: LOGIK UMGEDREHT!
             // Taxi muss vom ZIEL zum START fahren BEVOR die Buchung beginnt!
             
             // 3. Berechne Leerfahrt-Dauer (Ziel → Start)
@@ -74263,19 +74281,19 @@ async function generateAngebote() {
             // 6. Erstelle Angebot
             angebote.push({
                 id: 'angebot_' + rideId,
-                type: 'hinfahrt',  // 🔧 v5.90.711: HINFAHRT!
+                type: 'hinfahrt',  // 🔧 v5.90.713: HINFAHRT!
                 from: ride.destination,  // VON: Ziel der Buchung
                 to: ride.pickup,         // NACH: Start der Buchung
                 fromCoords: ride.destCoords,
                 toCoords: ride.pickupCoords,
-                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.711: HINFAHRT-START!
-                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.711: HINFAHRT-START!
+                availableAt: new Date(hinfahrtStart),  // 🔧 v5.90.713: HINFAHRT-START!
+                availableTimestamp: hinfahrtStart,     // 🔧 v5.90.713: HINFAHRT-START!
                 duration: deadheadDuration,
                 distance: ride.distance,
                 normalPrice: normalPrice,
                 discountPrice: discountPrice,
                 discount: 50,
-                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.711: Klarere Beschreibung
+                reason: 'Nutzt Leerfahrt zur Buchung',  // 🔧 v5.90.713: Klarere Beschreibung
                 parentRide: rideId,
                 parentCustomer: ride.customerName,
                 targetBookingTime: new Date(ride.pickupTimestamp),  // Wann die Buchung beginnt
@@ -74288,7 +74306,7 @@ async function generateAngebote() {
         
         console.log(`✅ ${angebote.length} Angebote gefunden (Filter: ${filter})`);
         
-        // 🐛 v5.90.711: Zeige Debug-Ausgabe
+        // 🐛 v5.90.713: Zeige Debug-Ausgabe
         debugHTML += '<div style="border-top:1px solid rgba(245,158,11,0.3);margin:15px 0;"></div>';
         debugHTML += `<div style="color:#10b981;font-weight:700;font-size:14px;">✅ ${angebote.length} ANGEBOTE GENERIERT</div>`;
         document.getElementById('debug-content').innerHTML = debugHTML;
@@ -74547,9 +74565,9 @@ async function bookAngebot(angebotId) {
     }
 }
 
-// 🗺️ v5.90.711: ROUTE AUF KARTE ANZEIGEN
+// 🗺️ v5.90.713: ROUTE AUF KARTE ANZEIGEN
 async function showRouteOnMap(angebotId) {
-    console.log('🗺️ v5.90.711: Zeige Route auf Karte für Angebot:', angebotId);
+    console.log('🗺️ v5.90.713: Zeige Route auf Karte für Angebot:', angebotId);
     
     try {
         // Hole Angebot
@@ -74631,10 +74649,10 @@ async function initRouteMap(angebot) {
         if (!container) return;
         
         // Berechne Route mit OSRM
-        console.log('📍 v5.90.711: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
+        console.log('📍 v5.90.713: Berechne Route:', angebot.fromCoords, '→', angebot.toCoords);
         const routeData = await calculateRoute(angebot.fromCoords, angebot.toCoords);
         
-        console.log('📍 v5.90.711: Route-Daten:', routeData);
+        console.log('📍 v5.90.713: Route-Daten:', routeData);
         
         if (!routeData || !routeData.geometry) {
             throw new Error('Keine Route gefunden');
@@ -74687,10 +74705,10 @@ async function initRouteMap(angebot) {
         // Zoom auf Route
         map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
         
-        console.log('✅ v5.90.711: Karte initialisiert');
+        console.log('✅ v5.90.713: Karte initialisiert');
         
     } catch (error) {
-        console.error('❌ v5.90.711: Fehler beim Initialisieren der Karte:', error);
+        console.error('❌ v5.90.713: Fehler beim Initialisieren der Karte:', error);
         const container = document.getElementById('route-map-container');
         if (container) {
             container.innerHTML = `

@@ -9,14 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.716
-    📅 BUILD: 20.01.2026 23:30 Uhr
+    📦 VERSION: v5.90.717
+    📅 BUILD: 21.01.2026 16:50 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
-    
+
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.716
+    📋 CHANGELOG v5.90.717
     ═══════════════════════════════════════════════════════════════════════════
-    
+
+    ➕ v5.90.717 (21.01.2026):
+       • NEU: "Als neuen Kunden anlegen" öffnet jetzt das große CRM-Modal!
+       • NEU: Gleiches Modal für Bearbeiten UND Anlegen von Kunden!
+       • NEU: updateCustomer() unterstützt jetzt 'new' für neue Kunden
+       • NEU: openNewCustomerModal() Funktion für neue Kunden
+       • Schnellbuchung + CRM "Neuer Kunde" Button nutzen gleiches Modal!
+
     🔧 v5.90.716 (20.01.2026):
        • FIX: Angebote-Logik korrigiert - HINFAHRT statt Rückfahrt!
        • Angebote zeigen jetzt Leerfahrt VOR der Buchung
@@ -336,9 +343,9 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.716 - ALLE-PLATZHALTER! 🔧✅ (Build 2026-01-20_1630)');
-        console.log('🔧 v5.90.716: ANGEBOTE LOGIK KORRIGIERT - HINFAHRT statt Rückfahrt!');
-        console.log('🔧 v5.90.716: Leerfahrt VOR der Buchung berechnen!');
+        console.log('🚕 Funk Taxi App v5.90.717 - CRM-MODAL! ➕✅ (Build 2026-01-21_1650)');
+        console.log('➕ v5.90.717: NEU: CRM-Modal für neue Kunden!');
+        console.log('➕ v5.90.717: Schnellbuchung + CRM nutzen gleiches Modal!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
         console.log('🐛 v5.90.680: Angebote-Display funktioniert');
         console.log('🔧 v5.90.676: Orange Button für frühesten Termin funktioniert');
@@ -31847,14 +31854,11 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
             // TODO: Modal mit vollständigen Details
         }
         
-        function editCustomer(customerId) {
-            alert('🚧 Kunde bearbeiten kommt bald!');
-            // TODO: Edit-Modal
-        }
-        
-        function showAddCustomerModal() {
-            alert('🚧 Neuer Kunde kommt bald!');
-            // TODO: Add-Modal
+        // 🆕 v5.90.717: Weiterleitung zur echten editCustomer() Funktion (weiter unten)
+
+        function showAddCustomerModal(prefillName = '', prefillPhone = '') {
+            // 🆕 v5.90.717: Öffne CRM-Modal für NEUEN Kunden!
+            openNewCustomerModal(prefillName, prefillPhone);
         }
 
         // 🆕 v5.64.40: STORNIERTE FAHRT WIEDERHERSTELLEN
@@ -44281,29 +44285,20 @@ Funk Taxi Team`;
         }
         
         // 🆕 v5.52.9: NEUEN KUNDEN AUS SCHNELLBUCHUNG ANLEGEN
+        // 🔄 v5.90.717: Nutzt jetzt openNewCustomerModal() mit Prefill!
         async function createNewCustomerFromQuickBooking() {
-            // 🆕 v5.90.716: Öffne CRM-Modal statt Mini-Modal!
             const searchInput = document.getElementById('quick-booking-customer-search');
-            const enteredText = searchInput.value.trim();
-            
-            console.log('✅ v5.90.716: Öffne CRM-Modal aus Schnellbuchung');
-            
+            const enteredText = searchInput ? searchInput.value.trim() : '';
+
+            console.log('🆕 v5.90.717: createNewCustomerFromQuickBooking() aufgerufen mit:', enteredText);
+
             // Erkenne ob Telefon oder Name
             const isPhone = /^[\d\s\+\-\(\)]+$/.test(enteredText);
-            
-            // Setze Wert im CRM-Modal
-            setTimeout(() => {
-                if (isPhone) {
-                    const phoneField = document.getElementById('crm-customer-phone');
-                    if (phoneField) phoneField.value = enteredText;
-                } else if (enteredText) {
-                    const nameField = document.getElementById('crm-customer-name');
-                    if (nameField) nameField.value = enteredText;
-                }
-            }, 100);
-            
-            // Öffne CRM-Modal
-            showAddCustomerModal();
+            const prefillName = isPhone ? '' : enteredText;
+            const prefillPhone = isPhone ? enteredText : '';
+
+            // 🆕 v5.90.717: Öffne das große CRM-Modal direkt mit Prefill!
+            openNewCustomerModal(prefillName, prefillPhone);
         }
         
         // 🔧 Helper: Schließe Mini-Modal sicher
@@ -53784,7 +53779,144 @@ Funk Taxi Team`;
                 setupCustomerAddressAutocomplete('edit-customer-address', 'edit-customer-address-dropdown');
             }, 100);
         }
-        
+
+        // 🆕 v5.90.717: NEUER KUNDE MODAL - Gleiches Modal wie bearbeiten, aber leer!
+        function openNewCustomerModal(prefillName = '', prefillPhone = '') {
+            console.log('🆕 v5.90.717: openNewCustomerModal() aufgerufen');
+            console.log('   Prefill Name:', prefillName);
+            console.log('   Prefill Phone:', prefillPhone);
+
+            // Leere Rechnungsadressen für neuen Kunden
+            currentCustomerBillingAddresses = [];
+
+            const modal = document.createElement('div');
+            modal.id = 'edit-customer-modal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100000;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;">
+                    <button onclick="document.getElementById('edit-customer-modal').remove()" style="
+                        position: absolute; top: 16px; right: 16px; background: #ef4444; color: white;
+                        border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 20px;
+                        font-weight: 700; cursor: pointer; display: flex; align-items: center;
+                        justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 10;
+                    ">✕</button>
+                    <h3 style="margin:0 0 15px 0;padding-right:50px;">➕ Neuer Kunde</h3>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <input type="text" id="edit-customer-name" value="${prefillName}" placeholder="Name *" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+
+                        <div>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📞 Festnetz-Telefon</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="edit-customer-phone-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="edit-customer-phone" placeholder="38378 499933" onblur="addCountryCode(this)" oninput="autoCleanPhoneInput(this)" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                            </div>
+                        </div>
+
+                        <button id="add-second-phone-btn" onclick="showSecondPhone()" style="width:100%;padding:10px;background:#f3f4f6;color:#6b7280;border:2px dashed #d1d5db;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">
+                            ➕ Zweite Festnetz-Nummer hinzufügen
+                        </button>
+
+                        <div id="second-phone-container" style="display:none;">
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📞 Zweite Festnetz-Nummer</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="edit-customer-phone2-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="edit-customer-phone2" placeholder="38378 499934" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                                <button onclick="removeSecondPhone()" style="padding:12px 16px;background:#ef4444;color:white;border:none;border-radius:8px;cursor:pointer;">✕</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">📱 Mobilfunknummer (für Google Kalender)</label>
+                            <div style="display:flex;gap:8px;">
+                                <select id="edit-customer-mobile-country" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100px;">
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+48">🇵🇱 +48</option>
+                                </select>
+                                <input type="tel" id="edit-customer-mobile" placeholder="170 1234827" style="flex:1;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;">
+                            </div>
+                            <div style="font-size:11px;color:#10b981;margin-top:4px;">☑️ Optional: Wird für Google Kalender verwendet</div>
+                        </div>
+
+                        <input type="email" id="edit-customer-email" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
+
+                        <div style="position:relative;">
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">🏠 Wohnanschrift</label>
+                            <input type="text" id="edit-customer-address" placeholder="Straße Hausnr, PLZ Ort" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;width:100%;box-sizing:border-box;">
+                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:10001;box-shadow:0 4px 6px rgba(0,0,0,0.1);margin-top:4px;"></div>
+                        </div>
+
+                        <div style="background:#f9fafb;border-radius:8px;padding:12px;margin-top:5px;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                                <span style="font-size:16px;">🧾</span>
+                                <span style="font-weight:600;color:#374151;">Rechnungsadressen</span>
+                            </div>
+                            <div id="billing-addresses-list"></div>
+                            <button onclick="addBillingAddress()" style="width:100%;padding:10px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;margin-top:8px;">
+                                + Rechnungsadresse hinzufügen
+                            </button>
+                        </div>
+
+                        <textarea id="edit-customer-notes" placeholder="Notizen" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;min-height:60px;resize:vertical;"></textarea>
+
+                        <div style="position:relative;">
+                            <label style="display:block;font-size:12px;color:#6b7280;margin-bottom:4px;">🏷️ Kategorie</label>
+                            <div id="edit-customer-category-dropdown-container" style="position:relative;">
+                                <button type="button" id="edit-customer-category-btn" onclick="toggleEditCustomerCategoryDropdown()" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;background:white;text-align:left;cursor:pointer;font-size:14px;display:flex;justify-content:space-between;align-items:center;">
+                                    <span id="edit-customer-category-label">Kategorie wählen...</span>
+                                    <span>▼</span>
+                                </button>
+                                <div id="edit-customer-category-dropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e0e0e0;border-radius:8px;display:none;z-index:10001;box-shadow:0 4px 12px rgba(0,0,0,0.15);margin-top:4px;">
+                                    <div onclick="selectEditCustomerCategory('', 'Kategorie wählen...')" style="padding:12px;cursor:pointer;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">Keine Kategorie</div>
+                                    <div onclick="selectEditCustomerCategory('favorite', '⭐ Favorit')" style="padding:12px;cursor:pointer;border-top:1px solid #f3f4f6;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='white'">⭐ Favorit (Schnellwahl)</div>
+                                    <div onclick="selectEditCustomerCategory('hotel', '🏨 Hotel/Pension')" style="padding:12px;cursor:pointer;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">🏨 Hotel/Pension</div>
+                                    <div onclick="selectEditCustomerCategory('business', '💼 Geschäftskunde')" style="padding:12px;cursor:pointer;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">💼 Geschäftskunde</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="edit-customer-category" value="">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:15px;">
+                        <button onclick="updateCustomer('new')" style="flex:2;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">💾 Kunde anlegen</button>
+                        <button onclick="closeEditCustomerModal()" style="flex:1;padding:12px;background:#6b7280;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Abbrechen</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            console.log('✅ v5.90.717: Neuer Kunde Modal geöffnet');
+
+            // Telefonnummer vorausfüllen falls vorhanden
+            if (prefillPhone) {
+                setTimeout(() => {
+                    const phoneInput = document.getElementById('edit-customer-phone');
+                    if (phoneInput) {
+                        let cleanPhone = prefillPhone.replace(/^\+49/, '').replace(/^0049/, '').replace(/^49/, '');
+                        if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+                        phoneInput.value = cleanPhone;
+                    }
+                }, 50);
+            }
+
+            // Rendere leere Adressen-Liste
+            renderBillingAddressesList();
+
+            // Autocomplete aktivieren
+            setTimeout(() => {
+                setupCustomerAddressAutocomplete('edit-customer-address', 'edit-customer-address-dropdown');
+            }, 100);
+        }
+
         // 🆕 v5.90.196: AUTOCOMPLETE FÜR KUNDEN-ADRESSE!
         function setupCustomerAddressAutocomplete(inputId, dropdownId) {
             const input = document.getElementById(inputId);
@@ -54203,6 +54335,13 @@ Funk Taxi Team`;
         }
         
         async function updateCustomer(customerId) {
+            // 🆕 v5.90.717: NEUER KUNDE SUPPORT!
+            const isNewCustomer = (customerId === 'new');
+            if (isNewCustomer) {
+                customerId = 'customer_' + Date.now();
+                console.log('🆕 v5.90.717: Neuer Kunde wird erstellt mit ID:', customerId);
+            }
+
             const name = document.getElementById('edit-customer-name').value.trim();
             if (!name) {
                 alert('💾 Name ist erforderlich!');
@@ -54293,38 +54432,57 @@ Funk Taxi Team`;
             
             // 🚀 v5.52.8: OPTIMISTISCHES UI UPDATE - Modal SOFORT schließen!
             closeEditCustomerModal();
-            
+
             // 🚀 v5.52.8: Zeige Toast
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#3b82f6;color:white;padding:15px 20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:99999;font-weight:600;animation:slideIn 0.3s ease;';
-            toast.innerHTML = `⏳ Update "${name}"...`;
+            toast.innerHTML = isNewCustomer ? `⏳ Erstelle "${name}"...` : `⏳ Update "${name}"...`;
             document.body.appendChild(toast);
-            
+
             try {
-                await db.ref('customers/' + customerId).update(updates);
-                
-                // 🚀 v5.52.8: Update lokale Kopie (kein komplettes Neuladen!)
-                const customer = allCustomers.find(c => c.id === customerId);
-                if (customer) {
-                    Object.assign(customer, updates);
+                // 🆕 v5.90.717: Unterscheide zwischen neu und update
+                if (isNewCustomer) {
+                    // NEUER KUNDE: set() mit zusätzlichen Feldern
+                    const newCustomerData = {
+                        ...updates,
+                        id: customerId,
+                        createdAt: new Date().toISOString(),
+                        totalRides: 0,
+                        totalRevenue: 0
+                    };
+                    await db.ref('customers/' + customerId).set(newCustomerData);
+
+                    // Zur lokalen Liste hinzufügen
+                    allCustomers.push(newCustomerData);
+                    console.log('✅ v5.90.717: Neuer Kunde erstellt:', name);
+
+                    toast.style.background = '#10b981';
+                    toast.innerHTML = `✅ "${name}" erstellt!`;
+                } else {
+                    // BESTEHENDER KUNDE: update()
+                    await db.ref('customers/' + customerId).update(updates);
+
+                    // 🚀 v5.52.8: Update lokale Kopie (kein komplettes Neuladen!)
+                    const customer = allCustomers.find(c => c.id === customerId);
+                    if (customer) {
+                        Object.assign(customer, updates);
+                    }
+
+                    console.log('✅ Kunde aktualisiert:', name);
+                    toast.style.background = '#10b981';
+                    toast.innerHTML = `✅ "${name}" aktualisiert!`;
                 }
-                
+
                 // 🚀 v5.52.8: Nur die Liste neu rendern (OHNE Firebase-Load!)
                 renderCustomersList(allCustomers);
-                
-                console.log('✅ Kunde aktualisiert:', name);
-                
-                // 🚀 v5.52.8: Update Toast zu Erfolg
-                toast.style.background = '#10b981';
-                toast.innerHTML = `✅ "${name}" aktualisiert!`;
                 setTimeout(() => toast.remove(), 2000);
-                
+
             } catch (error) {
-                console.error('💾 Fehler beim Aktualisieren:', error);
-                
+                console.error('💾 Fehler beim Speichern:', error);
+
                 // 🚀 v5.52.8: Update Toast zu Fehler
                 toast.style.background = '#ef4444';
-                toast.innerHTML = `💾 Fehler beim Aktualisieren!`;
+                toast.innerHTML = isNewCustomer ? `💾 Fehler beim Erstellen!` : `💾 Fehler beim Aktualisieren!`;
                 setTimeout(() => toast.remove(), 3000);
             }
         }
@@ -74284,7 +74442,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.716
+        ➕ v5.90.717
     </div>
 </div>
 

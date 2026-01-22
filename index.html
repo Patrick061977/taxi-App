@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.735
-    📅 BUILD: 22.01.2026 12:05 Uhr
+    📦 VERSION: v5.90.738
+    📅 BUILD: 22.01.2026 14:20 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.735
+    📋 CHANGELOG v5.90.738
     ═══════════════════════════════════════════════════════════════════════════
+
+    🐛 v5.90.738 (22.01.2026):
+       • BUG-FIX: Exakte Zeitüberschneidung wird jetzt IMMER geprüft!
+       • Problem: Wenn Fahrt A um 14:30 endete und Rückfahrt bis 14:45 dauerte,
+         wurde nicht geprüft ob um 14:45 bereits Fahrt B existiert!
+       • Fix: exactTimeConflict Prüfung auch wenn previousRide existiert
+       • Verhindert Doppelbuchungen zur gleichen Uhrzeit
 
     🕐 v5.90.735 (22.01.2026):
        • NEU: Keine Buchungen in der Vergangenheit möglich!
@@ -448,8 +455,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.735 - 25 MIN VORLAUF (5 Min Puffer)! 🚀 (Build 2026-01-22_1220)');
-        console.log('🕐 v5.90.735: Keine Buchungen in Vergangenheit + 25 Min Mindestvorlauf (5 Min Puffer)!');
+        console.log('🚕 Funk Taxi App v5.90.738 - exactTimeConflict Fix! 🚀 (Build 2026-01-22_1420)');
+        console.log('🐛 v5.90.738: Exakte Zeitüberschneidung wird jetzt IMMER geprüft!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -28159,8 +28166,68 @@ Aktuell: ${currentNum}`;
                         }
                     }
                     
+                    // 🆕 v5.90.738: PRÜFE OB ZUR EXAKT GLEICHEN ZEIT SCHON EINE FAHRT IST!
+                    // Bug-Fix: Diese Prüfung fehlte wenn previousRide existiert!
+                    let exactTimeConflict = null;
+                    for (let i = 0; i < allRides.length; i++) {
+                        const ride = allRides[i];
+                        const rideDateTime = new Date(ride.pickupTimestamp || ride.pickupTime);
+                        const rideTime = rideDateTime.getTime();
+                        const rideDate = rideDateTime.toDateString();
+
+                        // Prüfe ob zur EXAKT gleichen Zeit!
+                        if (rideDate === slotDate && rideTime === slotTime) {
+                            exactTimeConflict = ride;
+                            console.log('🚨 v5.90.738: EXAKTE ZEIT-ÜBERSCHNEIDUNG GEFUNDEN!', rideDateTime.toLocaleString('de-DE'));
+                            break;
+                        }
+                    }
+
+                    if (exactTimeConflict) {
+                        console.log('⚠️ v5.90.738: SLOT IST BEREITS BELEGT!');
+                        console.log('   Bestehende Fahrt:', exactTimeConflict.pickup, '→', exactTimeConflict.destination);
+                        console.log('═══════════════════════════════════════════════════════════');
+
+                        // Finde alternative Zeiten
+                        const alternatives = [];
+                        for (let offset = 5; offset <= 60; offset += 5) {
+                            const testTime = new Date(slotTime + offset * 60000);
+                            const testHour = String(testTime.getHours()).padStart(2, '0');
+                            const testMin = String(testTime.getMinutes()).padStart(2, '0');
+                            const altStr = `${testHour}:${testMin}`;
+
+                            // Prüfe ob dieser Slot frei ist
+                            let slotFree = true;
+                            for (let j = 0; j < allRides.length; j++) {
+                                const r = allRides[j];
+                                const rTime = new Date(r.pickupTimestamp || r.pickupTime).getTime();
+                                const rDate = new Date(r.pickupTimestamp || r.pickupTime).toDateString();
+                                if (rDate === slotDate && Math.abs(rTime - testTime.getTime()) < 5 * 60000) {
+                                    slotFree = false;
+                                    break;
+                                }
+                            }
+                            if (slotFree) {
+                                alternatives.push(altStr);
+                                if (alternatives.length >= 4) break;
+                            }
+                        }
+
+                        return {
+                            hasConflict: true,
+                            exactTimeConflict: true,
+                            conflictRide: exactTimeConflict,
+                            alternatives: alternatives,
+                            previousRide: previousRide,
+                            travelTime: travelTime,
+                            availableTime: availableTime,
+                            reserveMinutes: reserveMinutes,
+                            allRidesOnDay: ridesOnSameDay
+                        };
+                    }
+
                     console.log('═══════════════════════════════════════════════════════════');
-                    
+
                     return {
                         hasConflict: false,
                         reserveMinutes: reserveMinutes,
@@ -75992,7 +76059,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🕐 v5.90.735
+        🕐 v5.90.738
     </div>
 </div>
 

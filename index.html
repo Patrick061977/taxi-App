@@ -9,13 +9,22 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.729
-    📅 BUILD: 22.01.2026 10:00 Uhr
+    📦 VERSION: v5.90.730
+    📅 BUILD: 22.01.2026 11:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.729
+    📋 CHANGELOG v5.90.730
     ═══════════════════════════════════════════════════════════════════════════
+
+    🚀 v5.90.730 (22.01.2026):
+       • KUNDEN-SICHT: Automatische Verfügbarkeitsprüfung!
+       • System erkennt sofort aktuelle Uhrzeit + Datum
+       • Automatische Slot-Prüfung beim Modal-Öffnen
+       • Live-Update bei Zeit-/Datum-/Adress-Änderungen
+       • Grüner "✅ Termin verfügbar!" Status
+       • Orange "❌ Termin nicht verfügbar" mit Alternativen-Buttons
+       • Kunden können verfügbare Alternative direkt anklicken
 
     🎯 v5.90.729 (22.01.2026):
        • KUNDEN-SICHT Verbesserungen
@@ -424,8 +433,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.729 - KUNDEN-SICHT! 🎯 (Build 2026-01-22_1000)');
-        console.log('🎯 v5.90.729: KUNDEN-SICHT Verbesserungen + Alternativen-Berechnung!');
+        console.log('🚕 Funk Taxi App v5.90.730 - AUTO-VERFÜGBARKEITSPRÜFUNG! 🚀 (Build 2026-01-22_1100)');
+        console.log('🚀 v5.90.730: Automatische Verfügbarkeitsprüfung in Kunden-Sicht!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -44393,7 +44402,10 @@ Funk Taxi Team`;
                                 </div>
                             </div>
                         </div>
-                        
+
+                        <!-- 🆕 v5.90.730: SLOT-STATUS ANZEIGE FÜR KUNDEN-SICHT! -->
+                        <div id="qb-slot-status" style="display:none;margin-bottom:15px;padding:12px;border-radius:8px;font-size:13px;line-height:1.5;"></div>
+
                         <!-- Abholort -->
                         <div style="margin-bottom:15px;position:relative;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Von wo soll der Kunde abgeholt werden?">📍 Abholort</label>
@@ -44624,6 +44636,45 @@ Funk Taxi Team`;
                 initQuickBookingCalendar();
                 updateQuickBookingWeekday();
             }, 250);
+
+            // 🆕 v5.90.730: AUTOMATISCHE SLOT-PRÜFUNG + EVENT-LISTENER!
+            setTimeout(() => {
+                // Event-Listener für Adressfelder
+                const pickupInput = document.getElementById('quick-booking-pickup');
+                const destinationInput = document.getElementById('quick-booking-destination');
+
+                // Debounce-Timer für Adressänderungen
+                let addressDebounceTimer = null;
+
+                const triggerAddressCheck = () => {
+                    clearTimeout(addressDebounceTimer);
+                    addressDebounceTimer = setTimeout(() => {
+                        console.log('📍 Adresse geändert - prüfe Slot...');
+                        triggerQBSlotCheck();
+                    }, 800); // 800ms Verzögerung nach letzter Eingabe
+                };
+
+                if (pickupInput) {
+                    pickupInput.addEventListener('input', triggerAddressCheck);
+                    pickupInput.addEventListener('change', () => {
+                        clearTimeout(addressDebounceTimer);
+                        triggerQBSlotCheck();
+                    });
+                }
+
+                if (destinationInput) {
+                    destinationInput.addEventListener('input', triggerAddressCheck);
+                    destinationInput.addEventListener('change', () => {
+                        clearTimeout(addressDebounceTimer);
+                        triggerQBSlotCheck();
+                    });
+                }
+
+                // SOFORT PRÜFEN beim Öffnen!
+                console.log('🚀 v5.90.730: Starte automatische Slot-Prüfung beim Modal-Öffnen...');
+                triggerQBSlotCheck();
+
+            }, 300);
         }
         
         // 🆕 v5.48.3: Live-Suche für Kunden (ab 3 Zeichen)
@@ -45204,8 +45255,13 @@ Funk Taxi Team`;
             if (overlay) {
                 overlay.remove();
             }
-            
+
             console.log('📅 Datum gewählt:', dateString, displayText);
+
+            // 🆕 v5.90.730: AUTOMATISCHE SLOT-PRÜFUNG NACH DATUMSWAHL!
+            if (typeof triggerQBSlotCheck === 'function') {
+                triggerQBSlotCheck();
+            }
         }
         
         // Initialisierung: Setze initiales Datum im Display
@@ -53579,14 +53635,190 @@ Funk Taxi Team`;
             
             showTimeKeypad(currentTime, (newTime) => {
                 console.log('✅ Zeit gewählt:', newTime);
-                
+
                 if (timeBtn) timeBtn.textContent = newTime;
                 if (timeInput) timeInput.value = newTime;
-                
+
                 console.log('📱 Quick-Booking Zeit gesetzt:', newTime);
+
+                // 🆕 v5.90.730: AUTOMATISCHE SLOT-PRÜFUNG NACH ZEITAUSWAHL!
+                triggerQBSlotCheck();
             });
         }
-        
+
+        // 🆕 v5.90.730: QUICK-BOOKING SLOT-PRÜFUNG FÜR KUNDEN-SICHT!
+        // Erkennt automatisch Datum/Uhrzeit und prüft auf freie Termine
+        async function triggerQBSlotCheck() {
+            const statusDisplay = document.getElementById('qb-slot-status');
+            if (!statusDisplay) return;
+
+            // Hole Werte aus Quick-Booking-Modal
+            const dateInput = document.getElementById('quick-booking-date');
+            const timeInput = document.getElementById('quick-booking-time');
+            const pickupInput = document.getElementById('quick-booking-pickup');
+            const destinationInput = document.getElementById('quick-booking-destination');
+
+            const date = dateInput ? dateInput.value : '';
+            const time = timeInput ? timeInput.value : '';
+            const pickup = pickupInput ? pickupInput.value.trim() : '';
+            const destination = destinationInput ? destinationInput.value.trim() : '';
+
+            // Validiere Zeit-Format (HH:MM)
+            const isValidTime = time && /^\d{2}:\d{2}$/.test(time);
+
+            console.log('🔍 v5.90.730: QB Slot-Check');
+            console.log('   Datum:', date ? '✅' : '❌');
+            console.log('   Zeit:', time, isValidTime ? '✅' : '❌');
+            console.log('   Pickup:', pickup ? '✅ ' + pickup.substring(0,30) : '❌');
+            console.log('   Destination:', destination ? '✅ ' + destination.substring(0,30) : '❌');
+
+            // Zeige Status nur wenn Datum + Zeit vorhanden
+            if (!date || !isValidTime) {
+                statusDisplay.style.display = 'none';
+                return;
+            }
+
+            // Zeige Lade-Anzeige
+            statusDisplay.style.display = 'block';
+            statusDisplay.style.background = '#f3f4f6';
+            statusDisplay.style.border = '2px solid #d1d5db';
+            statusDisplay.style.color = '#6b7280';
+            statusDisplay.innerHTML = '⏳ Prüfe Verfügbarkeit...';
+
+            try {
+                // Lade alle Fahrten
+                const ridesSnapshot = await db.ref('rides').once('value');
+                const ridesData = ridesSnapshot.val() || {};
+
+                // Erstelle DateTime für den gewünschten Slot
+                const slotDateTime = new Date(date + 'T' + time);
+                const now = new Date();
+
+                // Formatiere Datum/Zeit für Anzeige
+                const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                const dayName = dayNames[slotDateTime.getDay()];
+                const formattedDate = slotDateTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const formattedTime = time;
+
+                // Prüfe ob in der Vergangenheit
+                if (slotDateTime < now) {
+                    statusDisplay.style.background = '#fef2f2';
+                    statusDisplay.style.border = '2px solid #ef4444';
+                    statusDisplay.style.color = '#dc2626';
+                    statusDisplay.innerHTML = `
+                        ⚠️ <strong>Zeit liegt in der Vergangenheit!</strong><br>
+                        <small>Bitte wählen Sie eine zukünftige Zeit.</small>
+                    `;
+                    return;
+                }
+
+                // Wenn keine Adressen - zeige nur Datum/Zeit-Info
+                if (!pickup || !destination) {
+                    statusDisplay.style.background = '#eff6ff';
+                    statusDisplay.style.border = '2px solid #3b82f6';
+                    statusDisplay.style.color = '#1e40af';
+                    statusDisplay.innerHTML = `
+                        📅 <strong>${dayName}, ${formattedDate}</strong><br>
+                        🕐 <strong>${formattedTime} Uhr</strong><br>
+                        <small style="color:#6b7280;">Geben Sie Adressen ein für Verfügbarkeitsprüfung</small>
+                    `;
+                    return;
+                }
+
+                // VOLLSTÄNDIGE PRÜFUNG mit Distanz-Check
+                const distanceCheck = await checkTravelTimeConflict(slotDateTime, pickup, destination, ridesData);
+
+                if (distanceCheck.hasConflict) {
+                    // ❌ KONFLIKT - Zeige Alternativen für Kunden
+                    statusDisplay.style.background = 'linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%)';
+                    statusDisplay.style.border = '2px solid #f59e0b';
+                    statusDisplay.style.color = '#92400e';
+
+                    let html = `
+                        <div style="text-align:center;margin-bottom:10px;">
+                            <div style="font-size:16px;font-weight:700;">❌ Termin nicht verfügbar</div>
+                            <div style="font-size:12px;margin-top:4px;">${dayName}, ${formattedDate} um ${formattedTime} Uhr</div>
+                        </div>
+                    `;
+
+                    // Zeige Konflikt-Grund (vereinfacht für Kunden)
+                    if (distanceCheck.reason) {
+                        html += `<div style="font-size:12px;margin-bottom:10px;padding:8px;background:rgba(255,255,255,0.5);border-radius:4px;">
+                            ℹ️ ${distanceCheck.reason}
+                        </div>`;
+                    }
+
+                    // Berechne Alternativen
+                    html += '<div style="font-size:12px;font-weight:600;margin-bottom:8px;">🕐 Verfügbare Alternativen:</div>';
+                    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+
+                    // VORHER-Alternative (wenn verfügbar)
+                    if (distanceCheck.earlierAlternative) {
+                        const earlier = new Date(distanceCheck.earlierAlternative);
+                        const earlierTime = earlier.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        html += `<button onclick="selectQBAlternativeTime('${date}', '${earlierTime}')"
+                            style="padding:8px 12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                            ⬅️ ${earlierTime} (früher)
+                        </button>`;
+                    }
+
+                    // NACHHER-Alternativen
+                    if (distanceCheck.alternatives && distanceCheck.alternatives.length > 0) {
+                        distanceCheck.alternatives.slice(0, 3).forEach((alt, idx) => {
+                            const altDate = new Date(alt);
+                            const altTime = altDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                            const labels = ['Frühestmöglich', 'Komfortabel', 'Sicherer Puffer'];
+                            html += `<button onclick="selectQBAlternativeTime('${date}', '${altTime}')"
+                                style="padding:8px 12px;background:#10b981;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;">
+                                ✅ ${altTime}
+                            </button>`;
+                        });
+                    }
+
+                    html += '</div>';
+                    statusDisplay.innerHTML = html;
+
+                } else {
+                    // ✅ FREI - Termin verfügbar
+                    statusDisplay.style.background = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+                    statusDisplay.style.border = '2px solid #10b981';
+                    statusDisplay.style.color = '#065f46';
+                    statusDisplay.innerHTML = `
+                        <div style="text-align:center;">
+                            <div style="font-size:18px;font-weight:700;">✅ Termin verfügbar!</div>
+                            <div style="font-size:14px;margin-top:6px;">
+                                📅 ${dayName}, ${formattedDate}<br>
+                                🕐 ${formattedTime} Uhr
+                            </div>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('❌ QB Slot-Check Fehler:', error);
+                statusDisplay.style.background = '#fef2f2';
+                statusDisplay.style.border = '2px solid #ef4444';
+                statusDisplay.style.color = '#dc2626';
+                statusDisplay.innerHTML = '❌ Fehler bei der Prüfung: ' + error.message;
+            }
+        }
+
+        // 🆕 v5.90.730: ALTERNATIVE ZEIT FÜR QUICK-BOOKING WÄHLEN
+        function selectQBAlternativeTime(date, time) {
+            const dateInput = document.getElementById('quick-booking-date');
+            const timeInput = document.getElementById('quick-booking-time');
+            const timeBtn = document.getElementById('quick-booking-time-btn');
+
+            if (dateInput) dateInput.value = date;
+            if (timeInput) timeInput.value = time;
+            if (timeBtn) timeBtn.textContent = time;
+
+            console.log('✅ Alternative Zeit gewählt:', date, time);
+
+            // Prüfe erneut
+            triggerQBSlotCheck();
+        }
+
         async function submitQuickBooking() {
             // 🔒 v5.64.16: DOPPELKLICK-SCHUTZ!
             if (window.isSubmittingQuickBooking) {
@@ -75264,7 +75496,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🎯 v5.90.729
+        🚀 v5.90.730
     </div>
 </div>
 

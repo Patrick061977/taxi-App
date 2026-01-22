@@ -9,13 +9,19 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.726
-    📅 BUILD: 22.01.2026 07:10 Uhr
+    📦 VERSION: v5.90.727
+    📅 BUILD: 22.01.2026 07:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.726
+    📋 CHANGELOG v5.90.727
     ═══════════════════════════════════════════════════════════════════════════
+
+    ⬆️⬇️ v5.90.727 (22.01.2026):
+       • NEU: Slot-Check zeigt jetzt FRÜHERE + SPÄTERE Alternativen!
+       • ⬆️ Orange Buttons: Termine VOR dem gewünschten Zeitpunkt
+       • ⬇️ Grüne Buttons: Termine NACH dem Konflikt
+       • Benutzer kann jetzt auch frühere freie Slots wählen
 
     🚏 v5.90.726 (22.01.2026):
        • FIX: Fahrplan-Tab zeigt jetzt Lade-Status!
@@ -404,7 +410,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.726 - FAHRPLAN LADE-STATUS! 🚏✅ (Build 2026-01-22_0715)');
+        console.log('🚕 Funk Taxi App v5.90.727 - SLOT-CHECK VORHER+NACHHER! ⬆️⬇️✅ (Build 2026-01-22_0730)');
+        console.log('⬆️⬇️ v5.90.727: Slot-Check zeigt FRÜHERE + SPÄTERE Alternativen!');
         console.log('🚏 v5.90.726: Fahrplan zeigt Lade-Status!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
@@ -8095,8 +8102,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.726';
-        const APP_BUILD = '20260122-0715-FAHRPLAN-STATUS';
+        const APP_VERSION = '5.90.727';
+        const APP_BUILD = '20260122-0730-SLOT-VORHER-NACHHER';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -25371,35 +25378,67 @@ Aktuell: ${currentNum}`;
                             return;
                         }
                         
-                        // Erstelle HTML mit Alternativen
+                        // 🆕 v5.90.727: Erstelle HTML mit VORHER + NACHHER Alternativen
                         let html = `<div style="color:#f59e0b;font-weight:bold;margin-bottom:10px;">
                             ❌ Termin nicht verfügbar
                         </div>`;
-                        
+
                         if (alternatives.length > 0) {
-                            html += `<div style="color:#10b981;font-weight:bold;margin-bottom:8px;font-size:13px;">
-                                💡 Nächster freier Termin ab:
-                            </div>`;
-                            
-                            // Zeige erste 3 Alternativen mit Buttons
-                            alternatives.slice(0, 3).forEach(alt => {
-                                const altDate = new Date(alt.timestamp);
-                                const altTime = altDate.toLocaleString('de-DE', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
+                            // Trenne in VORHER und NACHHER
+                            const beforeAlts = alternatives.filter(a => a.type === 'before');
+                            const afterAlts = alternatives.filter(a => a.type === 'after');
+
+                            // === VORHER Slots (blau/orange) ===
+                            if (beforeAlts.length > 0) {
+                                html += `<div style="color:#f59e0b;font-weight:bold;margin-bottom:6px;font-size:13px;">
+                                    ⬆️ Frühere Termine:
+                                </div>`;
+
+                                beforeAlts.forEach(alt => {
+                                    const altDate = new Date(alt.timestamp);
+                                    const altTime = altDate.toLocaleString('de-DE', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+
+                                    html += `<button
+                                        onclick="applyAlternativeTime(${alt.timestamp})"
+                                        style="display:block;width:100%;padding:10px;margin-bottom:6px;
+                                        background:white;border:2px solid #f59e0b;border-radius:6px;
+                                        color:#f59e0b;font-weight:bold;font-size:14px;cursor:pointer;
+                                        transition:all 0.2s;"
+                                        onmouseover="this.style.background='#f59e0b';this.style.color='white';"
+                                        onmouseout="this.style.background='white';this.style.color='#f59e0b';">
+                                        ⬆️ ${altTime} Uhr
+                                    </button>`;
                                 });
-                                
-                                html += `<button 
-                                    onclick="applyAlternativeTime(${alt.timestamp})"
-                                    style="display:block;width:100%;padding:10px;margin-bottom:6px;
-                                    background:white;border:2px solid #10b981;border-radius:6px;
-                                    color:#10b981;font-weight:bold;font-size:14px;cursor:pointer;
-                                    transition:all 0.2s;"
-                                    onmouseover="this.style.background='#10b981';this.style.color='white';"
-                                    onmouseout="this.style.background='white';this.style.color='#10b981';">
-                                    ${altTime} Uhr
-                                </button>`;
-                            });
+                            }
+
+                            // === NACHHER Slots (grün) ===
+                            if (afterAlts.length > 0) {
+                                html += `<div style="color:#10b981;font-weight:bold;margin-bottom:6px;margin-top:10px;font-size:13px;">
+                                    ⬇️ Spätere Termine:
+                                </div>`;
+
+                                afterAlts.slice(0, 3).forEach(alt => {
+                                    const altDate = new Date(alt.timestamp);
+                                    const altTime = altDate.toLocaleString('de-DE', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+
+                                    html += `<button
+                                        onclick="applyAlternativeTime(${alt.timestamp})"
+                                        style="display:block;width:100%;padding:10px;margin-bottom:6px;
+                                        background:white;border:2px solid #10b981;border-radius:6px;
+                                        color:#10b981;font-weight:bold;font-size:14px;cursor:pointer;
+                                        transition:all 0.2s;"
+                                        onmouseover="this.style.background='#10b981';this.style.color='white';"
+                                        onmouseout="this.style.background='white';this.style.color='#10b981';">
+                                        ⬇️ ${altTime} Uhr
+                                    </button>`;
+                                });
+                            }
                         } else {
                             html += `<div style="color:#ef4444;font-size:13px;">
                                 Keine freien Slots in der Nähe gefunden.
@@ -29759,39 +29798,72 @@ Aktuell: ${currentNum}`;
                 
                 // 5. Auf 5 Min runden (IMMER AUFRUNDEN!)
                 earliestTime = roundToNext5Minutes(earliestTime);
-                
-                console.log('⏰ Frühestmöglich (gerundet):', new Date(earliestTime).toLocaleTimeString('de-DE'));
-                
-                // 🆕 v5.41.8: PRÜFE ALTERNATIVEN ob sie WIRKLICH FREI sind!
-                const alternatives = [];
-                let candidateTime = earliestTime;
-                const maxAttempts = 20; // Max 20 Slots prüfen
-                let attempts = 0;
-                
-                console.log('🔍 Suche verfügbare Slots ab:', new Date(candidateTime).toLocaleString('de-DE'));
-                
-                while (alternatives.length < 3 && attempts < maxAttempts) {
-                    attempts++;
-                    
-                    // Prüfe ob dieser Slot frei ist
-                    const availability = await checkTimeSlotAvailability(candidateTime, pickupCoords);
-                    
+
+                console.log('⏰ Frühestmöglich NACH Konflikt (gerundet):', new Date(earliestTime).toLocaleTimeString('de-DE'));
+
+                // 🆕 v5.90.727: SUCHE AUCH SLOTS VOR DEM GEWÜNSCHTEN TERMIN!
+                const alternativesBefore = [];
+                const alternativesAfter = [];
+
+                // === TEIL 1: Suche VORHER (rückwärts vom gewünschten Termin) ===
+                console.log('🔍 v5.90.727: Suche verfügbare Slots VOR dem Termin...');
+                let beforeCandidateTime = requestedTimestamp - (15 * 60 * 1000); // 15 Min vorher starten
+                const minTime = Date.now() + (30 * 60 * 1000); // Mindestens 30 Min in der Zukunft
+                let beforeAttempts = 0;
+                const maxBeforeAttempts = 8; // Max 2 Stunden zurück (8 x 15 Min)
+
+                while (alternativesBefore.length < 2 && beforeAttempts < maxBeforeAttempts && beforeCandidateTime > minTime) {
+                    beforeAttempts++;
+
+                    const availability = await checkTimeSlotAvailability(beforeCandidateTime, pickupCoords);
+
                     if (availability.available) {
-                        console.log('✅ Slot verfügbar:', new Date(candidateTime).toLocaleString('de-DE'));
-                        alternatives.push({
-                            timestamp: candidateTime,
-                            formatted: formatTimeForDisplay(candidateTime)
+                        console.log('✅ Slot VORHER verfügbar:', new Date(beforeCandidateTime).toLocaleString('de-DE'));
+                        alternativesBefore.unshift({ // Am Anfang einfügen (chronologisch)
+                            timestamp: beforeCandidateTime,
+                            formatted: formatTimeForDisplay(beforeCandidateTime),
+                            type: 'before'
                         });
                     } else {
-                        console.log('⚠️ Slot belegt:', new Date(candidateTime).toLocaleString('de-DE'));
+                        console.log('⚠️ Slot VORHER belegt:', new Date(beforeCandidateTime).toLocaleString('de-DE'));
                     }
-                    
-                    // Nächster Kandidat: +15 Min
-                    candidateTime += (15 * 60 * 1000);
+
+                    beforeCandidateTime -= (15 * 60 * 1000); // 15 Min weiter zurück
                 }
-                
-                console.log(`💡 ${alternatives.length} verfügbare Slots gefunden (${attempts} geprüft)`);
-                
+
+                console.log(`💡 ${alternativesBefore.length} Slots VORHER gefunden`);
+
+                // === TEIL 2: Suche NACHHER (wie bisher) ===
+                console.log('🔍 Suche verfügbare Slots NACH dem Konflikt ab:', new Date(earliestTime).toLocaleString('de-DE'));
+                let afterCandidateTime = earliestTime;
+                const maxAfterAttempts = 12;
+                let afterAttempts = 0;
+
+                while (alternativesAfter.length < 3 && afterAttempts < maxAfterAttempts) {
+                    afterAttempts++;
+
+                    const availability = await checkTimeSlotAvailability(afterCandidateTime, pickupCoords);
+
+                    if (availability.available) {
+                        console.log('✅ Slot NACHHER verfügbar:', new Date(afterCandidateTime).toLocaleString('de-DE'));
+                        alternativesAfter.push({
+                            timestamp: afterCandidateTime,
+                            formatted: formatTimeForDisplay(afterCandidateTime),
+                            type: 'after'
+                        });
+                    } else {
+                        console.log('⚠️ Slot NACHHER belegt:', new Date(afterCandidateTime).toLocaleString('de-DE'));
+                    }
+
+                    afterCandidateTime += (15 * 60 * 1000);
+                }
+
+                console.log(`💡 ${alternativesAfter.length} Slots NACHHER gefunden`);
+
+                // === KOMBINIERE: Vorher + Nachher ===
+                const alternatives = [...alternativesBefore, ...alternativesAfter];
+                console.log(`💡 v5.90.727: GESAMT ${alternatives.length} Alternativen (${alternativesBefore.length} vorher + ${alternativesAfter.length} nachher)`);
+
                 return alternatives;
                 
             } catch (error) {

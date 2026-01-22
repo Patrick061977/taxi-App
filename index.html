@@ -2546,7 +2546,8 @@
                     <option value="4">4 Personen</option>
                 </select>
             </div>
-            <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()">💰 Preis berechnen</button>
+            <!-- 🆕 v5.90.737: Button versteckt - Preis wird automatisch berechnet! -->
+            <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()" style="display:none;">💰 Preis berechnen</button>
             <div id="price-display" style="margin-top: 15px;"></div>
             <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
             
@@ -24850,6 +24851,14 @@ Aktuell: ${currentNum}`;
                         showAvailableTaxis();
                     }, 1000);
                 }
+
+                // 🆕 v5.90.737: AUTO-PREISBERECHNUNG wenn Ziel bereits vorhanden!
+                if (destCoords) {
+                    console.log('💰 Auto-Preisberechnung (Start gesetzt, Ziel vorhanden)...');
+                    setTimeout(() => {
+                        calculatePriceAndShow();
+                    }, 500); // Etwas mehr delay damit andere Checks zuerst laufen
+                }
             } else if (inputId === 'destination') {
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 destinationConfirmed = true;
@@ -24857,9 +24866,9 @@ Aktuell: ${currentNum}`;
                 console.log('✅ Zielort gespeichert:', address, destCoords);
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
                 
-                // 🆕 v5.90.77: AUTO-NEUBERECHNUNG wenn Preis schon da war!
-                if (priceCalculated && pickupCoords) {
-                    console.log('🔄 Neues Ziel → Auto-Neuberechnung...');
+                // 🆕 v5.90.737: AUTO-PREISBERECHNUNG sobald beide Adressen da sind!
+                if (pickupCoords) {
+                    console.log('💰 Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
                     setTimeout(() => {
                         calculatePriceAndShow();
                     }, 300);

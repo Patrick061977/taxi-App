@@ -1,8 +1,8 @@
 {
-  "version": "5.9.5",
-  "build": "20251125-1830",
-  "updated": 1732552200000,
+  "version": "5.90.737",
+  "build": "20260122-1400",
+  "updated": 1737554400000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "Telegram-Duplikate gefixt + Cache-Fix + Buchung gefixt!"
+  "message": "Automatische Preisberechnung bei Start+Ziel-Eingabe"
 }

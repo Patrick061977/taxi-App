@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.727
-    📅 BUILD: 22.01.2026 08:30 Uhr
+    📦 VERSION: v5.90.728
+    📅 BUILD: 22.01.2026 09:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.727
+    📋 CHANGELOG v5.90.728
     ═══════════════════════════════════════════════════════════════════════════
+
+    🔧 v5.90.728 (22.01.2026):
+       • FIX: geocodeAddress → geocode (fehlende Funktion behoben!)
+       • FIX: VORHER-Alternative bei EXAKTEM Zeitkonflikt!
+       • NEU: Orangener "Früher möglich" Button für Kunden
+       • NACHHER-Alternativen jetzt erst nach Konflikt-Ende
+       • Prüft ob VORHER-Slot wirklich frei ist
 
     🔶 v5.90.727 (22.01.2026):
        • NEU: VORHER-Alternative bei Zeitslot-Konflikten!
@@ -411,8 +418,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.727 - VORHER-ALTERNATIVE! 🔶✅ (Build 2026-01-22_0830)');
-        console.log('🔶 v5.90.727: Orangener Button für VORHER-Alternative bei Zeitslot-Konflikten!');
+        console.log('🚕 Funk Taxi App v5.90.728 - VORHER-FIX! 🔧🔶 (Build 2026-01-22_0930)');
+        console.log('🔧 v5.90.728: geocodeAddress-Fix + VORHER bei exaktem Zeitkonflikt!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -1442,7 +1449,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.727 - VORHER-ALTERNATIVE! 🔶 (Build 20260122-0830)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🔧 Version 5.90.728 - VORHER-FIX! 🔧🔶 (Build 20260122-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -26896,15 +26903,30 @@ Aktuell: ${currentNum}`;
                                 html += '</div>';
                                 html += '</div>';
                             }
-                        } else if (distanceCheck.alternatives && distanceCheck.alternatives.length > 0) {
-                            html += '<div style="background:white;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">';
-                            html += '<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#374151;">💡 Nächster freier Termin ab:</div>';
-                            html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">';
-                            distanceCheck.alternatives.forEach(alt => {
-                                html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 4px rgba(16,185,129,0.3);">${alt} Uhr</button>`;
-                            });
-                            html += '</div>';
-                            html += '</div>';
+                        } else {
+                            // 🆕 v5.90.728: VORHER-Alternative (orange) + NACHHER-Alternativen (grün)
+
+                            // VORHER-Alternative (falls vorhanden)
+                            if (distanceCheck.alternativeBefore) {
+                                html += '<div style="background:white;padding:12px;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:8px;">';
+                                html += '<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#f59e0b;">🔶 Früher möglich:</div>';
+                                html += '<div style="display:flex;justify-content:center;">';
+                                html += `<button onclick="selectAlternativeTime('${distanceCheck.alternativeBefore}')" style="padding:10px 16px;background:#f59e0b;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 4px rgba(245,158,11,0.3);">${distanceCheck.alternativeBefore} Uhr</button>`;
+                                html += '</div>';
+                                html += '</div>';
+                            }
+
+                            // NACHHER-Alternativen (falls vorhanden)
+                            if (distanceCheck.alternatives && distanceCheck.alternatives.length > 0) {
+                                html += '<div style="background:white;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">';
+                                html += '<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#10b981;">💚 Später möglich:</div>';
+                                html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">';
+                                distanceCheck.alternatives.forEach(alt => {
+                                    html += `<button onclick="selectAlternativeTime('${alt}')" style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;box-shadow:0 2px 4px rgba(16,185,129,0.3);">${alt} Uhr</button>`;
+                                });
+                                html += '</div>';
+                                html += '</div>';
+                            }
                         }
                         
                         html += '</div>';
@@ -27250,18 +27272,84 @@ Aktuell: ${currentNum}`;
                 
                 if (exactTimeConflict) {
                     console.log('⚠️ ERGEBNIS: SLOT IST BESETZT - Zur gleichen Zeit!');
-                    
-                    // Finde bessere Zeiten
+
+                    // 🆕 v5.90.728: VORHER-Alternative berechnen!
+                    // Berechne: Wann muss neue Fahrt starten, um VOR dem Konflikt fertig zu sein?
+                    let alternativeBefore = null;
+                    const conflictDuration = exactTimeConflict.duration || 30;
+                    const conflictTotalDuration = conflictDuration + 4; // +2 Ein +2 Aus
+                    const conflictEnd = new Date(slotTime + conflictTotalDuration * 60000);
+
+                    console.log('🔶 v5.90.728: Berechne VORHER-Alternative...');
+                    console.log('   Konflikt-Start:', slotDateTime.toLocaleTimeString('de-DE'));
+                    console.log('   Konflikt-Dauer:', conflictTotalDuration, 'Min');
+                    console.log('   Konflikt-Ende:', conflictEnd.toLocaleTimeString('de-DE'));
+
+                    // Schätze Dauer der neuen Fahrt (Fallback: 15 Min + 4 Min Puffer)
+                    const newRideDurationEstimate = 15 + 4; // Geschätzte Gesamtdauer
+
+                    // Berechne spätesten Start VORHER: Konflikt-Start - neue Fahrt - 5 Min Puffer
+                    const latestBeforeMs = slotTime - (newRideDurationEstimate * 60000) - (5 * 60000);
+                    const latestBeforeRounded = Math.floor(latestBeforeMs / (5 * 60000)) * (5 * 60000); // Auf 5 Min abrunden
+
+                    // Prüfe ob VORHER-Zeit sinnvoll ist (mindestens 15 Min in Zukunft)
+                    if (latestBeforeRounded > Date.now() + (15 * 60000)) {
+                        // Prüfe ob VORHER-Slot frei ist (keine andere Fahrt zur gleichen Zeit)
+                        let beforeSlotFree = true;
+                        for (let i = 0; i < allRides.length; i++) {
+                            const ride = allRides[i];
+                            const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                            const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+
+                            if (rideDate === slotDate && Math.abs(rideTime - latestBeforeRounded) < 5 * 60000) {
+                                beforeSlotFree = false;
+                                console.log('   ⚠️ VORHER-Slot belegt:', new Date(rideTime).toLocaleTimeString('de-DE'));
+                                break;
+                            }
+                        }
+
+                        if (beforeSlotFree) {
+                            const beforeTime = new Date(latestBeforeRounded);
+                            const beforeHour = String(beforeTime.getHours()).padStart(2, '0');
+                            const beforeMin = String(beforeTime.getMinutes()).padStart(2, '0');
+                            alternativeBefore = `${beforeHour}:${beforeMin}`;
+                            console.log('   ✅ VORHER-Alternative:', alternativeBefore, 'Uhr');
+                        }
+                    } else {
+                        console.log('   ⚠️ VORHER-Zeit zu nah oder in Vergangenheit');
+                    }
+
+                    // Finde NACHHER-Zeiten (nach Ende der Konflikt-Fahrt)
                     const alternatives = [];
-                    for (let offset = 30; offset <= 120; offset += 30) {
-                        const testTime = new Date(slotTime + offset * 60000);
+                    const earliestAfter = conflictEnd.getTime() + (5 * 60000); // 5 Min nach Ende
+                    for (let offset = 0; offset <= 90; offset += 15) {
+                        const testTime = new Date(earliestAfter + offset * 60000);
                         const testHour = String(testTime.getHours()).padStart(2, '0');
                         const testMin = String(testTime.getMinutes()).padStart(2, '0');
-                        alternatives.push(`${testHour}:${testMin}`);
-                        if (alternatives.length >= 4) break;
+                        const altStr = `${testHour}:${testMin}`;
+
+                        // Prüfe ob dieser Slot frei ist
+                        let slotFree = true;
+                        for (let i = 0; i < allRides.length; i++) {
+                            const ride = allRides[i];
+                            const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                            const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+
+                            if (rideDate === slotDate && Math.abs(rideTime - testTime.getTime()) < 5 * 60000) {
+                                slotFree = false;
+                                break;
+                            }
+                        }
+
+                        if (slotFree) {
+                            alternatives.push(altStr);
+                            if (alternatives.length >= 3) break;
+                        }
                     }
-                    
+
+                    console.log('   NACHHER-Alternativen:', alternatives.join(', '));
                     console.log('═══════════════════════════════════════════════════════════');
+
                     return {
                         hasConflict: true,
                         exactTimeConflict: true,
@@ -27271,6 +27359,7 @@ Aktuell: ${currentNum}`;
                         reserveMinutes: 0,
                         previousRide: exactTimeConflict,
                         alternatives: alternatives,
+                        alternativeBefore: alternativeBefore, // 🆕 v5.90.728: VORHER-Alternative!
                         allRidesOnDay: ridesOnSameDay
                     };
                 }
@@ -27373,11 +27462,11 @@ Aktuell: ${currentNum}`;
             try {
                 console.log('🗺️ GEOCODING:');
                 console.log('   Ziel der vorherigen Fahrt:', previousRide.destination);
-                const previousDestCoords = await geocodeAddress(previousRide.destination);
+                const previousDestCoords = await geocode(previousRide.destination);
                 console.log('   → Koordinaten:', previousDestCoords);
                 
                 console.log('   Start der neuen Fahrt:', pickup);
-                const newPickupCoords = await geocodeAddress(pickup);
+                const newPickupCoords = await geocode(pickup);
                 console.log('   → Koordinaten:', newPickupCoords);
                 console.log('');
                 
@@ -27460,8 +27549,8 @@ Aktuell: ${currentNum}`;
                         
                         // Berechne Dauer der NEUEN Fahrt
                         try {
-                            const newPickupCoords = await geocodeAddress(pickup);
-                            const newDestCoords = await geocodeAddress(destination);
+                            const newPickupCoords = await geocode(pickup);
+                            const newDestCoords = await geocode(destination);
                             
                             if (newPickupCoords && newDestCoords) {
                                 const newRoute = await calculateRoute(newPickupCoords, newDestCoords);

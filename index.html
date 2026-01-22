@@ -26876,11 +26876,19 @@ Aktuell: ${currentNum}`;
                         
                         html += '<div style="background:#eff6ff;padding:12px;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;">';
                         html += '<div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#1e40af;">Was der Kunde sieht:</div>';
-                        
+
                         html += '<div style="background:white;padding:12px;border-radius:8px;border:2px solid #f59e0b;text-align:center;margin-bottom:12px;">';
                         html += '<div style="font-size:20px;margin-bottom:8px;">❌</div>';
                         html += '<div style="font-size:16px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Termin nicht verfügbar</div>';
+                        // 🆕 v5.90.729: Zeige Datum + Uhrzeit für Kunden
+                        const dateFormatted = new Date(date).toLocaleDateString('de-DE', {weekday:'short', day:'2-digit', month:'2-digit', year:'numeric'});
+                        html += `<div style="font-size:13px;color:#6b7280;margin-bottom:4px;">${dateFormatted}</div>`;
                         html += `<div style="font-size:13px;color:#6b7280;">${time} Uhr ist bereits belegt</div>`;
+                        // 🆕 v5.90.729: Zeige "Frühestens verfügbar" für Kunden
+                        if (distanceCheck.earliestPossible) {
+                            const earliestTime = new Date(distanceCheck.earliestPossible).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                            html += `<div style="font-size:12px;color:#059669;margin-top:8px;padding-top:8px;border-top:1px solid #fde68a;">Frühestens verfügbar: <strong>${earliestTime} Uhr</strong></div>`;
+                        }
                         html += '</div>';
                         
                         // Alternative Zeiten
@@ -27319,11 +27327,18 @@ Aktuell: ${currentNum}`;
                         console.log('   ⚠️ VORHER-Zeit zu nah oder in Vergangenheit');
                     }
 
-                    // Finde NACHHER-Zeiten (nach Ende der Konflikt-Fahrt)
+                    // 🔧 v5.90.729: VERBESSERTE Alternativen-Berechnung!
+                    // Starte ab Ende der Konflikt-Fahrt + 5 Min Puffer, dann in 5-Min-Schritten suchen
                     const alternatives = [];
                     const earliestAfter = conflictEnd.getTime() + (5 * 60000); // 5 Min nach Ende
-                    for (let offset = 0; offset <= 90; offset += 15) {
-                        const testTime = new Date(earliestAfter + offset * 60000);
+
+                    // Auf nächste 5-Min-Grenze aufrunden
+                    const roundedEarliest = Math.ceil(earliestAfter / (5 * 60000)) * (5 * 60000);
+
+                    console.log('🔧 v5.90.729: Suche Alternativen ab', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
+
+                    for (let offset = 0; offset <= 90; offset += 5) {
+                        const testTime = new Date(roundedEarliest + offset * 60000);
                         const testHour = String(testTime.getHours()).padStart(2, '0');
                         const testMin = String(testTime.getMinutes()).padStart(2, '0');
                         const altStr = `${testHour}:${testMin}`;
@@ -27424,15 +27439,38 @@ Aktuell: ${currentNum}`;
                 console.log('   Vorherige Fahrt:', previousStartTime.toLocaleTimeString('de-DE'), '-', previousEndTime.toLocaleTimeString('de-DE'));
                 console.log('   Neue Fahrt:', slotDateTime.toLocaleTimeString('de-DE'));
                 
-                // Finde bessere Zeiten (nach Ende der vorherigen Fahrt)
+                // 🔧 v5.90.729: VERBESSERTE Alternativen-Berechnung!
                 const alternatives = [];
                 const earliestPossible = previousEndTime.getTime();
-                for (let offset = 0; offset <= 60; offset += 15) {
-                    const testTime = new Date(earliestPossible + offset * 60000);
+
+                // Auf nächste 5-Min-Grenze aufrunden
+                const roundedEarliest = Math.ceil(earliestPossible / (5 * 60000)) * (5 * 60000);
+
+                console.log('🔧 v5.90.729: Suche Alternativen ab', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
+
+                for (let offset = 0; offset <= 60; offset += 5) {
+                    const testTime = new Date(roundedEarliest + offset * 60000);
                     const testHour = String(testTime.getHours()).padStart(2, '0');
                     const testMin = String(testTime.getMinutes()).padStart(2, '0');
-                    alternatives.push(`${testHour}:${testMin}`);
-                    if (alternatives.length >= 4) break;
+                    const altStr = `${testHour}:${testMin}`;
+
+                    // Prüfe ob dieser Slot frei ist
+                    let slotFree = true;
+                    for (let i = 0; i < allRides.length; i++) {
+                        const ride = allRides[i];
+                        const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                        const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+
+                        if (rideDate === slotDate && Math.abs(rideTime - testTime.getTime()) < 5 * 60000) {
+                            slotFree = false;
+                            break;
+                        }
+                    }
+
+                    if (slotFree) {
+                        alternatives.push(altStr);
+                        if (alternatives.length >= 4) break;
+                    }
                 }
                 
                 console.log('   Bessere Zeiten:', alternatives.join(', '));
@@ -27502,15 +27540,38 @@ Aktuell: ${currentNum}`;
                     // ⚠️ KONFLIKT!
                     console.log('⚠️ ERGEBNIS: ZEITÜBERSCHNEIDUNG!');
                     console.log('   Fahrzeug kommt', Math.abs(reserveMinutes), 'Min zu spät!');
-                    
-                    // Finde bessere Zeiten
+
+                    // 🔧 v5.90.729: VERBESSERTE Berechnung - ab frühestmöglichem Zeitpunkt!
+                    // Frühestmöglich = slotTime + abs(reserveMinutes) = previousEndTime + travelTime
+                    const earliestPossible = slotTime + (Math.abs(reserveMinutes) * 60000);
+                    const roundedEarliest = Math.ceil(earliestPossible / (5 * 60000)) * (5 * 60000);
+
+                    console.log('🔧 v5.90.729: Frühestmöglich:', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
+
                     const alternatives = [];
-                    for (let offset = 5; offset <= 60; offset += 5) {
-                        const testTime = new Date(slotTime + offset * 60000);
+                    for (let offset = 0; offset <= 60; offset += 5) {
+                        const testTime = new Date(roundedEarliest + offset * 60000);
                         const testHour = String(testTime.getHours()).padStart(2, '0');
                         const testMin = String(testTime.getMinutes()).padStart(2, '0');
-                        alternatives.push(`${testHour}:${testMin}`);
-                        if (alternatives.length >= 5) break;
+                        const altStr = `${testHour}:${testMin}`;
+
+                        // Prüfe ob dieser Slot frei ist
+                        let slotFree = true;
+                        for (let i = 0; i < allRides.length; i++) {
+                            const ride = allRides[i];
+                            const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                            const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+
+                            if (rideDate === slotDate && Math.abs(rideTime - testTime.getTime()) < 5 * 60000) {
+                                slotFree = false;
+                                break;
+                            }
+                        }
+
+                        if (slotFree) {
+                            alternatives.push(altStr);
+                            if (alternatives.length >= 5) break;
+                        }
                     }
                     console.log('   Bessere Zeiten:', alternatives.join(', '));
                     console.log('═══════════════════════════════════════════════════════════');
@@ -30529,9 +30590,43 @@ Aktuell: ${currentNum}`;
         
         // User wählt alternative Zeit
         async function selectAlternativeTime(timestamp) {
+            // 🆕 v5.90.729: Unterscheide Zeit-String (z.B. "09:43") von Timestamp!
+            // Wenn Zeit-String: Übernehme in Picker und prüfe neu
+            // Wenn Timestamp: Direkt buchen (Auto-Booking Modal)
+
+            if (typeof timestamp === 'string' && timestamp.includes(':')) {
+                // Zeit-String Format: "09:43"
+                console.log('✅ v5.90.729: Alternative Zeit-String gewählt:', timestamp);
+
+                const displayBtn = document.getElementById('time-display-btn');
+                const hourInput = document.getElementById('custom-hour');
+                const minuteInput = document.getElementById('custom-minute');
+                const dateInput = document.getElementById('custom-date');
+
+                if (displayBtn && hourInput && minuteInput && dateInput) {
+                    const parts = timestamp.split(':');
+                    hourInput.value = parts[0];
+                    minuteInput.value = parts[1];
+                    displayBtn.textContent = timestamp;
+
+                    console.log('📅 Zeit übernommen:', timestamp, '| Datum:', dateInput.value);
+
+                    // Slot-Status neu prüfen
+                    if (typeof triggerSlotCheck === 'function') {
+                        triggerSlotCheck();
+                    } else if (typeof checkSlotAvailability === 'function') {
+                        checkSlotAvailability(dateInput.value, timestamp);
+                    }
+                } else {
+                    console.warn('⚠️ Picker-Elemente nicht gefunden!');
+                }
+                return;
+            }
+
+            // Timestamp-Logik (für Auto-Booking Modal)
             const selectedTime = new Date(timestamp).toLocaleString('de-DE');
             console.log('✅ Alternative Zeit gewählt:', selectedTime);
-            
+
             if (!currentBookingData) {
                 alert('💾 Fehler: Buchungsdaten verloren!');
                 closeAutoBookingModal();

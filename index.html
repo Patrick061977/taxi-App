@@ -755,6 +755,7 @@
         .sync-dot.online { background: #10b981; animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #gps-indicator { display: none; align-items: center; gap: 8px; font-size: 11px; }
         #gps-dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; }
         #gps-dot.online { background: #10b981; animation: pulse 2s infinite; }
@@ -26510,9 +26511,26 @@ Aktuell: ${currentNum}`;
         // 🆕 v5.90.123: PRÜFE SLOT-VERFÜGBARKEIT + ZEIGE ALTERNATIVEN
         async function checkSlotAvailability(date, time) {
             const statusDisplay = document.getElementById('slot-status-display');
-            
+
+            // 🆕 v5.90.732: LADEINDIKATOR SOFORT ANZEIGEN!
+            if (statusDisplay) {
+                statusDisplay.style.display = 'block';
+                statusDisplay.style.background = 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)';
+                statusDisplay.style.border = '2px solid #6366f1';
+                statusDisplay.style.color = '#4338ca';
+                statusDisplay.innerHTML = `
+                    <div style="text-align:center;padding:12px;">
+                        <div style="font-size:24px;margin-bottom:8px;animation:pulse 1.5s infinite;">
+                            <span style="display:inline-block;animation:spin 1s linear infinite;">⏳</span>
+                        </div>
+                        <div style="font-weight:700;font-size:15px;">Prüfe Verfügbarkeit...</div>
+                        <div style="font-size:12px;color:#6366f1;margin-top:6px;">Berechne Fahrzeit und prüfe Kalender</div>
+                    </div>
+                `;
+            }
+
             console.log('🔍 Prüfe Slot:', { date, time });
-            
+
             // 🆕 v5.90.639: DISTANZ-PRÜFUNG für Vorbestellungen!
             try {
                 const ridesSnapshot = await db.ref('rides').once('value');

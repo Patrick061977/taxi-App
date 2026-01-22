@@ -9,17 +9,17 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.734
+    📦 VERSION: v5.90.735
     📅 BUILD: 22.01.2026 12:05 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.734
+    📋 CHANGELOG v5.90.735
     ═══════════════════════════════════════════════════════════════════════════
 
-    🕐 v5.90.734 (22.01.2026):
+    🕐 v5.90.735 (22.01.2026):
        • NEU: Keine Buchungen in der Vergangenheit möglich!
-       • NEU: Mindestens 30 Minuten Vorlauf für Vorbestellungen!
+       • NEU: Mindestens 25 Minuten Vorlauf für Vorbestellungen (5 Min Puffer)!
        • Prüft aktuelle Zeit vor allen anderen Validierungen
        • Zeigt frühesten möglichen Termin als klickbare Alternative
        • Gilt für Schnellbuchung UND Quick-Booking Modal
@@ -448,8 +448,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.734 - 30 MIN VORLAUF VALIDIERUNG! 🚀 (Build 2026-01-22_1205)');
-        console.log('🕐 v5.90.734: Keine Buchungen in Vergangenheit + 30 Min Mindestvorlauf!');
+        console.log('🚕 Funk Taxi App v5.90.735 - 25 MIN VORLAUF (5 Min Puffer)! 🚀 (Build 2026-01-22_1220)');
+        console.log('🕐 v5.90.735: Keine Buchungen in Vergangenheit + 25 Min Mindestvorlauf (5 Min Puffer)!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -9086,7 +9086,7 @@
                         const minMinute = String(minBookingTime.getMinutes()).padStart(2, '0');
                         
                         console.log('❌ v5.90.655: Zeit liegt in Vergangenheit!');
-                        alert(`⏰ Bitte wähle eine Zeit in der Zukunft!\n\nFrüheste mögliche Zeit: ${minHour}:${minMinute} Uhr\n(Jetzt + 30 Min Vorlauf)`);
+                        alert(`⏰ Bitte wähle eine Zeit in der Zukunft!\n\nFrüheste mögliche Zeit: ${minHour}:${minMinute} Uhr\n(Jetzt + 25 Min Vorlauf)`);
                         return; // Abbrechen!
                     } else {
                         console.log('✅ v5.90.655: Zeit liegt in Zukunft - OK!');
@@ -26554,14 +26554,14 @@ Aktuell: ${currentNum}`;
                 // Erstelle DateTime für den gewünschten Slot
                 const slotDateTime = new Date(date + 'T' + time);
 
-                // 🆕 v5.90.734: PRÜFE VERGANGENHEIT + 30 MIN MINDESTVORLAUF!
+                // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
                 const now = new Date();
-                const minLeadTimeMinutes = 30;
+                const minLeadTimeMinutes = 25;
                 const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1000);
 
                 // Prüfe ob Termin in der Vergangenheit liegt
                 if (slotDateTime < now) {
-                    console.log('❌ v5.90.734: Termin liegt in der Vergangenheit!');
+                    console.log('❌ v5.90.735: Termin liegt in der Vergangenheit!');
                     if (statusDisplay) {
                         statusDisplay.style.display = 'block';
                         statusDisplay.style.background = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
@@ -26598,10 +26598,10 @@ Aktuell: ${currentNum}`;
                     return;
                 }
 
-                // Prüfe ob mindestens 30 Min Vorlauf
+                // Prüfe ob mindestens 25 Min Vorlauf
                 if (slotDateTime < minBookingTime) {
                     const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1000));
-                    console.log(`❌ v5.90.734: Nur ${minLeadTimeMinutes - minutesTooEarly} Min Vorlauf, brauche ${minLeadTimeMinutes} Min!`);
+                    console.log(`❌ v5.90.735: Nur ${minLeadTimeMinutes - minutesTooEarly} Min Vorlauf, brauche ${minLeadTimeMinutes} Min!`);
                     if (statusDisplay) {
                         statusDisplay.style.display = 'block';
                         statusDisplay.style.background = 'linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%)';
@@ -26617,7 +26617,7 @@ Aktuell: ${currentNum}`;
                         html += '<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#1e40af;">Was der Kunde sieht:</div>';
                         html += '<div style="background:white;padding:16px;border-radius:8px;text-align:center;border:2px solid #f59e0b;">';
                         html += '<div style="font-size:32px;margin-bottom:8px;">⏰</div>';
-                        html += '<div style="color:#d97706;font-weight:700;font-size:16px;">Mindestens 30 Min Vorlauf nötig</div>';
+                        html += '<div style="color:#d97706;font-weight:700;font-size:16px;">Mindestens 25 Min Vorlauf nötig</div>';
                         html += `<div style="color:#6b7280;font-size:13px;margin-top:6px;">${time} Uhr ist zu kurzfristig</div>`;
                         html += `<div style="color:#dc2626;font-size:13px;font-weight:600;margin-top:4px;">Noch ${minutesTooEarly} Min zu früh!</div>`;
                         html += '</div>';
@@ -26638,7 +26638,7 @@ Aktuell: ${currentNum}`;
                     return;
                 }
 
-                console.log('✅ v5.90.734: Zeitvalidierung OK - Termin liegt in der Zukunft mit ausreichend Vorlauf');
+                console.log('✅ v5.90.735: Zeitvalidierung OK - Termin liegt in der Zukunft mit ausreichend Vorlauf');
 
                 // Hole Pickup/Destination für Distanz-Prüfung
                 const pickupInput = document.getElementById('pickup');
@@ -53806,7 +53806,7 @@ Funk Taxi Team`;
             // Validiere Zeit-Format (HH:MM)
             const isValidTime = time && /^\d{2}:\d{2}$/.test(time);
 
-            console.log('🔍 v5.90.734: QB Slot-Check (mit 30 Min Vorlauf-Prüfung)');
+            console.log('🔍 v5.90.735: QB Slot-Check (mit 25 Min Vorlauf-Prüfung)');
             console.log('   Datum:', date ? '✅' : '❌');
             console.log('   Zeit:', time, isValidTime ? '✅' : '❌');
             console.log('   Pickup:', pickup ? '✅ ' + pickup.substring(0,30) : '❌');
@@ -53840,8 +53840,8 @@ Funk Taxi Team`;
                 const formattedDate = slotDateTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const formattedTime = time;
 
-                // 🆕 v5.90.734: PRÜFE VERGANGENHEIT + 30 MIN MINDESTVORLAUF!
-                const minLeadTimeMinutes = 30;
+                // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
+                const minLeadTimeMinutes = 25;
                 const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1000);
 
                 // Prüfe ob in der Vergangenheit
@@ -53869,7 +53869,7 @@ Funk Taxi Team`;
                     return;
                 }
 
-                // 🆕 v5.90.734: Prüfe ob mindestens 30 Min Vorlauf
+                // 🆕 v5.90.735: Prüfe ob mindestens 25 Min Vorlauf
                 if (slotDateTime < minBookingTime) {
                     const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1000));
                     statusDisplay.style.background = '#fef3c7';
@@ -53884,7 +53884,7 @@ Funk Taxi Team`;
                     statusDisplay.innerHTML = `
                         <div style="text-align:center;">
                             <div style="font-size:32px;margin-bottom:8px;">⏰</div>
-                            <div style="font-weight:700;font-size:14px;">Mindestens 30 Min Vorlauf nötig</div>
+                            <div style="font-weight:700;font-size:14px;">Mindestens 25 Min Vorlauf nötig</div>
                             <div style="font-size:12px;margin-top:4px;">${formattedTime} Uhr ist zu kurzfristig</div>
                             <div style="color:#dc2626;font-size:12px;font-weight:600;margin-top:4px;">Noch ${minutesTooEarly} Min zu früh!</div>
                             <div style="margin-top:12px;">
@@ -53896,7 +53896,7 @@ Funk Taxi Team`;
                     return;
                 }
 
-                console.log('✅ v5.90.734: QB Zeitvalidierung OK - Termin liegt in der Zukunft mit ausreichend Vorlauf');
+                console.log('✅ v5.90.735: QB Zeitvalidierung OK - Termin liegt in der Zukunft mit ausreichend Vorlauf');
 
                 // Wenn keine Adressen - zeige nur Datum/Zeit-Info
                 if (!pickup || !destination) {
@@ -75682,7 +75682,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🕐 v5.90.734
+        🕐 v5.90.735
     </div>
 </div>
 

@@ -26951,28 +26951,94 @@ Aktuell: ${currentNum}`;
                             }
                         }
                         
-                        // 🆕 v5.90.662: Für nextRideConflict - Zeige nur noch die nächste Fahrt + Lösung
+                        // 🆕 v5.90.739: ZEIGE ALLE BLOCKIERENDEN FAHRTEN!
+                        // Sammle alle Fahrten die den Slot blockieren
+                        const allBlockingRides = [];
+
+                        // 1. Exakte Zeitüberschneidung (conflictRide)
+                        if (distanceCheck.exactTimeConflict && distanceCheck.conflictRide) {
+                            allBlockingRides.push({
+                                ride: distanceCheck.conflictRide,
+                                reason: 'exact_time',
+                                label: '⏰ EXAKTE ZEITÜBERSCHNEIDUNG'
+                            });
+                        }
+
+                        // 2. During-Ride Konflikt
+                        if (distanceCheck.duringRideConflict && distanceCheck.conflictRide && !distanceCheck.exactTimeConflict) {
+                            allBlockingRides.push({
+                                ride: distanceCheck.conflictRide,
+                                reason: 'during_ride',
+                                label: '🚖 TAXI NOCH UNTERWEGS'
+                            });
+                        }
+
+                        // 3. Vorherige Fahrt (wenn nicht schon als conflictRide enthalten)
+                        if (distanceCheck.previousRide) {
+                            const prevRideTime = new Date(distanceCheck.previousRide.pickupTimestamp || distanceCheck.previousRide.pickupTime).getTime();
+                            const alreadyIncluded = allBlockingRides.some(b => {
+                                const bTime = new Date(b.ride.pickupTimestamp || b.ride.pickupTime).getTime();
+                                return bTime === prevRideTime;
+                            });
+                            if (!alreadyIncluded && !distanceCheck.exactTimeConflict && !distanceCheck.duringRideConflict) {
+                                allBlockingRides.push({
+                                    ride: distanceCheck.previousRide,
+                                    reason: 'previous_ride',
+                                    label: '🚖 VORHERIGE FAHRT (blockiert durch Rückfahrt)'
+                                });
+                            }
+                        }
+
+                        // 4. Nächste Fahrt (bei nextRideConflict)
+                        if (distanceCheck.nextRideConflict && distanceCheck.nextRide) {
+                            allBlockingRides.push({
+                                ride: distanceCheck.nextRide,
+                                reason: 'next_ride_conflict',
+                                label: '🚨 NÄCHSTE FAHRT (wird überschnitten)'
+                            });
+                        }
+
+                        console.log('🔍 v5.90.739: Alle blockierenden Fahrten:', allBlockingRides.length);
+
+                        // Zeige ALLE blockierenden Fahrten
+                        if (allBlockingRides.length > 0) {
+                            html += '<div style="background:#fef2f2;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #dc2626;">';
+                            html += `<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#dc2626;">📋 ALLE BLOCKIERENDEN FAHRTEN (${allBlockingRides.length}):</div>`;
+
+                            allBlockingRides.forEach((blocking, idx) => {
+                                const ride = blocking.ride;
+                                const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime);
+                                const customerName = ride.customerName || ride.name || 'Unbekannt';
+                                const rideDuration = ride.duration || 30;
+                                const totalDuration = rideDuration + 4;
+                                const rideEndTime = new Date(rideTime.getTime() + totalDuration * 60000);
+
+                                html += `<div style="background:white;padding:8px;border-radius:4px;margin-bottom:${idx < allBlockingRides.length - 1 ? '8px' : '0'};border:1px solid #fca5a5;">`;
+                                html += `<div style="font-weight:600;font-size:11px;color:#dc2626;margin-bottom:4px;">${blocking.label}:</div>`;
+                                html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${rideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+                                html += `<div style="font-size:11px;"><strong>Kunde:</strong> ${customerName}</div>`;
+                                html += `<div style="font-size:11px;"><strong>Von:</strong> ${ride.pickup}</div>`;
+                                html += `<div style="font-size:11px;"><strong>Nach:</strong> ${ride.destination}</div>`;
+                                html += `<div style="font-size:10px;color:#6b7280;margin-top:4px;">Dauer: ${rideDuration} Min + 4 Min (Ein/Aus) = ${totalDuration} Min</div>`;
+                                html += `<div style="font-size:10px;color:#6b7280;">Ende: ${rideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
+
+                                // Zusätzliche Info je nach Konflikt-Typ
+                                if (blocking.reason === 'exact_time') {
+                                    html += `<div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:4px;">→ Startet zur GLEICHEN ZEIT wie Ihre Anfrage!</div>`;
+                                } else if (blocking.reason === 'next_ride_conflict') {
+                                    html += `<div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:4px;">→ Ihre Fahrt würde ${Math.abs(distanceCheck.timeUntilNextRide || 0)} Min in diese Fahrt ragen!</div>`;
+                                } else if (blocking.reason === 'previous_ride' && distanceCheck.travelTime) {
+                                    html += `<div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:4px;">→ Taxi braucht noch ${distanceCheck.travelTime} Min Rückfahrt zu Ihrem Start!</div>`;
+                                }
+
+                                html += '</div>';
+                            });
+
+                            html += '</div>';
+                        }
+
+                        // 🆕 v5.90.662: Für nextRideConflict - Zeige Lösung
                         if (distanceCheck.nextRideConflict) {
-                            if (distanceCheck.nextRide) {
-                                const nextRideTime = new Date(distanceCheck.nextRide.pickupTimestamp || distanceCheck.nextRide.pickupTime);
-                                const nextCustomerName = distanceCheck.nextRide.customerName || distanceCheck.nextRide.name || 'Unbekannt';
-                                
-                                html += '<div style="background:#fee2e2;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #dc2626;">';
-                                html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:#dc2626;">🚨 KONFLIKT MIT NÄCHSTER FAHRT:</div>';
-                                html += `<div style="font-size:11px;"><strong>Zeit:</strong> ${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</div>`;
-                                html += `<div style="font-size:11px;"><strong>Kunde:</strong> ${nextCustomerName}</div>`;
-                                html += `<div style="font-size:11px;"><strong>Von:</strong> ${distanceCheck.nextRide.pickup}</div>`;
-                                html += `<div style="font-size:11px;"><strong>Nach:</strong> ${distanceCheck.nextRide.destination}</div>`;
-                                
-                                // Problem-Darstellung
-                                html += '<div style="background:white;padding:6px;border-radius:4px;margin-top:6px;border:1px solid #fca5a5;">';
-                                html += '<div style="font-size:11px;font-weight:600;margin-bottom:4px;color:#dc2626;">❌ PROBLEM:</div>';
-                                html += `<div style="font-size:10px;">Neue Fahrt endet: <strong>${newRideEndTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
-                                html += `<div style="font-size:10px;">Nächste startet: <strong>${nextRideTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</strong></div>`;
-                                html += `<div style="font-size:11px;border-top:1px solid #fca5a5;padding-top:4px;margin-top:4px;font-weight:600;color:#dc2626;">= Überschneidung: ${Math.abs(distanceCheck.timeUntilNextRide)} Min!</div>`;
-                                html += '</div>';
-                                html += '</div>';
-                                
                                 // 🆕 v5.90.662: LETZTE MÖGLICHKEIT VORHER!
                                 if (distanceCheck.latestPossibleTime) {
                                     html += '<div style="background:#fffbeb;padding:8px;border-radius:6px;margin-bottom:8px;border:2px solid #f59e0b;">';
@@ -26981,11 +27047,10 @@ Aktuell: ${currentNum}`;
                                     html += `<div style="font-size:13px;font-weight:700;color:#f59e0b;">📍 Spätestens: ${distanceCheck.latestPossibleTime} Uhr</div>`;
                                     html += '</div>';
                                 }
-                            }
                         }
-                        
-                        // Vorherige Fahrt (nur wenn NICHT nextRideConflict)
-                        if (distanceCheck.previousRide && !distanceCheck.nextRideConflict) {
+
+                        // Vorherige Fahrt Details (nur wenn KEINE anderen Konflikte bereits angezeigt wurden)
+                        if (distanceCheck.previousRide && !distanceCheck.nextRideConflict && !distanceCheck.exactTimeConflict && !distanceCheck.duringRideConflict) {
                             const prevTime = new Date(distanceCheck.previousRide.pickupTimestamp || distanceCheck.previousRide.pickupTime);
                             const customerName = distanceCheck.previousRide.customerName || distanceCheck.previousRide.name || 'Unbekannt';
                             const rideDuration = distanceCheck.previousRide.duration || 30;
@@ -27495,17 +27560,35 @@ Aktuell: ${currentNum}`;
 
                     // Prüfe ob VORHER-Zeit sinnvoll ist (mindestens 15 Min in Zukunft)
                     if (latestBeforeRounded > Date.now() + (15 * 60000)) {
-                        // Prüfe ob VORHER-Slot frei ist (keine andere Fahrt zur gleichen Zeit)
+                        // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
+                        // Prüfe ob VORHER-Slot frei ist (keine andere Fahrt ZUR GLEICHEN ZEIT oder WÄHREND einer Fahrt)
                         let beforeSlotFree = true;
+                        let blockingRideInfo = null;
                         for (let i = 0; i < allRides.length; i++) {
                             const ride = allRides[i];
-                            const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                            const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                             const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+                            const rideDuration = ride.duration || 30;
+                            const rideTotalDuration = rideDuration + 4; // +2 Ein +2 Aus
+                            const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
-                            if (rideDate === slotDate && Math.abs(rideTime - latestBeforeRounded) < 5 * 60000) {
-                                beforeSlotFree = false;
-                                console.log('   ⚠️ VORHER-Slot belegt:', new Date(rideTime).toLocaleTimeString('de-DE'));
-                                break;
+                            // Prüfe ob der vorgeschlagene Slot WÄHREND einer anderen Fahrt liegt
+                            // ODER zu nah an einer anderen Fahrt ist
+                            if (rideDate === slotDate) {
+                                // Fall 1: Vorgeschlagener Slot liegt WÄHREND einer Fahrt
+                                if (latestBeforeRounded >= rideStartTime && latestBeforeRounded < rideEndTime) {
+                                    beforeSlotFree = false;
+                                    blockingRideInfo = `Slot liegt WÄHREND Fahrt (${new Date(rideStartTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} - ${new Date(rideEndTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})})`;
+                                    console.log('   ⚠️ VORHER-Slot belegt:', blockingRideInfo);
+                                    break;
+                                }
+                                // Fall 2: Vorgeschlagener Slot startet genau zur gleichen Zeit
+                                if (Math.abs(rideStartTime - latestBeforeRounded) < 5 * 60000) {
+                                    beforeSlotFree = false;
+                                    blockingRideInfo = `Zu nah an Fahrt um ${new Date(rideStartTime).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}`;
+                                    console.log('   ⚠️ VORHER-Slot belegt:', blockingRideInfo);
+                                    break;
+                                }
                             }
                         }
 
@@ -27515,6 +27598,8 @@ Aktuell: ${currentNum}`;
                             const beforeMin = String(beforeTime.getMinutes()).padStart(2, '0');
                             alternativeBefore = `${beforeHour}:${beforeMin}`;
                             console.log('   ✅ VORHER-Alternative:', alternativeBefore, 'Uhr');
+                        } else {
+                            console.log('   ❌ VORHER-Alternative NICHT möglich:', blockingRideInfo);
                         }
                     } else {
                         console.log('   ⚠️ VORHER-Zeit zu nah oder in Vergangenheit');
@@ -27536,16 +27621,27 @@ Aktuell: ${currentNum}`;
                         const testMin = String(testTime.getMinutes()).padStart(2, '0');
                         const altStr = `${testHour}:${testMin}`;
 
-                        // Prüfe ob dieser Slot frei ist
+                        // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
                         let slotFree = true;
                         for (let i = 0; i < allRides.length; i++) {
                             const ride = allRides[i];
-                            const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                            const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                             const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+                            const rideDuration = ride.duration || 30;
+                            const rideTotalDuration = rideDuration + 4;
+                            const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
-                            if (rideDate === slotDate && Math.abs(rideTime - testTime.getTime()) < 5 * 60000) {
-                                slotFree = false;
-                                break;
+                            if (rideDate === slotDate) {
+                                // Fall 1: Vorgeschlagener Slot liegt WÄHREND einer Fahrt
+                                if (testTime.getTime() >= rideStartTime && testTime.getTime() < rideEndTime) {
+                                    slotFree = false;
+                                    break;
+                                }
+                                // Fall 2: Vorgeschlagener Slot startet zu nah an einer Fahrt
+                                if (Math.abs(rideStartTime - testTime.getTime()) < 5 * 60000) {
+                                    slotFree = false;
+                                    break;
+                                }
                             }
                         }
 
@@ -27641,22 +27737,33 @@ Aktuell: ${currentNum}`;
 
                 console.log('🔧 v5.90.729: Suche Alternativen ab', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
 
+                // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
                 for (let offset = 0; offset <= 60; offset += 5) {
                     const testTime = new Date(roundedEarliest + offset * 60000);
                     const testHour = String(testTime.getHours()).padStart(2, '0');
                     const testMin = String(testTime.getMinutes()).padStart(2, '0');
                     const altStr = `${testHour}:${testMin}`;
 
-                    // Prüfe ob dieser Slot frei ist
                     let slotFree = true;
                     for (let i = 0; i < allRides.length; i++) {
                         const ride = allRides[i];
-                        const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                        const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                         const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+                        const rideDuration = ride.duration || 30;
+                        const rideTotalDuration = rideDuration + 4;
+                        const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
-                        if (rideDate === slotDate && Math.abs(rideTime - testTime.getTime()) < 5 * 60000) {
-                            slotFree = false;
-                            break;
+                        if (rideDate === slotDate) {
+                            // Fall 1: Vorgeschlagener Slot liegt WÄHREND einer Fahrt
+                            if (testTime.getTime() >= rideStartTime && testTime.getTime() < rideEndTime) {
+                                slotFree = false;
+                                break;
+                            }
+                            // Fall 2: Vorgeschlagener Slot startet zu nah an einer Fahrt
+                            if (Math.abs(rideStartTime - testTime.getTime()) < 5 * 60000) {
+                                slotFree = false;
+                                break;
+                            }
                         }
                     }
 
@@ -27665,10 +27772,10 @@ Aktuell: ${currentNum}`;
                         if (alternatives.length >= 4) break;
                     }
                 }
-                
+
                 console.log('   Bessere Zeiten:', alternatives.join(', '));
                 console.log('═══════════════════════════════════════════════════════════');
-                
+
                 return {
                     hasConflict: true,
                     duringRideConflict: true,
@@ -27741,6 +27848,7 @@ Aktuell: ${currentNum}`;
 
                     console.log('🔧 v5.90.729: Frühestmöglich:', new Date(roundedEarliest).toLocaleTimeString('de-DE'));
 
+                    // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
                     const alternatives = [];
                     for (let offset = 0; offset <= 60; offset += 5) {
                         const testTime = new Date(roundedEarliest + offset * 60000);
@@ -27748,16 +27856,24 @@ Aktuell: ${currentNum}`;
                         const testMin = String(testTime.getMinutes()).padStart(2, '0');
                         const altStr = `${testHour}:${testMin}`;
 
-                        // Prüfe ob dieser Slot frei ist
                         let slotFree = true;
                         for (let i = 0; i < allRides.length; i++) {
                             const ride = allRides[i];
-                            const rideTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
+                            const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                             const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
+                            const rideDuration = ride.duration || 30;
+                            const rideTotalDuration = rideDuration + 4;
+                            const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
-                            if (rideDate === slotDate && Math.abs(rideTime - testTime.getTime()) < 5 * 60000) {
-                                slotFree = false;
-                                break;
+                            if (rideDate === slotDate) {
+                                if (testTime.getTime() >= rideStartTime && testTime.getTime() < rideEndTime) {
+                                    slotFree = false;
+                                    break;
+                                }
+                                if (Math.abs(rideStartTime - testTime.getTime()) < 5 * 60000) {
+                                    slotFree = false;
+                                    break;
+                                }
                             }
                         }
 
@@ -27768,7 +27884,7 @@ Aktuell: ${currentNum}`;
                     }
                     console.log('   Bessere Zeiten:', alternatives.join(', '));
                     console.log('═══════════════════════════════════════════════════════════');
-                    
+
                     return {
                         hasConflict: true,
                         travelTime: travelTime,
@@ -27909,7 +28025,7 @@ Aktuell: ${currentNum}`;
                         console.log('   Bestehende Fahrt:', exactTimeConflict.pickup, '→', exactTimeConflict.destination);
                         console.log('═══════════════════════════════════════════════════════════');
 
-                        // Finde alternative Zeiten
+                        // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
                         const alternatives = [];
                         for (let offset = 5; offset <= 60; offset += 5) {
                             const testTime = new Date(slotTime + offset * 60000);
@@ -27917,15 +28033,24 @@ Aktuell: ${currentNum}`;
                             const testMin = String(testTime.getMinutes()).padStart(2, '0');
                             const altStr = `${testHour}:${testMin}`;
 
-                            // Prüfe ob dieser Slot frei ist
                             let slotFree = true;
                             for (let j = 0; j < allRides.length; j++) {
                                 const r = allRides[j];
-                                const rTime = new Date(r.pickupTimestamp || r.pickupTime).getTime();
+                                const rStartTime = new Date(r.pickupTimestamp || r.pickupTime).getTime();
                                 const rDate = new Date(r.pickupTimestamp || r.pickupTime).toDateString();
-                                if (rDate === slotDate && Math.abs(rTime - testTime.getTime()) < 5 * 60000) {
-                                    slotFree = false;
-                                    break;
+                                const rDuration = r.duration || 30;
+                                const rTotalDuration = rDuration + 4;
+                                const rEndTime = rStartTime + (rTotalDuration * 60000);
+
+                                if (rDate === slotDate) {
+                                    if (testTime.getTime() >= rStartTime && testTime.getTime() < rEndTime) {
+                                        slotFree = false;
+                                        break;
+                                    }
+                                    if (Math.abs(rStartTime - testTime.getTime()) < 5 * 60000) {
+                                        slotFree = false;
+                                        break;
+                                    }
                                 }
                             }
                             if (slotFree) {

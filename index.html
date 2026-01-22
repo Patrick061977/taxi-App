@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.730
-    📅 BUILD: 22.01.2026 11:00 Uhr
+    📦 VERSION: v5.90.733
+    📅 BUILD: 22.01.2026 11:45 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.730
+    📋 CHANGELOG v5.90.733
     ═══════════════════════════════════════════════════════════════════════════
+
+    ⚡ v5.90.733 (22.01.2026):
+       • OPTIMIERUNG: Vergangene Fahrten werden bei Konfliktprüfung ignoriert!
+       • Prüft ob Fahrt bereits BEENDET ist (pickupTime + duration + Ein/Aus)
+       • Wenn Fahrt vorbei → Fahrer ist frei → keine Konfliktprüfung nötig
+       • Spart unnötige Berechnungen und macht Logik korrekter
+       • Beispiel: 11:00 Fahrt endet 11:19 → ab 11:20 ist Fahrer frei
 
     🚀 v5.90.730 (22.01.2026):
        • KUNDEN-SICHT: Automatische Verfügbarkeitsprüfung!
@@ -433,8 +440,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.730 - AUTO-VERFÜGBARKEITSPRÜFUNG! 🚀 (Build 2026-01-22_1100)');
-        console.log('🚀 v5.90.730: Automatische Verfügbarkeitsprüfung in Kunden-Sicht!');
+        console.log('🚕 Funk Taxi App v5.90.733 - OPTIMIERTE VERFÜGBARKEITSPRÜFUNG! 🚀 (Build 2026-01-22_1145)');
+        console.log('⚡ v5.90.733: Vergangene Fahrten bei Konfliktprüfung ignoriert!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -27278,22 +27285,36 @@ Aktuell: ${currentNum}`;
             // Finde letzte Fahrt VOR dem neuen Slot (NUR am gleichen Tag!)
             let previousRide = null;
             const slotTime = slotDateTime.getTime();
-            
+            const nowTime = Date.now(); // 🆕 v5.90.733: Aktuelle Zeit für Vergangenheits-Check
+
             console.log('🔍 SUCHE VORHERIGE FAHRT:');
             console.log('   Slot-Zeit:', slotDateTime.toLocaleString('de-DE'));
-            
+            console.log('   Aktuelle Zeit:', new Date(nowTime).toLocaleTimeString('de-DE'));
+
             for (let i = allRides.length - 1; i >= 0; i--) {
                 const ride = allRides[i];
                 const rideDateTime = new Date(ride.pickupTimestamp || ride.pickupTime);
                 const rideTime = rideDateTime.getTime();
                 const rideDate = rideDateTime.toDateString();
-                
-                console.log(`   Prüfe: ${rideDateTime.toLocaleString('de-DE')} | Gleicher Tag: ${rideDate === slotDate} | Vor Slot: ${rideTime < slotTime}`);
-                
+
+                // 🆕 v5.90.733: Berechne ENDE der Fahrt (pickupTime + duration + Ein/Aus)
+                const rideDuration = ride.duration || 30; // Fallback 30 Min
+                const rideEndTime = rideTime + (rideDuration + 4) * 60000; // +4 Min für Ein/Aussteigen
+                const rideAlreadyFinished = rideEndTime < nowTime;
+
+                console.log(`   Prüfe: ${rideDateTime.toLocaleTimeString('de-DE')} | Ende: ${new Date(rideEndTime).toLocaleTimeString('de-DE')} | Bereits vorbei: ${rideAlreadyFinished ? '⏭️ JA' : '🔄 NEIN'}`);
+
+                // 🆕 v5.90.733: Ignoriere Fahrten die bereits BEENDET sind!
+                // Der Fahrer ist dann schon wieder frei - keine Konfliktprüfung nötig
+                if (rideAlreadyFinished) {
+                    console.log('   ⏭️ Übersprungen - Fahrt bereits beendet');
+                    continue;
+                }
+
                 // 🆕 v5.90.642: NUR Fahrten vom GLEICHEN TAG!
                 if (rideDate === slotDate && rideTime < slotTime) {
                     previousRide = ride;
-                    console.log('   ✅ GEFUNDEN!');
+                    console.log('   ✅ GEFUNDEN! (noch nicht beendet)');
                     break;
                 }
             }
@@ -53691,7 +53712,7 @@ Funk Taxi Team`;
             // Validiere Zeit-Format (HH:MM)
             const isValidTime = time && /^\d{2}:\d{2}$/.test(time);
 
-            console.log('🔍 v5.90.730: QB Slot-Check');
+            console.log('🔍 v5.90.733: QB Slot-Check (optimiert)');
             console.log('   Datum:', date ? '✅' : '❌');
             console.log('   Zeit:', time, isValidTime ? '✅' : '❌');
             console.log('   Pickup:', pickup ? '✅ ' + pickup.substring(0,30) : '❌');
@@ -75521,7 +75542,7 @@ function clearField(fieldId) {
 <!-- 🆕 v5.90.531: VERSION FOOTER -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🚀 v5.90.730
+        ⚡ v5.90.733
     </div>
 </div>
 

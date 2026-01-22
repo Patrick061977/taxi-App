@@ -27259,7 +27259,7 @@ Aktuell: ${currentNum}`;
                         html += '<div style="font-size:20px;margin-bottom:8px;">✅</div>';
                         html += '<div style="font-size:16px;font-weight:700;color:#10b981;margin-bottom:8px;">Termin verfügbar!</div>';
                         html += `<div style="font-size:13px;color:#374151;margin-bottom:12px;">${new Date(date).toLocaleDateString('de-DE', {weekday:'long',day:'numeric',month:'long'})} um ${time} Uhr</div>`;
-                        html += '<button style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Jetzt buchen</button>';
+                        html += '<button onclick="calculatePriceAndShow()" style="background:#10b981;color:white;padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">💰 Preis berechnen & buchen</button>';
                         html += '</div>';
                         
                         html += '</div>';
@@ -27268,6 +27268,19 @@ Aktuell: ${currentNum}`;
                         statusDisplay.innerHTML = html;
                         
                         console.log('✅ Slot ist frei! Vollständige Analyse angezeigt.');
+
+                        // 🆕 v5.90.736: AUTOMATISCHE PREISBERECHNUNG bei verfügbarem Termin!
+                        if (!priceCalculated) {
+                            console.log('💰 v5.90.736: Starte automatische Preisberechnung...');
+                            setTimeout(() => {
+                                if (!priceCalculated) { // Double-check
+                                    calculatePriceAndShow();
+                                }
+                            }, 500); // Kurze Verzögerung für bessere UX
+                        } else {
+                            console.log('💰 v5.90.736: Preis bereits berechnet, überspringe.');
+                        }
+
                         return;
                     }
                 }
@@ -27281,8 +27294,17 @@ Aktuell: ${currentNum}`;
                     statusDisplay.style.background = '#d1fae5';
                     statusDisplay.style.border = '2px solid #10b981';
                     statusDisplay.style.color = '#065f46';
-                    statusDisplay.innerHTML = `✅ <strong>Termin verfügbar</strong>`;
+                    statusDisplay.innerHTML = `✅ <strong>Termin verfügbar</strong><br><small>💰 Preis wird berechnet...</small>`;
                     console.log('✅ Slot ist frei!');
+
+                    // 🆕 v5.90.736: AUTOMATISCHE PREISBERECHNUNG auch im Fallback!
+                    if (!priceCalculated) {
+                        setTimeout(() => {
+                            if (!priceCalculated) {
+                                calculatePriceAndShow();
+                            }
+                        }, 500);
+                    }
                 } else {
                     const alternatives = await findAlternativeSlots(slotDateTime, ridesData, activeVehicles);
                     statusDisplay.style.display = 'block';

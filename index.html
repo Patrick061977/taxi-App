@@ -2569,107 +2569,52 @@
         <!-- Nur im Admin-Panel verfügbar! -->
         
         <div id="booking-form">
+            <!-- 🆕 v5.90.752: NEUE ÜBERSICHTLICHE STRUKTUR -->
+
+            <!-- 📍 ABHOLORT -->
             <div class="input-group">
                 <label>📍 Abholort</label>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div style="display:flex;gap:6px;align-items:center;">
                     <div style="flex:1;position:relative;">
-                        <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" oninput="toggleClearButton('pickup'); triggerSlotCheck();" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-                        <button id="clear-pickup-btn" onclick="clearField('pickup')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
-                            ✕
-                        </button>
+                        <input type="text" id="pickup" placeholder="z.B. Bahnhof Heringsdorf" oninput="toggleClearButton('pickup'); triggerSlotCheck();" style="width:100%;padding:12px;padding-right:36px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <button id="clear-pickup-btn" onclick="clearField('pickup')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#ef4444;border:none;border-radius:50%;cursor:pointer;color:white;font-size:12px;width:22px;height:22px;line-height:1;padding:0;" title="Löschen">✕</button>
                     </div>
-                    <button onclick="openUniversalMapPicker('pickup', '📍 Abholort auf Karte wählen')" style="padding:12px 14px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Auf Karte wählen">
-                        🗺️
-                    </button>
-                    <button onclick="saveLocationPOI('pickup')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
-                        ⭐
-                    </button>
-                    <!-- 🆕 v5.90.73: GPS als Icon-Button (wie Stern!) -->
-                    <button onclick="useMyLocation()" style="padding:12px 14px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Meinen GPS-Standort verwenden">
-                        📍
-                    </button>
-                    <!-- 🆕 v5.90.73: Bestätigung als kleines Icon -->
+                    <button onclick="openUniversalMapPicker('pickup', '📍 Abholort auf Karte wählen')" style="padding:10px 12px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Auf Karte wählen">🗺️</button>
+                    <button onclick="useMyLocation()" style="padding:10px 12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="GPS-Standort">📍</button>
                     <span id="pickup-confirmation-icon" style="display:none;font-size:20px;"></span>
                 </div>
-                
-                <!-- 🆕 v5.90.73: NUR Fehler-Hinweis (groß), Erfolg = nur Icon -->
-                <div id="pickup-confirmation" style="
-                    display: none;
-                    margin-top: 8px;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    <!-- Wird nur bei FEHLER angezeigt -->
-                </div>
-                
-                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
+                <div id="pickup-confirmation" style="display:none;margin-top:8px;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:600;"></div>
                 <div id="pickup-saved-locations" style="display:none;margin-top:8px;"></div>
-                
-                <!-- 🆕 v5.90.73: GPS Button ist jetzt Icon neben Eingabefeld! -->
                 <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
             </div>
-            
-            <!-- 🆕 v5.90.527: ZWISCHENSTOPPS -->
-            <div id="waypoints-container" style="margin-top:15px;">
-                <!-- Zwischenstopps werden hier dynamisch eingefügt -->
+
+            <!-- 🔄 TAUSCHEN-BUTTON -->
+            <div style="display:flex;justify-content:center;margin:8px 0;">
+                <button onclick="swapAddresses()" style="padding:6px 16px;border:2px solid #e5e7eb;background:white;border-radius:20px;cursor:pointer;font-size:14px;color:#6b7280;transition:all 0.2s;" title="Abholort und Zielort tauschen" onmouseover="this.style.background='#f3f4f6';this.style.borderColor='#667eea'" onmouseout="this.style.background='white';this.style.borderColor='#e5e7eb'">🔄 Tauschen</button>
             </div>
-            
-            <!-- 🆕 v5.90.527: BUTTON ZUM HINZUFÜGEN -->
-            <div style="margin-top:10px;margin-bottom:15px;">
-                <button id="add-waypoint-btn" onclick="addWaypoint()" style="
-                    width:100%;
-                    padding:8px;
-                    border:2px dashed #10b981;
-                    background:white;
-                    border-radius:6px;
-                    color:#10b981;
-                    font-weight:600;
-                    cursor:pointer;
-                    transition:all 0.2s;
-                    font-size:13px;
-                " onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='white'">
-                    + Zwischenstopp
-                </button>
-            </div>
-            
+
+            <!-- 🎯 ZIELORT -->
             <div class="input-group">
-                <label>🎯 Zielort</label>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <label style="margin:0;">🎯 Zielort</label>
+                    <!-- 🆕 v5.90.752: Kleines [+] für Zwischenstopp -->
+                    <button id="add-waypoint-btn" onclick="addWaypoint()" style="padding:4px 10px;border:1px solid #10b981;background:white;border-radius:15px;color:#10b981;font-weight:600;cursor:pointer;font-size:12px;" title="Zwischenstopp hinzufügen">+ Stopp</button>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
                     <div style="flex:1;position:relative;">
-                        <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" oninput="toggleClearButton('destination'); triggerSlotCheck();" style="width:100%;padding:12px;padding-right:40px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-                        <button id="clear-destination-btn" onclick="clearField('destination')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px;line-height:1;" title="Löschen">
-                            ✕
-                        </button>
+                        <input type="text" id="destination" placeholder="z.B. Seebrücke Ahlbeck" oninput="toggleClearButton('destination'); triggerSlotCheck();" style="width:100%;padding:12px;padding-right:36px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        <button id="clear-destination-btn" onclick="clearField('destination')" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#ef4444;border:none;border-radius:50%;cursor:pointer;color:white;font-size:12px;width:22px;height:22px;line-height:1;padding:0;" title="Löschen">✕</button>
                     </div>
-                    <button onclick="openUniversalMapPicker('destination', '🎯 Zielort auf Karte wählen')" style="padding:12px 14px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Auf Karte wählen">
-                        🗺️
-                    </button>
-                    <button onclick="saveLocationPOI('destination')" style="padding:12px 14px;border:2px solid #f59e0b;background:#fef3c7;color:#92400e;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Ort speichern">
-                        ⭐
-                    </button>
-                    <!-- 🆕 v5.90.73: Bestätigung als kleines Icon -->
+                    <button onclick="openUniversalMapPicker('destination', '🎯 Zielort auf Karte wählen')" style="padding:10px 12px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Auf Karte wählen">🗺️</button>
                     <span id="destination-confirmation-icon" style="display:none;font-size:20px;"></span>
                 </div>
-                
-                <!-- 🆕 v5.90.73: NUR Fehler-Hinweis (groß), Erfolg = nur Icon -->
-                <div id="destination-confirmation" style="
-                    display: none;
-                    margin-top: 8px;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    font-weight: 600;
-                ">
-                    <!-- Wird nur bei FEHLER angezeigt -->
-                </div>
-                
-                <!-- 📍 GESPEICHERTE ORTE - Schnellauswahl -->
+                <div id="destination-confirmation" style="display:none;margin-top:8px;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:600;"></div>
                 <div id="destination-saved-locations" style="display:none;margin-top:8px;"></div>
-                
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
+
+            <!-- 🆕 v5.90.527: ZWISCHENSTOPPS (werden dynamisch eingefügt) -->
+            <div id="waypoints-container" style="margin-top:10px;"></div>
 
             <!-- 🆕 v5.90.750: PREIS wurde nach unten verschoben - nach Zeit-Bestätigung! -->
 
@@ -48986,12 +48931,45 @@ Funk Taxi Team`;
             const targetField = document.getElementById(universalMapPicker.targetInputId);
             if (targetField) {
                 targetField.value = finalAddress;
-                
-                // Trigger Input Event (für Autocomplete/Validation)
-                const event = new Event('input', { bubbles: true });
-                targetField.dispatchEvent(event);
-                
-                console.log('✅ v5.90.574: Adresse ins Feld geschrieben!');
+
+                // 🆕 v5.90.752: Bei pickup/destination direkt Koordinaten setzen + grüner Haken!
+                // KEIN Autocomplete triggern - Adresse ist bereits verifiziert!
+                const lat = universalMapPicker.marker.pickedLat;
+                const lon = universalMapPicker.marker.pickedLon;
+
+                if (universalMapPicker.targetInputId === 'pickup') {
+                    window.pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                    window.pickupConfirmed = true;
+                    updateConfirmationHint('pickup');
+                    toggleClearButton('pickup');
+                    console.log('✅ v5.90.752: Karten-Picker → Abholort verifiziert!', window.pickupCoords);
+
+                    // Bei SOFORT → Taxis laden
+                    if (currentRideType === 'sofort') {
+                        setTimeout(() => showAvailableTaxis(), 500);
+                    }
+                    // Auto-Preisberechnung wenn Ziel vorhanden
+                    if (window.destCoords) {
+                        setTimeout(() => calculatePriceAndShow(), 600);
+                    }
+                } else if (universalMapPicker.targetInputId === 'destination') {
+                    window.destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                    window.destinationConfirmed = true;
+                    updateConfirmationHint('destination');
+                    toggleClearButton('destination');
+                    console.log('✅ v5.90.752: Karten-Picker → Zielort verifiziert!', window.destCoords);
+
+                    // Auto-Preisberechnung wenn Abholort vorhanden
+                    if (window.pickupCoords) {
+                        setTimeout(() => calculatePriceAndShow(), 300);
+                    }
+                } else {
+                    // Andere Felder: Input Event für Autocomplete/Validation
+                    const event = new Event('input', { bubbles: true });
+                    targetField.dispatchEvent(event);
+                }
+
+                console.log('✅ v5.90.752: Adresse ins Feld geschrieben!');
             } else {
                 console.error('💾 v5.90.574: Ziel-Feld nicht gefunden:', universalMapPicker.targetInputId);
             }
@@ -76637,6 +76615,44 @@ function toggleClearButton(fieldId) {
     
     if (field && btn) {
         btn.style.display = field.value.trim() ? "block" : "none";
+    }
+}
+
+// 🆕 v5.90.752: ADRESSEN TAUSCHEN (Abholort ↔ Zielort)
+function swapAddresses() {
+    const pickupInput = document.getElementById('pickup');
+    const destInput = document.getElementById('destination');
+
+    if (!pickupInput || !destInput) return;
+
+    // Werte tauschen
+    const tempValue = pickupInput.value;
+    pickupInput.value = destInput.value;
+    destInput.value = tempValue;
+
+    // Koordinaten tauschen
+    const tempCoords = window.pickupCoords;
+    window.pickupCoords = window.destCoords;
+    window.destCoords = tempCoords;
+
+    // Bestätigungs-Status tauschen
+    const tempConfirmed = window.pickupConfirmed;
+    window.pickupConfirmed = window.destinationConfirmed;
+    window.destinationConfirmed = tempConfirmed;
+
+    // Clear-Buttons aktualisieren
+    toggleClearButton('pickup');
+    toggleClearButton('destination');
+
+    // Bestätigungs-Icons aktualisieren
+    updateConfirmationHint('pickup');
+    updateConfirmationHint('destination');
+
+    console.log('🔄 Adressen getauscht!');
+
+    // Preis neu berechnen wenn beide Adressen da sind
+    if (pickupInput.value && destInput.value && window.priceCalculated) {
+        setTimeout(() => calculatePriceAndShow(), 300);
     }
 }
 

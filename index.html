@@ -8227,8 +8227,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.727';
-        const APP_BUILD = '20260122-0715-FAHRPLAN-STATUS';
+        const APP_VERSION = '5.90.741';
+        const APP_BUILD = '20260123-KALENDER-BUGFIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -27667,31 +27667,32 @@ Aktuell: ${currentNum}`;
             console.log('   Destination:', destination);
             console.log('');
             
-            // 🆕 v5.90.645: NUR Fahrten ab HEUTE prüfen!
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); // Mitternacht heute
-            
+            // 🔧 v5.90.741: NUR Fahrten vom GLEICHEN TAG wie die Buchung prüfen!
+            // Vorher war der Filter "ab heute", was dazu führte, dass bei einer
+            // Buchung für morgen auch heutige Fahrten als Konflikte angezeigt wurden.
+            const slotDateStr = slotDateTime.toDateString();
+
             // Finde vorherige Fahrt (chronologisch vor dem neuen Slot)
             const allRides = Object.values(ridesData).filter(r => {
                 // Status-Filter
-                if (r.status === 'cancelled' || r.status === 'storniert' || 
+                if (r.status === 'cancelled' || r.status === 'storniert' ||
                     r.status === 'completed' || r.status === 'abgeschlossen') {
                     return false;
                 }
-                
-                // 🆕 v5.90.645: NUR ab heute!
+
+                // 🔧 v5.90.741: NUR Fahrten vom GLEICHEN TAG wie die Buchung!
                 const rideDate = new Date(r.pickupTimestamp || r.pickupTime);
-                if (rideDate < today) {
-                    return false; // Vergangenheit ignorieren!
+                if (rideDate.toDateString() !== slotDateStr) {
+                    return false; // Andere Tage ignorieren!
                 }
-                
+
                 return true;
             });
-            
+
             console.log('📊 FIREBASE FAHRTEN:');
             console.log('   Gesamt (alle Status):', Object.keys(ridesData).length);
-            console.log('   Nach Filter (aktive ab heute):', allRides.length);
-            console.log('   🚀 v5.90.645: Vergangenheit ignoriert!');
+            console.log('   Nach Filter (aktive am ' + slotDateStr + '):', allRides.length);
+            console.log('   🔧 v5.90.741: Nur Fahrten vom gleichen Tag!');
             console.log('');
             
             // Sortiere nach Zeit
@@ -46493,17 +46494,24 @@ Funk Taxi Team`;
         function swapQuickBookingLocations() {
             const pickupField = document.getElementById('quick-booking-pickup');
             const destinationField = document.getElementById('quick-booking-destination');
-            
+
             if (!pickupField || !destinationField) return;
-            
+
             // Werte tauschen
             const temp = pickupField.value;
             pickupField.value = destinationField.value;
             destinationField.value = temp;
-            
+
+            // 🔧 v5.90.741: KOORDINATEN AUCH TAUSCHEN!
+            // Ohne diesen Fix werden bei der Buchung die falschen Koordinaten verwendet!
+            const tempCoords = quickBookingPickupCoords;
+            quickBookingPickupCoords = quickBookingDestCoords;
+            quickBookingDestCoords = tempCoords;
+
             console.log('⇄ Orte vertauscht!');
             console.log('  Abholort:', pickupField.value);
             console.log('  Zielort:', destinationField.value);
+            console.log('  🔧 v5.90.741: Koordinaten auch getauscht!');
         }
         
         // 🆕 v5.38.4: AUTOCOMPLETE FÜR SCHNELLBUCHUNG

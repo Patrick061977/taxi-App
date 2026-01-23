@@ -1,8 +1,8 @@
 {
-  "version": "5.90.740",
-  "build": "20260122-1500",
-  "updated": 1737558000000,
+  "version": "5.90.745",
+  "build": "20260123-1800",
+  "updated": 1737651600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "Preisanzeige nach oben verschoben und kompakter gemacht"
+  "message": "Sicherheits-Fix: Firebase-Fallback verhindert Doppelbuchungen"
 }

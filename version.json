@@ -1,8 +1,8 @@
 {
-  "version": "5.90.743",
-  "build": "20260123-1600",
-  "updated": 1737644400000,
+  "version": "5.90.744",
+  "build": "20260123-1700",
+  "updated": 1737648000000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "Responsive Design Fix - Kompakteres Mobile Layout"
+  "message": "Wheel-Picker Mobile-Optimierung + Kalender Test-Script"
 }

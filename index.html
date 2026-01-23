@@ -9,13 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.743
+    📦 VERSION: v5.90.744
     📅 BUILD: 23.01.2026 09:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.743
+    📋 CHANGELOG v5.90.744
     ═══════════════════════════════════════════════════════════════════════════
+
+    📱 v5.90.744 (23.01.2026):
+       • WHEEL-PICKER: Größere Touch-Targets für bessere Handy-Bedienung!
+       • Item-Höhe erhöht auf 56px (statt 48px)
+       • Font-Größe erhöht auf 18px (statt 16px)
+       • Wheel-Höhe auf 170px für mehr Sichtbarkeit
+       • Besseres Scroll-Snap-Verhalten für Touch
+       • Console Test-Script für Kalender-Funktionalität
 
     📱 v5.90.743 (23.01.2026):
        • RESPONSIVE FIX: Kompakteres Mobile Layout!
@@ -2694,13 +2702,13 @@
                             position: relative;
                             overflow: hidden;
                         ">
-                            <!-- Auswahl-Highlight (Mitte) -->
+                            <!-- Auswahl-Highlight (Mitte) - 🆕 v5.90.744: Größer für Mobile! -->
                             <div style="
                                 position: absolute;
                                 top: 50%;
                                 left: 10px;
                                 right: 10px;
-                                height: 48px;
+                                height: 56px;
                                 transform: translateY(-50%);
                                 background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
                                 border: 2px solid #667eea;
@@ -2712,26 +2720,26 @@
                             <!-- Drei Spalten: Tag | Stunde | Minute -->
                             <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;position:relative;z-index:2;">
 
-                                <!-- TAG-DREHRAD -->
+                                <!-- TAG-DREHRAD - 🆕 v5.90.744: Größer für Mobile! -->
                                 <div style="position:relative;">
                                     <div id="day-wheel" style="
-                                        height: 150px;
+                                        height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
                                         -webkit-overflow-scrolling: touch;
                                         scrollbar-width: none;
                                         -ms-overflow-style: none;
                                     " onscroll="onWheelScroll('day')">
-                                        <div style="height:51px;"></div>
+                                        <div style="height:57px;"></div>
                                         <!-- Tage werden dynamisch gefüllt -->
-                                        <div style="height:51px;"></div>
+                                        <div style="height:57px;"></div>
                                     </div>
                                 </div>
 
-                                <!-- STUNDEN-DREHRAD -->
+                                <!-- STUNDEN-DREHRAD - 🆕 v5.90.744: Größer für Mobile! -->
                                 <div style="position:relative;">
                                     <div id="hour-wheel" style="
-                                        height: 150px;
+                                        height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
                                         -webkit-overflow-scrolling: touch;
@@ -2739,16 +2747,16 @@
                                         -ms-overflow-style: none;
                                         text-align: center;
                                     " onscroll="onWheelScroll('hour')">
-                                        <div style="height:51px;"></div>
+                                        <div style="height:57px;"></div>
                                         <!-- Stunden werden dynamisch gefüllt -->
-                                        <div style="height:51px;"></div>
+                                        <div style="height:57px;"></div>
                                     </div>
                                 </div>
 
-                                <!-- MINUTEN-DREHRAD -->
+                                <!-- MINUTEN-DREHRAD - 🆕 v5.90.744: Größer für Mobile! -->
                                 <div style="position:relative;">
                                     <div id="minute-wheel" style="
-                                        height: 150px;
+                                        height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
                                         -webkit-overflow-scrolling: touch;
@@ -2756,9 +2764,9 @@
                                         -ms-overflow-style: none;
                                         text-align: center;
                                     " onscroll="onWheelScroll('minute')">
-                                        <div style="height:51px;"></div>
+                                        <div style="height:57px;"></div>
                                         <!-- Minuten werden dynamisch gefüllt -->
-                                        <div style="height:51px;"></div>
+                                        <div style="height:57px;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -2797,25 +2805,32 @@
                             #minute-wheel::-webkit-scrollbar {
                                 display: none;
                             }
+                            /* 🆕 v5.90.744: Größere Touch-Targets für Mobile! */
                             .wheel-item {
-                                height: 48px;
+                                height: 56px;
+                                min-height: 56px;
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
-                                font-size: 16px;
+                                font-size: 18px;
                                 font-weight: 600;
                                 color: #64748b;
                                 scroll-snap-align: center;
                                 transition: all 0.15s ease;
                                 cursor: pointer;
+                                -webkit-tap-highlight-color: transparent;
+                                touch-action: manipulation;
                             }
                             .wheel-item.selected {
                                 color: #1e293b;
-                                font-size: 18px;
+                                font-size: 20px;
                                 font-weight: 700;
                             }
                             .wheel-item:hover {
                                 color: #667eea;
+                            }
+                            .wheel-item:active {
+                                background: rgba(102, 126, 234, 0.1);
                             }
                         </style>
 
@@ -8440,8 +8455,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.743';
-        const APP_BUILD = '20260123-RESPONSIVE-FIX';
+        const APP_VERSION = '5.90.744';
+        const APP_BUILD = '20260123-WHEEL-PICKER-MOBILE';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -26670,7 +26685,9 @@ Aktuell: ${currentNum}`;
         }
 
         // 🆕 v5.90.742: DREHRAD/WHEEL PICKER FÜR VORBESTELLUNG!
+        // 🆕 v5.90.744: Größere Touch-Targets für Mobile (56px statt 48px)
         // Globale Variablen für Wheel-Picker
+        const WHEEL_ITEM_HEIGHT = 56; // 🆕 v5.90.744: Größer für bessere Touch-Bedienung!
         let wheelPickerDays = [];
         let wheelPickerInitialized = false;
         let wheelScrollTimeout = null;
@@ -26727,7 +26744,8 @@ Aktuell: ${currentNum}`;
             const dayItemsHTML = wheelPickerDays.map((day, idx) =>
                 `<div class="wheel-item" data-value="${day.value}" data-index="${idx}" onclick="scrollWheelToIndex('day', ${idx})">${day.display}</div>`
             ).join('');
-            dayWheel.innerHTML = `<div style="height:51px;"></div>${dayItemsHTML}<div style="height:51px;"></div>`;
+            // 🆕 v5.90.744: Größere Spacer (57px) für größere Items (56px)
+            dayWheel.innerHTML = `<div style="height:57px;"></div>${dayItemsHTML}<div style="height:57px;"></div>`;
 
             // STUNDEN generieren (00-23)
             let hourItemsHTML = '';
@@ -26735,7 +26753,8 @@ Aktuell: ${currentNum}`;
                 const hourStr = String(h).padStart(2, '0');
                 hourItemsHTML += `<div class="wheel-item" data-value="${hourStr}" data-index="${h}" onclick="scrollWheelToIndex('hour', ${h})">${hourStr}</div>`;
             }
-            hourWheel.innerHTML = `<div style="height:51px;"></div>${hourItemsHTML}<div style="height:51px;"></div>`;
+            // 🆕 v5.90.744: Größere Spacer (57px) für größere Items (56px)
+            hourWheel.innerHTML = `<div style="height:57px;"></div>${hourItemsHTML}<div style="height:57px;"></div>`;
 
             // MINUTEN generieren (00, 05, 10, ... 55)
             let minuteItemsHTML = '';
@@ -26745,7 +26764,8 @@ Aktuell: ${currentNum}`;
                 minuteValues.push(minStr);
                 minuteItemsHTML += `<div class="wheel-item" data-value="${minStr}" data-index="${minuteValues.length - 1}" onclick="scrollWheelToIndex('minute', ${minuteValues.length - 1})">${minStr}</div>`;
             }
-            minuteWheel.innerHTML = `<div style="height:51px;"></div>${minuteItemsHTML}<div style="height:51px;"></div>`;
+            // 🆕 v5.90.744: Größere Spacer (57px) für größere Items (56px)
+            minuteWheel.innerHTML = `<div style="height:57px;"></div>${minuteItemsHTML}<div style="height:57px;"></div>`;
 
             // Speichere Minuten-Werte global
             window.wheelMinuteValues = minuteValues;
@@ -26784,7 +26804,7 @@ Aktuell: ${currentNum}`;
             const wheel = document.getElementById(`${wheelType}-wheel`);
             if (!wheel) return;
 
-            const itemHeight = 48;
+            const itemHeight = WHEEL_ITEM_HEIGHT; // 🆕 v5.90.744
             const scrollTop = index * itemHeight;
 
             wheel.scrollTo({
@@ -26809,7 +26829,7 @@ Aktuell: ${currentNum}`;
             const wheel = document.getElementById(`${wheelType}-wheel`);
             if (!wheel) return;
 
-            const itemHeight = 48;
+            const itemHeight = WHEEL_ITEM_HEIGHT; // 🆕 v5.90.744
             const scrollTop = wheel.scrollTop;
             const selectedIndex = Math.round(scrollTop / itemHeight);
 
@@ -26846,7 +26866,7 @@ Aktuell: ${currentNum}`;
 
             if (!dayWheel || !hourWheel || !minuteWheel) return;
 
-            const itemHeight = 48;
+            const itemHeight = WHEEL_ITEM_HEIGHT; // 🆕 v5.90.744
 
             // Hole ausgewählte Werte
             const dayIndex = Math.round(dayWheel.scrollTop / itemHeight);
@@ -26870,6 +26890,151 @@ Aktuell: ${currentNum}`;
 
             console.log('🎡 Ausgewählt:', selectedDay.display, selectedHour + ':' + selectedMinute);
         }
+
+        // 🆕 v5.90.744: KALENDER TEST-SCRIPT FÜR CONSOLE!
+        // Kopieren Sie diese Funktion in die Browser-Konsole (F12) um Tests auszuführen
+        window.runCalendarTests = async function() {
+            console.log('═══════════════════════════════════════════════════════════════');
+            console.log('🧪 KALENDER TEST-SCRIPT v5.90.744');
+            console.log('═══════════════════════════════════════════════════════════════\n');
+
+            const tests = [];
+            let passed = 0;
+            let failed = 0;
+
+            // Helper: Simuliere Wheel-Picker Auswahl
+            function selectDateTime(dayIndex, hour, minuteIndex) {
+                scrollWheelToIndex('day', dayIndex);
+                scrollWheelToIndex('hour', hour);
+                scrollWheelToIndex('minute', minuteIndex);
+                return new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            // Helper: Prüfe Slot-Status
+            function getSlotStatus() {
+                const slotDisplay = document.getElementById('live-slot-check');
+                const statusDisplay = document.getElementById('slot-status-display');
+                return {
+                    liveCheckVisible: slotDisplay && slotDisplay.style.display !== 'none',
+                    statusVisible: statusDisplay && statusDisplay.style.display !== 'none',
+                    liveCheckText: slotDisplay ? slotDisplay.textContent : '',
+                    statusText: statusDisplay ? statusDisplay.textContent : ''
+                };
+            }
+
+            console.log('📋 TEST 1: Wheel-Picker Initialisierung');
+            tests.push({
+                name: 'Wheel-Picker Initialisierung',
+                result: wheelPickerInitialized === true,
+                details: wheelPickerInitialized ? '✅ Initialisiert' : '❌ Nicht initialisiert'
+            });
+
+            console.log('📋 TEST 2: Heute auswählen');
+            await selectDateTime(0, 12, 0); // Heute 12:00
+            tests.push({
+                name: 'Heute 12:00 auswählen',
+                result: document.getElementById('custom-date')?.value.length > 0,
+                details: 'Datum: ' + (document.getElementById('custom-date')?.value || 'FEHLT')
+            });
+
+            console.log('📋 TEST 3: Morgen auswählen');
+            await selectDateTime(1, 14, 6); // Morgen 14:30
+            tests.push({
+                name: 'Morgen 14:30 auswählen',
+                result: document.getElementById('custom-hour')?.value === '14',
+                details: 'Stunde: ' + (document.getElementById('custom-hour')?.value || 'FEHLT')
+            });
+
+            console.log('📋 TEST 4: Minuten-Auswahl');
+            await selectDateTime(0, 10, 3); // Heute 10:15
+            tests.push({
+                name: 'Minuten auf 15 setzen',
+                result: document.getElementById('custom-minute')?.value === '15',
+                details: 'Minute: ' + (document.getElementById('custom-minute')?.value || 'FEHLT')
+            });
+
+            console.log('📋 TEST 5: 30 Tage Vorausschau');
+            await selectDateTime(30, 9, 0); // Tag 30, 09:00
+            tests.push({
+                name: '30 Tage in Zukunft',
+                result: wheelPickerDays.length >= 31,
+                details: 'Verfügbare Tage: ' + wheelPickerDays.length
+            });
+
+            console.log('📋 TEST 6: WHEEL_ITEM_HEIGHT Konstante');
+            tests.push({
+                name: 'WHEEL_ITEM_HEIGHT = 56px',
+                result: WHEEL_ITEM_HEIGHT === 56,
+                details: 'Aktueller Wert: ' + WHEEL_ITEM_HEIGHT + 'px'
+            });
+
+            // Ergebnis-Zusammenfassung
+            console.log('\n═══════════════════════════════════════════════════════════════');
+            console.log('📊 TEST-ERGEBNISSE:');
+            console.log('═══════════════════════════════════════════════════════════════');
+
+            tests.forEach((test, i) => {
+                if (test.result) {
+                    passed++;
+                    console.log(`✅ ${i+1}. ${test.name}: BESTANDEN`);
+                } else {
+                    failed++;
+                    console.log(`❌ ${i+1}. ${test.name}: FEHLGESCHLAGEN`);
+                }
+                console.log(`   Details: ${test.details}`);
+            });
+
+            console.log('\n═══════════════════════════════════════════════════════════════');
+            console.log(`📈 GESAMT: ${passed}/${tests.length} Tests bestanden`);
+            if (failed === 0) {
+                console.log('🎉 ALLE TESTS BESTANDEN!');
+            } else {
+                console.log(`⚠️ ${failed} Test(s) fehlgeschlagen`);
+            }
+            console.log('═══════════════════════════════════════════════════════════════');
+
+            return { passed, failed, total: tests.length, tests };
+        };
+
+        // 🆕 v5.90.744: SLOT-VERFÜGBARKEIT TESTEN
+        window.testSlotAvailability = async function(dayOffset = 0, hour = 14, minute = 0) {
+            console.log('═══════════════════════════════════════════════════════════════');
+            console.log('🧪 SLOT-VERFÜGBARKEIT TEST');
+            console.log('═══════════════════════════════════════════════════════════════');
+
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() + dayOffset);
+            targetDate.setHours(hour, minute, 0, 0);
+
+            console.log(`📅 Teste: ${targetDate.toLocaleString('de-DE')}`);
+            console.log('⏳ Prüfe Verfügbarkeit...\n');
+
+            // Simuliere Pickup-Koordinaten (Heringsdorf)
+            const testCoords = { lat: 53.9456, lng: 14.1704 };
+
+            if (typeof checkTimeSlotAvailability === 'function') {
+                const result = await checkTimeSlotAvailability(targetDate.getTime(), testCoords);
+
+                console.log('═══════════════════════════════════════════════════════════════');
+                if (result.available) {
+                    console.log('✅ SLOT IST VERFÜGBAR!');
+                } else {
+                    console.log('❌ SLOT IST BELEGT!');
+                    if (result.conflictingRide) {
+                        console.log('🚗 Konflikt mit Fahrt:', result.conflictingRide.id || 'ID unbekannt');
+                    }
+                }
+                console.log('═══════════════════════════════════════════════════════════════');
+                return result;
+            } else {
+                console.log('⚠️ checkTimeSlotAvailability Funktion nicht gefunden!');
+                return null;
+            }
+        };
+
+        console.log('🧪 v5.90.744: Kalender-Test-Scripts geladen!');
+        console.log('   → runCalendarTests() - Führt alle Tests aus');
+        console.log('   → testSlotAvailability(dayOffset, hour, minute) - Testet einzelnen Slot');
 
         // 🆕 v5.90.123: ZIFFERNBLOCK FÜR TAXI BUCHEN MIT SLOT-CHECK!
         function openTimeKeypadForBooking() {

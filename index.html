@@ -9,13 +9,18 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.752
-    📅 BUILD: 23.01.2026 16:00 Uhr
+    📦 VERSION: v5.90.753
+    📅 BUILD: 23.01.2026 17:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.752
+    📋 CHANGELOG v5.90.753
     ═══════════════════════════════════════════════════════════════════════════
+
+    🐛 v5.90.753 (23.01.2026):
+       • FIX: Vergangenheits-Check Bug behoben!
+       • FIX: Manuelles Datum/Zeit-Parsing ohne Zeitzonenprobleme
+       • Zeiten werden jetzt korrekt als lokale Zeit interpretiert
 
     🎨 v5.90.752 (23.01.2026):
        • NEU: Buchungsformular übersichtlicher strukturiert!
@@ -510,8 +515,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.738 - exactTimeConflict Fix! 🚀 (Build 2026-01-22_1420)');
-        console.log('🐛 v5.90.738: Exakte Zeitüberschneidung wird jetzt IMMER geprüft!');
+        console.log('🚕 Funk Taxi App v5.90.753 - Vergangenheits-Check Fix! 🚀 (Build 2026-01-23_1700)');
+        console.log('🐛 v5.90.753: Manuelles Datum-Parsing behebt Zeitzonen-Bug!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -8466,7 +8471,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.752';
+        const APP_VERSION = '5.90.753';
         const APP_BUILD = '20260123-WHEEL-PICKER-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -27399,7 +27404,11 @@ Aktuell: ${currentNum}`;
                 const ridesData = ridesSnapshot.val() || {};
 
                 // Erstelle DateTime für den gewünschten Slot
-                const slotDateTime = new Date(date + 'T' + time);
+                // 🔧 v5.90.753: MANUELLES PARSEN - keine Zeitzonenprobleme mehr!
+                const [year, month, day] = date.split('-').map(Number);
+                const [hours, minutes] = time.split(':').map(Number);
+                const slotDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
+                console.log('📅 v5.90.753: Slot-DateTime:', slotDateTime.toString(), '| Parsed from:', date, time);
 
                 // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
                 const now = new Date();
@@ -55069,8 +55078,12 @@ Funk Taxi Team`;
                 const ridesData = ridesSnapshot.val() || {};
 
                 // Erstelle DateTime für den gewünschten Slot
-                const slotDateTime = new Date(date + 'T' + time);
+                // 🔧 v5.90.753: MANUELLES PARSEN - keine Zeitzonenprobleme mehr!
+                const [year, month, day] = date.split('-').map(Number);
+                const [hours, minutes] = time.split(':').map(Number);
+                const slotDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
                 const now = new Date();
+                console.log('📅 v5.90.753: QB Slot-DateTime:', slotDateTime.toString(), '| Parsed from:', date, time);
 
                 // Formatiere Datum/Zeit für Anzeige
                 const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];

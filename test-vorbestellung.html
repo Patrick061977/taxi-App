@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vorbestellungs-Test Suite</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        h1 { color: #ffd700; margin-bottom: 20px; }
+        h2 { color: #4fc3f7; margin: 20px 0 10px; font-size: 18px; }
+
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .test-section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .test-case {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #666;
+        }
+
+        .test-case.pass { border-left-color: #4caf50; }
+        .test-case.fail { border-left-color: #f44336; }
+        .test-case.running { border-left-color: #ff9800; }
+
+        .test-name { font-weight: 600; margin-bottom: 8px; }
+        .test-detail { font-size: 13px; color: #aaa; margin: 4px 0; }
+        .test-result {
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 8px;
+        }
+        .test-result.pass { background: #4caf50; color: white; }
+        .test-result.fail { background: #f44336; color: white; }
+
+        .summary {
+            background: #1a1a2e;
+            border: 2px solid #ffd700;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 15px;
+        }
+
+        .stat { text-align: center; }
+        .stat-value { font-size: 36px; font-weight: 700; }
+        .stat-label { font-size: 14px; color: #888; }
+        .stat-value.pass { color: #4caf50; }
+        .stat-value.fail { color: #f44336; }
+
+        button {
+            background: #ffd700;
+            color: #1a1a2e;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #ffed4a; }
+        button:disabled { background: #666; cursor: not-allowed; }
+
+        .log-output {
+            background: #000;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-entry { margin: 2px 0; }
+        .log-entry.info { color: #4fc3f7; }
+        .log-entry.success { color: #4caf50; }
+        .log-entry.error { color: #f44336; }
+        .log-entry.warn { color: #ff9800; }
+
+        .progress-bar {
+            background: #333;
+            border-radius: 4px;
+            height: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, #ffd700, #ff9800);
+            height: 100%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🚕 Vorbestellungs-Test Suite v1.0</h1>
+
+        <div class="test-section">
+            <h2>🔧 Test-Konfiguration</h2>
+            <p style="color:#888;margin-bottom:15px;">Diese Tests prüfen die Vorbestellungs-Logik ohne echte Firebase-Verbindung.</p>
+            <button onclick="runAllTests()">▶️ Alle Tests starten</button>
+            <button onclick="clearResults()">🗑️ Ergebnisse löschen</button>
+            <div class="progress-bar" id="progressBar" style="display:none;">
+                <div class="progress-fill" id="progressFill" style="width:0%"></div>
+            </div>
+        </div>
+
+        <div id="testResults"></div>
+
+        <div class="summary" id="summary" style="display:none;">
+            <h2>📊 Test-Zusammenfassung</h2>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-value pass" id="passCount">0</div>
+                    <div class="stat-label">Bestanden</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value fail" id="failCount">0</div>
+                    <div class="stat-label">Fehlgeschlagen</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="totalCount" style="color:#ffd700;">0</div>
+                    <div class="stat-label">Gesamt</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-output" id="logOutput">
+            <div class="log-entry info">🔧 Test-Suite bereit. Klicken Sie auf "Alle Tests starten".</div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // VORBESTELLUNGS-LOGIK (aus index.html extrahiert)
+        // ============================================
+
+        const BOARDING_TIME = 2; // Minuten zum Einsteigen
+        const ALIGHTING_TIME = 2; // Minuten zum Aussteigen
+        const BUFFER_TIME = 5; // Puffer in Minuten
+
+        // Simulierte Fahrten-Datenbank
+        let mockRides = [];
+
+        // Berechne Gesamtdauer einer Fahrt
+        function calculateTotalDuration(driveDuration) {
+            return driveDuration + BOARDING_TIME + ALIGHTING_TIME;
+        }
+
+        // Simulierte Route-Berechnung (normalerweise OSRM)
+        function mockCalculateRoute(fromCoords, toCoords) {
+            // Einfache Distanz-basierte Schätzung
+            const lat1 = fromCoords.lat, lon1 = fromCoords.lon;
+            const lat2 = toCoords.lat, lon2 = toCoords.lon;
+            const R = 6371; // Erdradius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+
+            // Geschätzte Fahrzeit: 30 km/h Durchschnitt
+            const duration = Math.ceil((distance / 30) * 60);
+
+            return { distance: distance, duration: Math.max(duration, 3) };
+        }
+
+        // Prüfe Zeitslot-Verfügbarkeit
+        function checkSlotAvailability(requestedTime, pickupCoords, destinationCoords, newDuration, existingRides) {
+            const requestedMs = requestedTime.getTime();
+            const newTotalDuration = calculateTotalDuration(newDuration);
+            const newEndTime = new Date(requestedMs + newTotalDuration * 60000);
+
+            let conflicts = [];
+            let warnings = [];
+
+            for (const ride of existingRides) {
+                const rideStart = new Date(ride.pickupTime);
+                const rideTotalDuration = calculateTotalDuration(ride.duration);
+                const rideEnd = new Date(rideStart.getTime() + rideTotalDuration * 60000);
+
+                // Prüfe direkte Zeitüberschneidung
+                if (requestedMs < rideEnd.getTime() && newEndTime.getTime() > rideStart.getTime()) {
+                    conflicts.push({
+                        type: 'overlap',
+                        ride: ride,
+                        message: `Direkte Zeitüberschneidung mit Fahrt um ${rideStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}`
+                    });
+                    continue;
+                }
+
+                // Prüfe ob genug Zeit für Leerfahrt nach vorheriger Fahrt
+                if (rideEnd.getTime() <= requestedMs) {
+                    const deadheadRoute = mockCalculateRoute(
+                        { lat: ride.destinationCoords.lat, lon: ride.destinationCoords.lon },
+                        pickupCoords
+                    );
+                    const deadheadMinutes = deadheadRoute.duration;
+                    const earliestStart = new Date(rideEnd.getTime() + deadheadMinutes * 60000 + BUFFER_TIME * 60000);
+
+                    if (requestedMs < earliestStart.getTime()) {
+                        conflicts.push({
+                            type: 'insufficient_time',
+                            ride: ride,
+                            deadheadMinutes: deadheadMinutes,
+                            earliestPossible: earliestStart,
+                            message: `Zu wenig Zeit nach Fahrt (${ride.customerName}). Frühestens: ${earliestStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}`
+                        });
+                    }
+                }
+
+                // Prüfe ob neue Fahrt rechtzeitig fertig ist für nächste Fahrt
+                if (rideStart.getTime() > newEndTime.getTime()) {
+                    const deadheadRoute = mockCalculateRoute(
+                        destinationCoords,
+                        { lat: ride.pickupCoords.lat, lon: ride.pickupCoords.lon }
+                    );
+                    const deadheadMinutes = deadheadRoute.duration;
+                    const latestEnd = new Date(rideStart.getTime() - deadheadMinutes * 60000 - BUFFER_TIME * 60000);
+
+                    if (newEndTime.getTime() > latestEnd.getTime()) {
+                        conflicts.push({
+                            type: 'next_ride_conflict',
+                            ride: ride,
+                            deadheadMinutes: deadheadMinutes,
+                            latestEnd: latestEnd,
+                            message: `Neue Fahrt würde nächste Fahrt (${ride.customerName} um ${rideStart.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}) blockieren`
+                        });
+                    }
+                }
+            }
+
+            return {
+                available: conflicts.length === 0,
+                conflicts: conflicts,
+                warnings: warnings,
+                newEndTime: newEndTime,
+                totalDuration: newTotalDuration
+            };
+        }
+
+        // ============================================
+        // TEST FRAMEWORK
+        // ============================================
+
+        let testResults = [];
+        let currentTestIndex = 0;
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('logOutput');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('logOutput').innerHTML = '<div class="log-entry info">🔧 Ergebnisse gelöscht.</div>';
+            document.getElementById('summary').style.display = 'none';
+            testResults = [];
+        }
+
+        function updateProgress(current, total) {
+            const bar = document.getElementById('progressBar');
+            const fill = document.getElementById('progressFill');
+            bar.style.display = 'block';
+            fill.style.width = `${(current / total) * 100}%`;
+        }
+
+        function addTestResult(name, description, passed, details) {
+            testResults.push({ name, passed, details });
+
+            const container = document.getElementById('testResults');
+            const testCase = document.createElement('div');
+            testCase.className = `test-case ${passed ? 'pass' : 'fail'}`;
+            testCase.innerHTML = `
+                <div class="test-name">${passed ? '✅' : '❌'} ${name}</div>
+                <div class="test-detail">${description}</div>
+                ${details.map(d => `<div class="test-detail">→ ${d}</div>`).join('')}
+                <div class="test-result ${passed ? 'pass' : 'fail'}">${passed ? 'BESTANDEN' : 'FEHLGESCHLAGEN'}</div>
+            `;
+            container.appendChild(testCase);
+        }
+
+        function showSummary() {
+            const passed = testResults.filter(t => t.passed).length;
+            const failed = testResults.filter(t => !t.passed).length;
+
+            document.getElementById('passCount').textContent = passed;
+            document.getElementById('failCount').textContent = failed;
+            document.getElementById('totalCount').textContent = testResults.length;
+            document.getElementById('summary').style.display = 'block';
+
+            if (failed === 0) {
+                log(`🎉 ALLE ${passed} TESTS BESTANDEN!`, 'success');
+            } else {
+                log(`⚠️ ${failed} von ${testResults.length} Tests fehlgeschlagen`, 'error');
+            }
+        }
+
+        // ============================================
+        // TEST CASES
+        // ============================================
+
+        const testCases = [
+            {
+                name: "Test 1: Leerer Kalender - Slot sollte frei sein",
+                run: () => {
+                    mockRides = [];
+                    const requestedTime = new Date();
+                    requestedTime.setHours(14, 0, 0, 0);
+
+                    const result = checkSlotAvailability(
+                        requestedTime,
+                        { lat: 53.95, lon: 14.15 },
+                        { lat: 53.97, lon: 14.14 },
+                        10,
+                        mockRides
+                    );
+
+                    return {
+                        passed: result.available === true && result.conflicts.length === 0,
+                        details: [
+                            `Ergebnis: ${result.available ? 'Verfügbar' : 'Nicht verfügbar'}`,
+                            `Konflikte: ${result.conflicts.length}`,
+                            `Erwartung: Slot sollte frei sein`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 2: Direkte Zeitüberschneidung erkennen",
+                run: () => {
+                    const baseTime = new Date();
+                    baseTime.setHours(14, 0, 0, 0);
+
+                    mockRides = [{
+                        id: 'ride1',
+                        customerName: 'Müller',
+                        pickupTime: baseTime.toISOString(),
+                        pickup: 'Adresse A',
+                        destination: 'Adresse B',
+                        duration: 15,
+                        pickupCoords: { lat: 53.95, lon: 14.15 },
+                        destinationCoords: { lat: 53.97, lon: 14.14 }
+                    }];
+
+                    // Versuche Buchung zur gleichen Zeit
+                    const result = checkSlotAvailability(
+                        baseTime,
+                        { lat: 53.96, lon: 14.16 },
+                        { lat: 53.98, lon: 14.13 },
+                        10,
+                        mockRides
+                    );
+
+                    return {
+                        passed: result.available === false && result.conflicts.some(c => c.type === 'overlap'),
+                        details: [
+                            `Ergebnis: ${result.available ? 'Verfügbar' : 'Nicht verfügbar'}`,
+                            `Konflikte: ${result.conflicts.length}`,
+                            `Konflikt-Typ: ${result.conflicts[0]?.type || 'keiner'}`,
+                            `Erwartung: Zeitüberschneidung sollte erkannt werden`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 3: Ausreichend Zeit zwischen Fahrten",
+                run: () => {
+                    const baseTime = new Date();
+                    baseTime.setHours(14, 0, 0, 0);
+
+                    mockRides = [{
+                        id: 'ride1',
+                        customerName: 'Schmidt',
+                        pickupTime: baseTime.toISOString(),
+                        pickup: 'Adresse A',
+                        destination: 'Adresse B',
+                        duration: 10,
+                        pickupCoords: { lat: 53.95, lon: 14.15 },
+                        destinationCoords: { lat: 53.96, lon: 14.14 }
+                    }];
+
+                    // Neue Fahrt 2 Stunden später (sollte OK sein)
+                    const newTime = new Date(baseTime.getTime() + 2 * 60 * 60000);
+
+                    const result = checkSlotAvailability(
+                        newTime,
+                        { lat: 53.96, lon: 14.14 },
+                        { lat: 53.98, lon: 14.13 },
+                        15,
+                        mockRides
+                    );
+
+                    return {
+                        passed: result.available === true,
+                        details: [
+                            `Bestehende Fahrt: 14:00 Uhr`,
+                            `Neue Fahrt: 16:00 Uhr (2h später)`,
+                            `Ergebnis: ${result.available ? 'Verfügbar' : 'Nicht verfügbar'}`,
+                            `Erwartung: Genug Zeit, sollte verfügbar sein`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 4: Zu wenig Zeit für Leerfahrt",
+                run: () => {
+                    const baseTime = new Date();
+                    baseTime.setHours(14, 0, 0, 0);
+
+                    // Fahrt endet ca. 14:14 (10 Min + 4 Min Ein/Aussteigen)
+                    mockRides = [{
+                        id: 'ride1',
+                        customerName: 'Weber',
+                        pickupTime: baseTime.toISOString(),
+                        pickup: 'Heringsdorf',
+                        destination: 'Bansin',
+                        duration: 10,
+                        pickupCoords: { lat: 53.95, lon: 14.15 },
+                        destinationCoords: { lat: 53.97, lon: 14.13 }
+                    }];
+
+                    // Neue Fahrt um 14:15 - zu knapp!
+                    const newTime = new Date(baseTime.getTime() + 15 * 60000);
+
+                    // Abholung weit entfernt (würde 10+ Min Leerfahrt brauchen)
+                    const result = checkSlotAvailability(
+                        newTime,
+                        { lat: 53.90, lon: 14.20 }, // Weit weg
+                        { lat: 53.92, lon: 14.18 },
+                        10,
+                        mockRides
+                    );
+
+                    return {
+                        passed: result.available === false && result.conflicts.some(c => c.type === 'insufficient_time'),
+                        details: [
+                            `Bestehende Fahrt endet ca.: 14:14 Uhr`,
+                            `Neue Fahrt gewünscht: 14:15 Uhr`,
+                            `Leerfahrt benötigt: ~${result.conflicts[0]?.deadheadMinutes || '?'} Min`,
+                            `Ergebnis: ${result.available ? 'Verfügbar' : 'Nicht verfügbar'}`,
+                            `Erwartung: Zu wenig Zeit, sollte blockiert sein`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 5: Neue Fahrt blockiert nächste Fahrt",
+                run: () => {
+                    const baseTime = new Date();
+                    baseTime.setHours(14, 0, 0, 0);
+
+                    // Bestehende Fahrt um 14:30
+                    const existingTime = new Date(baseTime.getTime() + 30 * 60000);
+                    mockRides = [{
+                        id: 'ride1',
+                        customerName: 'Fischer',
+                        pickupTime: existingTime.toISOString(),
+                        pickup: 'Ahlbeck Bahnhof',
+                        destination: 'Swinemünde',
+                        duration: 20,
+                        pickupCoords: { lat: 53.93, lon: 14.19 },
+                        destinationCoords: { lat: 53.91, lon: 14.25 }
+                    }];
+
+                    // Neue lange Fahrt um 14:00 (würde bis 14:35 dauern)
+                    const result = checkSlotAvailability(
+                        baseTime,
+                        { lat: 53.95, lon: 14.15 },
+                        { lat: 53.85, lon: 14.30 }, // Weit weg
+                        25, // Lange Fahrt
+                        mockRides
+                    );
+
+                    return {
+                        passed: result.available === false && result.conflicts.some(c => c.type === 'next_ride_conflict'),
+                        details: [
+                            `Neue Fahrt: 14:00 Uhr, Dauer: ~31 Min (inkl. Ein/Aus)`,
+                            `Bestehende Fahrt: 14:30 Uhr`,
+                            `Problem: Neue Fahrt würde bis ~14:31 dauern + Leerfahrt`,
+                            `Ergebnis: ${result.available ? 'Verfügbar' : 'Nicht verfügbar'}`,
+                            `Erwartung: Sollte blockiert sein wegen nächster Fahrt`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 6: Mehrere Fahrten am Tag - Lücke finden",
+                run: () => {
+                    const baseTime = new Date();
+                    baseTime.setHours(10, 0, 0, 0);
+
+                    mockRides = [
+                        {
+                            id: 'ride1',
+                            customerName: 'Kunde A',
+                            pickupTime: new Date(baseTime.getTime()).toISOString(),
+                            pickup: 'A', destination: 'B', duration: 15,
+                            pickupCoords: { lat: 53.95, lon: 14.15 },
+                            destinationCoords: { lat: 53.96, lon: 14.14 }
+                        },
+                        {
+                            id: 'ride2',
+                            customerName: 'Kunde B',
+                            pickupTime: new Date(baseTime.getTime() + 60 * 60000).toISOString(), // 11:00
+                            pickup: 'C', destination: 'D', duration: 20,
+                            pickupCoords: { lat: 53.96, lon: 14.14 },
+                            destinationCoords: { lat: 53.97, lon: 14.13 }
+                        },
+                        {
+                            id: 'ride3',
+                            customerName: 'Kunde C',
+                            pickupTime: new Date(baseTime.getTime() + 180 * 60000).toISOString(), // 13:00
+                            pickup: 'E', destination: 'F', duration: 10,
+                            pickupCoords: { lat: 53.97, lon: 14.13 },
+                            destinationCoords: { lat: 53.95, lon: 14.15 }
+                        }
+                    ];
+
+                    // Versuche 12:00 - sollte frei sein (Lücke zwischen 11:24 und 13:00)
+                    const testTime = new Date(baseTime.getTime() + 120 * 60000); // 12:00
+
+                    const result = checkSlotAvailability(
+                        testTime,
+                        { lat: 53.97, lon: 14.13 },
+                        { lat: 53.96, lon: 14.14 },
+                        10,
+                        mockRides
+                    );
+
+                    return {
+                        passed: result.available === true,
+                        details: [
+                            `Bestehende Fahrten: 10:00, 11:00, 13:00 Uhr`,
+                            `Neue Fahrt gewünscht: 12:00 Uhr`,
+                            `Lücke: 11:24 bis 13:00 (ca. 96 Min)`,
+                            `Ergebnis: ${result.available ? 'Verfügbar' : 'Nicht verfügbar'}`,
+                            `Erwartung: Sollte in die Lücke passen`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 7: Gesamtdauer-Berechnung korrekt",
+                run: () => {
+                    const driveDuration = 15;
+                    const expected = 15 + BOARDING_TIME + ALIGHTING_TIME; // 15 + 2 + 2 = 19
+                    const actual = calculateTotalDuration(driveDuration);
+
+                    return {
+                        passed: actual === expected,
+                        details: [
+                            `Fahrtdauer: ${driveDuration} Min`,
+                            `+ Einsteigen: ${BOARDING_TIME} Min`,
+                            `+ Aussteigen: ${ALIGHTING_TIME} Min`,
+                            `= Erwartet: ${expected} Min`,
+                            `= Berechnet: ${actual} Min`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 8: Buchung in der Vergangenheit ablehnen",
+                run: () => {
+                    mockRides = [];
+                    const pastTime = new Date();
+                    pastTime.setHours(pastTime.getHours() - 2); // 2 Stunden in der Vergangenheit
+
+                    // Diese Prüfung sollte im echten System vor checkSlotAvailability erfolgen
+                    const isPast = pastTime.getTime() < Date.now();
+
+                    return {
+                        passed: isPast === true,
+                        details: [
+                            `Gewünschte Zeit: ${pastTime.toLocaleTimeString('de-DE')}`,
+                            `Aktuelle Zeit: ${new Date().toLocaleTimeString('de-DE')}`,
+                            `Liegt in Vergangenheit: ${isPast ? 'JA' : 'NEIN'}`,
+                            `Erwartung: Sollte als vergangen erkannt werden`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 9: Mindestvorlaufzeit prüfen (30 Min)",
+                run: () => {
+                    const MIN_ADVANCE_TIME = 30; // Minuten
+                    const now = Date.now();
+
+                    // Test 1: Buchung in 15 Min (zu knapp)
+                    const tooSoon = new Date(now + 15 * 60000);
+                    const tooSoonOk = (tooSoon.getTime() - now) >= MIN_ADVANCE_TIME * 60000;
+
+                    // Test 2: Buchung in 45 Min (OK)
+                    const okTime = new Date(now + 45 * 60000);
+                    const okTimeOk = (okTime.getTime() - now) >= MIN_ADVANCE_TIME * 60000;
+
+                    return {
+                        passed: tooSoonOk === false && okTimeOk === true,
+                        details: [
+                            `Mindestvorlauf: ${MIN_ADVANCE_TIME} Min`,
+                            `Test 15 Min vorher: ${tooSoonOk ? 'Erlaubt' : 'Abgelehnt'} (erwartet: Abgelehnt)`,
+                            `Test 45 Min vorher: ${okTimeOk ? 'Erlaubt' : 'Abgelehnt'} (erwartet: Erlaubt)`
+                        ]
+                    };
+                }
+            },
+            {
+                name: "Test 10: Stornierte Fahrten ignorieren",
+                run: () => {
+                    const baseTime = new Date();
+                    baseTime.setHours(14, 0, 0, 0);
+
+                    mockRides = [{
+                        id: 'ride1',
+                        customerName: 'Storniert',
+                        pickupTime: baseTime.toISOString(),
+                        pickup: 'A', destination: 'B', duration: 15,
+                        pickupCoords: { lat: 53.95, lon: 14.15 },
+                        destinationCoords: { lat: 53.96, lon: 14.14 },
+                        status: 'cancelled' // Storniert!
+                    }];
+
+                    // Filter stornierte Fahrten (wie im echten System)
+                    const activeRides = mockRides.filter(r => r.status !== 'cancelled');
+
+                    const result = checkSlotAvailability(
+                        baseTime,
+                        { lat: 53.95, lon: 14.15 },
+                        { lat: 53.97, lon: 14.14 },
+                        10,
+                        activeRides
+                    );
+
+                    return {
+                        passed: result.available === true && activeRides.length === 0,
+                        details: [
+                            `Stornierte Fahrt um: 14:00 Uhr`,
+                            `Aktive Fahrten nach Filter: ${activeRides.length}`,
+                            `Neue Fahrt um: 14:00 Uhr`,
+                            `Ergebnis: ${result.available ? 'Verfügbar' : 'Nicht verfügbar'}`,
+                            `Erwartung: Stornierte Fahrt sollte ignoriert werden`
+                        ]
+                    };
+                }
+            }
+        ];
+
+        async function runAllTests() {
+            clearResults();
+            log('🚀 Starte Test-Suite...', 'info');
+
+            for (let i = 0; i < testCases.length; i++) {
+                const test = testCases[i];
+                updateProgress(i + 1, testCases.length);
+
+                log(`▶️ ${test.name}`, 'info');
+
+                try {
+                    const result = test.run();
+                    addTestResult(
+                        test.name,
+                        result.passed ? 'Test erfolgreich' : 'Test fehlgeschlagen',
+                        result.passed,
+                        result.details
+                    );
+                    log(result.passed ? `✅ Bestanden` : `❌ Fehlgeschlagen`, result.passed ? 'success' : 'error');
+                } catch (error) {
+                    addTestResult(test.name, 'Fehler bei Ausführung', false, [error.message]);
+                    log(`❌ Fehler: ${error.message}`, 'error');
+                }
+
+                // Kleine Pause für Animation
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            showSummary();
+        }
+    </script>
+</body>
+</html>

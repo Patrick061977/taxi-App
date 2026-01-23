@@ -7154,7 +7154,7 @@
                                 
                                 <div style="color:#10b981;font-weight:700;grid-column:1/-1;margin-top:8px;margin-bottom:4px;">👤 KUNDE:</div>
                                 <strong>{customer}</strong><span style="color:#6b7280;">→ Kundenname</span>
-                                <strong>{passengers}</strong><span style="color:#6b7280;">→ Anzahl Personen</span>
+                                <strong>{passengers}</strong><span style="color:#6b7280;">→ "1 Person" oder "3 Personen"</span>
                                 <strong>{luggage}</strong><span style="color:#6b7280;">→ Gepäck</span>
                                 <strong>{notes}</strong><span style="color:#6b7280;">→ Notizen zur Fahrt</span>
                                 
@@ -22852,7 +22852,9 @@ Aktuell: ${currentNum}`;
             
             // 🆕 v5.90.722: ALLE Platzhalter für SMS!
             const customerName = ride.customerName || ride.guestName || '';
-            const passengersCount = ride.passengers || '1';
+            // 🆕 v5.90.747: Grammatik für Singular/Plural!
+            const passengersNum = parseInt(ride.passengers) || 1;
+            const passengersCount = passengersNum === 1 ? '1 Person' : passengersNum + ' Personen';
             const dayName = pickupTime.toLocaleDateString('de-DE', { weekday: 'long' });
             const dateShort = pickupTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
             const distanceStr = ride.distance ? ride.distance + ' km' : '';
@@ -22900,11 +22902,26 @@ Aktuell: ${currentNum}`;
                 .replace(/{notes}/g, notesStr)
                 .replace(/{luggage}/g, luggageStr)
                 .replace(/{driver}/g, driverStr)
+                .replace(/{driver_phone}/g, ride.driverPhone || '')
                 .replace(/{vehicle}/g, vehicleStr)
                 .replace(/{taxi_number}/g, taxiNumStr)
+                .replace(/{license_plate}/g, ride.licensePlate || '')
+                .replace(/{car_color}/g, ride.carColor || '')
                 .replace(/{hotel}/g, hotelStr)
                 .replace(/{guest}/g, guestStr)
-                .replace(/{booking_id}/g, bookingIdStr);
+                .replace(/{booking_id}/g, bookingIdStr)
+                // 🆕 v5.90.747: Zusätzliche Preis-Platzhalter
+                .replace(/{base_price}/g, ride.basePrice ? ride.basePrice + '€' : priceStr)
+                .replace(/{discount}/g, ride.discount || '')
+                .replace(/{total}/g, ride.total ? ride.total + '€' : priceStr)
+                // Kontakt-Platzhalter (statisch)
+                .replace(/{website}/g, 'www.funktaxi-usedom.de')
+                .replace(/{email}/g, 'info@funktaxi-usedom.de')
+                // Link-Platzhalter (wenn vorhanden)
+                .replace(/{payment_link}/g, ride.paymentLink || '')
+                .replace(/{receipt_link}/g, ride.receiptLink || '')
+                .replace(/{rating_link}/g, ride.ratingLink || '')
+                .replace(/{current_location}/g, ride.currentLocation || '');
             
             console.log('📱 Sende BUCHUNGS-SMS an:', formattedPhone);
             
@@ -22987,10 +23004,21 @@ Aktuell: ${currentNum}`;
             }
 
             // 🆕 v5.90.722: ALLE Platzhalter für Tracking-SMS!
+            // 🆕 v5.90.747: Erweitert mit mehr Platzhaltern!
             const driverStr = ride.driverName || '';
             const vehicleStr = ride.vehicle || ride.assignedVehicleName || '';
             const taxiNumStr = ride.vehicleId || ride.assignedVehicle || '';
             const customerName = ride.customerName || ride.guestName || '';
+
+            // 🆕 v5.90.747: Passagiere mit Grammatik
+            const passengersNum = parseInt(ride.passengers) || 1;
+            const passengersCount = passengersNum === 1 ? '1 Person' : passengersNum + ' Personen';
+
+            // Zeit-Platzhalter
+            const pickupTime = new Date(ride.pickupTimestamp || ride.pickupTime || Date.now());
+            const etaStr = ride.duration ? new Date(pickupTime.getTime() + (ride.duration * 60000)).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+            const fromShort = (ride.pickup || '').split(',')[0].substring(0, 25);
+            const toShort = (ride.destination || '').split(',')[0].substring(0, 25);
 
             // Ersetze Platzhalter
             const smsText = smsTemplate
@@ -23000,6 +23028,11 @@ Aktuell: ${currentNum}`;
                 .replace(/{vehicle}/g, vehicleStr)
                 .replace(/{taxi_number}/g, taxiNumStr)
                 .replace(/{customer}/g, customerName)
+                .replace(/{passengers}/g, passengersCount)
+                .replace(/{eta}/g, etaStr)
+                .replace(/{from}/g, fromShort)
+                .replace(/{to}/g, toShort)
+                .replace(/{current_location}/g, ride.currentLocation || '')
                 .replace(/{support_phone}/g, '038378/22022');
             
             console.log('📱 Sende TRACKING-SMS an:', formattedPhone);

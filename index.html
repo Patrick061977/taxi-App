@@ -2495,54 +2495,162 @@
             </div>
             
             <!-- 📅 VORBESTELLEN-BEREICH: Datum & Zeit direkt wählen -->
+            <!-- 🆕 v5.90.742: DREHRAD-PICKER für einfachere Vorbestellung! -->
             <div id="vorbestellen-bereich" style="display:none;">
                 <div class="input-group">
-                    <label>📅 Abholzeit wählen</label>
-                    
-                    <!-- 🆕 v5.90.123: ZIFFERNBLOCK MIT SLOT-CHECK! -->
+                    <label style="font-size:15px;font-weight:700;margin-bottom:12px;display:block;">📅 Wann sollen wir Sie abholen?</label>
+
+                    <!-- 🆕 v5.90.742: DREHRAD/WHEEL PICKER! -->
                     <div id="custom-datetime-container" style="margin-top:0;">
-                        <input type="date" id="custom-date" onchange="triggerSlotCheck();" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
-                        <script>
-                            // 🔧 v5.90.676: Setze heutiges Datum als Default!
-                            (function() {
-                                const dateInput = document.getElementById('custom-date');
-                                if (dateInput && !dateInput.value) {
-                                    const today = new Date();
-                                    const yyyy = today.getFullYear();
-                                    const mm = String(today.getMonth() + 1).padStart(2, '0');
-                                    const dd = String(today.getDate()).padStart(2, '0');
-                                    dateInput.value = `${yyyy}-${mm}-${dd}`;
-                                    console.log('📅 v5.90.676: Default-Datum gesetzt:', dateInput.value);
-                                }
-                            })();
-                        </script>
-                        
-                        <!-- Zeit mit Ziffernblock -->
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <button id="time-display-btn" onclick="openTimeKeypadForBooking()" style="flex:1;padding:15px 12px;border:2px solid #667eea;background:white;border-radius:8px;font-size:18px;font-weight:600;color:#667eea;cursor:pointer;text-align:center;font-family:'Courier New',monospace;">
-                                --:--
-                            </button>
-                            <button onclick="openTimeKeypadForBooking()" style="padding:12px 16px;border:2px solid #667eea;background:#667eea;color:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Zeit eingeben">
-                                ⌨️
-                            </button>
-                            <!-- Hidden inputs für Kompatibilität - 🔧 v5.90.676: KEINE 09:00 Defaults mehr! -->
-                            <input type="hidden" id="custom-hour" value="">
-                            <input type="hidden" id="custom-minute" value="">
+
+                        <!-- DREHRAD CONTAINER -->
+                        <div id="datetime-wheel-picker" style="
+                            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #f8fafc 100%);
+                            border: 2px solid #e2e8f0;
+                            border-radius: 16px;
+                            padding: 20px 15px;
+                            box-shadow: inset 0 2px 8px rgba(0,0,0,0.06);
+                            position: relative;
+                            overflow: hidden;
+                        ">
+                            <!-- Auswahl-Highlight (Mitte) -->
+                            <div style="
+                                position: absolute;
+                                top: 50%;
+                                left: 10px;
+                                right: 10px;
+                                height: 48px;
+                                transform: translateY(-50%);
+                                background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+                                border: 2px solid #667eea;
+                                border-radius: 12px;
+                                pointer-events: none;
+                                z-index: 1;
+                            "></div>
+
+                            <!-- Drei Spalten: Tag | Stunde | Minute -->
+                            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;position:relative;z-index:2;">
+
+                                <!-- TAG-DREHRAD -->
+                                <div style="position:relative;">
+                                    <div id="day-wheel" style="
+                                        height: 150px;
+                                        overflow-y: scroll;
+                                        scroll-snap-type: y mandatory;
+                                        -webkit-overflow-scrolling: touch;
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                    " onscroll="onWheelScroll('day')">
+                                        <div style="height:51px;"></div>
+                                        <!-- Tage werden dynamisch gefüllt -->
+                                        <div style="height:51px;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- STUNDEN-DREHRAD -->
+                                <div style="position:relative;">
+                                    <div id="hour-wheel" style="
+                                        height: 150px;
+                                        overflow-y: scroll;
+                                        scroll-snap-type: y mandatory;
+                                        -webkit-overflow-scrolling: touch;
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                        text-align: center;
+                                    " onscroll="onWheelScroll('hour')">
+                                        <div style="height:51px;"></div>
+                                        <!-- Stunden werden dynamisch gefüllt -->
+                                        <div style="height:51px;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- MINUTEN-DREHRAD -->
+                                <div style="position:relative;">
+                                    <div id="minute-wheel" style="
+                                        height: 150px;
+                                        overflow-y: scroll;
+                                        scroll-snap-type: y mandatory;
+                                        -webkit-overflow-scrolling: touch;
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                        text-align: center;
+                                    " onscroll="onWheelScroll('minute')">
+                                        <div style="height:51px;"></div>
+                                        <!-- Minuten werden dynamisch gefüllt -->
+                                        <div style="height:51px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Farbverlauf oben/unten für 3D-Effekt -->
+                            <div style="position:absolute;top:0;left:0;right:0;height:50px;background:linear-gradient(180deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:14px 14px 0 0;"></div>
+                            <div style="position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(0deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:0 0 14px 14px;"></div>
                         </div>
-                        
+
+                        <!-- Ausgewählte Zeit Anzeige -->
+                        <div id="selected-datetime-display" style="
+                            margin-top: 12px;
+                            padding: 14px 16px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            border-radius: 12px;
+                            color: white;
+                            font-weight: 700;
+                            font-size: 16px;
+                            text-align: center;
+                            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+                        ">
+                            📅 Heute um --:-- Uhr
+                        </div>
+
+                        <!-- Hidden inputs für Kompatibilität -->
+                        <input type="hidden" id="custom-date" value="">
+                        <input type="hidden" id="custom-hour" value="">
+                        <input type="hidden" id="custom-minute" value="">
+                        <!-- Versteckter Button für Kompatibilität -->
+                        <button id="time-display-btn" style="display:none;">--:--</button>
+
+                        <!-- CSS für Scrollbar-Verstecken -->
+                        <style>
+                            #day-wheel::-webkit-scrollbar,
+                            #hour-wheel::-webkit-scrollbar,
+                            #minute-wheel::-webkit-scrollbar {
+                                display: none;
+                            }
+                            .wheel-item {
+                                height: 48px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 16px;
+                                font-weight: 600;
+                                color: #64748b;
+                                scroll-snap-align: center;
+                                transition: all 0.15s ease;
+                                cursor: pointer;
+                            }
+                            .wheel-item.selected {
+                                color: #1e293b;
+                                font-size: 18px;
+                                font-weight: 700;
+                            }
+                            .wheel-item:hover {
+                                color: #667eea;
+                            }
+                        </style>
+
                         <!-- Slot-Status Anzeige -->
-                        <div id="slot-status-display" style="display:none;margin-top:10px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
+                        <div id="slot-status-display" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
                             <!-- Wird dynamisch gefüllt -->
                         </div>
                     </div>
-                    
+
                     <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
                     <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
                         <!-- Wird dynamisch gefüllt -->
                     </div>
-                    
-                    <div id="datetime-help" style="margin-top:8px;padding:10px;background:#dbeafe;border-radius:6px;font-size:13px;color:#1e40af;">
-                        💡 <strong>Tipp:</strong> Ideal für Flughafentransfers oder Hotel-Buchungen im Voraus!
+
+                    <div id="datetime-help" style="margin-top:10px;padding:10px;background:#dbeafe;border-radius:8px;font-size:13px;color:#1e40af;">
+                        💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
                 </div>
             </div>
@@ -10020,6 +10128,7 @@
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
         // 🔧 v5.90.123: Angepasst für Ziffernblock mit Slot-Check
         // 🔧 v5.90.676: FIX - Zeit ZUERST setzen, DANN Datum (verhindert 09:00 Auto-Trigger Bug!)
+        // 🆕 v5.90.742: Komplett umgestellt auf Wheel-Picker!
         function initVorbestellenDefaults() {
             const datetimeContainer = document.getElementById('custom-datetime-container');
             const helpText = document.getElementById('datetime-help');
@@ -10028,43 +10137,16 @@
             datetimeContainer.style.display = 'block';
             if (helpText) helpText.style.display = 'block';
 
-            // 🆕 v5.90.117: Default = +1 Stunde (nur Vorschlag, keine Regel!)
-            const defaultTime = new Date();
-            defaultTime.setHours(defaultTime.getHours() + 1);
+            // 🆕 v5.90.742: Initialisiere Wheel-Picker!
+            initWheelPicker();
 
-            // Runde auf 5 Minuten
-            const roundedMinutes = Math.ceil(defaultTime.getMinutes() / 5) * 5;
-            defaultTime.setMinutes(roundedMinutes % 60);
-            if (roundedMinutes >= 60) defaultTime.setHours(defaultTime.getHours() + 1);
+            // Nach kurzer Verzögerung die Display-Anzeige aktualisieren und ersten Slot-Check auslösen
+            setTimeout(() => {
+                updateSelectedDateTimeDisplay();
+                triggerSlotCheck();
+            }, 300);
 
-            // 🔧 v5.90.676: FIX - ERST Zeit setzen (BEVOR Datum gesetzt wird!)
-            // Grund: Das Setzen von dateInput.value kann onchange triggern,
-            // welches triggerSlotCheck() aufruft und time-display-btn.textContent liest.
-            // Wenn Zeit noch "09:00" (HTML-Default) ist, wird falscher Check ausgeführt!
-            const timeBtn = document.getElementById('time-display-btn');
-            const hourInput = document.getElementById('custom-hour');
-            const minuteInput = document.getElementById('custom-minute');
-
-            const timeStr = `${String(defaultTime.getHours()).padStart(2, '0')}:${String(defaultTime.getMinutes()).padStart(2, '0')}`;
-            if (timeBtn) timeBtn.textContent = timeStr;
-            hourInput.value = String(defaultTime.getHours()).padStart(2, '0');
-            minuteInput.value = String(defaultTime.getMinutes()).padStart(2, '0');
-
-            console.log('⏰ v5.90.676: Zeit gesetzt BEVOR Datum:', timeStr);
-
-            // 🔧 v5.90.676: JETZT erst Datum setzen (nach Zeit!)
-            const dateInput = document.getElementById('custom-date');
-            const year = defaultTime.getFullYear();
-            const month = String(defaultTime.getMonth() + 1).padStart(2, '0');
-            const day = String(defaultTime.getDate()).padStart(2, '0');
-            dateInput.value = `${year}-${month}-${day}`;
-
-            // Min-Datum = Heute
-            const today = new Date();
-            const minDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            dateInput.min = minDateStr;
-
-            console.log('⏰ Vorbestellen initialisiert:', timeStr);
+            console.log('🎡 v5.90.742: Vorbestellen mit Wheel-Picker initialisiert');
         }
         
         // 🆕 v5.90.19: VALIDIERE MINIMUM 1 STUNDE
@@ -26404,6 +26486,208 @@ Aktuell: ${currentNum}`;
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
+        }
+
+        // 🆕 v5.90.742: DREHRAD/WHEEL PICKER FÜR VORBESTELLUNG!
+        // Globale Variablen für Wheel-Picker
+        let wheelPickerDays = [];
+        let wheelPickerInitialized = false;
+        let wheelScrollTimeout = null;
+
+        // Initialisiere Wheel-Picker beim Öffnen des Vorbestellen-Bereichs
+        function initWheelPicker() {
+            if (wheelPickerInitialized) {
+                console.log('🎡 Wheel-Picker bereits initialisiert');
+                return;
+            }
+
+            console.log('🎡 v5.90.742: Initialisiere Wheel-Picker...');
+
+            const dayWheel = document.getElementById('day-wheel');
+            const hourWheel = document.getElementById('hour-wheel');
+            const minuteWheel = document.getElementById('minute-wheel');
+
+            if (!dayWheel || !hourWheel || !minuteWheel) {
+                console.log('⚠️ Wheel-Picker Elemente nicht gefunden');
+                return;
+            }
+
+            // TAGE generieren (Heute + nächste 30 Tage)
+            wheelPickerDays = [];
+            const today = new Date();
+            const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+            for (let i = 0; i < 31; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+
+                const yyyy = date.getFullYear();
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const dd = String(date.getDate()).padStart(2, '0');
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+
+                let displayName;
+                if (i === 0) {
+                    displayName = '📅 Heute';
+                } else if (i === 1) {
+                    displayName = '📅 Morgen';
+                } else {
+                    const dayName = dayNames[date.getDay()];
+                    displayName = `${dayName}, ${dd}.${mm}.`;
+                }
+
+                wheelPickerDays.push({
+                    value: dateStr,
+                    display: displayName
+                });
+            }
+
+            // Tage einfügen
+            const dayItemsHTML = wheelPickerDays.map((day, idx) =>
+                `<div class="wheel-item" data-value="${day.value}" data-index="${idx}" onclick="scrollWheelToIndex('day', ${idx})">${day.display}</div>`
+            ).join('');
+            dayWheel.innerHTML = `<div style="height:51px;"></div>${dayItemsHTML}<div style="height:51px;"></div>`;
+
+            // STUNDEN generieren (00-23)
+            let hourItemsHTML = '';
+            for (let h = 0; h < 24; h++) {
+                const hourStr = String(h).padStart(2, '0');
+                hourItemsHTML += `<div class="wheel-item" data-value="${hourStr}" data-index="${h}" onclick="scrollWheelToIndex('hour', ${h})">${hourStr}</div>`;
+            }
+            hourWheel.innerHTML = `<div style="height:51px;"></div>${hourItemsHTML}<div style="height:51px;"></div>`;
+
+            // MINUTEN generieren (00, 05, 10, ... 55)
+            let minuteItemsHTML = '';
+            const minuteValues = [];
+            for (let m = 0; m < 60; m += 5) {
+                const minStr = String(m).padStart(2, '0');
+                minuteValues.push(minStr);
+                minuteItemsHTML += `<div class="wheel-item" data-value="${minStr}" data-index="${minuteValues.length - 1}" onclick="scrollWheelToIndex('minute', ${minuteValues.length - 1})">${minStr}</div>`;
+            }
+            minuteWheel.innerHTML = `<div style="height:51px;"></div>${minuteItemsHTML}<div style="height:51px;"></div>`;
+
+            // Speichere Minuten-Werte global
+            window.wheelMinuteValues = minuteValues;
+
+            // Setze initiale Position (Heute, aktuelle Stunde gerundet auf nächste 5 Min + 30 Min)
+            const now = new Date();
+            let initialHour = now.getHours();
+            let initialMinute = Math.ceil(now.getMinutes() / 5) * 5 + 30; // +30 Min Vorlauf
+
+            // Überlauf behandeln
+            if (initialMinute >= 60) {
+                initialMinute -= 60;
+                initialHour++;
+            }
+            if (initialHour >= 24) {
+                initialHour -= 24;
+                // Wenn Überlauf auf nächsten Tag, dann Morgen auswählen
+                setTimeout(() => scrollWheelToIndex('day', 1), 100);
+            } else {
+                setTimeout(() => scrollWheelToIndex('day', 0), 100); // Heute
+            }
+
+            const minuteIndex = minuteValues.indexOf(String(initialMinute).padStart(2, '0'));
+
+            setTimeout(() => {
+                scrollWheelToIndex('hour', initialHour);
+                scrollWheelToIndex('minute', minuteIndex >= 0 ? minuteIndex : 6); // Default: 30 Min
+            }, 150);
+
+            wheelPickerInitialized = true;
+            console.log('✅ Wheel-Picker initialisiert!');
+        }
+
+        // Scrolle Wheel zu bestimmtem Index
+        function scrollWheelToIndex(wheelType, index) {
+            const wheel = document.getElementById(`${wheelType}-wheel`);
+            if (!wheel) return;
+
+            const itemHeight = 48;
+            const scrollTop = index * itemHeight;
+
+            wheel.scrollTo({
+                top: scrollTop,
+                behavior: 'smooth'
+            });
+        }
+
+        // Scroll-Handler für Wheels
+        function onWheelScroll(wheelType) {
+            // Debounce
+            clearTimeout(wheelScrollTimeout);
+            wheelScrollTimeout = setTimeout(() => {
+                updateWheelSelection(wheelType);
+                updateSelectedDateTimeDisplay();
+                triggerSlotCheck();
+            }, 100);
+        }
+
+        // Aktualisiere Auswahl basierend auf Scroll-Position
+        function updateWheelSelection(wheelType) {
+            const wheel = document.getElementById(`${wheelType}-wheel`);
+            if (!wheel) return;
+
+            const itemHeight = 48;
+            const scrollTop = wheel.scrollTop;
+            const selectedIndex = Math.round(scrollTop / itemHeight);
+
+            // Finde das ausgewählte Item
+            const items = wheel.querySelectorAll('.wheel-item');
+            items.forEach((item, idx) => {
+                if (idx === selectedIndex) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+
+            // Snap zur nächsten Position
+            const snappedScrollTop = selectedIndex * itemHeight;
+            if (Math.abs(scrollTop - snappedScrollTop) > 2) {
+                wheel.scrollTo({
+                    top: snappedScrollTop,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // Aktualisiere die Anzeige und Hidden-Inputs
+        function updateSelectedDateTimeDisplay() {
+            const dayWheel = document.getElementById('day-wheel');
+            const hourWheel = document.getElementById('hour-wheel');
+            const minuteWheel = document.getElementById('minute-wheel');
+            const display = document.getElementById('selected-datetime-display');
+            const dateInput = document.getElementById('custom-date');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
+            const timeDisplayBtn = document.getElementById('time-display-btn');
+
+            if (!dayWheel || !hourWheel || !minuteWheel) return;
+
+            const itemHeight = 48;
+
+            // Hole ausgewählte Werte
+            const dayIndex = Math.round(dayWheel.scrollTop / itemHeight);
+            const hourIndex = Math.round(hourWheel.scrollTop / itemHeight);
+            const minuteIndex = Math.round(minuteWheel.scrollTop / itemHeight);
+
+            const selectedDay = wheelPickerDays[dayIndex] || wheelPickerDays[0];
+            const selectedHour = String(hourIndex).padStart(2, '0');
+            const selectedMinute = window.wheelMinuteValues ? (window.wheelMinuteValues[minuteIndex] || '00') : '00';
+
+            // Update Hidden Inputs
+            if (dateInput) dateInput.value = selectedDay.value;
+            if (hourInput) hourInput.value = selectedHour;
+            if (minuteInput) minuteInput.value = selectedMinute;
+            if (timeDisplayBtn) timeDisplayBtn.textContent = `${selectedHour}:${selectedMinute}`;
+
+            // Update Display
+            if (display) {
+                display.innerHTML = `📅 ${selectedDay.display} um <strong>${selectedHour}:${selectedMinute}</strong> Uhr`;
+            }
+
+            console.log('🎡 Ausgewählt:', selectedDay.display, selectedHour + ':' + selectedMinute);
         }
 
         // 🆕 v5.90.123: ZIFFERNBLOCK FÜR TAXI BUCHEN MIT SLOT-CHECK!

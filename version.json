@@ -1,8 +1,8 @@
 {
-  "version": "5.90.737",
-  "build": "20260122-1400",
-  "updated": 1737554400000,
+  "version": "5.90.740",
+  "build": "20260122-1500",
+  "updated": 1737558000000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "Automatische Preisberechnung bei Start+Ziel-Eingabe"
+  "message": "Preisanzeige nach oben verschoben und kompakter gemacht"
 }

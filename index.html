@@ -2464,7 +2464,10 @@
                 
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
-            
+
+            <!-- 🆕 v5.90.740: PREIS-ANZEIGE - direkt unter Zielort (gut sichtbar!) -->
+            <div id="price-display" style="margin-top:12px;"></div>
+
             <!-- 🆕 v5.30.0: WANN MÖCHTEN SIE FAHREN? -->
             <div class="input-group" style="margin-top:25px;">
                 <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
@@ -2631,7 +2634,7 @@
             </div>
             <!-- 🆕 v5.90.737: Button versteckt - Preis wird automatisch berechnet! -->
             <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()" style="display:none;">💰 Preis berechnen</button>
-            <div id="price-display" style="margin-top: 15px;"></div>
+            <!-- 🆕 v5.90.740: price-display wurde nach oben verschoben (unter Zielort) -->
             <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
             
             <!-- CRM Speicher-Option -->
@@ -25990,54 +25993,19 @@ Aktuell: ${currentNum}`;
             window.currentTotalDuration = durationCalc.totalDuration; // 🆕 v5.90.528: Mit Puffern!
             window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
-            // 🎨 Preis HTML erstellen
-            let priceHtml = `<div style="background:white;padding:15px;border-radius:8px;border:2px solid #10b981;">
-                <div style="font-size:32px;font-weight:bold;color:#10b981;text-align:center;">${pricing.total}€</div>
-                <div style="text-align:center;margin-top:8px;color:#666;">
-                    ${route.distance} km • ${durationCalc.totalDuration} Min Gesamt
-                </div>
-                
-                <div style="margin-top:12px;padding:10px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;">
-                    <div style="font-size:11px;color:#16a34a;font-weight:600;margin-bottom:4px;">🗺️ ROUTE</div>
-                    <div style="font-size:13px;color:#166534;line-height:1.4;">
-                        <strong>${pickup}</strong><br>`;
-            
-            // 🆕 v5.90.527: Zeige Waypoints!
-            if (validWaypoints.length > 0) {
-                validWaypoints.forEach((wp, i) => {
-                    priceHtml += `🛑 <strong>${wp.address}</strong><br>`;
-                });
-            }
-            
-            priceHtml += `→ <strong>${destination}</strong><br>
+            // 🎨 v5.90.740: KOMPAKTE Preis-Anzeige (oben, klein, übersichtlich)
+            const waypointInfo = validWaypoints.length > 0 ? ` • ${validWaypoints.length} Stopp${validWaypoints.length > 1 ? 's' : ''}` : '';
+            const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
+
+            let priceHtml = `<div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);padding:10px 14px;border-radius:8px;border:2px solid #10b981;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="font-size:22px;font-weight:800;color:#059669;">${pricing.total}€</div>
+                    <div style="font-size:12px;color:#047857;line-height:1.3;">
+                        ${route.distance} km • ${durationCalc.totalDuration} Min${waypointInfo}${zuschlagInfo ? '<br><span style="color:#92400e;">' + zuschlagInfo + '</span>' : ''}
                     </div>
                 </div>
-                
-                <div style="margin-top:10px;padding:10px;background:#fef3c7;border-radius:6px;border:1px solid #fbbf24;">
-                    <div style="font-size:11px;color:#92400e;font-weight:600;margin-bottom:4px;">⏱️ ZEITBERECHNUNG</div>
-                    <div style="font-size:12px;color:#78350f;line-height:1.6;">
-                        🚗 Fahrtdauer (OSRM): ${route.duration} Min<br>
-                        🚪 Einsteigen: +${durationCalc.boardingTime} Min<br>
-                        🏁 Aussteigen: +${durationCalc.alightingTime} Min`;
-            
-            if (validWaypoints.length > 0) {
-                priceHtml += `<br>🛑 Zwischenstopps (${validWaypoints.length}×): +${durationCalc.totalWaypointTime} Min`;
-            }
-            
-            priceHtml += `<br>
-                        <div style="margin-top:8px;padding:8px;background:white;border-radius:4px;font-weight:bold;color:#92400e;">
-                            ⏱️ GESAMT: ${durationCalc.totalDuration} Minuten
-                        </div>
-                    </div>
-                </div>`;
-            
-            if (pricing.zuschlagText.length > 0) {
-                priceHtml += `<div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:13px;text-align:center;">
-                    ${pricing.zuschlagText.join(' • ')}
-                </div>`;
-            }
-            
-            priceHtml += '</div>';
+                <div style="font-size:20px;">✓</div>
+            </div>`;
             
             // 🆕 v5.90.75: SLOT-CHECK beim Preis-Berechnen
             // Prüfe ob es eine Vorbestellung ist (nur currentRideType!)
@@ -26059,16 +26027,10 @@ Aktuell: ${currentNum}`;
                     if (!availability.available) {
                         console.log('⚠️ Slot vermutlich belegt!');
                         
-                        // Zeige DEUTLICHE Warnung unter Preis
-                        priceHtml += `<div style="margin-top:15px;padding:15px;background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                                <span style="font-size:24px;">⚠️</span>
-                                <div style="font-weight:bold;color:#d97706;font-size:16px;">Zeitslot vermutlich belegt!</div>
-                            </div>
-                            <div style="font-size:14px;color:#92400e;line-height:1.5;">
-                                Diese Zeit ist bereits gebucht.<br>
-                                Beim Buchen erhältst du automatisch alternative Zeiten vorgeschlagen.
-                            </div>
+                        // 🆕 v5.90.740: Kompakte Warnung unter Preis
+                        priceHtml += `<div style="margin-top:8px;padding:8px 12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;display:flex;align-items:center;gap:8px;">
+                            <span>⚠️</span>
+                            <span style="font-size:12px;color:#92400e;">Zeit belegt - Alternative wird beim Buchen vorgeschlagen</span>
                         </div>`;
                     } else {
                         console.log('✅ Slot verfügbar!');

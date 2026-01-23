@@ -2728,13 +2728,12 @@
                             <!-- Drei Spalten: Tag | Stunde | Minute -->
                             <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;position:relative;z-index:2;">
 
-                                <!-- TAG-DREHRAD - 🆕 v5.90.744: Größer für Mobile! -->
+                                <!-- TAG-DREHRAD - 🆕 v5.90.747: Ohne scroll-behavior für sauberes Snapping! -->
                                 <div style="position:relative;">
                                     <div id="day-wheel" style="
                                         height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
-                                        scroll-behavior: smooth;
                                         -webkit-overflow-scrolling: touch;
                                         scrollbar-width: none;
                                         -ms-overflow-style: none;
@@ -2745,13 +2744,12 @@
                                     </div>
                                 </div>
 
-                                <!-- STUNDEN-DREHRAD - 🆕 v5.90.744: Größer für Mobile! -->
+                                <!-- STUNDEN-DREHRAD - 🆕 v5.90.747: Ohne scroll-behavior für sauberes Snapping! -->
                                 <div style="position:relative;">
                                     <div id="hour-wheel" style="
                                         height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
-                                        scroll-behavior: smooth;
                                         -webkit-overflow-scrolling: touch;
                                         scrollbar-width: none;
                                         -ms-overflow-style: none;
@@ -2763,13 +2761,12 @@
                                     </div>
                                 </div>
 
-                                <!-- MINUTEN-DREHRAD - 🆕 v5.90.744: Größer für Mobile! -->
+                                <!-- MINUTEN-DREHRAD - 🆕 v5.90.747: Ohne scroll-behavior für sauberes Snapping! -->
                                 <div style="position:relative;">
                                     <div id="minute-wheel" style="
                                         height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
-                                        scroll-behavior: smooth;
                                         -webkit-overflow-scrolling: touch;
                                         scrollbar-width: none;
                                         -ms-overflow-style: none;
@@ -8466,8 +8463,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.746';
-        const APP_BUILD = '20260123-FIREBASE-SAFETY';
+        const APP_VERSION = '5.90.747';
+        const APP_BUILD = '20260123-WHEEL-PICKER-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -26860,42 +26857,65 @@ Aktuell: ${currentNum}`;
             console.log('✅ Wheel-Picker initialisiert!');
         }
 
+        // 🆕 v5.90.747: Scroll-Lock um Feedback-Loop zu verhindern
+        let wheelScrollLock = false;
+        let lastSlotCheckTime = 0;
+
         // Scrolle Wheel zu bestimmtem Index
+        // 🆕 v5.90.747: Mit Scroll-Lock um Events während Animation zu blockieren
         function scrollWheelToIndex(wheelType, index) {
             const wheel = document.getElementById(`${wheelType}-wheel`);
             if (!wheel) return;
 
-            const itemHeight = WHEEL_ITEM_HEIGHT; // 🆕 v5.90.744
+            const itemHeight = WHEEL_ITEM_HEIGHT;
             const scrollTop = index * itemHeight;
+
+            // Lock aktivieren während programmatischem Scroll
+            wheelScrollLock = true;
 
             wheel.scrollTo({
                 top: scrollTop,
                 behavior: 'smooth'
             });
+
+            // Lock nach Animation wieder freigeben (400ms sollte reichen)
+            setTimeout(() => {
+                wheelScrollLock = false;
+            }, 400);
         }
 
         // Scroll-Handler für Wheels
-        // 🆕 v5.90.746: Längerer Debounce (250ms statt 100ms) für ruhigeres Scrollen!
+        // 🆕 v5.90.747: Komplett überarbeitet - kein manuelles Snap mehr (CSS macht es)!
         function onWheelScroll(wheelType) {
-            // Debounce - 250ms für sanfteres Verhalten
+            // Wenn Lock aktiv, ignorieren
+            if (wheelScrollLock) return;
+
+            // Debounce - 300ms für stabiles Verhalten
             clearTimeout(wheelScrollTimeout);
             wheelScrollTimeout = setTimeout(() => {
                 updateWheelSelection(wheelType);
                 updateSelectedDateTimeDisplay();
-                triggerSlotCheck();
-            }, 250);
+
+                // Slot-Check mit eigenem Debounce (nur alle 500ms)
+                const now = Date.now();
+                if (now - lastSlotCheckTime > 500) {
+                    lastSlotCheckTime = now;
+                    triggerSlotCheck();
+                }
+            }, 300);
         }
 
         // Aktualisiere Auswahl basierend auf Scroll-Position
+        // 🆕 v5.90.747: KEIN manuelles scrollTo mehr - CSS scroll-snap-type macht das!
         function updateWheelSelection(wheelType) {
             const wheel = document.getElementById(`${wheelType}-wheel`);
             if (!wheel) return;
 
-            const itemHeight = WHEEL_ITEM_HEIGHT; // 🆕 v5.90.744
+            const itemHeight = WHEEL_ITEM_HEIGHT;
             const scrollTop = wheel.scrollTop;
             const selectedIndex = Math.round(scrollTop / itemHeight);
 
-            // Finde das ausgewählte Item
+            // Finde das ausgewählte Item und markiere es
             const items = wheel.querySelectorAll('.wheel-item');
             items.forEach((item, idx) => {
                 if (idx === selectedIndex) {
@@ -26905,14 +26925,8 @@ Aktuell: ${currentNum}`;
                 }
             });
 
-            // Snap zur nächsten Position
-            const snappedScrollTop = selectedIndex * itemHeight;
-            if (Math.abs(scrollTop - snappedScrollTop) > 2) {
-                wheel.scrollTo({
-                    top: snappedScrollTop,
-                    behavior: 'smooth'
-                });
-            }
+            // 🆕 v5.90.747: KEIN manuelles scrollTo mehr!
+            // CSS scroll-snap-type: y mandatory erledigt das automatisch
         }
 
         // Aktualisiere die Anzeige und Hidden-Inputs

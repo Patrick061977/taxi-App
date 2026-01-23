@@ -2734,6 +2734,7 @@
                                         height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
+                                        scroll-behavior: smooth;
                                         -webkit-overflow-scrolling: touch;
                                         scrollbar-width: none;
                                         -ms-overflow-style: none;
@@ -2750,6 +2751,7 @@
                                         height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
+                                        scroll-behavior: smooth;
                                         -webkit-overflow-scrolling: touch;
                                         scrollbar-width: none;
                                         -ms-overflow-style: none;
@@ -2767,6 +2769,7 @@
                                         height: 170px;
                                         overflow-y: scroll;
                                         scroll-snap-type: y mandatory;
+                                        scroll-behavior: smooth;
                                         -webkit-overflow-scrolling: touch;
                                         scrollbar-width: none;
                                         -ms-overflow-style: none;
@@ -26854,14 +26857,15 @@ Aktuell: ${currentNum}`;
         }
 
         // Scroll-Handler für Wheels
+        // 🆕 v5.90.746: Längerer Debounce (250ms statt 100ms) für ruhigeres Scrollen!
         function onWheelScroll(wheelType) {
-            // Debounce
+            // Debounce - 250ms für sanfteres Verhalten
             clearTimeout(wheelScrollTimeout);
             wheelScrollTimeout = setTimeout(() => {
                 updateWheelSelection(wheelType);
                 updateSelectedDateTimeDisplay();
                 triggerSlotCheck();
-            }, 100);
+            }, 250);
         }
 
         // Aktualisiere Auswahl basierend auf Scroll-Position
@@ -28134,8 +28138,10 @@ Aktuell: ${currentNum}`;
                 const rideDate = rideDateTime.toDateString();
 
                 // 🆕 v5.90.733: Berechne ENDE der Fahrt (pickupTime + duration + Ein/Aus)
+                // 🆕 v5.90.746: Zeiten aus Admin-Settings!
                 const rideDuration = ride.duration || 30; // Fallback 30 Min
-                const rideEndTime = rideTime + (rideDuration + 4) * 60000; // +4 Min für Ein/Aussteigen
+                const stopTimeForCalc = getStopTimes().stopTime; // Ein + Aussteigen aus Settings
+                const rideEndTime = rideTime + (rideDuration + stopTimeForCalc) * 60000;
                 const rideAlreadyFinished = rideEndTime < nowTime;
 
                 console.log(`   Prüfe: ${rideDateTime.toLocaleTimeString('de-DE')} | Ende: ${new Date(rideEndTime).toLocaleTimeString('de-DE')} | Bereits vorbei: ${rideAlreadyFinished ? '⏭️ JA' : '🔄 NEIN'}`);
@@ -28208,7 +28214,7 @@ Aktuell: ${currentNum}`;
                             const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                             const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
                             const rideDuration = ride.duration || 30;
-                            const rideTotalDuration = rideDuration + 4; // +2 Ein +2 Aus
+                            const rideTotalDuration = rideDuration + getStopTimes().stopTime; // 🆕 v5.90.746: Aus Settings!
                             const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
                             // Prüfe ob der vorgeschlagene Slot WÄHREND einer anderen Fahrt liegt
@@ -28267,7 +28273,7 @@ Aktuell: ${currentNum}`;
                             const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                             const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
                             const rideDuration = ride.duration || 30;
-                            const rideTotalDuration = rideDuration + 4;
+                            const rideTotalDuration = rideDuration + getStopTimes().stopTime; // 🆕 v5.90.746
                             const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
                             if (rideDate === slotDate) {
@@ -28328,9 +28334,11 @@ Aktuell: ${currentNum}`;
                     console.log('🔍 v5.90.746: PRÜFE OB NEUE FAHRT RECHTZEITIG FERTIG:');
 
                     const nextRideTime = new Date(nextRide.pickupTimestamp || nextRide.pickupTime).getTime();
-                    const BOARDING_TIME = 2;  // 2 Min Einsteigen
-                    const ALIGHTING_TIME = 2; // 2 Min Aussteigen
-                    const BUFFER_TIME = 5;    // 5 Min Puffer
+                    // 🆕 v5.90.746: Zeiten aus Admin-Settings holen!
+                    const stopTimes = getStopTimes();
+                    const BOARDING_TIME = stopTimes.boarding;
+                    const ALIGHTING_TIME = stopTimes.alighting;
+                    const BUFFER_TIME = stopTimes.buffer;
 
                     try {
                         // Geocode Adressen für neue Fahrt
@@ -28388,7 +28396,7 @@ Aktuell: ${currentNum}`;
 
                                 // NACHHER: Nach Ende der nächsten Fahrt
                                 const nextRideDuration = nextRide.duration || 30;
-                                const nextRideEndMs = nextRideTime + ((nextRideDuration + 4) * 60000);
+                                const nextRideEndMs = nextRideTime + ((nextRideDuration + stopTimes.stopTime) * 60000); // 🆕 v5.90.746
                                 const afterNextRounded = Math.ceil(nextRideEndMs / (5 * 60000)) * (5 * 60000);
 
                                 const alternativesAfter = [];
@@ -28452,10 +28460,11 @@ Aktuell: ${currentNum}`;
             // Berechne Ende der vorherigen Fahrt
             const previousStartTime = new Date(previousRide.pickupTimestamp || previousRide.pickupTime);
             const previousDuration = previousRide.duration || 30; // Fallback: 30 Min
-            
-            // 🆕 v5.90.657: EIN-/AUSSTIEGSZEIT EINBERECHNEN!
-            const BOARDING_TIME = 2;  // 2 Min Einsteigen
-            const ALIGHTING_TIME = 2; // 2 Min Aussteigen
+
+            // 🆕 v5.90.746: EIN-/AUSSTIEGSZEIT AUS ADMIN-SETTINGS!
+            const stopTimesCalc = getStopTimes();
+            const BOARDING_TIME = stopTimesCalc.boarding;
+            const ALIGHTING_TIME = stopTimesCalc.alighting;
             const totalDuration = previousDuration + BOARDING_TIME + ALIGHTING_TIME;
             
             const previousEndTime = new Date(previousStartTime.getTime() + totalDuration * 60000);
@@ -28491,12 +28500,13 @@ Aktuell: ${currentNum}`;
                     const altStr = `${testHour}:${testMin}`;
 
                     let slotFree = true;
+                    const stopTimeVal = getStopTimes().stopTime; // 🆕 v5.90.746
                     for (let i = 0; i < allRides.length; i++) {
                         const ride = allRides[i];
                         const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                         const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
                         const rideDuration = ride.duration || 30;
-                        const rideTotalDuration = rideDuration + 4;
+                        const rideTotalDuration = rideDuration + stopTimeVal;
                         const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
                         if (rideDate === slotDate) {
@@ -28603,12 +28613,13 @@ Aktuell: ${currentNum}`;
                         const altStr = `${testHour}:${testMin}`;
 
                         let slotFree = true;
+                        const stopTimeValue = getStopTimes().stopTime; // 🆕 v5.90.746
                         for (let i = 0; i < allRides.length; i++) {
                             const ride = allRides[i];
                             const rideStartTime = new Date(ride.pickupTimestamp || ride.pickupTime).getTime();
                             const rideDate = new Date(ride.pickupTimestamp || ride.pickupTime).toDateString();
                             const rideDuration = ride.duration || 30;
-                            const rideTotalDuration = rideDuration + 4;
+                            const rideTotalDuration = rideDuration + stopTimeValue;
                             const rideEndTime = rideStartTime + (rideTotalDuration * 60000);
 
                             if (rideDate === slotDate) {
@@ -30472,7 +30483,22 @@ Aktuell: ${currentNum}`;
                 breakdown: `${osrmDuration} Min Fahrt + ${boarding} Min Einsteigen + ${alighting} Min Aussteigen${waypointCount > 0 ? ` + ${totalWaypointTime} Min Waypoints (${waypointCount}×${waypointStop})` : ''} = ${total} Min`
             };
         }
-        
+
+        // 🆕 v5.90.746: HILFSFUNKTION - Hole Ein/Ausstiegszeiten aus Settings!
+        // Ersetzt die hardcodierten "2 + 2 = 4" Minuten
+        function getStopTimes() {
+            const boarding = timeslotSettings.boardingTime || 2;
+            const alighting = timeslotSettings.alightingTime || 2;
+            const buffer = timeslotSettings.bufferTime || 5;
+            return {
+                boarding: boarding,
+                alighting: alighting,
+                buffer: buffer,
+                stopTime: boarding + alighting,  // Ein + Aussteigen
+                totalBuffer: boarding + alighting + buffer  // Alles zusammen
+            };
+        }
+
         // Admin-Schalter
         function toggleAutoBooking() {
             const checkbox = document.getElementById('enable-auto-booking');

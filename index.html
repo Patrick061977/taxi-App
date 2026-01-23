@@ -9,13 +9,22 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.745
-    📅 BUILD: 23.01.2026 09:30 Uhr
+    📦 VERSION: v5.90.748
+    📅 BUILD: 23.01.2026 14:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.745
+    📋 CHANGELOG v5.90.748
     ═══════════════════════════════════════════════════════════════════════════
+
+    🎯 v5.90.748 (23.01.2026):
+       • FIX: Race-Condition bei Wheel-Picker Slot-Check behoben!
+       • NEU: "Zeit bestätigen" Button - kein automatischer Slot-Check beim Scrollen
+       • NEU: selectSuggestedTime() Funktion für korrektes Wheel-Scrolling
+       • FIX: Alternativ-Zeit-Buttons übernehmen Zeit jetzt korrekt in Wheel-Picker
+       • FIX: applyAlternativeTime() scrollt jetzt auch den Wheel-Picker
+       • FIX: selectAlternativeTime() nutzt jetzt selectSuggestedTime()
+       • Verhindert dass alter Slot-Check Ergebnisse überschreibt
 
     🔒 v5.90.745 (23.01.2026):
        • SICHERHEIT: Firebase-Fallback Bug behoben!
@@ -2856,6 +2865,24 @@
                     <div id="datetime-help" style="margin-top:10px;padding:10px;background:#dbeafe;border-radius:8px;font-size:13px;color:#1e40af;">
                         💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
+
+                    <!-- 🆕 v5.90.748: ZEIT BESTÄTIGEN BUTTON - Fix für Race-Condition! -->
+                    <button id="confirm-time-btn" onclick="triggerSlotCheck()" style="
+                        margin-top: 12px;
+                        width: 100%;
+                        padding: 16px 24px;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                        transition: all 0.2s ease;
+                    ">
+                        ✅ Zeit bestätigen & Verfügbarkeit prüfen
+                    </button>
                 </div>
             </div>
             
@@ -25897,29 +25924,30 @@ Aktuell: ${currentNum}`;
         }
         
         // 🆕 v5.41.7: Übernimmt alternative Zeit in die Felder
+        // 🔧 v5.90.748: JETZT MIT WHEEL-PICKER SCROLL!
         async function applyAlternativeTime(timestamp) {
             const date = new Date(timestamp);
-            
+
             // Setze Datum
-            const dateStr = date.getFullYear() + '-' + 
-                           String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+            const dateStr = date.getFullYear() + '-' +
+                           String(date.getMonth() + 1).padStart(2, '0') + '-' +
                            String(date.getDate()).padStart(2, '0');
-            document.getElementById('custom-date').value = dateStr;
-            
+
             // Setze Stunde
             const hour = String(date.getHours()).padStart(2, '0');
-            document.getElementById('custom-hour').value = hour;
-            
-            // Setze Minute
-            const minute = String(date.getMinutes()).padStart(2, '0');
-            document.getElementById('custom-minute').value = minute;
-            
+
+            // Setze Minute (auf 5er gerundet)
+            const minute = String(Math.round(date.getMinutes() / 5) * 5).padStart(2, '0');
+
+            // 🆕 v5.90.748: Nutze selectSuggestedTime für korrektes Wheel-Scrolling!
+            selectSuggestedTime(dateStr, hour, minute);
+
             console.log('✅ Alternative Zeit übernommen:', date.toLocaleString('de-DE'));
-            
-            // 🔧 v5.50.3: KEIN Auto-Preis mehr! (Patrick's Bug-Fix!)
-            // User MUSS manuell "Preis berechnen" klicken!
-            console.log('💡 Zeit übernommen - bitte jetzt "Preis berechnen" klicken!');
-            
+
+            // 🔧 v5.90.748: KEIN Auto-Slot-Check mehr!
+            // User MUSS "Zeit bestätigen" klicken!
+            console.log('💡 Zeit übernommen - bitte jetzt "Zeit bestätigen" klicken!');
+
             // Zeige Hinweis im Live-Display
             const liveDisplay = document.getElementById('live-slot-check');
             if (liveDisplay) {
@@ -25931,18 +25959,16 @@ Aktuell: ${currentNum}`;
                         })} Uhr
                     </div>
                     <div style="color:#666;font-size:13px;">
-                        👉 Jetzt "Preis berechnen" klicken!
+                        👉 Jetzt "Zeit bestätigen" klicken!
                     </div>
                 `;
                 liveDisplay.style.background = '#d1fae5';
                 liveDisplay.style.border = '2px solid #10b981';
                 liveDisplay.style.display = 'block';
             }
-            
-            // Trigger neuen Live-Check (nach kurzer Verzögerung)
-            setTimeout(() => {
-                performLiveSlotCheck();
-            }, 2000); // 2 Sekunden warten, damit Hinweis sichtbar bleibt
+
+            // 🔧 v5.90.748: KEIN automatischer Check mehr - Race-Condition Fix!
+            // User klickt "Zeit bestätigen" Button
         }
         
         // Event Listeners für Live-Check
@@ -26917,8 +26943,82 @@ Aktuell: ${currentNum}`;
             }, 400);
         }
 
+        // 🆕 v5.90.748: SETZE VORGESCHLAGENE ZEIT IM WHEEL-PICKER
+        // Wird aufgerufen wenn User auf Alternativ-Zeit-Button klickt
+        function selectSuggestedTime(dateStr, hourStr, minuteStr) {
+            console.log('🎯 v5.90.748: selectSuggestedTime aufgerufen:', { dateStr, hourStr, minuteStr });
+
+            // 1. Finde Tag-Index in wheelPickerDays
+            let dayIndex = 0;
+            if (wheelPickerDays && wheelPickerDays.length > 0) {
+                const foundIndex = wheelPickerDays.findIndex(day => day.value === dateStr);
+                if (foundIndex >= 0) {
+                    dayIndex = foundIndex;
+                    console.log('   ✅ Tag gefunden:', wheelPickerDays[dayIndex].display, 'Index:', dayIndex);
+                } else {
+                    console.log('   ⚠️ Tag nicht gefunden, nutze Index 0 (Heute)');
+                }
+            }
+
+            // 2. Parse Stunde
+            const hour = parseInt(hourStr, 10) || 0;
+            console.log('   ✅ Stunde:', hour);
+
+            // 3. Finde Minuten-Index in wheelMinuteValues
+            let minuteIndex = 0;
+            if (window.wheelMinuteValues && window.wheelMinuteValues.length > 0) {
+                const foundMinuteIndex = window.wheelMinuteValues.findIndex(m => m === minuteStr);
+                if (foundMinuteIndex >= 0) {
+                    minuteIndex = foundMinuteIndex;
+                } else {
+                    // Fallback: Berechne Index basierend auf 5-Minuten-Schritten
+                    const minuteNum = parseInt(minuteStr, 10) || 0;
+                    minuteIndex = Math.round(minuteNum / 5);
+                }
+                console.log('   ✅ Minute:', minuteStr, 'Index:', minuteIndex);
+            }
+
+            // 4. Scrolle alle Wheels
+            scrollWheelToIndex('day', dayIndex);
+            scrollWheelToIndex('hour', hour);
+            scrollWheelToIndex('minute', minuteIndex);
+
+            // 5. Update Hidden Inputs direkt (für book() Funktion)
+            const dateInput = document.getElementById('custom-date');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
+            const timeDisplayBtn = document.getElementById('time-display-btn');
+
+            if (dateInput) dateInput.value = dateStr;
+            if (hourInput) hourInput.value = hourStr;
+            if (minuteInput) minuteInput.value = minuteStr;
+            if (timeDisplayBtn) timeDisplayBtn.textContent = `${hourStr}:${minuteStr}`;
+
+            // 6. Update Display
+            setTimeout(() => {
+                updateSelectedDateTimeDisplay();
+            }, 450); // Nach Scroll-Animation
+
+            console.log('   ✅ Zeit übernommen - User kann jetzt "Zeit bestätigen" klicken');
+        }
+
+        // 🆕 v5.90.748: HILFSFUNKTION - Zeit aus Date-Objekt setzen
+        function selectSuggestedDateTime(dateTime) {
+            if (!(dateTime instanceof Date)) {
+                console.error('❌ selectSuggestedDateTime: Kein Date-Objekt!');
+                return;
+            }
+
+            const dateStr = dateTime.toISOString().split('T')[0]; // YYYY-MM-DD
+            const hourStr = String(dateTime.getHours()).padStart(2, '0');
+            const minuteStr = String(Math.round(dateTime.getMinutes() / 5) * 5).padStart(2, '0');
+
+            selectSuggestedTime(dateStr, hourStr, minuteStr);
+        }
+
         // Scroll-Handler für Wheels
         // 🆕 v5.90.747: Komplett überarbeitet - kein manuelles Snap mehr (CSS macht es)!
+        // 🆕 v5.90.748: KEIN automatischer Slot-Check mehr! User muss "Zeit bestätigen" klicken.
         function onWheelScroll(wheelType) {
             // Wenn Lock aktiv, ignorieren
             if (wheelScrollLock) return;
@@ -26929,12 +27029,8 @@ Aktuell: ${currentNum}`;
                 updateWheelSelection(wheelType);
                 updateSelectedDateTimeDisplay();
 
-                // Slot-Check mit eigenem Debounce (nur alle 500ms)
-                const now = Date.now();
-                if (now - lastSlotCheckTime > 500) {
-                    lastSlotCheckTime = now;
-                    triggerSlotCheck();
-                }
+                // 🆕 v5.90.748: KEIN automatischer Slot-Check mehr!
+                // Race-Condition-Fix: User klickt "Zeit bestätigen" Button
             }, 300);
         }
 
@@ -27312,7 +27408,11 @@ Aktuell: ${currentNum}`;
                         // Runde auf nächste 5 Minuten
                         earliestTime.setMinutes(Math.ceil(earliestTime.getMinutes() / 5) * 5);
                         earliestTime.setSeconds(0);
-                        html += `<div style="margin-top:6px;"><button onclick="document.getElementById('time-display-btn').textContent='${earliestTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}'; document.getElementById('custom-date').value='${earliestTime.toISOString().split('T')[0]}'; triggerSlotCheck();" style="background:#10b981;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">${earliestTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</button></div>`;
+                        // 🆕 v5.90.748: Nutze selectSuggestedTime() statt inline JS!
+                        const etDateStr = earliestTime.toISOString().split('T')[0];
+                        const etHourStr = String(earliestTime.getHours()).padStart(2, '0');
+                        const etMinuteStr = String(earliestTime.getMinutes()).padStart(2, '0');
+                        html += `<div style="margin-top:6px;"><button onclick="selectSuggestedTime('${etDateStr}', '${etHourStr}', '${etMinuteStr}')" style="background:#10b981;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">📅 ${earliestTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr übernehmen</button></div>`;
                         html += '</div>';
 
                         html += '</div></div>';
@@ -27352,7 +27452,11 @@ Aktuell: ${currentNum}`;
                         // Runde auf nächste 5 Minuten
                         earliestTime.setMinutes(Math.ceil(earliestTime.getMinutes() / 5) * 5);
                         earliestTime.setSeconds(0);
-                        html += `<div style="margin-top:6px;"><button onclick="document.getElementById('time-display-btn').textContent='${earliestTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})}'; triggerSlotCheck();" style="background:#10b981;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">${earliestTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr</button></div>`;
+                        // 🆕 v5.90.748: Nutze selectSuggestedTime() statt inline JS!
+                        const etDateStr2 = earliestTime.toISOString().split('T')[0];
+                        const etHourStr2 = String(earliestTime.getHours()).padStart(2, '0');
+                        const etMinuteStr2 = String(earliestTime.getMinutes()).padStart(2, '0');
+                        html += `<div style="margin-top:6px;"><button onclick="selectSuggestedTime('${etDateStr2}', '${etHourStr2}', '${etMinuteStr2}')" style="background:#10b981;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">📅 ${earliestTime.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'})} Uhr übernehmen</button></div>`;
                         html += '</div>';
 
                         html += '</div></div>';
@@ -29022,21 +29126,23 @@ Aktuell: ${currentNum}`;
         }
         
         // 🆕 v5.90.123: WÄHLE ALTERNATIVE ZEIT
+        // 🔧 v5.90.748: JETZT MIT WHEEL-PICKER SCROLL + KEIN AUTO-CHECK!
         function selectAlternativeTime(time) {
-            const displayBtn = document.getElementById('time-display-btn');
-            const hourInput = document.getElementById('custom-hour');
-            const minuteInput = document.getElementById('custom-minute');
             const dateInput = document.getElementById('custom-date');
-            
+            const dateValue = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+
             const parts = time.split(':');
-            hourInput.value = parts[0];
-            minuteInput.value = parts[1];
-            displayBtn.textContent = time;
-            
-            console.log('✅ Alternative gewählt:', time);
-            
-            // Neu prüfen
-            checkSlotAvailability(dateInput.value, time);
+            const hour = parts[0];
+            const minute = parts[1];
+
+            // 🆕 v5.90.748: Nutze selectSuggestedTime für korrektes Wheel-Scrolling!
+            selectSuggestedTime(dateValue, hour, minute);
+
+            console.log('✅ Alternative gewählt:', time, '| Datum:', dateValue);
+            console.log('💡 Bitte jetzt "Zeit bestätigen" klicken!');
+
+            // 🔧 v5.90.748: KEIN automatischer Check mehr - Race-Condition Fix!
+            // User klickt "Zeit bestätigen" Button
         }
         
         // 🆕 v5.90.322: PRÜFE OB FAHRER ONLINE SIND
@@ -31814,37 +31920,31 @@ Aktuell: ${currentNum}`;
         }
         
         // User wählt alternative Zeit
+        // 🔧 v5.90.748: JETZT MIT WHEEL-PICKER SCROLL + KEIN AUTO-CHECK!
         async function selectAlternativeTime(timestamp) {
             // 🆕 v5.90.729: Unterscheide Zeit-String (z.B. "09:43") von Timestamp!
-            // Wenn Zeit-String: Übernehme in Picker und prüfe neu
+            // Wenn Zeit-String: Übernehme in Picker (KEIN AUTO-CHECK mehr!)
             // Wenn Timestamp: Direkt buchen (Auto-Booking Modal)
 
             if (typeof timestamp === 'string' && timestamp.includes(':')) {
                 // Zeit-String Format: "09:43"
-                console.log('✅ v5.90.729: Alternative Zeit-String gewählt:', timestamp);
+                console.log('✅ v5.90.748: Alternative Zeit-String gewählt:', timestamp);
 
-                const displayBtn = document.getElementById('time-display-btn');
-                const hourInput = document.getElementById('custom-hour');
-                const minuteInput = document.getElementById('custom-minute');
                 const dateInput = document.getElementById('custom-date');
+                const dateValue = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
 
-                if (displayBtn && hourInput && minuteInput && dateInput) {
-                    const parts = timestamp.split(':');
-                    hourInput.value = parts[0];
-                    minuteInput.value = parts[1];
-                    displayBtn.textContent = timestamp;
+                const parts = timestamp.split(':');
+                const hour = parts[0];
+                const minute = parts[1];
 
-                    console.log('📅 Zeit übernommen:', timestamp, '| Datum:', dateInput.value);
+                // 🆕 v5.90.748: Nutze selectSuggestedTime für korrektes Wheel-Scrolling!
+                selectSuggestedTime(dateValue, hour, minute);
 
-                    // Slot-Status neu prüfen
-                    if (typeof triggerSlotCheck === 'function') {
-                        triggerSlotCheck();
-                    } else if (typeof checkSlotAvailability === 'function') {
-                        checkSlotAvailability(dateInput.value, timestamp);
-                    }
-                } else {
-                    console.warn('⚠️ Picker-Elemente nicht gefunden!');
-                }
+                console.log('📅 Zeit übernommen:', timestamp, '| Datum:', dateValue);
+                console.log('💡 Bitte jetzt "Zeit bestätigen" klicken!');
+
+                // 🔧 v5.90.748: KEIN automatischer Check mehr - Race-Condition Fix!
+                // User klickt "Zeit bestätigen" Button
                 return;
             }
 

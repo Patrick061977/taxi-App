@@ -2671,8 +2671,7 @@
                 <div class="autocomplete-dropdown" id="destination-dropdown"></div>
             </div>
 
-            <!-- 🆕 v5.90.740: PREIS-ANZEIGE - direkt unter Zielort (gut sichtbar!) -->
-            <div id="price-display" style="margin-top:12px;"></div>
+            <!-- 🆕 v5.90.750: PREIS wurde nach unten verschoben - nach Zeit-Bestätigung! -->
 
             <!-- 🆕 v5.30.0: WANN MÖCHTEN SIE FAHREN? -->
             <div class="input-group" style="margin-top:25px;">
@@ -2866,39 +2865,49 @@
                         💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
 
-                    <!-- 🆕 v5.90.748: ZEIT BESTÄTIGEN BUTTON - Fix für Race-Condition! -->
+                    <!-- 🆕 v5.90.750: ZEIT BESTÄTIGEN BUTTON - GROSS & PROMINENT! -->
                     <button id="confirm-time-btn" onclick="triggerSlotCheck()" style="
-                        margin-top: 12px;
+                        margin-top: 20px;
                         width: 100%;
-                        padding: 16px 24px;
+                        padding: 24px 28px;
                         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
                         color: white;
                         border: none;
-                        border-radius: 12px;
-                        font-size: 16px;
+                        border-radius: 16px;
+                        font-size: 22px;
                         font-weight: 700;
                         cursor: pointer;
-                        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
                         transition: all 0.2s ease;
+                        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
                     ">
-                        ✅ Zeit bestätigen & Verfügbarkeit prüfen
+                        ✅ Verfügbarkeit prüfen
                     </button>
                 </div>
             </div>
-            
-            <div class="input-group">
-                <label>👥 Personen</label>
-                <select id="passengers">
+
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- 🆕 v5.90.750: ERGEBNIS-BEREICH - erscheint NACH Bestätigung -->
+            <!-- Außerhalb vorbestellen-bereich, damit auch bei Sofort sichtbar! -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+
+            <!-- 🗺️ KARTE + PREIS -->
+            <div id="route-map" style="height: 280px; margin-top: 20px; border-radius: 12px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+            <div id="price-display" style="margin-top:15px;"></div>
+
+            <!-- 👥 PERSONEN -->
+            <div class="input-group" style="margin-top:15px;">
+                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">👥 Personen</label>
+                <select id="passengers" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
                     <option value="1">1 Person</option>
                     <option value="2">2 Personen</option>
                     <option value="3">3 Personen</option>
                     <option value="4">4 Personen</option>
                 </select>
             </div>
-            <!-- 🆕 v5.90.737: Button versteckt - Preis wird automatisch berechnet! -->
+
+            <!-- 🆕 v5.90.737: Button versteckt -->
             <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()" style="display:none;">💰 Preis berechnen</button>
-            <!-- 🆕 v5.90.740: price-display wurde nach oben verschoben (unter Zielort) -->
-            <div id="route-map" style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; display: none;"></div>
             
             <!-- CRM Speicher-Option -->
             <div id="crm-save-option" style="display:none;margin-top:15px;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">

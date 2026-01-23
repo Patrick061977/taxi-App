@@ -9,13 +9,21 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.744
+    📦 VERSION: v5.90.745
     📅 BUILD: 23.01.2026 09:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.744
+    📋 CHANGELOG v5.90.745
     ═══════════════════════════════════════════════════════════════════════════
+
+    🔒 v5.90.745 (23.01.2026):
+       • SICHERHEIT: Firebase-Fallback Bug behoben!
+       • Bei Firebase-Fehler wird Slot NICHT mehr als "frei" markiert
+       • Verhindert Doppelbuchungen bei Verbindungsproblemen
+       • Neue Fehlermeldung mit "Erneut prüfen" Button
+       • UI zeigt 🔌 Icon bei Verbindungsproblemen
+       • Test-Script erweitert für neue Fehlertypen
 
     📱 v5.90.744 (23.01.2026):
        • WHEEL-PICKER: Größere Touch-Targets für bessere Handy-Bedienung!
@@ -8455,8 +8463,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.744';
-        const APP_BUILD = '20260123-WHEEL-PICKER-MOBILE';
+        const APP_VERSION = '5.90.745';
+        const APP_BUILD = '20260123-FIREBASE-SAFETY';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -25019,6 +25027,11 @@ Aktuell: ${currentNum}`;
                                     // ✅ GRÜN: Adresse OK + Slot frei!
                                     hintIcon.innerHTML = '✅';
                                     hintIcon.title = 'Adresse bestätigt - Slot verfügbar';
+                                } else if (availability.reason === 'firebase_not_ready' || availability.reason === 'check_error') {
+                                    // 🔧 v5.90.745: Verbindungsproblem!
+                                    hintIcon.innerHTML = '🔌';
+                                    hintIcon.title = availability.message || 'Verbindungsproblem - Verfügbarkeit nicht prüfbar';
+                                    hintIcon.style.color = '#ef4444';
                                 } else {
                                     // ⚠️ ORANGE: Adresse OK, aber Slot belegt!
                                     hintIcon.innerHTML = '⚠️';
@@ -25664,12 +25677,39 @@ Aktuell: ${currentNum}`;
                         if (slotIcon) {
                             slotIcon.style.display = 'inline-block';
                         }
+                    } else if (availability.reason === 'firebase_not_ready' || availability.reason === 'check_error') {
+                        // 🔧 v5.90.745: SYSTEM-FEHLER - Keine Verbindung oder Prüfungsfehler!
+                        const slotIcon = document.getElementById('slot-confirmation-icon');
+                        if (slotIcon) slotIcon.style.display = 'none';
+
+                        liveDisplay.style.display = 'block';
+                        liveDisplay.style.background = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+                        liveDisplay.style.border = '2px solid #ef4444';
+                        liveDisplay.style.color = '#991b1b';
+                        liveDisplay.innerHTML = `
+                            <div style="text-align:center;padding:12px;">
+                                <div style="font-size:28px;margin-bottom:8px;">🔌</div>
+                                <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Verbindungsproblem</div>
+                                <div style="font-size:13px;">${availability.message || 'Bitte Internetverbindung prüfen und erneut versuchen.'}</div>
+                                <button onclick="triggerSlotCheck()" style="
+                                    margin-top:12px;
+                                    padding:10px 20px;
+                                    background:#3b82f6;
+                                    color:white;
+                                    border:none;
+                                    border-radius:8px;
+                                    font-weight:600;
+                                    cursor:pointer;
+                                ">🔄 Erneut prüfen</button>
+                            </div>
+                        `;
+                        console.log('⚠️ Live-Check: System-Fehler -', availability.reason);
                     } else {
                         // 💾 BESETZT → Zeige ALTERNATIVEN! (Patrick's Idee!)
                         // v5.90.73: Icon verstecken!
                         const slotIcon = document.getElementById('slot-confirmation-icon');
                         if (slotIcon) slotIcon.style.display = 'none';
-                        
+
                         console.log('⚠️ Live-Check: Slot belegt, berechne Alternativen...');
 
                         // 🆕 v5.90.727: Sammle Daten für VORHER-Berechnung
@@ -27018,6 +27058,12 @@ Aktuell: ${currentNum}`;
                 console.log('═══════════════════════════════════════════════════════════════');
                 if (result.available) {
                     console.log('✅ SLOT IST VERFÜGBAR!');
+                } else if (result.reason === 'firebase_not_ready') {
+                    console.log('🔌 FIREBASE NICHT VERBUNDEN!');
+                    console.log('   Nachricht:', result.message);
+                } else if (result.reason === 'check_error') {
+                    console.log('💥 PRÜFUNGS-FEHLER!');
+                    console.log('   Nachricht:', result.message);
                 } else {
                     console.log('❌ SLOT IST BELEGT!');
                     if (result.conflictingRide) {
@@ -30672,10 +30718,15 @@ Aktuell: ${currentNum}`;
             console.log('🔍 SLOT-CHECK GESTARTET');
             console.log('═══════════════════════════════════════════════════════');
             
+            // 🔧 v5.90.745: SICHERHEIT! Bei Firebase-Fehler NICHT buchen erlauben!
             if (!isFirebaseReady) {
-                console.log('💾 Firebase nicht bereit → Slot FREI (Fallback)');
-                debugLog('warn', '⚠️ Slot-Check: Firebase nicht bereit');
-                return { available: true };
+                console.log('💾 Firebase nicht bereit → Slot BLOCKIERT (Sicherheit!)');
+                debugLog('error', '⚠️ Slot-Check: Firebase nicht bereit - Buchung blockiert');
+                return {
+                    available: false,
+                    reason: 'firebase_not_ready',
+                    message: '⚠️ Keine Verbindung zum Server. Bitte Internetverbindung prüfen und erneut versuchen.'
+                };
             }
             
             // 🎯 v5.33.2: Admin-Override prüfen!
@@ -30868,9 +30919,14 @@ Aktuell: ${currentNum}`;
                 return { available: true };
                 
             } catch (error) {
+                // 🔧 v5.90.745: SICHERHEIT! Bei Fehler NICHT buchen erlauben!
                 console.error('💾 Fehler bei Zeitslot-Prüfung:', error);
-                debugLog('error', `💾 Slot-Check Fehler: ${error.message}`);
-                return { available: true }; // Im Fehlerfall erlauben
+                debugLog('error', `💾 Slot-Check Fehler: ${error.message} - Buchung blockiert`);
+                return {
+                    available: false,
+                    reason: 'check_error',
+                    message: '⚠️ Fehler bei der Verfügbarkeitsprüfung. Bitte erneut versuchen.'
+                };
             }
         }
         

@@ -1,8 +1,8 @@
 {
-  "version": "5.90.744",
-  "build": "20260123-1700",
-  "updated": 1737648000000,
+  "version": "5.90.745",
+  "build": "20260123-1800",
+  "updated": 1737651600000,
   "forceUpdate": true,
   "minVersion": "5.9.0",
-  "message": "Wheel-Picker Mobile-Optimierung + Kalender Test-Script"
+  "message": "Sicherheits-Fix: Firebase-Fallback verhindert Doppelbuchungen"
 }

@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.756
+    📦 VERSION: v5.90.757
     📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.756
+    📋 CHANGELOG v5.90.757
     ═══════════════════════════════════════════════════════════════════════════
 
-    📱 v5.90.756 (23.01.2026):
+    📱 v5.90.757 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
        • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
        • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
@@ -522,8 +522,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.756 - ANTI-FLICKER! 🚀 (Build 2026-01-23_1725)');
-        console.log('📱 v5.90.756: Karte zerreißt nicht mehr auf Mobile + Karte über Vorbestellen!');
+        console.log('🚕 Funk Taxi App v5.90.757 - NO-AUTO-TAB! 🚀 (Build 2026-01-23_1810)');
+        console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile + Karte über Vorbestellen!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -1098,7 +1098,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.756: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.757: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1288,7 +1288,7 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.756: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.757: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
                 height: 150px !important;
             }
@@ -1462,7 +1462,7 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🔧 v5.90.756: ANTI-FLICKER für Mobile! -->
+    <!-- 🔧 v5.90.757: NO-AUTO-TAB für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
         body.loading .view {
@@ -1483,7 +1483,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-                console.log('✅ v5.90.756: Anti-Flicker aktiviert!');
+                console.log('✅ v5.90.757: Anti-Flicker aktiviert!');
             }, 100);
         });
     </script>
@@ -2719,7 +2719,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.756: KARTE ÜBER VORBESTELLEN - bessere Mobile-Übersicht! -->
+            <!-- 🆕 v5.90.757: KARTE ÜBER VORBESTELLEN - bessere Mobile-Übersicht! -->
             <div id="route-map" style="height: 280px; margin-top: 20px; border-radius: 12px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
 
             <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
@@ -8516,7 +8516,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '5.90.754';
-        const APP_BUILD = '20260123-MOBILE-ANTI-FLICKER';
+        const APP_BUILD = '20260123-MOBILE-NO-AUTO-TAB';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -26364,7 +26364,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.756: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.757: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -61437,7 +61437,14 @@ Stack: ${err.stack}
                 } else if (role === 'admin') {
                     console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
-                    switchView(lastTab);
+                    // 🔧 v5.90.757: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
+                    const adminOnlyTabs = ['calendar', 'hotel-calendar', 'rechnung', 'crm', 'email-inbox', 'admin', 'shift-plan', 'debug', 'system-diagnostics', 'live-monitor', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'fleet-overview'];
+                    if (!adminOnlyTabs.includes(lastTab)) {
+                        switchView(lastTab);
+                    } else {
+                        // Admin-Tab → Aber sicher dass User Admin ist!
+                        switchView('passenger'); // Sicher ist sicher
+                    }
                 } else {
                     console.log('👤 v5.90.584: Passenger-Login → Passenger-View');
                     switchView('passenger');
@@ -61449,6 +61456,10 @@ Stack: ${err.stack}
             // 🆕 v5.21.0: Stack Trace um zu sehen WOHER der Logout kommt
             console.log('💾 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
+            
+            // 🔧 v5.90.757: LÖSCHE lastActiveTab beim Logout!
+            localStorage.removeItem('lastActiveTab');
+            console.log('🔧 v5.90.757: lastActiveTab gelöscht');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
@@ -64195,13 +64206,13 @@ Stack: ${err.stack}
                 }
             }
             
-            // 🔧 v5.90.756: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            // 🔧 v5.90.757: NUR EINMAL ausführen - keine mehrfachen View-Switches!
             forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🔧 v5.90.756: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // 🔧 v5.90.757: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
         // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->

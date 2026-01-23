@@ -20,7 +20,8 @@
     🐛 v5.90.753 (23.01.2026):
        • FIX: Vergangenheits-Check Bug behoben!
        • FIX: Manuelles Datum/Zeit-Parsing ohne Zeitzonenprobleme
-       • Zeiten werden jetzt korrekt als lokale Zeit interpretiert
+       • FIX: Karten-Picker Bestätigung funktioniert jetzt korrekt!
+       • FIX: Scope-Problem mit pickupConfirmed/destinationConfirmed (var statt let)
 
     🎨 v5.90.752 (23.01.2026):
        • NEU: Buchungsformular übersichtlicher strukturiert!
@@ -8557,7 +8558,9 @@
         let isFirebaseReady = window.isFirebaseReady = false;
         let isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
-        let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
+        // 🔧 v5.90.753: VAR für pickupCoords/destCoords - damit window.* funktioniert!
+        var pickupCoords = null, destCoords = null;
+        let map = null, watchId = null, isOnline = false, myCurrentRide = null;
         
         // 🆕 v5.90.527: WAYPOINTS (Zwischenstopps)
         let waypoints = []; // Array von {id, address, coords, autocompleteId, dropdownId}
@@ -8571,8 +8574,9 @@
         let newCustomerAddressCoords = null; // 🆕 v5.87.20: Koordinaten für neuen Kunden
         
         // 🆕 v5.42.7: Adressen-Bestätigungs-Status
-        let pickupConfirmed = false;
-        let destinationConfirmed = false;
+        // 🔧 v5.90.753: VAR statt LET - damit window.pickupConfirmed funktioniert!
+        var pickupConfirmed = false;
+        var destinationConfirmed = false;
         
         // 🆕 v5.42.8: Aktuelles Autocomplete-Feld
         let currentAutocompleteField = null;

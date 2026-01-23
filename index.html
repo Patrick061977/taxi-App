@@ -2673,6 +2673,25 @@
 
             <!-- 🆕 v5.90.750: PREIS wurde nach unten verschoben - nach Zeit-Bestätigung! -->
 
+            <!-- 🆕 v5.90.751: PERSONEN NACH OBEN VERSCHOBEN - wichtig für Preisberechnung ab 5 Personen! -->
+            <div class="input-group" style="margin-top:15px;">
+                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">👥 Personen</label>
+                <select id="passengers" onchange="onPassengersChange()" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
+                    <option value="1">1 Person</option>
+                    <option value="2">2 Personen</option>
+                    <option value="3">3 Personen</option>
+                    <option value="4">4 Personen</option>
+                    <option value="5">5 Personen (Großraumtaxi)</option>
+                    <option value="6">6 Personen (Großraumtaxi)</option>
+                    <option value="7">7 Personen (Großraumtaxi)</option>
+                    <option value="8">8 Personen (Großraumtaxi)</option>
+                </select>
+                <div id="passengers-info" style="display:none;margin-top:8px;padding:10px;background:#fef3c7;border:2px solid #f59e0b;border-radius:8px;font-size:13px;color:#92400e;">
+                    <strong>ℹ️ Großraumtaxi erforderlich</strong><br>
+                    Ab 5 Personen wird ein größeres Fahrzeug benötigt.
+                </div>
+            </div>
+
             <!-- 🆕 v5.30.0: WANN MÖCHTEN SIE FAHREN? -->
             <div class="input-group" style="margin-top:25px;">
                 <label style="font-size:16px;font-weight:700;margin-bottom:15px;display:block;">⏱️ Wann möchten Sie fahren?</label>
@@ -2894,17 +2913,6 @@
             <!-- 🗺️ KARTE + PREIS -->
             <div id="route-map" style="height: 280px; margin-top: 20px; border-radius: 12px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
             <div id="price-display" style="margin-top:15px;"></div>
-
-            <!-- 👥 PERSONEN -->
-            <div class="input-group" style="margin-top:15px;">
-                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">👥 Personen</label>
-                <select id="passengers" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
-                    <option value="1">1 Person</option>
-                    <option value="2">2 Personen</option>
-                    <option value="3">3 Personen</option>
-                    <option value="4">4 Personen</option>
-                </select>
-            </div>
 
             <!-- 🆕 v5.90.737: Button versteckt -->
             <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()" style="display:none;">💰 Preis berechnen</button>
@@ -10322,9 +10330,10 @@
                 
                 // ✅ WENN Abholadresse bereits eingegeben → Lade Taxis!
                 const pickupInput = document.getElementById('pickup');
+                const destInput = document.getElementById('destination');
                 if (pickupInput && pickupInput.value.trim()) {
                     console.log('📍 Abholadresse vorhanden, lade Taxis...');
-                    
+
                     // Zeige Loading
                     const display = document.getElementById('available-taxis-display');
                     display.innerHTML = `
@@ -10334,10 +10343,18 @@
                             <div style="font-size:13px;opacity:0.9;">Bitte warten...</div>
                         </div>
                     `;
-                    
+
                     setTimeout(() => {
                         showAvailableTaxis();
                     }, 500);
+
+                    // 🆕 v5.90.751: Bei SOFORT automatisch Preis berechnen wenn beide Adressen da sind!
+                    if (destInput && destInput.value.trim()) {
+                        console.log('⚡ SOFORT: Beide Adressen vorhanden → Berechne Preis automatisch!');
+                        setTimeout(() => {
+                            calculatePriceAndShow();
+                        }, 600);
+                    }
                 }
                 
             } else if (type === 'vorbestellen') {
@@ -25466,9 +25483,19 @@ Aktuell: ${currentNum}`;
                     </div>
                 `;
                 document.getElementById('available-taxis-display').innerHTML = html;
+
+                // 🆕 v5.90.751: Bei SOFORT automatisch Preis berechnen wenn beide Adressen vorhanden!
+                const pickupInput = document.getElementById('pickup');
+                const destInput = document.getElementById('destination');
+                if (pickupInput && pickupInput.value.trim() && destInput && destInput.value.trim()) {
+                    console.log('⚡ SOFORT (ohne GPS): Beide Adressen vorhanden → Berechne Preis & zeige Buchen-Button!');
+                    setTimeout(() => {
+                        calculatePriceAndShow();
+                    }, 300);
+                }
                 return;
             }
-            
+
             const taxisWithETA = await Promise.all(onlineDrivers.map(async (d) => {
                 const route = await calculateRoute(d, pickupCoords);
                 return { ...d, ...route };
@@ -25516,6 +25543,16 @@ Aktuell: ${currentNum}`;
                 </div>
             `;
             document.getElementById('available-taxis-display').innerHTML = html;
+
+            // 🆕 v5.90.751: Bei SOFORT automatisch Preis berechnen wenn beide Adressen vorhanden!
+            const pickupInput = document.getElementById('pickup');
+            const destInput = document.getElementById('destination');
+            if (pickupInput && pickupInput.value.trim() && destInput && destInput.value.trim()) {
+                console.log('⚡ SOFORT: Beide Adressen vorhanden → Berechne Preis & zeige Buchen-Button!');
+                setTimeout(() => {
+                    calculatePriceAndShow();
+                }, 300);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -25582,6 +25619,29 @@ Aktuell: ${currentNum}`;
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
+
+        // 🆕 v5.90.751: PERSONEN-ÄNDERUNG - zeigt Hinweis bei Großraumtaxi (5+ Personen)
+        function onPassengersChange() {
+            const passengersSelect = document.getElementById('passengers');
+            const passengersInfo = document.getElementById('passengers-info');
+
+            if (passengersSelect && passengersInfo) {
+                const passengers = parseInt(passengersSelect.value) || 1;
+
+                if (passengers >= 5) {
+                    passengersInfo.style.display = 'block';
+                    console.log('👥 Großraumtaxi erforderlich:', passengers, 'Personen');
+                } else {
+                    passengersInfo.style.display = 'none';
+                }
+            }
+
+            // 🆕 Wenn Preis bereits berechnet, neu berechnen mit neuer Personenzahl
+            if (priceCalculated && window.currentDistance) {
+                console.log('🔄 Preis neu berechnen mit geänderter Personenzahl...');
+                calculatePriceAndShow();
+            }
+        }
 
         // 🆕 PREIS-BUTTON HANDLER - wechselt zwischen "Preis berechnen" und "Abbrechen"
         let priceCalculated = false;

@@ -8463,7 +8463,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.745';
+        const APP_VERSION = '5.90.746';
         const APP_BUILD = '20260123-FIREBASE-SAFETY';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -28314,14 +28314,121 @@ Aktuell: ${currentNum}`;
                     const rideDateTime = new Date(ride.pickupTimestamp || ride.pickupTime);
                     const rideTime = rideDateTime.getTime();
                     const rideDate = rideDateTime.toDateString();
-                    
+
                     if (rideDate === slotDate && rideTime > slotTime) {
                         nextRide = ride;
                         console.log('📍 NÄCHSTE FAHRT GEFUNDEN:', rideDateTime.toLocaleString('de-DE'));
                         break;
                     }
                 }
-                
+
+                // 🆕 v5.90.746: PRÜFE OB NEUE FAHRT IN NÄCHSTE FAHRT HINEINREICHT!
+                if (nextRide) {
+                    console.log('');
+                    console.log('🔍 v5.90.746: PRÜFE OB NEUE FAHRT RECHTZEITIG FERTIG:');
+
+                    const nextRideTime = new Date(nextRide.pickupTimestamp || nextRide.pickupTime).getTime();
+                    const BOARDING_TIME = 2;  // 2 Min Einsteigen
+                    const ALIGHTING_TIME = 2; // 2 Min Aussteigen
+                    const BUFFER_TIME = 5;    // 5 Min Puffer
+
+                    try {
+                        // Geocode Adressen für neue Fahrt
+                        const newPickupCoords = await geocode(pickup);
+                        const newDestCoords = await geocode(destination);
+
+                        if (newPickupCoords && newDestCoords) {
+                            // Berechne Route-Dauer der neuen Fahrt
+                            const newRoute = await calculateRoute(newPickupCoords, newDestCoords);
+                            const newRideDuration = newRoute.duration; // Fahrzeit in Minuten
+                            const newTotalDuration = newRideDuration + BOARDING_TIME + ALIGHTING_TIME;
+                            const newRideEnd = slotTime + (newTotalDuration * 60000);
+
+                            // Berechne Leerfahrt vom Ende der neuen Fahrt zum Start der nächsten Fahrt
+                            const nextRidePickupCoords = await geocode(nextRide.pickup);
+                            let travelToNextRide = 0;
+                            if (nextRidePickupCoords) {
+                                const travelRoute = await calculateRoute(newDestCoords, nextRidePickupCoords);
+                                travelToNextRide = travelRoute.duration || 0;
+                            }
+
+                            // Frühestens verfügbar = Ende neue Fahrt + Leerfahrt + Puffer
+                            const earliestForNextRide = newRideEnd + ((travelToNextRide + BUFFER_TIME) * 60000);
+                            const timeUntilNextRide = Math.floor((nextRideTime - newRideEnd) / 60000);
+                            const timeNeeded = travelToNextRide + BUFFER_TIME;
+
+                            console.log('   Neue Fahrt Dauer:', newRideDuration, 'Min (rein)');
+                            console.log('   + Einsteigen:', BOARDING_TIME, 'Min');
+                            console.log('   + Aussteigen:', ALIGHTING_TIME, 'Min');
+                            console.log('   = Gesamt:', newTotalDuration, 'Min');
+                            console.log('   Neue Fahrt Ende:', new Date(newRideEnd).toLocaleTimeString('de-DE'));
+                            console.log('   Leerfahrt zur nächsten:', travelToNextRide, 'Min');
+                            console.log('   + Puffer:', BUFFER_TIME, 'Min');
+                            console.log('   Nächste Fahrt Start:', new Date(nextRideTime).toLocaleTimeString('de-DE'));
+                            console.log('   Zeit bis nächste Fahrt:', timeUntilNextRide, 'Min');
+                            console.log('   Zeit benötigt:', timeNeeded, 'Min');
+
+                            // KONFLIKT: Neue Fahrt endet zu spät für nächste Fahrt!
+                            if (earliestForNextRide > nextRideTime) {
+                                console.log('🚨 v5.90.746: NEUE FAHRT ENDET ZU SPÄT!');
+                                console.log('   Frühestens bereit:', new Date(earliestForNextRide).toLocaleTimeString('de-DE'));
+                                console.log('   Nächste Fahrt:', new Date(nextRideTime).toLocaleTimeString('de-DE'));
+
+                                // Berechne Alternativen
+                                // VORHER: Späteste Startzeit = nextRideTime - newTotalDuration - travelToNextRide - BUFFER
+                                const latestStartMs = nextRideTime - ((newTotalDuration + travelToNextRide + BUFFER_TIME) * 60000);
+                                const latestStartRounded = Math.floor(latestStartMs / (5 * 60000)) * (5 * 60000);
+                                let latestPossibleTime = null;
+
+                                if (latestStartRounded > Date.now() + (15 * 60000)) {
+                                    const latestDate = new Date(latestStartRounded);
+                                    latestPossibleTime = String(latestDate.getHours()).padStart(2, '0') + ':' + String(latestDate.getMinutes()).padStart(2, '0');
+                                    console.log('   ✅ VORHER-Alternative:', latestPossibleTime, 'Uhr');
+                                }
+
+                                // NACHHER: Nach Ende der nächsten Fahrt
+                                const nextRideDuration = nextRide.duration || 30;
+                                const nextRideEndMs = nextRideTime + ((nextRideDuration + 4) * 60000);
+                                const afterNextRounded = Math.ceil(nextRideEndMs / (5 * 60000)) * (5 * 60000);
+
+                                const alternativesAfter = [];
+                                for (let offset = 0; offset <= 45; offset += 5) {
+                                    const testTime = new Date(afterNextRounded + offset * 60000);
+                                    const testHour = String(testTime.getHours()).padStart(2, '0');
+                                    const testMin = String(testTime.getMinutes()).padStart(2, '0');
+                                    alternativesAfter.push(`${testHour}:${testMin}`);
+                                    if (alternativesAfter.length >= 4) break;
+                                }
+
+                                console.log('   NACHHER-Alternativen:', alternativesAfter.join(', '));
+                                console.log('═══════════════════════════════════════════════════════════');
+
+                                return {
+                                    hasConflict: true,
+                                    nextRideConflict: true,
+                                    nextRide: nextRide,
+                                    newRideDuration: newRideDuration,
+                                    newTotalDuration: newTotalDuration,
+                                    newRideEnd: newRideEnd,
+                                    travelToNextRide: travelToNextRide,
+                                    timeUntilNextRide: timeUntilNextRide,
+                                    latestPossibleTime: latestPossibleTime,
+                                    alternativesAfter: alternativesAfter,
+                                    noPreviousRide: true,
+                                    newPickup: pickup,
+                                    newDestination: destination,
+                                    allRidesOnDay: ridesOnSameDay
+                                };
+                            } else {
+                                console.log('✅ v5.90.746: Neue Fahrt passt VOR nächste Fahrt!');
+                                console.log('   Reserve:', (timeUntilNextRide - timeNeeded), 'Min');
+                            }
+                        }
+                    } catch (e) {
+                        console.log('⚠️ v5.90.746: Konnte Route nicht berechnen:', e.message);
+                    }
+                }
+
                 console.log('═══════════════════════════════════════════════════════════');
                 return {
                     hasConflict: false,

@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.754
+    📦 VERSION: v5.90.755
     📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.754
+    📋 CHANGELOG v5.90.755
     ═══════════════════════════════════════════════════════════════════════════
 
-    📱 v5.90.754 (23.01.2026):
+    📱 v5.90.755 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
        • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
        • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
@@ -522,8 +522,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.754 - Mobile Layout Fix! 🚀 (Build 2026-01-23_1715)');
-        console.log('📱 v5.90.754: Karte zerreißt nicht mehr auf Mobile + Karte über Vorbestellen!');
+        console.log('🚕 Funk Taxi App v5.90.755 - LAYOUT-FIX! 🚀 (Build 2026-01-23_1720)');
+        console.log('📱 v5.90.755: Karte zerreißt nicht mehr auf Mobile + Karte über Vorbestellen!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -1098,7 +1098,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.754: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.755: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1288,7 +1288,7 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.754: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.755: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
                 height: 150px !important;
             }
@@ -2694,7 +2694,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.754: KARTE ÜBER VORBESTELLEN - bessere Mobile-Übersicht! -->
+            <!-- 🆕 v5.90.755: KARTE ÜBER VORBESTELLEN - bessere Mobile-Übersicht! -->
             <div id="route-map" style="height: 280px; margin-top: 20px; border-radius: 12px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
 
             <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
@@ -26339,7 +26339,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.754: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.755: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -64170,36 +64170,14 @@ Stack: ${err.stack}
                 }
             }
             
-            // MEHRFACH ausführen um SICHER zu sein!
-            forcePassengerViewOnly(); // Sofort
-            setTimeout(forcePassengerViewOnly, 100); // Nach 100ms
-            setTimeout(forcePassengerViewOnly, 500); // Nach 500ms
-            setTimeout(forcePassengerViewOnly, 1000); // Nach 1s
-            setTimeout(forcePassengerViewOnly, 2000); // Nach 2s
+            // 🔧 v5.90.755: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🆕 v5.33.4: VIEW-GUARD - Überwacht dass nur aktive View sichtbar ist!
-        setInterval(() => {
-            const allViews = ['passenger-view', 'schedule-view', 'history-view', 'driver-view', 'admin-view', 'shift-plan-view', 'debug-view', 'ai-assistant-view'];
-            
-            allViews.forEach(viewId => {
-                const viewEl = document.getElementById(viewId);
-                if (!viewEl) return;
-                
-                // Prüfe ob View sichtbar ist obwohl sie nicht aktiv ist
-                const isVisible = window.getComputedStyle(viewEl).display !== 'none';
-                const isActive = viewEl.classList.contains('active');
-                
-                if (isVisible && !isActive) {
-                    // View ist sichtbar aber nicht aktiv - VERSTECKEN!
-                    console.warn('⚠️ View-Guard: Verstecke inaktive View:', viewId);
-                    viewEl.style.display = 'none';
-                    viewEl.style.visibility = 'hidden';
-                }
-            });
-        }, 2000); // Alle 2 Sekunden prüfen
+        // 🔧 v5.90.755: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->
     <div id="login-modal" class="modal">

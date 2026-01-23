@@ -27533,7 +27533,7 @@ Aktuell: ${currentNum}`;
                                                 const latestStartMs = conflictTime.getTime() - (deadheadMinutes * 60000) - (newTotalDuration * 60000);
                                                 calculatedLatestStart = new Date(latestStartMs);
                                                 
-                                                html += '<div style="font-size:11px;margin-bottom:6px;">Neue Fahrt muss fertig sein + Taxi muss zu Herrn Lehmann fahren:</div>';
+                                                html += `<div style="font-size:11px;margin-bottom:6px;">Neue Fahrt muss fertig sein + Taxi muss zu ${conflictCustomerName} fahren:</div>`;
                                                 html += '<div style="background:white;padding:6px;border-radius:4px;margin:6px 0;border:1px solid #fcd34d;">';
                                                 html += '<div style="font-size:10px;">1️⃣ Neue Fahrt:</div>';
                                                 html += `<div style="font-size:10px;margin-left:12px;">${pickup} → ${destination}: <strong>${newTotalDuration} Min</strong></div>`;

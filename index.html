@@ -9,13 +9,19 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.753
-    📅 BUILD: 23.01.2026 17:00 Uhr
+    📦 VERSION: v5.90.754
+    📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.753
+    📋 CHANGELOG v5.90.754
     ═══════════════════════════════════════════════════════════════════════════
+
+    📱 v5.90.754 (23.01.2026):
+       • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
+       • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
+       • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
+       • NEU: Karte erscheint jetzt ÜBER dem Vorbestellen-Bereich
 
     🐛 v5.90.753 (23.01.2026):
        • FIX: Vergangenheits-Check Bug behoben!
@@ -516,8 +522,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.753 - Vergangenheits-Check Fix! 🚀 (Build 2026-01-23_1700)');
-        console.log('🐛 v5.90.753: Manuelles Datum-Parsing behebt Zeitzonen-Bug!');
+        console.log('🚕 Funk Taxi App v5.90.754 - Mobile Layout Fix! 🚀 (Build 2026-01-23_1715)');
+        console.log('📱 v5.90.754: Karte zerreißt nicht mehr auf Mobile + Karte über Vorbestellen!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -1091,7 +1097,12 @@
             #driver-map {
                 height: 300px !important;
             }
-            
+
+            /* 🆕 v5.90.754: Route-Map auf Mobile kompakter! */
+            #route-map {
+                height: 180px !important;
+            }
+
             /* Modal auf Mobile kompakter */
             .modal-content {
                 margin: 3% auto !important;
@@ -1275,6 +1286,11 @@
 
             #driver-map {
                 height: 250px !important;
+            }
+
+            /* 🆕 v5.90.754: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            #route-map {
+                height: 150px !important;
             }
 
             /* Input-Felder kompakter */
@@ -2677,7 +2693,10 @@
                     </button>
                 </div>
             </div>
-            
+
+            <!-- 🆕 v5.90.754: KARTE ÜBER VORBESTELLEN - bessere Mobile-Übersicht! -->
+            <div id="route-map" style="height: 280px; margin-top: 20px; border-radius: 12px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+
             <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
             <div id="sofort-bereich" style="display:none;">
                 <div id="available-taxis-display"></div>
@@ -2875,8 +2894,7 @@
             <!-- Außerhalb vorbestellen-bereich, damit auch bei Sofort sichtbar! -->
             <!-- ═══════════════════════════════════════════════════════════ -->
 
-            <!-- 🗺️ KARTE + PREIS -->
-            <div id="route-map" style="height: 280px; margin-top: 20px; border-radius: 12px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+            <!-- 🗺️ PREIS (Karte ist jetzt oben bei Buttons!) -->
             <div id="price-display" style="margin-top:15px;"></div>
 
             <!-- 🆕 v5.90.737: Button versteckt -->
@@ -8472,8 +8490,8 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.753';
-        const APP_BUILD = '20260123-WHEEL-PICKER-FIX';
+        const APP_VERSION = '5.90.754';
+        const APP_BUILD = '20260123-MOBILE-LAYOUT-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -26310,7 +26328,7 @@ Aktuell: ${currentNum}`;
                         opacity: 0.8
                     }
                 ).addTo(routeMapInstance);
-                
+
                 // Zoom auf Route
                 routeMapInstance.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
             } else {
@@ -26320,7 +26338,14 @@ Aktuell: ${currentNum}`;
                     [destCoords.lat, destCoords.lon]
                 ], { padding: [30, 30] });
             }
-            
+
+            // 🆕 v5.90.754: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            setTimeout(() => {
+                if (routeMapInstance) {
+                    routeMapInstance.invalidateSize();
+                }
+            }, 100);
+
             console.log('🗺️ Route-Karte angezeigt');
         }
 

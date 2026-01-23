@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.758
+    📦 VERSION: v5.90.764
     📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.758
+    📋 CHANGELOG v5.90.764
     ═══════════════════════════════════════════════════════════════════════════
 
-    📱 v5.90.758 (23.01.2026):
+    📱 v5.90.764 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
        • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
        • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
@@ -522,10 +522,10 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.758 - CLEAN-BUILD! 🚀 (Build 2026-01-23_1900)');
-        console.log('✨ v5.90.758: Syntax Error gefixt - Sauberer Build!');
-        console.log('📊 v5.90.758: Optimierte Kalender-Logik aus v757!');
-        console.log('🔧 v5.90.758: Bessere Slot-Analyse + Fehlerbehandlung!');
+        console.log('🚕 Funk Taxi App v5.90.764 - CLEANUP! 🚀 (Build 2026-01-23_2040)');
+        console.log('🗑️ v5.90.764: "Freie Zeiten" Button entfernt!');
+        console.log('🚕 v5.90.763: Taxi-buchen Button direkt unter Karte!');
+        console.log('🧹 v5.90.762: Tafel-Abwisch Animation!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
@@ -1101,7 +1101,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.758: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.764: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1291,7 +1291,7 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.758: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.764: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
                 height: 150px !important;
             }
@@ -1459,13 +1459,44 @@
                 opacity: 0;
             }
         }
+        
+        /* 🎨 v5.90.764: TAFEL-ABWISCH ANIMATION! */
+        @keyframes wipeOut {
+            0% {
+                clip-path: inset(0 0 0 0);
+                opacity: 1;
+            }
+            100% {
+                clip-path: inset(0 0 100% 0);
+                opacity: 0;
+            }
+        }
+        
+        .wipe-out {
+            animation: wipeOut 0.6s ease-in-out forwards;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.4s ease-out;
+        }
     </style>
     
     <!-- 🔒 STRIPE DEAKTIVIERT - Löst "betrügerische Website" Warnung aus! -->
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🔧 v5.90.758: CLEAN-BUILD für Mobile! -->
+    <!-- 🔧 v5.90.764: CLEANUP für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
         body.loading .view {
@@ -1486,7 +1517,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-                console.log('✅ v5.90.758: Anti-Flicker aktiviert!');
+                console.log('✅ v5.90.764: Anti-Flicker aktiviert!');
             }, 100);
         });
     </script>
@@ -2722,8 +2753,19 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.758: KARTE ÜBER VORBESTELLEN - bessere Mobile-Übersicht! -->
-            <div id="route-map" style="height: 280px; margin-top: 20px; border-radius: 12px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+            <!-- 🆕 v5.90.764: KARTE & PREIS OBEN - vor Vorbestellen! -->
+            <div id="route-map-container" style="margin-top: 20px; display: none;">
+                <!-- PREIS DISPLAY - über der Karte -->
+                <div id="price-display" style="margin-bottom: 15px;"></div>
+                
+                <!-- KARTE -->
+                <div id="route-map" style="height: 280px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                
+                <!-- 🚕 v5.90.764: TAXI BUCHEN Button DIREKT unter der Karte! -->
+                <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 15px; display: none; width: 100%;">🚕 Taxi buchen</button>
+                
+                <!-- 🗑️ v5.90.764: "Freie Zeiten" Button ENTFERNT - nicht mehr benötigt! -->
+            </div>
 
             <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
             <div id="sofort-bereich" style="display:none;">
@@ -2922,8 +2964,7 @@
             <!-- Außerhalb vorbestellen-bereich, damit auch bei Sofort sichtbar! -->
             <!-- ═══════════════════════════════════════════════════════════ -->
 
-            <!-- 🗺️ PREIS (Karte ist jetzt oben bei Buttons!) -->
-            <div id="price-display" style="margin-top:15px;"></div>
+            <!-- 🗺️ PREIS ist jetzt oben in route-map-container! -->
 
             <!-- 🆕 v5.90.737: Button versteckt -->
             <button id="price-btn" class="btn btn-primary" onclick="handlePriceButton()" style="display:none;">💰 Preis berechnen</button>
@@ -2981,10 +3022,7 @@
                 </div>
             </div>
             
-            <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 10px; display: none;">🚕 Taxi buchen</button>
-            <button id="show-slots-btn" class="btn" onclick="showFreeTimeSlots()" style="margin-top: 10px; display: none; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px 30px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(102,126,234,0.3);">
-                📅 Freie Zeiten anzeigen
-            </button>
+            <!-- 🚕 v5.90.764: Buttons wurden IN route-map-container verschoben! -->
         </div>
         
         <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
@@ -8519,7 +8557,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '5.90.754';
-        const APP_BUILD = '20260123-MOBILE-CLEAN-BUILD';
+        const APP_BUILD = '20260123-MOBILE-CLEANUP';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -25670,6 +25708,23 @@ Aktuell: ${currentNum}`;
             }
         }
         
+        // 🎨 v5.90.764: TAFEL-ABWISCH FUNKTION!
+        function wipeAwayMap() {
+            const routeMapContainer = document.getElementById('route-map-container');
+            if (routeMapContainer && routeMapContainer.style.display !== 'none') {
+                console.log('🧹 Wische Karte ab...');
+                
+                // Füge Wisch-Animation hinzu
+                routeMapContainer.classList.add('wipe-out');
+                
+                // Nach Animation: Verstecke komplett
+                setTimeout(() => {
+                    routeMapContainer.style.display = 'none';
+                    routeMapContainer.classList.remove('wipe-out');
+                }, 600); // 600ms = Animation-Dauer
+            }
+        }
+        
         // 🆕 v5.90.77: NUR ZIEL ÄNDERN (Rest bleibt!)
         function clearDestinationOnly() {
             console.log('🎯 Nur Ziel ändern - Rest bleibt!');
@@ -25691,17 +25746,8 @@ Aktuell: ${currentNum}`;
             destCoords = null;
             destinationConfirmed = false;
             
-            // Preis verstecken
-            const priceDisplay = document.getElementById('price-display');
-            if (priceDisplay) {
-                priceDisplay.style.display = 'none';
-            }
-            
-            // Karte verstecken
-            const routeMap = document.getElementById('route-map');
-            if (routeMap) {
-                routeMap.style.display = 'none';
-            }
+            // 🎨 v5.90.764: CLEANUP statt sofort verstecken!
+            wipeAwayMap();
             
             // "Taxi buchen" Button verstecken
             const bookBtn = document.getElementById('book-btn');
@@ -26192,18 +26238,60 @@ Aktuell: ${currentNum}`;
             window.currentTotalDuration = durationCalc.totalDuration; // 🆕 v5.90.528: Mit Puffern!
             window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
-            // 🎨 v5.90.740: KOMPAKTE Preis-Anzeige (oben, klein, übersichtlich)
+            // 🎨 v5.90.764: SCHÖNES CLEANUP wie im SVG!
             const waypointInfo = validWaypoints.length > 0 ? ` • ${validWaypoints.length} Stopp${validWaypoints.length > 1 ? 's' : ''}` : '';
             const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
 
-            let priceHtml = `<div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);padding:10px 14px;border-radius:8px;border:2px solid #10b981;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="font-size:22px;font-weight:800;color:#059669;">${pricing.total}€</div>
-                    <div style="font-size:12px;color:#047857;line-height:1.3;">
-                        ${route.distance} km • ${durationCalc.totalDuration} Min${waypointInfo}${zuschlagInfo ? '<br><span style="color:#92400e;">' + zuschlagInfo + '</span>' : ''}
+            let priceHtml = `<div style="
+                background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+                padding: 16px 20px;
+                border-radius: 12px;
+                border: 3px solid #10b981;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+            ">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+                    <!-- PREIS (GROß) -->
+                    <div style="font-size: 32px; font-weight: 800; color: #059669; letter-spacing: -0.5px;">
+                        ${pricing.total}€
+                    </div>
+                    
+                    <!-- TRENNER -->
+                    <div style="width: 2px; height: 50px; background: linear-gradient(180deg, transparent, #10b981, transparent); opacity: 0.4;"></div>
+                    
+                    <!-- DETAILS -->
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #047857;">
+                            <span style="font-size: 16px;">📍</span>
+                            <span>${route.distance} km</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #047857;">
+                            <span style="font-size: 16px;">⏱️</span>
+                            <span>${durationCalc.totalDuration} Min</span>
+                        </div>
+                        ${waypointInfo ? `<div style="font-size: 12px; color: #059669;">${waypointInfo}</div>` : ''}
+                        ${zuschlagInfo ? `<div style="font-size: 12px; color: #92400e; margin-top: 2px;">${zuschlagInfo}</div>` : ''}
                     </div>
                 </div>
-                <div style="font-size:20px;">✓</div>
+                
+                <!-- HÄKCHEN (wie im SVG) -->
+                <div style="
+                    min-width: 36px;
+                    height: 36px;
+                    background: #10b981;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+                ">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 10 L8 14 L16 6" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
             </div>`;
             
             // 🆕 v5.90.75: SLOT-CHECK beim Preis-Berechnen
@@ -26258,13 +26346,7 @@ Aktuell: ${currentNum}`;
                 bookBtn.style.visibility = 'visible';
             }
             
-            // 🆕 v5.90.526: ZEIGE "FREIE ZEITEN" BUTTON!
-            const slotsBtn = document.getElementById('show-slots-btn');
-            if (slotsBtn && isAdvanceBooking) {
-                // Nur bei Vorbestellung zeigen!
-                slotsBtn.style.display = 'block';
-                slotsBtn.style.visibility = 'visible';
-            }
+            // 🗑️ v5.90.764: "FREIE ZEITEN" Button Code entfernt!
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
             const priceBtn = document.getElementById('price-btn');
@@ -26282,9 +26364,21 @@ Aktuell: ${currentNum}`;
             // 🐛 v5.90.542: NULL-CHECK!
             if (!pickupCoords || !destCoords || !pickupCoords.lat || !destCoords.lat) {
                 console.warn('⚠️ showRouteMap: Koordinaten fehlen!', {pickupCoords, destCoords});
-                const mapContainer = document.getElementById('route-map');
-                if (mapContainer) mapContainer.style.display = 'none';
+                const mapContainerWrapper = document.getElementById('route-map-container');
+                if (mapContainerWrapper) mapContainerWrapper.style.display = 'none';
                 return;
+            }
+            
+            // 🆕 v5.90.764: Zeige Container mit SLIDE-IN Animation!
+            const mapContainerWrapper = document.getElementById('route-map-container');
+            if (mapContainerWrapper) {
+                mapContainerWrapper.style.display = 'block';
+                mapContainerWrapper.classList.add('slide-in');
+                
+                // Entferne Klasse nach Animation
+                setTimeout(() => {
+                    mapContainerWrapper.classList.remove('slide-in');
+                }, 400);
             }
             
             const mapContainer = document.getElementById('route-map');
@@ -26367,7 +26461,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.758: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.764: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -30427,15 +30521,13 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ ALLE-PLATZHALTER VERSTECKEN
-            const routeMap = document.getElementById('route-map');
-            if (routeMap) {
-                routeMap.style.display = 'none';
-                // Karte entfernen
-                if (routeMapInstance) {
-                    routeMapInstance.remove();
-                    routeMapInstance = null;
-                }
+            // 🗺️ v5.90.764: CLEANUP für Karte!
+            wipeAwayMap();
+            
+            // Karte entfernen
+            if (routeMapInstance) {
+                routeMapInstance.remove();
+                routeMapInstance = null;
             }
             
             // 🆕 v5.90.76: LIVE-SLOT-CHECK VERSTECKEN
@@ -61440,7 +61532,7 @@ Stack: ${err.stack}
                 } else if (role === 'admin') {
                     console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
-                    // 🔧 v5.90.758: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
+                    // 🔧 v5.90.764: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
                     const adminOnlyTabs = ['calendar', 'hotel-calendar', 'rechnung', 'crm', 'email-inbox', 'admin', 'shift-plan', 'debug', 'system-diagnostics', 'live-monitor', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'fleet-overview'];
                     if (!adminOnlyTabs.includes(lastTab)) {
                         switchView(lastTab);
@@ -61460,9 +61552,9 @@ Stack: ${err.stack}
             console.log('💾 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
             
-            // 🔧 v5.90.758: LÖSCHE lastActiveTab beim Logout!
+            // 🔧 v5.90.764: LÖSCHE lastActiveTab beim Logout!
             localStorage.removeItem('lastActiveTab');
-            console.log('🔧 v5.90.758: lastActiveTab gelöscht');
+            console.log('🔧 v5.90.764: lastActiveTab gelöscht');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
@@ -64209,13 +64301,13 @@ Stack: ${err.stack}
                 }
             }
             
-            // 🔧 v5.90.758: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            // 🔧 v5.90.764: NUR EINMAL ausführen - keine mehrfachen View-Switches!
             forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🔧 v5.90.758: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // 🔧 v5.90.764: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
         // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->

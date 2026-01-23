@@ -9,13 +9,33 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.748
-    📅 BUILD: 23.01.2026 14:30 Uhr
+    📦 VERSION: v5.90.753
+    📅 BUILD: 23.01.2026 17:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.748
+    📋 CHANGELOG v5.90.753
     ═══════════════════════════════════════════════════════════════════════════
+
+    🐛 v5.90.753 (23.01.2026):
+       • FIX: Vergangenheits-Check Bug behoben!
+       • FIX: Manuelles Datum/Zeit-Parsing ohne Zeitzonenprobleme
+       • FIX: Karten-Picker Bestätigung funktioniert jetzt korrekt!
+       • FIX: Scope-Problem mit pickupConfirmed/destinationConfirmed (var statt let)
+
+    🎨 v5.90.752 (23.01.2026):
+       • NEU: Buchungsformular übersichtlicher strukturiert!
+       • NEU: Tauschen-Button (🔄) zwischen Abholort und Zielort
+       • NEU: Lösch-Kreuz (✕) rot & rund im Eingabefeld
+       • NEU: Zwischenstopp-Button klein [+ Stopp] rechts neben Zielort
+       • NEU: Karten-Picker → direkt grüner Haken, KEIN Autocomplete!
+       • ENTFERNT: Sternchen (⭐) bei Abholort/Zielort
+
+    👥 v5.90.751 (23.01.2026):
+       • NEU: Personenzahl nach oben verschoben (vor "Wann fahren?")
+       • NEU: Optionen für 5-8 Personen (Großraumtaxi)
+       • FIX: SOFORT-Buchung zeigt jetzt automatisch "Taxi buchen" Button
+       • NEU: onPassengersChange() zeigt Hinweis bei 5+ Personen
 
     🎯 v5.90.748 (23.01.2026):
        • FIX: Race-Condition bei Wheel-Picker Slot-Check behoben!
@@ -496,8 +516,8 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.738 - exactTimeConflict Fix! 🚀 (Build 2026-01-22_1420)');
-        console.log('🐛 v5.90.738: Exakte Zeitüberschneidung wird jetzt IMMER geprüft!');
+        console.log('🚕 Funk Taxi App v5.90.753 - Vergangenheits-Check Fix! 🚀 (Build 2026-01-23_1700)');
+        console.log('🐛 v5.90.753: Manuelles Datum-Parsing behebt Zeitzonen-Bug!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
@@ -8452,7 +8472,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.747';
+        const APP_VERSION = '5.90.753';
         const APP_BUILD = '20260123-WHEEL-PICKER-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
@@ -8538,7 +8558,9 @@
         let isFirebaseReady = window.isFirebaseReady = false;
         let isConnected = false, currentVehicle = null, currentView = 'passenger', rides = [], drivers = {};
         let currentBookingCustomerId = null; // Für CRM-Update bei Stammkunden-Buchung
-        let pickupCoords = null, destCoords = null, map = null, watchId = null, isOnline = false, myCurrentRide = null;
+        // 🔧 v5.90.753: VAR für pickupCoords/destCoords - damit window.* funktioniert!
+        var pickupCoords = null, destCoords = null;
+        let map = null, watchId = null, isOnline = false, myCurrentRide = null;
         
         // 🆕 v5.90.527: WAYPOINTS (Zwischenstopps)
         let waypoints = []; // Array von {id, address, coords, autocompleteId, dropdownId}
@@ -8552,8 +8574,9 @@
         let newCustomerAddressCoords = null; // 🆕 v5.87.20: Koordinaten für neuen Kunden
         
         // 🆕 v5.42.7: Adressen-Bestätigungs-Status
-        let pickupConfirmed = false;
-        let destinationConfirmed = false;
+        // 🔧 v5.90.753: VAR statt LET - damit window.pickupConfirmed funktioniert!
+        var pickupConfirmed = false;
+        var destinationConfirmed = false;
         
         // 🆕 v5.42.8: Aktuelles Autocomplete-Feld
         let currentAutocompleteField = null;
@@ -27385,7 +27408,11 @@ Aktuell: ${currentNum}`;
                 const ridesData = ridesSnapshot.val() || {};
 
                 // Erstelle DateTime für den gewünschten Slot
-                const slotDateTime = new Date(date + 'T' + time);
+                // 🔧 v5.90.753: MANUELLES PARSEN - keine Zeitzonenprobleme mehr!
+                const [year, month, day] = date.split('-').map(Number);
+                const [hours, minutes] = time.split(':').map(Number);
+                const slotDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
+                console.log('📅 v5.90.753: Slot-DateTime:', slotDateTime.toString(), '| Parsed from:', date, time);
 
                 // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
                 const now = new Date();
@@ -55055,8 +55082,12 @@ Funk Taxi Team`;
                 const ridesData = ridesSnapshot.val() || {};
 
                 // Erstelle DateTime für den gewünschten Slot
-                const slotDateTime = new Date(date + 'T' + time);
+                // 🔧 v5.90.753: MANUELLES PARSEN - keine Zeitzonenprobleme mehr!
+                const [year, month, day] = date.split('-').map(Number);
+                const [hours, minutes] = time.split(':').map(Number);
+                const slotDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
                 const now = new Date();
+                console.log('📅 v5.90.753: QB Slot-DateTime:', slotDateTime.toString(), '| Parsed from:', date, time);
 
                 // Formatiere Datum/Zeit für Anzeige
                 const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];

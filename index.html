@@ -892,11 +892,38 @@
         
         /* 📱 MOBILE RESPONSIVE CSS */
         @media only screen and (max-width: 768px) {
-            /* Größere Touch-Targets */
-            .btn { 
-                padding: 18px 25px !important; 
-                font-size: 16px !important;
-                min-height: 50px;
+            /* Touch-Targets kompakt aber touchbar */
+            .btn {
+                padding: 12px 18px !important;
+                font-size: 14px !important;
+                min-height: 44px;
+            }
+
+            /* 🔧 v5.90.743: Große Elemente verkleinern */
+            .eta-display {
+                font-size: 24px !important;
+            }
+
+            .route-stat-value {
+                font-size: 20px !important;
+            }
+
+            .route-stat-label {
+                font-size: 10px !important;
+            }
+
+            .route-stats {
+                grid-template-columns: 1fr 1fr 1fr !important;
+                gap: 6px !important;
+            }
+
+            .route-stat {
+                padding: 8px !important;
+            }
+
+            .route-info-box {
+                padding: 10px !important;
+                border-radius: 8px !important;
             }
             
             /* 🔧 FIX: Driver Top-Bar auf Mobile - flex-wrap aktivieren */
@@ -948,12 +975,21 @@
                 padding: 6px 8px !important;
             }
             
-            /* Input-Felder größer */
+            /* Input-Felder kompakter */
             .input-group input,
             .input-group select {
-                padding: 16px !important;
-                font-size: 16px !important;
-                min-height: 50px;
+                padding: 10px 12px !important;
+                font-size: 14px !important;
+                min-height: 40px;
+            }
+
+            .input-group label {
+                font-size: 12px !important;
+                margin-bottom: 4px !important;
+            }
+
+            .input-group {
+                margin-bottom: 10px !important;
             }
             
             /* Header kompakter auf Mobile */
@@ -972,46 +1008,66 @@
                 flex-wrap: wrap;
             }
             
-            /* View-Selector größer */
+            /* View-Selector kompakter */
             .view-btn {
-                padding: 18px 10px !important;
-                font-size: 15px !important;
-                min-height: 50px;
+                padding: 12px 8px !important;
+                font-size: 13px !important;
+                min-height: 40px;
             }
             
-            /* Karten mit mehr Padding */
+            /* Karten kompakter */
             .ride-card,
             .stat-card {
-                padding: 18px !important;
-                font-size: 15px !important;
+                padding: 12px !important;
+                font-size: 13px !important;
             }
             
-            /* Map auf Mobile höher */
-            #map,
+            /* Map auf Mobile kompakter */
+            #map {
+                height: 250px !important;
+            }
+
             #driver-map {
-                height: 400px !important;
+                height: 300px !important;
             }
             
-            /* Modal auf Mobile anpassen */
+            /* Modal auf Mobile kompakter */
             .modal-content {
-                margin: 5% auto !important;
-                padding: 25px 20px !important;
+                margin: 3% auto !important;
+                padding: 15px 12px !important;
                 max-width: 95% !important;
             }
+
+            .modal-header {
+                font-size: 18px !important;
+                margin-bottom: 12px !important;
+            }
+
+            .modal-input {
+                padding: 10px !important;
+                font-size: 14px !important;
+            }
+
+            .modal-btn {
+                padding: 12px !important;
+                font-size: 14px !important;
+            }
             
-            /* Online Toggle größer */
+            /* Online Toggle kompakter auf Mobile */
             .toggle-switch {
-                width: 70px !important;
-                height: 40px !important;
+                width: 50px !important;
+                height: 28px !important;
             }
-            
+
             .slider:before {
-                height: 32px !important;
-                width: 32px !important;
+                height: 22px !important;
+                width: 22px !important;
+                left: 3px !important;
+                bottom: 3px !important;
             }
-            
+
             input:checked + .slider:before {
-                transform: translateX(30px) !important;
+                transform: translateX(22px) !important;
             }
             
             /* Stats Grid auf Mobile single column */
@@ -1037,14 +1093,14 @@
             
             /* Besseres Spacing auf Mobile */
             .view {
-                padding: 12px !important;
+                padding: 8px !important;
             }
-            
-            /* Alert-Boxen größer */
+
+            /* Alert-Boxen kompakter */
             .alert-success,
             .alert-info {
-                padding: 16px !important;
-                font-size: 14px !important;
+                padding: 10px !important;
+                font-size: 12px !important;
             }
 
             /* 📱 v5.90.723: Karten-Picker Mobile-freundlich */
@@ -1093,40 +1149,149 @@
             #universal-map-picker-modal [style*="padding:15px"] {
                 padding: 10px !important;
             }
+
+            /* 🔧 v5.90.743: Große Icons verkleinern auf Mobile */
+            [style*="font-size: 80px"],
+            [style*="font-size:80px"] {
+                font-size: 48px !important;
+                margin-bottom: 12px !important;
+            }
+
+            [style*="font-size: 64px"],
+            [style*="font-size:64px"] {
+                font-size: 40px !important;
+                margin-bottom: 10px !important;
+            }
+
+            [style*="font-size: 60px"],
+            [style*="font-size:60px"] {
+                font-size: 36px !important;
+                margin-bottom: 8px !important;
+            }
         }
 
         /* 📱 Sehr kleine Screens (unter 400px) */
         @media only screen and (max-width: 400px) {
             .header h1 {
-                font-size: 16px !important;
+                font-size: 14px !important;
+            }
+
+            .header {
+                padding: 8px !important;
             }
 
             .status-row {
-                font-size: 9px !important;
+                font-size: 8px !important;
+                gap: 6px !important;
             }
 
             .view-btn {
+                font-size: 11px !important;
+                padding: 10px 4px !important;
+                min-height: 36px !important;
+            }
+
+            /* Buttons noch kompakter */
+            .btn {
+                padding: 10px 12px !important;
+                font-size: 12px !important;
+                min-height: 38px !important;
+            }
+
+            /* ETA noch kleiner */
+            .eta-display {
+                font-size: 20px !important;
+            }
+
+            .route-stat-value {
+                font-size: 16px !important;
+            }
+
+            /* Maps kleiner */
+            #map {
+                height: 200px !important;
+            }
+
+            #driver-map {
+                height: 250px !important;
+            }
+
+            /* Input-Felder kompakter */
+            .input-group input,
+            .input-group select {
+                padding: 8px 10px !important;
                 font-size: 13px !important;
-                padding: 15px 5px !important;
+                min-height: 36px !important;
+            }
+
+            /* Karten kompakter */
+            .ride-card,
+            .stat-card {
+                padding: 10px !important;
+                font-size: 12px !important;
+            }
+
+            /* View Padding minimal */
+            .view {
+                padding: 6px !important;
             }
 
             /* 📱 v5.90.723: Karten-Picker für sehr kleine Screens */
             #quick-booking-map-picker,
             #universal-map-picker-container {
-                min-height: 180px !important;
+                min-height: 150px !important;
             }
 
             /* POI Filter noch kompakter - 2 Zeilen */
             #poi-filter-buttons button {
-                padding: 5px 8px !important;
-                font-size: 10px !important;
+                padding: 4px 6px !important;
+                font-size: 9px !important;
             }
 
             /* Buttons übereinander auf sehr kleinen Screens */
             #quick-booking-map-picker-modal [style*="display:flex;gap:10px"],
             #universal-map-picker-modal [style*="display:flex;gap:10px"] {
                 flex-direction: column !important;
-                gap: 6px !important;
+                gap: 5px !important;
+            }
+
+            /* Toggle noch kleiner */
+            .toggle-switch {
+                width: 42px !important;
+                height: 24px !important;
+            }
+
+            .slider:before {
+                height: 18px !important;
+                width: 18px !important;
+            }
+
+            input:checked + .slider:before {
+                transform: translateX(18px) !important;
+            }
+
+            /* Online-Toggle Box kompakter */
+            .online-toggle {
+                padding: 10px !important;
+            }
+
+            /* 🔧 v5.90.743: Große Icons noch kleiner auf sehr kleinen Screens */
+            [style*="font-size: 80px"],
+            [style*="font-size:80px"] {
+                font-size: 36px !important;
+                margin-bottom: 8px !important;
+            }
+
+            [style*="font-size: 64px"],
+            [style*="font-size:64px"] {
+                font-size: 32px !important;
+                margin-bottom: 6px !important;
+            }
+
+            [style*="font-size: 60px"],
+            [style*="font-size:60px"] {
+                font-size: 28px !important;
+                margin-bottom: 6px !important;
             }
         }
 
@@ -2495,130 +2660,162 @@
             </div>
             
             <!-- 📅 VORBESTELLEN-BEREICH: Datum & Zeit direkt wählen -->
+            <!-- 🆕 v5.90.742: DREHRAD-PICKER für einfachere Vorbestellung! -->
             <div id="vorbestellen-bereich" style="display:none;">
                 <div class="input-group">
-                    <label>🕐 Abholzeit wählen</label>
+                    <label style="font-size:15px;font-weight:700;margin-bottom:12px;display:block;">📅 Wann sollen wir Sie abholen?</label>
 
-                    <!-- 🆕 v5.90.737: QUICK-ZEIT-BUTTONS! -->
-                    <div id="quick-time-buttons" style="margin-top:10px;">
+                    <!-- 🆕 v5.90.742: DREHRAD/WHEEL PICKER! -->
+                    <div id="custom-datetime-container" style="margin-top:0;">
 
-                        <!-- SOFORT Button (nur wenn Fahrer online) -->
-                        <div id="quick-sofort-container" style="display:none;margin-bottom:12px;">
-                            <button id="quick-sofort-btn" onclick="selectQuickTime('sofort')" style="width:100%;padding:16px;border:3px solid #10b981;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:12px;cursor:pointer;transition:all 0.2s;">
-                                <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
-                                    <span style="font-size:28px;">⚡</span>
-                                    <div style="text-align:left;">
-                                        <div style="font-weight:700;font-size:16px;color:#059669;">SOFORT</div>
-                                        <div style="font-size:13px;color:#10b981;" id="quick-sofort-info">(ca. 5 Min)</div>
+                        <!-- DREHRAD CONTAINER -->
+                        <div id="datetime-wheel-picker" style="
+                            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #f8fafc 100%);
+                            border: 2px solid #e2e8f0;
+                            border-radius: 16px;
+                            padding: 20px 15px;
+                            box-shadow: inset 0 2px 8px rgba(0,0,0,0.06);
+                            position: relative;
+                            overflow: hidden;
+                        ">
+                            <!-- Auswahl-Highlight (Mitte) -->
+                            <div style="
+                                position: absolute;
+                                top: 50%;
+                                left: 10px;
+                                right: 10px;
+                                height: 48px;
+                                transform: translateY(-50%);
+                                background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+                                border: 2px solid #667eea;
+                                border-radius: 12px;
+                                pointer-events: none;
+                                z-index: 1;
+                            "></div>
+
+                            <!-- Drei Spalten: Tag | Stunde | Minute -->
+                            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;position:relative;z-index:2;">
+
+                                <!-- TAG-DREHRAD -->
+                                <div style="position:relative;">
+                                    <div id="day-wheel" style="
+                                        height: 150px;
+                                        overflow-y: scroll;
+                                        scroll-snap-type: y mandatory;
+                                        -webkit-overflow-scrolling: touch;
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                    " onscroll="onWheelScroll('day')">
+                                        <div style="height:51px;"></div>
+                                        <!-- Tage werden dynamisch gefüllt -->
+                                        <div style="height:51px;"></div>
                                     </div>
                                 </div>
-                            </button>
-                        </div>
 
-                        <!-- HEUTE Quick-Buttons -->
-                        <div style="margin-bottom:8px;font-weight:600;font-size:13px;color:#6b7280;">📅 HEUTE:</div>
-                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
-                            <button onclick="selectQuickTime(30)" class="quick-time-btn" style="padding:14px 8px;border:2px solid #e5e7eb;background:white;border-radius:10px;cursor:pointer;transition:all 0.2s;">
-                                <div style="font-size:20px;margin-bottom:4px;">🕐</div>
-                                <div style="font-weight:700;font-size:14px;color:#374151;">+30 Min</div>
-                                <div style="font-size:11px;color:#9ca3af;" id="quick-30-time">--:--</div>
-                            </button>
-                            <button onclick="selectQuickTime(60)" class="quick-time-btn" style="padding:14px 8px;border:2px solid #e5e7eb;background:white;border-radius:10px;cursor:pointer;transition:all 0.2s;">
-                                <div style="font-size:20px;margin-bottom:4px;">🕐</div>
-                                <div style="font-weight:700;font-size:14px;color:#374151;">+1 Std</div>
-                                <div style="font-size:11px;color:#9ca3af;" id="quick-60-time">--:--</div>
-                            </button>
-                            <button onclick="selectQuickTime(120)" class="quick-time-btn" style="padding:14px 8px;border:2px solid #e5e7eb;background:white;border-radius:10px;cursor:pointer;transition:all 0.2s;">
-                                <div style="font-size:20px;margin-bottom:4px;">🕐</div>
-                                <div style="font-weight:700;font-size:14px;color:#374151;">+2 Std</div>
-                                <div style="font-size:11px;color:#9ca3af;" id="quick-120-time">--:--</div>
-                            </button>
-                        </div>
+                                <!-- STUNDEN-DREHRAD -->
+                                <div style="position:relative;">
+                                    <div id="hour-wheel" style="
+                                        height: 150px;
+                                        overflow-y: scroll;
+                                        scroll-snap-type: y mandatory;
+                                        -webkit-overflow-scrolling: touch;
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                        text-align: center;
+                                    " onscroll="onWheelScroll('hour')">
+                                        <div style="height:51px;"></div>
+                                        <!-- Stunden werden dynamisch gefüllt -->
+                                        <div style="height:51px;"></div>
+                                    </div>
+                                </div>
 
-                        <!-- MORGEN Quick-Buttons -->
-                        <div style="margin-bottom:8px;font-weight:600;font-size:13px;color:#6b7280;">📆 MORGEN:</div>
-                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
-                            <button onclick="selectQuickTime('morgen-09')" class="quick-time-btn" style="padding:14px 8px;border:2px solid #e5e7eb;background:white;border-radius:10px;cursor:pointer;transition:all 0.2s;">
-                                <div style="font-size:20px;margin-bottom:4px;">🌅</div>
-                                <div style="font-weight:700;font-size:14px;color:#374151;">09:00</div>
-                                <div style="font-size:11px;color:#9ca3af;" id="quick-morgen-date">Morgen</div>
-                            </button>
-                            <button onclick="selectQuickTime('morgen-12')" class="quick-time-btn" style="padding:14px 8px;border:2px solid #e5e7eb;background:white;border-radius:10px;cursor:pointer;transition:all 0.2s;">
-                                <div style="font-size:20px;margin-bottom:4px;">☀️</div>
-                                <div style="font-weight:700;font-size:14px;color:#374151;">12:00</div>
-                                <div style="font-size:11px;color:#9ca3af;">Morgen</div>
-                            </button>
-                            <button onclick="selectQuickTime('morgen-15')" class="quick-time-btn" style="padding:14px 8px;border:2px solid #e5e7eb;background:white;border-radius:10px;cursor:pointer;transition:all 0.2s;">
-                                <div style="font-size:20px;margin-bottom:4px;">🌤️</div>
-                                <div style="font-weight:700;font-size:14px;color:#374151;">15:00</div>
-                                <div style="font-size:11px;color:#9ca3af;">Morgen</div>
-                            </button>
-                        </div>
-
-                        <!-- ANDERE ZEIT Button -->
-                        <button onclick="showCustomTimeInput()" id="andere-zeit-btn" style="width:100%;padding:14px;border:2px dashed #9ca3af;background:#f9fafb;border-radius:10px;cursor:pointer;transition:all 0.2s;">
-                            <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
-                                <span style="font-size:18px;">⚙️</span>
-                                <span style="font-weight:600;font-size:14px;color:#6b7280;">Andere Zeit wählen...</span>
+                                <!-- MINUTEN-DREHRAD -->
+                                <div style="position:relative;">
+                                    <div id="minute-wheel" style="
+                                        height: 150px;
+                                        overflow-y: scroll;
+                                        scroll-snap-type: y mandatory;
+                                        -webkit-overflow-scrolling: touch;
+                                        scrollbar-width: none;
+                                        -ms-overflow-style: none;
+                                        text-align: center;
+                                    " onscroll="onWheelScroll('minute')">
+                                        <div style="height:51px;"></div>
+                                        <!-- Minuten werden dynamisch gefüllt -->
+                                        <div style="height:51px;"></div>
+                                    </div>
+                                </div>
                             </div>
-                        </button>
-                    </div>
 
-                    <!-- 🆕 v5.90.737: CUSTOM TIME INPUT (versteckt, wird bei "Andere Zeit" gezeigt) -->
-                    <div id="custom-datetime-container" style="display:none;margin-top:12px;padding:16px;background:#f3f4f6;border-radius:12px;border:2px solid #e5e7eb;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                            <span style="font-weight:600;color:#374151;">📅 Datum & Zeit:</span>
-                            <button onclick="hideCustomTimeInput()" style="padding:4px 12px;border:none;background:#ef4444;color:white;border-radius:6px;cursor:pointer;font-size:12px;">✕ Schließen</button>
+                            <!-- Farbverlauf oben/unten für 3D-Effekt -->
+                            <div style="position:absolute;top:0;left:0;right:0;height:50px;background:linear-gradient(180deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:14px 14px 0 0;"></div>
+                            <div style="position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(0deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:0 0 14px 14px;"></div>
                         </div>
-                        <input type="date" id="custom-date" onchange="triggerSlotCheck();" style="padding:12px;border:2px solid #d1d5db;border-radius:8px;font-size:15px;width:100%;margin-bottom:8px;">
-                        <script>
-                            // 🔧 v5.90.676: Setze heutiges Datum als Default!
-                            (function() {
-                                const dateInput = document.getElementById('custom-date');
-                                if (dateInput && !dateInput.value) {
-                                    const today = new Date();
-                                    const yyyy = today.getFullYear();
-                                    const mm = String(today.getMonth() + 1).padStart(2, '0');
-                                    const dd = String(today.getDate()).padStart(2, '0');
-                                    dateInput.value = `${yyyy}-${mm}-${dd}`;
-                                    console.log('📅 v5.90.676: Default-Datum gesetzt:', dateInput.value);
-                                }
-                            })();
-                        </script>
 
-                        <!-- Zeit mit Ziffernblock -->
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <button id="time-display-btn" onclick="openTimeKeypadForBooking()" style="flex:1;padding:15px 12px;border:2px solid #667eea;background:white;border-radius:8px;font-size:18px;font-weight:600;color:#667eea;cursor:pointer;text-align:center;font-family:'Courier New',monospace;">
-                                --:--
-                            </button>
-                            <button onclick="openTimeKeypadForBooking()" style="padding:12px 16px;border:2px solid #667eea;background:#667eea;color:white;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;" title="Zeit eingeben">
-                                ⌨️
-                            </button>
-                            <!-- Hidden inputs für Kompatibilität -->
-                            <input type="hidden" id="custom-hour" value="">
-                            <input type="hidden" id="custom-minute" value="">
+                        <!-- Ausgewählte Zeit Anzeige -->
+                        <div id="selected-datetime-display" style="
+                            margin-top: 12px;
+                            padding: 14px 16px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            border-radius: 12px;
+                            color: white;
+                            font-weight: 700;
+                            font-size: 16px;
+                            text-align: center;
+                            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+                        ">
+                            📅 Heute um --:-- Uhr
                         </div>
-                    </div>
 
-                    <!-- Gewählte Zeit Anzeige -->
-                    <div id="selected-time-display" style="display:none;margin-top:12px;padding:16px;background:linear-gradient(135deg,#dbeafe,#eff6ff);border:2px solid #3b82f6;border-radius:12px;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <div>
-                                <div style="font-size:12px;color:#1e40af;font-weight:600;">✅ GEWÄHLTE ABHOLZEIT:</div>
-                                <div style="font-size:20px;font-weight:700;color:#1d4ed8;" id="selected-time-text">--</div>
-                            </div>
-                            <button onclick="clearSelectedTime()" style="padding:8px 12px;border:none;background:#ef4444;color:white;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">✕ Ändern</button>
+                        <!-- Hidden inputs für Kompatibilität -->
+                        <input type="hidden" id="custom-date" value="">
+                        <input type="hidden" id="custom-hour" value="">
+                        <input type="hidden" id="custom-minute" value="">
+                        <!-- Versteckter Button für Kompatibilität -->
+                        <button id="time-display-btn" style="display:none;">--:--</button>
+
+                        <!-- CSS für Scrollbar-Verstecken -->
+                        <style>
+                            #day-wheel::-webkit-scrollbar,
+                            #hour-wheel::-webkit-scrollbar,
+                            #minute-wheel::-webkit-scrollbar {
+                                display: none;
+                            }
+                            .wheel-item {
+                                height: 48px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-size: 16px;
+                                font-weight: 600;
+                                color: #64748b;
+                                scroll-snap-align: center;
+                                transition: all 0.15s ease;
+                                cursor: pointer;
+                            }
+                            .wheel-item.selected {
+                                color: #1e293b;
+                                font-size: 18px;
+                                font-weight: 700;
+                            }
+                            .wheel-item:hover {
+                                color: #667eea;
+                            }
+                        </style>
+
+                        <!-- Slot-Status Anzeige -->
+                        <div id="slot-status-display" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
+                            <!-- Wird dynamisch gefüllt -->
                         </div>
-                    </div>
-
-                    <!-- Slot-Status Anzeige -->
-                    <div id="slot-status-display" style="display:none;margin-top:10px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
-                        <!-- Wird dynamisch gefüllt -->
                     </div>
 
                     <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
                     <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
                         <!-- Wird dynamisch gefüllt -->
+                    </div>
+
+                    <div id="datetime-help" style="margin-top:10px;padding:10px;background:#dbeafe;border-radius:8px;font-size:13px;color:#1e40af;">
+                        💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
                 </div>
             </div>
@@ -10022,217 +10219,7 @@
         // 🆕 v5.30.0: Fahrt-Typ wählen (Sofort / Vorbestellen)
         let currentRideType = null; // 'sofort' oder 'vorbestellen'
         let isRebooking = false; // 🆕 v5.49.0: Merkt sich ob es eine "Nochmal buchen" ist
-        let quickTimeSelected = false; // 🆕 v5.90.737: Merkt sich ob Quick-Zeit gewählt wurde
-
-        // 🆕 v5.90.737: QUICK-ZEIT-BUTTONS FUNKTIONEN
-        // ═══════════════════════════════════════════════════════════════
-
-        // Aktualisiere die Zeitanzeigen in den Quick-Buttons
-        function updateQuickTimeButtons() {
-            const now = new Date();
-
-            // +30 Min
-            const time30 = new Date(now.getTime() + 30 * 60000);
-            const el30 = document.getElementById('quick-30-time');
-            if (el30) el30.textContent = time30.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-
-            // +1 Std
-            const time60 = new Date(now.getTime() + 60 * 60000);
-            const el60 = document.getElementById('quick-60-time');
-            if (el60) el60.textContent = time60.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-
-            // +2 Std
-            const time120 = new Date(now.getTime() + 120 * 60000);
-            const el120 = document.getElementById('quick-120-time');
-            if (el120) el120.textContent = time120.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-
-            // Morgen Datum
-            const morgen = new Date(now);
-            morgen.setDate(morgen.getDate() + 1);
-            const morgenStr = morgen.toLocaleDateString('de-DE', {weekday:'short', day:'numeric', month:'short'});
-            const elMorgen = document.getElementById('quick-morgen-date');
-            if (elMorgen) elMorgen.textContent = morgenStr;
-
-            console.log('🕐 v5.90.737: Quick-Zeit-Buttons aktualisiert');
-        }
-
-        // Prüfe ob Fahrer online sind und zeige Sofort-Button
-        async function updateQuickSofortButton() {
-            try {
-                const driversSnapshot = await db.ref('drivers').once('value');
-                const drivers = driversSnapshot.val() || {};
-
-                const onlineDrivers = Object.values(drivers).filter(d => {
-                    if (!d.online || !d.timestamp) return false;
-                    // Nicht älter als 2 Minuten
-                    return (Date.now() - d.timestamp) < 120000;
-                });
-
-                const container = document.getElementById('quick-sofort-container');
-                const infoEl = document.getElementById('quick-sofort-info');
-
-                if (onlineDrivers.length > 0) {
-                    container.style.display = 'block';
-                    if (infoEl) infoEl.textContent = `${onlineDrivers.length} Taxi${onlineDrivers.length > 1 ? 's' : ''} verfügbar!`;
-                    console.log('✅ v5.90.737: Sofort-Button sichtbar -', onlineDrivers.length, 'Fahrer online');
-                } else {
-                    container.style.display = 'none';
-                    console.log('⚠️ v5.90.737: Sofort-Button versteckt - keine Fahrer online');
-                }
-            } catch (error) {
-                console.error('❌ v5.90.737: Fehler beim Prüfen der Online-Fahrer:', error);
-                document.getElementById('quick-sofort-container').style.display = 'none';
-            }
-        }
-
-        // Quick-Zeit auswählen
-        function selectQuickTime(option) {
-            const now = new Date();
-            let targetDate, targetTime, displayText;
-
-            if (option === 'sofort') {
-                // Sofort = Jetzt + 5 Minuten (Puffer)
-                const target = new Date(now.getTime() + 5 * 60000);
-                targetDate = formatDateForInput(target);
-                targetTime = target.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                displayText = `⚡ SOFORT (ca. ${targetTime} Uhr)`;
-
-                // Wechsle zu Sofort-Modus
-                currentRideType = 'sofort';
-
-            } else if (typeof option === 'number') {
-                // +30, +60, +120 Minuten
-                const target = new Date(now.getTime() + option * 60000);
-                // Runde auf nächste 5 Minuten
-                target.setMinutes(Math.ceil(target.getMinutes() / 5) * 5);
-                target.setSeconds(0);
-
-                targetDate = formatDateForInput(target);
-                targetTime = target.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-
-                const isToday = target.toDateString() === now.toDateString();
-                displayText = isToday
-                    ? `Heute ${targetTime} Uhr`
-                    : `${target.toLocaleDateString('de-DE', {weekday:'short', day:'numeric', month:'short'})} ${targetTime} Uhr`;
-
-                currentRideType = 'vorbestellen';
-
-            } else if (option.startsWith('morgen-')) {
-                // Morgen 09:00, 12:00, 15:00
-                const hour = parseInt(option.split('-')[1]);
-                const morgen = new Date(now);
-                morgen.setDate(morgen.getDate() + 1);
-                morgen.setHours(hour, 0, 0, 0);
-
-                targetDate = formatDateForInput(morgen);
-                targetTime = morgen.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
-                displayText = `${morgen.toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long'})} ${targetTime} Uhr`;
-
-                currentRideType = 'vorbestellen';
-            }
-
-            // Setze die Werte in die Hidden-Felder
-            const dateInput = document.getElementById('custom-date');
-            const hourInput = document.getElementById('custom-hour');
-            const minuteInput = document.getElementById('custom-minute');
-            const timeBtn = document.getElementById('time-display-btn');
-
-            if (dateInput) dateInput.value = targetDate;
-            if (hourInput) hourInput.value = targetTime.split(':')[0];
-            if (minuteInput) minuteInput.value = targetTime.split(':')[1];
-            if (timeBtn) timeBtn.textContent = targetTime;
-
-            // Zeige Bestätigung
-            const selectedDisplay = document.getElementById('selected-time-display');
-            const selectedText = document.getElementById('selected-time-text');
-            if (selectedDisplay && selectedText) {
-                selectedText.textContent = displayText;
-                selectedDisplay.style.display = 'block';
-            }
-
-            // Verstecke Quick-Buttons, zeige Auswahl
-            document.getElementById('quick-time-buttons').style.display = 'none';
-
-            // Verstecke Custom-Input falls offen
-            document.getElementById('custom-datetime-container').style.display = 'none';
-
-            quickTimeSelected = true;
-
-            console.log('✅ v5.90.737: Quick-Zeit gewählt:', displayText);
-            console.log('   Datum:', targetDate, 'Zeit:', targetTime);
-
-            // Triggere Slot-Check
-            triggerSlotCheck();
-        }
-
-        // Hilfsfunktion: Date zu YYYY-MM-DD
-        function formatDateForInput(date) {
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, '0');
-            const dd = String(date.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        }
-
-        // Zeige Custom-Zeit-Input
-        function showCustomTimeInput() {
-            document.getElementById('custom-datetime-container').style.display = 'block';
-            document.getElementById('quick-time-buttons').style.display = 'none';
-            document.getElementById('selected-time-display').style.display = 'none';
-            currentRideType = 'vorbestellen';
-            console.log('📅 v5.90.737: Custom-Zeit-Input geöffnet');
-        }
-
-        // Verstecke Custom-Zeit-Input
-        function hideCustomTimeInput() {
-            document.getElementById('custom-datetime-container').style.display = 'none';
-            document.getElementById('quick-time-buttons').style.display = 'block';
-            updateQuickTimeButtons();
-            updateQuickSofortButton();
-            console.log('📅 v5.90.737: Custom-Zeit-Input geschlossen');
-        }
-
-        // Auswahl zurücksetzen
-        function clearSelectedTime() {
-            document.getElementById('selected-time-display').style.display = 'none';
-            document.getElementById('quick-time-buttons').style.display = 'block';
-            document.getElementById('custom-datetime-container').style.display = 'none';
-
-            // Reset Hidden-Felder
-            const hourInput = document.getElementById('custom-hour');
-            const minuteInput = document.getElementById('custom-minute');
-            const timeBtn = document.getElementById('time-display-btn');
-            if (hourInput) hourInput.value = '';
-            if (minuteInput) minuteInput.value = '';
-            if (timeBtn) timeBtn.textContent = '--:--';
-
-            // Slot-Status verstecken
-            const slotStatus = document.getElementById('slot-status-display');
-            if (slotStatus) slotStatus.style.display = 'none';
-
-            quickTimeSelected = false;
-
-            // Aktualisiere Buttons
-            updateQuickTimeButtons();
-            updateQuickSofortButton();
-
-            console.log('🔄 v5.90.737: Zeit-Auswahl zurückgesetzt');
-        }
-
-        // Initialisierung beim Laden
-        document.addEventListener('DOMContentLoaded', function() {
-            // Quick-Zeit-Buttons initialisieren
-            setTimeout(() => {
-                updateQuickTimeButtons();
-                updateQuickSofortButton();
-
-                // Alle 30 Sekunden aktualisieren
-                setInterval(updateQuickTimeButtons, 30000);
-                setInterval(updateQuickSofortButton, 30000);
-            }, 1000);
-        });
-
-        // ═══════════════════════════════════════════════════════════════
-
+        
         function selectRideType(type) {
             currentRideType = type;
             
@@ -10304,46 +10291,27 @@
         // (Code entfernt - Buttons sind beide sichtbar und gleichwertig)
         
         // 🆕 v5.32.0: Setze Default-Werte für Vorbestellen-Felder
-        // 🔧 v5.90.737: NEU - Zeige Quick-Zeit-Buttons statt Datum/Zeit-Felder!
+        // 🔧 v5.90.123: Angepasst für Ziffernblock mit Slot-Check
+        // 🔧 v5.90.676: FIX - Zeit ZUERST setzen, DANN Datum (verhindert 09:00 Auto-Trigger Bug!)
+        // 🆕 v5.90.742: Komplett umgestellt auf Wheel-Picker!
         function initVorbestellenDefaults() {
-            // 🆕 v5.90.737: Zeige Quick-Zeit-Buttons!
-            const quickButtons = document.getElementById('quick-time-buttons');
             const datetimeContainer = document.getElementById('custom-datetime-container');
-            const selectedDisplay = document.getElementById('selected-time-display');
+            const helpText = document.getElementById('datetime-help');
 
-            // Quick-Buttons anzeigen, Custom-Input verstecken
-            if (quickButtons) quickButtons.style.display = 'block';
-            if (datetimeContainer) datetimeContainer.style.display = 'none';
-            if (selectedDisplay) selectedDisplay.style.display = 'none';
+            // Zeige die Felder
+            datetimeContainer.style.display = 'block';
+            if (helpText) helpText.style.display = 'block';
 
-            // Setze heutiges Datum als Default für Custom-Input
-            const dateInput = document.getElementById('custom-date');
-            if (dateInput) {
-                const today = new Date();
-                const year = today.getFullYear();
-                const month = String(today.getMonth() + 1).padStart(2, '0');
-                const day = String(today.getDate()).padStart(2, '0');
-                dateInput.value = `${year}-${month}-${day}`;
-                dateInput.min = `${year}-${month}-${day}`;
-            }
+            // 🆕 v5.90.742: Initialisiere Wheel-Picker!
+            initWheelPicker();
 
-            // Reset Time-Button
-            const timeBtn = document.getElementById('time-display-btn');
-            if (timeBtn) timeBtn.textContent = '--:--';
+            // Nach kurzer Verzögerung die Display-Anzeige aktualisieren und ersten Slot-Check auslösen
+            setTimeout(() => {
+                updateSelectedDateTimeDisplay();
+                triggerSlotCheck();
+            }, 300);
 
-            // Reset Hidden-Felder
-            const hourInput = document.getElementById('custom-hour');
-            const minuteInput = document.getElementById('custom-minute');
-            if (hourInput) hourInput.value = '';
-            if (minuteInput) minuteInput.value = '';
-
-            // Aktualisiere Quick-Zeit-Buttons mit aktuellen Zeiten
-            updateQuickTimeButtons();
-            updateQuickSofortButton();
-
-            quickTimeSelected = false;
-
-            console.log('⏰ v5.90.737: Vorbestellen mit Quick-Zeit-Buttons initialisiert');
+            console.log('🎡 v5.90.742: Vorbestellen mit Wheel-Picker initialisiert');
         }
         
         // 🆕 v5.90.19: VALIDIERE MINIMUM 1 STUNDE
@@ -26683,6 +26651,208 @@ Aktuell: ${currentNum}`;
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
+        }
+
+        // 🆕 v5.90.742: DREHRAD/WHEEL PICKER FÜR VORBESTELLUNG!
+        // Globale Variablen für Wheel-Picker
+        let wheelPickerDays = [];
+        let wheelPickerInitialized = false;
+        let wheelScrollTimeout = null;
+
+        // Initialisiere Wheel-Picker beim Öffnen des Vorbestellen-Bereichs
+        function initWheelPicker() {
+            if (wheelPickerInitialized) {
+                console.log('🎡 Wheel-Picker bereits initialisiert');
+                return;
+            }
+
+            console.log('🎡 v5.90.742: Initialisiere Wheel-Picker...');
+
+            const dayWheel = document.getElementById('day-wheel');
+            const hourWheel = document.getElementById('hour-wheel');
+            const minuteWheel = document.getElementById('minute-wheel');
+
+            if (!dayWheel || !hourWheel || !minuteWheel) {
+                console.log('⚠️ Wheel-Picker Elemente nicht gefunden');
+                return;
+            }
+
+            // TAGE generieren (Heute + nächste 30 Tage)
+            wheelPickerDays = [];
+            const today = new Date();
+            const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+            for (let i = 0; i < 31; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+
+                const yyyy = date.getFullYear();
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const dd = String(date.getDate()).padStart(2, '0');
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+
+                let displayName;
+                if (i === 0) {
+                    displayName = '📅 Heute';
+                } else if (i === 1) {
+                    displayName = '📅 Morgen';
+                } else {
+                    const dayName = dayNames[date.getDay()];
+                    displayName = `${dayName}, ${dd}.${mm}.`;
+                }
+
+                wheelPickerDays.push({
+                    value: dateStr,
+                    display: displayName
+                });
+            }
+
+            // Tage einfügen
+            const dayItemsHTML = wheelPickerDays.map((day, idx) =>
+                `<div class="wheel-item" data-value="${day.value}" data-index="${idx}" onclick="scrollWheelToIndex('day', ${idx})">${day.display}</div>`
+            ).join('');
+            dayWheel.innerHTML = `<div style="height:51px;"></div>${dayItemsHTML}<div style="height:51px;"></div>`;
+
+            // STUNDEN generieren (00-23)
+            let hourItemsHTML = '';
+            for (let h = 0; h < 24; h++) {
+                const hourStr = String(h).padStart(2, '0');
+                hourItemsHTML += `<div class="wheel-item" data-value="${hourStr}" data-index="${h}" onclick="scrollWheelToIndex('hour', ${h})">${hourStr}</div>`;
+            }
+            hourWheel.innerHTML = `<div style="height:51px;"></div>${hourItemsHTML}<div style="height:51px;"></div>`;
+
+            // MINUTEN generieren (00, 05, 10, ... 55)
+            let minuteItemsHTML = '';
+            const minuteValues = [];
+            for (let m = 0; m < 60; m += 5) {
+                const minStr = String(m).padStart(2, '0');
+                minuteValues.push(minStr);
+                minuteItemsHTML += `<div class="wheel-item" data-value="${minStr}" data-index="${minuteValues.length - 1}" onclick="scrollWheelToIndex('minute', ${minuteValues.length - 1})">${minStr}</div>`;
+            }
+            minuteWheel.innerHTML = `<div style="height:51px;"></div>${minuteItemsHTML}<div style="height:51px;"></div>`;
+
+            // Speichere Minuten-Werte global
+            window.wheelMinuteValues = minuteValues;
+
+            // Setze initiale Position (Heute, aktuelle Stunde gerundet auf nächste 5 Min + 30 Min)
+            const now = new Date();
+            let initialHour = now.getHours();
+            let initialMinute = Math.ceil(now.getMinutes() / 5) * 5 + 30; // +30 Min Vorlauf
+
+            // Überlauf behandeln
+            if (initialMinute >= 60) {
+                initialMinute -= 60;
+                initialHour++;
+            }
+            if (initialHour >= 24) {
+                initialHour -= 24;
+                // Wenn Überlauf auf nächsten Tag, dann Morgen auswählen
+                setTimeout(() => scrollWheelToIndex('day', 1), 100);
+            } else {
+                setTimeout(() => scrollWheelToIndex('day', 0), 100); // Heute
+            }
+
+            const minuteIndex = minuteValues.indexOf(String(initialMinute).padStart(2, '0'));
+
+            setTimeout(() => {
+                scrollWheelToIndex('hour', initialHour);
+                scrollWheelToIndex('minute', minuteIndex >= 0 ? minuteIndex : 6); // Default: 30 Min
+            }, 150);
+
+            wheelPickerInitialized = true;
+            console.log('✅ Wheel-Picker initialisiert!');
+        }
+
+        // Scrolle Wheel zu bestimmtem Index
+        function scrollWheelToIndex(wheelType, index) {
+            const wheel = document.getElementById(`${wheelType}-wheel`);
+            if (!wheel) return;
+
+            const itemHeight = 48;
+            const scrollTop = index * itemHeight;
+
+            wheel.scrollTo({
+                top: scrollTop,
+                behavior: 'smooth'
+            });
+        }
+
+        // Scroll-Handler für Wheels
+        function onWheelScroll(wheelType) {
+            // Debounce
+            clearTimeout(wheelScrollTimeout);
+            wheelScrollTimeout = setTimeout(() => {
+                updateWheelSelection(wheelType);
+                updateSelectedDateTimeDisplay();
+                triggerSlotCheck();
+            }, 100);
+        }
+
+        // Aktualisiere Auswahl basierend auf Scroll-Position
+        function updateWheelSelection(wheelType) {
+            const wheel = document.getElementById(`${wheelType}-wheel`);
+            if (!wheel) return;
+
+            const itemHeight = 48;
+            const scrollTop = wheel.scrollTop;
+            const selectedIndex = Math.round(scrollTop / itemHeight);
+
+            // Finde das ausgewählte Item
+            const items = wheel.querySelectorAll('.wheel-item');
+            items.forEach((item, idx) => {
+                if (idx === selectedIndex) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+
+            // Snap zur nächsten Position
+            const snappedScrollTop = selectedIndex * itemHeight;
+            if (Math.abs(scrollTop - snappedScrollTop) > 2) {
+                wheel.scrollTo({
+                    top: snappedScrollTop,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // Aktualisiere die Anzeige und Hidden-Inputs
+        function updateSelectedDateTimeDisplay() {
+            const dayWheel = document.getElementById('day-wheel');
+            const hourWheel = document.getElementById('hour-wheel');
+            const minuteWheel = document.getElementById('minute-wheel');
+            const display = document.getElementById('selected-datetime-display');
+            const dateInput = document.getElementById('custom-date');
+            const hourInput = document.getElementById('custom-hour');
+            const minuteInput = document.getElementById('custom-minute');
+            const timeDisplayBtn = document.getElementById('time-display-btn');
+
+            if (!dayWheel || !hourWheel || !minuteWheel) return;
+
+            const itemHeight = 48;
+
+            // Hole ausgewählte Werte
+            const dayIndex = Math.round(dayWheel.scrollTop / itemHeight);
+            const hourIndex = Math.round(hourWheel.scrollTop / itemHeight);
+            const minuteIndex = Math.round(minuteWheel.scrollTop / itemHeight);
+
+            const selectedDay = wheelPickerDays[dayIndex] || wheelPickerDays[0];
+            const selectedHour = String(hourIndex).padStart(2, '0');
+            const selectedMinute = window.wheelMinuteValues ? (window.wheelMinuteValues[minuteIndex] || '00') : '00';
+
+            // Update Hidden Inputs
+            if (dateInput) dateInput.value = selectedDay.value;
+            if (hourInput) hourInput.value = selectedHour;
+            if (minuteInput) minuteInput.value = selectedMinute;
+            if (timeDisplayBtn) timeDisplayBtn.textContent = `${selectedHour}:${selectedMinute}`;
+
+            // Update Display
+            if (display) {
+                display.innerHTML = `📅 ${selectedDay.display} um <strong>${selectedHour}:${selectedMinute}</strong> Uhr`;
+            }
+
+            console.log('🎡 Ausgewählt:', selectedDay.display, selectedHour + ':' + selectedMinute);
         }
 
         // 🆕 v5.90.123: ZIFFERNBLOCK FÜR TAXI BUCHEN MIT SLOT-CHECK!

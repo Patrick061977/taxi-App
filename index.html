@@ -22833,8 +22833,9 @@ Aktuell: ${currentNum}`;
             }
             
             // Formatiere Datum/Zeit
+            // 🆕 v5.90.746: {date} mit Jahr, {date_short} ohne Jahr!
             const pickupTime = new Date(ride.pickupTimestamp || ride.pickupTime || Date.now());
-            const dateStr = pickupTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+            const dateStr = pickupTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
             const timeStr = pickupTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             
             // Kurze Adressen
@@ -22867,6 +22868,18 @@ Aktuell: ${currentNum}`;
             const guestStr = ride.guestName || '';
             const bookingIdStr = ride.firebaseId || ride.id || '';
 
+            // 🆕 v5.90.746: FEHLENDE Platzhalter hinzugefügt!
+            const notesStr = ride.notes || ride.comment || '';
+            const luggageStr = ride.luggage || '';
+            // ETA berechnen: Abholzeit + Fahrtdauer
+            let etaStr = '';
+            if (ride.duration) {
+                const etaTime = new Date(pickupTime.getTime() + (ride.duration * 60000));
+                etaStr = etaTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            }
+            const companyName = 'Funk Taxi Usedom';
+            const supportPhone = '038378/22022';
+
             // Ersetze Platzhalter
             const smsText = smsTemplate
                 .replace(/{date}/g, dateStr)
@@ -22878,12 +22891,17 @@ Aktuell: ${currentNum}`;
                 .replace(/{distance}/g, distanceStr)
                 .replace(/{duration}/g, durationStr)
                 .replace(/{pickup_time}/g, timeStr)
+                .replace(/{eta}/g, etaStr)
                 .replace(/{price}/g, priceStr)
                 .replace(/{payment}/g, paymentStr)
-                .replace(/{phone}/g, '038378/22022')
+                .replace(/{phone}/g, supportPhone)
+                .replace(/{support_phone}/g, supportPhone)
+                .replace(/{company_name}/g, companyName)
                 .replace(/{link}/g, trackingLink || '')
                 .replace(/{customer}/g, customerName)
                 .replace(/{passengers}/g, passengersCount)
+                .replace(/{notes}/g, notesStr)
+                .replace(/{luggage}/g, luggageStr)
                 .replace(/{driver}/g, driverStr)
                 .replace(/{vehicle}/g, vehicleStr)
                 .replace(/{taxi_number}/g, taxiNumStr)

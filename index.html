@@ -9,13 +9,27 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.748
-    📅 BUILD: 23.01.2026 14:30 Uhr
+    📦 VERSION: v5.90.752
+    📅 BUILD: 23.01.2026 16:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.748
+    📋 CHANGELOG v5.90.752
     ═══════════════════════════════════════════════════════════════════════════
+
+    🎨 v5.90.752 (23.01.2026):
+       • NEU: Buchungsformular übersichtlicher strukturiert!
+       • NEU: Tauschen-Button (🔄) zwischen Abholort und Zielort
+       • NEU: Lösch-Kreuz (✕) rot & rund im Eingabefeld
+       • NEU: Zwischenstopp-Button klein [+ Stopp] rechts neben Zielort
+       • NEU: Karten-Picker → direkt grüner Haken, KEIN Autocomplete!
+       • ENTFERNT: Sternchen (⭐) bei Abholort/Zielort
+
+    👥 v5.90.751 (23.01.2026):
+       • NEU: Personenzahl nach oben verschoben (vor "Wann fahren?")
+       • NEU: Optionen für 5-8 Personen (Großraumtaxi)
+       • FIX: SOFORT-Buchung zeigt jetzt automatisch "Taxi buchen" Button
+       • NEU: onPassengersChange() zeigt Hinweis bei 5+ Personen
 
     🎯 v5.90.748 (23.01.2026):
        • FIX: Race-Condition bei Wheel-Picker Slot-Check behoben!
@@ -8452,7 +8466,7 @@
         const USEDOM_ORTE = ['Heringsdorf', 'Ahlbeck', 'Bansin', 'Zinnowitz', 'Ückeritz', 'Loddin', 'Zempin', 'Koserow', 'Karlshagen', 'Peenemünde', 'Trassenheide'];
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
-        const APP_VERSION = '5.90.747';
+        const APP_VERSION = '5.90.752';
         const APP_BUILD = '20260123-WHEEL-PICKER-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!

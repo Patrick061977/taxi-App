@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.765
+    📦 VERSION: v5.90.766
     📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.765
+    📋 CHANGELOG v5.90.766
     ═══════════════════════════════════════════════════════════════════════════
 
-    📱 v5.90.765 (23.01.2026):
+    📱 v5.90.766 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
        • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
        • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
@@ -522,10 +522,10 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.765 - UI-CLEANUP! 🚀 (Build 2026-01-23_2200)');
+        console.log('🚕 Funk Taxi App v5.90.766 - PICKER-FIX! 🚀 (Build 2026-01-23_2230)');
+        console.log('🕐 v5.90.766: Vergangenheit wird ausgegraut!');
+        console.log('📍 v5.90.766: Button VOR dem Ergebnis!');
         console.log('🎨 v5.90.765: Verfügbarkeits-Button kompakter!');
-        console.log('📅 v5.90.765: Datum + Uhrzeit im Lade-Monitor!');
-        console.log('🗑️ v5.90.764: "Freie Zeiten" Button entfernt!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
@@ -1101,7 +1101,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.765: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.766: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1291,7 +1291,7 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.765: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.766: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
                 height: 150px !important;
             }
@@ -1460,7 +1460,7 @@
             }
         }
         
-        /* 🎨 v5.90.765: TAFEL-ABWISCH ANIMATION! */
+        /* 🎨 v5.90.766: TAFEL-ABWISCH ANIMATION! */
         @keyframes wipeOut {
             0% {
                 clip-path: inset(0 0 0 0);
@@ -1496,7 +1496,7 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🔧 v5.90.765: UI-CLEANUP für Mobile! -->
+    <!-- 🔧 v5.90.766: PICKER-FIX für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
         body.loading .view {
@@ -1517,7 +1517,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-                console.log('✅ v5.90.765: Anti-Flicker aktiviert!');
+                console.log('✅ v5.90.766: Anti-Flicker aktiviert!');
             }, 100);
         });
     </script>
@@ -2753,7 +2753,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.765: KARTE & PREIS OBEN - vor Vorbestellen! -->
+            <!-- 🆕 v5.90.766: KARTE & PREIS OBEN - vor Vorbestellen! -->
             <div id="route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
                 <div id="price-display" style="margin-bottom: 15px;"></div>
@@ -2761,10 +2761,10 @@
                 <!-- KARTE -->
                 <div id="route-map" style="height: 280px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 
-                <!-- 🚕 v5.90.765: TAXI BUCHEN Button DIREKT unter der Karte! -->
+                <!-- 🚕 v5.90.766: TAXI BUCHEN Button DIREKT unter der Karte! -->
                 <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 15px; display: none; width: 100%;">🚕 Taxi buchen</button>
                 
-                <!-- 🗑️ v5.90.765: "Freie Zeiten" Button ENTFERNT - nicht mehr benötigt! -->
+                <!-- 🗑️ v5.90.766: "Freie Zeiten" Button ENTFERNT - nicht mehr benötigt! -->
             </div>
 
             <!-- 🚕 SOFORT-BEREICH: Verfügbare Taxis -->
@@ -2922,23 +2922,13 @@
                                 background: rgba(102, 126, 234, 0.1);
                             }
                         </style>
-
-                        <!-- Slot-Status Anzeige -->
-                        <div id="slot-status-display" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
-                            <!-- Wird dynamisch gefüllt -->
-                        </div>
-                    </div>
-
-                    <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
-                    <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
-                        <!-- Wird dynamisch gefüllt -->
                     </div>
 
                     <div id="datetime-help" style="margin-top:10px;padding:10px;background:#dbeafe;border-radius:8px;font-size:13px;color:#1e40af;">
                         💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
 
-                    <!-- 🆕 v5.90.765: KOMPAKTER Button - nicht mehr so riesig! -->
+                    <!-- 🆕 v5.90.766: Button JETZT VOR dem Ergebnis! -->
                     <button id="confirm-time-btn" onclick="triggerSlotCheck()" style="
                         margin-top: 15px;
                         width: 100%;
@@ -2955,6 +2945,16 @@
                     ">
                         ✅ Verfügbarkeit prüfen
                     </button>
+
+                    <!-- Slot-Status Anzeige -->
+                    <div id="slot-status-display" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
+
+                    <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
+                    <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
+                        <!-- Wird dynamisch gefüllt -->
+                    </div>
                 </div>
             </div>
 
@@ -3021,7 +3021,7 @@
                 </div>
             </div>
             
-            <!-- 🚕 v5.90.765: Buttons wurden IN route-map-container verschoben! -->
+            <!-- 🚕 v5.90.766: Buttons wurden IN route-map-container verschoben! -->
         </div>
         
         <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
@@ -8556,7 +8556,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '5.90.754';
-        const APP_BUILD = '20260123-MOBILE-UI-CLEANUP';
+        const APP_BUILD = '20260123-MOBILE-PICKER-FIX';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -12755,7 +12755,7 @@ Funk Taxi Heringsdorf`;
             }
         }
         
-        // 🧹 v5.24.8: UI-CLEANUP für hängende 'assigned' Fahrten
+        // 🧹 v5.24.8: PICKER-FIX für hängende 'assigned' Fahrten
         // 🧹 v5.24.9: ERWEITERT - auch alte 'new' und 'vorbestellt' Fahrten (älter als 24h)
         async function cleanupStuckAssignedRides() {
             if (!db) return;
@@ -12801,7 +12801,7 @@ Funk Taxi Heringsdorf`;
                     }
                 }
                 
-                // 🆕 v5.90.120: ALLE 24h AUTO-UI-CLEANUPS DEAKTIVIERT!
+                // 🆕 v5.90.120: ALLE 24h AUTO-PICKER-FIXS DEAKTIVIERT!
                 // ═══════════════════════════════════════════════════
                 // Patrick will KEINE automatischen Löschungen mehr!
                 // Grund: Keine Überraschungen, volle Kontrolle
@@ -14235,8 +14235,8 @@ Aktuell: ${currentNum}`;
                         logActivity('system', 'app_start', 'App gestartet - Firebase verbunden', {});
                     }, 1000);
                     
-                    // 🧹 UI-CLEANUP: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
-                    // 🆕 v5.87.59: AUTO-UI-CLEANUP DEAKTIVIERT!
+                    // 🧹 PICKER-FIX: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
+                    // 🆕 v5.87.59: AUTO-PICKER-FIX DEAKTIVIERT!
                     // ⚠️ WICHTIG: Fahrten werden NICHT mehr automatisch storniert!
                     // ✅ Admin-Fahrten sind geschützt
                     // ✅ Vorbestellungen sind geschützt
@@ -25707,7 +25707,7 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🎨 v5.90.765: TAFEL-ABWISCH FUNKTION!
+        // 🎨 v5.90.766: TAFEL-ABWISCH FUNKTION!
         function wipeAwayMap() {
             const routeMapContainer = document.getElementById('route-map-container');
             if (routeMapContainer && routeMapContainer.style.display !== 'none') {
@@ -25745,7 +25745,7 @@ Aktuell: ${currentNum}`;
             destCoords = null;
             destinationConfirmed = false;
             
-            // 🎨 v5.90.765: UI-CLEANUP statt sofort verstecken!
+            // 🎨 v5.90.766: PICKER-FIX statt sofort verstecken!
             wipeAwayMap();
             
             // "Taxi buchen" Button verstecken
@@ -26237,7 +26237,7 @@ Aktuell: ${currentNum}`;
             window.currentTotalDuration = durationCalc.totalDuration; // 🆕 v5.90.528: Mit Puffern!
             window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
-            // 🎨 v5.90.765: SCHÖNES UI-CLEANUP wie im SVG!
+            // 🎨 v5.90.766: SCHÖNES PICKER-FIX wie im SVG!
             const waypointInfo = validWaypoints.length > 0 ? ` • ${validWaypoints.length} Stopp${validWaypoints.length > 1 ? 's' : ''}` : '';
             const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
 
@@ -26345,7 +26345,7 @@ Aktuell: ${currentNum}`;
                 bookBtn.style.visibility = 'visible';
             }
             
-            // 🗑️ v5.90.765: "FREIE ZEITEN" Button Code entfernt!
+            // 🗑️ v5.90.766: "FREIE ZEITEN" Button Code entfernt!
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
             const priceBtn = document.getElementById('price-btn');
@@ -26368,7 +26368,7 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            // 🆕 v5.90.765: Zeige Container mit SLIDE-IN Animation!
+            // 🆕 v5.90.766: Zeige Container mit SLIDE-IN Animation!
             const mapContainerWrapper = document.getElementById('route-map-container');
             if (mapContainerWrapper) {
                 mapContainerWrapper.style.display = 'block';
@@ -26460,7 +26460,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.765: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.766: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -27093,6 +27093,9 @@ Aktuell: ${currentNum}`;
             setTimeout(() => {
                 scrollWheelToIndex('hour', initialHour);
                 scrollWheelToIndex('minute', minuteIndex >= 0 ? minuteIndex : 6); // Default: 30 Min
+                
+                // 🆕 v5.90.766: Graue Vergangenheit aus!
+                updateHourAvailability();
             }, 150);
 
             wheelPickerInitialized = true;
@@ -27124,6 +27127,76 @@ Aktuell: ${currentNum}`;
             setTimeout(() => {
                 wheelScrollLock = false;
             }, 400);
+            
+            // 🆕 v5.90.766: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
+            if (wheelType === 'day') {
+                setTimeout(() => updateHourAvailability(), 100);
+            }
+        }
+        
+        // 🆕 v5.90.766: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
+        function updateHourAvailability() {
+            const dayWheel = document.getElementById('day-wheel');
+            const hourWheel = document.getElementById('hour-wheel');
+            
+            if (!dayWheel || !hourWheel || !wheelPickerDays || wheelPickerDays.length === 0) return;
+            
+            // Finde aktuell gewählten Tag
+            const dayItems = dayWheel.querySelectorAll('.wheel-item[data-value]');
+            let selectedDayValue = null;
+            
+            dayItems.forEach(item => {
+                const rect = item.getBoundingClientRect();
+                const wheelRect = dayWheel.getBoundingClientRect();
+                const itemCenter = rect.top + rect.height / 2;
+                const wheelCenter = wheelRect.top + wheelRect.height / 2;
+                
+                if (Math.abs(itemCenter - wheelCenter) < 30) {
+                    selectedDayValue = item.dataset.value;
+                }
+            });
+            
+            if (!selectedDayValue) return;
+            
+            // Prüfe ob HEUTE gewählt
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            const isToday = selectedDayValue === todayStr;
+            
+            // Wenn NICHT heute, alle Stunden freigeben
+            if (!isToday) {
+                const allHours = hourWheel.querySelectorAll('.wheel-item[data-value]');
+                allHours.forEach(hour => {
+                    hour.style.opacity = '1';
+                    hour.style.pointerEvents = 'auto';
+                    hour.style.textDecoration = 'none';
+                });
+                return;
+            }
+            
+            // HEUTE gewählt → Vergangenheit ausgrauen
+            const currentHour = today.getHours();
+            
+            const allHours = hourWheel.querySelectorAll('.wheel-item[data-value]');
+            allHours.forEach(hour => {
+                const hourValue = parseInt(hour.dataset.value, 10);
+                
+                if (hourValue <= currentHour) {
+                    // VERGANGENHEIT
+                    hour.style.opacity = '0.3';
+                    hour.style.pointerEvents = 'none';
+                    hour.style.textDecoration = 'line-through';
+                    hour.style.color = '#999';
+                } else {
+                    // ZUKUNFT
+                    hour.style.opacity = '1';
+                    hour.style.pointerEvents = 'auto';
+                    hour.style.textDecoration = 'none';
+                    hour.style.color = '';
+                }
+            });
+            
+            console.log('🕐 v5.90.766: Stunden aktualisiert - Vergangenheit ausgegraut!');
         }
 
         // 🆕 v5.90.748: SETZE VORGESCHLAGENE ZEIT IM WHEEL-PICKER
@@ -27529,7 +27602,7 @@ Aktuell: ${currentNum}`;
         async function checkSlotAvailability(date, time) {
             const statusDisplay = document.getElementById('slot-status-display');
 
-            // 🆕 v5.90.765: LADEINDIKATOR mit Datum + Uhrzeit!
+            // 🆕 v5.90.766: LADEINDIKATOR mit Datum + Uhrzeit!
             if (statusDisplay) {
                 // Formatiere Datum schöner
                 const dateObj = new Date(date + 'T' + time);
@@ -30531,7 +30604,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ v5.90.765: UI-CLEANUP für Karte!
+            // 🗺️ v5.90.766: PICKER-FIX für Karte!
             wipeAwayMap();
             
             // Karte entfernen
@@ -44366,7 +44439,7 @@ Funk Taxi Team`;
             
             try {
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔥 v5.90.372: LADE FAHRZEUGE MIT AUTO-UI-CLEANUP');
+                console.log('🔥 v5.90.372: LADE FAHRZEUGE MIT AUTO-PICKER-FIX');
                 console.log('═══════════════════════════════════════════════════════════');
                 
                 const snapshot = await db.ref('vehicles').once('value');
@@ -44388,7 +44461,7 @@ Funk Taxi Team`;
                     return;
                 }
                 
-                // 🧹 UI-CLEANUP: Lösche alle Fahrzeuge die NICHT in der Whitelist sind!
+                // 🧹 PICKER-FIX: Lösche alle Fahrzeuge die NICHT in der Whitelist sind!
                 const keysInFirebase = Object.keys(data);
                 const officialKeys = Object.keys(OFFICIAL_VEHICLES);
                 
@@ -44451,7 +44524,7 @@ Funk Taxi Team`;
         async function cleanupMonitoringDrivers() {
             try {
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('🧹 v5.90.375: UI-CLEANUP /monitoring/drivers/');
+                console.log('🧹 v5.90.375: PICKER-FIX /monitoring/drivers/');
                 console.log('═══════════════════════════════════════════════════════════');
                 
                 const snapshot = await db.ref('monitoring/drivers').once('value');
@@ -61321,7 +61394,7 @@ Stack: ${err.stack}
             const authScreen = document.getElementById('phone-auth-screen');
             if (authScreen) authScreen.style.display = 'none';
             
-            // 🧹 UI-CLEANUP: Alte Fahrzeuge dieses Users offline setzen
+            // 🧹 PICKER-FIX: Alte Fahrzeuge dieses Users offline setzen
             if (isFirebaseReady) {
                 try {
                     const driversSnapshot = await db.ref('vehicles').once('value');
@@ -61542,7 +61615,7 @@ Stack: ${err.stack}
                 } else if (role === 'admin') {
                     console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
-                    // 🔧 v5.90.765: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
+                    // 🔧 v5.90.766: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
                     const adminOnlyTabs = ['calendar', 'hotel-calendar', 'rechnung', 'crm', 'email-inbox', 'admin', 'shift-plan', 'debug', 'system-diagnostics', 'live-monitor', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'fleet-overview'];
                     if (!adminOnlyTabs.includes(lastTab)) {
                         switchView(lastTab);
@@ -61562,9 +61635,9 @@ Stack: ${err.stack}
             console.log('💾 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
             
-            // 🔧 v5.90.765: LÖSCHE lastActiveTab beim Logout!
+            // 🔧 v5.90.766: LÖSCHE lastActiveTab beim Logout!
             localStorage.removeItem('lastActiveTab');
-            console.log('🔧 v5.90.765: lastActiveTab gelöscht');
+            console.log('🔧 v5.90.766: lastActiveTab gelöscht');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
@@ -64311,13 +64384,13 @@ Stack: ${err.stack}
                 }
             }
             
-            // 🔧 v5.90.765: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            // 🔧 v5.90.766: NUR EINMAL ausführen - keine mehrfachen View-Switches!
             forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🔧 v5.90.765: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // 🔧 v5.90.766: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
         // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->

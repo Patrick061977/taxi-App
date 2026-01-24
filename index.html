@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.776
+    📦 VERSION: v5.90.777
     📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.776
+    📋 CHANGELOG v5.90.777
     ═══════════════════════════════════════════════════════════════════════════
 
-    📱 v5.90.776 (23.01.2026):
+    📱 v5.90.777 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
        • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
        • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
@@ -395,7 +395,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.776 | Build: 2026-01-24_1445 | Fix: TARIF-INFO - selectRideType() Fehler behoben! -->
+    <!-- Version: v5.90.777 | Build: 2026-01-24_1530 | Fix: ULTRA-KOMPAKT - selectRideType() Fehler behoben! -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -522,10 +522,10 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.776 - TARIF-INFO! 🚀 (Build 2026-01-24_1445)');
-        console.log('🐛 v5.90.776: Aktueller Preis nach Tagtarif!');
-        console.log('✅ v5.90.776: Einfache Tarif-Anzeige!');
-        console.log('🧪 v5.90.776: Klar + Übersichtlich!');
+        console.log('🚕 Funk Taxi App v5.90.777 - ULTRA-KOMPAKT! 🚀 (Build 2026-01-24_1530)');
+        console.log('🐛 v5.90.777: Karte 120px + Preis kompakt!');
+        console.log('✅ v5.90.777: Grüne Box verschwindet!');
+        console.log('🧪 v5.90.777: Alles auf 1 Screen!');
         console.log('📦 v5.90.773: Kompakte Struktur!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
@@ -1102,7 +1102,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.776: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.777: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1292,9 +1292,9 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.776: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.777: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
-                height: 150px !important;
+                height: 120px !important;
             }
 
             /* Input-Felder kompakter */
@@ -1320,7 +1320,7 @@
             /* 📱 v5.90.723: Karten-Picker für sehr kleine Screens */
             #quick-booking-map-picker,
             #universal-map-picker-container {
-                min-height: 150px !important;
+                min-height: 120px !important;
             }
 
             /* POI Filter noch kompakter - 2 Zeilen */
@@ -1461,7 +1461,7 @@
             }
         }
         
-        /* 🎨 v5.90.776: TAFEL-ABWISCH ANIMATION! */
+        /* 🎨 v5.90.777: TAFEL-ABWISCH ANIMATION! */
         @keyframes wipeOut {
             0% {
                 clip-path: inset(0 0 0 0);
@@ -1497,7 +1497,7 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🔧 v5.90.776: TARIF-INFO für Mobile! -->
+    <!-- 🔧 v5.90.777: ULTRA-KOMPAKT für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
         body.loading .view {
@@ -1518,7 +1518,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-                console.log('✅ v5.90.776: Anti-Flicker aktiviert!');
+                console.log('✅ v5.90.777: Anti-Flicker aktiviert!');
             }, 100);
         });
     </script>
@@ -1789,7 +1789,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.774 - TARIF-INFO! ✅ (Build 20260124-1400)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.774 - ULTRA-KOMPAKT! ✅ (Build 20260124-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2733,15 +2733,15 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.776: KARTE GANZ NACH OBEN - direkt nach Personen! -->
+            <!-- 🆕 v5.90.777: KARTE GANZ NACH OBEN - direkt nach Personen! -->
             <div id="route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
                 <div id="price-display" style="margin-bottom: 15px;"></div>
                 
-                <!-- 🆕 v5.90.776: KARTE KLEINER - wie Schnellbuchung! -->
-                <div id="route-map" style="height: 150px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+                <!-- 🆕 v5.90.777: KARTE KLEINER - wie Schnellbuchung! -->
+                <div id="route-map" style="height: 120px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 
-                <!-- 🆕 v5.90.776: BUCHEN-BUTTON PROMINENT! -->
+                <!-- 🆕 v5.90.777: BUCHEN-BUTTON PROMINENT! -->
                 <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 15px; display: none; width: 100%; padding: 14px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
                     🚕 TAXI BUCHEN
                 </button>
@@ -2751,7 +2751,7 @@
             <div class="input-group" style="margin-top:20px;">
                 <label style="font-size:14px;font-weight:600;margin-bottom:10px;display:block;">⏱️ Wann möchten Sie fahren?</label>
                 
-                <!-- 🆕 v5.90.776: TARIF-INFOE BUTTONS wie Schnellbuchung! -->
+                <!-- 🆕 v5.90.777: ULTRA-KOMPAKTE BUTTONS wie Schnellbuchung! -->
                 <div id="ride-type-buttons-container" style="display:flex;gap:8px;">
                     <!-- SOFORT Button -->
                     <button id="btn-sofort" onclick="selectRideType('sofort')" style="display:none;flex:1;padding:12px 15px;border:2px solid #10b981;background:#10b981;color:white;border-radius:8px;cursor:pointer;transition:all 0.2s;font-weight:600;font-size:14px;">
@@ -2765,9 +2765,9 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.776: Karte wurde NACH OBEN verschoben (nach Personen)! -->
+            <!-- 🆕 v5.90.777: Karte wurde NACH OBEN verschoben (nach Personen)! -->
 
-            <!-- 🆕 v5.90.776: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
+            <!-- 🆕 v5.90.777: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
             <div id="slot-status-display" style="display:none;margin-top:20px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
                 <!-- Wird dynamisch gefüllt mit blauer KUNDEN-SICHT Box -->
             </div>
@@ -2783,7 +2783,7 @@
                 <div class="input-group">
                     <label style="font-size:15px;font-weight:700;margin-bottom:12px;display:block;">📅 Wann sollen wir Sie abholen?</label>
 
-                    <!-- 🆕 v5.90.776: TARIF-INFOES ZEIT-FELD! -->
+                    <!-- 🆕 v5.90.777: ULTRA-KOMPAKTES ZEIT-FELD! -->
                     <div id="selected-datetime-display" 
                          onclick="triggerSlotCheck()" 
                          style="
@@ -2892,7 +2892,7 @@
                             <div style="position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(0deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:0 0 14px 14px;"></div>
                         </div>
 
-                        <!-- 🆕 v5.90.776: Zeit-Display wurde nach OBEN verschoben! -->
+                        <!-- 🆕 v5.90.777: Zeit-Display wurde nach OBEN verschoben! -->
 
                         <!-- Hidden inputs für Kompatibilität -->
                         <input type="hidden" id="custom-date" value="">
@@ -2942,12 +2942,12 @@
                         💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
 
-                    <!-- 🆕 v5.90.776: Button VERSTECKT - violettes Feld ist klickbar! -->
+                    <!-- 🆕 v5.90.777: Button VERSTECKT - violettes Feld ist klickbar! -->
                     <button id="confirm-time-btn" onclick="triggerSlotCheck()" style="display:none;">
                         ✅ Verfügbarkeit prüfen
                     </button>
 
-                    <!-- 🆕 v5.90.776: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
+                    <!-- 🆕 v5.90.777: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
 
                     <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
                     <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
@@ -3019,7 +3019,7 @@
                 </div>
             </div>
             
-            <!-- 🚕 v5.90.776: Buttons wurden IN route-map-container verschoben! -->
+            <!-- 🚕 v5.90.777: Buttons wurden IN route-map-container verschoben! -->
         </div>
         
         <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
@@ -8176,7 +8176,7 @@
                         Telegram-Nachricht simulieren:
                     </label>
                     <textarea id="test-telegram-message" placeholder="Beispiel:&#10;&#10;Hallo, ich brauche ein Taxi morgen um 14 Uhr vom Bahnhof zum Hotel Ahlbeck. Wir sind 2 Personen.&#10;&#10;MfG Max Mustermann&#10;+49 170 1234827" 
-                        style="width: 100%; height: 150px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: sans-serif; resize: vertical;">
+                        style="width: 100%; height: 120px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: sans-serif; resize: vertical;">
                     </textarea>
                     
                     <button onclick="testTelegramMessage()" id="test-telegram-btn" style="
@@ -8554,7 +8554,7 @@
         
         // 🔄 VERSION-CHECK SYSTEM (jetzt im <head> - siehe oben!)
         const APP_VERSION = '5.90.754';
-        const APP_BUILD = '20260123-MOBILE-TARIF-INFO';
+        const APP_BUILD = '20260123-MOBILE-ULTRA-KOMPAKT';
         
         // ✅ v5.10.0: Auto-Update System KOMPLETT ENTFERNT!
         // War zu fehleranfällig mit Service Worker Cache-Problemen.
@@ -10448,7 +10448,7 @@
             // 🆕 v5.90.742: Initialisiere Wheel-Picker!
             initWheelPicker();
 
-            // 🆕 v5.90.776: Nach kurzer Verzögerung NUR Display aktualisieren - KEIN Auto-Check!
+            // 🆕 v5.90.777: Nach kurzer Verzögerung NUR Display aktualisieren - KEIN Auto-Check!
             setTimeout(() => {
                 updateSelectedDateTimeDisplay();
                 // triggerSlotCheck(); ← ENTFERNT! User soll violettes Feld klicken!
@@ -12755,7 +12755,7 @@ Funk Taxi Heringsdorf`;
             }
         }
         
-        // 🧹 v5.24.8: TARIF-INFO für hängende 'assigned' Fahrten
+        // 🧹 v5.24.8: ULTRA-KOMPAKT für hängende 'assigned' Fahrten
         // 🧹 v5.24.9: ERWEITERT - auch alte 'new' und 'vorbestellt' Fahrten (älter als 24h)
         async function cleanupStuckAssignedRides() {
             if (!db) return;
@@ -12801,7 +12801,7 @@ Funk Taxi Heringsdorf`;
                     }
                 }
                 
-                // 🆕 v5.90.120: ALLE 24h AUTO-TARIF-INFOS DEAKTIVIERT!
+                // 🆕 v5.90.120: ALLE 24h AUTO-ULTRA-KOMPAKTS DEAKTIVIERT!
                 // ═══════════════════════════════════════════════════
                 // Patrick will KEINE automatischen Löschungen mehr!
                 // Grund: Keine Überraschungen, volle Kontrolle
@@ -14235,8 +14235,8 @@ Aktuell: ${currentNum}`;
                         logActivity('system', 'app_start', 'App gestartet - Firebase verbunden', {});
                     }, 1000);
                     
-                    // 🧹 TARIF-INFO: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
-                    // 🆕 v5.87.59: AUTO-TARIF-INFO DEAKTIVIERT!
+                    // 🧹 ULTRA-KOMPAKT: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
+                    // 🆕 v5.87.59: AUTO-ULTRA-KOMPAKT DEAKTIVIERT!
                     // ⚠️ WICHTIG: Fahrten werden NICHT mehr automatisch storniert!
                     // ✅ Admin-Fahrten sind geschützt
                     // ✅ Vorbestellungen sind geschützt
@@ -18910,7 +18910,7 @@ Aktuell: ${currentNum}`;
                 preview.innerHTML = `
                     <div style="background: white; border-radius: 6px; padding: 10px;">
                         <div style="color: #10b981; font-weight: 600; margin-bottom: 8px;">✅ Text erkannt!</div>
-                        <img src="${imgUrl}" style="max-width: 100%; max-height: 150px; border-radius: 4px; margin-bottom: 8px;">
+                        <img src="${imgUrl}" style="max-width: 100%; max-height: 120px; border-radius: 4px; margin-bottom: 8px;">
                         <div style="font-size: 12px; color: #6b7280;">Klicke jetzt auf "🔍 Analysieren"</div>
                     </div>
                 `;
@@ -25130,7 +25130,7 @@ Aktuell: ${currentNum}`;
             }
         }
 
-        // 🆕 v5.90.73: TARIF-INFOE BESTÄTIGUNG MIT ICONS!
+        // 🆕 v5.90.73: ULTRA-KOMPAKTE BESTÄTIGUNG MIT ICONS!
         async function updateConfirmationHint(field) {
             const hintDiv = document.getElementById(field + '-confirmation');
             const hintIcon = document.getElementById(field + '-confirmation-icon');
@@ -25707,7 +25707,7 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🎨 v5.90.776: TAFEL-ABWISCH FUNKTION!
+        // 🎨 v5.90.777: TAFEL-ABWISCH FUNKTION!
         function wipeAwayMap() {
             const routeMapContainer = document.getElementById('route-map-container');
             if (routeMapContainer && routeMapContainer.style.display !== 'none') {
@@ -25745,7 +25745,7 @@ Aktuell: ${currentNum}`;
             destCoords = null;
             destinationConfirmed = false;
             
-            // 🎨 v5.90.776: TARIF-INFO statt sofort verstecken!
+            // 🎨 v5.90.777: ULTRA-KOMPAKT statt sofort verstecken!
             wipeAwayMap();
             
             // "Taxi buchen" Button verstecken
@@ -26237,7 +26237,7 @@ Aktuell: ${currentNum}`;
             window.currentTotalDuration = durationCalc.totalDuration; // 🆕 v5.90.528: Mit Puffern!
             window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
-            // 🎨 v5.90.776: PREIS MIT TARIF-INFO!
+            // 🎨 v5.90.777: PREIS MIT ULTRA-KOMPAKT!
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
@@ -26250,64 +26250,46 @@ Aktuell: ${currentNum}`;
             const waypointInfo = validWaypoints.length > 0 ? ` • ${validWaypoints.length} Stopp${validWaypoints.length > 1 ? 's' : ''}` : '';
             const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
 
+            // 🆕 v5.90.777: ULTRA-KOMPAKTE PREIS-ANZEIGE!
             let priceHtml = `<div style="
                 background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
-                padding: 16px 20px;
-                border-radius: 12px;
-                border: 3px solid #10b981;
-                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+                padding: 12px 16px;
+                border-radius: 10px;
+                border: 2px solid #10b981;
+                box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
             ">
-                <!-- HAUPT-PREIS -->
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-                    <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
-                        <!-- PREIS (GROß) -->
-                        <div style="font-size: 32px; font-weight: 800; color: #059669; letter-spacing: -0.5px;">
-                            ${pricing.total}€
-                        </div>
-                        
-                        <!-- TRENNER -->
-                        <div style="width: 2px; height: 50px; background: linear-gradient(180deg, transparent, #10b981, transparent); opacity: 0.4;"></div>
-                        
-                        <!-- DETAILS -->
-                        <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #047857;">
-                                <span style="font-size: 16px;">📍</span>
-                                <span>${route.distance} km</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: #047857;">
-                                <span style="font-size: 16px;">⏱️</span>
-                                <span>${durationCalc.totalDuration} Min</span>
-                            </div>
-                            ${waypointInfo ? `<div style="font-size: 12px; color: #059669;">${waypointInfo}</div>` : ''}
-                            ${zuschlagInfo ? `<div style="font-size: 12px; color: #92400e; margin-top: 2px;">${zuschlagInfo}</div>` : ''}
-                        </div>
+                <!-- PREIS KOMPAKT -->
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                    <!-- PREIS -->
+                    <div style="font-size: 26px; font-weight: 800; color: #059669;">
+                        ${pricing.total}€
                     </div>
                     
-                    <!-- HÄKCHEN -->
+                    <!-- DETAILS INLINE -->
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #047857;">
+                        <span>📍 ${route.distance} km</span>
+                        <span>⏱️ ${durationCalc.totalDuration} Min</span>
+                    </div>
+                    
+                    <!-- HÄKCHEN KLEIN -->
                     <div style="
-                        min-width: 36px;
-                        height: 36px;
+                        min-width: 28px;
+                        height: 28px;
                         background: #10b981;
                         border-radius: 50%;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
                     ">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                             <path d="M4 10 L8 14 L16 6" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </div>
                 </div>
                 
-                <!-- 🆕 v5.90.776: TARIF-INFO EINFACH! -->
-                <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid rgba(16, 185, 129, 0.2);">
-                    <div style="text-align: center; font-size: 12px; color: #047857; font-weight: 600;">
-                        💡 Aktueller Preis nach ${tarifName}
-                    </div>
-                    <div style="text-align: center; font-size: 11px; color: #059669; margin-top: 4px;">
-                        (${timeStr} Uhr)
-                    </div>
+                <!-- ULTRA-KOMPAKT KOMPAKT -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(16, 185, 129, 0.2); text-align: center; font-size: 11px; color: #047857;">
+                    💡 ${tarifName} (${timeStr} Uhr)${zuschlagInfo}
                 </div>
             </div>`;
             
@@ -26363,7 +26345,7 @@ Aktuell: ${currentNum}`;
                 bookBtn.style.visibility = 'visible';
             }
             
-            // 🗑️ v5.90.776: "FREIE ZEITEN" Button Code entfernt!
+            // 🗑️ v5.90.777: "FREIE ZEITEN" Button Code entfernt!
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
             const priceBtn = document.getElementById('price-btn');
@@ -26386,7 +26368,7 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            // 🆕 v5.90.776: Zeige Container mit SLIDE-IN Animation!
+            // 🆕 v5.90.777: Zeige Container mit SLIDE-IN Animation!
             const mapContainerWrapper = document.getElementById('route-map-container');
             if (mapContainerWrapper) {
                 mapContainerWrapper.style.display = 'block';
@@ -26478,7 +26460,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.776: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.777: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -27112,10 +27094,10 @@ Aktuell: ${currentNum}`;
                 scrollWheelToIndex('hour', initialHour);
                 scrollWheelToIndex('minute', minuteIndex >= 0 ? minuteIndex : 6); // Default: 30 Min
                 
-                // 🆕 v5.90.776: Graue Vergangenheit aus!
+                // 🆕 v5.90.777: Graue Vergangenheit aus!
                 updateHourAvailability();
                 
-                // 🆕 v5.90.776: Update Display NACH Positionierung!
+                // 🆕 v5.90.777: Update Display NACH Positionierung!
                 setTimeout(() => {
                     updateSelectedDateTimeDisplay();
                 }, 500);
@@ -27151,13 +27133,13 @@ Aktuell: ${currentNum}`;
                 wheelScrollLock = false;
             }, 400);
             
-            // 🆕 v5.90.776: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
+            // 🆕 v5.90.777: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
             if (wheelType === 'day') {
                 setTimeout(() => updateHourAvailability(), 100);
             }
         }
         
-        // 🆕 v5.90.776: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
+        // 🆕 v5.90.777: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
         function updateHourAvailability() {
             const dayWheel = document.getElementById('day-wheel');
             const hourWheel = document.getElementById('hour-wheel');
@@ -27219,7 +27201,7 @@ Aktuell: ${currentNum}`;
                 }
             });
             
-            console.log('🕐 v5.90.776: Stunden aktualisiert - Vergangenheit ausgegraut!');
+            console.log('🕐 v5.90.777: Stunden aktualisiert - Vergangenheit ausgegraut!');
         }
 
         // 🆕 v5.90.748: SETZE VORGESCHLAGENE ZEIT IM WHEEL-PICKER
@@ -27625,7 +27607,7 @@ Aktuell: ${currentNum}`;
         async function checkSlotAvailability(date, time) {
             const statusDisplay = document.getElementById('slot-status-display');
 
-            // 🆕 v5.90.776: LADEINDIKATOR mit Datum + Uhrzeit!
+            // 🆕 v5.90.777: LADEINDIKATOR mit Datum + Uhrzeit!
             if (statusDisplay) {
                 // Formatiere Datum schöner
                 const dateObj = new Date(date + 'T' + time);
@@ -30627,7 +30609,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ v5.90.776: TARIF-INFO für Karte!
+            // 🗺️ v5.90.777: ULTRA-KOMPAKT für Karte!
             wipeAwayMap();
             
             // Karte entfernen
@@ -44462,7 +44444,7 @@ Funk Taxi Team`;
             
             try {
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('🔥 v5.90.372: LADE FAHRZEUGE MIT AUTO-TARIF-INFO');
+                console.log('🔥 v5.90.372: LADE FAHRZEUGE MIT AUTO-ULTRA-KOMPAKT');
                 console.log('═══════════════════════════════════════════════════════════');
                 
                 const snapshot = await db.ref('vehicles').once('value');
@@ -44484,7 +44466,7 @@ Funk Taxi Team`;
                     return;
                 }
                 
-                // 🧹 TARIF-INFO: Lösche alle Fahrzeuge die NICHT in der Whitelist sind!
+                // 🧹 ULTRA-KOMPAKT: Lösche alle Fahrzeuge die NICHT in der Whitelist sind!
                 const keysInFirebase = Object.keys(data);
                 const officialKeys = Object.keys(OFFICIAL_VEHICLES);
                 
@@ -44547,7 +44529,7 @@ Funk Taxi Team`;
         async function cleanupMonitoringDrivers() {
             try {
                 console.log('═══════════════════════════════════════════════════════════');
-                console.log('🧹 v5.90.375: TARIF-INFO /monitoring/drivers/');
+                console.log('🧹 v5.90.375: ULTRA-KOMPAKT /monitoring/drivers/');
                 console.log('═══════════════════════════════════════════════════════════');
                 
                 const snapshot = await db.ref('monitoring/drivers').once('value');
@@ -52842,7 +52824,7 @@ Funk Taxi Team`;
                     yPos = 20;
                 }
                 
-                // 🆕 v5.87.91: TARIF-INFOES FOOTER-LAYOUT (nebeneinander)
+                // 🆕 v5.87.91: ULTRA-KOMPAKTES FOOTER-LAYOUT (nebeneinander)
                 doc.setDrawColor(200);
                 doc.line(20, yPos, 190, yPos);
                 yPos += 5;
@@ -53561,7 +53543,7 @@ Funk Taxi Team`;
                 
                 doc.text(`Zahlungsart: ${paymentMethodNames[paymentMethod] || paymentMethod}`, 20, yPos);
                 
-                // FOOTER - Bankdaten (IMMER) - 🆕 v5.87.91: TARIF-INFO NEBENEINANDER
+                // FOOTER - Bankdaten (IMMER) - 🆕 v5.87.91: ULTRA-KOMPAKT NEBENEINANDER
                 yPos += 15;
                 doc.setFontSize(8);
                 doc.setFont(undefined, 'normal');
@@ -54755,7 +54737,7 @@ Funk Taxi Team`;
                 doc.text('Gesamtbetrag:', 100, yPos);
                 doc.text(`${(inv.totalGross || 0).toFixed(2)}€`, 160, yPos, { align: 'right' });
                 
-                // FOOTER (IMMER) - 🆕 v5.87.91: TARIF-INFO NEBENEINANDER
+                // FOOTER (IMMER) - 🆕 v5.87.91: ULTRA-KOMPAKT NEBENEINANDER
                 yPos += 15;
                 if (yPos > 260) { doc.addPage(); yPos = 20; }
                 
@@ -61417,7 +61399,7 @@ Stack: ${err.stack}
             const authScreen = document.getElementById('phone-auth-screen');
             if (authScreen) authScreen.style.display = 'none';
             
-            // 🧹 TARIF-INFO: Alte Fahrzeuge dieses Users offline setzen
+            // 🧹 ULTRA-KOMPAKT: Alte Fahrzeuge dieses Users offline setzen
             if (isFirebaseReady) {
                 try {
                     const driversSnapshot = await db.ref('vehicles').once('value');
@@ -61638,7 +61620,7 @@ Stack: ${err.stack}
                 } else if (role === 'admin') {
                     console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
-                    // 🔧 v5.90.776: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
+                    // 🔧 v5.90.777: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
                     const adminOnlyTabs = ['calendar', 'hotel-calendar', 'rechnung', 'crm', 'email-inbox', 'admin', 'shift-plan', 'debug', 'system-diagnostics', 'live-monitor', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'fleet-overview'];
                     if (!adminOnlyTabs.includes(lastTab)) {
                         switchView(lastTab);
@@ -61658,9 +61640,9 @@ Stack: ${err.stack}
             console.log('💾 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
             
-            // 🔧 v5.90.776: LÖSCHE lastActiveTab beim Logout!
+            // 🔧 v5.90.777: LÖSCHE lastActiveTab beim Logout!
             localStorage.removeItem('lastActiveTab');
-            console.log('🔧 v5.90.776: lastActiveTab gelöscht');
+            console.log('🔧 v5.90.777: lastActiveTab gelöscht');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
@@ -64407,13 +64389,13 @@ Stack: ${err.stack}
                 }
             }
             
-            // 🔧 v5.90.776: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            // 🔧 v5.90.777: NUR EINMAL ausführen - keine mehrfachen View-Switches!
             forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🔧 v5.90.776: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // 🔧 v5.90.777: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
         // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->
@@ -76879,7 +76861,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 
 console.log('✅ v5.90.556: Perfekter Taxi-Simulator mit OSRM geladen!');
 
-// 🆕 v5.90.776: AUTO-BERECHNUNG wenn beide Adressen da sind!
+// 🆕 v5.90.777: AUTO-BERECHNUNG wenn beide Adressen da sind!
 function autoCalculatePrice() {
     const pickupInput = document.getElementById('pickup');
     const destInput = document.getElementById('destination');
@@ -76891,7 +76873,7 @@ function autoCalculatePrice() {
         window.pickupCoords && 
         window.destCoords) {
         
-        console.log('🚀 v5.90.776: Beide Adressen da → Berechne automatisch!');
+        console.log('🚀 v5.90.777: Beide Adressen da → Berechne automatisch!');
         
         // Kurze Verzögerung für bessere UX
         setTimeout(() => {
@@ -76966,17 +76948,23 @@ function clearField(fieldId) {
             }
         }
         
-        // 🆕 v5.90.776: Verstecke Karte wenn Pickup/Destination gelöscht wird!
+        // 🆕 v5.90.777: Verstecke ALLES wenn Pickup/Destination gelöscht wird!
         if (fieldId === 'pickup' || fieldId === 'destination') {
             const pickupInput = document.getElementById('pickup');
             const destInput = document.getElementById('destination');
             const mapContainer = document.getElementById('route-map-container');
+            const priceDisplay = document.getElementById('price-display');
+            const slotStatus = document.getElementById('slot-status-display');
+            const bookBtn = document.getElementById('book-btn');
             
-            // Wenn eines der Felder leer ist, verstecke die Karte
+            // Wenn eines der Felder leer ist, verstecke die Karte + Preis + Status
             if (!pickupInput.value.trim() || !destInput.value.trim()) {
-                if (mapContainer) {
-                    mapContainer.style.display = 'none';
-                }
+                if (mapContainer) mapContainer.style.display = 'none';
+                if (priceDisplay) priceDisplay.style.display = 'none';
+                if (slotStatus) slotStatus.style.display = 'none';
+                if (bookBtn) bookBtn.style.display = 'none';
+                
+                console.log('🗑️ v5.90.777: Karte + Preis + Status versteckt!');
             }
             
             triggerSlotCheck();
@@ -77977,10 +77965,10 @@ if (document.readyState === 'loading') {
 }
 </script>
 
-<!-- 🆕 v5.90.776: VERSION-FOOTER unten rechts! -->
+<!-- 🆕 v5.90.777: VERSION-FOOTER unten rechts! -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.776
+        🔧 v5.90.777
     </div>
 </div>
 

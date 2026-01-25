@@ -9,35 +9,28 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.770
-    📅 BUILD: 23.01.2026 17:15 Uhr
+    📦 VERSION: v5.90.811
+    📅 BUILD: 25.01.2026 11:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.770
+    📋 CHANGELOG v5.90.811
     ═══════════════════════════════════════════════════════════════════════════
 
-    📱 v5.90.770 (23.01.2026):
+    💰 v5.90.811 (25.01.2026) - VORBESTELL-UPGRADE!
+       • BASIS: v5.90.770 (Tabs funktionieren!)
+       • NEU: calculatePreorderPrice() mit RICHTIGER Logik!
+       • NEU: Tag/Nacht-Tarif in Vorbestellung!
+       • NEU: Slot-Check ANZEIGE in Vorbestellung!
+       • NEU: Große grüne Preis-Box (wie SOFORT)!
+       • NEU: Tarif-Info (Tagtarif/Nachttarif + Wochentag)!
+       • FIX: Vorbestellung = SOFORT (gleiche calculatePrice Logik)!
+
+    📱 v5.90.770 (24.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
        • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
        • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
        • NEU: Karte erscheint jetzt ÜBER dem Vorbestellen-Bereich
-
-    🐛 v5.90.753 (23.01.2026):
-       • FIX: Vergangenheits-Check Bug behoben!
-       • FIX: Manuelles Datum/Zeit-Parsing ohne Zeitzonenprobleme
-       • FIX: Karten-Picker Bestätigung funktioniert jetzt korrekt!
-       • FIX: Scope-Problem mit pickupConfirmed/destinationConfirmed (var statt let)
-
-    🎨 v5.90.752 (23.01.2026):
-       • NEU: Buchungsformular übersichtlicher strukturiert!
-       • NEU: Tauschen-Button (🔄) zwischen Abholort und Zielort
-       • NEU: Lösch-Kreuz (✕) rot & rund im Eingabefeld
-       • NEU: Zwischenstopp-Button klein [+ Stopp] rechts neben Zielort
-       • NEU: Karten-Picker → direkt grüner Haken, KEIN Autocomplete!
-       • ENTFERNT: Sternchen (⭐) bei Abholort/Zielort
-
-    👥 v5.90.751 (23.01.2026):
        • NEU: Personenzahl nach oben verschoben (vor "Wann fahren?")
        • NEU: Optionen für 5-8 Personen (Großraumtaxi)
        • FIX: SOFORT-Buchung zeigt jetzt automatisch "Taxi buchen" Button
@@ -395,7 +388,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.770 | Build: 2026-01-24_0930 | Fix: KARTE OBEN + ALLE DEBUG-INFOS - System-Analyse komplett! -->
+    <!-- Version: v5.90.811 | Build: 2026-01-24_0930 | Fix: KARTE OBEN + ALLE DEBUG-INFOS - System-Analyse komplett! -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -522,9 +515,12 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.770 - KARTE-MIT-ANALYSE! 🚀 (Build 2026-01-24_0930)');
-        console.log('🗺️ v5.90.770: Karte nach oben + ALLE Debug-Infos!');
-        console.log('📊 v5.90.770: System-Analyse KOMPLETT drin!');
+        console.log('🚕 Funk Taxi App v5.90.811 - VORBESTELL-UPGRADE! 🚀 (Build 2026-01-25_1100)');
+        console.log('💰 v5.90.811: Vorbestellung = SOFORT! (Gleiche Logic!)');
+        console.log('✅ v5.90.811: Slot-Check ANZEIGE in Vorbestellung!');
+        console.log('✅ v5.90.811: Tag/Nacht-Tarif + Große Preis-Box!');
+        console.log('✅ v5.90.811: Tabs funktionieren (Basis: v5.90.770)!');
+        console.log('🗺️ v5.90.770: Karte oben + Debug-Infos!');
         console.log('💜 v5.90.768: Violettes Feld klickbar!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
@@ -1101,7 +1097,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.770: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.811: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1291,7 +1287,7 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.770: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.811: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
                 height: 150px !important;
             }
@@ -1460,7 +1456,7 @@
             }
         }
         
-        /* 🎨 v5.90.770: TAFEL-ABWISCH ANIMATION! */
+        /* 🎨 v5.90.811: TAFEL-ABWISCH ANIMATION! */
         @keyframes wipeOut {
             0% {
                 clip-path: inset(0 0 0 0);
@@ -1496,7 +1492,7 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🔧 v5.90.770: KARTE-MIT-ANALYSE für Mobile! -->
+    <!-- 💰 v5.90.811: KARTE-MIT-ANALYSE für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
         body.loading .view {
@@ -1517,7 +1513,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-                console.log('✅ v5.90.770: Anti-Flicker aktiviert!');
+                console.log('✅ v5.90.811: Anti-Flicker aktiviert!');
             }, 100);
         });
     </script>
@@ -1788,7 +1784,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📊 Version 5.90.770 - DEBUG-VERSION! ✅ (Build 20260124-0930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">💰 Version 5.90.811 - VORBESTELL-UPGRADE! ✅ (Build 20260125-1100)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2732,7 +2728,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.770: KARTE GANZ NACH OBEN - direkt nach Personen! -->
+            <!-- 🆕 v5.90.811: KARTE GANZ NACH OBEN - direkt nach Personen! -->
             <div id="route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
                 <div id="price-display" style="margin-bottom: 15px;"></div>
@@ -2740,7 +2736,7 @@
                 <!-- KARTE -->
                 <div id="route-map" style="height: 280px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 
-                <!-- 🚕 v5.90.770: TAXI BUCHEN Button DIREKT unter der Karte! -->
+                <!-- 🚕 v5.90.811: TAXI BUCHEN Button DIREKT unter der Karte! -->
                 <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 15px; display: none; width: 100%;">🚕 Taxi buchen</button>
             </div>
 
@@ -2765,9 +2761,9 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.770: Karte wurde NACH OBEN verschoben (nach Personen)! -->
+            <!-- 🆕 v5.90.811: Karte wurde NACH OBEN verschoben (nach Personen)! -->
 
-            <!-- 🆕 v5.90.770: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
+            <!-- 🆕 v5.90.811: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
             <div id="slot-status-display" style="display:none;margin-top:20px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
                 <!-- Wird dynamisch gefüllt mit blauer KUNDEN-SICHT Box -->
             </div>
@@ -2783,7 +2779,7 @@
                 <div class="input-group">
                     <label style="font-size:15px;font-weight:700;margin-bottom:12px;display:block;">📅 Wann sollen wir Sie abholen?</label>
 
-                    <!-- 🆕 v5.90.770: KLICKBARES ZEIT-FELD = Verfügbarkeit prüfen! -->
+                    <!-- 🆕 v5.90.811: KLICKBARES ZEIT-FELD = Verfügbarkeit prüfen! -->
                     <!-- Ausgewählte Zeit Anzeige -->
                     <div id="selected-datetime-display" 
                          onclick="triggerSlotCheck()" 
@@ -2893,7 +2889,7 @@
                             <div style="position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(0deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:0 0 14px 14px;"></div>
                         </div>
 
-                        <!-- 🆕 v5.90.770: Zeit-Display wurde nach OBEN verschoben! -->
+                        <!-- 🆕 v5.90.811: Zeit-Display wurde nach OBEN verschoben! -->
 
                         <!-- Hidden inputs für Kompatibilität -->
                         <input type="hidden" id="custom-date" value="">
@@ -2943,12 +2939,12 @@
                         💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
 
-                    <!-- 🆕 v5.90.770: Button VERSTECKT - violettes Feld ist klickbar! -->
+                    <!-- 🆕 v5.90.811: Button VERSTECKT - violettes Feld ist klickbar! -->
                     <button id="confirm-time-btn" onclick="triggerSlotCheck()" style="display:none;">
                         ✅ Verfügbarkeit prüfen
                     </button>
 
-                    <!-- 🆕 v5.90.770: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
+                    <!-- 🆕 v5.90.811: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
 
                     <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
                     <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
@@ -3020,7 +3016,7 @@
                 </div>
             </div>
             
-            <!-- 🚕 v5.90.770: Buttons wurden IN route-map-container verschoben! -->
+            <!-- 🚕 v5.90.811: Buttons wurden IN route-map-container verschoben! -->
         </div>
         
         <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
@@ -25706,7 +25702,7 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🎨 v5.90.770: TAFEL-ABWISCH FUNKTION!
+        // 🎨 v5.90.811: TAFEL-ABWISCH FUNKTION!
         function wipeAwayMap() {
             const routeMapContainer = document.getElementById('route-map-container');
             if (routeMapContainer && routeMapContainer.style.display !== 'none') {
@@ -25744,7 +25740,7 @@ Aktuell: ${currentNum}`;
             destCoords = null;
             destinationConfirmed = false;
             
-            // 🎨 v5.90.770: KARTE-MIT-ANALYSE statt sofort verstecken!
+            // 🎨 v5.90.811: KARTE-MIT-ANALYSE statt sofort verstecken!
             wipeAwayMap();
             
             // "Taxi buchen" Button verstecken
@@ -26236,7 +26232,7 @@ Aktuell: ${currentNum}`;
             window.currentTotalDuration = durationCalc.totalDuration; // 🆕 v5.90.528: Mit Puffern!
             window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
-            // 🎨 v5.90.770: SCHÖNES KARTE-MIT-ANALYSE wie im SVG!
+            // 🎨 v5.90.811: SCHÖNES KARTE-MIT-ANALYSE wie im SVG!
             const waypointInfo = validWaypoints.length > 0 ? ` • ${validWaypoints.length} Stopp${validWaypoints.length > 1 ? 's' : ''}` : '';
             const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
 
@@ -26344,7 +26340,7 @@ Aktuell: ${currentNum}`;
                 bookBtn.style.visibility = 'visible';
             }
             
-            // 🗑️ v5.90.770: "FREIE ZEITEN" Button Code entfernt!
+            // 🗑️ v5.90.811: "FREIE ZEITEN" Button Code entfernt!
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
             const priceBtn = document.getElementById('price-btn');
@@ -26367,7 +26363,7 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            // 🆕 v5.90.770: Zeige Container mit SLIDE-IN Animation!
+            // 🆕 v5.90.811: Zeige Container mit SLIDE-IN Animation!
             const mapContainerWrapper = document.getElementById('route-map-container');
             if (mapContainerWrapper) {
                 mapContainerWrapper.style.display = 'block';
@@ -26459,7 +26455,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.770: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.811: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -27093,7 +27089,7 @@ Aktuell: ${currentNum}`;
                 scrollWheelToIndex('hour', initialHour);
                 scrollWheelToIndex('minute', minuteIndex >= 0 ? minuteIndex : 6); // Default: 30 Min
                 
-                // 🆕 v5.90.770: Graue Vergangenheit aus!
+                // 🆕 v5.90.811: Graue Vergangenheit aus!
                 updateHourAvailability();
             }, 150);
 
@@ -27127,13 +27123,13 @@ Aktuell: ${currentNum}`;
                 wheelScrollLock = false;
             }, 400);
             
-            // 🆕 v5.90.770: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
+            // 🆕 v5.90.811: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
             if (wheelType === 'day') {
                 setTimeout(() => updateHourAvailability(), 100);
             }
         }
         
-        // 🆕 v5.90.770: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
+        // 🆕 v5.90.811: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
         function updateHourAvailability() {
             const dayWheel = document.getElementById('day-wheel');
             const hourWheel = document.getElementById('hour-wheel');
@@ -27195,7 +27191,7 @@ Aktuell: ${currentNum}`;
                 }
             });
             
-            console.log('🕐 v5.90.770: Stunden aktualisiert - Vergangenheit ausgegraut!');
+            console.log('🕐 v5.90.811: Stunden aktualisiert - Vergangenheit ausgegraut!');
         }
 
         // 🆕 v5.90.748: SETZE VORGESCHLAGENE ZEIT IM WHEEL-PICKER
@@ -27563,11 +27559,17 @@ Aktuell: ${currentNum}`;
             if (date && isValidTime) {
                 console.log('✅ Datum + Zeit vorhanden - starte Prüfung!');
                 if (pickup && destination) {
-                    console.log('✅ Pickup + Destination vorhanden - mit Distanz-Prüfung!');
+                    console.log('✅ Pickup + Destination vorhanden - mit Preis-Berechnung + Slot-Check!');
+                    
+                    // 🆕 v5.90.811: ERST Preis berechnen (mit Slot-Check!)
+                    await calculatePreorderPrice();
+                    
+                    // DANN zusätzlich alte Slot-Check Logik
+                    await checkSlotAvailability(date, time);
                 } else {
                     console.log('ℹ️ Keine Adressen - ohne Distanz-Prüfung!');
+                    await checkSlotAvailability(date, time);
                 }
-                await checkSlotAvailability(date, time);
             } else {
                 // 🔧 v5.90.731: Zeige KONKRET welche Felder fehlen!
                 let missing = [];
@@ -27601,7 +27603,7 @@ Aktuell: ${currentNum}`;
         async function checkSlotAvailability(date, time) {
             const statusDisplay = document.getElementById('slot-status-display');
 
-            // 🆕 v5.90.770: LADEINDIKATOR mit Datum + Uhrzeit!
+            // 🆕 v5.90.811: LADEINDIKATOR mit Datum + Uhrzeit!
             if (statusDisplay) {
                 // Formatiere Datum schöner
                 const dateObj = new Date(date + 'T' + time);
@@ -30603,7 +30605,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ v5.90.770: KARTE-MIT-ANALYSE für Karte!
+            // 🗺️ v5.90.811: KARTE-MIT-ANALYSE für Karte!
             wipeAwayMap();
             
             // Karte entfernen
@@ -32311,6 +32313,201 @@ Aktuell: ${currentNum}`;
             document.getElementById('auto-booking-modal').style.display = 'none';
             // 🔧 v5.39.8: Daten nur löschen wenn abgebrochen!
             currentBookingData = null;
+        }
+        // 🆕 v5.90.811: VORBESTELL-PREIS-BERECHNUNG MIT SLOT-CHECK!
+        // NUTZT DIE GLEICHE LOGIK WIE SOFORT-TAB! ✅
+        async function calculatePreorderPrice() {
+            const pickup = document.getElementById('custom-pickup')?.value || document.getElementById('pickup')?.value || '';
+            const destination = document.getElementById('custom-destination')?.value || document.getElementById('destination')?.value || '';
+            
+            if (!pickup || !destination) {
+                console.log('⚠️ Abholort oder Zielort fehlt - kein Preis');
+                return;
+            }
+            
+            console.log('💰 v5.90.811: Berechne Preis für VORBESTELLEN (mit SLOT-CHECK!)');
+            
+            try {
+                // 1️⃣ GEOCODE (parallel wie SOFORT!)
+                const [pickupGeo, destGeo] = await Promise.all([
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}`),
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`)
+                ]);
+                
+                const pickupData = await pickupGeo.json();
+                const destData = await destGeo.json();
+                
+                if (!pickupData || pickupData.length === 0) {
+                    console.error('❌ Abholort nicht gefunden');
+                    alert('❌ Abholort nicht gefunden!\n\nBitte gültige Adresse eingeben.');
+                    return;
+                }
+                
+                if (!destData || destData.length === 0) {
+                    console.error('❌ Zielort nicht gefunden');
+                    alert('❌ Zielort nicht gefunden!\n\nBitte gültige Adresse eingeben.');
+                    return;
+                }
+                
+                const pickupLat = parseFloat(pickupData[0].lat);
+                const pickupLon = parseFloat(pickupData[0].lon);
+                const destLat = parseFloat(destData[0].lat);
+                const destLon = parseFloat(destData[0].lon);
+                
+                const pickupCoords = { lat: pickupLat, lon: pickupLon };
+                const destCoords = { lat: destLat, lon: destLon };
+                
+                // 2️⃣ ROUTE BERECHNEN (mit calculateRoute!)
+                const route = await calculateRoute(pickupCoords, destCoords, []);
+                
+                console.log('═══════════════════════════════════════════');
+                console.log('🗺️ v5.90.811: VORBESTELL-ROUTE:');
+                console.log(`   Von: ${pickup}`);
+                console.log(`   Nach: ${destination}`);
+                console.log(`   Distanz: ${route.distance} km`);
+                console.log(`   Fahrtdauer: ${route.duration} Minuten`);
+                console.log('═══════════════════════════════════════════');
+                
+                // 3️⃣ HOLE ABHOLZEIT (für Tarif-Berechnung!)
+                const dateVal = document.getElementById('custom-date')?.value;
+                const hourVal = document.getElementById('custom-hour')?.value;
+                const minuteVal = document.getElementById('custom-minute')?.value;
+                
+                let pickupTimestamp;
+                if (dateVal && hourVal && minuteVal) {
+                    pickupTimestamp = new Date(`${dateVal}T${hourVal}:${minuteVal}:00`).getTime();
+                    console.log(`🕐 VORBESTELL-ZEIT: ${dateVal} ${hourVal}:${minuteVal}`);
+                } else {
+                    // Default: Jetzt + 30 Min
+                    pickupTimestamp = Date.now() + 30 * 60000;
+                    console.warn('⚠️ Kein Datum/Zeit - nutze +30 Min');
+                }
+                
+                // 4️⃣ PREIS BERECHNEN (MIT RICHTIGER LOGIK!)
+                const pricing = calculatePrice(parseFloat(route.distance), pickupTimestamp);
+                
+                // 5️⃣ TARIF-INFO (Tag/Nacht/Feiertag)
+                const pickupDate = new Date(pickupTimestamp);
+                const pickupHour = pickupDate.getHours();
+                const pickupMinute = pickupDate.getMinutes();
+                const timeStr = `${pickupHour.toString().padStart(2, '0')}:${pickupMinute.toString().padStart(2, '0')}`;
+                
+                // Wochentag-Namen
+                const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                const dayName = dayNames[pickupDate.getDay()];
+                
+                const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
+                
+                // 6️⃣ ZEIGE PREIS (GLEICHE GRÜNE BOX WIE SOFORT!)
+                const priceDisplay = document.getElementById('price-display') || document.getElementById('preorder-price-display');
+                if (priceDisplay) {
+                    priceDisplay.innerHTML = `
+                        <div style="
+                            background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+                            padding: 12px 16px;
+                            border-radius: 10px;
+                            border: 2px solid #10b981;
+                            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
+                        ">
+                            <!-- PREIS KOMPAKT -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                                <!-- PREIS -->
+                                <div style="font-size: 26px; font-weight: 800; color: #059669;">
+                                    ${pricing.total}€
+                                </div>
+                                
+                                <!-- DETAILS INLINE -->
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #047857;">
+                                    <span>📍 ${route.distance} km</span>
+                                    <span>⏱️ ${route.duration} Min</span>
+                                </div>
+                                
+                                <!-- HÄKCHEN KLEIN -->
+                                <div style="
+                                    min-width: 28px;
+                                    height: 28px;
+                                    background: #10b981;
+                                    border-radius: 50%;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                ">
+                                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                        <path d="M4 10 L8 14 L16 6" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <!-- TARIF-INFO KOMPAKT -->
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(16, 185, 129, 0.2); text-align: center; font-size: 11px; color: #047857;">
+                                💡 ${pricing.tarifName} (${timeStr} Uhr) • ${dayName}${zuschlagInfo}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // 7️⃣ SLOT-CHECK (wenn Firebase ready!)
+                if (isFirebaseReady && typeof checkTimeSlotAvailability === 'function') {
+                    console.log('🤖 v5.90.811: Prüfe Slot-Verfügbarkeit...');
+                    
+                    try {
+                        const availability = await checkTimeSlotAvailability(pickupTimestamp, pickupCoords);
+                        
+                        // Zeige Slot-Status
+                        const slotDisplay = document.getElementById('slot-status-display') || document.getElementById('live-slot-check');
+                        if (slotDisplay) {
+                            if (!availability.available) {
+                                console.log('⚠️ Slot vermutlich belegt!');
+                                
+                                slotDisplay.style.display = 'block';
+                                slotDisplay.innerHTML = `
+                                    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%); padding: 12px; border-radius: 8px; border: 2px solid #f59e0b;">
+                                        <div style="font-weight: 700; font-size: 14px; color: #92400e; margin-bottom: 6px;">
+                                            ⚠️ TERMIN MÖGLICHERWEISE BELEGT
+                                        </div>
+                                        <div style="font-size: 12px; color: #78350f;">
+                                            📅 ${pickupDate.toLocaleDateString('de-DE')} um ${timeStr} Uhr
+                                        </div>
+                                        <div style="font-size: 11px; color: #92400e; margin-top: 6px;">
+                                            💡 Alternative Zeiten werden beim Buchen vorgeschlagen
+                                        </div>
+                                    </div>
+                                `;
+                            } else {
+                                console.log('✅ Slot verfügbar!');
+                                
+                                slotDisplay.style.display = 'block';
+                                slotDisplay.innerHTML = `
+                                    <div style="background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%); padding: 12px; border-radius: 8px; border: 2px solid #10b981;">
+                                        <div style="font-weight: 700; font-size: 14px; color: #047857; margin-bottom: 6px;">
+                                            ✅ TERMIN VERFÜGBAR!
+                                        </div>
+                                        <div style="font-size: 12px; color: #059669;">
+                                            📅 ${pickupDate.toLocaleDateString('de-DE')} um ${timeStr} Uhr
+                                        </div>
+                                        <div style="font-size: 11px; color: #047857; margin-top: 6px;">
+                                            🚕 Taxi ist frei zur gewählten Zeit
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        }
+                    } catch (error) {
+                        console.error('💾 Fehler beim Slot-Check:', error);
+                    }
+                }
+                
+                // 8️⃣ SPEICHERE FÜR BUCHUNG
+                window.lastCalculatedPrice = pricing;
+                window.lastCalculatedRoute = route.coordinates;
+                window.preorderPriceCalculated = true;
+                
+                console.log('✅ v5.90.811: Preis berechnet mit SLOT-CHECK:', pricing.total, '€');
+                
+            } catch (error) {
+                console.error('❌ v5.90.811: Fehler bei Preis-Berechnung:', error);
+                alert('❌ Fehler bei der Berechnung!\n\nBitte erneut versuchen.');
+            }
         }
         
         // Zeigt Zeitauswahl-Formular
@@ -61614,7 +61811,7 @@ Stack: ${err.stack}
                 } else if (role === 'admin') {
                     console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
-                    // 🔧 v5.90.770: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
+                    // 💰 v5.90.811: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
                     const adminOnlyTabs = ['calendar', 'hotel-calendar', 'rechnung', 'crm', 'email-inbox', 'admin', 'shift-plan', 'debug', 'system-diagnostics', 'live-monitor', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'fleet-overview'];
                     if (!adminOnlyTabs.includes(lastTab)) {
                         switchView(lastTab);
@@ -61634,9 +61831,9 @@ Stack: ${err.stack}
             console.log('💾 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
             
-            // 🔧 v5.90.770: LÖSCHE lastActiveTab beim Logout!
+            // 💰 v5.90.811: LÖSCHE lastActiveTab beim Logout!
             localStorage.removeItem('lastActiveTab');
-            console.log('🔧 v5.90.770: lastActiveTab gelöscht');
+            console.log('💰 v5.90.811: lastActiveTab gelöscht');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
@@ -64383,13 +64580,13 @@ Stack: ${err.stack}
                 }
             }
             
-            // 🔧 v5.90.770: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            // 💰 v5.90.811: NUR EINMAL ausführen - keine mehrfachen View-Switches!
             forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🔧 v5.90.770: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // 💰 v5.90.811: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
         // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->
@@ -76921,7 +77118,7 @@ function clearField(fieldId) {
             }
         }
         
-        // 🆕 v5.90.770: Verstecke Karte wenn Pickup/Destination gelöscht wird!
+        // 🆕 v5.90.811: Verstecke Karte wenn Pickup/Destination gelöscht wird!
         if (fieldId === 'pickup' || fieldId === 'destination') {
             const pickupInput = document.getElementById('pickup');
             const destInput = document.getElementById('destination');
@@ -77932,10 +78129,10 @@ if (document.readyState === 'loading') {
 }
 </script>
 
-<!-- 🆕 v5.90.770: VERSION-FOOTER unten rechts! -->
+<!-- 🆕 v5.90.811: VERSION-FOOTER unten rechts! -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.770
+        💰 v5.90.811
     </div>
 </div>
 

@@ -25570,6 +25570,9 @@ Aktuell: ${currentNum}`;
 
         // 🔧 v5.90.833: GLOBAL machen für onclick!
         window.selectAddress = function(inputId, address, lat, lon) {
+            // 🔴 DEBUG ALERT - entfernen wenn es funktioniert!
+            alert('✅ selectAddress!\n\nFeld: ' + inputId + '\nAdresse: ' + address.substring(0,30) + '...');
+
             console.log('🎯 v5.90.833: selectAddress aufgerufen!', inputId, address);
             debugLog('info', `📍 Adresse ausgewählt: ${inputId} = ${address}`);
             
@@ -25648,8 +25651,11 @@ Aktuell: ${currentNum}`;
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
 
                 // 🆕 v5.90.833: AUTO-PREISBERECHNUNG sobald beide Adressen da sind!
-                // WICHTIG: Prüfe WINDOW.pickupCoords für globalen Scope!
+                // 🔴 DEBUG
+                alert('Ziel gesetzt!\n\nPickup vorhanden? ' + (window.pickupCoords ? 'JA ✅' : 'NEIN ❌'));
+
                 if (window.pickupCoords) {
+                    alert('🚀 Starte Preisberechnung in 300ms...');
                     console.log('💰 v5.90.833: Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
                     setTimeout(() => {
                         calculatePriceAndShow();

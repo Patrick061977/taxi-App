@@ -9,26 +9,13 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.809
-    📅 BUILD: 25.01.2026 09:30 Uhr
+    📦 VERSION: v5.90.782
+    📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.809
+    📋 CHANGELOG v5.90.782
     ═══════════════════════════════════════════════════════════════════════════
-
-    📅 v5.90.809 (25.01.2026) - CALENDAR FIX!
-       • FIX: KALENDER-TAB zeigt jetzt Fahrten an!
-       • FIX: Duplicate calendar-container IDs gefixt!
-       • FIX: calendar-view nutzt calendar-container-standalone
-       • FIX: admin-view nutzt calendar-container
-       • HELPER: getCalendarContainerIds() - smart ID selection!
-
-    🗺️ v5.90.808 (25.01.2026) - PREORDER MAP FIX!
-       • FIX: GPS-Adresse KURZ im VORBESTELLEN-Tab (wie SOFORT-Tab)!
-       • FIX: Auto-Karte nach Adress-Eingabe im VORBESTELLEN-Tab!
-       • FIX: Nutzt formatAddressShort() für saubere Adressen!
-       • TRIGGER: calculatePreorderPrice() nach Map-Picker Auswahl!
 
     📱 v5.90.782 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
@@ -535,14 +522,14 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.809 - CALENDAR FIX! ✅ (Build 2026-01-25_0930)');
-        console.log('📅 v5.90.809: KALENDER-TAB FUNKTIONIERT JETZT!');
-        console.log('🔧 v5.90.809: Duplicate calendar-container IDs gefixt!');
-        console.log('✅ v5.90.809: Eigenständiger Kalender + Admin-Kalender!');
-        console.log('🗺️ v5.90.808: GPS-Adresse KURZ im VORBESTELLEN-Tab!');
-        console.log('🗺️ v5.90.808: Auto-Karte nach Adress-Eingabe!');
-        console.log('🚫 v5.90.806: Tab-Berechtigungen DEAKTIVIERT!');
-        console.log('🔧 v5.90.782: 2 Tabs im Passenger View!');
+        console.log('🚕 Funk Taxi App v5.90.782 - SOFORT + VORBESTELLEN TABS! 🚀 (Build 2026-01-24_1730)');
+        console.log('🔄 v5.90.782: 2 Tabs im Passenger View!');
+        console.log('⚡ v5.90.782: SOFORT-Tab = Jetzt buchen!');
+        console.log('📅 v5.90.782: VORBESTELLEN-Tab = Liste + Neue!');
+        console.log('🛡️ v5.90.782: Tabs zerhauen sich nicht!');
+        console.log('📦 v5.90.773: Kompakte Struktur!');
+        console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
+        console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
@@ -1803,7 +1790,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.809 - CALENDAR FIX! ✅ (Build 20260125-0930)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🐛 Version 5.90.774 - TABS! ✅ (Build 20260124-1400)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2259,7 +2246,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ✨ v5.90.809 - UX-FIX
+                        🔧 v5.90.716 - ALLE-PLATZHALTER
                     </span>
                 </div>
             </div>
@@ -2628,28 +2615,9 @@
                     font-weight: 700;
                     font-size: 15px;
                     transition: all 0.2s;
-                    margin-bottom: 12px;
                 " onmouseover="this.style.opacity='0.9'"
                    onmouseout="this.style.opacity='1'">
                     🚕 Zurück zur Buchung
-                </div>
-
-                <!-- 🆕 v5.90.809: ABMELDEN BUTTON! -->
-                <div id="menu-logout-btn" style="display:none;" onclick="logoutFromMenu()">
-                    <div style="
-                        background: #ef4444;
-                        color: white;
-                        border-radius: 12px;
-                        padding: 15px;
-                        cursor: pointer;
-                        text-align: center;
-                        font-weight: 700;
-                        font-size: 15px;
-                        transition: all 0.2s;
-                    " onmouseover="this.style.opacity='0.9'"
-                       onmouseout="this.style.opacity='1'">
-                        🚪 Abmelden
-                    </div>
                 </div>
             </div>
         </div>
@@ -2712,13 +2680,6 @@
         
         <div id="booking-form">
             <!-- 🆕 v5.90.752: NEUE ÜBERSICHTLICHE STRUKTUR -->
-
-            <!-- 🗑️ v5.90.809: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
-            <!-- 🔧 v5.90.809: Hidden Fields für book() Funktion -->
-            <input type="hidden" id="customer-name" value="">
-            <input type="hidden" id="customer-phone" value="">
-            <input type="hidden" id="preorder-customer-name" value="">
-            <input type="hidden" id="preorder-customer-phone" value="">
 
             <!-- 📍 ABHOLORT -->
             <div class="input-group">
@@ -3783,12 +3744,12 @@
         </div>
         
         <!-- Kalender-Container (nutzt den gleichen wie im Admin!) -->
-        <div id="calendar-container-standalone" style="margin-bottom: 20px; position: relative;">
+        <div id="calendar-container" style="margin-bottom: 20px; position: relative;">
             <!-- Wird dynamisch gefüllt -->
         </div>
         
         <!-- Statistik -->
-        <div id="calendar-stats-standalone" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
+        <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
             <!-- Wird dynamisch gefüllt -->
         </div>
     </div>
@@ -3942,120 +3903,21 @@
         <!-- 🆕 v5.90.782: TAB CONTENT: VORBESTELLEN -->
         <div id="tab-content-vorbestellen" style="display:none;">
             
-            <!-- 🆕 v5.90.809: GLEICHES FORMULAR WIE BEI SOFORT! -->
-            <!-- Nur mit Datum/Zeit-Picker für Vorbestellungen -->
-            
-            <!-- 🗑️ v5.90.809: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
-
-            <!-- 📍 ABHOLORT -->
-            <div class="input-group">
-                <label>📍 Abholort</label>
-                <div style="display:flex;gap:6px;align-items:center;">
-                    <div style="flex:1;position:relative;">
-                        <input type="text" id="preorder-pickup" placeholder="z.B. Bahnhof Heringsdorf" onchange="calculatePreorderPrice()" style="width:100%;padding:12px;padding-right:36px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    <button onclick="openUniversalMapPicker('preorder-pickup', '📍 Abholort auf Karte wählen')" style="padding:10px 12px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;">🗺️</button>
-                    <button onclick="useMyLocationForPreorder()" style="padding:10px 12px;border:2px solid #3b82f6;background:#dbeafe;color:#1e40af;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;">📍</button>
-                </div>
-            </div>
-
-            <!-- 🎯 ZIELORT -->
-            <div class="input-group">
-                <label style="margin:0;">🎯 Zielort</label>
-                <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
-                    <div style="flex:1;position:relative;">
-                        <input type="text" id="preorder-destination" placeholder="z.B. Seebrücke Ahlbeck" onchange="calculatePreorderPrice()" style="width:100%;padding:12px;padding-right:36px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-                    </div>
-                    <button onclick="openUniversalMapPicker('preorder-destination', '🎯 Zielort auf Karte wählen')" style="padding:10px 12px;border:2px solid #10b981;background:#d1fae5;color:#065f46;border-radius:8px;font-weight:600;cursor:pointer;font-size:16px;">🗺️</button>
-                </div>
-            </div>
-
-            <!-- ⏰ DATUM & ZEIT -->
-            <div class="input-group" style="margin-top:15px;">
-                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">⏰ Wann möchten Sie abgeholt werden?</label>
-                
-                <div style="background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:15px;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                        <div>
-                            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Datum:</label>
-                            <input type="date" id="preorder-date" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                        </div>
-                        <div>
-                            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Uhrzeit:</label>
-                            <input type="time" id="preorder-time" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
-                        </div>
-                    </div>
-                    <div style="font-size:11px;color:#6b7280;text-align:center;">
-                        ℹ️ Mindestens 25 Minuten im Voraus buchen
-                    </div>
-                </div>
-            </div>
-
-            <!-- 👥 PERSONEN -->
-            <div class="input-group" style="margin-top:15px;">
-                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">👥 Personen</label>
-                <select id="preorder-passengers" style="padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-size:15px;width:100%;background:white;">
-                    <option value="1">1 Person</option>
-                    <option value="2">2 Personen</option>
-                    <option value="3">3 Personen</option>
-                    <option value="4">4 Personen</option>
-                    <option value="5">5 Personen (Großraumtaxi)</option>
-                    <option value="6">6 Personen (Großraumtaxi)</option>
-                    <option value="7">7 Personen (Großraumtaxi)</option>
-                    <option value="8">8 Personen (Großraumtaxi)</option>
-                </select>
-            </div>
-
-            <!-- 💬 NOTIZEN -->
-            <div class="input-group" style="margin-top:15px;">
-                <label style="font-size:14px;font-weight:600;margin-bottom:8px;display:block;">💬 Notizen (optional)</label>
-                <textarea id="preorder-notes" placeholder="z.B. Kindersitz benötigt, Rollstuhl, etc." style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;min-height:80px;resize:vertical;box-sizing:border-box;"></textarea>
-            </div>
-
-            <!-- 💳 ZAHLUNGSMETHODE -->
-            <div class="input-group" style="margin-top:15px;">
-                <label>💳 Zahlungsmethode</label>
-                <select id="preorder-payment-method" style="padding:14px;border:2px solid #10b981;border-radius:8px;font-size:15px;font-weight:600;background:white;color:#333;cursor:pointer;width:100%;">
-                    <option value="bar">💶 Bar (Bargeld)</option>
-                    <option value="karte">💳 EC-Karte / Kreditkarte</option>
-                    <option value="paypal">📱 PayPal / Digitale Zahlung</option>
-                    <option value="rechnung">🧾 Rechnung (Firmenkunden)</option>
-                </select>
-            </div>
-
-            <!-- 🆕 v5.90.809: ROUTE-MAP MIT PREIS! -->
-            <div id="preorder-route-map-container" style="margin-top: 20px; display: none;">
-                <!-- PREIS DISPLAY - über der Karte -->
-                <div id="preorder-price-display" style="margin-bottom: 15px;"></div>
-                
-                <!-- KARTE -->
-                <div id="preorder-route-map" style="height: 120px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
-                
-                <!-- INFO -->
-                <div style="margin-top:10px;padding:10px;background:#dbeafe;border-radius:8px;font-size:12px;color:#1e40af;text-align:center;">
-                    ℹ️ Der Preis ist eine Schätzung basierend auf der Route
-                </div>
-            </div>
-
-            <!-- 🚀 VORBESTELLEN BUTTON -->
-            <div style="margin-top:25px;">
-                <button onclick="submitPreorderBooking()" style="width:100%;padding:18px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(102,126,234,0.4);">
-                    📅 TAXI VORBESTELLEN
+            <div style="margin-bottom:20px;">
+                <button onclick="openPreorderBookingModal()" style="width:100%;padding:16px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(102,126,234,0.4);display:flex;align-items:center;justify-content:center;gap:10px;">
+                    ➕ NEUE VORBESTELLUNG
                 </button>
             </div>
-
-            <!-- 📋 MEINE VORBESTELLUNGEN -->
-            <div style="margin-top:40px;padding-top:30px;border-top:2px solid #e5e7eb;">
-                <h4 style="margin:0 0 15px 0;font-size:16px;color:#374151;font-weight:600;">📋 Meine Vorbestellungen</h4>
-                
-                <div id="preorder-list" style="display:grid;gap:12px;">
-                    <!-- Wird von JavaScript gefüllt -->
-                    <div style="padding:40px;text-align:center;color:#9ca3af;background:#f9fafb;border-radius:12px;border:2px dashed #e5e7eb;">
-                        <div style="font-size:48px;margin-bottom:10px;">📅</div>
-                        <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Noch keine Vorbestellungen</div>
-                        <div style="font-size:13px;">
-                            Füllen Sie das Formular oben aus um eine Fahrt zu planen
-                        </div>
+            
+            <h4 style="margin:0 0 15px 0;font-size:16px;color:#374151;font-weight:600;">📋 Meine Vorbestellungen</h4>
+            
+            <div id="preorder-list" style="display:grid;gap:12px;">
+                <!-- Wird von JavaScript gefüllt -->
+                <div style="padding:40px;text-align:center;color:#9ca3af;background:#f9fafb;border-radius:12px;border:2px dashed #e5e7eb;">
+                    <div style="font-size:48px;margin-bottom:10px;">📅</div>
+                    <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Noch keine Vorbestellungen</div>
+                    <div style="font-size:13px;">
+                        Klicke auf "+ NEUE VORBESTELLUNG" um eine Fahrt zu planen
                     </div>
                 </div>
             </div>
@@ -15483,22 +15345,6 @@ Aktuell: ${currentNum}`;
                 setTimeout(() => {
                     checkPassengerAuth();
                     
-                    // 🆕 v5.90.809: AUTO-FILL Name + Telefon aus Firebase!
-                    if (auth.currentUser) {
-                        const nameInput = document.getElementById('customer-name');
-                        const phoneInput = document.getElementById('customer-phone');
-                        
-                        if (nameInput && auth.currentUser.displayName) {
-                            nameInput.value = auth.currentUser.displayName;
-                            console.log('✅ v5.90.809: Name auto-filled:', auth.currentUser.displayName);
-                        }
-                        
-                        if (phoneInput && auth.currentUser.phoneNumber) {
-                            phoneInput.value = auth.currentUser.phoneNumber;
-                            console.log('✅ v5.90.809: Telefon auto-filled:', auth.currentUser.phoneNumber);
-                        }
-                    }
-                    
                     // 🆕 v5.90.561: EXPRESS-BOOKING DATEN LADEN!
                     const expressPickup = localStorage.getItem('expressBookingPickup');
                     const expressDest = localStorage.getItem('expressBookingDestination');
@@ -15916,24 +15762,6 @@ Aktuell: ${currentNum}`;
             switchView('passenger');
         }
         
-        // 🆕 v5.90.809: ABMELDEN AUS DEM MENÜ!
-        function logoutFromMenu() {
-            closeMenu();
-            
-            // Prüfe ob Firebase oder Quick-Login
-            if (auth.currentUser) {
-                // Firebase-Login
-                if (confirm('🚪 Möchten Sie sich wirklich abmelden?')) {
-                    logoutUser();
-                }
-            } else {
-                // Quick-Login
-                if (confirm('🚪 Möchten Sie sich wirklich abmelden?')) {
-                    logoutQuickLogin();
-                }
-            }
-        }
-        
         // 🐛 v5.46.6: Debug Panel aus Menu öffnen
         function openDebugPanelFromMenu() {
             closeMenu();
@@ -16167,8 +15995,8 @@ Aktuell: ${currentNum}`;
         function getDefaultPermissions() {
             return {
                 admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive', 'express-booking', 'simulator'],
-                driver: ['driver', 'schedule', 'history'], // 🆕 v5.90.809: Fahrer braucht schedule + history!
-                passenger: ['passenger', 'schedule', 'history']  // 🔧 v5.90.809: Fahrgast braucht Buchen + Vorbestellungen + Meine Fahrten!
+                driver: ['driver'], // 🆕 v5.90.525: NUR Fahrer-Tab!
+                passenger: ['passenger', 'history']  // 🔧 v5.90.89: Nur Buchen + Meine Fahrten!
             };
         }
         
@@ -16211,12 +16039,6 @@ Aktuell: ${currentNum}`;
         
         // Wende Tab-Berechtigungen an
         async function applyTabPermissions(permissions, role) {
-            // 🚫 v5.90.809: TAB-BERECHTIGUNGEN DEAKTIVIERT!
-            // Macht zu viele Probleme - ALLE TABS IMMER SICHTBAR!
-            console.log(`🚫 v5.90.809: Tab-Berechtigungen DEAKTIVIERT - alle Tabs sichtbar`);
-            return; // ← NICHTS MACHEN!
-            
-            // ALTER CODE UNTEN (WIRD NICHT MEHR AUSGEFÜHRT):
             console.log(`🎨 v5.90.591: Wende Tab-Berechtigungen an für: ${role}`);
             
             const allowedTabs = permissions[role] || [];
@@ -24823,8 +24645,8 @@ Aktuell: ${currentNum}`;
         function setupAutocomplete() {
             console.log('🔧 setupAutocomplete wird initialisiert...');
             
-            // 🆕 v5.90.809: AUCH VORBESTELLEN-FELDER! (preorder-pickup, preorder-destination)
-            ['pickup', 'destination', 'preorder-pickup', 'preorder-destination', 'quick-booking-pickup', 'quick-booking-destination', 'ai-booking-pickup', 'ai-booking-destination'].forEach(id => {
+            // 🆕 v5.64.34: Auch AI-Buchungsmaske Felder!
+            ['pickup', 'destination', 'quick-booking-pickup', 'quick-booking-destination', 'ai-booking-pickup', 'ai-booking-destination'].forEach(id => {
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
                 
@@ -30593,19 +30415,6 @@ Aktuell: ${currentNum}`;
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
             
-            // 🆕 v5.90.809: ADRESS-VALIDIERUNG (wie bei submitPreorderBooking!)
-            const pickup = document.getElementById('pickup')?.value || '';
-            const destination = document.getElementById('destination')?.value || '';
-            
-            if (!pickup) {
-                alert('❌ Bitte geben Sie einen Abholort an!');
-                return;
-            }
-            if (!destination) {
-                alert('❌ Bitte geben Sie ein Zielort an!');
-                return;
-            }
-            
             // 🆕 v5.31.0: Generiere EINDEUTIGE RIDE-ID
             const rideId = generateRideId();
             
@@ -30615,8 +30424,8 @@ Aktuell: ${currentNum}`;
                 customerPhone,
                 pickupTime,
                 pickupTimestamp,
-                pickup: pickup,
-                destination: destination,
+                pickup: document.getElementById('pickup').value,
+                destination: document.getElementById('destination').value,
                 passengers: document.getElementById('passengers').value,
                 price: window.fiftyFiftyActive ? window.fiftyFiftyPrice : window.currentPrice,
                 originalPrice: window.fiftyFiftyActive ? window.currentPrice : null, // 🆕 v5.88.0: Originalpreis für 50/50
@@ -41840,301 +41649,9 @@ Funk Taxi Team`;
                 document.getElementById('tab-content-sofort').style.display = 'none';
                 document.getElementById('tab-content-vorbestellen').style.display = 'block';
                 
-                // 🆕 v5.90.809: AUTO-FILL für Vorbestell-Tab!
-                if (auth.currentUser) {
-                    const nameInput = document.getElementById('preorder-customer-name');
-                    const phoneInput = document.getElementById('preorder-customer-phone');
-                    
-                    if (nameInput && auth.currentUser.displayName) {
-                        nameInput.value = auth.currentUser.displayName;
-                    }
-                    if (phoneInput && auth.currentUser.phoneNumber) {
-                        phoneInput.value = auth.currentUser.phoneNumber;
-                    }
-                }
-                
-                // Setze Default-Datum auf heute
-                const dateInput = document.getElementById('preorder-date');
-                if (dateInput && !dateInput.value) {
-                    const today = new Date();
-                    dateInput.value = today.toISOString().split('T')[0];
-                }
-                
-                // Setze Default-Zeit auf in 2 Stunden
-                const timeInput = document.getElementById('preorder-time');
-                if (timeInput && !timeInput.value) {
-                    const now = new Date();
-                    now.setHours(now.getHours() + 2);
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    timeInput.value = `${hours}:${minutes}`;
-                }
-                
                 // Lade Vorbestellungen
                 loadPreorderList();
             }
-        }
-        
-        // 🆕 v5.90.809: VORBESTELLUNG ABSENDEN!
-        async function submitPreorderBooking() {
-            console.log('📅 v5.90.809: Vorbestellung wird abgesendet...');
-            
-            // Hole Werte aus den Feldern
-            const customerName = document.getElementById('preorder-customer-name')?.value || '';
-            const customerPhone = document.getElementById('preorder-customer-phone')?.value || '';
-            const pickup = document.getElementById('preorder-pickup')?.value || '';
-            const destination = document.getElementById('preorder-destination')?.value || '';
-            const date = document.getElementById('preorder-date')?.value || '';
-            const time = document.getElementById('preorder-time')?.value || '';
-            const passengers = document.getElementById('preorder-passengers')?.value || '1';
-            const notes = document.getElementById('preorder-notes')?.value || '';
-            const paymentMethod = document.getElementById('preorder-payment-method')?.value || 'bar';
-            
-            // Validierung
-            if (!customerName) {
-                alert('❌ Bitte geben Sie Ihren Namen an!');
-                return;
-            }
-            if (!customerPhone) {
-                alert('❌ Bitte geben Sie Ihre Telefonnummer an!');
-                return;
-            }
-            if (!pickup) {
-                alert('❌ Bitte geben Sie einen Abholort an!');
-                return;
-            }
-            if (!destination) {
-                alert('❌ Bitte geben Sie ein Zielort an!');
-                return;
-            }
-            if (!date) {
-                alert('❌ Bitte wählen Sie ein Datum!');
-                return;
-            }
-            if (!time) {
-                alert('❌ Bitte wählen Sie eine Uhrzeit!');
-                return;
-            }
-            
-            // 🆕 v5.90.809: PREIS BERECHNEN wenn noch nicht gemacht!
-            if (!window.preorderPriceCalculated) {
-                console.log('💰 Berechne Preis für Vorbestellung...');
-                await calculatePreorderPrice();
-            }
-            
-            // Kombiniere Datum + Zeit
-            const pickupDateTime = new Date(`${date}T${time}:00`);
-            const pickupTimestamp = pickupDateTime.getTime();
-            
-            // Prüfe ob mindestens 25 Minuten in der Zukunft
-            const now = Date.now();
-            const minAdvance = 25 * 60 * 1000; // 25 Minuten
-            if (pickupTimestamp < now + minAdvance) {
-                alert('❌ Vorbestellung muss mindestens 25 Minuten im Voraus sein!');
-                return;
-            }
-            
-            // Erstelle Buchung
-            const ride = {
-                customerName: customerName,
-                customerPhone: customerPhone,
-                pickup: pickup,
-                destination: destination,
-                pickupTime: pickupDateTime.toISOString(),
-                pickupTimestamp: pickupTimestamp,
-                passengers: parseInt(passengers),
-                notes: notes,
-                paymentMethod: paymentMethod,
-                status: 'vorbestellt',
-                createdAt: Date.now(),
-                bookingType: 'preorder',
-                estimatedPrice: window.lastCalculatedPrice || 0
-            };
-            
-            try {
-                // Speichere in Firebase
-                if (isFirebaseReady && db) {
-                    const rideRef = db.ref('rides').push();
-                    await rideRef.set(ride);
-                    console.log('✅ Vorbestellung gespeichert:', rideRef.key);
-                    
-                    alert('✅ Vorbestellung erfolgreich!\n\nWir haben Ihre Buchung erhalten.');
-                    
-                    // Felder leeren
-                    document.getElementById('preorder-pickup').value = '';
-                    document.getElementById('preorder-destination').value = '';
-                    document.getElementById('preorder-notes').value = '';
-                    
-                    // Karte verstecken
-                    document.getElementById('preorder-route-map-container').style.display = 'none';
-                    window.preorderPriceCalculated = false;
-                    
-                    // Liste neu laden
-                    loadPreorderList();
-                } else {
-                    console.error('❌ Firebase nicht bereit!');
-                    alert('❌ Fehler beim Speichern der Vorbestellung!\n\nBitte versuchen Sie es erneut.');
-                }
-            } catch (error) {
-                console.error('❌ Fehler beim Speichern:', error);
-                alert('❌ Fehler beim Speichern der Vorbestellung!\n\n' + error.message);
-            }
-        }
-        
-        // 🆕 v5.90.809: PREIS FÜR VORBESTELLUNG BERECHNEN!
-        async function calculatePreorderPrice() {
-            const pickup = document.getElementById('preorder-pickup')?.value || '';
-            const destination = document.getElementById('preorder-destination')?.value || '';
-            
-            if (!pickup || !destination) {
-                console.log('⚠️ Abholort oder Zielort fehlt - kein Preis');
-                return;
-            }
-            
-            console.log('💰 Berechne Route und Preis für Vorbestellung...');
-            
-            try {
-                // Geocode Abholort
-                const pickupGeo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}`);
-                const pickupData = await pickupGeo.json();
-                if (!pickupData || pickupData.length === 0) {
-                    console.error('❌ Abholort nicht gefunden');
-                    return;
-                }
-                const pickupLat = pickupData[0].lat;
-                const pickupLon = pickupData[0].lon;
-                
-                // Geocode Zielort
-                const destGeo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`);
-                const destData = await destGeo.json();
-                if (!destData || destData.length === 0) {
-                    console.error('❌ Zielort nicht gefunden');
-                    return;
-                }
-                const destLat = destData[0].lat;
-                const destLon = destData[0].lon;
-                
-                // Route berechnen
-                const routeUrl = `https://router.project-osrm.org/route/v1/driving/${pickupLon},${pickupLat};${destLon},${destLat}?overview=full&geometries=geojson`;
-                const routeResp = await fetch(routeUrl);
-                const routeData = await routeResp.json();
-                
-                if (!routeData.routes || routeData.routes.length === 0) {
-                    console.error('❌ Route nicht gefunden');
-                    return;
-                }
-                
-                const route = routeData.routes[0];
-                const distanceKm = (route.distance / 1000).toFixed(1);
-                const durationMin = Math.ceil(route.duration / 60);
-                
-                // Preis berechnen (einfache Formel)
-                const basePrice = 5;
-                const pricePerKm = 2;
-                const price = basePrice + (parseFloat(distanceKm) * pricePerKm);
-                const finalPrice = Math.ceil(price);
-                
-                window.lastCalculatedPrice = finalPrice;
-                window.preorderPriceCalculated = true;
-                
-                // Zeige Preis
-                const priceDisplay = document.getElementById('preorder-price-display');
-                if (priceDisplay) {
-                    priceDisplay.innerHTML = `
-                        <div style="background:linear-gradient(135deg,#10b981,#059669);padding:15px;border-radius:12px;color:white;text-align:center;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
-                            <div style="font-size:13px;opacity:0.9;margin-bottom:5px;">Geschätzter Preis:</div>
-                            <div style="font-size:32px;font-weight:700;">${finalPrice}€</div>
-                            <div style="font-size:12px;opacity:0.8;margin-top:5px;">${distanceKm} km • ca. ${durationMin} Min</div>
-                        </div>
-                    `;
-                }
-                
-                // Zeige Karte
-                const mapContainer = document.getElementById('preorder-route-map-container');
-                if (mapContainer) {
-                    mapContainer.style.display = 'block';
-                }
-                
-                // Initialisiere Karte
-                if (!window.preorderRouteMap) {
-                    window.preorderRouteMap = L.map('preorder-route-map', {
-                        zoomControl: false,
-                        attributionControl: false,
-                        dragging: false,
-                        scrollWheelZoom: false,
-                        doubleClickZoom: false,
-                        touchZoom: false
-                    });
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.preorderRouteMap);
-                }
-                
-                // Zeichne Route
-                const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-                if (window.preorderRouteLine) {
-                    window.preorderRouteMap.removeLayer(window.preorderRouteLine);
-                }
-                window.preorderRouteLine = L.polyline(coords, {
-                    color: '#3b82f6',
-                    weight: 3,
-                    opacity: 0.8
-                }).addTo(window.preorderRouteMap);
-                
-                // Marker
-                if (window.preorderPickupMarker) window.preorderRouteMap.removeLayer(window.preorderPickupMarker);
-                if (window.preorderDestMarker) window.preorderRouteMap.removeLayer(window.preorderDestMarker);
-                
-                window.preorderPickupMarker = L.marker([pickupLat, pickupLon]).addTo(window.preorderRouteMap);
-                window.preorderDestMarker = L.marker([destLat, destLon]).addTo(window.preorderRouteMap);
-                
-                // Fit bounds
-                window.preorderRouteMap.fitBounds(window.preorderRouteLine.getBounds(), {padding: [20, 20]});
-                
-                // Invalidate size
-                setTimeout(() => {
-                    window.preorderRouteMap.invalidateSize();
-                }, 100);
-                
-                console.log('✅ Preis berechnet:', finalPrice, '€');
-                
-            } catch (error) {
-                console.error('❌ Fehler bei Preis-Berechnung:', error);
-            }
-        }
-        
-        // 🆕 v5.90.809: GPS für Vorbestell-Tab MIT KURZER ADRESSE!
-        function useMyLocationForPreorder() {
-            if (!navigator.geolocation) {
-                alert('❌ GPS nicht verfügbar!\n\nIhr Gerät unterstützt keine Standortbestimmung.');
-                return;
-            }
-            
-            console.log('📍 GPS wird abgerufen...');
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    
-                    // 🆕 v5.90.809: Nutze formatAddressShort für KURZE Adresse!
-                    try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
-                        const data = await response.json();
-                        
-                        // KÜRZE Adresse wie im SOFORT-Tab!
-                        const result = formatAddressShort(data);
-                        const shortAddress = result.address || data.display_name || `${lat}, ${lon}`;
-                        
-                        document.getElementById('preorder-pickup').value = shortAddress;
-                        console.log('✅ v5.90.809: GPS-Adresse GEKÜRZT:', shortAddress);
-                    } catch (error) {
-                        console.error('❌ Geocoding-Fehler:', error);
-                        document.getElementById('preorder-pickup').value = `${lat}, ${lon}`;
-                    }
-                },
-                (error) => {
-                    console.error('❌ GPS-Fehler:', error);
-                    alert('❌ GPS-Standort konnte nicht ermittelt werden!');
-                }
-            );
         }
         
         // 🆕 v5.90.782: VORBESTELLUNGS-MODAL ÖFFNEN (Nutzt Schnellbuchungs-Modal!)
@@ -50158,14 +49675,6 @@ Funk Taxi Team`;
                     if (window.pickupCoords) {
                         setTimeout(() => calculatePriceAndShow(), 300);
                     }
-                } else if (universalMapPicker.targetInputId === 'preorder-pickup' || universalMapPicker.targetInputId === 'preorder-destination') {
-                    // 🆕 v5.90.809: Auto-Trigger für VORBESTELLEN-Tab!
-                    console.log('✅ v5.90.809: Vorbestell-Adresse übernommen → Trigger Preis-Berechnung');
-                    
-                    // Warte kurz damit Adresse im Feld ist
-                    setTimeout(() => {
-                        calculatePreorderPrice();
-                    }, 300);
                 } else {
                     // Andere Felder: Input Event für Autocomplete/Validation
                     const event = new Event('input', { bubbles: true });
@@ -61058,7 +60567,7 @@ Stack: ${err.stack}
                 setTimeout(() => {
                     checkPassengerAuth();
                     loadQuickLoginData();
-                    updateUserProfile();
+                    updateMenuProfile();
                     updateUserProfile(); // 🆕 Versteckt "Anmelden" Button!
                 }, 500);
                 
@@ -61433,7 +60942,7 @@ Stack: ${err.stack}
                 // 🆕 v5.42.2: Quick-Login-Box ist DEAKTIVIERT - Avatar stattdessen!
                 // Quick-Login Daten laden + Menü aktualisieren
                 loadQuickLoginData();
-                updateUserProfile();
+                updateMenuProfile();
                 
                 // ✅ FIX: Anmelden-Button verstecken wenn eingeloggt!
                 const loginButton = document.querySelector('button[onclick="showLoginModal()"]');
@@ -61584,8 +61093,8 @@ Stack: ${err.stack}
                     console.log('✅ updateLoginButton() fertig');
                     
                     // 3. Menü updaten
-                    updateUserProfile();
-                    console.log('✅ updateUserProfile() fertig');
+                    updateMenuProfile();
+                    console.log('✅ updateMenuProfile() fertig');
                     
                     // Log
                     logActivity('system', 'quick_login', `Schnell-Login: ${fullPhoneNumber}`, {
@@ -61902,8 +61411,8 @@ Stack: ${err.stack}
                 console.log('✅ updateLoginButton() fertig');
                 
                 // 3. Menü updaten
-                updateUserProfile();
-                console.log('✅ updateUserProfile() fertig');
+                updateMenuProfile();
+                console.log('✅ updateMenuProfile() fertig');
                 
                 // 4. Success-Message
                 const displayName = localStorage.getItem('loggedInUserName') || userPhone;
@@ -61985,7 +61494,7 @@ Stack: ${err.stack}
                 setTimeout(() => {
                     checkPassengerAuth();
                     loadQuickLoginData();
-                    updateUserProfile();
+                    updateMenuProfile();
                     updateUserProfile();
                 }, 500);
                 
@@ -62022,7 +61531,7 @@ Stack: ${err.stack}
                 setTimeout(() => {
                     checkPassengerAuth();
                     loadQuickLoginData();
-                    updateUserProfile();
+                    updateMenuProfile();
                     updateUserProfile();
                 }, 500);
                 
@@ -62515,7 +62024,7 @@ Stack: ${err.stack}
                             // UI aktualisieren!
                             loadQuickLoginData();
                             updateLoginButton();
-                            updateUserProfile();
+                            updateMenuProfile();
                         }
                     } else {
                         console.log('⚠️ Kein Kunde in Firebase gefunden');
@@ -62654,31 +62163,15 @@ Stack: ${err.stack}
                     customerStats = `<div style="font-size: 9px; opacity: 0.8; margin-top: 2px;">🚕 ${regularCustomer.rideCount} Fahrt${regularCustomer.rideCount > 1 ? 'en' : ''} · 📍 ${regularCustomer.favoritePickup ? regularCustomer.favoritePickup.substring(0, 20) + (regularCustomer.favoritePickup.length > 20 ? '...' : '') : 'Keine Adresse'}</div>`;
                 }
                 
-                // 🆕 v5.90.809: Willkommen-Text statt Profil-Box!
                 profileBox.innerHTML = `
-                    <div style="text-align:center;padding:10px 15px;background:rgba(255,255,255,0.1);border-radius:8px;margin-top:10px;">
-                        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">👋 Willkommen ${displayName}!</div>
-                        <div style="font-size:12px;opacity:0.9;">${subInfo}</div>
-                        ${customerStats ? `<div style="font-size:11px;margin-top:6px;opacity:0.85;">${customerStats}</div>` : ''}
+                    <div class="user-avatar">${initial}</div>
+                    <div class="user-info">
+                        <div style="font-weight: 600; font-size: 11px;">${displayName}</div>
+                        <div style="font-size: 9px; opacity: 0.75;">${subInfo}</div>
+                        ${customerStats}
                     </div>
+                    <button class="btn-logout" onclick="logoutUser()">Aus</button>
                 `;
-                
-                // 🆕 v5.90.809: ABMELDEN-Button im Menü anzeigen!
-                const menuLogoutBtn = document.getElementById('menu-logout-btn');
-                if (menuLogoutBtn) {
-                    menuLogoutBtn.style.display = 'block';
-                }
-                
-                // 🆕 v5.90.809: AUTO-FILL HIDDEN FIELDS!
-                const customerNameInput = document.getElementById('customer-name');
-                const customerPhoneInput = document.getElementById('customer-phone');
-                const preorderNameInput = document.getElementById('preorder-customer-name');
-                const preorderPhoneInput = document.getElementById('preorder-customer-phone');
-                
-                if (customerNameInput) customerNameInput.value = displayName;
-                if (customerPhoneInput && subInfo) customerPhoneInput.value = subInfo;
-                if (preorderNameInput) preorderNameInput.value = displayName;
-                if (preorderPhoneInput && subInfo) preorderPhoneInput.value = subInfo;
             } else {
                 // 🆕 v5.42.2: Prüfe auch Quick-Login!
                 const quickLoginPhone = localStorage.getItem('loggedInPhone');
@@ -62693,33 +62186,19 @@ Stack: ${err.stack}
                         header.appendChild(profileBox);
                     }
                     
-                    // 🆕 v5.90.809: Willkommen-Text für Quick-Login!
+                    // 🆕 v5.70.0: Zeige NAME statt "Telefon-Login"!
                     const phoneDisplay = quickLoginPhone.substring(0, 6) + '***';
                     const nameDisplay = quickLoginName || phoneDisplay;
+                    const initial = quickLoginName ? quickLoginName.charAt(0).toUpperCase() : '📱';
                     
                     profileBox.innerHTML = `
-                        <div style="text-align:center;padding:10px 15px;background:rgba(255,255,255,0.1);border-radius:8px;margin-top:10px;">
-                            <div style="font-size:14px;font-weight:700;margin-bottom:4px;">👋 Willkommen ${nameDisplay}!</div>
-                            <div style="font-size:12px;opacity:0.9;">📱 ${phoneDisplay}</div>
+                        <div class="user-avatar">${initial}</div>
+                        <div class="user-info">
+                            <div style="font-weight: 600; font-size: 11px;">${nameDisplay}</div>
+                            <div style="font-size: 9px; opacity: 0.75;">${phoneDisplay}</div>
                         </div>
+                        <button class="btn-logout" onclick="logoutQuickLogin()">Aus</button>
                     `;
-                    
-                    // 🆕 v5.90.809: ABMELDEN-Button im Menü anzeigen!
-                    const menuLogoutBtn = document.getElementById('menu-logout-btn');
-                    if (menuLogoutBtn) {
-                        menuLogoutBtn.style.display = 'block';
-                    }
-                    
-                    // 🆕 v5.90.809: AUTO-FILL HIDDEN FIELDS!
-                    const customerNameInput = document.getElementById('customer-name');
-                    const customerPhoneInput = document.getElementById('customer-phone');
-                    const preorderNameInput = document.getElementById('preorder-customer-name');
-                    const preorderPhoneInput = document.getElementById('preorder-customer-phone');
-                    
-                    if (customerNameInput) customerNameInput.value = nameDisplay;
-                    if (customerPhoneInput) customerPhoneInput.value = quickLoginPhone;
-                    if (preorderNameInput) preorderNameInput.value = nameDisplay;
-                    if (preorderPhoneInput) preorderPhoneInput.value = quickLoginPhone;
                 } else {
                     // User ist nicht eingeloggt - zeige nur Anmelden Button
                     if (!profileBox) {
@@ -63243,31 +62722,6 @@ Stack: ${err.stack}
             return statusMap[status] || '#9ca3af';
         }
         
-        // 🆕 v5.90.809: Helper - Welche Calendar-Container sind aktiv?
-        function getCalendarContainerIds() {
-            // Prüfe ob wir im calendar-view sind (eigenständiger Tab)
-            const calendarView = document.getElementById('calendar-view');
-            const isCalendarViewActive = calendarView && calendarView.classList.contains('active');
-            
-            if (isCalendarViewActive) {
-                // Eigenständiger Calendar-Tab
-                return {
-                    container: 'calendar-container-standalone',
-                    stats: 'calendar-stats-standalone',
-                    title: 'calendar-period-title-standalone',
-                    jumpDate: 'calendar-jump-date-standalone'
-                };
-            } else {
-                // Admin-View Kalender-Section
-                return {
-                    container: 'calendar-container',
-                    stats: 'calendar-stats',
-                    title: 'calendar-period-title',
-                    jumpDate: 'calendar-jump-date'
-                };
-            }
-        }
-        
         async function renderCalendar() {
             console.log('📅 Rendere Kalender:', currentCalendarView, currentCalendarDate);
             
@@ -63401,15 +62855,12 @@ Stack: ${err.stack}
         }
         
         function renderMonthView(allRides) {
-            // 🆕 v5.90.809: Hole richtige Container-IDs!
-            const ids = getCalendarContainerIds();
-            
             const year = currentCalendarDate.getFullYear();
             const month = currentCalendarDate.getMonth();
             
             // Update Titel
             const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            const titleEl = document.getElementById(ids.title); if (titleEl) titleEl.textContent = `${monthNames[month]} ${year}`;
+            document.getElementById('calendar-period-title').textContent = `${monthNames[month]} ${year}`;
             
             // Erster und letzter Tag des Monats
             const firstDay = new Date(year, month, 1);
@@ -63509,16 +62960,13 @@ Stack: ${err.stack}
             
             html += `</div>`;
             
-            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
+            document.getElementById('calendar-container').innerHTML = html;
             
             // Statistik
             updateCalendarStats(allRides, 'Monat');
         }
         
         function renderWeekView(allRides) {
-            // 🆕 v5.90.809: Hole richtige Container-IDs!
-            const ids = getCalendarContainerIds();
-            
             // Aktueller Montag
             const current = new Date(currentCalendarDate);
             const day = current.getDay();
@@ -63529,7 +62977,7 @@ Stack: ${err.stack}
             const sunday = new Date(monday);
             sunday.setDate(monday.getDate() + 6);
             const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-            const titleEl = document.getElementById(ids.title); if (titleEl) titleEl.textContent = 
+            document.getElementById('calendar-period-title').textContent = 
                 `${monday.getDate()}. ${monthNames[monday.getMonth()]} - ${sunday.getDate()}. ${monthNames[sunday.getMonth()]} ${sunday.getFullYear()}`;
             
             // Gruppiere Fahrten nach Tag
@@ -63599,23 +63047,19 @@ Stack: ${err.stack}
             
             html += '</div>';
             
-            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
+            document.getElementById('calendar-container').innerHTML = html;
             updateCalendarStats(Object.values(ridesByDay).flatMap(d => d.rides), 'Woche');
         }
         
         function renderDayView(allRides) {
             const date = new Date(currentCalendarDate);
             
-            // 🆕 v5.90.809: Hole richtige Container-IDs!
-            const ids = getCalendarContainerIds();
-            
             // Update Titel
             const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
             const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            const titleEl = document.getElementById(ids.title);
-            if (titleEl) {
-                titleEl.textContent = `${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-            }
+            document.getElementById('calendar-period-title').textContent = 
+                `${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+            
             // Filtere Fahrten für diesen Tag
             const dayRides = allRides.filter(ride => {
                 // 🔧 v5.29.1: FÜR KALENDER: Nutze pickupTimestamp (Abholzeit) statt createdAt!
@@ -63975,7 +63419,7 @@ Stack: ${err.stack}
             
             html += '</div>';
             
-            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
+            document.getElementById('calendar-container').innerHTML = html;
             updateCalendarStats(dayRides, 'Tag');
         }
         
@@ -64030,9 +63474,6 @@ Stack: ${err.stack}
         }
         
         function updateCalendarStats(rides, period) {
-            // 🆕 v5.90.809: Hole richtige Container-IDs!
-            const ids = getCalendarContainerIds();
-            
             const completed = rides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
             const cancelled = rides.filter(r => r.status === 'cancelled' || r.status === 'storniert');
             
@@ -64042,31 +63483,28 @@ Stack: ${err.stack}
                 return sum + price;
             }, 0);
             
-            const statsEl = document.getElementById(ids.stats);
-            if (statsEl) {
-                statsEl.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                        <div>
-                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">${period} - Gesamt</div>
-                            <div style="font-size: 24px; font-weight: 700;">${rides.length}</div>
-                            <div style="font-size: 12px; opacity: 0.8;">Fahrten</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Umsatz</div>
-                            <div style="font-size: 24px; font-weight: 700;">${totalRevenue.toFixed(2)}€</div>
-                            <div style="font-size: 12px; opacity: 0.8;">${completed.length} abgeschlossen</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">✅ Erfolgreich</div>
-                            <div style="font-size: 20px; font-weight: 700;">${completed.length}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">💾 Storniert</div>
-                            <div style="font-size: 20px; font-weight: 700;">${cancelled.length}</div>
-                        </div>
+            document.getElementById('calendar-stats').innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">${period} - Gesamt</div>
+                        <div style="font-size: 24px; font-weight: 700;">${rides.length}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">Fahrten</div>
                     </div>
-                `;
-            }
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Umsatz</div>
+                        <div style="font-size: 24px; font-weight: 700;">${totalRevenue.toFixed(2)}€</div>
+                        <div style="font-size: 12px; opacity: 0.8;">${completed.length} abgeschlossen</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">✅ Erfolgreich</div>
+                        <div style="font-size: 20px; font-weight: 700;">${completed.length}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">💾 Storniert</div>
+                        <div style="font-size: 20px; font-weight: 700;">${cancelled.length}</div>
+                    </div>
+                </div>
+            `;
         }
         
         function showDayDetails(day, month, year) {
@@ -64080,15 +63518,12 @@ Stack: ${err.stack}
         // ═══════════════════════════════════════════════════════════════════════════
         
         function renderVehicleTimeline(allRides) {
-            // 🆕 v5.90.809: Hole richtige Container-IDs!
-            const ids = getCalendarContainerIds();
-            
             const date = new Date(currentCalendarDate);
             
             // Update Titel
             const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
             const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            const titleEl = document.getElementById(ids.title); if (titleEl) titleEl.textContent = 
+            document.getElementById('calendar-period-title').textContent = 
                 `Timeline: ${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
             
             // Filtere Fahrten für diesen Tag
@@ -64303,7 +63738,7 @@ Stack: ${err.stack}
             
             html += '</div>';
             
-            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
+            document.getElementById('calendar-container').innerHTML = html;
             updateCalendarStats(dayRides, 'Tag');
         }
         
@@ -79062,10 +78497,10 @@ if (document.readyState === 'loading') {
     </div>
 </div>
 
-<!-- 🆕 v5.90.809: VERSION-FOOTER unten rechts! -->>
+<!-- 🆕 v5.90.782: VERSION-FOOTER unten rechts! -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        📅 v5.90.809
+        🔧 v5.90.782
     </div>
 </div>
 

@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.828
+    📦 VERSION: v5.90.829
     📅 BUILD: 23.01.2026 17:15 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.828
+    📋 CHANGELOG v5.90.829
     ═══════════════════════════════════════════════════════════════════════════
 
-    📱 v5.90.828 (23.01.2026):
+    📱 v5.90.829 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
        • FIX: invalidateSize() hinzugefügt - Karte rendert jetzt korrekt
        • NEU: Route-Karte auf Mobile kleiner (180px / 150px auf kleinen Geräten)
@@ -395,7 +395,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.828 | Build: 2026-01-25_0930 | Fix: KARTE OBEN + ALLE DEBUG-INFOS - System-Analyse komplett! -->
+    <!-- Version: v5.90.829 | Build: 2026-01-25_0930 | Fix: KARTE OBEN + ALLE DEBUG-INFOS - System-Analyse komplett! -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -522,11 +522,11 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.828 - PERFECT SLOTS! 🎯📅 (Build 2026-01-25_1800)');
-        console.log('🎯 v5.90.828: VORBESTELLEN PERFEKT!');
-        console.log('✅ v5.90.828: Popup + Auto Slot-Check!');
-        console.log('✅ v5.90.828: Klickbare Alternativen!');
-        console.log('✅ v5.90.828: Basis v770 - funktionierende Logik!');
+        console.log('🚕 Funk Taxi App v5.90.829 - PREIS + SLOT FIX! 🔧💰 (Build 2026-01-25_1850)');
+        console.log('🔧 v5.90.829: AUTO-PREIS funktioniert!');
+        console.log('🔧 v5.90.829: Slot-Check Result wird angezeigt!');
+        console.log('🔧 v5.90.829: currentRideType wird gesetzt!');
+        console.log('✅ v5.90.829: Basis v770 - funktionierende Logik!');
         console.log('💜 v5.90.768: Violettes Feld klickbar!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
@@ -1103,7 +1103,7 @@
                 height: 300px !important;
             }
 
-            /* 🆕 v5.90.828: Route-Map auf Mobile kompakter! */
+            /* 🆕 v5.90.829: Route-Map auf Mobile kompakter! */
             #route-map {
                 height: 180px !important;
             }
@@ -1293,7 +1293,7 @@
                 height: 250px !important;
             }
 
-            /* 🆕 v5.90.828: Route-Map noch kleiner auf sehr kleinen Geräten! */
+            /* 🆕 v5.90.829: Route-Map noch kleiner auf sehr kleinen Geräten! */
             #route-map {
                 height: 150px !important;
             }
@@ -1462,7 +1462,7 @@
             }
         }
         
-        /* 🎨 v5.90.828: TAFEL-ABWISCH ANIMATION! */
+        /* 🎨 v5.90.829: TAFEL-ABWISCH ANIMATION! */
         @keyframes wipeOut {
             0% {
                 clip-path: inset(0 0 0 0);
@@ -1498,7 +1498,7 @@
     <!-- <script src="https://js.stripe.com/v3/"></script> -->
 </head>
 <body>
-    <!-- 🔧 v5.90.828: KARTE-MIT-ANALYSE für Mobile! -->
+    <!-- 🔧 v5.90.829: KARTE-MIT-ANALYSE für Mobile! -->
     <style>
         /* Verhindert Layout-Flackern beim Laden */
         body.loading .view {
@@ -1519,7 +1519,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-                console.log('✅ v5.90.828: Anti-Flicker aktiviert!');
+                console.log('✅ v5.90.829: Anti-Flicker aktiviert!');
             }, 100);
         });
     </script>
@@ -1533,7 +1533,7 @@
     <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCsvFileUpload(event)">
     
     <!-- ICS Review Container -->
-    <div id="ics-review-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:180000;padding:20px;overflow-y:auto;">
+    <div id="ics-review-container" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:185000;padding:20px;overflow-y:auto;">
         <div style="max-width:1200px;margin:50px auto;background:white;border-radius:12px;padding:20px;">
             <div style="background:#f9fafb;border-radius:8px;padding:15px;margin-bottom:15px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1617,7 +1617,7 @@
     </div>
     
     <!-- Bearbeiten-Modal -->
-    <div id="edit-ics-ride-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:180001;padding:20px;overflow-y:auto;">
+    <div id="edit-ics-ride-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:185001;padding:20px;overflow-y:auto;">
         <div style="max-width:500px;margin:50px auto;background:white;border-radius:12px;padding:20px;">
             <h3 style="margin:0 0 20px 0;font-size:18px;">✏️ Fahrt bearbeiten</h3>
             
@@ -2233,7 +2233,7 @@
         right: 0;
         bottom: 0;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        z-index: 18000;
+        z-index: 18500;
         padding: 20px;
         overflow-y: auto;
     ">
@@ -2430,7 +2430,7 @@
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.5);
-        z-index: 1800;
+        z-index: 1850;
         animation: fadeIn 0.2s;
     " onclick="closeMenu()">
         <div id="menu-panel" style="
@@ -2734,7 +2734,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.828: KARTE GANZ NACH OBEN - direkt nach Personen! -->
+            <!-- 🆕 v5.90.829: KARTE GANZ NACH OBEN - direkt nach Personen! -->
             <div id="route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
                 <div id="price-display" style="margin-bottom: 15px;"></div>
@@ -2742,7 +2742,7 @@
                 <!-- KARTE -->
                 <div id="route-map" style="height: 280px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
                 
-                <!-- 🚕 v5.90.828: TAXI BUCHEN Button DIREKT unter der Karte! -->
+                <!-- 🚕 v5.90.829: TAXI BUCHEN Button DIREKT unter der Karte! -->
                 <button id="book-btn" class="btn btn-success" onclick="book()" style="margin-top: 15px; display: none; width: 100%;">🚕 Taxi buchen</button>
             </div>
 
@@ -2767,9 +2767,9 @@
                 </div>
             </div>
 
-            <!-- 🆕 v5.90.828: Karte wurde NACH OBEN verschoben (nach Personen)! -->
+            <!-- 🆕 v5.90.829: Karte wurde NACH OBEN verschoben (nach Personen)! -->
 
-            <!-- 🆕 v5.90.828: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
+            <!-- 🆕 v5.90.829: KUNDEN-SICHT zwischen Karte und Vorbestellen! -->
             <div id="slot-status-display" style="display:none;margin-top:20px;padding:12px;border-radius:8px;font-size:14px;font-weight:600;">
                 <!-- Wird dynamisch gefüllt mit blauer KUNDEN-SICHT Box -->
             </div>
@@ -2785,7 +2785,7 @@
                 <div class="input-group">
                     <label style="font-size:15px;font-weight:700;margin-bottom:12px;display:block;">📅 Wann sollen wir Sie abholen?</label>
 
-                    <!-- 🆕 v5.90.828: KLICKBARES ZEIT-FELD = Verfügbarkeit prüfen! -->
+                    <!-- 🆕 v5.90.829: KLICKBARES ZEIT-FELD = Verfügbarkeit prüfen! -->
                     <!-- Ausgewählte Zeit Anzeige -->
                     <div id="selected-datetime-display" 
                          onclick="triggerSlotCheck()" 
@@ -2895,7 +2895,7 @@
                             <div style="position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(0deg,#f8fafc 0%,transparent 100%);pointer-events:none;z-index:3;border-radius:0 0 14px 14px;"></div>
                         </div>
 
-                        <!-- 🆕 v5.90.828: Zeit-Display wurde nach OBEN verschoben! -->
+                        <!-- 🆕 v5.90.829: Zeit-Display wurde nach OBEN verschoben! -->
 
                         <!-- Hidden inputs für Kompatibilität -->
                         <input type="hidden" id="custom-date" value="">
@@ -2945,12 +2945,12 @@
                         💡 <strong>Tipp:</strong> Scrollen Sie durch Tag, Stunde & Minute!
                     </div>
 
-                    <!-- 🆕 v5.90.828: Button VERSTECKT - violettes Feld ist klickbar! -->
+                    <!-- 🆕 v5.90.829: Button VERSTECKT - violettes Feld ist klickbar! -->
                     <button id="confirm-time-btn" onclick="triggerSlotCheck()" style="display:none;">
                         ✅ Verfügbarkeit prüfen
                     </button>
 
-                    <!-- 🆕 v5.90.828: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
+                    <!-- 🆕 v5.90.829: slot-status-display wurde NACH OBEN verschoben (nach der Karte)! -->
 
                     <!-- 🆕 v5.41.5: LIVE SLOT-CHECK Display -->
                     <div id="live-slot-check" style="display:none;margin-top:12px;padding:12px;border-radius:8px;font-size:14px;">
@@ -3022,7 +3022,7 @@
                 </div>
             </div>
             
-            <!-- 🚕 v5.90.828: Buttons wurden IN route-map-container verschoben! -->
+            <!-- 🚕 v5.90.829: Buttons wurden IN route-map-container verschoben! -->
         </div>
         
         <!-- 🆕 v5.38.2: OFFLINE MESSAGE -->
@@ -3083,7 +3083,7 @@
                     font-weight:700;
                     cursor:pointer;
                     box-shadow:0 2px 8px rgba(0,0,0,0.2);
-                    z-index:1800;
+                    z-index:1850;
                     display:none;
                 ">
                     🔄 Zurücksetzen
@@ -3109,7 +3109,7 @@
 
     <!-- 🆕 v5.90.556: PERFEKTER SIMULATOR VIEW! -->
     <div id="simulator-view" class="view" style="display:none;">
-        <div style="max-width:1800px;margin:0 auto;padding:15px;">
+        <div style="max-width:1850px;margin:0 auto;padding:15px;">
             
             <!-- HEADER -->
             <div style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:15px 20px;border-radius:10px;margin-bottom:15px;color:white;box-shadow:0 4px 12px rgba(139,92,246,0.3);">
@@ -3788,7 +3788,7 @@
                     <span id="crm-filter-category-label">Alle Kategorien</span>
                     <span>▼</span>
                 </button>
-                <div id="crm-filter-category-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #d1d5db;border-radius:8px;margin-top:4px;z-index:1800;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:300px;overflow-y:auto;">
+                <div id="crm-filter-category-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #d1d5db;border-radius:8px;margin-top:4px;z-index:1850;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-height:300px;overflow-y:auto;">
                     <div class="crm-filter-option" data-value="" onclick="selectCRMFilterCategory('', 'Alle Kategorien')" style="padding:12px;cursor:pointer;border-bottom:1px solid #e5e7eb;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='white'">
                         Alle Kategorien
                     </div>
@@ -3895,7 +3895,7 @@
         <div id="driver-top-bar" style="
             position: sticky;
             top: 0;
-            z-index: 1800;
+            z-index: 1850;
             padding: 8px 10px;
             background: rgba(255,255,255,0.95);
             backdrop-filter: blur(10px);
@@ -4377,7 +4377,7 @@
             right: 0;
             bottom: 0;
             background: rgba(0,0,0,0.85);
-            z-index: 18002;
+            z-index: 18502;
             padding: 15px;
             overflow-y: auto;
             display: none;
@@ -5284,7 +5284,7 @@
                         max-height:400px;
                         overflow-y:auto;
                         box-shadow:0 8px 24px rgba(0,0,0,0.15);
-                        z-index:1800;
+                        z-index:1850;
                     ">
                         <!-- Wird dynamisch gefüllt -->
                     </div>
@@ -5884,7 +5884,7 @@
                     <button id="fleet-share-btn" onclick="shareFleetAddress()" style="display:none;padding:12px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">📤</button>
                     <button onclick="clearFleetSearch()" style="padding:12px 16px;background:#6b7280;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">✕</button>
                 </div>
-                <div id="fleet-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:100px;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:250px;overflow-y:auto;z-index:1800;box-shadow:0 4px 15px rgba(0,0,0,0.15);margin-top:4px;"></div>
+                <div id="fleet-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:100px;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:250px;overflow-y:auto;z-index:1850;box-shadow:0 4px 15px rgba(0,0,0,0.15);margin-top:4px;"></div>
             </div>
             
             <!-- Legende -->
@@ -7506,7 +7506,7 @@
                 <button id="fleet-share-btn" onclick="shareFleetAddress()" style="display:none;padding:12px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">📤</button>
                 <button onclick="clearFleetSearch()" style="padding:12px 16px;background:#6b7280;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">✕</button>
             </div>
-            <div id="fleet-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:100px;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:250px;overflow-y:auto;z-index:1800;box-shadow:0 4px 15px rgba(0,0,0,0.15);margin-top:4px;"></div>
+            <div id="fleet-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:100px;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:250px;overflow-y:auto;z-index:1850;box-shadow:0 4px 15px rgba(0,0,0,0.15);margin-top:4px;"></div>
         </div>
         
         <!-- Legende -->
@@ -7566,7 +7566,7 @@
 
     <!-- 🔍 DEBUG-VIEW - v5.39.4 -->
     <!-- 🆕 v5.90.370: LIVE DRIVER MONITOR - GOD MODE! -->
-    <div id="live-monitor-view" class="view admin-only" style="display:none; max-width: 1800px; margin: 20px auto; padding: 0 15px;">
+    <div id="live-monitor-view" class="view admin-only" style="display:none; max-width: 1850px; margin: 20px auto; padding: 0 15px;">
         
         <!-- MEGA HEADER -->
         <div style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); border-radius: 16px; padding: 40px; text-align: center; box-shadow: 0 10px 40px rgba(124, 58, 237, 0.5); margin-bottom: 30px; border: 4px solid #7c3aed;">
@@ -8833,7 +8833,7 @@
             
             // Erstelle Popup HTML
             let popupHTML = `
-                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:18000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;" id="call-popup">
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:18500;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;" id="call-popup">
                     <div style="background:white;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:slideUp 0.3s;">
                         
                         <!-- Header -->
@@ -10238,7 +10238,7 @@
                         const createdAt = r.createdAt || 0;
                         const cancelledAt = r.cancelledAt || r.completedAt || 0;
                         const timeDiff = cancelledAt - createdAt;
-                        const minutesDiff = Math.floor(timeDiff / (60 * 1800));
+                        const minutesDiff = Math.floor(timeDiff / (60 * 1850));
                         
                         if (minutesDiff <= 60 && minutesDiff >= 0) {
                             // Innerhalb 60 Min → 15% Stornogebühr
@@ -10820,7 +10820,7 @@
                         <input type="hidden" id="edit-pickup-lon" value="${ride.pickupLon || ''}">
                         
                         <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
-                        <div class="autocomplete-dropdown" id="edit-pickup-dropdown" style="position:relative;z-index:18001;"></div>
+                        <div class="autocomplete-dropdown" id="edit-pickup-dropdown" style="position:relative;z-index:18501;"></div>
                         
                         <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
                         <div id="edit-pickup-favorites" style="margin-top:8px;">
@@ -10840,7 +10840,7 @@
                         <input type="hidden" id="edit-destination-lon" value="${ride.destinationLon || ''}">
                         
                         <!-- 🆕 v5.87.63: AUTOCOMPLETE DROPDOWN -->
-                        <div class="autocomplete-dropdown" id="edit-destination-dropdown" style="position:relative;z-index:18001;"></div>
+                        <div class="autocomplete-dropdown" id="edit-destination-dropdown" style="position:relative;z-index:18501;"></div>
                         
                         <!-- 🆕 v5.87.62: DYNAMISCHE FAVORITEN aus POI-Verwaltung -->
                         <div id="edit-destination-favorites" style="margin-top:8px;">
@@ -10978,7 +10978,7 @@
                                             border-radius:8px;
                                             box-shadow:0 4px 12px rgba(0,0,0,0.2);
                                             margin-top:5px;
-                                            z-index:18002;
+                                            z-index:18502;
                                             overflow:hidden;
                                             border:2px solid #25D366;">
                                     <a onclick="sendQuickWhatsApp('${rideId}', 'arrived'); event.stopPropagation();" 
@@ -11058,7 +11058,7 @@
                                             border-radius:8px;
                                             box-shadow:0 4px 12px rgba(0,0,0,0.2);
                                             margin-top:5px;
-                                            z-index:18002;
+                                            z-index:18502;
                                             overflow:hidden;
                                             border:2px solid #3b82f6;">
                                     <a onclick="sendQuickSMS('${rideId}', 'arrived'); event.stopPropagation();" 
@@ -11642,7 +11642,7 @@ Funk Taxi Heringsdorf`;
             
             // 🆕 v5.90.276: newTimestamp schon oben definiert!
             const now = Date.now();
-            const minutesUntilPickup = (newTimestamp - now) / (1800 * 60);
+            const minutesUntilPickup = (newTimestamp - now) / (1850 * 60);
             const newStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
             
             const updates = {
@@ -12125,7 +12125,7 @@ Funk Taxi Heringsdorf`;
                     vehicleId: vehicleId,
                     createdAt: now,
                     active: true,
-                    expiresAt: pickupTime + (2 * 60 * 60 * 1800) // 2h nach Abholung
+                    expiresAt: pickupTime + (2 * 60 * 60 * 1850) // 2h nach Abholung
                 });
                 
                 // Link in Fahrt speichern
@@ -12239,8 +12239,8 @@ Funk Taxi Heringsdorf`;
         async function checkPendingTrackingLinks() {
             try {
                 const now = Date.now();
-                const in15Min = now + (15 * 60 * 1800);
-                const in16Min = now + (16 * 60 * 1800);
+                const in15Min = now + (15 * 60 * 1850);
+                const in16Min = now + (16 * 60 * 1850);
                 
                 // Suche Fahrten die in 15-16 Min starten UND trackingLinkPending haben
                 const snapshot = await db.ref('rides')
@@ -12271,7 +12271,7 @@ Funk Taxi Heringsdorf`;
         }
         
         // Starte automatischen Check (alle 60 Sekunden)
-        setInterval(checkPendingTrackingLinks, 60 * 1800);
+        setInterval(checkPendingTrackingLinks, 60 * 1850);
         console.log('⏰ Automatischer Tracking-Link Check gestartet (alle 60 Sek)');
         
         // ═══════════════════════════════════════════════════════════════
@@ -12763,7 +12763,7 @@ Funk Taxi Heringsdorf`;
             
             try {
                 const now = Date.now();
-                const MAX_ASSIGNED_AGE = 2 * 60 * 1800; // 2 Minuten für assigned
+                const MAX_ASSIGNED_AGE = 2 * 60 * 1850; // 2 Minuten für assigned
                 
                 // 🆕 v5.90.120: AUTO-LÖSCHUNGEN DEAKTIVIERT!
                 // Patrick will KEINE automatischen Löschungen mehr
@@ -12780,7 +12780,7 @@ Funk Taxi Heringsdorf`;
                     const assignedAge = now - (ride.assignedAt || 0);
                     
                     if (assignedAge > MAX_ASSIGNED_AGE) {
-                        console.log(`🧹 Cleanup: Fahrt ${rideId} hängt seit ${Math.round(assignedAge/1800)}s im assigned Status`);
+                        console.log(`🧹 Cleanup: Fahrt ${rideId} hängt seit ${Math.round(assignedAge/1850)}s im assigned Status`);
                         
                         // 🔧 FIX: Blacklist beibehalten UND aktuellen Fahrer hinzufügen!
                         const currentBlacklist = ride.assignmentBlacklist || [];
@@ -12835,7 +12835,7 @@ Funk Taxi Heringsdorf`;
         
         let backupDB = null;
         let backupTimer = null;
-        const BACKUP_INTERVAL = 4 * 60 * 60 * 1800; // 4 Stunden
+        const BACKUP_INTERVAL = 4 * 60 * 60 * 1850; // 4 Stunden
         const MAX_BACKUPS = 5; // Behalte letzte 5
         
         // IndexedDB für Backups initialisieren
@@ -13232,7 +13232,7 @@ Funk Taxi Heringsdorf`;
                 alert('✅ Backup erfolgreich wiederhergestellt!\n\nSeite wird neu geladen...');
                 
                 // Reload
-                setTimeout(() => location.reload(), 1800);
+                setTimeout(() => location.reload(), 1850);
                 
             } catch (error) {
                 console.error('💾 Restore-Fehler:', error);
@@ -13854,7 +13854,7 @@ Funk Taxi Heringsdorf`;
                 // Erstelle Auswahl-Modal
                 const modal = document.createElement('div');
                 modal.id = 'crm-select-modal';
-                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18000;padding:20px;';
+                modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18500;padding:20px;';
                 
                 modal.innerHTML = `
                     <div style="background:white;border-radius:16px;width:100%;max-width:500px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
@@ -14234,7 +14234,7 @@ Aktuell: ${currentNum}`;
                     // 📜 PROTOKOLL: App gestartet & Firebase verbunden
                     setTimeout(() => {
                         logActivity('system', 'app_start', 'App gestartet - Firebase verbunden', {});
-                    }, 1800);
+                    }, 1850);
                     
                     // 🧹 KARTE-MIT-ANALYSE: Hängende 'assigned' Fahrten zurücksetzen (älter als 2 Minuten)
                     // 🆕 v5.87.59: AUTO-KARTE-MIT-ANALYSE DEAKTIVIERT!
@@ -15563,7 +15563,7 @@ Aktuell: ${currentNum}`;
                 
                 // ⚙️ Initialisiere Driver-Settings-Manager (nach PowerSaveManager!)
                 if (typeof DriverSettingsManager !== 'undefined' && currentVehicle) {
-                    setTimeout(() => DriverSettingsManager.init(currentVehicle), 1800);
+                    setTimeout(() => DriverSettingsManager.init(currentVehicle), 1850);
                 }
                 
                 // 🎯 AUTO-START GPS beim Öffnen der Fahrer-Ansicht!
@@ -16225,7 +16225,7 @@ Aktuell: ${currentNum}`;
             
             auth.onAuthStateChanged((user) => {
                 if (user) {
-                    setTimeout(() => loadTabSettings(), 1800);
+                    setTimeout(() => loadTabSettings(), 1850);
                 }
             });
             
@@ -16249,7 +16249,7 @@ Aktuell: ${currentNum}`;
             
             gpsMonitoringInterval = setInterval(() => {
                 const now = Date.now();
-                const timeSinceLastUpdate = lastGPSUpdate ? (now - lastGPSUpdate) / 1800 : null;
+                const timeSinceLastUpdate = lastGPSUpdate ? (now - lastGPSUpdate) / 1850 : null;
                 
                 // Update UI
                 updateGPSStatus(timeSinceLastUpdate);
@@ -16274,7 +16274,7 @@ Aktuell: ${currentNum}`;
                                 console.log('🔄 Starte GPS neu...');
                                 startGPSTracking();
                             }
-                        }, 1800);
+                        }, 1850);
                     }
                 }
             }, 5000); // Alle 5 Sekunden prüfen
@@ -16348,7 +16348,7 @@ Aktuell: ${currentNum}`;
                     
                     const lastUpdate = driverData.lastUpdate || 0;
                     const now = Date.now();
-                    const secondsSinceUpdate = Math.floor((now - lastUpdate) / 1800);
+                    const secondsSinceUpdate = Math.floor((now - lastUpdate) / 1850);
                     
                     if (secondsSinceUpdate < 30) {
                         // SYNC GUT!
@@ -16514,7 +16514,7 @@ Aktuell: ${currentNum}`;
                         const isStandby = !watchId && standbyIntervalId;
                         
                         if (lastUpdate) {
-                            const secondsSinceUpdate = Math.floor((now - parseInt(lastUpdate)) / 1800);
+                            const secondsSinceUpdate = Math.floor((now - parseInt(lastUpdate)) / 1850);
                             const accuracy = lastAccuracy ? parseInt(lastAccuracy) : null;
                             
                             if (secondsSinceUpdate < 30) {
@@ -16612,7 +16612,7 @@ Aktuell: ${currentNum}`;
                     }
                     
                     const now = Date.now();
-                    const fifteenMinutes = 15 * 60 * 1800;
+                    const fifteenMinutes = 15 * 60 * 1850;
                     
                     const myRides = rides.filter(r => {
                         if (!r || !r.vehicleId) return false;
@@ -17377,7 +17377,7 @@ Aktuell: ${currentNum}`;
             
             // Geplante Fahrten (heute, später) - AUCH accepted Fahrten die weit weg sind!
             const today = new Date().toDateString();
-            const oneHourFromNow = now + (60 * 60 * 1800);
+            const oneHourFromNow = now + (60 * 60 * 1850);
             const scheduledRides = myRides.filter(r => {
                 if (r.status === 'completed' || r.status === 'cancelled') return false;
                 
@@ -17652,8 +17652,8 @@ Aktuell: ${currentNum}`;
             
             // Zeit bis Abholung
             const timeUntil = ride.pickupTimestamp ? ride.pickupTimestamp - Date.now() : 0;
-            const hoursUntil = Math.floor(timeUntil / (1800 * 60 * 60));
-            const minutesUntil = Math.floor((timeUntil % (1800 * 60 * 60)) / (1800 * 60));
+            const hoursUntil = Math.floor(timeUntil / (1850 * 60 * 60));
+            const minutesUntil = Math.floor((timeUntil % (1850 * 60 * 60)) / (1850 * 60));
             const timeUntilStr = hoursUntil > 0 ? `${hoursUntil}h ${minutesUntil}min` : `${minutesUntil}min`;
             
             // Wer hat akzeptiert?
@@ -17794,7 +17794,7 @@ Aktuell: ${currentNum}`;
             
             // Alte Benachrichtigungs-Logik (für Kompatibilität)
             // 🆕 v5.31.6: Nur NEUE Stornierungen anzeigen (letzte 2 Min statt 10!)
-            const twoMinutesAgo = Date.now() - (2 * 60 * 1800); // ✅ Geändert von 10 auf 2 Min!
+            const twoMinutesAgo = Date.now() - (2 * 60 * 1850); // ✅ Geändert von 10 auf 2 Min!
             const cancelledRides = myRides.filter(r => 
                 r.status === 'cancelled' && 
                 r.driverNotified === false &&
@@ -18005,7 +18005,7 @@ Aktuell: ${currentNum}`;
                     // 🎯 v5.90.107: Verbesserte Badge-Logik!
                     const isMyVehicle = (currentVehicle && r.vehicleId === currentVehicle);
                     const isAssignedToMe = r.assignedTo === currentVehicle;
-                    const timeLeft = r.assignmentExpiresAt ? Math.max(0, Math.ceil((r.assignmentExpiresAt - Date.now()) / 1800)) : null;
+                    const timeLeft = r.assignmentExpiresAt ? Math.max(0, Math.ceil((r.assignmentExpiresAt - Date.now()) / 1850)) : null;
                     
                     let assignmentBadge = '';
                     let cardStyle = '';
@@ -18164,7 +18164,7 @@ Aktuell: ${currentNum}`;
             });
             
             // 🧹 FILTERE ALTE FAHRTEN (älter als 3 Tage) AUTOMATISCH RAUS
-            const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1800);
+            const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1850);
             allRides = allRides.filter(r => {
                 const rideTime = r.pickupTimestamp || r.createdAt || 0;
                 // Behalte nur: completed (immer), oder Fahrten von letzten 3 Tagen
@@ -18191,7 +18191,7 @@ Aktuell: ${currentNum}`;
             // 📋 OFFENE FAHRTEN = vorbestellt, new, akzeptiert, unterwegs, angekommen
             // 🆕 v5.49.0: ABER NUR WENN NICHT ABGELAUFEN!
             const now = Date.now();
-            const oneHourAgo = now - (60 * 60 * 1800); // 1 Stunde
+            const oneHourAgo = now - (60 * 60 * 1850); // 1 Stunde
             
             const openRides = allRides.filter(r => {
                 const openStatuses = ['vorbestellt', 'new', 'akzeptiert', 'accepted', 'unterwegs', 'picked_up', 'angekommen'];
@@ -18260,7 +18260,7 @@ Aktuell: ${currentNum}`;
                         });
                         
                         // Zeitdifferenz berechnen
-                        const hoursUntil = Math.floor((pickupDate.getTime() - now) / (1800 * 60 * 60));
+                        const hoursUntil = Math.floor((pickupDate.getTime() - now) / (1850 * 60 * 60));
                         const daysUntil = Math.floor(hoursUntil / 24);
                         let countdownText = '';
                         if (daysUntil > 0) {
@@ -18268,7 +18268,7 @@ Aktuell: ${currentNum}`;
                         } else if (hoursUntil > 0) {
                             countdownText = `in ${hoursUntil} Stunde${hoursUntil > 1 ? 'n' : ''}`;
                         } else {
-                            const minutesUntil = Math.floor((pickupDate.getTime() - now) / (1800 * 60));
+                            const minutesUntil = Math.floor((pickupDate.getTime() - now) / (1850 * 60));
                             if (minutesUntil > 0) {
                                 countdownText = `in ${minutesUntil} Min`;
                             } else {
@@ -18411,7 +18411,7 @@ Aktuell: ${currentNum}`;
                     });
                     
                     // Berechne wie lange abgelaufen
-                    const hoursAgo = Math.floor((now - pickupDate.getTime()) / (1800 * 60 * 60));
+                    const hoursAgo = Math.floor((now - pickupDate.getTime()) / (1850 * 60 * 60));
                     const daysAgo = Math.floor(hoursAgo / 24);
                     let expiredText = '';
                     if (daysAgo > 0) {
@@ -18689,7 +18689,7 @@ Aktuell: ${currentNum}`;
                 // Fahrer ist online wenn: online = true UND letzte Aktualisierung < 2 Min
                 if (driver && driver.online) {
                     const lastUpdate = driver.timestamp || 0;
-                    const minutesSinceUpdate = (now - lastUpdate) / (1800 * 60);
+                    const minutesSinceUpdate = (now - lastUpdate) / (1850 * 60);
                     
                     // Nur als online zeigen wenn letzte Meldung < 2 Min
                     if (minutesSinceUpdate < 2) {
@@ -18983,7 +18983,7 @@ Aktuell: ${currentNum}`;
                 color: white;
                 font-weight: 600;
                 font-size: 14px;
-                z-index: 18000;
+                z-index: 18500;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                 animation: slideIn 0.3s ease;
                 max-width: 400px;
@@ -19711,7 +19711,7 @@ Aktuell: ${currentNum}`;
                 
                 // Finde alte Fahrten (älter als 24h)
                 const now = Date.now();
-                const oneDayAgo = now - (24 * 60 * 60 * 1800);
+                const oneDayAgo = now - (24 * 60 * 60 * 1850);
                 
                 const oldActiveRides = activeRides.filter(r => {
                     const rideTime = r.pickupTimestamp || r.timestamp || 0;
@@ -19754,7 +19754,7 @@ Aktuell: ${currentNum}`;
                 html += `<div style="background:white;border-radius:6px;padding:10px;margin-bottom:10px;max-height:300px;overflow-y:auto;">`;
                 oldActiveRides.slice(0, 10).forEach((ride, index) => {
                     const rideDate = new Date(ride.pickupTimestamp || ride.timestamp || 0);
-                    const hoursAgo = Math.floor((now - (ride.pickupTimestamp || ride.timestamp || 0)) / (1800 * 60 * 60));
+                    const hoursAgo = Math.floor((now - (ride.pickupTimestamp || ride.timestamp || 0)) / (1850 * 60 * 60));
                     
                     html += `
                         <div style="padding:10px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;">
@@ -20754,12 +20754,12 @@ Aktuell: ${currentNum}`;
         }
 
         // GEOCODING & ROUTING
-        // 🆕 v5.90.828: POPUP DATUM & ZEIT PICKER FUNKTIONEN!
+        // 🆕 v5.90.829: POPUP DATUM & ZEIT PICKER FUNKTIONEN!
         
         const POPUP_ITEM_HEIGHT = 56;
         
         function openDateTimePickerPopup() {
-            console.log('📅 v5.90.828: Öffne Datum & Zeit Picker Popup');
+            console.log('📅 v5.90.829: Öffne Datum & Zeit Picker Popup');
             
             const popup = document.getElementById('datetime-picker-popup');
             if (!popup) return;
@@ -20777,7 +20777,7 @@ Aktuell: ${currentNum}`;
         }
         
         function initPopupPicker() {
-            console.log('⚡ v5.90.828: Init Popup Picker');
+            console.log('⚡ v5.90.829: Init Popup Picker');
             
             const dateInput = document.getElementById('popup-date-input');
             const hourWheel = document.getElementById('popup-hour-wheel');
@@ -20826,7 +20826,7 @@ Aktuell: ${currentNum}`;
         }
         
         function onPopupDateChange() {
-            console.log('📅 v5.90.828: Datum geändert');
+            console.log('📅 v5.90.829: Datum geändert');
         }
         
         function onPopupWheelScroll() {
@@ -20834,7 +20834,7 @@ Aktuell: ${currentNum}`;
         }
         
         async function confirmDateTimePicker() {
-            console.log('✓ v5.90.828: Bestätige Datum & Zeit');
+            console.log('✓ v5.90.829: Bestätige Datum & Zeit');
             
             const dateInput = document.getElementById('popup-date-input');
             const hourWheel = document.getElementById('popup-hour-wheel');
@@ -20850,13 +20850,17 @@ Aktuell: ${currentNum}`;
             const selectedHour = String(hourIndex).padStart(2, '0');
             const selectedMinute = String(minuteIndex * 5).padStart(2, '0');
             
-            console.log('✅ v5.90.828: Ausgewählt:', selectedDate, selectedHour + ':' + selectedMinute);
+            console.log('✅ v5.90.829: Ausgewählt:', selectedDate, selectedHour + ':' + selectedMinute);
             
             // Schließe Popup
             closeDateTimePickerPopup();
             
-            // 🆕 v5.90.828: PRÜFE SLOT DIREKT!
-            console.log('🔍 v5.90.828: Starte Auto Slot-Check...');
+            // 🆕 v5.90.829: SETZE VORBESTELLEN-MODUS!
+            currentRideType = 'vorbestellen';
+            console.log('📅 v5.90.829: Modus gesetzt: VORBESTELLEN');
+            
+            // 🆕 v5.90.829: PRÜFE SLOT DIREKT!
+            console.log('🔍 v5.90.829: Starte Auto Slot-Check...');
             
             // Hole Adressen
             const pickupInput = document.getElementById('pickup');
@@ -20888,9 +20892,9 @@ Aktuell: ${currentNum}`;
             showSlotCheckResult(result, slotDateTime, pickup, destination);
         }
         
-        // 🆕 v5.90.828: Zeige Slot-Check Ergebnis mit klickbaren Alternativen!
+        // 🆕 v5.90.829: Zeige Slot-Check Ergebnis mit klickbaren Alternativen!
         function showSlotCheckResult(result, slotDateTime, pickup, destination) {
-            console.log('📊 v5.90.828: Zeige Slot-Check Ergebnis:', result);
+            console.log('📊 v5.90.829: Zeige Slot-Check Ergebnis:', result);
             
             const display = document.getElementById('slot-status-display');
             if (!display) return;
@@ -20963,9 +20967,9 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🆕 v5.90.828: Wähle Alternative Zeit
+        // 🆕 v5.90.829: Wähle Alternative Zeit
         function selectAlternativeTime(timeStr) {
-            console.log('📅 v5.90.828: Alternative Zeit gewählt:', timeStr);
+            console.log('📅 v5.90.829: Alternative Zeit gewählt:', timeStr);
             
             // Öffne Popup wieder mit dieser Zeit
             const popup = document.getElementById('datetime-picker-popup');
@@ -21071,7 +21075,7 @@ Aktuell: ${currentNum}`;
                 
                 // 🆕 v5.90.541: TIMEOUT für OSRM (10 Sekunden)
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 18000);
+                const timeoutId = setTimeout(() => controller.abort(), 18500);
                 
                 try {
                     // overview=full gibt die komplette Route-Geometry zurück!
@@ -21089,7 +21093,7 @@ Aktuell: ${currentNum}`;
                     if (waypointsArray.length > 0 && route.legs) {
                         console.log('📱 v5.90.527: Route-Segmente:');
                         route.legs.forEach((leg, i) => {
-                            const legDist = (leg.distance / 1800).toFixed(1);
+                            const legDist = (leg.distance / 1850).toFixed(1);
                             const legDur = Math.round(leg.duration / 60);
                             if (i === 0) {
                                 console.log(`   Start → Stopp ${i+1}: ${legDist} km, ${legDur} Min`);
@@ -21102,7 +21106,7 @@ Aktuell: ${currentNum}`;
                     }
                     
                     return { 
-                        distance: (route.distance / 1800).toFixed(1), 
+                        distance: (route.distance / 1850).toFixed(1), 
                         duration: Math.round(route.duration / 60),
                         geometry: route.geometry ? route.geometry.coordinates : null,  // Route-Punkte!
                         legs: route.legs || []  // 🆕 v5.90.527: Einzelne Segmente!
@@ -21563,7 +21567,7 @@ Aktuell: ${currentNum}`;
             
             // Hole alle ÖPNV-Fahrten der letzten 10 Minuten
             const now = Date.now();
-            const tenMinutesAgo = now - (10 * 60 * 1800);
+            const tenMinutesAgo = now - (10 * 60 * 1850);
             
             // Suche in rides-Objekt (alle aktiven/letzten Fahrten)
             const recentOepnvRides = Object.values(rides).filter(r => 
@@ -21577,7 +21581,7 @@ Aktuell: ${currentNum}`;
             // Suche Duplikate
             const duplicates = recentOepnvRides.filter(existingRide => {
                 const timeDiff = Math.abs(newRide.timestamp - existingRide.timestamp);
-                const fiveMinutes = 5 * 60 * 1800;
+                const fiveMinutes = 5 * 60 * 1850;
                 
                 const sameDriver = existingRide.driverId === newRide.driverId;
                 const samePickup = existingRide.pickup === newRide.pickup;
@@ -21589,7 +21593,7 @@ Aktuell: ${currentNum}`;
                     samePickup,
                     sameDestination,
                     sameTime,
-                    timeDiff: Math.round(timeDiff / 1800) + 's'
+                    timeDiff: Math.round(timeDiff / 1850) + 's'
                 });
                 
                 return sameDriver && samePickup && sameDestination && sameTime;
@@ -21713,7 +21717,7 @@ Aktuell: ${currentNum}`;
                                 <div style="margin-top:8px;padding:8px;background:white;border-radius:4px;font-size:11px;">
                                     ${alert.duplicates.map((d, i) => {
                                         const dupDate = new Date(d.timestamp);
-                                        const timeDiff = Math.round((alert.timestamp - d.timestamp) / 1800 / 60);
+                                        const timeDiff = Math.round((alert.timestamp - d.timestamp) / 1850 / 60);
                                         return `
                                             <div style="padding:6px 0;border-top:1px solid #e5e7eb;">
                                                 <strong>Duplikat ${i+1}:</strong> Fahrt ${d.id}<br>
@@ -22143,7 +22147,7 @@ Aktuell: ${currentNum}`;
             const createdAt = ride.createdAt || 0;
             const cancelledAt = ride.cancelledAt || ride.completedAt || Date.now();
             const timeDiff = cancelledAt - createdAt;
-            const minutesDiff = Math.floor(timeDiff / (60 * 1800));
+            const minutesDiff = Math.floor(timeDiff / (60 * 1850));
             
             if (minutesDiff > 60) {
                 alert('ℹ️ Diese Stornierung war kostenfrei (mehr als 60 Min nach Buchung).');
@@ -22470,7 +22474,7 @@ Aktuell: ${currentNum}`;
                     clearInterval(adminAlarmInterval);
                     adminAlarmInterval = null;
                 }
-            }, 3 * 60 * 1800); // 3 Minuten
+            }, 3 * 60 * 1850); // 3 Minuten
         }
         
         // Modal anzeigen
@@ -23956,7 +23960,7 @@ Aktuell: ${currentNum}`;
                     
                     // Prüfe ob Abholzeit in <= 10 Minuten (Zuweisung war bei 15 Min!)
                     const pickupTime = ride.pickupTimestamp || 0;
-                    const minutesUntilPickup = (pickupTime - now) / (1800 * 60);
+                    const minutesUntilPickup = (pickupTime - now) / (1850 * 60);
                     
                     if (minutesUntilPickup <= 10 && minutesUntilPickup > 0) {
                         // Noch nicht gewarnt? → Telegram senden!
@@ -23991,7 +23995,7 @@ Aktuell: ${currentNum}`;
                     if (activatedPrebookings.has(rideKey)) continue; // Schon aktiviert
                     
                     const pickupTime = ride.pickupTimestamp || 0;
-                    const minutesUntilPickup = (pickupTime - now) / (1800 * 60);
+                    const minutesUntilPickup = (pickupTime - now) / (1850 * 60);
                     
                     // 🆕 v5.90.570: NUR Fahrten < 60 Min prüfen! (Performance!)
                     if (minutesUntilPickup > 60 || minutesUntilPickup < 0) {
@@ -24166,7 +24170,7 @@ Aktuell: ${currentNum}`;
                 // Update Status
                 setTimeout(() => {
                     updateTelegramStatus();
-                }, 1800);
+                }, 1850);
                 
             } catch (error) {
                 console.error('💾 Fehler beim Speichern:', error);
@@ -25479,7 +25483,7 @@ Aktuell: ${currentNum}`;
                 
                 // Bei Sofort → Taxis laden!
                 if (currentRideType === 'sofort') {
-                    setTimeout(() => showAvailableTaxis(), 1800);
+                    setTimeout(() => showAvailableTaxis(), 1850);
                 }
             } else {
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
@@ -25518,15 +25522,24 @@ Aktuell: ${currentNum}`;
                 console.log('✅ Abholort gespeichert:', address, pickupCoords);
                 debugLog('info', `✅ Abholort gespeichert: ${address} (${lat}, ${lon})`);
                 
+                // 🆕 v5.90.829: AUTO-PREISBERECHNUNG wenn Ziel bereits vorhanden!
+                // WICHTIG: IMMER ausführen, egal ob SOFORT oder VORBESTELLEN!
+                if (destCoords) {
+                    console.log('💰 v5.90.829: Auto-Preisberechnung (Start gesetzt, Ziel vorhanden)...');
+                    setTimeout(() => {
+                        calculatePriceAndShow();
+                    }, 600); // Nach showAvailableTaxis (1850ms nicht nötig)
+                }
+                
                 // 🆕 v5.48.0: Bei Vorbestellung → Triggere Live-Slot-Check!
-                // 🔧 v5.90.828: NUR wenn explizit VORBESTELLEN gewählt!
+                // 🔧 v5.90.829: NUR wenn explizit VORBESTELLEN gewählt!
                 if (currentRideType === 'vorbestellen') {
-                    console.log('🔍 v5.90.828: Trigger Live-Slot-Check nach Abholadresse...');
+                    console.log('🔍 v5.90.829: Trigger Live-Slot-Check nach Abholadresse...');
                     setTimeout(() => {
                         performLiveSlotCheck();
                     }, 300);
                 } else {
-                    console.log('⚡ v5.90.828: SOFORT-Modus → KEIN Slot-Check');
+                    console.log('⚡ v5.90.829: Kein Slot-Check (noch kein Modus gewählt)');
                 }
                 
                 // 🆕 v5.30.0: NUR bei "Sofort" Taxis laden!
@@ -25543,15 +25556,7 @@ Aktuell: ${currentNum}`;
                     
                     setTimeout(() => {
                         showAvailableTaxis();
-                    }, 1800);
-                }
-
-                // 🆕 v5.90.737: AUTO-PREISBERECHNUNG wenn Ziel bereits vorhanden!
-                if (destCoords) {
-                    console.log('💰 Auto-Preisberechnung (Start gesetzt, Ziel vorhanden)...');
-                    setTimeout(() => {
-                        calculatePriceAndShow();
-                    }, 500); // Etwas mehr delay damit andere Checks zuerst laufen
+                    }, 1000);
                 }
             } else if (inputId === 'destination') {
                 destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
@@ -25945,7 +25950,7 @@ Aktuell: ${currentNum}`;
             }
         }
         
-        // 🎨 v5.90.828: TAFEL-ABWISCH FUNKTION!
+        // 🎨 v5.90.829: TAFEL-ABWISCH FUNKTION!
         function wipeAwayMap() {
             const routeMapContainer = document.getElementById('route-map-container');
             if (routeMapContainer && routeMapContainer.style.display !== 'none') {
@@ -25983,7 +25988,7 @@ Aktuell: ${currentNum}`;
             destCoords = null;
             destinationConfirmed = false;
             
-            // 🎨 v5.90.828: KARTE-MIT-ANALYSE statt sofort verstecken!
+            // 🎨 v5.90.829: KARTE-MIT-ANALYSE statt sofort verstecken!
             wipeAwayMap();
             
             // "Taxi buchen" Button verstecken
@@ -26410,7 +26415,7 @@ Aktuell: ${currentNum}`;
             if (geocodePromises.length > 0) {
                 const startTime = Date.now();
                 const results = await Promise.all(geocodePromises);
-                const duration = ((Date.now() - startTime) / 1800).toFixed(1);
+                const duration = ((Date.now() - startTime) / 1850).toFixed(1);
                 console.log(`⚡ v5.90.100: ${geocodePromises.length} Geocode-Calls in ${duration} Sek (parallel!)🚀`);
                 
                 // Prüfe Ergebnisse
@@ -26475,7 +26480,7 @@ Aktuell: ${currentNum}`;
             window.currentTotalDuration = durationCalc.totalDuration; // 🆕 v5.90.528: Mit Puffern!
             window.currentPickupTimestamp = pickupTimestamp; // Für spätere Verwendung
             
-            // 🎨 v5.90.828: SCHÖNES KARTE-MIT-ANALYSE wie im SVG!
+            // 🎨 v5.90.829: SCHÖNES KARTE-MIT-ANALYSE wie im SVG!
             const waypointInfo = validWaypoints.length > 0 ? ` • ${validWaypoints.length} Stopp${validWaypoints.length > 1 ? 's' : ''}` : '';
             const zuschlagInfo = pricing.zuschlagText.length > 0 ? ` • ${pricing.zuschlagText.join(', ')}` : '';
 
@@ -26583,7 +26588,7 @@ Aktuell: ${currentNum}`;
                 bookBtn.style.visibility = 'visible';
             }
             
-            // 🗑️ v5.90.828: "FREIE ZEITEN" Button Code entfernt!
+            // 🗑️ v5.90.829: "FREIE ZEITEN" Button Code entfernt!
             
             // 🆕 PREIS-BUTTON ZU ABBRECHEN ÄNDERN
             const priceBtn = document.getElementById('price-btn');
@@ -26606,7 +26611,7 @@ Aktuell: ${currentNum}`;
                 return;
             }
             
-            // 🆕 v5.90.828: Zeige Container mit SLIDE-IN Animation!
+            // 🆕 v5.90.829: Zeige Container mit SLIDE-IN Animation!
             const mapContainerWrapper = document.getElementById('route-map-container');
             if (mapContainerWrapper) {
                 mapContainerWrapper.style.display = 'block';
@@ -26698,7 +26703,7 @@ Aktuell: ${currentNum}`;
                 ], { padding: [30, 30] });
             }
 
-            // 🆕 v5.90.828: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
+            // 🆕 v5.90.829: invalidateSize nach Anzeigen - VERHINDERT Layout-Zerreißen auf Mobile!
             setTimeout(() => {
                 if (routeMapInstance) {
                     routeMapInstance.invalidateSize();
@@ -27056,7 +27061,7 @@ Aktuell: ${currentNum}`;
                     console.log('⏰ TIMEOUT! Fahrt nicht angenommen - weise nächstem Taxi zu');
                     
                     // 🆕 v5.25.6: TEMPORÄRE SPERRE FÜR FAHRER (3 Minuten)
-                    const blockUntil = Date.now() + (3 * 60 * 1800); // 3 Minuten
+                    const blockUntil = Date.now() + (3 * 60 * 1850); // 3 Minuten
                     await db.ref('vehicles/' + nearestVehicle.id + '/temporaryBlock').set({
                         blockedAt: Date.now(),
                         blockedUntil: blockUntil,
@@ -27120,7 +27125,7 @@ Aktuell: ${currentNum}`;
             
             const availableVehicles = [];
             const now = Date.now();
-            const MAX_GPS_AGE = 10 * 60 * 1800; // 10 Minuten
+            const MAX_GPS_AGE = 10 * 60 * 1850; // 10 Minuten
             
             // Durchsuche alle Fahrer (nicht nur online!)
             for (const vehicleId in drivers) {
@@ -27332,7 +27337,7 @@ Aktuell: ${currentNum}`;
                 scrollWheelToIndex('hour', initialHour);
                 scrollWheelToIndex('minute', minuteIndex >= 0 ? minuteIndex : 6); // Default: 30 Min
                 
-                // 🆕 v5.90.828: Graue Vergangenheit aus!
+                // 🆕 v5.90.829: Graue Vergangenheit aus!
                 updateHourAvailability();
             }, 150);
 
@@ -27366,13 +27371,13 @@ Aktuell: ${currentNum}`;
                 wheelScrollLock = false;
             }, 400);
             
-            // 🆕 v5.90.828: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
+            // 🆕 v5.90.829: Wenn Tag gewechselt, prüfe ob Vergangenheit ausgegraut werden muss
             if (wheelType === 'day') {
                 setTimeout(() => updateHourAvailability(), 100);
             }
         }
         
-        // 🆕 v5.90.828: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
+        // 🆕 v5.90.829: AKTUALISIERE STUNDEN-VERFÜGBARKEIT (graue Vergangenheit aus)
         function updateHourAvailability() {
             const dayWheel = document.getElementById('day-wheel');
             const hourWheel = document.getElementById('hour-wheel');
@@ -27434,7 +27439,7 @@ Aktuell: ${currentNum}`;
                 }
             });
             
-            console.log('🕐 v5.90.828: Stunden aktualisiert - Vergangenheit ausgegraut!');
+            console.log('🕐 v5.90.829: Stunden aktualisiert - Vergangenheit ausgegraut!');
         }
 
         // 🆕 v5.90.748: SETZE VORGESCHLAGENE ZEIT IM WHEEL-PICKER
@@ -27840,7 +27845,7 @@ Aktuell: ${currentNum}`;
         async function checkSlotAvailability(date, time) {
             const statusDisplay = document.getElementById('slot-status-display');
 
-            // 🆕 v5.90.828: LADEINDIKATOR mit Datum + Uhrzeit!
+            // 🆕 v5.90.829: LADEINDIKATOR mit Datum + Uhrzeit!
             if (statusDisplay) {
                 // Formatiere Datum schöner
                 const dateObj = new Date(date + 'T' + time);
@@ -27885,7 +27890,7 @@ Aktuell: ${currentNum}`;
                 // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
                 const now = new Date();
                 const minLeadTimeMinutes = 25;
-                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1800);
+                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1850);
 
                 // Prüfe ob Termin in der Vergangenheit liegt
                 if (slotDateTime < now) {
@@ -27913,7 +27918,7 @@ Aktuell: ${currentNum}`;
                         // Frühester möglicher Termin
                         html += '<div style="margin-top:12px;">';
                         html += '<div style="color:#059669;font-weight:700;font-size:13px;">💚 Frühester möglicher Termin:</div>';
-                        const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1800);
+                        const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1850);
                         // Runde auf nächste 5 Minuten
                         earliestTime.setMinutes(Math.ceil(earliestTime.getMinutes() / 5) * 5);
                         earliestTime.setSeconds(0);
@@ -27932,7 +27937,7 @@ Aktuell: ${currentNum}`;
 
                 // Prüfe ob mindestens 25 Min Vorlauf
                 if (slotDateTime < minBookingTime) {
-                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1800));
+                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1850));
                     console.log(`❌ v5.90.735: Nur ${minLeadTimeMinutes - minutesTooEarly} Min Vorlauf, brauche ${minLeadTimeMinutes} Min!`);
                     if (statusDisplay) {
                         statusDisplay.style.display = 'block';
@@ -29839,7 +29844,7 @@ Aktuell: ${currentNum}`;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                z-index: 18000;
+                z-index: 18500;
             `;
             loadingModal.innerHTML = `
                 <div style="background:white;padding:40px;border-radius:16px;text-align:center;">
@@ -29887,7 +29892,7 @@ Aktuell: ${currentNum}`;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                z-index: 18000;
+                z-index: 18500;
                 padding: 20px;
             `;
             
@@ -30510,7 +30515,7 @@ Aktuell: ${currentNum}`;
                 
                 // 🆕 v5.90.323: VORBESTELLUNG BRAUCHT MINDESTENS 1 STUNDE VORLAUF!
                 const nowTime = Date.now();
-                const minTime = nowTime + (60 * 60 * 1800); // +1 Stunde
+                const minTime = nowTime + (60 * 60 * 1850); // +1 Stunde
                 
                 if (pickupTimestamp < minTime) {
                     const minDate = new Date(minTime);
@@ -30565,7 +30570,7 @@ Aktuell: ${currentNum}`;
                 }
                 
                 // Warnung wenn sehr weit in der Zukunft (mehr als 7 Tage)
-                const daysDiff = (pickupTimestamp - Date.now()) / (1800 * 60 * 60 * 24);
+                const daysDiff = (pickupTimestamp - Date.now()) / (1850 * 60 * 60 * 24);
                 if (daysDiff > 7) {
                     const confirm = window.confirm(
                         `📅 Buchung für ${Math.floor(daysDiff)} Tage im Voraus\n\n` +
@@ -30576,14 +30581,14 @@ Aktuell: ${currentNum}`;
                 }
                 
                 // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
-                const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1800 * 60);
+                const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1850 * 60);
                 
                 // ⚡ Sofort (≤15 Min) vs 📅 Vorbestellung (>15 Min)
                 rideStatus = minutesUntilPickup <= 15 ? 'new' : 'vorbestellt';
             }
             
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
-            const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1800 * 60);
+            const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1850 * 60);
             
             // 🆕 v5.31.0: Generiere EINDEUTIGE RIDE-ID
             const rideId = generateRideId();
@@ -30842,7 +30847,7 @@ Aktuell: ${currentNum}`;
                 priceContainer.style.display = 'none';
             }
             
-            // 🗺️ v5.90.828: KARTE-MIT-ANALYSE für Karte!
+            // 🗺️ v5.90.829: KARTE-MIT-ANALYSE für Karte!
             wipeAwayMap();
             
             // Karte entfernen
@@ -31367,7 +31372,7 @@ Aktuell: ${currentNum}`;
         }
         
         // Beim Laden Einstellungen laden
-        setTimeout(() => loadTimeslotSettings(), 1800);
+        setTimeout(() => loadTimeslotSettings(), 1850);
         
         // 🆕 v5.90.132: TELEFONNUMMERN NORMALISIEREN
         async function normalizePhoneNumbers() {
@@ -31587,7 +31592,7 @@ Aktuell: ${currentNum}`;
                     
                     // 2. Maximal 6 Stunden Abstand (vor oder nach)
                     const timeDiff = Math.abs(r.pickupTimestamp - requestedTimestamp);
-                    const hoursDiff = timeDiff / (1800 * 60 * 60);
+                    const hoursDiff = timeDiff / (1850 * 60 * 60);
                     return hoursDiff <= 6; // Nur Fahrten innerhalb ±6h relevant
                 });
                 
@@ -31626,7 +31631,7 @@ Aktuell: ${currentNum}`;
                     
                     // Erst mal Fahrtdauer holen (aus Promise 1)
                     const estimatedDuration = ride.duration || timeslotSettings.rideDuration;
-                    const estimatedEndTime = ride.pickupTimestamp + (estimatedDuration * 60 * 1800);
+                    const estimatedEndTime = ride.pickupTimestamp + (estimatedDuration * 60 * 1850);
                     
                     // Wenn neue Buchung NACH Ende der bestehenden Fahrt:
                     if (requestedTimestamp > estimatedEndTime && ride.destCoords && pickupCoords) {
@@ -31645,7 +31650,7 @@ Aktuell: ${currentNum}`;
                 // 2. FÜHRE ALLE PARALLEL AUS! 🚀
                 const startTime = Date.now();
                 await Promise.all(routePromises);
-                const duration = ((Date.now() - startTime) / 1800).toFixed(1);
+                const duration = ((Date.now() - startTime) / 1850).toFixed(1);
                 console.log(`⚡ v5.90.100: ${routePromises.length} OSRM-Calls in ${duration} Sek (parallel!)🚀`);
                 
                 // 3. Jetzt Konflikte prüfen mit den gecachten Ergebnissen
@@ -31677,14 +31682,14 @@ Aktuell: ${currentNum}`;
                     const waypointCount = (ride.waypoints && Array.isArray(ride.waypoints)) ? ride.waypoints.filter(wp => wp.coords).length : 0;
                     const durationCalc = calculateTotalDuration(rideDuration, waypointCount);
                     
-                    const rideEndTime = ride.pickupTimestamp + (durationCalc.totalDuration * 60 * 1800);
+                    const rideEndTime = ride.pickupTimestamp + (durationCalc.totalDuration * 60 * 1850);
                     console.log(`   🏁 v5.90.530: Fahrt endet um ${new Date(rideEndTime).toLocaleTimeString('de-DE')}`);
                     console.log(`      Dauer-Breakdown: ${durationCalc.breakdown}`);
                     
                     // Konfliktprüfung
                     if (requestedTimestamp > rideEndTime) {
                         // Neue Buchung ist NACH Ende der bestehenden Fahrt
-                        const earliestPossible = rideEndTime + (travelTime * 60 * 1800) + (timeslotSettings.bufferTime * 60 * 1800);
+                        const earliestPossible = rideEndTime + (travelTime * 60 * 1850) + (timeslotSettings.bufferTime * 60 * 1850);
                         
                         console.log(`   🧮 v5.90.530: BERECHNUNG:`);
                         console.log(`      Fahrt endet:     ${new Date(rideEndTime).toLocaleTimeString('de-DE')} (${durationCalc.totalDuration} Min Total)`);
@@ -31719,7 +31724,7 @@ Aktuell: ${currentNum}`;
                         return {
                             available: false,
                             conflictingRide: ride,
-                            earliestPossible: rideEndTime + (travelTime * 60 * 1800) + (timeslotSettings.bufferTime * 60 * 1800),
+                            earliestPossible: rideEndTime + (travelTime * 60 * 1850) + (timeslotSettings.bufferTime * 60 * 1850),
                             reason: `Taxi ist noch ${durationCalc.totalDuration - minutesIntoRide} Min beschäftigt (inkl. Puffer)`
                         };
                     }
@@ -31782,7 +31787,7 @@ Aktuell: ${currentNum}`;
                 console.log('   Breakdown:', durationCalc.breakdown);
                 
                 // 2. Ende der konfliktierenden Fahrt (MIT PUFFERN!)
-                const rideEndTime = conflictingRide.pickupTimestamp + (durationCalc.totalDuration * 60 * 1800);
+                const rideEndTime = conflictingRide.pickupTimestamp + (durationCalc.totalDuration * 60 * 1850);
                 
                 // 3. Berechne Fahrzeit vom Ziel zum neuen Start
                 const travelTime = await calculateRouteDuration(
@@ -31793,7 +31798,7 @@ Aktuell: ${currentNum}`;
                 console.log('🚕 Fahrzeit zum neuen Start:', travelTime, 'Min');
                 
                 // 4. Frühestmögliche Zeit = Ende + Fahrzeit + Puffer
-                let earliestTime = rideEndTime + (travelTime * 60 * 1800) + (timeslotSettings.bufferTime * 60 * 1800);
+                let earliestTime = rideEndTime + (travelTime * 60 * 1850) + (timeslotSettings.bufferTime * 60 * 1850);
                 
                 console.log('⏰ v5.90.530: Frühestmöglich berechnet:');
                 console.log(`   Fahrt endet: ${new Date(rideEndTime).toLocaleTimeString('de-DE')} (${durationCalc.totalDuration} Min inkl. Puffer)`);
@@ -31831,7 +31836,7 @@ Aktuell: ${currentNum}`;
                     }
                     
                     // Nächster Kandidat: +15 Min
-                    candidateTime += (15 * 60 * 1800);
+                    candidateTime += (15 * 60 * 1850);
                 }
                 
                 console.log(`💡 ${alternatives.length} verfügbare NACHHER-Slots gefunden (${attempts} geprüft)`);
@@ -31924,7 +31929,7 @@ Aktuell: ${currentNum}`;
                 console.error('💾 Fehler bei Alternativ-Berechnung:', error);
                 // Fallback: Einfach +15, +30, +45 Min zur gewünschten Zeit
                 return [15, 30, 45].map(offset => {
-                    const ts = requestedTimestamp + (offset * 60 * 1800);
+                    const ts = requestedTimestamp + (offset * 60 * 1850);
                     return {
                         timestamp: ts,
                         formatted: formatTimeForDisplay(ts)
@@ -31942,7 +31947,7 @@ Aktuell: ${currentNum}`;
             if (emailReceivedDate) {
                 const emailDate = new Date(emailReceivedDate);
                 const now = new Date();
-                const daysDiff = (now - emailDate) / (1800 * 60 * 60 * 24);
+                const daysDiff = (now - emailDate) / (1850 * 60 * 60 * 24);
                 
                 console.log('📧 Email Datum:', emailDate.toLocaleString('de-DE'));
                 console.log('📆 Tage alt:', daysDiff.toFixed(1));
@@ -32076,14 +32081,14 @@ Aktuell: ${currentNum}`;
         // Berechnet Route-Dauer via Google Maps
         // 🔧 v5.90.98: ROUTE CACHE - Vermeide doppelte OSRM-Calls!
         const routeCache = new Map();
-        const CACHE_DURATION = 60 * 60 * 1800; // 1 Stunde
+        const CACHE_DURATION = 60 * 60 * 1850; // 1 Stunde
         
         function getRouteCacheKey(fromCoords, toCoords) {
             // Runde auf 3 Dezimalstellen (~111m Genauigkeit)
-            const fromLat = Math.round(fromCoords.lat * 1800) / 1800;
-            const fromLon = Math.round((fromCoords.lon || fromCoords.lng) * 1800) / 1800;
-            const toLat = Math.round(toCoords.lat * 1800) / 1800;
-            const toLon = Math.round((toCoords.lon || toCoords.lng) * 1800) / 1800;
+            const fromLat = Math.round(fromCoords.lat * 1850) / 1850;
+            const fromLon = Math.round((fromCoords.lon || fromCoords.lng) * 1850) / 1850;
+            const toLat = Math.round(toCoords.lat * 1850) / 1850;
+            const toLon = Math.round((toCoords.lon || toCoords.lng) * 1850) / 1850;
             return `${fromLat},${fromLon}→${toLat},${toLon}`;
         }
         
@@ -32144,7 +32149,7 @@ Aktuell: ${currentNum}`;
                 const dayEnd = new Date(targetDate);
                 dayEnd.setHours(22, 0, 0, 0);    // Ende um 22:00
                 
-                for (let time = dayStart.getTime(); time <= dayEnd.getTime(); time += 15 * 60 * 1800) {
+                for (let time = dayStart.getTime(); time <= dayEnd.getTime(); time += 15 * 60 * 1850) {
                     allSlots.push({
                         timestamp: time,
                         available: true,  // Erstmal alle als frei markieren
@@ -32161,7 +32166,7 @@ Aktuell: ${currentNum}`;
                     
                     // Fahrtdauer der bestehenden Fahrt
                     const rideDuration = ride.duration || timeslotSettings.rideDuration;
-                    const rideEnd = ride.pickupTimestamp + (rideDuration * 60 * 1800);
+                    const rideEnd = ride.pickupTimestamp + (rideDuration * 60 * 1850);
                     
                     console.log(`   Dauer: ${rideDuration} Min, endet: ${new Date(rideEnd).toLocaleTimeString('de-DE')}`);
                     
@@ -32183,7 +32188,7 @@ Aktuell: ${currentNum}`;
                     for (const slot of allSlots) {
                         if (!slot.available) continue; // Schon blockiert
                         
-                        const slotEnd = slot.timestamp + (newRideDuration * 60 * 1800);
+                        const slotEnd = slot.timestamp + (newRideDuration * 60 * 1850);
                         
                         // FALL 1: Neuer Slot würde WÄHREND bestehender Fahrt liegen
                         if (slot.timestamp < rideEnd && slotEnd > ride.pickupTimestamp) {
@@ -32200,7 +32205,7 @@ Aktuell: ${currentNum}`;
                         }
                         
                         // FALL 3: Neuer Slot kurz NACH bestehender Fahrt (Fahrzeit zu kurz)
-                        const earliestAfter = rideEnd + (travelTimeToNew * 60 * 1800) + (timeslotSettings.bufferTime * 60 * 1800);
+                        const earliestAfter = rideEnd + (travelTimeToNew * 60 * 1850) + (timeslotSettings.bufferTime * 60 * 1850);
                         if (slot.timestamp >= rideEnd && slot.timestamp < earliestAfter) {
                             const minutesNeeded = Math.round((earliestAfter - slot.timestamp) / 60000);
                             slot.available = false;
@@ -32209,7 +32214,7 @@ Aktuell: ${currentNum}`;
                         }
                         
                         // FALL 4: Neuer Slot VOR bestehender Fahrt (würde kollidieren)
-                        const latestBefore = ride.pickupTimestamp - (travelTimeFromNew * 60 * 1800) - (timeslotSettings.bufferTime * 60 * 1800);
+                        const latestBefore = ride.pickupTimestamp - (travelTimeFromNew * 60 * 1850) - (timeslotSettings.bufferTime * 60 * 1850);
                         if (slotEnd > latestBefore && slot.timestamp < ride.pickupTimestamp) {
                             const minutesNeeded = Math.round((ride.pickupTimestamp - slotEnd) / 60000);
                             slot.available = false;
@@ -32238,12 +32243,12 @@ Aktuell: ${currentNum}`;
                             // Neues Zeitfenster starten
                             currentWindow = {
                                 start: slot.timestamp,
-                                end: slot.timestamp + (15 * 60 * 1800),
+                                end: slot.timestamp + (15 * 60 * 1850),
                                 duration: 15
                             };
                         } else {
                             // Zeitfenster erweitern
-                            currentWindow.end = slot.timestamp + (15 * 60 * 1800);
+                            currentWindow.end = slot.timestamp + (15 * 60 * 1850);
                             currentWindow.duration += 15;
                         }
                     } else {
@@ -32349,7 +32354,7 @@ Aktuell: ${currentNum}`;
             
             // Aufrunden auf nächste 5
             const minutesToAdd = 5 - remainder;
-            return timestamp + (minutesToAdd * 60 * 1800);
+            return timestamp + (minutesToAdd * 60 * 1850);
         }
         
         // Formatiert Zeit für Anzeige
@@ -32604,7 +32609,7 @@ Aktuell: ${currentNum}`;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                z-index: 18000;
+                z-index: 18500;
                 padding: 20px;
                 backdrop-filter: blur(4px);
             `;
@@ -33112,7 +33117,7 @@ Aktuell: ${currentNum}`;
                     const data = JSON.parse(stored);
                     // Lösche Einträge älter als 7 Tage
                     const now = Date.now();
-                    const sevenDays = 7 * 24 * 60 * 60 * 1800;
+                    const sevenDays = 7 * 24 * 60 * 60 * 1850;
                     Object.keys(data).forEach(key => {
                         if (now - data[key] > sevenDays) {
                             delete data[key];
@@ -33490,7 +33495,7 @@ Aktuell: ${currentNum}`;
                     if (inactiveMinutes >= 4.5 && !this.warningTimer) {
                         this.showAutoWarning();
                     }
-                }, 18000);
+                }, 18500);
             },
             
             showAutoWarning: function() {
@@ -33510,7 +33515,7 @@ Aktuell: ${currentNum}`;
                     if (countdown <= 0) {
                         this.activateAutoPowerSave();
                     }
-                }, 1800);
+                }, 1850);
             },
             
             activateAutoPowerSave: function() {
@@ -33580,7 +33585,7 @@ Aktuell: ${currentNum}`;
             if (currentView === 'driver') {
                 PowerSaveManager.init();
             }
-        }, 1800);
+        }, 1850);
         
         // Aktivität-Tracking (bei jedem Touch)
         document.addEventListener('touchstart', () => {
@@ -34492,7 +34497,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                         if (wakeLock === null && isOnline) {
                             requestWakeLock();
                         }
-                    }, 1800);
+                    }, 1850);
                 }
             }
         }
@@ -35544,7 +35549,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 if (isOnline && currentVehicle && gpsMode === 'standby') {
                     getStandbyPosition();
                 }
-            }, 2 * 60 * 1800); // 2 Minuten
+            }, 2 * 60 * 1850); // 2 Minuten
             
             console.log('✅ Standby-Interval gestartet (alle 2 Min)');
         }
@@ -35612,7 +35617,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                 },
                 { 
                     enableHighAccuracy: false,  // 🔑 WICHTIG: Nutzt LTE/WiFi statt GPS!
-                    maximumAge: 5 * 60 * 1800,  // Akzeptiere 5 Min alte Position
+                    maximumAge: 5 * 60 * 1850,  // Akzeptiere 5 Min alte Position
                     timeout: 30000               // 30 Sek Timeout
                 }
             );
@@ -35853,7 +35858,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     warningBanner.style.display = 'block';
                     
                     // Berechne wie lange her
-                    const secondsAgo = Math.floor(timeSinceLastUpdate / 1800);
+                    const secondsAgo = Math.floor(timeSinceLastUpdate / 1850);
                     const minutesAgo = Math.floor(secondsAgo / 60);
                     
                     let timeText = '';
@@ -35870,7 +35875,7 @@ _Gesendet von Funk Taxi Heringsdorf App_`;
                     // GPS funktioniert - Warnung ausblenden
                     warningBanner.style.display = 'none';
                 }
-            }, 18000); // Alle 10 Sekunden prüfen
+            }, 18500); // Alle 10 Sekunden prüfen
         }
         
 // 🆕 v5.90.592: DIAGNOSE-SYSTEM
@@ -36041,7 +36046,7 @@ function showDiagnosticDashboard() {
                 <div style="padding-left:10px;line-height:1.6;">
                     ${gpsStatus} Updates: ${gpsPerMin}/Min (${metrics.gps.updates} total)<br>
                     ${avgAccuracy > 0 && avgAccuracy < 50 ? '✅' : '⚠️'} Genauigkeit: ${avgAccuracy}m<br>
-                    ${metrics.gps.lastUpdate ? '✅' : '❌'} Letztes Update: ${metrics.gps.lastUpdate ? 'vor ' + Math.round((Date.now() - metrics.gps.lastUpdate)/1800) + 's' : 'nie'}<br>
+                    ${metrics.gps.lastUpdate ? '✅' : '❌'} Letztes Update: ${metrics.gps.lastUpdate ? 'vor ' + Math.round((Date.now() - metrics.gps.lastUpdate)/1850) + 's' : 'nie'}<br>
                     ${metrics.gps.errors === 0 ? '✅' : '❌'} Fehler: ${metrics.gps.errors}
                 </div>
             </div>
@@ -36140,7 +36145,7 @@ setInterval(() => {
 }, 5000);
 
 // Memory Tracking alle 10 Sekunden
-setInterval(trackMemoryUsage, 18000);
+setInterval(trackMemoryUsage, 18500);
 
 console.log('✅ v5.90.592: Diagnose-System aktiviert!');
 console.log('💡 Nutze showDiagnosticDashboard() zum Öffnen');
@@ -36339,7 +36344,7 @@ function calculateBatteryDrain() {
     const last = battery.history[battery.history.length - 1];
     
     const levelDiff = first.level - last.level;
-    const timeDiff = (last.time - first.time) / 1800 / 60 / 60; // Stunden
+    const timeDiff = (last.time - first.time) / 1850 / 60 / 60; // Stunden
     
     if (timeDiff === 0) return null;
     
@@ -36360,7 +36365,7 @@ function calculateRemainingTime() {
 // Berechne Gesamt-Verbrauch seit Start
 function calculateTotalDrain() {
     const battery = window.diagnostics.battery;
-    const runtime = (Date.now() - battery.startTime) / 1800 / 60 / 60; // Stunden
+    const runtime = (Date.now() - battery.startTime) / 1850 / 60 / 60; // Stunden
     const totalDrain = battery.startLevel - battery.level;
     
     if (runtime === 0) return 0;
@@ -36419,7 +36424,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             // Im Standby: Seltener senden (50m / 60s)
             const hasActiveRide = rideId && rideId !== 'Standby';
             const minDistance = hasActiveRide ? 0.01 : 0.05;  // 10m vs 50m (in km)
-            const minTime = hasActiveRide ? 18000 : 60000;     // 10s vs 60s
+            const minTime = hasActiveRide ? 18500 : 60000;     // 10s vs 60s
             
             if (lastSentPosition) {
                 const distance = calculateDistance(
@@ -36428,8 +36433,8 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                 );
                 const timeSince = Date.now() - lastSentPosition.timestamp;
                 
-                console.log('   Distanz seit letztem Send:', Math.round(distance * 1800), 'm');
-                console.log('   Zeit seit letztem Send:', Math.round(timeSince / 1800), 's');
+                console.log('   Distanz seit letztem Send:', Math.round(distance * 1850), 'm');
+                console.log('   Zeit seit letztem Send:', Math.round(timeSince / 1850), 's');
                 console.log('   🔋 Modus:', hasActiveRide ? 'AKTIVE FAHRT (10m/10s)' : 'STANDBY (50m/60s)');
                 
                 // 🆕 v5.90.636: Dynamischer Filter je nach Fahrt-Status
@@ -36772,7 +36777,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             } else {
                 // Start
                 runFullSystemDiagnostics(); // Sofort ausführen
-                diagnosticsAutoRefresh = setInterval(runFullSystemDiagnostics, 1800);
+                diagnosticsAutoRefresh = setInterval(runFullSystemDiagnostics, 1850);
                 btn.textContent = '⏹️ STOP AUTO-REFRESH';
                 btn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
             }
@@ -36924,7 +36929,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     const v = vehicles[id];
                     const hasGPS = v.lat && v.lon;
                     const isOldId = id.startsWith('tesla_') || id.startsWith('mercedes_');
-                    const gpsAge = v.timestamp ? Math.round((Date.now() - v.timestamp) / 1800) : null;
+                    const gpsAge = v.timestamp ? Math.round((Date.now() - v.timestamp) / 1850) : null;
                     
                     vehiclesHtml += `
                         <div style="background: ${isOldId ? '#fef3c7' : '#f0fdf4'}; border-left: 4px solid ${isOldId ? '#f59e0b' : '#10b981'}; padding: 12px; margin: 8px 0; border-radius: 6px;">
@@ -37274,7 +37279,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     
                     // Bestimme Status-Farbe
                     const lastActivity = mon.lastActivity?.timestamp || 0;
-                    const ageSeconds = Math.floor((Date.now() - lastActivity) / 1800);
+                    const ageSeconds = Math.floor((Date.now() - lastActivity) / 1850);
                     const isActive = ageSeconds < 30;
                     const statusColor = isActive ? '#10b981' : ageSeconds < 120 ? '#f59e0b' : '#ef4444';
                     const statusText = isActive ? '🟢 AKTIV' : ageSeconds < 120 ? '🟡 IDLE' : '🔴 OFFLINE';
@@ -37282,7 +37287,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
                     // GPS Status
                     const gpsStatus = mon.gpsStatus || {};
                     const hasGPS = gpsStatus.hasPosition;
-                    const gpsAge = gpsStatus.timestamp ? Math.floor((Date.now() - gpsStatus.timestamp) / 1800) : 999;
+                    const gpsAge = gpsStatus.timestamp ? Math.floor((Date.now() - gpsStatus.timestamp) / 1850) : 999;
                     
                     // Letzter Fehler
                     const lastError = mon.error || {};
@@ -37706,7 +37711,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             }
             
             // Prüfe ob Status noch aktuell (max 24h alt)
-            const ageHours = (Date.now() - state.timestamp) / (1800 * 60 * 60);
+            const ageHours = (Date.now() - state.timestamp) / (1850 * 60 * 60);
             if (ageHours > 24) {
                 console.log('⚠️ v5.90.542: Status zu alt (' + ageHours.toFixed(1) + 'h) → Lösche');
                 clearDriverState();
@@ -38187,7 +38192,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             // Erstelle Modal
             const modal = document.createElement('div');
             modal.id = 'complete-ride-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:180000;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:185000;display:flex;align-items:center;justify-content:center;padding:20px;';
             
             const estimatedPrice = rideData.estimatedPrice || rideData.price || 0;
             
@@ -38308,7 +38313,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
         async function showInvoiceOptionsModal(rideId, rideData, actualPrice) {
             const modal = document.createElement('div');
             modal.id = 'invoice-options-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:180001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:185001;display:flex;align-items:center;justify-content:center;padding:20px;';
             
             const customerPhone = rideData.customerPhone || '';
             const customerEmail = rideData.customerEmail || '';
@@ -38378,7 +38383,7 @@ console.log('✅ v5.90.594: Battery Monitor läuft!');
             // Zeige Loading
             const loadingModal = document.createElement('div');
             loadingModal.id = 'loading-modal';
-            loadingModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:180002;display:flex;align-items:center;justify-content:center;';
+            loadingModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:185002;display:flex;align-items:center;justify-content:center;';
             loadingModal.innerHTML = `
                 <div style="text-align:center;color:white;">
                     <div style="font-size:64px;margin-bottom:20px;">📱</div>
@@ -38556,7 +38561,7 @@ Funk Taxi Team`;
             // Zeige Loading
             const loadingModal = document.createElement('div');
             loadingModal.id = 'loading-modal';
-            loadingModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:180002;display:flex;align-items:center;justify-content:center;';
+            loadingModal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:185002;display:flex;align-items:center;justify-content:center;';
             loadingModal.innerHTML = `
                 <div style="text-align:center;color:white;">
                     <div style="font-size:64px;margin-bottom:20px;">📱</div>
@@ -39022,7 +39027,7 @@ Funk Taxi Team`;
                     // Auto-Reload nach 1 Sekunde
                     setTimeout(() => {
                         window.location.reload();
-                    }, 1800);
+                    }, 1850);
                     
                 } catch (error) {
                     console.error('💾 Fehler beim Löschen:', error);
@@ -39242,7 +39247,7 @@ Funk Taxi Team`;
                 const activeRides = [];
                 const recentFinished = [];
                 const now = Date.now();
-                const oneHourAgo = now - (60 * 60 * 1800);
+                const oneHourAgo = now - (60 * 60 * 1850);
                 
                 for (const rideId in allRides) {
                     const ride = allRides[rideId];
@@ -39641,7 +39646,7 @@ Funk Taxi Team`;
                 padding: 12px 16px;
                 border-radius: 12px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                z-index: 18000;
+                z-index: 18500;
                 max-width: 95%;
                 width: auto;
                 border: 3px solid #10b981;
@@ -39760,7 +39765,7 @@ Funk Taxi Team`;
                 padding: 15px 20px;
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                z-index: 18001;
+                z-index: 18501;
                 max-width: 300px;
                 font-size: 14px;
                 animation: slideIn 0.3s ease-out;
@@ -40736,7 +40741,7 @@ Funk Taxi Team`;
         // 🆕 v5.90.488: TIMELINE UPDATE FUNKTION
         function updateFleetTimeline(ridesData, driversData) {
             const now = Date.now();
-            const oneHourLater = now + (60 * 60 * 1800);
+            const oneHourLater = now + (60 * 60 * 1850);
             
             // 🆕 v5.90.525: DEBUG!
             console.log('🔍 updateFleetTimeline aufgerufen!');
@@ -41311,7 +41316,7 @@ Funk Taxi Team`;
                         opacity: 0.7
                     }).addTo(fleetMapStandalone);
                     
-                    const distance = (route.distance / 1800).toFixed(1);
+                    const distance = (route.distance / 1850).toFixed(1);
                     const duration = Math.round(route.duration / 60);
                     
                     console.log('✅ Route gezeichnet:', distance, 'km,', duration, 'Min');
@@ -42834,7 +42839,7 @@ Funk Taxi Team`;
                 const upcomingRidesEl = document.getElementById('fleet-upcoming-rides');
                 if (upcomingRidesEl) {
                     const now = Date.now();
-                    const oneHourLater = now + (60 * 60 * 1800); // +1 Stunde
+                    const oneHourLater = now + (60 * 60 * 1850); // +1 Stunde
                     
                     // Hole alle Fahrten in nächster Stunde
                     const upcomingRides = [];
@@ -43237,7 +43242,7 @@ Funk Taxi Team`;
                     
                     // 🆕 v5.90.318: Keine VERGANGENEN Fahrten (älter als jetzt - 5 Min)!
                     const now = Date.now();
-                    if (rideTime < (now - 5 * 60 * 1800)) {
+                    if (rideTime < (now - 5 * 60 * 1850)) {
                         console.log(`⏰ v5.90.318: Vergangene Fahrt ausgeblendet: ${r.customerName || 'Unbekannt'} (${new Date(rideTime).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'})})`);
                         return false;
                     }
@@ -43253,7 +43258,7 @@ Funk Taxi Team`;
             // Erstelle Modal
             const modal = document.createElement('div');
             modal.id = 'vehicle-details-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18001;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18501;padding:20px;';
             
             let currentRideHtml = '';
             if (currentRide) {
@@ -43813,7 +43818,7 @@ Funk Taxi Team`;
                     
                     // 🆕 v5.90.318: Keine VERGANGENEN Fahrten!
                     const rideTime = r.pickupTimestamp || r.timestamp || 0;
-                    if (rideTime < (now - 5 * 60 * 1800)) {
+                    if (rideTime < (now - 5 * 60 * 1850)) {
                         return false;
                     }
                     
@@ -43951,7 +43956,7 @@ Funk Taxi Team`;
                 console.log('⏹️ Auto-Update gestoppt');
             } else {
                 // Starten (alle 10 Sekunden)
-                fleetAutoRefresh = setInterval(refreshFleetMap, 18000);
+                fleetAutoRefresh = setInterval(refreshFleetMap, 18500);
                 if (btn) {
                     btn.textContent = '⏹️ Auto-Update';
                     btn.style.background = '#ef4444';
@@ -44006,7 +44011,7 @@ Funk Taxi Team`;
             
             // 📜 ZUERST: Letzte Logs laden (letzte 2 STUNDEN oder max 100)
             // 🆕 v5.21.2: Von 30 Min auf 120 Min erweitert!
-            const twoHoursAgo = Date.now() - (120 * 60 * 1800);
+            const twoHoursAgo = Date.now() - (120 * 60 * 1850);
             try {
                 const recentSnapshot = await db.ref('activityLog')
                     .orderByChild('timestamp')
@@ -45020,7 +45025,7 @@ Funk Taxi Team`;
             
             const modal = document.createElement('div');
             modal.id = 'vehicle-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:18000;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:18500;';
             
             modal.innerHTML = `
                 <div style="background:white;padding:25px;border-radius:12px;width:90%;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
@@ -46084,7 +46089,7 @@ Funk Taxi Team`;
             
             const modal = document.createElement('div');
             modal.id = 'quick-booking-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18001;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18501;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
             
             // Aktuelle Zeit + 15 Minuten als Default (LOKAL!)
             const now = new Date();
@@ -46132,7 +46137,7 @@ Funk Taxi Team`;
                                 title="Tippe min. 3 Zeichen um zu suchen"
                                 style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
                             <input type="hidden" id="quick-booking-customer" value="">
-                            <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:18000;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                            <div id="quick-booking-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:18500;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
                             
                             <!-- 🆕 v5.90.125: KUNDE BEARBEITEN BUTTON! -->
                             <div id="quick-booking-edit-customer-btn" style="display:none;margin-top:8px;">
@@ -46227,7 +46232,7 @@ Funk Taxi Team`;
                         <div style="margin-bottom:15px;position:relative;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Von wo soll der Kunde abgeholt werden?">📍 Abholort</label>
                             <input type="text" id="quick-booking-pickup" placeholder="Adresse eingeben..." title="Tippe Adresse ein - Dropdown mit Vorschlägen erscheint" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-                            <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1800;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            <div id="quick-booking-pickup-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1850;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                             
                             <!-- 🆕 v5.90.240: AUF KARTE WÄHLEN FÜR ABHOLORT! -->
                             <button onclick="openQuickBookingMapPickerForPickup()" title="Abholort auf Karte auswählen" style="margin-top:8px;width:100%;padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
@@ -46246,7 +46251,7 @@ Funk Taxi Team`;
                         <div style="margin-bottom:15px;position:relative;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;color:#1f2937;font-size:14px;" title="Wohin soll der Kunde fahren?">🎯 Zielort</label>
                             <input type="text" id="quick-booking-destination" placeholder="Adresse eingeben..." title="Tippe Adresse ein - Dropdown mit Vorschlägen erscheint" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-                            <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1800;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            <div id="quick-booking-destination-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1850;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                             
                             <!-- 🆕 v5.90.236: AUF KARTE WÄHLEN! -->
                             <button onclick="openQuickBookingMapPicker()" title="Zielort auf Karte auswählen" style="margin-top:8px;width:100%;padding:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
@@ -46744,7 +46749,7 @@ Funk Taxi Team`;
             // Mini-Modal für zusätzliche Daten
             const miniModal = document.createElement('div');
             miniModal.id = 'new-qb-customer-modal';
-            miniModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:18001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            miniModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:18501;display:flex;align-items:center;justify-content:center;padding:20px;';
             miniModal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
                     <h3 style="margin:0 0 15px 0;color:#1f2937;">➕ Neuer Kunde</h3>
@@ -46772,7 +46777,7 @@ Funk Taxi Team`;
                     <div style="margin-bottom:15px;position:relative;">
                         <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">🏠 Adresse:</label>
                         <input type="text" id="new-qb-customer-address" placeholder="Optional" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box;">
-                        <div id="new-qb-customer-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:18002;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                        <div id="new-qb-customer-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #10b981;border-radius:8px;max-height:200px;overflow-y:auto;z-index:18502;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
                     </div>
                     
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -48478,7 +48483,7 @@ Funk Taxi Team`;
             
             const modal = document.createElement('div');
             modal.id = 'quick-booking-favorites-modal'; // 🔧 v5.90.105: ID hinzugefügt!
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:18002;padding:15px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:18502;padding:15px;';
             
             modal.innerHTML = `
                 <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:500px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -48529,7 +48534,7 @@ Funk Taxi Team`;
             if (fav.destCoords) quickBookingDestCoords = fav.destCoords;
             
             // Schließe Modal
-            document.querySelectorAll('div[style*="z-index:18001"]').forEach(m => m.remove());
+            document.querySelectorAll('div[style*="z-index:18501"]').forEach(m => m.remove());
             
             console.log('⭐ Favorit verwendet:', fav);
         }
@@ -48542,7 +48547,7 @@ Funk Taxi Team`;
             localStorage.setItem('quickBookingFavorites', JSON.stringify(favorites));
             
             // Refresh Modal
-            document.querySelectorAll('div[style*="z-index:18001"]').forEach(m => m.remove());
+            document.querySelectorAll('div[style*="z-index:18501"]').forEach(m => m.remove());
             showQuickBookingFavorites();
         }
         
@@ -48676,7 +48681,7 @@ Funk Taxi Team`;
             // Modal erstellen
             const modal = document.createElement('div');
             modal.id = 'quick-booking-map-picker-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:18002;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:18502;padding:20px;';
             
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -48943,7 +48948,7 @@ Funk Taxi Team`;
             // Modal erstellen
             const modal = document.createElement('div');
             modal.id = 'universal-map-picker-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:180001;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:185001;padding:20px;';
             
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -48970,7 +48975,7 @@ Funk Taxi Team`;
                                    style="flex:1;padding:12px 16px;border:2px solid #3b82f6;border-radius:8px;font-size:14px;outline:none;">
                             <button onclick="clearMapPickerSearch()" style="padding:12px 16px;background:#6b7280;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">✕</button>
                         </div>
-                        <div id="map-picker-search-results" style="display:none;position:absolute;left:15px;right:15px;top:100%;background:white;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;max-height:300px;overflow-y:auto;z-index:1800;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                        <div id="map-picker-search-results" style="display:none;position:absolute;left:15px;right:15px;top:100%;background:white;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;max-height:300px;overflow-y:auto;z-index:1850;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
                     </div>
 
                     <!-- 🆕 v5.90.653: POI FILTER BUTTONS -->
@@ -49825,7 +49830,7 @@ Funk Taxi Team`;
             // Modal erstellen
             const modal = document.createElement('div');
             modal.id = 'quick-booking-map-picker-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:18002;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:18502;padding:20px;';
             
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -50267,7 +50272,7 @@ Funk Taxi Team`;
             
             // 🆕 v5.41.1: Endzeit = Start + Routendauer + Extra-Zeit
             const totalMinutes = qbPanelRouteDuration + qbPanelExtraTime;
-            const endDate = new Date(startDate.getTime() + (totalMinutes * 60 * 1800));
+            const endDate = new Date(startDate.getTime() + (totalMinutes * 60 * 1850));
             
             // Format für datetime-local Input
             const year = endDate.getFullYear();
@@ -50384,8 +50389,8 @@ Funk Taxi Team`;
                 
                 if (data.paths && data.paths.length > 0) {
                     const path = data.paths[0];
-                    const distanceKm = (path.distance / 1800).toFixed(1);
-                    const durationMin = Math.ceil(path.time / 1800 / 60);
+                    const distanceKm = (path.distance / 1850).toFixed(1);
+                    const durationMin = Math.ceil(path.time / 1850 / 60);
                     
                     qbPanelRouteDuration = durationMin;
                     
@@ -50807,7 +50812,7 @@ Funk Taxi Team`;
                 try {
                     const startDate = new Date(startTime);
                     const endDate = new Date(endTime);
-                    const durationMinutes = Math.round((endDate - startDate) / (1800 * 60));
+                    const durationMinutes = Math.round((endDate - startDate) / (1850 * 60));
                 
                     // 🆕 v5.90.82: STELLE SICHER DASS customerPhone GESETZT IST!
                     let finalCustomerPhone = qbPanelCustomer.phone || '';
@@ -51132,7 +51137,7 @@ Funk Taxi Team`;
                     document.getElementById('qb-panel-end-time').value = formatForDatetimeLocal(endDate);
                 } else if (ride.pickupTime && ride.durationMinutes) {
                     const startDate = new Date(ride.pickupTime);
-                    const endDate = new Date(startDate.getTime() + (ride.durationMinutes * 60 * 1800));
+                    const endDate = new Date(startDate.getTime() + (ride.durationMinutes * 60 * 1850));
                     document.getElementById('qb-panel-end-time').value = formatForDatetimeLocal(endDate);
                 }
                 
@@ -51230,7 +51235,7 @@ Funk Taxi Team`;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    z-index: 18000;
+                    z-index: 18500;
                     padding: 20px;
                 `;
                 
@@ -51303,7 +51308,7 @@ Funk Taxi Team`;
         
         // 🆕 v5.90.34: Schließe Abschließen-Modal
         window.closeCompleteRideModal = function() {
-            const modals = document.querySelectorAll('div[style*="position: fixed"][style*="z-index: 18000"]');
+            const modals = document.querySelectorAll('div[style*="position: fixed"][style*="z-index: 18500"]');
             modals.forEach(modal => modal.remove());
             console.log('✅ Abschließen-Modal geschlossen');
         };
@@ -51333,7 +51338,7 @@ Funk Taxi Team`;
                 
                 // Modal schließen - ALLE Modals mit diesem Style
                 document.querySelectorAll('div[style*="position: fixed"]').forEach(modal => {
-                    if (modal.style.zIndex === '18000') modal.remove();
+                    if (modal.style.zIndex === '18500') modal.remove();
                 });
                 
                 // Success
@@ -52570,7 +52575,7 @@ Funk Taxi Team`;
                 // Nach kurzer Verzögerung WhatsApp öffnen
                 setTimeout(() => {
                     shareInvoiceViaWhatsApp();
-                }, 1800);
+                }, 1850);
                 
             } catch (error) {
                 console.error('💾 Fehler:', error);
@@ -52863,7 +52868,7 @@ Funk Taxi Team`;
                 const result = await calculateDistanceViaAPI(pickup, destination);
                 
                 if (result && result.distance) {
-                    const distanceKm = result.distance / 1800;
+                    const distanceKm = result.distance / 1850;
                     distanceInput.value = distanceKm.toFixed(1);
                     distanceInput.disabled = false;
                     
@@ -53461,7 +53466,7 @@ Funk Taxi Team`;
                 });
                 
                 // Modal schließen
-                setTimeout(() => closeInvoiceModal(), 1800);
+                setTimeout(() => closeInvoiceModal(), 1850);
                 
             } catch (error) {
                 console.error('💾 Fehler:', error);
@@ -55563,7 +55568,7 @@ Funk Taxi Team`;
 
                 // 🆕 v5.90.735: PRÜFE VERGANGENHEIT + 25 MIN MINDESTVORLAUF (5 Min Puffer intern)!
                 const minLeadTimeMinutes = 25;
-                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1800);
+                const minBookingTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1850);
 
                 // Prüfe ob in der Vergangenheit
                 if (slotDateTime < now) {
@@ -55572,7 +55577,7 @@ Funk Taxi Team`;
                     statusDisplay.style.color = '#dc2626';
 
                     // Berechne frühesten möglichen Termin
-                    const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1800);
+                    const earliestTime = new Date(now.getTime() + minLeadTimeMinutes * 60 * 1850);
                     earliestTime.setMinutes(Math.ceil(earliestTime.getMinutes() / 5) * 5);
                     earliestTime.setSeconds(0);
 
@@ -55592,7 +55597,7 @@ Funk Taxi Team`;
 
                 // 🆕 v5.90.735: Prüfe ob mindestens 25 Min Vorlauf
                 if (slotDateTime < minBookingTime) {
-                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1800));
+                    const minutesTooEarly = Math.ceil((minBookingTime - slotDateTime) / (60 * 1850));
                     statusDisplay.style.background = '#fef3c7';
                     statusDisplay.style.border = '2px solid #f59e0b';
                     statusDisplay.style.color = '#92400e';
@@ -56445,7 +56450,7 @@ Funk Taxi Team`;
             
             const modal = document.createElement('div');
             modal.id = 'edit-customer-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:180000;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:185000;';
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;">
                     <!-- 🆕 v5.90.296: X-BUTTON zum Schließen! -->
@@ -56542,10 +56547,10 @@ Funk Taxi Team`;
                         <input type="email" id="edit-customer-email" value="${customer.email || ''}" placeholder="Email" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;">
                         <div style="position:relative;display:flex;gap:8px;align-items:center;">
                             <input type="text" id="edit-customer-address" value="${customer.address || ''}" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;flex:1;">
-                            <button onclick="openUniversalMapPicker('edit-customer-address', '🏠 Wohnanschrift auf Karte wählen')" style="background:#10b981;color:white;border:none;border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:18001;" title="Auf Karte wählen">
+                            <button onclick="openUniversalMapPicker('edit-customer-address', '🏠 Wohnanschrift auf Karte wählen')" style="background:#10b981;color:white;border:none;border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:18501;" title="Auf Karte wählen">
                                 🗺️
                             </button>
-                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:52px;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:18000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
+                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:52px;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:18500;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                         </div>
                         
                         <!-- 🆕 v5.52.5: MEHRFACH-RECHNUNGSADRESSEN -->
@@ -56694,7 +56699,7 @@ Funk Taxi Team`;
 
             const modal = document.createElement('div');
             modal.id = 'edit-customer-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:180000;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:185000;';
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;position:relative;">
                     <button onclick="document.getElementById('edit-customer-modal').remove()" style="
@@ -56790,10 +56795,10 @@ Funk Taxi Team`;
                         <!-- ADRESSE MIT KARTEN-PICKER -->
                         <div style="position:relative;display:flex;gap:8px;align-items:center;">
                             <input type="text" id="edit-customer-address" placeholder="🏠 Wohnanschrift" style="padding:12px;border:2px solid #e0e0e0;border-radius:8px;flex:1;">
-                            <button onclick="openUniversalMapPicker('edit-customer-address', '🏠 Wohnanschrift auf Karte wählen')" style="background:#10b981;color:white;border:none;border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:18001;" title="Auf Karte wählen">
+                            <button onclick="openUniversalMapPicker('edit-customer-address', '🏠 Wohnanschrift auf Karte wählen')" style="background:#10b981;color:white;border:none;border-radius:8px;width:44px;height:44px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:18501;" title="Auf Karte wählen">
                                 🗺️
                             </button>
-                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:52px;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:18000;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
+                            <div id="edit-customer-address-dropdown" style="position:absolute;top:100%;left:0;right:52px;background:white;border:1px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:18500;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                         </div>
 
                         <!-- MEHRFACH-RECHNUNGSADRESSEN -->
@@ -56999,7 +57004,7 @@ Funk Taxi Team`;
                                     placeholder="Rechnungsadresse"
                                     style="padding:8px;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;width:100%;min-height:60px;resize:vertical;">${addr.address || ''}</textarea>
                                 <div id="billing-address-dropdown-${index}" 
-                                     style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:18001;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
+                                     style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto;display:none;z-index:18501;box-shadow:0 4px 6px rgba(0,0,0,0.1);"></div>
                             </div>
                         </div>
                     </div>
@@ -59118,7 +59123,7 @@ Stack: ${err.stack}
             setTimeout(() => {
                 console.log('⏱️ v5.90.329: Auto-Reset nach 10 Sekunden');
                 closeRide();
-            }, 18000);
+            }, 18500);
         }
         
         // 🆕 v5.90.329: closeRide updated
@@ -59918,8 +59923,8 @@ Stack: ${err.stack}
             
             // Berechne Distanz in Metern
             const distanceMeters = Math.round(distance);
-            const distanceText = distanceMeters >= 1800 
-                ? `${(distanceMeters / 1800).toFixed(1)} km` 
+            const distanceText = distanceMeters >= 1850 
+                ? `${(distanceMeters / 1850).toFixed(1)} km` 
                 : `${distanceMeters} m`;
             
             // Bestimme Icon und Text basierend auf Manöver-Typ
@@ -60163,7 +60168,7 @@ Stack: ${err.stack}
                     setTimeout(() => {
                         console.log('🔄 Versuche reCAPTCHA erneut...');
                         initRecaptcha();
-                    }, 1800);
+                    }, 1850);
                 });
                 
             } catch (error) {
@@ -61349,7 +61354,7 @@ Stack: ${err.stack}
                     clearInterval(phoneResendTimer);
                     timerDiv.innerHTML = '<button onclick="goBackToPhone()" style="background:none;border:none;color:#667eea;cursor:pointer;text-decoration:underline;">📤 Neuen Code anfordern</button>';
                 }
-            }, 1800);
+            }, 1850);
         }
         
         // 🆕 v5.26.12: Quick-Login Profil bearbeiten
@@ -61422,7 +61427,7 @@ Stack: ${err.stack}
                             <input type="text" id="quick-profile-address" value="${address}" placeholder="z.B. Bahnhof Heringsdorf" 
                                 oninput="handleProfileAddressInput()" 
                                 style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;box-sizing:border-box;font-size:14px;">
-                            <div id="profile-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1800;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            <div id="profile-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1850;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                             <div style="font-size:11px;color:#999;margin-top:4px;">Wird automatisch als Abholort verwendet</div>
                         </div>
                         
@@ -61853,7 +61858,7 @@ Stack: ${err.stack}
                 } else if (role === 'admin') {
                     console.log('👨‍💼 v5.90.584: Admin-Login → Lade letzten Tab');
                     const lastTab = localStorage.getItem('lastActiveTab') || 'admin';
-                    // 🔧 v5.90.828: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
+                    // 🔧 v5.90.829: NUR zu lastTab wenn es KEIN Admin-Only Tab ist!
                     const adminOnlyTabs = ['calendar', 'hotel-calendar', 'rechnung', 'crm', 'email-inbox', 'admin', 'shift-plan', 'debug', 'system-diagnostics', 'live-monitor', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'fleet-overview'];
                     if (!adminOnlyTabs.includes(lastTab)) {
                         switchView(lastTab);
@@ -61873,9 +61878,9 @@ Stack: ${err.stack}
             console.log('💾 onUserLoggedOut aufgerufen');
             console.trace('📍 Logout Stack Trace:');
             
-            // 🔧 v5.90.828: LÖSCHE lastActiveTab beim Logout!
+            // 🔧 v5.90.829: LÖSCHE lastActiveTab beim Logout!
             localStorage.removeItem('lastActiveTab');
-            console.log('🔧 v5.90.828: lastActiveTab gelöscht');
+            console.log('🔧 v5.90.829: lastActiveTab gelöscht');
             
             // 📜 PROTOKOLL: Logout (vor dem Zurücksetzen!)
             if (currentUser) {
@@ -62222,7 +62227,7 @@ Stack: ${err.stack}
                                     <div style="font-size:13px;opacity:0.9;">🔍 Suche verfügbare Taxis in der Nähe...</div>
                                 </div>
                             `;
-                            setTimeout(() => { showAvailableTaxis(); }, 1800);
+                            setTimeout(() => { showAvailableTaxis(); }, 1850);
                         }
                     }
                 } else {
@@ -62446,7 +62451,7 @@ Stack: ${err.stack}
                 const rideTime = parseInt(div.getAttribute('data-ride-time'));
                 
                 // Finde die nächste Fahrt (entweder aktuell laufend oder in Zukunft)
-                if (rideTime >= now - (2 * 60 * 60 * 1800)) { // 2 Stunden Puffer für laufende Fahrten
+                if (rideTime >= now - (2 * 60 * 60 * 1850)) { // 2 Stunden Puffer für laufende Fahrten
                     if (rideTime < nextRideTime) {
                         nextRideTime = rideTime;
                         nextRide = div;
@@ -64000,7 +64005,7 @@ Stack: ${err.stack}
                             },
                             {
                                 enableHighAccuracy: true,
-                                timeout: 18000,
+                                timeout: 18500,
                                 maximumAge: 0
                             }
                         );
@@ -64211,14 +64216,14 @@ Stack: ${err.stack}
                 if (currentView === 'driver') {
                     updateViews(); // Aktualisiert Countdown-Timer
                 }
-            }, 1800);
+            }, 1850);
             
             // 🆕 v5.86.14: BACKUP-SYSTEM initialisieren
             initBackupDB().then(() => {
                 console.log('🔽 Backup-System bereit');
                 
                 // Erstes Backup nach 5 Minuten
-                setTimeout(createAutoBackup, 5 * 60 * 1800);
+                setTimeout(createAutoBackup, 5 * 60 * 1850);
                 
                 // Dann alle 4 Stunden
                 backupTimer = setInterval(createAutoBackup, BACKUP_INTERVAL);
@@ -64234,7 +64239,7 @@ Stack: ${err.stack}
                 // Cleanup alte Logs alle 5 Minuten
                 setInterval(() => {
                     cleanOldLogs();
-                }, 5 * 60 * 1800);
+                }, 5 * 60 * 1850);
                 console.log('⏰ Auto-Cleanup alle 5 Min aktiviert (Logs älter als 24h)');
             }).catch(error => {
                 console.error('💾 Log-Storage Fehler:', error);
@@ -64413,7 +64418,7 @@ Stack: ${err.stack}
                 if (!isOnline || !currentVehicle || !currentUser) return;
                 
                 const now = Date.now();
-                const timeSinceLastGps = lastGPSUpdate ? (now - lastGPSUpdate) / 1800 / 60 : 999; // in Minuten
+                const timeSinceLastGps = lastGPSUpdate ? (now - lastGPSUpdate) / 1850 / 60 : 999; // in Minuten
                 
                 console.log(`🔍 GPS-Health-Check: Letzte GPS-Sendung vor ${timeSinceLastGps.toFixed(1)} Min`);
                 console.log(`   standbyIntervalId: ${standbyIntervalId ? 'aktiv' : 'INAKTIV'}, watchId: ${watchId ? 'aktiv' : 'inaktiv'}`);
@@ -64447,7 +64452,7 @@ Stack: ${err.stack}
                 } else {
                     console.log('✅ GPS OK - läuft normal');
                 }
-            }, 5 * 60 * 1800); // Alle 5 Minuten
+            }, 5 * 60 * 1850); // Alle 5 Minuten
             
             // 📅 VORBESTELLUNGS-CHECK: Prüfe alle 60 Sek. ob Vorbestellungen aktiviert werden müssen
             setInterval(async () => {
@@ -64484,7 +64489,7 @@ Stack: ${err.stack}
                         
                         // Prüfe ob Abholzeit in ≤ 15 Min
                         if (ride.pickupTimestamp) {
-                            const minutesUntilPickup = (ride.pickupTimestamp - now) / (1800 * 60);
+                            const minutesUntilPickup = (ride.pickupTimestamp - now) / (1850 * 60);
                             
                             if (minutesUntilPickup <= 15 && minutesUntilPickup > 0) {
                                 console.log('📅 Vorbestellung wird aktiviert:', rideId, 'noch', minutesUntilPickup.toFixed(1), 'Min');
@@ -64537,7 +64542,7 @@ Stack: ${err.stack}
                     db.ref('vehicles/' + currentVehicle + '/timestamp').once('value').then(snapshot => {
                         const lastTimestamp = snapshot.val();
                         if (lastTimestamp) {
-                            const ageMinutes = (Date.now() - lastTimestamp) / (1800 * 60);
+                            const ageMinutes = (Date.now() - lastTimestamp) / (1850 * 60);
                             console.log('📱 GPS-Watchdog: Letzte Position ist', ageMinutes.toFixed(1), 'Min alt');
                             
                             if (ageMinutes > 5) {
@@ -64553,13 +64558,13 @@ Stack: ${err.stack}
                                     (err) => {
                                         console.error('💾 GPS-Fehler:', err.message);
                                     },
-                                    { enableHighAccuracy: false, timeout: 18000, maximumAge: 0 }
+                                    { enableHighAccuracy: false, timeout: 18500, maximumAge: 0 }
                                 );
                             }
                         }
                     });
                 }
-            }, 5 * 60 * 1800); // Alle 5 Minuten
+            }, 5 * 60 * 1850); // Alle 5 Minuten
             
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {
@@ -64622,13 +64627,13 @@ Stack: ${err.stack}
                 }
             }
             
-            // 🔧 v5.90.828: NUR EINMAL ausführen - keine mehrfachen View-Switches!
+            // 🔧 v5.90.829: NUR EINMAL ausführen - keine mehrfachen View-Switches!
             forcePassengerViewOnly(); // Sofort beim Start
             
             console.log('🔒 View-Lock aktiviert - Passenger-View erzwungen!');
         });
         
-        // 🔧 v5.90.828: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
+        // 🔧 v5.90.829: VIEW-GUARD ENTFERNT - verursachte Layout-Probleme!
         // Der Guard hat alle 2 Sek. Views versteckt/gezeigt → Layout zerrissen
     </script>
     <!-- 🔐 LOGIN MODAL -->
@@ -65611,7 +65616,7 @@ Stack: ${err.stack}
                     },
                     body: JSON.stringify({
                         model: 'claude-sonnet-4-20250514',
-                        max_tokens: 1800,
+                        max_tokens: 1850,
                         messages: [{
                             role: 'user',
                             content: `Du bist ein Taxi-Buchungs-Assistent für "Funk Taxi Heringsdorf". Analysiere folgende Nachricht und extrahiere die Buchungsdaten.
@@ -65754,7 +65759,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
                     },
                     body: JSON.stringify({
                         model: 'claude-sonnet-4-20250514',
-                        max_tokens: 1800,
+                        max_tokens: 1850,
                         messages: [{
                             role: 'user',
                             content: `Du bist Taxi-Assistent. Ein Fahrgast hat unvollständige Buchungsdaten gesendet, du hast nachgefragt, und jetzt hat er geantwortet.
@@ -66245,7 +66250,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen):
                 // 5. Wechsle zum Kalender
                 setTimeout(() => {
                     switchView('calendar');
-                }, 1800);
+                }, 1850);
                 
             } catch (error) {
                 console.error('💾 Fehler beim Buchen:', error);
@@ -66584,7 +66589,7 @@ Tel: +49 175 9876543`
                     },
                     body: JSON.stringify({
                         model: 'claude-sonnet-4-20250514',
-                        max_tokens: 1800,
+                        max_tokens: 1850,
                         messages: [{
                             role: 'user',
                             content: `Du bist ein Taxi-Buchungs-Assistent für "Funk Taxi Heringsdorf". Analysiere folgende Nachricht und extrahiere die Buchungsdaten.
@@ -67054,7 +67059,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             
             // Erstelle Popup HTML
             let popupHTML = `
-                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:18000;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;" id="call-popup">
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:18500;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.3s;" id="call-popup">
                     <div style="background:white;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:slideUp 0.3s;">
                         
                         <!-- Header -->
@@ -67607,7 +67612,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
         }
         
         // Prüfe 50/50 alle 5 Minuten (falls sich Zeit ändert)
-        setInterval(checkFiftyFiftyAvailability, 5 * 60 * 1800);
+        setInterval(checkFiftyFiftyAvailability, 5 * 60 * 1850);
         
         // Initial prüfen wenn Seite lädt
         document.addEventListener('DOMContentLoaded', () => {
@@ -67626,7 +67631,7 @@ ANTWORTE NUR MIT JSON (keine Erklärungen, keine Markdown-Backticks):
             setTimeout(loadFiftyFiftyStats, 3000);
             
             // 🆕 v5.90.24: WHATSAPP-STYLE ZEIT AKTIVIEREN
-            setTimeout(setupWhatsAppTimeInputs, 1800);
+            setTimeout(setupWhatsAppTimeInputs, 1850);
         });
         
         // 🆕 v5.90.24: WHATSAPP-STYLE ZEIT - MINUTEN AUF :00 BEI STUNDEN-WECHSEL
@@ -68421,7 +68426,7 @@ Taxi kommt pünktlich!
         function openAddVatRateModal() {
             const modal = document.createElement('div');
             modal.id = 'vat-rate-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:18001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:18501;display:flex;align-items:center;justify-content:center;padding:20px;';
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
                     <h3 style="margin:0 0 15px 0;color:#1f2937;">➕ Neuer MwSt-Satz</h3>
@@ -68561,7 +68566,7 @@ Taxi kommt pünktlich!
         function openAddPaymentMethodModal() {
             const modal = document.createElement('div');
             modal.id = 'payment-method-modal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:18001;display:flex;align-items:center;justify-content:center;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:18501;display:flex;align-items:center;justify-content:center;padding:20px;';
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:20px;max-width:400px;width:100%;">
                     <h3 style="margin:0 0 15px 0;color:#1f2937;">➕ Neue Zahlungsart</h3>
@@ -68794,7 +68799,7 @@ Taxi kommt pünktlich!
                                 <button onclick="openUniversalMapPicker('poi-address', '📍 POI-Adresse auf Karte wählen', (data) => { document.getElementById('poi-lat').value = data.lat; document.getElementById('poi-lon').value = data.lon; })" style="background:#10b981;color:white;border:none;border-radius:8px;padding:12px 16px;cursor:pointer;font-size:16px;flex-shrink:0;" title="Auf Karte wählen">
                                     🗺️
                                 </button>
-                                <div id="poi-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:60px;background:white;border:2px solid #fbbf24;border-radius:8px;margin-top:4px;max-height:300px;overflow-y:auto;z-index:18000;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
+                                <div id="poi-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:60px;background:white;border:2px solid #fbbf24;border-radius:8px;margin-top:4px;max-height:300px;overflow-y:auto;z-index:18500;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
                             </div>
                             <div style="font-size:12px;color:#6b7280;margin-top:6px;">
                                 💡 Tippe die Adresse oder wähle auf der Karte 🗺️
@@ -69076,7 +69081,7 @@ Taxi kommt pünktlich!
                                 <button onclick="openUniversalMapPicker('edit-poi-address', '📍 POI-Adresse bearbeiten', (data) => { document.getElementById('edit-poi-lat').value = data.lat; document.getElementById('edit-poi-lon').value = data.lon; })" style="background:#10b981;color:white;border:none;border-radius:8px;padding:12px 16px;cursor:pointer;font-size:16px;flex-shrink:0;" title="Auf Karte wählen">
                                     🗺️
                                 </button>
-                                <div id="edit-poi-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:60px;background:white;border:2px solid #3b82f6;border-radius:8px;margin-top:4px;max-height:300px;overflow-y:auto;z-index:18000;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
+                                <div id="edit-poi-address-dropdown" style="display:none;position:absolute;top:100%;left:0;right:60px;background:white;border:2px solid #3b82f6;border-radius:8px;margin-top:4px;max-height:300px;overflow-y:auto;z-index:18500;box-shadow:0 8px 24px rgba(0,0,0,0.15);"></div>
                             </div>
                         </div>
                         
@@ -69328,7 +69333,7 @@ Taxi kommt pünktlich!
             hotelCalendarSyncInterval = setInterval(() => {
                 console.log('⏰ Auto-Sync Timer ausgelöst...');
                 syncAllHotelCalendars();
-            }, 15 * 60 * 1800); // 15 Minuten
+            }, 15 * 60 * 1850); // 15 Minuten
         }
         
         async function syncAllHotelCalendars() {
@@ -69704,7 +69709,7 @@ Taxi kommt pünktlich!
                 // Speichere neues Token in Firebase
                 await db.ref(`hotelCalendars/${calendarId}`).update({
                     accessToken: newAccessToken,
-                    tokenExpiry: Date.now() + (3600 * 1800), // 1 Stunde
+                    tokenExpiry: Date.now() + (3600 * 1850), // 1 Stunde
                     lastTokenRefresh: Date.now()
                 });
                 
@@ -69722,7 +69727,7 @@ Taxi kommt pünktlich!
                 // Update lokales Hotel-Objekt
                 if (hotelCalendars[calendarId]) {
                     hotelCalendars[calendarId].accessToken = newAccessToken;
-                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1800);
+                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1850);
                 }
                 
                 return newAccessToken;
@@ -69846,7 +69851,7 @@ Taxi kommt pünktlich!
                     googleCalendarName: selectedCalendar.summary,
                     accessToken: accessToken,
                     refreshToken: refreshToken || null,
-                    tokenExpiry: Date.now() + (3600 * 1800), // 1 Stunde
+                    tokenExpiry: Date.now() + (3600 * 1850), // 1 Stunde
                     lastSync: Date.now(),
                     lastTokenRefresh: Date.now()
                 });
@@ -69859,7 +69864,7 @@ Taxi kommt pünktlich!
                     hotelCalendars[calendarId].googleCalendarName = selectedCalendar.summary;
                     hotelCalendars[calendarId].accessToken = accessToken;
                     hotelCalendars[calendarId].refreshToken = refreshToken || null;
-                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1800);
+                    hotelCalendars[calendarId].tokenExpiry = Date.now() + (3600 * 1850);
                     hotelCalendars[calendarId].lastTokenRefresh = Date.now();
                 }
                 
@@ -69916,7 +69921,7 @@ Taxi kommt pünktlich!
                     
                     setTimeout(() => {
                         infoDiv.remove();
-                    }, 18000); // 10 Sekunden
+                    }, 18500); // 10 Sekunden
                 }, 500);
                 
                 // Reload Hotels (nach Login)
@@ -70413,7 +70418,7 @@ Taxi kommt pünktlich!
             }
             
             let html = `
-                <div id="google-calendar-modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:18000;display:flex;align-items:center;justify-content:center;">
+                <div id="google-calendar-modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:18500;display:flex;align-items:center;justify-content:center;">
                     <div style="background:white;border-radius:16px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
                         <h3 style="margin:0 0 8px 0;color:#1f2937;font-size:20px;">📅 Kalender auswählen</h3>
                         <div style="margin:0 0 20px 0;padding:12px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;">
@@ -70537,7 +70542,7 @@ Taxi kommt pünktlich!
                 // OAuth Tokens
                 accessToken: currentHotelOAuthFlow.accessToken,
                 refreshToken: currentHotelOAuthFlow.refreshToken,
-                tokenExpiry: Date.now() + (3600 * 1800), // 1 Stunde
+                tokenExpiry: Date.now() + (3600 * 1850), // 1 Stunde
                 
                 // Display
                 color: calendar.backgroundColor || '#3b82f6',
@@ -72460,7 +72465,7 @@ Taxi kommt pünktlich!
                 const monthStr = String(now.getMonth() + 1).padStart(2, '0');
                 const yearStr = String(now.getFullYear());
                 const hotelShort = currentInvoiceHotel.name.replace(/\s+/g, '-').toUpperCase().substring(0, 20);
-                const invoiceNr = `RE${Math.floor(1800 + Math.random() * 9000)}`;
+                const invoiceNr = `RE${Math.floor(1850 + Math.random() * 9000)}`;
                 
                 // Erstelle PDF mit jsPDF
                 const { jsPDF } = window.jspdf;
@@ -72480,7 +72485,7 @@ Taxi kommt pünktlich!
                 doc.setFont('helvetica', 'bold');
                 doc.text('Kundennr.:', 140, y);
                 doc.setFont('helvetica', 'normal');
-                doc.text('18008', 175, y);
+                doc.text('18508', 175, y);
                 y += 5;
                 
                 doc.setFont('helvetica', 'bold');
@@ -73526,7 +73531,7 @@ Taxi kommt pünktlich!
             // Zeige Modal
             const modal = document.createElement('div');
             modal.id = 'csv-import-dialog';
-            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18000;padding:20px;';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18500;padding:20px;';
             modal.innerHTML = `
                 <div style="background:white;border-radius:12px;padding:0;width:100%;max-width:600px;max-height:80vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
                     <!-- Header -->
@@ -73764,7 +73769,7 @@ Taxi kommt pünktlich!
             }
             
             container.innerHTML = `
-                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18000;padding:20px;overflow-y:auto;">
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:18500;padding:20px;overflow-y:auto;">
                     <div style="background:white;border-radius:12px;max-width:1200px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
                         
                         <!-- Header -->
@@ -74922,9 +74927,9 @@ Taxi kommt pünktlich!
                 today.setHours(0, 0, 0, 0);
                 startTime = today.getTime();
             } else if (timeFilter === 'week') {
-                startTime = now - (7 * 24 * 60 * 60 * 1800);
+                startTime = now - (7 * 24 * 60 * 60 * 1850);
             } else if (timeFilter === 'month') {
-                startTime = now - (30 * 24 * 60 * 60 * 1800);
+                startTime = now - (30 * 24 * 60 * 60 * 1850);
             }
             
             try {
@@ -75289,7 +75294,7 @@ Taxi kommt pünktlich!
                     initTabDragDrop();
                     initTabSettingsPanel();
                 }
-            }, 1800);
+            }, 1850);
             
             // 🆕 v5.90.29: Tab-Einstellungen laden
             setTimeout(async () => {
@@ -75335,7 +75340,7 @@ async function changeRideStatus(rideId, currentStatus) {
         
         const modal = document.createElement('div');
         modal.id = 'status-change-modal';
-        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:180000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:185000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
         
         modal.innerHTML = `
             <div style="background:white;border-radius:16px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
@@ -76435,11 +76440,11 @@ function toggleSimulation() {
 function startSimulationEngine() {
     // Haupt-Simulations-Loop (1 Sek = simSpeed Sekunden)
     simInterval = setInterval(() => {
-        simTime += simSpeed * 1800;
+        simTime += simSpeed * 1850;
         updateSimTime();
         processSimRides();
         moveVehicles();
-    }, 1800);
+    }, 1850);
 }
 
 function stopSimulationEngine() {
@@ -76552,7 +76557,7 @@ async function calculateAndDrawRoute(vehicle, from, to, color) {
             vehicle.routeData = {
                 coords: coords,
                 currentIndex: 0,
-                distance: (route.distance / 1800).toFixed(1),
+                distance: (route.distance / 1850).toFixed(1),
                 duration: Math.round(route.duration / 60)
             };
             
@@ -76669,7 +76674,7 @@ function addSimRideSync() {
 
 async function addSimRide() {
     const now = simTime;
-    const pickupTime = now + (Math.random() * 20 + 5) * 60 * 1800;
+    const pickupTime = now + (Math.random() * 20 + 5) * 60 * 1850;
     
     // 🆕 v5.90.569: ECHTE KUNDENNAMEN
     const customers = ['Marion Schmidt', 'Klaus Müller', 'Anna Weber', 'Peter Fischer', 'Maria Wagner', 'Hans Becker', 'Lisa Hoffmann', 'Tom Schulz', 'Sabine Koch', 'Frank Meyer'];
@@ -76813,7 +76818,7 @@ async function showRideOnMap(index) {
         if (data.routes && data.routes[0]) {
             const route = data.routes[0];
             const coords = route.geometry.coordinates.map(c => [c[1], c[0]]); // [lon,lat] → [lat,lon]
-            const distance = (route.distance / 1800).toFixed(1);
+            const distance = (route.distance / 1850).toFixed(1);
             const duration = Math.round(route.duration / 60);
             
             // 📏 ROUTE-LINIE (Lila)
@@ -76855,7 +76860,7 @@ async function showRideOnMap(index) {
 function runAutoAssignNow() {
     simRides.forEach((ride, i) => {
         if (ride.status === 'new') {
-            setTimeout(() => runAutoAssignForRide(i), i * 1800);
+            setTimeout(() => runAutoAssignForRide(i), i * 1850);
         }
     });
 }
@@ -77160,7 +77165,7 @@ function clearField(fieldId) {
             }
         }
         
-        // 🆕 v5.90.828: Verstecke Karte wenn Pickup/Destination gelöscht wird!
+        // 🆕 v5.90.829: Verstecke Karte wenn Pickup/Destination gelöscht wird!
         if (fieldId === 'pickup' || fieldId === 'destination') {
             const pickupInput = document.getElementById('pickup');
             const destInput = document.getElementById('destination');
@@ -77205,7 +77210,7 @@ function clearField(fieldId) {
                     style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;">
                 
                 <!-- 🆕 v5.90.208: DROPDOWN MIT KUNDEN -->
-                <div id="fqb-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #3b82f6;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1800;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+                <div id="fqb-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #3b82f6;border-radius:8px;max-height:200px;overflow-y:auto;z-index:1850;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
             </div>
             
             <div id="fqb-customer-info" style="display:none;margin-top:8px;padding:10px;background:#f0fdf4;border:2px solid #10b981;border-radius:8px;font-size:13px;"></div>
@@ -77945,7 +77950,7 @@ async function showRouteOnMap(angebotId) {
             right: 0;
             bottom: 0;
             background: rgba(0,0,0,0.9);
-            z-index: 180000;
+            z-index: 185000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -77956,7 +77961,7 @@ async function showRouteOnMap(angebotId) {
         const toShort = angebot.to.length > 30 ? angebot.to.substring(0, 30) + '...' : angebot.to;
         
         modal.innerHTML = `
-            <div style="background:white;border-radius:16px;max-width:1800px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+            <div style="background:white;border-radius:16px;max-width:1850px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
                 <!-- Header -->
                 <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;">
                     <div>
@@ -78171,14 +78176,14 @@ if (document.readyState === 'loading') {
 }
 </script>
 
-<!-- 🆕 v5.90.828: VERSION-FOOTER unten rechts! -->
+<!-- 🆕 v5.90.829: VERSION-FOOTER unten rechts! -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.828
+        🔧 v5.90.829
     </div>
 </div>
 
-    <!-- 🆕 v5.90.828: DATUM & ZEIT PICKER POPUP! -->
+    <!-- 🆕 v5.90.829: DATUM & ZEIT PICKER POPUP! -->
     <div id="datetime-picker-popup" style="
         display: none;
         position: fixed;

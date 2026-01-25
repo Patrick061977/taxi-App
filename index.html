@@ -9,13 +9,20 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.830
-    📅 BUILD: 23.01.2026 17:15 Uhr
+    📦 VERSION: v5.90.831-STABLE
+    📅 BUILD: 25.01.2026 17:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.830
+    📋 CHANGELOG v5.90.831-STABLE
     ═══════════════════════════════════════════════════════════════════════════
+
+    🔧 v5.90.831-STABLE (25.01.2026):
+       • FIX: Auto-Preis Berechnung funktioniert jetzt korrekt!
+       • FIX: Kein nerviger "Bitte Uhrzeit eingeben" Listener mehr!
+       • FIX: Vorbestellen Flow zeigt jetzt Slot-Check Ergebnis sichtbar an!
+       • FIX: display.style.display='block' in showSlotCheckResult() hinzugefügt
+       • NEU: Stabile Version basierend auf v5.90.830
 
     📱 v5.90.830 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
@@ -395,7 +402,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.830 | Build: 2026-01-25_0930 | Fix: KARTE OBEN + ALLE DEBUG-INFOS - System-Analyse komplett! -->
+    <!-- Version: v5.90.831-STABLE | Build: 2026-01-25_1700 | Fix: VORBESTELLEN FLOW + AUTO-PREIS + SLOT-CHECK DISPLAY -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -522,11 +529,12 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.830 - COMPLETE FIX! ✅🎯 (Build 2026-01-25_1900)');
-        console.log('✅ v5.90.830: AUTO-PREIS funktioniert!');
-        console.log('✅ v5.90.830: Hidden Inputs werden gesetzt!');
-        console.log('✅ v5.90.830: Kein nerviger Input Listener!');
-        console.log('✅ v5.90.830: Vorbestellen KOMPLETT funktioniert!');
+        console.log('🚕 Funk Taxi App v5.90.831-STABLE ✅🎯 (Build 2026-01-25_1700)');
+        console.log('✅ v5.90.831: AUTO-PREIS funktioniert!');
+        console.log('✅ v5.90.831: Hidden Inputs werden gesetzt!');
+        console.log('✅ v5.90.831: Kein nerviger Input Listener!');
+        console.log('✅ v5.90.831: Vorbestellen KOMPLETT funktioniert!');
+        console.log('✅ v5.90.831: Slot-Check Ergebnis wird SICHTBAR angezeigt!');
         console.log('💜 v5.90.768: Violettes Feld klickbar!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
@@ -2246,7 +2254,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.716 - ALLE-PLATZHALTER
+                        🔧 v5.90.831-STABLE
                     </span>
                 </div>
             </div>
@@ -20912,14 +20920,17 @@ Aktuell: ${currentNum}`;
         
         // 🆕 v5.90.830: Zeige Slot-Check Ergebnis mit klickbaren Alternativen!
         function showSlotCheckResult(result, slotDateTime, pickup, destination) {
-            console.log('📊 v5.90.830: Zeige Slot-Check Ergebnis:', result);
-            
+            console.log('📊 v5.90.831: Zeige Slot-Check Ergebnis:', result);
+
             const display = document.getElementById('slot-status-display');
             if (!display) return;
-            
+
+            // 🆕 v5.90.831: WICHTIG - Display SICHTBAR machen!
+            display.style.display = 'block';
+
             const timeStr = slotDateTime.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
             const dateStr = slotDateTime.toLocaleDateString('de-DE');
-            
+
             if (!result.hasConflict) {
                 // ✅ VERFÜGBAR!
                 display.innerHTML = `
@@ -78194,10 +78205,10 @@ if (document.readyState === 'loading') {
 }
 </script>
 
-<!-- 🆕 v5.90.830: VERSION-FOOTER unten rechts! -->
+<!-- 🆕 v5.90.831: VERSION-FOOTER unten rechts! -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.830
+        🔧 v5.90.831-STABLE
     </div>
 </div>
 

@@ -25,6 +25,8 @@
        • NEU: Beim Abholort → Volle Analyse wenn Ziel bereits vorhanden
        • FIX: Debug-Box und Debug-Code entfernt (sauberer Release)
        • FIX: Konsistente Slot-Prüfung für GPS, Kartenpicker UND Autocomplete
+       • FIX: RÜCKFAHRT-BERECHNUNG nutzt jetzt window.pickupCoords/destCoords!
+       • FIX: Keine Neu-Geocodierung mehr bei vorhandenen Koordinaten
 
     🔧 v5.90.833-STABLE (25.01.2026):
        • FIX: SCOPE-BUG BEHOBEN! window.pickupCoords/destCoords statt lokaler Variablen
@@ -28138,20 +28140,24 @@ Aktuell: ${currentNum}`;
                         // 🚗 v5.90.676: ECHTE OSRM-BERECHNUNG!
                         if (!newRideDuration && pickup && destination) {
                             try {
-                                console.log('🚗 v5.90.676: Rufe OSRM für Kalender-Check auf...');
-                                
-                                // Geocode Adressen wenn nötig
-                                let pickupC = pickupCoords;
-                                let destC = destCoords;
-                                
+                                console.log('🚗 v5.90.836: Rufe OSRM für Kalender-Check auf...');
+
+                                // 🔧 v5.90.836: NUTZE VORHANDENE KOORDINATEN wenn verfügbar!
+                                let pickupC = (window.pickupCoords && window.pickupCoords.lat) ? window.pickupCoords : null;
+                                let destC = (window.destCoords && window.destCoords.lat) ? window.destCoords : null;
+
                                 if (!pickupC) {
                                     pickupC = await geocode(pickup);
                                     console.log(`✅ Pickup geocoded: ${pickup} → ${pickupC ? pickupC.lat+','+pickupC.lon : 'FEHLER'}`);
+                                } else {
+                                    console.log(`✅ Pickup aus window.pickupCoords: ${pickupC.lat},${pickupC.lon}`);
                                 }
-                                
+
                                 if (!destC) {
                                     destC = await geocode(destination);
                                     console.log(`✅ Dest geocoded: ${destination} → ${destC ? destC.lat+','+destC.lon : 'FEHLER'}`);
+                                } else {
+                                    console.log(`✅ Dest aus window.destCoords: ${destC.lat},${destC.lon}`);
                                 }
                                 
                                 if (pickupC && destC) {
@@ -28287,10 +28293,10 @@ Aktuell: ${currentNum}`;
                                     let deadheadMinutes = 0;
                                     
                                     try {
-                                        // Geocode Ziel der neuen Fahrt und Start der nächsten Fahrt
-                                        const newDestCoords = await geocode(destination);
+                                        // 🔧 v5.90.836: NUTZE VORHANDENE KOORDINATEN wenn verfügbar!
+                                        const newDestCoords = (window.destCoords && window.destCoords.lat) ? window.destCoords : await geocode(destination);
                                         const nextStartCoords = await geocode(conflictingRide.pickup);
-                                        
+
                                         if (newDestCoords && nextStartCoords) {
                                             // Berechne Leerfahrt mit OSRM!
                                             const deadheadRoute = await calculateRoute(newDestCoords, nextStartCoords);
@@ -29108,9 +29114,10 @@ Aktuell: ${currentNum}`;
                     const BUFFER_TIME = stopTimes.buffer;
 
                     try {
-                        // Geocode Adressen für neue Fahrt
-                        const newPickupCoords = await geocode(pickup);
-                        const newDestCoords = await geocode(destination);
+                        // 🔧 v5.90.836: NUTZE VORHANDENE KOORDINATEN wenn verfügbar!
+                        const newPickupCoords = (window.pickupCoords && window.pickupCoords.lat) ? window.pickupCoords : await geocode(pickup);
+                        const newDestCoords = (window.destCoords && window.destCoords.lat) ? window.destCoords : await geocode(destination);
+                        console.log('🔧 v5.90.836: Pickup Coords:', newPickupCoords, '| Dest Coords:', newDestCoords);
 
                         if (newPickupCoords && newDestCoords) {
                             // Berechne Route-Dauer der neuen Fahrt
@@ -29320,15 +29327,35 @@ Aktuell: ${currentNum}`;
             console.log('');
             
             // Geocode Adressen
+            // 🔧 v5.90.836: NUTZE VORHANDENE KOORDINATEN wenn verfügbar!
             try {
-                console.log('🗺️ GEOCODING:');
+                console.log('🗺️ GEOCODING / KOORDINATEN:');
+
+                // Ziel der vorherigen Fahrt
                 console.log('   Ziel der vorherigen Fahrt:', previousRide.destination);
-                const previousDestCoords = await geocode(previousRide.destination);
-                console.log('   → Koordinaten:', previousDestCoords);
-                
+                let previousDestCoords = null;
+                // Prüfe ob vorherige Fahrt Koordinaten hat
+                if (previousRide.destLat && previousRide.destLon) {
+                    previousDestCoords = { lat: previousRide.destLat, lon: previousRide.destLon };
+                    console.log('   → Aus Fahrt-Daten:', previousDestCoords);
+                } else if (previousRide.destCoords) {
+                    previousDestCoords = previousRide.destCoords;
+                    console.log('   → Aus destCoords:', previousDestCoords);
+                } else {
+                    previousDestCoords = await geocode(previousRide.destination);
+                    console.log('   → Geocoded:', previousDestCoords);
+                }
+
+                // Start der neuen Fahrt - NUTZE window.pickupCoords wenn verfügbar!
                 console.log('   Start der neuen Fahrt:', pickup);
-                const newPickupCoords = await geocode(pickup);
-                console.log('   → Koordinaten:', newPickupCoords);
+                let newPickupCoords = null;
+                if (window.pickupCoords && window.pickupCoords.lat && window.pickupCoords.lon) {
+                    newPickupCoords = window.pickupCoords;
+                    console.log('   → Aus window.pickupCoords:', newPickupCoords);
+                } else {
+                    newPickupCoords = await geocode(pickup);
+                    console.log('   → Geocoded:', newPickupCoords);
+                }
                 console.log('');
                 
                 if (!previousDestCoords || !newPickupCoords) {
@@ -29442,10 +29469,11 @@ Aktuell: ${currentNum}`;
                         console.log('🔍 v5.90.661: PRÜFE OB NEUE FAHRT RECHTZEITIG FERTIG IST:');
                         
                         // Berechne Dauer der NEUEN Fahrt
+                        // 🔧 v5.90.836: NUTZE VORHANDENE KOORDINATEN wenn verfügbar!
                         try {
-                            const newPickupCoords = await geocode(pickup);
-                            const newDestCoords = await geocode(destination);
-                            
+                            const newPickupCoords = (window.pickupCoords && window.pickupCoords.lat) ? window.pickupCoords : await geocode(pickup);
+                            const newDestCoords = (window.destCoords && window.destCoords.lat) ? window.destCoords : await geocode(destination);
+
                             if (newPickupCoords && newDestCoords) {
                                 const newRoute = await calculateRoute(newPickupCoords, newDestCoords);
                                 const newRideDuration = newRoute.duration; // Fahrzeit

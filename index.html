@@ -9,24 +9,26 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.808
-    📅 BUILD: 25.01.2026 09:00 Uhr
+    📦 VERSION: v5.90.809
+    📅 BUILD: 25.01.2026 09:30 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.808
+    📋 CHANGELOG v5.90.809
     ═══════════════════════════════════════════════════════════════════════════
+
+    📅 v5.90.809 (25.01.2026) - CALENDAR FIX!
+       • FIX: KALENDER-TAB zeigt jetzt Fahrten an!
+       • FIX: Duplicate calendar-container IDs gefixt!
+       • FIX: calendar-view nutzt calendar-container-standalone
+       • FIX: admin-view nutzt calendar-container
+       • HELPER: getCalendarContainerIds() - smart ID selection!
 
     🗺️ v5.90.808 (25.01.2026) - PREORDER MAP FIX!
        • FIX: GPS-Adresse KURZ im VORBESTELLEN-Tab (wie SOFORT-Tab)!
        • FIX: Auto-Karte nach Adress-Eingabe im VORBESTELLEN-Tab!
        • FIX: Nutzt formatAddressShort() für saubere Adressen!
        • TRIGGER: calculatePreorderPrice() nach Map-Picker Auswahl!
-
-    🚫 v5.90.806 (25.01.2026) - NO TAB RESTRICTIONS!
-       • FIX: Tab-Berechtigungen DEAKTIVIERT!
-       • ALLE Tabs IMMER sichtbar!
-       • Keine verwirrenden Berechtigungen mehr!
 
     📱 v5.90.782 (23.01.2026):
        • FIX: Mobile Layout "zerreißt" nicht mehr nach dem Laden!
@@ -533,16 +535,14 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.808 - ADRESS-KÜRZEN + AUTO-KARTE! ✅ (Build 2026-01-25_0900)');
-        console.log('🔧 v5.90.808: GPS-Adresse KURZ im VORBESTELLEN-Tab!');
+        console.log('🚕 Funk Taxi App v5.90.809 - CALENDAR FIX! ✅ (Build 2026-01-25_0930)');
+        console.log('📅 v5.90.809: KALENDER-TAB FUNKTIONIERT JETZT!');
+        console.log('🔧 v5.90.809: Duplicate calendar-container IDs gefixt!');
+        console.log('✅ v5.90.809: Eigenständiger Kalender + Admin-Kalender!');
+        console.log('🗺️ v5.90.808: GPS-Adresse KURZ im VORBESTELLEN-Tab!');
         console.log('🗺️ v5.90.808: Auto-Karte nach Adress-Eingabe!');
-        console.log('✅ v5.90.808: Wie SOFORT-Tab - sauber!');
         console.log('🚫 v5.90.806: Tab-Berechtigungen DEAKTIVIERT!');
-        console.log('✅ v5.90.805: Adress-Validierung in SOFORT-Tab!');
-        console.log('🔧 v5.90.804: updateMenuProfile() → updateUserProfile()!');
         console.log('🔧 v5.90.782: 2 Tabs im Passenger View!');
-        console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
-        console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
         console.log('📞 v5.90.724: Telefonnummern im Autocomplete!');
         console.log('➕ v5.90.717: CRM-Modal für neue Kunden!');
         console.log('🐛 v5.90.681: Kopier-Funktion Koordinaten/Adressen fix');
@@ -1803,7 +1803,7 @@
         ">☰</button>
         
         <div id="header-content">
-            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">🗺️ Version 5.90.808 - PREORDER MAP FIX! ✅ (Build 20260125-0900)</p>
+            <p style="font-size: 11px; opacity: 0.9; margin: 4px 0 0 0; font-weight: 600;">📅 Version 5.90.809 - CALENDAR FIX! ✅ (Build 20260125-0930)</p>
             
             <!-- Cache Leeren Button -->
             <button onclick="clearAppCache(event)" style="
@@ -2259,7 +2259,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        ✨ v5.90.808 - UX-FIX
+                        ✨ v5.90.809 - UX-FIX
                     </span>
                 </div>
             </div>
@@ -2634,7 +2634,7 @@
                     🚕 Zurück zur Buchung
                 </div>
 
-                <!-- 🆕 v5.90.808: ABMELDEN BUTTON! -->
+                <!-- 🆕 v5.90.809: ABMELDEN BUTTON! -->
                 <div id="menu-logout-btn" style="display:none;" onclick="logoutFromMenu()">
                     <div style="
                         background: #ef4444;
@@ -2713,8 +2713,8 @@
         <div id="booking-form">
             <!-- 🆕 v5.90.752: NEUE ÜBERSICHTLICHE STRUKTUR -->
 
-            <!-- 🗑️ v5.90.808: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
-            <!-- 🔧 v5.90.808: Hidden Fields für book() Funktion -->
+            <!-- 🗑️ v5.90.809: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
+            <!-- 🔧 v5.90.809: Hidden Fields für book() Funktion -->
             <input type="hidden" id="customer-name" value="">
             <input type="hidden" id="customer-phone" value="">
             <input type="hidden" id="preorder-customer-name" value="">
@@ -3783,12 +3783,12 @@
         </div>
         
         <!-- Kalender-Container (nutzt den gleichen wie im Admin!) -->
-        <div id="calendar-container" style="margin-bottom: 20px; position: relative;">
+        <div id="calendar-container-standalone" style="margin-bottom: 20px; position: relative;">
             <!-- Wird dynamisch gefüllt -->
         </div>
         
         <!-- Statistik -->
-        <div id="calendar-stats" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
+        <div id="calendar-stats-standalone" style="padding: 15px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; font-size: 14px;">
             <!-- Wird dynamisch gefüllt -->
         </div>
     </div>
@@ -3942,10 +3942,10 @@
         <!-- 🆕 v5.90.782: TAB CONTENT: VORBESTELLEN -->
         <div id="tab-content-vorbestellen" style="display:none;">
             
-            <!-- 🆕 v5.90.808: GLEICHES FORMULAR WIE BEI SOFORT! -->
+            <!-- 🆕 v5.90.809: GLEICHES FORMULAR WIE BEI SOFORT! -->
             <!-- Nur mit Datum/Zeit-Picker für Vorbestellungen -->
             
-            <!-- 🗑️ v5.90.808: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
+            <!-- 🗑️ v5.90.809: "Ihre Daten" Block ENTFERNT! Name ist jetzt oben im Header! -->
 
             <!-- 📍 ABHOLORT -->
             <div class="input-group">
@@ -4023,7 +4023,7 @@
                 </select>
             </div>
 
-            <!-- 🆕 v5.90.808: ROUTE-MAP MIT PREIS! -->
+            <!-- 🆕 v5.90.809: ROUTE-MAP MIT PREIS! -->
             <div id="preorder-route-map-container" style="margin-top: 20px; display: none;">
                 <!-- PREIS DISPLAY - über der Karte -->
                 <div id="preorder-price-display" style="margin-bottom: 15px;"></div>
@@ -15483,19 +15483,19 @@ Aktuell: ${currentNum}`;
                 setTimeout(() => {
                     checkPassengerAuth();
                     
-                    // 🆕 v5.90.808: AUTO-FILL Name + Telefon aus Firebase!
+                    // 🆕 v5.90.809: AUTO-FILL Name + Telefon aus Firebase!
                     if (auth.currentUser) {
                         const nameInput = document.getElementById('customer-name');
                         const phoneInput = document.getElementById('customer-phone');
                         
                         if (nameInput && auth.currentUser.displayName) {
                             nameInput.value = auth.currentUser.displayName;
-                            console.log('✅ v5.90.808: Name auto-filled:', auth.currentUser.displayName);
+                            console.log('✅ v5.90.809: Name auto-filled:', auth.currentUser.displayName);
                         }
                         
                         if (phoneInput && auth.currentUser.phoneNumber) {
                             phoneInput.value = auth.currentUser.phoneNumber;
-                            console.log('✅ v5.90.808: Telefon auto-filled:', auth.currentUser.phoneNumber);
+                            console.log('✅ v5.90.809: Telefon auto-filled:', auth.currentUser.phoneNumber);
                         }
                     }
                     
@@ -15916,7 +15916,7 @@ Aktuell: ${currentNum}`;
             switchView('passenger');
         }
         
-        // 🆕 v5.90.808: ABMELDEN AUS DEM MENÜ!
+        // 🆕 v5.90.809: ABMELDEN AUS DEM MENÜ!
         function logoutFromMenu() {
             closeMenu();
             
@@ -16167,8 +16167,8 @@ Aktuell: ${currentNum}`;
         function getDefaultPermissions() {
             return {
                 admin: ['passenger', 'schedule', 'history', 'calendar', 'hotel-calendar', 'driver', 'admin', 'shift-plan', 'debug', 'ai-assistant', 'booking-requests', 'backup', 'poi-management', 'archive', 'express-booking', 'simulator'],
-                driver: ['driver', 'schedule', 'history'], // 🆕 v5.90.808: Fahrer braucht schedule + history!
-                passenger: ['passenger', 'schedule', 'history']  // 🔧 v5.90.808: Fahrgast braucht Buchen + Vorbestellungen + Meine Fahrten!
+                driver: ['driver', 'schedule', 'history'], // 🆕 v5.90.809: Fahrer braucht schedule + history!
+                passenger: ['passenger', 'schedule', 'history']  // 🔧 v5.90.809: Fahrgast braucht Buchen + Vorbestellungen + Meine Fahrten!
             };
         }
         
@@ -16211,9 +16211,9 @@ Aktuell: ${currentNum}`;
         
         // Wende Tab-Berechtigungen an
         async function applyTabPermissions(permissions, role) {
-            // 🚫 v5.90.808: TAB-BERECHTIGUNGEN DEAKTIVIERT!
+            // 🚫 v5.90.809: TAB-BERECHTIGUNGEN DEAKTIVIERT!
             // Macht zu viele Probleme - ALLE TABS IMMER SICHTBAR!
-            console.log(`🚫 v5.90.808: Tab-Berechtigungen DEAKTIVIERT - alle Tabs sichtbar`);
+            console.log(`🚫 v5.90.809: Tab-Berechtigungen DEAKTIVIERT - alle Tabs sichtbar`);
             return; // ← NICHTS MACHEN!
             
             // ALTER CODE UNTEN (WIRD NICHT MEHR AUSGEFÜHRT):
@@ -24823,7 +24823,7 @@ Aktuell: ${currentNum}`;
         function setupAutocomplete() {
             console.log('🔧 setupAutocomplete wird initialisiert...');
             
-            // 🆕 v5.90.808: AUCH VORBESTELLEN-FELDER! (preorder-pickup, preorder-destination)
+            // 🆕 v5.90.809: AUCH VORBESTELLEN-FELDER! (preorder-pickup, preorder-destination)
             ['pickup', 'destination', 'preorder-pickup', 'preorder-destination', 'quick-booking-pickup', 'quick-booking-destination', 'ai-booking-pickup', 'ai-booking-destination'].forEach(id => {
                 const input = document.getElementById(id);
                 const dropdown = document.getElementById(id + '-dropdown');
@@ -30593,7 +30593,7 @@ Aktuell: ${currentNum}`;
             // 🕐 Berechne Zeitdifferenz für Vorbestellungs-Logik
             const minutesUntilPickup = (pickupTimestamp - Date.now()) / (1000 * 60);
             
-            // 🆕 v5.90.808: ADRESS-VALIDIERUNG (wie bei submitPreorderBooking!)
+            // 🆕 v5.90.809: ADRESS-VALIDIERUNG (wie bei submitPreorderBooking!)
             const pickup = document.getElementById('pickup')?.value || '';
             const destination = document.getElementById('destination')?.value || '';
             
@@ -41840,7 +41840,7 @@ Funk Taxi Team`;
                 document.getElementById('tab-content-sofort').style.display = 'none';
                 document.getElementById('tab-content-vorbestellen').style.display = 'block';
                 
-                // 🆕 v5.90.808: AUTO-FILL für Vorbestell-Tab!
+                // 🆕 v5.90.809: AUTO-FILL für Vorbestell-Tab!
                 if (auth.currentUser) {
                     const nameInput = document.getElementById('preorder-customer-name');
                     const phoneInput = document.getElementById('preorder-customer-phone');
@@ -41875,9 +41875,9 @@ Funk Taxi Team`;
             }
         }
         
-        // 🆕 v5.90.808: VORBESTELLUNG ABSENDEN!
+        // 🆕 v5.90.809: VORBESTELLUNG ABSENDEN!
         async function submitPreorderBooking() {
-            console.log('📅 v5.90.808: Vorbestellung wird abgesendet...');
+            console.log('📅 v5.90.809: Vorbestellung wird abgesendet...');
             
             // Hole Werte aus den Feldern
             const customerName = document.getElementById('preorder-customer-name')?.value || '';
@@ -41916,7 +41916,7 @@ Funk Taxi Team`;
                 return;
             }
             
-            // 🆕 v5.90.808: PREIS BERECHNEN wenn noch nicht gemacht!
+            // 🆕 v5.90.809: PREIS BERECHNEN wenn noch nicht gemacht!
             if (!window.preorderPriceCalculated) {
                 console.log('💰 Berechne Preis für Vorbestellung...');
                 await calculatePreorderPrice();
@@ -41981,7 +41981,7 @@ Funk Taxi Team`;
             }
         }
         
-        // 🆕 v5.90.808: PREIS FÜR VORBESTELLUNG BERECHNEN!
+        // 🆕 v5.90.809: PREIS FÜR VORBESTELLUNG BERECHNEN!
         async function calculatePreorderPrice() {
             const pickup = document.getElementById('preorder-pickup')?.value || '';
             const destination = document.getElementById('preorder-destination')?.value || '';
@@ -42101,7 +42101,7 @@ Funk Taxi Team`;
             }
         }
         
-        // 🆕 v5.90.808: GPS für Vorbestell-Tab MIT KURZER ADRESSE!
+        // 🆕 v5.90.809: GPS für Vorbestell-Tab MIT KURZER ADRESSE!
         function useMyLocationForPreorder() {
             if (!navigator.geolocation) {
                 alert('❌ GPS nicht verfügbar!\n\nIhr Gerät unterstützt keine Standortbestimmung.');
@@ -42114,7 +42114,7 @@ Funk Taxi Team`;
                     const lat = position.coords.latitude;
                     const lon = position.coords.longitude;
                     
-                    // 🆕 v5.90.808: Nutze formatAddressShort für KURZE Adresse!
+                    // 🆕 v5.90.809: Nutze formatAddressShort für KURZE Adresse!
                     try {
                         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
                         const data = await response.json();
@@ -42124,7 +42124,7 @@ Funk Taxi Team`;
                         const shortAddress = result.address || data.display_name || `${lat}, ${lon}`;
                         
                         document.getElementById('preorder-pickup').value = shortAddress;
-                        console.log('✅ v5.90.808: GPS-Adresse GEKÜRZT:', shortAddress);
+                        console.log('✅ v5.90.809: GPS-Adresse GEKÜRZT:', shortAddress);
                     } catch (error) {
                         console.error('❌ Geocoding-Fehler:', error);
                         document.getElementById('preorder-pickup').value = `${lat}, ${lon}`;
@@ -50159,8 +50159,8 @@ Funk Taxi Team`;
                         setTimeout(() => calculatePriceAndShow(), 300);
                     }
                 } else if (universalMapPicker.targetInputId === 'preorder-pickup' || universalMapPicker.targetInputId === 'preorder-destination') {
-                    // 🆕 v5.90.808: Auto-Trigger für VORBESTELLEN-Tab!
-                    console.log('✅ v5.90.808: Vorbestell-Adresse übernommen → Trigger Preis-Berechnung');
+                    // 🆕 v5.90.809: Auto-Trigger für VORBESTELLEN-Tab!
+                    console.log('✅ v5.90.809: Vorbestell-Adresse übernommen → Trigger Preis-Berechnung');
                     
                     // Warte kurz damit Adresse im Feld ist
                     setTimeout(() => {
@@ -62654,7 +62654,7 @@ Stack: ${err.stack}
                     customerStats = `<div style="font-size: 9px; opacity: 0.8; margin-top: 2px;">🚕 ${regularCustomer.rideCount} Fahrt${regularCustomer.rideCount > 1 ? 'en' : ''} · 📍 ${regularCustomer.favoritePickup ? regularCustomer.favoritePickup.substring(0, 20) + (regularCustomer.favoritePickup.length > 20 ? '...' : '') : 'Keine Adresse'}</div>`;
                 }
                 
-                // 🆕 v5.90.808: Willkommen-Text statt Profil-Box!
+                // 🆕 v5.90.809: Willkommen-Text statt Profil-Box!
                 profileBox.innerHTML = `
                     <div style="text-align:center;padding:10px 15px;background:rgba(255,255,255,0.1);border-radius:8px;margin-top:10px;">
                         <div style="font-size:14px;font-weight:700;margin-bottom:4px;">👋 Willkommen ${displayName}!</div>
@@ -62663,13 +62663,13 @@ Stack: ${err.stack}
                     </div>
                 `;
                 
-                // 🆕 v5.90.808: ABMELDEN-Button im Menü anzeigen!
+                // 🆕 v5.90.809: ABMELDEN-Button im Menü anzeigen!
                 const menuLogoutBtn = document.getElementById('menu-logout-btn');
                 if (menuLogoutBtn) {
                     menuLogoutBtn.style.display = 'block';
                 }
                 
-                // 🆕 v5.90.808: AUTO-FILL HIDDEN FIELDS!
+                // 🆕 v5.90.809: AUTO-FILL HIDDEN FIELDS!
                 const customerNameInput = document.getElementById('customer-name');
                 const customerPhoneInput = document.getElementById('customer-phone');
                 const preorderNameInput = document.getElementById('preorder-customer-name');
@@ -62693,7 +62693,7 @@ Stack: ${err.stack}
                         header.appendChild(profileBox);
                     }
                     
-                    // 🆕 v5.90.808: Willkommen-Text für Quick-Login!
+                    // 🆕 v5.90.809: Willkommen-Text für Quick-Login!
                     const phoneDisplay = quickLoginPhone.substring(0, 6) + '***';
                     const nameDisplay = quickLoginName || phoneDisplay;
                     
@@ -62704,13 +62704,13 @@ Stack: ${err.stack}
                         </div>
                     `;
                     
-                    // 🆕 v5.90.808: ABMELDEN-Button im Menü anzeigen!
+                    // 🆕 v5.90.809: ABMELDEN-Button im Menü anzeigen!
                     const menuLogoutBtn = document.getElementById('menu-logout-btn');
                     if (menuLogoutBtn) {
                         menuLogoutBtn.style.display = 'block';
                     }
                     
-                    // 🆕 v5.90.808: AUTO-FILL HIDDEN FIELDS!
+                    // 🆕 v5.90.809: AUTO-FILL HIDDEN FIELDS!
                     const customerNameInput = document.getElementById('customer-name');
                     const customerPhoneInput = document.getElementById('customer-phone');
                     const preorderNameInput = document.getElementById('preorder-customer-name');
@@ -63243,6 +63243,31 @@ Stack: ${err.stack}
             return statusMap[status] || '#9ca3af';
         }
         
+        // 🆕 v5.90.809: Helper - Welche Calendar-Container sind aktiv?
+        function getCalendarContainerIds() {
+            // Prüfe ob wir im calendar-view sind (eigenständiger Tab)
+            const calendarView = document.getElementById('calendar-view');
+            const isCalendarViewActive = calendarView && calendarView.classList.contains('active');
+            
+            if (isCalendarViewActive) {
+                // Eigenständiger Calendar-Tab
+                return {
+                    container: 'calendar-container-standalone',
+                    stats: 'calendar-stats-standalone',
+                    title: 'calendar-period-title-standalone',
+                    jumpDate: 'calendar-jump-date-standalone'
+                };
+            } else {
+                // Admin-View Kalender-Section
+                return {
+                    container: 'calendar-container',
+                    stats: 'calendar-stats',
+                    title: 'calendar-period-title',
+                    jumpDate: 'calendar-jump-date'
+                };
+            }
+        }
+        
         async function renderCalendar() {
             console.log('📅 Rendere Kalender:', currentCalendarView, currentCalendarDate);
             
@@ -63376,12 +63401,15 @@ Stack: ${err.stack}
         }
         
         function renderMonthView(allRides) {
+            // 🆕 v5.90.809: Hole richtige Container-IDs!
+            const ids = getCalendarContainerIds();
+            
             const year = currentCalendarDate.getFullYear();
             const month = currentCalendarDate.getMonth();
             
             // Update Titel
             const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            document.getElementById('calendar-period-title').textContent = `${monthNames[month]} ${year}`;
+            const titleEl = document.getElementById(ids.title); if (titleEl) titleEl.textContent = `${monthNames[month]} ${year}`;
             
             // Erster und letzter Tag des Monats
             const firstDay = new Date(year, month, 1);
@@ -63481,13 +63509,16 @@ Stack: ${err.stack}
             
             html += `</div>`;
             
-            document.getElementById('calendar-container').innerHTML = html;
+            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
             
             // Statistik
             updateCalendarStats(allRides, 'Monat');
         }
         
         function renderWeekView(allRides) {
+            // 🆕 v5.90.809: Hole richtige Container-IDs!
+            const ids = getCalendarContainerIds();
+            
             // Aktueller Montag
             const current = new Date(currentCalendarDate);
             const day = current.getDay();
@@ -63498,7 +63529,7 @@ Stack: ${err.stack}
             const sunday = new Date(monday);
             sunday.setDate(monday.getDate() + 6);
             const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-            document.getElementById('calendar-period-title').textContent = 
+            const titleEl = document.getElementById(ids.title); if (titleEl) titleEl.textContent = 
                 `${monday.getDate()}. ${monthNames[monday.getMonth()]} - ${sunday.getDate()}. ${monthNames[sunday.getMonth()]} ${sunday.getFullYear()}`;
             
             // Gruppiere Fahrten nach Tag
@@ -63568,19 +63599,23 @@ Stack: ${err.stack}
             
             html += '</div>';
             
-            document.getElementById('calendar-container').innerHTML = html;
+            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
             updateCalendarStats(Object.values(ridesByDay).flatMap(d => d.rides), 'Woche');
         }
         
         function renderDayView(allRides) {
             const date = new Date(currentCalendarDate);
             
+            // 🆕 v5.90.809: Hole richtige Container-IDs!
+            const ids = getCalendarContainerIds();
+            
             // Update Titel
             const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
             const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            document.getElementById('calendar-period-title').textContent = 
-                `${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-            
+            const titleEl = document.getElementById(ids.title);
+            if (titleEl) {
+                titleEl.textContent = `${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+            }
             // Filtere Fahrten für diesen Tag
             const dayRides = allRides.filter(ride => {
                 // 🔧 v5.29.1: FÜR KALENDER: Nutze pickupTimestamp (Abholzeit) statt createdAt!
@@ -63940,7 +63975,7 @@ Stack: ${err.stack}
             
             html += '</div>';
             
-            document.getElementById('calendar-container').innerHTML = html;
+            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
             updateCalendarStats(dayRides, 'Tag');
         }
         
@@ -63995,6 +64030,9 @@ Stack: ${err.stack}
         }
         
         function updateCalendarStats(rides, period) {
+            // 🆕 v5.90.809: Hole richtige Container-IDs!
+            const ids = getCalendarContainerIds();
+            
             const completed = rides.filter(r => r.status === 'completed' || r.status === 'abgeschlossen');
             const cancelled = rides.filter(r => r.status === 'cancelled' || r.status === 'storniert');
             
@@ -64004,28 +64042,31 @@ Stack: ${err.stack}
                 return sum + price;
             }, 0);
             
-            document.getElementById('calendar-stats').innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                    <div>
-                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">${period} - Gesamt</div>
-                        <div style="font-size: 24px; font-weight: 700;">${rides.length}</div>
-                        <div style="font-size: 12px; opacity: 0.8;">Fahrten</div>
+            const statsEl = document.getElementById(ids.stats);
+            if (statsEl) {
+                statsEl.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div>
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">${period} - Gesamt</div>
+                            <div style="font-size: 24px; font-weight: 700;">${rides.length}</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Fahrten</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Umsatz</div>
+                            <div style="font-size: 24px; font-weight: 700;">${totalRevenue.toFixed(2)}€</div>
+                            <div style="font-size: 12px; opacity: 0.8;">${completed.length} abgeschlossen</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">✅ Erfolgreich</div>
+                            <div style="font-size: 20px; font-weight: 700;">${completed.length}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">💾 Storniert</div>
+                            <div style="font-size: 20px; font-weight: 700;">${cancelled.length}</div>
+                        </div>
                     </div>
-                    <div>
-                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Umsatz</div>
-                        <div style="font-size: 24px; font-weight: 700;">${totalRevenue.toFixed(2)}€</div>
-                        <div style="font-size: 12px; opacity: 0.8;">${completed.length} abgeschlossen</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">✅ Erfolgreich</div>
-                        <div style="font-size: 20px; font-weight: 700;">${completed.length}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">💾 Storniert</div>
-                        <div style="font-size: 20px; font-weight: 700;">${cancelled.length}</div>
-                    </div>
-                </div>
-            `;
+                `;
+            }
         }
         
         function showDayDetails(day, month, year) {
@@ -64039,12 +64080,15 @@ Stack: ${err.stack}
         // ═══════════════════════════════════════════════════════════════════════════
         
         function renderVehicleTimeline(allRides) {
+            // 🆕 v5.90.809: Hole richtige Container-IDs!
+            const ids = getCalendarContainerIds();
+            
             const date = new Date(currentCalendarDate);
             
             // Update Titel
             const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
             const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-            document.getElementById('calendar-period-title').textContent = 
+            const titleEl = document.getElementById(ids.title); if (titleEl) titleEl.textContent = 
                 `Timeline: ${dayNames[date.getDay()]}, ${date.getDate()}. ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
             
             // Filtere Fahrten für diesen Tag
@@ -64259,7 +64303,7 @@ Stack: ${err.stack}
             
             html += '</div>';
             
-            document.getElementById('calendar-container').innerHTML = html;
+            const containerEl = document.getElementById(ids.container); if (containerEl) containerEl.innerHTML = html; else console.error('❌ Calendar-Container nicht gefunden:', ids.container);
             updateCalendarStats(dayRides, 'Tag');
         }
         
@@ -79018,10 +79062,10 @@ if (document.readyState === 'loading') {
     </div>
 </div>
 
-<!-- 🆕 v5.90.808: VERSION-FOOTER unten rechts! -->>
+<!-- 🆕 v5.90.809: VERSION-FOOTER unten rechts! -->>
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🗺️ v5.90.808
+        📅 v5.90.809
     </div>
 </div>
 

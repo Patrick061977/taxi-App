@@ -28996,8 +28996,8 @@ Aktuell: ${currentNum}`;
                     const latestBeforeMs = slotTime - (newRideDurationEstimate * 60000) - (5 * 60000);
                     const latestBeforeRounded = Math.floor(latestBeforeMs / (5 * 60000)) * (5 * 60000); // Auf 5 Min abrunden
 
-                    // Prüfe ob VORHER-Zeit sinnvoll ist (mindestens 15 Min in Zukunft)
-                    if (latestBeforeRounded > Date.now() + (15 * 60000)) {
+                    // 🔧 v5.90.840: Bei Vorbestellungen reicht 5 Min Vorlauf
+                    if (latestBeforeRounded > Date.now() + (5 * 60000)) {
                         // 🆕 v5.90.739: VERBESSERTE Prüfung - berücksichtige DAUER der Fahrten!
                         // Prüfe ob VORHER-Slot frei ist (keine andere Fahrt ZUR GLEICHEN ZEIT oder WÄHREND einer Fahrt)
                         let beforeSlotFree = true;
@@ -32016,7 +32016,9 @@ Aktuell: ${currentNum}`;
                         console.log('                  - Puffer', bufferMinutes, 'Min');
 
                         // 6. Prüfe ob der Slot VOR dem Konflikt auch frei ist!
-                        if (latestStartRounded > Date.now() + (30 * 60000)) { // Mindestens 30 Min in Zukunft
+                        // 🔧 v5.90.840: Bei Vorbestellungen reicht es wenn Zeit in der Zukunft liegt
+                        // Die Berechnung (Konflikt - Leerfahrt - Fahrtdauer - Puffer) prüft bereits ob es passt
+                        if (latestStartRounded > Date.now() + (5 * 60000)) { // Nur 5 Min Mindestvorlauf
                             const beforeAvailability = await checkTimeSlotAvailability(latestStartRounded, pickupCoords);
 
                             if (beforeAvailability.available) {
@@ -32031,7 +32033,7 @@ Aktuell: ${currentNum}`;
                                 console.log('   ⚠️ VORHER-Slot ebenfalls belegt');
                             }
                         } else {
-                            console.log('   ⚠️ VORHER-Zeit zu nah oder in Vergangenheit');
+                            console.log('   ⚠️ VORHER-Zeit liegt in Vergangenheit oder zu knapp');
                         }
 
                     } catch (error) {

@@ -9,15 +9,15 @@
     🚕 FUNK TAXI HERINGSDORF - WEB APP
     ═══════════════════════════════════════════════════════════════════════════
     
-    📦 VERSION: v5.90.832-STABLE
+    📦 VERSION: v5.90.833-STABLE
     📅 BUILD: 25.01.2026 17:00 Uhr
     👨‍💻 ENTWICKELT MIT: Claude (Anthropic)
 
     ═══════════════════════════════════════════════════════════════════════════
-    📋 CHANGELOG v5.90.832-STABLE
+    📋 CHANGELOG v5.90.833-STABLE
     ═══════════════════════════════════════════════════════════════════════════
 
-    🔧 v5.90.832-STABLE (25.01.2026):
+    🔧 v5.90.833-STABLE (25.01.2026):
        • FIX: SCOPE-BUG BEHOBEN! window.pickupCoords/destCoords statt lokaler Variablen
        • FIX: Auto-Preis + Karte wird jetzt bei Autocomplete-Auswahl angezeigt!
        • FIX: Slot-Check läuft jetzt korrekt durch mit Error-Handling
@@ -404,7 +404,7 @@
     <title>Funk Taxi Heringsdorf</title>
     
     <!-- 📋 VERSION INFO -->
-    <!-- Version: v5.90.832-STABLE | Build: 2026-01-25_1700 | Fix: VORBESTELLEN FLOW + AUTO-PREIS + SLOT-CHECK DISPLAY -->
+    <!-- Version: v5.90.833-STABLE | Build: 2026-01-25_1700 | Fix: VORBESTELLEN FLOW + AUTO-PREIS + SLOT-CHECK DISPLAY -->
     <script>
         // 🆕 v5.42.6: Console mit Pause/Export Controls!
         (function() {
@@ -531,12 +531,12 @@
             // Diese Funktion ist optional - verhindert nur Fehler
         }
         
-        console.log('🚕 Funk Taxi App v5.90.832-STABLE ✅🎯 (Build 2026-01-25_1700)');
-        console.log('✅ v5.90.832: AUTO-PREIS funktioniert!');
-        console.log('✅ v5.90.832: Hidden Inputs werden gesetzt!');
-        console.log('✅ v5.90.832: Kein nerviger Input Listener!');
-        console.log('✅ v5.90.832: Vorbestellen KOMPLETT funktioniert!');
-        console.log('✅ v5.90.832: Slot-Check Ergebnis wird SICHTBAR angezeigt!');
+        console.log('🚕 Funk Taxi App v5.90.833-STABLE ✅🎯 (Build 2026-01-25_1700)');
+        console.log('✅ v5.90.833: AUTO-PREIS funktioniert!');
+        console.log('✅ v5.90.833: Hidden Inputs werden gesetzt!');
+        console.log('✅ v5.90.833: Kein nerviger Input Listener!');
+        console.log('✅ v5.90.833: Vorbestellen KOMPLETT funktioniert!');
+        console.log('✅ v5.90.833: Slot-Check Ergebnis wird SICHTBAR angezeigt!');
         console.log('💜 v5.90.768: Violettes Feld klickbar!');
         console.log('📱 v5.90.757: Karte zerreißt nicht mehr auf Mobile!');
         console.log('🔍 v5.90.725: Suchfeld im Karten-Picker!');
@@ -2256,7 +2256,7 @@
                 <!-- 🆕 v5.90.562: VERSION BADGE -->
                 <div style="margin-top: 10px;">
                     <span style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px);">
-                        🔧 v5.90.832-STABLE
+                        🔧 v5.90.833-STABLE
                     </span>
                 </div>
             </div>
@@ -20905,7 +20905,7 @@ Aktuell: ${currentNum}`;
             // Erstelle DateTime
             const slotDateTime = new Date(`${selectedDate}T${selectedHour}:${selectedMinute}:00`);
 
-            console.log('🔍 v5.90.832: Slot-Check Parameter:', {
+            console.log('🔍 v5.90.833: Slot-Check Parameter:', {
                 slotDateTime: slotDateTime.toLocaleString('de-DE'),
                 pickup,
                 destination
@@ -20917,20 +20917,20 @@ Aktuell: ${currentNum}`;
                 rides.forEach(r => {
                     if (r.id) ridesData[r.id] = r;
                 });
-                console.log('📊 v5.90.832: Fahrten geladen:', Object.keys(ridesData).length);
+                console.log('📊 v5.90.833: Fahrten geladen:', Object.keys(ridesData).length);
             } else {
-                console.log('⚠️ v5.90.832: Keine Fahrten geladen - Slot ist frei');
+                console.log('⚠️ v5.90.833: Keine Fahrten geladen - Slot ist frei');
             }
 
             // PRÜFE SLOT!
             try {
                 const result = await checkTravelTimeConflict(slotDateTime, pickup, destination, ridesData);
-                console.log('✅ v5.90.832: Slot-Check Ergebnis:', result);
+                console.log('✅ v5.90.833: Slot-Check Ergebnis:', result);
 
                 // ZEIGE ERGEBNIS!
                 showSlotCheckResult(result, slotDateTime, pickup, destination);
             } catch (error) {
-                console.error('❌ v5.90.832: Slot-Check Fehler:', error);
+                console.error('❌ v5.90.833: Slot-Check Fehler:', error);
 
                 // Bei Fehler: Zeige "verfügbar" an (Fail-Safe)
                 showSlotCheckResult({ hasConflict: false }, slotDateTime, pickup, destination);
@@ -20939,12 +20939,12 @@ Aktuell: ${currentNum}`;
         
         // 🆕 v5.90.830: Zeige Slot-Check Ergebnis mit klickbaren Alternativen!
         function showSlotCheckResult(result, slotDateTime, pickup, destination) {
-            console.log('📊 v5.90.832: Zeige Slot-Check Ergebnis:', result);
+            console.log('📊 v5.90.833: Zeige Slot-Check Ergebnis:', result);
 
             const display = document.getElementById('slot-status-display');
             if (!display) return;
 
-            // 🆕 v5.90.832: WICHTIG - Display SICHTBAR machen!
+            // 🆕 v5.90.833: WICHTIG - Display SICHTBAR machen!
             display.style.display = 'block';
 
             const timeStr = slotDateTime.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
@@ -20973,9 +20973,9 @@ Aktuell: ${currentNum}`;
                     bookBtn.disabled = false;
                 }
 
-                // 🆕 v5.90.832: PREISBERECHNUNG + KARTE anzeigen!
+                // 🆕 v5.90.833: PREISBERECHNUNG + KARTE anzeigen!
                 if (window.pickupCoords && window.destCoords) {
-                    console.log('💰 v5.90.832: Auto-Preis nach Slot-Check...');
+                    console.log('💰 v5.90.833: Auto-Preis nach Slot-Check...');
                     setTimeout(() => {
                         calculatePriceAndShow();
                     }, 300);
@@ -24907,7 +24907,7 @@ Aktuell: ${currentNum}`;
                 input.addEventListener('input', (e) => {
                     console.log('⌨️ INPUT EVENT!', id, 'Wert:', e.target.value);
 
-                    // 🔧 v5.90.832: Reset coords wenn User manuell tippt - MIT WINDOW.SCOPE!
+                    // 🔧 v5.90.833: Reset coords wenn User manuell tippt - MIT WINDOW.SCOPE!
                     if (id === 'pickup') {
                         window.pickupCoords = null;
                         pickupCoords = null;
@@ -25529,14 +25529,14 @@ Aktuell: ${currentNum}`;
             // Setze Adresse ins Feld
             document.getElementById(inputId).value = address;
             
-            // 🔧 v5.90.832: WINDOW.SCOPE für globale Variablen!
+            // 🔧 v5.90.833: WINDOW.SCOPE für globale Variablen!
             if (inputId === 'pickup') {
                 window.pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 pickupCoords = window.pickupCoords;
                 window.pickupConfirmed = true;
                 pickupConfirmed = true;
                 updateConfirmationHint('pickup');
-                console.log('✅ v5.90.832: GPS-Abholort gespeichert:', address, window.pickupCoords);
+                console.log('✅ v5.90.833: GPS-Abholort gespeichert:', address, window.pickupCoords);
 
                 // Bei Vorbestellung → Live-Slot-Check!
                 if (currentRideType === 'vorbestellen') {
@@ -25548,7 +25548,7 @@ Aktuell: ${currentNum}`;
                     setTimeout(() => showAvailableTaxis(), 1900);
                 }
 
-                // 🆕 v5.90.832: Auto-Preis wenn Ziel vorhanden!
+                // 🆕 v5.90.833: Auto-Preis wenn Ziel vorhanden!
                 if (window.destCoords) {
                     setTimeout(() => calculatePriceAndShow(), 600);
                 }
@@ -25558,9 +25558,9 @@ Aktuell: ${currentNum}`;
                 window.destinationConfirmed = true;
                 destinationConfirmed = true;
                 updateConfirmationHint('destination');
-                console.log('✅ v5.90.832: GPS-Zielort gespeichert:', address, window.destCoords);
+                console.log('✅ v5.90.833: GPS-Zielort gespeichert:', address, window.destCoords);
 
-                // 🆕 v5.90.832: Auto-Preis wenn Start vorhanden!
+                // 🆕 v5.90.833: Auto-Preis wenn Start vorhanden!
                 if (window.pickupCoords) {
                     setTimeout(() => calculatePriceAndShow(), 300);
                 }
@@ -25568,7 +25568,9 @@ Aktuell: ${currentNum}`;
         }
 
 
-        function selectAddress(inputId, address, lat, lon) {
+        // 🔧 v5.90.833: GLOBAL machen für onclick!
+        window.selectAddress = function(inputId, address, lat, lon) {
+            console.log('🎯 v5.90.833: selectAddress aufgerufen!', inputId, address);
             debugLog('info', `📍 Adresse ausgewählt: ${inputId} = ${address}`);
             
             // 🔧 v5.90.90: WARN wenn "Beliebtes Ziel" in Adresse!
@@ -25590,19 +25592,19 @@ Aktuell: ${currentNum}`;
             
             // Speichere Koordinaten
             if (inputId === 'pickup') {
-                // 🔧 v5.90.832: WINDOW.SCOPE für globale Variablen!
+                // 🔧 v5.90.833: WINDOW.SCOPE für globale Variablen!
                 window.pickupCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 pickupCoords = window.pickupCoords; // Auch lokale Referenz setzen
                 window.pickupConfirmed = true;
                 pickupConfirmed = true;
                 updateConfirmationHint('pickup');
-                console.log('✅ v5.90.832: Abholort gespeichert:', address, window.pickupCoords);
+                console.log('✅ v5.90.833: Abholort gespeichert:', address, window.pickupCoords);
                 debugLog('info', `✅ Abholort gespeichert: ${address} (${lat}, ${lon})`);
 
-                // 🆕 v5.90.832: AUTO-PREISBERECHNUNG wenn Ziel bereits vorhanden!
+                // 🆕 v5.90.833: AUTO-PREISBERECHNUNG wenn Ziel bereits vorhanden!
                 // WICHTIG: Prüfe WINDOW.destCoords für globalen Scope!
                 if (window.destCoords) {
-                    console.log('💰 v5.90.832: Auto-Preisberechnung (Start gesetzt, Ziel vorhanden)...');
+                    console.log('💰 v5.90.833: Auto-Preisberechnung (Start gesetzt, Ziel vorhanden)...');
                     setTimeout(() => {
                         calculatePriceAndShow();
                     }, 600);
@@ -25636,19 +25638,19 @@ Aktuell: ${currentNum}`;
                     }, 1000);
                 }
             } else if (inputId === 'destination') {
-                // 🔧 v5.90.832: WINDOW.SCOPE für globale Variablen!
+                // 🔧 v5.90.833: WINDOW.SCOPE für globale Variablen!
                 window.destCoords = { lat: parseFloat(lat), lon: parseFloat(lon) };
                 destCoords = window.destCoords; // Auch lokale Referenz setzen
                 window.destinationConfirmed = true;
                 destinationConfirmed = true;
                 updateConfirmationHint('destination');
-                console.log('✅ v5.90.832: Zielort gespeichert:', address, window.destCoords);
+                console.log('✅ v5.90.833: Zielort gespeichert:', address, window.destCoords);
                 debugLog('info', `✅ Zielort gespeichert: ${address} (${lat}, ${lon})`);
 
-                // 🆕 v5.90.832: AUTO-PREISBERECHNUNG sobald beide Adressen da sind!
+                // 🆕 v5.90.833: AUTO-PREISBERECHNUNG sobald beide Adressen da sind!
                 // WICHTIG: Prüfe WINDOW.pickupCoords für globalen Scope!
                 if (window.pickupCoords) {
-                    console.log('💰 v5.90.832: Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
+                    console.log('💰 v5.90.833: Auto-Preisberechnung (Ziel gesetzt, Start vorhanden)...');
                     setTimeout(() => {
                         calculatePriceAndShow();
                     }, 300);
@@ -25818,7 +25820,7 @@ Aktuell: ${currentNum}`;
             }
             
             // 🆕 v5.90.324: WENN KEINE PICKUP-COORDS → ZEIGE FAHRZEUGE OHNE DISTANZ!
-            // 🔧 v5.90.832: WINDOW.SCOPE!
+            // 🔧 v5.90.833: WINDOW.SCOPE!
             if (!window.pickupCoords) {
                 const html = `
                     <div class="available-taxis" style="margin-top:10px;">
@@ -26452,11 +26454,14 @@ Aktuell: ${currentNum}`;
             initializeLiveSlotCheck();
         }
         
-        async function calculatePriceAndShow() {
+        // 🔧 v5.90.833: GLOBAL machen!
+        window.calculatePriceAndShow = async function() {
+            console.log('🚀 v5.90.833: calculatePriceAndShow() AUFGERUFEN!');
+
             const pickup = document.getElementById('pickup').value.trim();
             const destination = document.getElementById('destination').value.trim();
 
-            console.log('💰 v5.90.832: calculatePriceAndShow() gestartet');
+            console.log('💰 v5.90.833: calculatePriceAndShow() gestartet');
             console.log('   Pickup:', pickup);
             console.log('   Destination:', destination);
             console.log('   window.pickupCoords:', window.pickupCoords);
@@ -26465,11 +26470,11 @@ Aktuell: ${currentNum}`;
 
             if (!pickup || !destination) {
                 debugLog('warn', '⚠️ Preis: Abholort oder Zielort fehlt!');
-                console.warn('⚠️ v5.90.832: Abbruch - Adresse fehlt');
-                return; // 🔧 v5.90.832: KEIN ALERT mehr - stört User!
+                console.warn('⚠️ v5.90.833: Abbruch - Adresse fehlt');
+                return; // 🔧 v5.90.833: KEIN ALERT mehr - stört User!
             }
 
-            // 🔧 v5.90.832: Nutze WINDOW.Scope für globale Koordinaten!
+            // 🔧 v5.90.833: Nutze WINDOW.Scope für globale Koordinaten!
             const geocodePromises = [];
 
             if (!window.pickupCoords) {
@@ -26524,7 +26529,7 @@ Aktuell: ${currentNum}`;
             const validWaypoints = waypoints.filter(wp => wp.coords !== null);
             console.log('🛑 v5.90.527: Waypoints:', validWaypoints.length);
 
-            // 🔧 v5.90.832: WINDOW.SCOPE für globale Koordinaten!
+            // 🔧 v5.90.833: WINDOW.SCOPE für globale Koordinaten!
             const route = await calculateRoute(window.pickupCoords, window.destCoords, validWaypoints);
             
             // 🆕 v5.50.0: OSRM Fahrtdauer prominent loggen
@@ -26669,7 +26674,7 @@ Aktuell: ${currentNum}`;
                 clearDestBtn.style.display = 'inline-block';
             }
             
-            // 🗺️ v5.90.832: KARTE ANZEIGEN mit WINDOW.SCOPE!
+            // 🗺️ v5.90.833: KARTE ANZEIGEN mit WINDOW.SCOPE!
             showRouteMap(route, window.pickupCoords, window.destCoords);
             
             const bookBtn = document.getElementById('book-btn');
@@ -64291,7 +64296,7 @@ Stack: ${err.stack}
             }, 100);
             
             setInterval(() => {
-                // 🔧 v5.90.832: WINDOW.SCOPE!
+                // 🔧 v5.90.833: WINDOW.SCOPE!
                 if (window.pickupCoords) showAvailableTaxis(); 
                 if (myCurrentRide && myCurrentRide.status === 'accepted') showRideStatus(myCurrentRide);
                 
@@ -78267,10 +78272,10 @@ if (document.readyState === 'loading') {
 }
 </script>
 
-<!-- 🆕 v5.90.832: VERSION-FOOTER unten rechts! -->
+<!-- 🆕 v5.90.833: VERSION-FOOTER unten rechts! -->
 <div style="position: fixed; bottom: 5px; right: 10px; z-index: 99999; pointer-events: none;">
     <div style="background: rgba(0,0,0,0.6); color: white; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; backdrop-filter: blur(10px); box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-        🔧 v5.90.832-STABLE
+        🔧 v5.90.833-STABLE
     </div>
 </div>
 
